@@ -4,6 +4,7 @@ members = [
     "nanortime-core",
     "nanortime-ffi",
     "nanortime-cli",
+    "nanortime-web",
 ]
 
 [patch.crates-io]

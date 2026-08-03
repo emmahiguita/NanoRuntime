@@ -88,17 +88,36 @@ async function sendPrompt() {
 
   addMessage('prompt', '> ' + prompt);
 
-  // Check if daemon is connected
-  if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ prompt, max_tokens: 150 }));
+  // ── Intentar con el servidor real (HTTP POST) ────────────────
+  const realResponse = await sendToServer(prompt);
+  if (realResponse !== null) {
+    // Respuesta real del runtime
+    const container = addMessage('response', realResponse.text);
+    container.textContent = realResponse.text;
+    addMessage('meta', `[Done: ${realResponse.tok_s.toFixed(2)} tok/s, conf ${realResponse.confidence.toFixed(2)}]`);
   } else {
-    // Simulated streaming mode
+    // Fallback a simulación si el servidor no responde
     await simulateStreaming(prompt);
   }
 
   input.disabled = false;
   document.getElementById('sendBtn').disabled = false;
   input.focus();
+}
+
+// ── Envía al servidor real via HTTP POST ─────────────────────────
+async function sendToServer(prompt) {
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, max_tokens: 150 })
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    return null; // Servidor no disponible → simulación
+  }
 }
 
 async function simulateStreaming(prompt) {

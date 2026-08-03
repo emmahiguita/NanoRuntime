@@ -32,6 +32,7 @@
 //! }
 //! ```
 
+pub mod cli_inference_bridge;
 pub mod config;
 pub mod error;
 pub mod execution;
