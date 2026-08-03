@@ -176,6 +176,20 @@ fn handle_connection(mut stream: TcpStream, state: &Arc<ServerState>) {
                 .get("content-length")
                 .and_then(|v| v.parse::<usize>().ok())
                 .unwrap_or(0);
+
+            // ── Seguridad: límite máximo de body (4 KB) ─────────
+            // Evita DoS con prompts gigantes. Un prompt de chat
+            // razonable nunca excede 4 KB (~1000 tokens).
+            const MAX_BODY: usize = 4096;
+            if content_length > MAX_BODY {
+                send_json(stream, "413 Payload Too Large", &ChatResponse {
+                    response: "Prompt demasiado largo (máx 4 KB)".to_string(),
+                    tok_s: 0.0,
+                    confidence: 0.0,
+                });
+                return;
+            }
+
             let mut body = vec![0u8; content_length];
             if content_length > 0 {
                 let _ = reader.read_exact(&mut body);
