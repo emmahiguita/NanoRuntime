@@ -1,0 +1,20 @@
+{
+  "name": "graphify_analyze",
+  "description": "Uses Graphify MCP server to analyze code files and dependencies",
+  "parameters": {
+    "file_path": {
+      "type": "string",
+      "required": true
+    },
+    "depth": {
+      "type": "integer",
+      "required": false,
+      "default": 1
+    }
+  },
+  "execution": {
+    "type": "mcp",
+    "command": "npx -y @graphify-labs/graphify-mcp",
+    "url": "analyze_code"
+  }
+}

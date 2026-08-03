@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "local_model": {
+    "path": "data/qwen_tmp.gguf",
+    "context_size": 8192,
+    "gpu_layers": -1,
+    "use_mmap": true,
+    "threads": 4,
+    "batch_size": 512
+  },
+  "hybrid_routing": {
+    "enabled": true,
+    "confidence_threshold": 0.85,
+    "privacy_filter": true,
+    "edge_only": false
+  },
+  "tiers": {
+    "tier1": {
+      "provider": "local",
+      "enabled": true
+    },
+    "tier2": {
+      "provider": "local_server",
+      "endpoint": "http://192.168.1.100:11434",
+      "enabled": false
+    },
+    "tier3": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-20250514",
+      "api_key_env": "NANO_API_KEY",
+      "enabled": false,
+      "max_tokens": 4096,
+      "temperature": 0.7
+    }
+  },
+  "memory": {
+    "vector_db_path": "data/vectors.lance",
+    "embedding_model": "models/bge-micro-v2.gguf",
+    "auto_index_paths": [],
+    "max_context_docs": 5,
+    "min_similarity": 0.7
+  },
+  "tools": {
+    "directory": "tools/",
+    "auto_discover": false
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/nanortime.log"
+  },
+  "generation": {
+    "max_tokens": 2048,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "repeat_penalty": 1.1,
+    "stop_sequences": ["</s>", "<|endoftext|>", "<|im_end|>"]
+  }
+}

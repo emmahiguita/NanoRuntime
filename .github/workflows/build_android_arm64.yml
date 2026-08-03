@@ -1,0 +1,91 @@
+name: Build NanoRuntime ARM64 with CacheAwareLoader
+
+# Compila llama.cpp + nanortime_streaming FFI para Android ARM64
+# usando Linux CI (evita el bug del NDK en Windows).
+# Corre gratis en GitHub Actions. Descarga el binario del workflow.
+
+on:
+  workflow_dispatch:    # Manual: boton "Run workflow"
+  push:
+    branches: [main]
+
+jobs:
+  build-android-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup JDK (para Android SDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK + NDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          ndk-version: "27.0.12077973"
+          cmake-version: "3.22.1"
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake build-essential
+
+      - name: Rust toolchain (para nanortime_streaming)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Build nanortime_streaming staticlib
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+        run: |
+          cargo build --lib -p nanortime-core --target aarch64-linux-android --release
+          # Copiar el staticlib donde llama.cpp lo pueda ver
+          cp target/aarch64-linux-android/release/libnanortime_core.a llama.cpp-source/
+
+      - name: Configure llama.cpp with NANORTIME_STREAMING
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+        run: |
+          cd llama.cpp-source
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_shared \
+            -DGGML_CUDA=OFF \
+            -DGGML_VULKAN=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_CURL=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNANORTIME_STREAMING=ON
+
+      - name: Build llama-cli + llama-app
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+        run: |
+          cd llama.cpp-source
+          cmake --build build -j$(nproc)
+
+      - name: Package ARM64 binaries
+        run: |
+          mkdir -p artifact
+          cd llama.cpp-source/build/bin
+          cp llama llama-cli llama-bench ../.. 2>/dev/null || true
+          cd ../../..
+          # Copiar todas las libs .so y binarios
+          tar -czf nanortime-arm64.tar.gz \
+            llama.cpp-source/build/bin/*.so \
+            llama.cpp-source/build/bin/llama* 2>/dev/null || \
+          tar -czf nanortime-arm64.tar.gz -C llama.cpp-source/build bin
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nanortime-arm64
+          path: nanortime-arm64.tar.gz

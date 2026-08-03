@@ -1,0 +1,15 @@
+﻿[2m2026-07-30T19:03:03.156945Z[0m [32m INFO[0m NanoAI Runtime v0.1.0
+[2m2026-07-30T19:03:03.157405Z[0m [32m INFO[0m Initializing runtime...
+[2m2026-07-30T19:03:03.157421Z[0m [32m INFO[0m Initializing NanoAI Runtime v0.1.0
+[2m2026-07-30T19:03:03.157958Z[0m [32m INFO[0m Memory-aware context: 8192 (3860MB available, 1065MB model, 0.030428571428571426MB/token KV)
+[2m2026-07-30T19:03:03.157979Z[0m [32m INFO[0m Auto-configure: RAM 3860MB avail/32491MB total, ctx=8192, batch=256
+[2m2026-07-30T19:03:03.157984Z[0m [32m INFO[0m RAM: sufficient memory for full context 8192
+[2m2026-07-30T19:03:03.544858Z[0m [32m INFO[0m SSD benchmark: write=1063 MB/s read=970 MB/s avg=1017 MB/s
+[2m2026-07-30T19:03:03.548300Z[0m [32m INFO[0m NanoMemoryEngine init: 32 layers, 32491 MB RAM, 1017 MB/s SSD, HighEnd
+[2m2026-07-30T19:03:03.624666Z[0m [32m INFO[0m Loaded 1386 documents from data/vectors.json
+[2m2026-07-30T19:03:04.625059Z[0m [32m INFO[0m Loaded model: C:\llama-cpp-server\models\qwen2.5-1.5b-instruct-q4_k_m.gguf (151936 vocab)
+[2m2026-07-30T19:03:04.625093Z[0m [32m INFO[0m Model loaded: C:\llama-cpp-server\models\qwen2.5-1.5b-instruct-q4_k_m.gguf (vocab: 151936, ctx: 8192)
+[2m2026-07-30T19:03:04.625097Z[0m [32m INFO[0m Model loaded successfully
+[2m2026-07-30T19:03:04.625142Z[0m [32m INFO[0m Runtime initialized successfully
+[2m2026-07-30T19:03:04.666785Z[0m [33m WARN[0m Background index failed for ~/Documents: I/O error: Acceso denegado. (os error 5)
+[2m2026-07-30T19:03:05.084342Z[0m [32m INFO[0m Created context: 8192 tokens, 512 batch

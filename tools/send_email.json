@@ -1,0 +1,38 @@
+{
+  "name": "send_email",
+  "description": "Send an email using the configured email provider.",
+  "parameters": {
+    "to": {
+      "type": "string",
+      "description": "Recipient email address",
+      "required": true
+    },
+    "subject": {
+      "type": "string",
+      "description": "Email subject line",
+      "required": true
+    },
+    "body": {
+      "type": "string",
+      "description": "Email body content (plain text)",
+      "required": true
+    },
+    "cc": {
+      "type": "string",
+      "description": "CC recipient (optional)",
+      "required": false
+    }
+  },
+  "execution": {
+    "type": "http",
+    "method": "POST",
+    "url": "https://www.googleapis.com/gmail/v1/users/me/messages/send",
+    "headers": {
+      "Authorization": "Bearer {{env.GMAIL_API_TOKEN}}",
+      "Content-Type": "application/json"
+    },
+    "body_template": {
+      "raw": "To: {{to}}\nSubject: {{subject}}\n\n{{body}}"
+    }
+  }
+}

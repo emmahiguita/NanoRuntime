@@ -1,0 +1,20 @@
+{
+  "name": "caveman_search",
+  "description": "Uses Caveman MCP server to search and browse documents rapidly",
+  "parameters": {
+    "query": {
+      "type": "string",
+      "required": true
+    },
+    "limit": {
+      "type": "integer",
+      "required": false,
+      "default": 10
+    }
+  },
+  "execution": {
+    "type": "mcp",
+    "command": "npx -y caveman-mcp",
+    "url": "search_documents"
+  }
+}

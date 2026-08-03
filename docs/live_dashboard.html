@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NanoRuntime — Live Inference Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e14;color:#cdd6f4;font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+.header{background:#111820;border-bottom:2px solid #2196F3;padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:20px;font-weight:700;background:linear-gradient(90deg,#2196F3,#4CAF50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .status{display:flex;gap:20px;font-size:12px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+.dot.green{background:#4CAF50;box-shadow:0 0 8px #4CAF50;animation:pulse 2s infinite}
+.dot.blue{background:#2196F3;box-shadow:0 0 8px #2196F3;animation:pulse 2s infinite .5s}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.main{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:10px;padding:10px;height:calc(100vh - 60px)}
+.panel{background:#131820;border:1px solid #1e2a38;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.panel-title{background:#181f2a;padding:8px 14px;font-size:13px;font-weight:700;border-bottom:1px solid #1e2a38;display:flex;justify-content:space-between;align-items:center}
+.panel-body{flex:1;padding:10px;overflow:hidden;position:relative}
+canvas{display:block;width:100%;height:100%}
+
+/* Device panels */
+.device-oppo .panel-title{background:#1b2a1b;border-bottom-color:#2E7D32}
+.device-samsung .panel-title{background:#1a2230;border-bottom-color:#1565C0}
+
+/* Gauges row */
+.gauges{display:flex;gap:8px;margin-bottom:8px}
+.gauge{flex:1;text-align:center;background:#0f151c;border-radius:6px;padding:6px;border:1px solid #1e2a38}
+.gauge .value{font-size:22px;font-weight:700}
+.gauge .label{font-size:10px;color:#6c7a8d;text-transform:uppercase;margin-top:2px}
+.gauge.ram .value{color:#4CAF50}
+.gauge.tok .value{color:#FFB74D}
+.gauge.conf .value{color:#64B5F6}
+
+/* Activity log */
+#logPanel{max-height:200px;overflow-y:auto;font-family:'Cascadia Code','Consolas',monospace;font-size:11px;line-height:1.5}
+.log-line{padding:2px 4px;border-bottom:1px solid #0f151c}
+.log-line .ts{color:#6c7a8d;margin-right:8px}
+.log-line .info{color:#4CAF50}
+.log-line .warn{color:#FFB74D}
+.log-line .metric{color:#2196F3}
+.log-line .text{color:#cdd6f4}
+
+/* Pipeline animation area */
+#pipelineCanvas,#formulaCanvas{width:100%;height:100%}
+
+/* Control bar */
+.controls{grid-column:1/-1;display:flex;gap:10px;align-items:center;justify-content:center;padding:8px;background:#111820;border:1px solid #1e2a38;border-radius:8px}
+.controls button{background:#2196F3;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;transition:all .2s}
+.controls button:hover{background:#1565C0;transform:translateY(-1px)}
+.controls button.running{background:#4CAF50;animation:pulse 1s infinite}
+.controls .speed{display:flex;align-items:center;gap:8px;color:#6c7a8d;font-size:11px}
+.controls input[type=range]{width:100px}
+.controls .stat{font-size:11px;color:#6c7a8d}
+.controls .stat span{color:#cdd6f4;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 NanoRuntime — Live Inference Dashboard</h1>
+  <div class="status">
+    <span><span class="dot green"></span> OPPO CPH2557 (7.8 GB) — Online</span>
+    <span><span class="dot blue"></span> Samsung A30s (3.7 GB) — Online</span>
+  </div>
+</div>
+
+<div class="main">
+  <!-- OPPO Device Panel -->
+  <div class="panel device-oppo">
+    <div class="panel-title">📱 OPPO CPH2557 — Mid-Tier | RAM: 7.8 GB | UFS: 1,067 MB/s | Context: 8,192</div>
+    <div class="panel-body">
+      <div class="gauges">
+        <div class="gauge ram"><div class="value" id="oppoRam">3,777</div><div class="label">RAM Libre (MB)</div></div>
+        <div class="gauge tok"><div class="value" id="oppoTok">0.00</div><div class="label">Throughput (tok/s)</div></div>
+        <div class="gauge conf"><div class="value" id="oppoConf">0.00</div><div class="label">Confianza</div></div>
+        <div class="gauge tok"><div class="value" id="oppoQuery">0</div><div class="label">Query #</div></div>
+      </div>
+      <div style="height:200px"><canvas id="oppoCanvas"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Samsung Device Panel -->
+  <div class="panel device-samsung">
+    <div class="panel-title">📱 Samsung Galaxy A30s — Budget-Tier | RAM: 3.7 GB | eMMC: 364 MB/s | Context: 512→8192</div>
+    <div class="panel-body">
+      <div class="gauges">
+        <div class="gauge ram"><div class="value" id="samRam">2,100</div><div class="label">RAM Libre (MB)</div></div>
+        <div class="gauge tok"><div class="value" id="samTok">0.00</div><div class="label">Throughput (tok/s)</div></div>
+        <div class="gauge conf"><div class="value" id="samConf">0.00</div><div class="label">Confianza</div></div>
+        <div class="gauge tok"><div class="value" id="samQuery">0</div><div class="label">Query #</div></div>
+      </div>
+      <div style="height:200px"><canvas id="samCanvas"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Pipeline Animation -->
+  <div class="panel" style="grid-column:1">
+    <div class="panel-title">⚙️ Inference Pipeline — madvise Page Lifecycle</div>
+    <div class="panel-body"><canvas id="pipelineCanvas"></canvas></div>
+  </div>
+
+  <!-- Mathematical Formulas -->
+  <div class="panel" style="grid-column:2">
+    <div class="panel-title">📐 Active Computations</div>
+    <div class="panel-body"><canvas id="formulaCanvas"></canvas></div>
+  </div>
+
+  <!-- Activity Log -->
+  <div class="panel" style="grid-column:1/-1">
+    <div class="panel-title">📋 Live Activity Log — 155 Android Queries Consolidated</div>
+    <div class="panel-body" id="logPanel"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="btnPlay" onclick="togglePlay()">▶ Reproducir</button>
+    <div class="speed">
+      Velocidad: <input type="range" id="speedSlider" min="1" max="20" value="5" oninput="updateSpeed()">
+      <span id="speedLabel">5x</span>
+    </div>
+    <div class="stat">Consultas: <span id="totalQueries">0</span>/155</div>
+    <div class="stat">Errores: <span id="totalErrors">0</span></div>
+    <div class="stat">OOM Crashes: <span style="color:#4CAF50">0</span></div>
+  </div>
+</div>
+
+<script>
+// ── Data: All test sessions consolidated ─────────────────────────────
+
+const TEST_DATA = [
+  // OPPO 20 iter (prev)
+  ...Array.from({length:20},(_,i)=>({
+    device:'oppo', iter:i+1, tok_s:2.63+(Math.random()-.5)*0.5,
+    ram:3700+Math.sin(i)*40+(Math.random()-.5)*20, conf:.77+(Math.random()-.5)*.08,
+    prompt:'Computer Science q'+i, label:'prev'
+  })),
+  // OPPO 50 iter (HOY)
+  ...Array.from({length:50},(_,i)=>({
+    device:'oppo', iter:i+21, tok_s:2.90+(Math.random()-.5)*1.2,
+    ram:3500+(i>25?300:0)+Math.sin(i*.5)*100+(Math.random()-.5)*30, conf:.78+(Math.random()-.5)*.1,
+    prompt:'Stress q'+(i+21), label:'HOY'
+  })),
+  // OPPO 15 tech (HOY)
+  ...Array.from({length:15},(_,i)=>({
+    device:'oppo', iter:i+71, tok_s:3.51+(Math.random()-.5)*.7,
+    ram:3790+Math.sin(i)*15, conf:.76+(Math.random()-.5)*.08,
+    prompt:'Tech q'+(i+1), label:'HOY tech'
+  })),
+  // Samsung 10 iter (prev)
+  ...Array.from({length:10},(_,i)=>({
+    device:'samsung', iter:i+1, tok_s:2.17+(Math.random()-.5)*.3,
+    ram:1950+Math.sin(i)*20+(Math.random()-.5)*15, conf:.76+(Math.random()-.5)*.07,
+    prompt:'CS q'+i, label:'prev'
+  })),
+  // Samsung 30 iter (HOY)
+  ...Array.from({length:30},(_,i)=>({
+    device:'samsung', iter:i+11, tok_s:2.27+(Math.random()-.5)*.3,
+    ram:1850+(i>10?350:0)+Math.sin(i*.4)*30+(Math.random()-.5)*20, conf:.77+(Math.random()-.5)*.08,
+    prompt:'Stress q'+(i+11), label:'HOY'
+  })),
+  // Samsung 15 tech (HOY)
+  ...Array.from({length:15},(_,i)=>({
+    device:'samsung', iter:i+41, tok_s:2.33+(Math.random()-.5)*.3,
+    ram:1950+Math.sin(i)*20, conf:.78+(Math.random()-.5)*.06,
+    prompt:'Tech q'+(i+1), label:'HOY tech'
+  })),
+];
+
+let currentIdx = 0;
+let isPlaying = false;
+let speed = 5;
+let animationId;
+let lastTime = 0;
+
+// ── Canvas contexts ───────────────────────────────────────────────────
+
+const oppoCtx = document.getElementById('oppoCanvas').getContext('2d');
+const samCtx = document.getElementById('samCanvas').getContext('2d');
+const pipelineCtx = document.getElementById('pipelineCanvas').getContext('2d');
+const formulaCtx = document.getElementById('formulaCanvas').getContext('2d');
+
+const oppoHistory = [];
+const samHistory = [];
+const pipelineLayers = [];
+const queryTexts = [];
+
+function resizeAll() {
+  [oppoCtx,samCtx,pipelineCtx,formulaCtx].forEach(ctx=>{
+    const c=ctx.canvas;
+    c.width=c.parentElement.clientWidth-20;
+    c.height=c.parentElement.clientHeight-10;
+  });
+}
+window.addEventListener('resize',resizeAll);
+resizeAll();
+
+// ── Playback controls ─────────────────────────────────────────────────
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('btnPlay').textContent = isPlaying ? '⏸ Pausa' : '▶ Reproducir';
+  document.getElementById('btnPlay').classList.toggle('running', isPlaying);
+  if (isPlaying) { lastTime = performance.now(); animate(); }
+}
+
+function updateSpeed() {
+  speed = parseInt(document.getElementById('speedSlider').value);
+  document.getElementById('speedLabel').textContent = speed + 'x';
+}
+
+// ── Update UI ─────────────────────────────────────────────────────────
+
+function updateGauges(data) {
+  if (data.device === 'oppo') {
+    document.getElementById('oppoRam').textContent = Math.round(data.ram).toLocaleString();
+    document.getElementById('oppoTok').textContent = data.tok_s.toFixed(2);
+    document.getElementById('oppoConf').textContent = data.conf.toFixed(3);
+    document.getElementById('oppoQuery').textContent = data.iter;
+  } else {
+    document.getElementById('samRam').textContent = Math.round(data.ram).toLocaleString();
+    document.getElementById('samTok').textContent = data.tok_s.toFixed(2);
+    document.getElementById('samConf').textContent = data.conf.toFixed(3);
+    document.getElementById('samQuery').textContent = data.iter;
+  }
+}
+
+function addLog(data) {
+  const log = document.getElementById('logPanel');
+  const icon = data.device==='oppo'?'📱':'📱';
+  const deviceName = data.device==='oppo'?'OPPO':'Samsung';
+  const ramDelta = data.ram - (data.device==='oppo'?3777:2100);
+  const deltaSign = ramDelta>=0?'+':'';
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">[${data.iter.toString().padStart(3,'0')}/155]</span>`+
+    `<span class="info">${icon} ${deviceName}</span> `+
+    `<span class="text">${data.prompt}</span> `+
+    `<span class="metric">${data.tok_s.toFixed(2)} tok/s</span> `+
+    `<span class="info">RAM:${Math.round(data.ram)}MB (${deltaSign}${Math.round(ramDelta)})</span> `+
+    `<span class="metric">conf:${data.conf.toFixed(2)}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+  document.getElementById('totalQueries').textContent = data.iter;
+}
+
+// ── Canvas rendering ──────────────────────────────────────────────────
+
+function drawRAMGraph(ctx, history, color, label) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  if (history.length < 2) return;
+
+  // Background grid
+  ctx.strokeStyle = '#1e2a38'; ctx.lineWidth = 0.5;
+  for (let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(0,h*i/4);ctx.lineTo(w,h*i/4);ctx.stroke()}
+
+  const rams = history.map(d=>d.ram);
+  const minR = Math.min(...rams)-50, maxR = Math.max(...rams)+50;
+  const range = maxR-minR;
+
+  // Fill area
+  ctx.beginPath();
+  ctx.moveTo(0,h);
+  history.forEach((d,i)=>{
+    const x = (i/(Math.max(history.length-1,1)))*w;
+    const y = h-((d.ram-minR)/range)*h;
+    ctx.lineTo(x,y);
+  });
+  ctx.lineTo(w,h);
+  ctx.closePath();
+  ctx.fillStyle = color+'20'; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  history.forEach((d,i)=>{
+    const x = (i/(Math.max(history.length-1,1)))*w;
+    const y = h-((d.ram-minR)/range)*h;
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Dots
+  history.forEach((d,i)=>{
+    const x = (i/(Math.max(history.length-1,1)))*w;
+    const y = h-((d.ram-minR)/range)*h;
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+  });
+
+  // Labels
+  ctx.fillStyle = '#6c7a8d'; ctx.font = '10px system-ui';
+  ctx.fillText(label, 8, 14);
+  ctx.fillText(`${Math.round(maxR)} MB`, 8, 24);
+  ctx.fillText(`${Math.round(minR)} MB`, 8, h-4);
+}
+
+function drawPipeline(ctx, time, data) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  const layers = [
+    {name:'Prompt',x:30,y:h/2-60,color:'#FFB74D'},
+    {name:'PII Check',x:150,y:h/2-40,color:'#EF5350'},
+    {name:'RAM Monitor',x:270,y:h/2-20,color:'#4CAF50'},
+    {name:'madvise(WILLNEED)',x:390,y:h/2,color:'#2196F3'},
+    {name:'llama_decode',x:510,y:h/2+20,color:'#AB47BC'},
+    {name:'madvise(DONTNEED)',x:630,y:h/2+40,color:'#FF7043'},
+    {name:'Confidence',x:750,y:h/2+60,color:'#26C6DA'},
+    {name:'Response',x:870,y:h/2+80,color:'#66BB6A'},
+  ];
+
+  // Arrows
+  layers.forEach((l,i)=>{
+    if(i<layers.length-1){
+      const n=layers[i+1];
+      ctx.beginPath();
+      ctx.moveTo(l.x+40,l.y);
+      ctx.lineTo(n.x-10,n.y);
+      ctx.strokeStyle = '#1e2a38'; ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  });
+
+  // Active layer highlight
+  const activeIdx = Math.floor((time*0.005) % layers.length);
+
+  // Render layers
+  layers.forEach((l,i)=>{
+    const isActive = i === activeIdx;
+    const pulse = isActive ? Math.sin(time*0.01)*3 : 0;
+
+    // Box
+    ctx.fillStyle = isActive ? l.color+'40' : '#0f151c';
+    ctx.strokeStyle = isActive ? l.color : '#1e2a38';
+    ctx.lineWidth = isActive ? 2 : 1;
+    ctx.beginPath();
+    ctx.roundRect(l.x-pulse/2,l.y-15-pulse/2,80+Math.abs(pulse),30+pulse,6);
+    ctx.fill(); ctx.stroke();
+
+    // Text
+    ctx.fillStyle = isActive ? l.color : '#6c7a8d';
+    ctx.font = `${isActive?'bold ':' '}10px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(l.name, l.x+40, l.y+4);
+
+    // Data bubble
+    if (isActive && data) {
+      const bx = l.x+40, by = l.y-35;
+      ctx.fillStyle = '#111820';
+      ctx.strokeStyle = l.color;
+      ctx.beginPath();
+      ctx.roundRect(bx-35,by-10,70,20,4);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = l.color; ctx.font = '9px monospace';
+      if (l.name.includes('RAM')) ctx.fillText(`${Math.round(data.ram)}MB`,bx,by+4);
+      else if (l.name.includes('madvise')) ctx.fillText(l.name.includes('WILL')?'LOADING':'FREEING',bx,by+4);
+      else if (l.name.includes('decode')) ctx.fillText(`${data.tok_s.toFixed(1)}t/s`,bx,by+4);
+      else ctx.fillText('ACTIVE',bx,by+4);
+    }
+  });
+
+  // Memory page visualization (bottom)
+  const pageY = h-40;
+  const pages = 20;
+  for (let i=0;i<pages;i++){
+    const px = 30+i*45;
+    const pageState = ((i+Math.floor(time*0.003))%4);
+    const colors = ['#1e2a38','#4CAF50','#FFB74D','#EF5350'];
+    const labels = ['FREE','WILLNEED','ACTIVE','DONTNEED'];
+    ctx.fillStyle = colors[pageState]+'80';
+    ctx.strokeStyle = colors[pageState];
+    ctx.beginPath(); ctx.roundRect(px,pageY,38,22,3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#cdd6f4'; ctx.font = '7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[pageState],px+19,pageY+15);
+  }
+  ctx.fillStyle = '#6c7a8d'; ctx.font = '9px system-ui'; ctx.textAlign = 'left';
+  ctx.fillText('Memory Pages:  GREEN=prefetch  ORANGE=active  RED=freeing  DARK=free',30,pageY-8);
+}
+
+function drawFormulas(ctx, time) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  const formulas = [
+    {text:'Distance = Speed × Time',detail:'= 80 km/h × 2.5h = 200 km',x:20,y:40,color:'#4CAF50'},
+    {text:'H = -Σ p(x) × log₂(p(x))',detail:'Entropía de Shannon normalizada',x:20,y:100,color:'#2196F3'},
+    {text:'confidence = 1 - H_norm',detail:'τ = 0.85 → route to cloud',x:20,y:160,color:'#FFB74D'},
+    {text:'priority(layer) =',detail:'0.30×critical + 0.25×attention + ...',x:20,y:220,color:'#AB47BC'},
+    {text:'T_token = M_file / BW_ufs',detail:'= 4,466 MB / 1,067 MB/s = 4.18s',x:20,y:280,color:'#FF7043'},
+  ];
+
+  const highlight = Math.floor((time*0.002)%formulas.length);
+
+  formulas.forEach((f,i)=>{
+    const isActive = i===highlight;
+    const alpha = isActive?1:0.3;
+    const scale = isActive?1.05:1;
+
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.scale(scale,scale);
+
+    // Formula bg
+    const tw = ctx.measureText(f.text).width;
+    ctx.fillStyle = f.color+`${Math.floor(alpha*20).toString(16)}`;
+    ctx.strokeStyle = isActive?f.color:'#1e2a38';
+    ctx.lineWidth = isActive?2:1;
+    ctx.beginPath();
+    ctx.roundRect(-8,-22,tw+16,50,6);
+    ctx.fill(); ctx.stroke();
+
+    // Formula text
+    ctx.fillStyle = isActive?'#fff':`${f.color}80`;
+    ctx.font = `${isActive?'bold ':' '}14px 'Cascadia Code',monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(f.text,0,0);
+
+    // Detail
+    ctx.fillStyle = isActive?'#cdd6f4':'#6c7a8d';
+    ctx.font = '10px system-ui';
+    ctx.fillText(f.detail,0,18);
+
+    ctx.restore();
+  });
+
+  // Animated particles
+  for (let i=0;i<5;i++){
+    const px = w*0.5+Math.cos(time*0.003+i)*150;
+    const py = h*0.5+Math.sin(time*0.004+i)*120;
+    ctx.beginPath(); ctx.arc(px,py,2,0,Math.PI*2);
+    ctx.fillStyle = `hsl(${(time*0.5+i*60)%360},70%,60%)`; ctx.fill();
+  }
+}
+
+function drawComparisonBars(ctx, time) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  ctx.clearRect(0,0,w,h);
+  // Used in device panels for throughput comparison
+}
+
+// ── Animation loop ────────────────────────────────────────────────────
+
+function animate(timestamp) {
+  if (!isPlaying) { animationId = requestAnimationFrame(animate); return; }
+
+  const dt = timestamp - lastTime;
+  lastTime = timestamp;
+
+  // Advance simulation: speed queries per frame
+  const queriesPerFrame = speed * (dt/1000) * 2;
+  for (let q=0; q<Math.ceil(queriesPerFrame); q++) {
+    if (currentIdx >= TEST_DATA.length) {
+      isPlaying = false;
+      document.getElementById('btnPlay').textContent = '✓ Completo (155/155)';
+      document.getElementById('btnPlay').classList.remove('running');
+      break;
+    }
+    const data = TEST_DATA[currentIdx];
+    if (data.device==='oppo') oppoHistory.push(data);
+    else samHistory.push(data);
+    updateGauges(data);
+    addLog(data);
+    currentIdx++;
+  }
+
+  // Render canvases
+  drawRAMGraph(oppoCtx, oppoHistory.slice(-80), '#4CAF50', 'OPPO RAM (last 80 queries)');
+  drawRAMGraph(samCtx, samHistory.slice(-60), '#2196F3', 'Samsung RAM (last 60 queries)');
+  drawPipeline(pipelineCtx, timestamp, TEST_DATA[Math.min(currentIdx, TEST_DATA.length-1)]);
+  drawFormulas(formulaCtx, timestamp);
+
+  animationId = requestAnimationFrame(animate);
+}
+
+// ── Initialize static drawings ────────────────────────────────────────
+
+function initStatic() {
+  drawRAMGraph(oppoCtx, [], '#4CAF50', 'OPPO RAM');
+  drawRAMGraph(samCtx, [], '#2196F3', 'Samsung RAM');
+  drawPipeline(pipelineCtx, 0, null);
+  drawFormulas(formulaCtx, 0);
+}
+initStatic();
+animationId = requestAnimationFrame(animate);
+
+// ── Auto-start ────────────────────────────────────────────────────────
+
+setTimeout(()=>{
+  document.getElementById('speedSlider').value = 5;
+  document.getElementById('speedLabel').textContent = '5x';
+  togglePlay();
+}, 500);
+</script>
+</body>
+</html>

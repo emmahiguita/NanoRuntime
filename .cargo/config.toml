@@ -1,0 +1,31 @@
+# Cargo configuration for Multi-Platform Cross-Compilation (Android, Linux, macOS, Raspberry Pi)
+
+[env]
+NDK_ROOT = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
+ANDROID_NDK = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
+ANDROID_NDK_ROOT = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
+ANDROID_NDK_HOME = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
+CMAKE_GENERATOR = "Ninja"
+CMAKE_MAKE_PROGRAM = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe"
+CC_aarch64_linux_android = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\aarch64-linux-android26-clang.cmd"
+CXX_aarch64_linux_android = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\aarch64-linux-android26-clang++.cmd"
+AR_aarch64_linux_android = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
+
+[target.aarch64-linux-android]
+ar = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
+linker = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\aarch64-linux-android26-clang.cmd"
+rustflags = ["-C", "target-feature=+neon,+dotprod,+fp16"]
+
+[target.armv7-linux-androideabi]
+ar = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
+linker = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\armv7a-linux-androideabi26-clang.cmd"
+
+[target.x86_64-linux-android]
+ar = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
+linker = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\x86_64-linux-android26-clang.cmd"
+
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+
+[target.x86_64-unknown-linux-gnu]
+linker = "x86_64-linux-gnu-gcc"

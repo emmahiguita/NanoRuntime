@@ -1,0 +1,108 @@
+name: Multi-Platform CI/CD Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    name: Windows x86_64 Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build nanortime (Windows)
+        run: cargo build --features simulated --release
+
+      - name: Upload Windows Binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: nanortime-windows-x86_64
+          path: target/release/nanortime.exe
+
+  build-linux:
+    name: Linux x86_64 Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential cmake clang libclang-dev pkg-config libssl-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build nanortime (Linux)
+        run: cargo build --features simulated --release
+
+      - name: Upload Linux Binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: nanortime-linux-x86_64
+          path: target/release/nanortime
+
+  build-macos:
+    name: macOS Apple Silicon / Intel Build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: brew install cmake pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build nanortime (macOS)
+        run: cargo build --features simulated --release
+
+      - name: Upload macOS Binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: nanortime-macos
+          path: target/release/nanortime
+
+  build-android:
+    name: Android ARM64 (aarch64-linux-android) Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Rust & Targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Setup Android NDK
+        run: |
+          wget https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26b" >> $GITHUB_ENV
+
+      - name: Cross-compile for Android ARM64
+        run: |
+          cargo ndk -t arm64-v8a -o ./android-libs build --features simulated --release
+
+      - name: Upload Android ARM64 Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: nanortime-android-arm64
+          path: android-libs/arm64-v8a/

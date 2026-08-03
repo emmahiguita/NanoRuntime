@@ -1,0 +1,59 @@
+# ── Rust / Cargo ──────────────────────────────
+/target
+**/*.rs.bk
+Cargo.lock
+
+# ── Modelos GGUF (son grandes, no subir) ─────
+*.gguf
+models/
+modelos/
+*.safetensors
+*.bin
+
+# ── Datos de prueba generados ────────────────
+data/research/evidence_package/logs/*.json
+data/research/*.json
+data/research/evidence_package/sessions/
+
+# ── llama.cpp source clonado (compilar via CI) ─
+llama.cpp-source/
+llama-prebuilt/
+vendor/llama-cpp-sys-2/llama.cpp/
+*.tar.gz
+*.zip
+
+# ── Android / build ───────────────────────────
+*.apk
+*.aab
+*.so
+build/
+out/
+
+# ── Sistema ───────────────────────────────────
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+.env
+.env.local
+
+# ── IDE ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Documentos de trabajo locales ─────────────
+descarga1/
+desktop/
+*.docx
+
+# ── Subproyectos separados / no necesarios para el build ─
+dashboard/
+graphify-out/
+.opencode/
+data/
+docs/images/
+*.history.json
+manifest_cpu.json
+

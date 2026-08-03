@@ -1,0 +1,85 @@
+/*
+ * nanortime_streaming_patch.txt — Surgical monkey-patch for llama.cpp
+ *
+ * INSTRUCTIONS:
+ * 1. Copy nanortime_streaming.h to llama.cpp/
+ * 2. Add -DNANORTIME_STREAMING to CMakeLists.txt (only for ARM64 target)
+ * 3. Link: target_link_libraries(llama nanortime_streaming)
+ * 4. Apply the changes below to llama.cpp
+ *
+ * THIS PATCH IS:
+ *   - Conditional (#ifdef NANORTIME_STREAMING)
+ *   - Non-invasive (does NOT touch CUDA/Vulkan/Metal paths)
+ *   - Upstream-safe (0 lines changed when NANORTIME_STREAMING is not defined)
+ */
+
+/* ================================================================
+   CHANGE 1: Add include at top of llama.cpp (after existing includes)
+   ================================================================ */
+
+#ifdef NANORTIME_STREAMING
+#include "nanortime_streaming.h"
+static int     g_stream_total_layers = 0;
+static int     g_stream_current_layer = -1;
+static void*   g_stream_layer_ptr = NULL;
+#endif
+
+/* ================================================================
+   CHANGE 2: Replace mmap model loading with streaming init
+   Find: llama_model_load_from_file()
+   Insert after model file is opened but before mmap:
+   ================================================================ */
+
+#ifdef NANORTIME_STREAMING
+    // NanoRuntime: replace full-model mmap with sliding-window streaming
+    g_stream_total_layers = nanortime_streaming_init(
+        params->model_path,  /* path to GGUF file */
+        2                     /* window_layers: 2 for <4GB devices */
+    );
+    if (g_stream_total_layers < 0) {
+        LLAMA_LOG_ERROR("NanoRuntime streaming init failed: %d\n", g_stream_total_layers);
+        return nullptr;
+    }
+    LLAMA_LOG_INFO("NanoRuntime streaming: %d layers, VMA < 1 GB\n", g_stream_total_layers);
+    // Skip llama's internal mmap — our loader handles it
+    goto streaming_skip_mmap;
+#endif
+
+/* ================================================================
+   CHANGE 3: In the decode loop, load layer before processing
+   Find: the loop that iterates through layers in llama_decode_internal()
+   Wrap the per-layer processing with load/release:
+   ================================================================ */
+
+#ifdef NANORTIME_STREAMING
+    // NanoRuntime: load this layer's weights into the window
+    g_stream_current_layer = current_layer_idx;
+    g_stream_layer_ptr = nanortime_streaming_load(current_layer_idx);
+    if (!g_stream_layer_ptr) {
+        LLAMA_LOG_ERROR("NanoRuntime: failed to load layer %d\n", current_layer_idx);
+        return -1;
+    }
+    // Use g_stream_layer_ptr instead of the internal mmap pointer for this layer
+    // (the existing tensor pointer should be redirected to our loaded window)
+#endif
+
+    /* ... existing per-layer processing code runs here ... */
+
+#ifdef NANORTIME_STREAMING
+    // NanoRuntime: release this layer after processing (MADV_DONTNEED + MADV_PAGEOUT)
+    nanortime_streaming_release(current_layer_idx);
+    g_stream_layer_ptr = NULL;
+#endif
+
+/* ================================================================
+   CHANGE 4: In the model cleanup / unload
+   ================================================================ */
+
+#ifdef NANORTIME_STREAMING
+    // NanoRuntime: the streaming loader handles its own cleanup via Drop
+    // No explicit deinit needed — Rust's ownership model handles it
+#endif
+
+/* ================================================================
+   END OF PATCH
+   ================================================================ */
