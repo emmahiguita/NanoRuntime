@@ -9,7 +9,7 @@ name: Build NanoRuntime ARM64 (Speculative + Vulkan)
 on:
   workflow_dispatch:    # Manual: boton "Run workflow"
   push:
-    branches: [main]
+    branches: [master, main]
 
 jobs:
   build-android-arm64:
