@@ -1,8 +1,10 @@
-name: Build NanoRuntime ARM64 with CacheAwareLoader
+name: Build NanoRuntime ARM64 (Speculative + Vulkan)
 
-# Compila llama.cpp + nanortime_streaming FFI para Android ARM64
-# usando Linux CI (evita el bug del NDK en Windows).
-# Corre gratis en GitHub Actions. Descarga el binario del workflow.
+# Compila llama.cpp + nanortime_streaming FFI para Android ARM64.
+# Usa Linux CI (evita el bug del NDK en Windows).
+# Produce 2 binarios:
+#   1. CPU + CacheAwareLoader  -> speculative decoding en <4 GB RAM
+#   2. Vulkan (GPU)            -> velocidad 15-25 tok/s en OPPO
 
 on:
   workflow_dispatch:    # Manual: boton "Run workflow"
@@ -12,6 +14,9 @@ on:
 jobs:
   build-android-arm64:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        backend: [cpu, vulkan]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,7 +38,13 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake build-essential
+          sudo apt-get install -y ninja-build cmake build-essential \
+            libvulkan-dev vulkan-tools
+
+      - name: Clone llama.cpp source
+        run: |
+          git clone --depth 1 --branch master \
+            https://github.com/ggerganov/llama.cpp.git llama.cpp-source
 
       - name: Rust toolchain (para nanortime_streaming)
         uses: dtolnay/rust-toolchain@stable
@@ -45,14 +56,18 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: |
           cargo build --lib -p nanortime-core --target aarch64-linux-android --release
-          # Copiar el staticlib donde llama.cpp lo pueda ver
           cp target/aarch64-linux-android/release/libnanortime_core.a llama.cpp-source/
 
-      - name: Configure llama.cpp with NANORTIME_STREAMING
+      - name: Configure llama.cpp (CPU + CacheAwareLoader)
+        if: matrix.backend == 'cpu'
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: |
           cd llama.cpp-source
+          # Copiar el header FFI de NanoRuntime
+          cp ../nanortime-core/include/nanortime_streaming.h include/
+          # Aplicar el parche quirurgico al decode loop
+          python3 ../scripts/patch_llamacpp_streaming.py
           cmake -B build \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
@@ -65,27 +80,61 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DNANORTIME_STREAMING=ON
 
-      - name: Build llama-cli + llama-app
+      - name: Configure llama.cpp (Vulkan GPU)
+        if: matrix.backend == 'vulkan'
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: |
           cd llama.cpp-source
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_shared \
+            -DGGML_CUDA=OFF \
+            -DGGML_VULKAN=ON \
+            -DGGML_VULKAN_VALIDATION=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_CURL=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build llama binaries
+        run: |
+          cd llama.cpp-source
           cmake --build build -j$(nproc)
 
-      - name: Package ARM64 binaries
+      - name: Package ${{ matrix.backend }} binaries
         run: |
           mkdir -p artifact
           cd llama.cpp-source/build/bin
-          cp llama llama-cli llama-bench ../.. 2>/dev/null || true
-          cd ../../..
-          # Copiar todas las libs .so y binarios
-          tar -czf nanortime-arm64.tar.gz \
-            llama.cpp-source/build/bin/*.so \
-            llama.cpp-source/build/bin/llama* 2>/dev/null || \
-          tar -czf nanortime-arm64.tar.gz -C llama.cpp-source/build bin
+          tar -czf nanortime-${{ matrix.backend }}-arm64.tar.gz \
+            llama llama-cli llama-bench *.so 2>/dev/null || \
+          tar -czf nanortime-${{ matrix.backend }}-arm64.tar.gz \
+            -C ../.. bin
+          mv nanortime-${{ matrix.backend }}-arm64.tar.gz ../../../artifact/
 
-      - name: Upload artifact
+      - name: Upload ${{ matrix.backend }} artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nanortime-arm64
-          path: nanortime-arm64.tar.gz
+          name: nanortime-${{ matrix.backend }}-arm64
+          path: artifact/nanortime-${{ matrix.backend }}-arm64.tar.gz
+
+  # ── Ejemplo de uso con speculative decoding ──
+  demo-speculative:
+    runs-on: ubuntu-latest
+    needs: build-android-arm64
+    if: false  # Solo documentacion — descomenta para validar en CI
+    steps:
+      - name: Uso en el Samsung
+        run: |
+          echo "=== SPECULATIVE DECODING EN SAMSUNG A30s ==="
+          echo "Draft:  Qwen 1.5B (en RAM)"
+          echo "Target: DeepSeek 7B (con CacheAwareLoader streaming)"
+          echo ""
+          echo "adb push nanortime-cpu-arm64.tar.gz /data/local/tmp/"
+          echo "adb shell 'cd /data/local/tmp && tar -xzf nanortime-cpu-arm64.tar.gz'"
+          echo ""
+          echo "./llama-cli -m deepseek.gguf -md qwen.gguf \\"
+          echo "  --spec-draft-n-max 3 -p \"What is 2+2?\" -n 50"
+          echo ""
+          echo "Esperado: 0.05 -> 0.15-0.25 tok/s (3-5x speedup)"
