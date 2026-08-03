@@ -296,4 +296,9 @@ impl NanoRuntime {
     pub fn tool_executor(&self) -> &Arc<ToolExecutor> {
         &self.tool_executor
     }
+
+    /// Acceso al gestor de modelos (para persistencia de sesión, etc.).
+    pub fn model_manager(&self) -> &Arc<ModelManager> {
+        &self.model_manager
+    }
 }

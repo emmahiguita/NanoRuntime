@@ -21,6 +21,7 @@ use crate::{Response, ToolCallResult, UserRequest};
 use crate::memory_engine::policy_engine::{PolicyEngine, QosMode};
 use crate::memory_engine::cost_scheduler::CostScheduler;
 use crate::memory_engine::hardware_hal::profile_device;
+use crate::speculative_decoder::{SpeculativePlan, InferenceMode};
 
 /// Orquestador principal del runtime.
 ///
@@ -84,6 +85,24 @@ impl Orchestrator {
             mode, profile.ram_total_mb, profile.cpu_cores, profile.tier
         );
         (mode, summary)
+    }
+
+    /// Decide el modo de inferencia (speculative vs estándar) según RAM.
+    ///
+    /// Conecta el SpeculativePlan con el hardware real:
+    /// - RAM suficiente para draft+target → Speculative
+    /// - Solo target → Standard
+    /// - Nada cabe → Survival
+    ///
+    /// Devuelve una descripción del modo para logging.
+    pub fn decide_inference_mode(target_size_mb: u64, draft_size_mb: u64) -> InferenceMode {
+        let profile = profile_device();
+        let plan = SpeculativePlan::plan(&profile, target_size_mb, draft_size_mb);
+        tracing::info!(
+            "Inference mode: {:?} (RAM={}MB, target={}MB, draft={}MB)",
+            plan.mode, profile.ram_available_mb, target_size_mb, draft_size_mb
+        );
+        plan.mode
     }
 
     /// Procesa una petición completa del usuario a través del pipeline.

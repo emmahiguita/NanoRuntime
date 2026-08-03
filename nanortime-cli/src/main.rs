@@ -74,6 +74,18 @@ struct Cli {
     /// Detener generacion en limites naturales (parrafos, secciones)
     #[arg(long)]
     natural_stops: bool,
+
+    /// Guardar el estado (KV cache) al terminar la consulta
+    #[arg(long)]
+    save_session: bool,
+
+    /// Restaurar el estado (KV cache) antes de la consulta
+    #[arg(long)]
+    load_session: bool,
+
+    /// Directorio de sesiones (default: .nano-sessions)
+    #[arg(long, default_value = ".nano-sessions")]
+    session_dir: String,
 }
 
 #[tokio::main]
@@ -193,8 +205,31 @@ async fn main() -> anyhow::Result<()> {
 
     // Process input
     if let Some(prompt) = cli.prompt {
+        // ── Session persistence: restaurar KV cache antes ────────
+        let session_path = format!("{}/session_auto.nano", cli.session_dir);
+        if cli.load_session {
+            std::fs::create_dir_all(&cli.session_dir).ok();
+            tracing::info!("Restaurando sesión desde {}", session_path);
+            let model_manager = runtime.model_manager();
+            match model_manager.restore_session_state(&session_path).await {
+                Ok(_) => tracing::info!("Sesión restaurada — salta prefill"),
+                Err(e) => tracing::warn!("No se pudo restaurar sesión: {}", e),
+            }
+        }
+
         // Single prompt mode
         process_single_prompt(&runtime, &prompt, cli.max_tokens, cli.natural_stops).await?;
+
+        // ── Session persistence: guardar KV cache después ────────
+        if cli.save_session {
+            std::fs::create_dir_all(&cli.session_dir).ok();
+            tracing::info!("Guardando sesión en {}", session_path);
+            let model_manager = runtime.model_manager();
+            match model_manager.save_session_state(&session_path).await {
+                Ok(_) => tracing::info!("Sesión guardada — próxima carga será ~0.5s"),
+                Err(e) => tracing::warn!("No se pudo guardar sesión: {}", e),
+            }
+        }
     } else {
         // Interactive chat mode
         interactive_chat(&runtime, cli.max_tokens).await?;
@@ -523,3 +558,4 @@ fn setup_logging(level: &str) {
         .with(subscriber)
         .init();
 }
+

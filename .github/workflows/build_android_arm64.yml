@@ -46,6 +46,11 @@ jobs:
           git clone --depth 1 --branch master \
             https://github.com/ggerganov/llama.cpp.git llama.cpp-source
 
+      - name: Copy NanoRuntime streaming headers
+        run: |
+          cp nanortime-core/include/nanortime_streaming.h llama.cpp-source/include/
+          cp nanortime-core/include/nanortime_streaming_patch.h llama.cpp-source/include/
+
       - name: Rust toolchain (para nanortime_streaming)
         uses: dtolnay/rust-toolchain@stable
         with:
