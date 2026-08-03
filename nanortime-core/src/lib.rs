@@ -37,7 +37,9 @@ pub mod error;
 pub mod execution;
 pub mod inference;
 pub mod memory_engine;
+pub mod nano_session;
 pub mod orchestrator;
+pub mod speculative_decoder;
 pub mod streaming_output;
 
 use std::sync::Arc;

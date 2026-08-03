@@ -102,6 +102,51 @@ impl ModelManager {
         *g = None;
     }
 
+    /// Guarda el estado (KV cache) a un archivo de sesión.
+    ///
+    /// Usa la API `state_save_file` del contexto de llama.cpp.
+    /// Requiere un contexto activo — se obtiene del modelo cargado.
+    pub async fn save_session_state(&self, path: &str) -> Result<()> {
+        #[cfg(not(feature = "simulated"))]
+        {
+            let g = self.state.read().await;
+            if let Some(ref s) = *g {
+                if let Some(ref model) = s.model {
+                    // El NanoContext se crea por generación; para persistencia
+                    // usamos un contexto temporal con el estado.
+                    let ctx = model.create_context(&s.load_params)
+                        .map_err(|e| NanoError::ModelLoadFailed { path: s.model_path.clone(), reason: e })?;
+                    ctx.save_state(path)
+                        .map_err(|e| NanoError::ModelLoadFailed { path: path.to_string(), reason: e })?;
+                    tracing::info!("Session state saved: {} ({} bytes)", path, ctx.state_size());
+                    return Ok(());
+                }
+            }
+            tracing::warn!("No model loaded — cannot save session state");
+        }
+        Ok(())
+    }
+
+    /// Restaura el estado (KV cache) desde un archivo de sesión.
+    pub async fn restore_session_state(&self, path: &str) -> Result<()> {
+        #[cfg(not(feature = "simulated"))]
+        {
+            let g = self.state.read().await;
+            if let Some(ref s) = *g {
+                if let Some(ref model) = s.model {
+                    let mut ctx = model.create_context(&s.load_params)
+                        .map_err(|e| NanoError::ModelLoadFailed { path: s.model_path.clone(), reason: e })?;
+                    let tokens = ctx.load_state(path)
+                        .map_err(|e| NanoError::ModelLoadFailed { path: path.to_string(), reason: e })?;
+                    tracing::info!("Session state restored: {} ({} tokens)", path, tokens);
+                    return Ok(());
+                }
+            }
+            tracing::warn!("No model loaded — cannot restore session state");
+        }
+        Ok(())
+    }
+
     pub async fn apply_lora(&self, path: &str, strength: f32) -> Result<()> {
         #[cfg(feature = "simulated")]
         {

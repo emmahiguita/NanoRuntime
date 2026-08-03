@@ -371,6 +371,47 @@ impl NanoContext {
 
     pub fn context_size(&self) -> u32 { self.context_size }
 
+    // ── Session Persistence (KV cache state) ────────────────────
+    // Guarda/restaura el estado completo (KV cache) para eliminar
+    // la espera de prefill en la siguiente sesión. Byte-idéntico.
+
+    /// Tamaño del estado del contexto (KV cache) en bytes.
+    pub fn state_size(&self) -> usize {
+        self.inner.get_state_size()
+    }
+
+    /// Guarda el estado (KV cache) a un archivo.
+    ///
+    /// Devuelve el número de bytes escritos.
+    pub fn save_state(&self, path: &str) -> Result<usize, String> {
+        // state_save_file necesita los tokens; guardamos con lista vacía
+        // (el estado del KV cache se persiste, los tokens se re-tokenizan)
+        let tokens: Vec<LlamaToken> = Vec::new();
+        self.inner
+            .state_save_file(path, &tokens)
+            .map_err(|e| format!("Failed to save state: {:?}", e))?;
+        Ok(self.inner.get_state_size())
+    }
+
+    /// Restaura el estado (KV cache) desde un archivo.
+    ///
+    /// Devuelve el número de tokens restaurados (0 si la lista estaba vacía).
+    pub fn load_state(&mut self, path: &str) -> Result<usize, String> {
+        let tokens = self
+            .inner
+            .state_load_file(path, self.context_size as usize)
+            .map_err(|e| format!("Failed to load state: {:?}", e))?;
+        Ok(tokens.len())
+    }
+
+    /// Verifica si un archivo de estado existe y tiene tamaño válido.
+    pub fn has_valid_state(&self, path: &str) -> bool {
+        std::path::Path::new(path).exists()
+            && std::fs::metadata(path)
+                .map(|m| m.len() > 0)
+                .unwrap_or(false)
+    }
+
     /// Genera tokens de forma streaming, llamando al callback por cada token.
     ///
     /// El callback recibe (token_text, probability, is_stop).
