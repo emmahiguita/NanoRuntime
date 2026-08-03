@@ -47,6 +47,9 @@ pub fn run_single(
         config.generation.max_tokens = max_tokens;
         config.generation.temperature = temperature;
         config.hybrid_routing.edge_only = true;
+        // Desactivar herramientas: la web debe responder directamente,
+        // no invocar tools (math, search, etc.)
+        config.tools.auto_discover = false;
 
         // 2. Crear runtime (carga el modelo)
         let runtime = NanoRuntime::new(config)
