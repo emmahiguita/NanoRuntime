@@ -41,13 +41,10 @@ jobs:
           sudo apt-get install -y ninja-build cmake build-essential \
             libvulkan-dev vulkan-tools
 
-      - name: Clone llama.cpp source (pinned commit)
+      - name: Clone llama.cpp source
         run: |
-          git clone --depth 1 \
+          git clone --depth 1 --branch master \
             https://github.com/ggerganov/llama.cpp.git llama.cpp-source
-          cd llama.cpp-source
-          git fetch --depth 1 origin 221f0f6351024ce71ef7ed240f2401e74b964033
-          git checkout 221f0f6351024ce71ef7ed240f2401e74b964033
 
       - name: Copy NanoRuntime streaming headers
         run: |
