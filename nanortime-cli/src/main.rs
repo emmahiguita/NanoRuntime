@@ -59,6 +59,10 @@ struct Cli {
     #[arg(short = 't', long, default_value = "0.7")]
     temperature: f32,
 
+    /// Número de threads para inferencia (auto-detecta big.LITTLE si no se especifica)
+    #[arg(long)]
+    threads: Option<usize>,
+
     /// Silenciar salida de debug de llama.cpp
     #[arg(short = 'q', long)]
     quiet: bool,
@@ -125,6 +129,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Override temperature
     config.generation.temperature = cli.temperature;
+
+    // Override threads if specified (before V2 auto-config which may further tune)
+    if let Some(t) = cli.threads {
+        config.local_model.threads = t;
+    }
 
     // Disable tools if requested
     if cli.no_tools {

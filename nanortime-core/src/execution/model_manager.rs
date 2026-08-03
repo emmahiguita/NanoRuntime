@@ -58,14 +58,22 @@ impl ModelManager {
             file_size_mb,
             8192, // max context
         );
+        // Auto-detect optimal thread count from big.LITTLE architecture
+        let profile = crate::memory_engine::hardware_hal::profile_device();
+        let optimal_threads = if profile.big_cores > 0 {
+            profile.big_cores as usize
+        } else {
+            self.config.local_model.threads // user override or default 4
+        };
         tracing::info!(
-            "V2 Auto-config: ctx={} batch={} risk={} model_mb={}",
-            v2_ctx, v2_batch, v2_risk, file_size_mb
+            "V2 Auto-config: ctx={} batch={} risk={} threads={} big_cores={} model_mb={}",
+            v2_ctx, v2_batch, v2_risk, optimal_threads, profile.big_cores, file_size_mb
         );
         // Override config with V2-optimized values
         let mut adapted_config = self.config.local_model.clone();
         adapted_config.context_size = v2_ctx as usize;
         adapted_config.batch_size = v2_batch as usize;
+        adapted_config.threads = optimal_threads;
 
         #[cfg(feature = "simulated")]
         {

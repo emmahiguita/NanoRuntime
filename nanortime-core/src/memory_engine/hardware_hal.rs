@@ -52,6 +52,9 @@ pub struct DeviceProfile {
     pub storage_write_mbps: u64,
     /// Number of CPU cores available.
     pub cpu_cores: u32,
+    /// Number of big/high-performance cores (big.LITTLE detection).
+    /// 0 if unknown — caller should fall back to cpu_cores / 2 or 4.
+    pub big_cores: u32,
     /// Current thermal zone temperature (°C). -1 if unavailable.
     pub cpu_temp_c: i32,
     /// Whether ZRAM is active (Android/Linux).
@@ -74,6 +77,7 @@ impl Default for DeviceProfile {
             storage_read_mbps: 0,
             storage_write_mbps: 0,
             cpu_cores: std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4),
+            big_cores: 0,
             cpu_temp_c: -1,
             zram_active: false,
             npu_available: false,
@@ -187,6 +191,75 @@ mod proc_readers {
     }
 }
 
+// ── big.LITTLE detection ─────────────────────────────────────────────
+
+/// Count big cores using the most reliable method available:
+/// 1. cpu_capacity (kernel's official big.LITTLE signal — most accurate)
+/// 2. cpufreq with 70% threshold (more aggressive than 80%)
+/// 3. Fallback: total_cores / 2, clamped to [2, 4]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn detect_big_cores_linux(total_cores: u32) -> u32 {
+    use std::fs;
+
+    // Method 1: cpu_capacity (kernel EAS/PELT — definitive for big.LITTLE)
+    let mut capacities: Vec<u64> = Vec::new();
+    for i in 0..total_cores {
+        let path = format!("/sys/devices/system/cpu/cpu{}/cpu_capacity", i);
+        if let Ok(s) = fs::read_to_string(&path) {
+            if let Ok(cap) = s.trim().parse::<u64>() {
+                capacities.push(cap);
+            }
+        }
+    }
+    if !capacities.is_empty() {
+        let max_cap = capacities.iter().max().copied().unwrap_or(1);
+        // Cores with >=60% of max capacity are "big" (handles 367 vs 1024)
+        let threshold = (max_cap as f64 * 0.6) as u64;
+        let big = capacities.iter().filter(|&&c| c >= threshold).count() as u32;
+        if big > 0 && big < total_cores {
+            return big.max(1).min(total_cores);
+        }
+        // If all cores have same capacity (no big.LITTLE), fall through
+    }
+
+    // Method 2: cpuinfo_max_freq with 70% threshold
+    let mut freqs: Vec<u64> = Vec::new();
+    for i in 0..total_cores {
+        let path = format!("/sys/devices/system/cpu/cpu{}/cpufreq/cpuinfo_max_freq", i);
+        if let Ok(s) = fs::read_to_string(&path) {
+            if let Ok(khz) = s.trim().parse::<u64>() {
+                freqs.push(khz);
+            }
+        }
+    }
+    if !freqs.is_empty() {
+        let max_freq = freqs.iter().max().copied().unwrap_or(1);
+        // 70% threshold: tighter than before to better separate clusters
+        let threshold = (max_freq as f64 * 0.7) as u64;
+        let big = freqs.iter().filter(|&&f| f >= threshold).count() as u32;
+        if big > 0 && big < total_cores {
+            return big.max(1).min(total_cores);
+        }
+    }
+
+    // Method 3: Conservative fallback for mobile ARM big.LITTLE.
+    // Most Android SoCs have 2 big cores (2+6 or 2+4 configs).
+    // Using big_cores = 2 avoids LITTLE-core cache thrashing.
+    // Desktop/server with homogeneous cores gets total_cores / 2.
+    if total_cores >= 8 { 2 } else if total_cores >= 6 { 2 } else { total_cores.max(1) }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn detect_big_cores_linux(total_cores: u32) -> u32 {
+    (total_cores / 2).max(2).min(4)
+}
+
+/// Portable big-core detection. On Linux/Android, probes sysfs using
+/// multiple methods with graceful fallbacks.
+pub fn detect_big_cores(total_cores: u32) -> u32 {
+    detect_big_cores_linux(total_cores)
+}
+
 // ── Profile builder ──────────────────────────────────────────────────
 
 /// Build a DeviceProfile by probing the hardware.
@@ -195,6 +268,8 @@ pub fn profile_device() -> DeviceProfile {
 
     // CPU cores
     p.cpu_cores = std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4);
+    // big.LITTLE detection: count cores at the highest frequency tier
+    p.big_cores = detect_big_cores(p.cpu_cores);
 
     // Platform-specific probing
     #[cfg(any(target_os = "linux", target_os = "android"))]
