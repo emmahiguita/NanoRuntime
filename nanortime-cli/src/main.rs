@@ -75,6 +75,12 @@ struct Cli {
     #[arg(long)]
     natural_stops: bool,
 
+    /// Pre-cargar el modelo al page cache del kernel antes de inferir
+    /// (cat modelo > /dev/null). Mejora el prompt processing hasta 2x
+    /// en dispositivos con eMMC lento (Samsung A30s).
+    #[arg(long)]
+    preload: bool,
+
     /// Guardar el estado (KV cache) al terminar la consulta
     #[arg(long)]
     save_session: bool,
@@ -182,6 +188,36 @@ async fn main() -> anyhow::Result<()> {
         });
         rx
     };
+
+    // ── Pre-cargar modelo al page cache (mejora prompt 2x) ──────
+    if cli.preload {
+        let model_path = &config.local_model.path;
+        if !model_path.is_empty() && std::path::Path::new(model_path).exists() {
+            tracing::info!("Pre-cargando modelo al page cache: {}", model_path);
+            // cat modelo > /dev/null fuerza al kernel a traer las páginas a RAM
+            let start = std::time::Instant::now();
+            if let Ok(mut f) = std::fs::File::open(model_path) {
+                let mut buf = vec![0u8; 64 * 1024];
+                let mut total = 0u64;
+                loop {
+                    match std::io::Read::read(&mut f, &mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => total += n as u64,
+                        Err(_) => break,
+                    }
+                }
+                let elapsed = start.elapsed().as_secs_f64();
+                let mb = total as f64 / (1024.0 * 1024.0);
+                tracing::info!(
+                    "Page cache precargado: {:.0} MB en {:.1}s ({:.0} MB/s)",
+                    mb, elapsed,
+                    mb / elapsed.max(0.001)
+                );
+            }
+        } else {
+            tracing::warn!("--preload: modelo no encontrado, omitiendo");
+        }
+    }
 
     // Initialize runtime
     tracing::info!("Initializing runtime...");
