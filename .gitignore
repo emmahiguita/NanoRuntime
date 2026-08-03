@@ -1,7 +1,6 @@
 # ── Rust / Cargo ──────────────────────────────
 /target
 **/*.rs.bk
-Cargo.lock
 
 # ── Modelos GGUF (son grandes, no subir) ─────
 *.gguf

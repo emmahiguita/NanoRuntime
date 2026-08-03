@@ -35,44 +35,57 @@ static int g_stream_current_layer = -1;
     return header_insert + "\n" + content
 
 def patch_decode_loop(content: str) -> str:
-    """Envuelve el compute graph con load/release por capa."""
-    marker = "ggml_backend_sched_graph_compute"
-    if marker not in content:
-        print(f"[WARN] No se encontro '{marker}' — el decode hook no se aplico")
+    """Inserta hooks load/release alrededor del graph compute.
+
+    Busca la linea:
+        auto status = ggml_backend_sched_graph_compute_async(...);
+    Inserta load ANTES y release DESPUES del bloque de error.
+    """
+    import re
+
+    # Match: the full compute + error check block
+    # auto status = ggml_backend_sched_graph_compute_async(sched.get(), gf);
+    # if (status != GGML_STATUS_SUCCESS) {
+    #     LLAMA_LOG_ERROR(...);
+    # }
+    pattern = (
+        r'(auto\s+status\s*=\s*ggml_backend_sched_graph_compute_async\s*\([^;]*\)\s*;)'
+        r'(\s*if\s*\(status\s*!=\s*GGML_STATUS_SUCCESS\)\s*\{[^}]*\})'
+    )
+
+    m = re.search(pattern, content, re.DOTALL)
+    if not m:
+        print(f"[WARN] No se encontro el bloque graph_compute_async + error check")
         return content
 
-    # Insertar el load ANTES de cada graph compute
-    load_hook = f'''    {{
+    compute_line = m.group(1)  # auto status = ggml_backend_sched_graph_compute_async(...);
+    error_block = m.group(2)   # if (status != ...) { ... }
+
+    load_hook = '''
 #ifdef NANORTIME_STREAMING
-        // NanoRuntime: cargar pesos de la capa actual desde la ventana
-        if (g_stream_current_layer >= 0) {{
-            void* layer_ptr = nanortime_streaming_load(g_stream_current_layer);
-            if (!layer_ptr) {{
-                LLAMA_LOG_ERROR("NanoRuntime: failed to load layer %d\\n", g_stream_current_layer);
-                return -1;
-            }}
-        }}
+    // NanoRuntime: cargar pesos de capa actual desde ventana de streaming
+    if (g_stream_current_layer >= 0) {
+        void* layer_ptr = nanortime_streaming_load(g_stream_current_layer);
+        if (!layer_ptr) {
+            LLAMA_LOG_ERROR("NanoRuntime: failed to load layer %d\\n", g_stream_current_layer);
+        }
+    }
 #endif
-        {marker}(
 '''
-    # Insertar release DESPUÉS del compute
-    release_hook = '''    }
+
+    release_hook = '''
 #ifdef NANORTIME_STREAMING
-    // NanoRuntime: liberar la capa procesada (MADV_DONTNEED)
+    // NanoRuntime: liberar capa procesada (MADV_DONTNEED)
     if (g_stream_current_layer >= 0) {
         nanortime_streaming_release(g_stream_current_layer);
     }
 #endif
 '''
 
-    # Reemplazar la primera ocurrencia del marker con el hook
-    idx = content.find(marker)
-    content = content[:idx] + load_hook + content[idx + len(marker) + 1:]
+    replacement = load_hook + '\n    ' + compute_line + '\n' + error_block + '\n' + release_hook
+    content = content[:m.start()] + replacement + content[m.end():]
 
-    # Nota: el cierre del hook se maneja por el parser — esta es una
-    # aproximación quirúrgica. En producción, el patrón exacto del
-    # decode loop puede variar entre versiones de llama.cpp.
-    print("[OK] Decode hook insertado (load/release por capa)")
+    print(f"[OK] Decode hook insertado (load antes, release despues del error check)")
     return content
 
 def main():
