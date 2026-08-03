@@ -12,6 +12,9 @@ default = []
 simulated = []  # Use simulated backend for testing without real model
 lancedb = ["dep:lancedb"]
 
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 tokio = { workspace = true }
 async-trait = { workspace = true }
