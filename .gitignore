@@ -48,6 +48,10 @@ descarga1/
 desktop/
 *.docx
 
+# ── Sesiones generadas (no versionar) ─────
+.nano-sessions/
+*.nano
+
 # ── Subproyectos separados / no necesarios para el build ─
 dashboard/
 graphify-out/
