@@ -46,27 +46,17 @@ jobs:
           git clone --depth 1 --branch master \
             https://github.com/ggerganov/llama.cpp.git llama.cpp-source
 
-      - name: Copy NanoRuntime streaming headers
+      - name: Copy NanoRuntime streaming sources
         run: |
-          cp nanortime-core/include/nanortime_streaming.h llama.cpp-source/common/
-          cp nanortime-core/include/nanortime_streaming_patch.h llama.cpp-source/common/
+          # Put header + stub in src/ where llama-context.cpp lives
+          cp nanortime-core/include/nanortime_streaming.h llama.cpp-source/src/
+          cp nanortime-core/include/nanortime_streaming_stub.c llama.cpp-source/src/
+          cp nanortime-core/include/nanortime_streaming_patch.h llama.cpp-source/src/
 
       - name: Apply NanoRuntime streaming patch to decode loop
         run: |
           cd llama.cpp-source
           python3 ../scripts/patch_llamacpp_streaming.py src/llama-context.cpp
-
-      - name: Rust toolchain (para nanortime_streaming)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Build nanortime_streaming staticlib
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
-        run: |
-          cargo build --lib -p nanortime-core --target aarch64-linux-android --release
-          cp target/aarch64-linux-android/release/libnanortime_core.a llama.cpp-source/
 
       - name: Configure llama.cpp (CPU + CacheAwareLoader)
         if: matrix.backend == 'cpu'
@@ -74,6 +64,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: |
           cd llama.cpp-source
+          # Add nanortime_streaming_stub.c to the llama library sources
+          echo "target_sources(llama PRIVATE src/nanortime_streaming_stub.c)" >> src/CMakeLists.txt
+          # -DNANORTIME_STREAMING as compiler flag activates #ifdef blocks
           cmake -B build \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
@@ -84,7 +77,8 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DLLAMA_CURL=OFF \
             -DCMAKE_BUILD_TYPE=Release \
-            -DNANORTIME_STREAMING=ON
+            -DCMAKE_C_FLAGS="-DNANORTIME_STREAMING" \
+            -DCMAKE_CXX_FLAGS="-DNANORTIME_STREAMING"
 
       - name: Configure llama.cpp (Vulkan GPU)
         if: matrix.backend == 'vulkan'
