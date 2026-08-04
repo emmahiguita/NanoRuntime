@@ -8,7 +8,6 @@ members = [
 ]
 
 [patch.crates-io]
-llama-cpp-2 = { path = "C:/Users/emman/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-2-0.1.153" }
 llama-cpp-sys-2 = { path = "vendor/llama-cpp-sys-2" }
 
 [workspace.package]
