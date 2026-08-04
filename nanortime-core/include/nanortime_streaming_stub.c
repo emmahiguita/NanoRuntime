@@ -43,6 +43,37 @@ static int count_layers_from_size(void) {
     return 24;                   /* <1B */
 }
 
+/* ── Auto-init: extract model path from /proc/self/cmdline ────────── */
+
+static void auto_init_from_cmdline(void) {
+    if (g_stream.initialized) return;
+
+    /* Read /proc/self/cmdline to find --model or -m argument.
+     * cmdline is null-separated on Linux/Android. */
+    int fd = open("/proc/self/cmdline", O_RDONLY);
+    if (fd < 0) return;
+
+    char buf[4096];
+    ssize_t n = read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+    if (n <= 0) return;
+    buf[n] = '\0';
+
+    /* Parse null-separated arguments looking for -m or --model */
+    char * arg = buf;
+    while (arg < buf + n) {
+        if (strcmp(arg, "-m") == 0 || strcmp(arg, "--model") == 0) {
+            arg += strlen(arg) + 1;
+            if (arg < buf + n && arg[0] != '-') {
+                fprintf(stderr, "NanoRuntime: auto-detected model path: %s\n", arg);
+                nanortime_streaming_init(arg, 3);
+                return;
+            }
+        }
+        arg += strlen(arg) + 1;
+    }
+}
+
 /* ── Public API ───────────────────────────────────────────────────── */
 
 int nanortime_streaming_init(const char * gguf_path, int window_layers) {
@@ -86,6 +117,9 @@ int nanortime_streaming_init(const char * gguf_path, int window_layers) {
 }
 
 void * nanortime_streaming_load(int layer_idx) {
+    /* Auto-initialize on first call by reading model path from cmdline */
+    auto_init_from_cmdline();
+
     if (!g_stream.initialized) return NULL;
     if (layer_idx < 0 || layer_idx >= g_stream.total_layers) return NULL;
 
