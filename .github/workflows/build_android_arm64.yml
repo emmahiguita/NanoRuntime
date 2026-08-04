@@ -75,7 +75,7 @@ jobs:
       - name: Configure CMake (Vulkan GPU)
         if: matrix.backend == 'vulkan'
         run: |
-          sudo apt-get install -y -qq libvulkan-dev 2>/dev/null || true
+          sudo apt-get install -y -qq libvulkan-dev glslang-tools 2>/dev/null || true
           TOOLCHAIN="$ANDROID_NDK/build/cmake/android.toolchain.cmake"
           cd llama.cpp-source
           cmake -B build -G Ninja \
