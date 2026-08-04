@@ -1,9 +1,5 @@
 name: Build NanoRuntime ARM64
 
-# Compila llama.cpp con CacheAwareLoader para Android ARM64.
-# Produce binario CPU con streaming de capas + Vulkan GPU.
-# Sin Rust staticlib — stub C inline de 3 KB.
-
 on:
   workflow_dispatch:
   push:
@@ -19,48 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Android SDK + NDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          ndk-version: "27.0.12077973"
-          cmake-version: "3.22.1"
-
-      - name: Locate NDK toolchain
-        id: ndk
-        run: |
-          # Find android.toolchain.cmake — try common paths
-          TOOLCHAIN=""
-          for dir in "$ANDROID_SDK_ROOT" "$ANDROID_HOME" "$HOME/android-sdk" /usr/local/lib/android/sdk; do
-            if [ -d "$dir/ndk" ]; then
-              # Pick the first NDK version available
-              NDK_VER=$(ls "$dir/ndk" | head -1)
-              CANDIDATE="$dir/ndk/$NDK_VER/build/cmake/android.toolchain.cmake"
-              if [ -f "$CANDIDATE" ]; then
-                TOOLCHAIN="$CANDIDATE"
-                break
-              fi
-            fi
-          done
-          if [ -z "$TOOLCHAIN" ]; then
-            echo "ERROR: Could not find android.toolchain.cmake"
-            echo "SDK root: $ANDROID_SDK_ROOT"
-            ls -R "$ANDROID_SDK_ROOT/ndk" 2>/dev/null || echo "no ndk dir"
-            exit 1
-          fi
-          echo "toolchain=$TOOLCHAIN" >> $GITHUB_OUTPUT
-          echo "Using NDK toolchain: $TOOLCHAIN"
-
-      - name: Install build deps
+      - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ninja-build libvulkan-dev 2>/dev/null
+          sudo apt-get install -y -qq ninja-build
+
+      - name: Download Android NDK
+        run: |
+          # Use NDK r27c — stable, well-tested
+          NDK_ZIP="android-ndk-r27c-linux.zip"
+          wget -q "https://dl.google.com/android/repository/${NDK_ZIP}"
+          unzip -q "$NDK_ZIP" -d /tmp
+          echo "ANDROID_NDK=/tmp/android-ndk-r27c" >> $GITHUB_ENV
+          echo "NDK installed at /tmp/android-ndk-r27c"
 
       - name: Clone llama.cpp
         run: |
@@ -71,31 +38,29 @@ jobs:
         run: |
           cp nanortime-core/include/nanortime_streaming.h       llama.cpp-source/src/
           cp nanortime-core/include/nanortime_streaming_stub.c  llama.cpp-source/src/
-          cp nanortime-core/include/nanortime_streaming_patch.h llama.cpp-source/src/
 
       - name: Patch decode loop
         run: |
           cd llama.cpp-source
           python3 ../scripts/patch_llamacpp_streaming.py src/llama-context.cpp
-          # Verify patch was applied
-          if ! grep -q "NANORTIME_STREAMING" src/llama-context.cpp; then
-            echo "ERROR: Patch not applied!"
+          grep -q "NANORTIME_STREAMING" src/llama-context.cpp || {
+            echo "ERROR: Patch failed"
             exit 1
-          fi
-          echo "Patch verified"
+          }
+          echo "Patch OK"
 
-      - name: Add streaming stub to build
+      - name: Add stub to CMake
         run: |
-          # Append stub source to llama library CMake target
           echo "target_sources(llama PRIVATE src/nanortime_streaming_stub.c)" \
             >> llama.cpp-source/src/CMakeLists.txt
 
       - name: Configure CMake (CPU + Streaming)
         if: matrix.backend == 'cpu'
         run: |
+          TOOLCHAIN="$ANDROID_NDK/build/cmake/android.toolchain.cmake"
           cd llama.cpp-source
           cmake -B build -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${{ steps.ndk.outputs.toolchain }}" \
+            -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
             -DANDROID_STL=c++_shared \
@@ -110,9 +75,11 @@ jobs:
       - name: Configure CMake (Vulkan GPU)
         if: matrix.backend == 'vulkan'
         run: |
+          sudo apt-get install -y -qq libvulkan-dev 2>/dev/null || true
+          TOOLCHAIN="$ANDROID_NDK/build/cmake/android.toolchain.cmake"
           cd llama.cpp-source
           cmake -B build -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${{ steps.ndk.outputs.toolchain }}" \
+            -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
             -DANDROID_STL=c++_shared \
@@ -128,7 +95,7 @@ jobs:
           cd llama.cpp-source
           cmake --build build --parallel $(nproc)
 
-      - name: Package binaries
+      - name: Package
         run: |
           mkdir -p artifact
           cd llama.cpp-source/build/bin
@@ -136,7 +103,7 @@ jobs:
           tar -czf ../../../artifact/nanortime-${{ matrix.backend }}-arm64.tar.gz \
             --directory=../../../llama.cpp-source/build/bin .
 
-      - name: Upload artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: nanortime-${{ matrix.backend }}-arm64

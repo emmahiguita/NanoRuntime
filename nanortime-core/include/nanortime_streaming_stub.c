@@ -124,16 +124,13 @@ void nanortime_streaming_release(int layer_idx) {
     if (!g_stream.initialized) return;
     if (layer_idx < 0 || layer_idx >= g_stream.total_layers) return;
 
-    /* Aggressively evict this layer from page cache.
-     * MADV_DONTNEED: mark pages as not needed (will be reclaimed).
-     * MADV_PAGEOUT: force immediate writeback + reclaim (Linux 5.4+). */
+    /* Evict layer from page cache so RAM stays free for next layers.
+     * MADV_DONTNEED: mark pages as reclaimable. Kernel will drop them
+     * under memory pressure or immediately if no other references. */
     size_t layer_size = g_stream.file_size / g_stream.total_layers;
     size_t layer_off  = (size_t)layer_idx * layer_size;
     if (layer_off < g_stream.file_size) {
         madvise((char *)g_stream.map + layer_off, layer_size, MADV_DONTNEED);
-#ifdef MADV_PAGEOUT
-        madvise((char *)g_stream.map + layer_off, layer_size, MADV_PAGEOUT);
-#endif
     }
 }
 
