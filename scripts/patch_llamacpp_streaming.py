@@ -88,17 +88,39 @@ def patch_decode_loop(content: str) -> str:
     print(f"[OK] Decode hook insertado (load antes, release despues del error check)")
     return content
 
+def patch_graph_callback(content: str) -> str:
+    """Inserta g_stream_current_layer = il en el graph callback.
+    
+    El callback en llama_context::graph_get_cb() recibe int il (layer index).
+    Insertamos g_stream_current_layer = il dentro de if (il >= 0) { ... }
+    para que los hooks load/release sepan que capa se esta computando.
+    """
+    marker = "if (il >= 0) {"
+    if marker not in content:
+        print("[WARN] No se encontro 'if (il >= 0) {' en graph_get_cb")
+        return content
+    
+    # Insert layer tracking right after the if (il >= 0) {
+    hook = '''if (il >= 0) {
+#ifdef NANORTIME_STREAMING
+            g_stream_current_layer = il;
+#endif'''
+    content = content.replace(marker, hook, 1)  # Only first occurrence
+    print("[OK] Layer tracker insertado en graph_get_cb")
+    return content
+
+
 def main():
     if len(sys.argv) < 2:
-        print("USO: python3 patch_llamacpp_streaming.py <ruta_a_llama.cpp>")
+        print("USO: python3 patch_llamacpp_streaming.py <ruta_a_llama-context.cpp>")
         sys.exit(1)
 
-    llama_cpp = Path(sys.argv[1])
-    if not llama_cpp.exists():
-        print(f"[ERROR] No se encontro {llama_cpp}")
+    target = Path(sys.argv[1])
+    if not target.exists():
+        print(f"[ERROR] No se encontro {target}")
         sys.exit(1)
 
-    content = llama_cpp.read_text(encoding="utf-8", errors="ignore")
+    content = target.read_text(encoding="utf-8", errors="ignore")
 
     # 1. Insertar el include FFI
     content = patch_header(content)
@@ -106,9 +128,12 @@ def main():
     # 2. Insertar el hook de decode
     content = patch_decode_loop(content)
 
-    # 3. Escribir el archivo modificado
-    llama_cpp.write_text(content, encoding="utf-8")
-    print(f"[OK] {llama_cpp} parcheado con NANORTIME_STREAMING")
+    # 3. Insertar el tracker de capa en el graph callback
+    content = patch_graph_callback(content)
+
+    # 4. Escribir el archivo modificado
+    target.write_text(content, encoding="utf-8")
+    print(f"[OK] {target} parcheado con NANORTIME_STREAMING")
     print("[OK] Compilar con: -DNANORTIME_STREAMING para activar")
     print("[OK] Sin el flag, llama.cpp es 100% upstream")
 
