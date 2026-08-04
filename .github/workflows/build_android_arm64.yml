@@ -35,6 +35,20 @@ jobs:
           ndk-version: "27.0.12077973"
           cmake-version: "3.22.1"
 
+      - name: Debug NDK paths
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          ls -la $ANDROID_HOME/ndk/ 2>/dev/null || echo "no ndk dir"
+          ls -la $ANDROID_SDK_ROOT/ndk/ 2>/dev/null || echo "no ndk dir at SDK_ROOT"
+          # Find the actual NDK path
+          find /usr/local/lib/android -name "android.toolchain.cmake" 2>/dev/null | head -3 || echo "not found"
+          # Set NDK path for subsequent steps
+          NDK=$(find /usr/local/lib/android -name "android.toolchain.cmake" 2>/dev/null | head -1 | xargs dirname)
+          echo "NDK_PATH=$NDK"
+          echo "NDK_PATH=$NDK" >> $GITHUB_ENV
+
       - name: Install build deps
         run: |
           sudo apt-get update
@@ -60,15 +74,15 @@ jobs:
 
       - name: Configure llama.cpp (CPU + CacheAwareLoader)
         if: matrix.backend == 'cpu'
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: |
           cd llama.cpp-source
+          # Use detected NDK path from debug step
+          NDK_TOOLCHAIN="${NDK_PATH}/android.toolchain.cmake"
+          echo "Using toolchain: $NDK_TOOLCHAIN"
           # Add nanortime_streaming_stub.c to the llama library sources
           echo "target_sources(llama PRIVATE src/nanortime_streaming_stub.c)" >> src/CMakeLists.txt
-          # -DNANORTIME_STREAMING as compiler flag activates #ifdef blocks
           cmake -B build \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK_TOOLCHAIN" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
             -DANDROID_STL=c++_shared \
@@ -82,12 +96,11 @@ jobs:
 
       - name: Configure llama.cpp (Vulkan GPU)
         if: matrix.backend == 'vulkan'
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: |
           cd llama.cpp-source
+          NDK_TOOLCHAIN="${NDK_PATH}/android.toolchain.cmake"
           cmake -B build \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK_TOOLCHAIN" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
             -DANDROID_STL=c++_shared \
