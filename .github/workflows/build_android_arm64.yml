@@ -51,7 +51,7 @@ jobs:
 
       - name: Add stub to CMake
         run: |
-          echo "target_sources(llama PRIVATE src/nanortime_streaming_stub.c)" \
+          echo "target_sources(llama PRIVATE nanortime_streaming_stub.c)" \
             >> llama.cpp-source/src/CMakeLists.txt
 
       - name: Configure CMake (CPU + Streaming)
