@@ -30,60 +30,17 @@ static struct {
     int      initialized;
 } g_stream = { -1, NULL, 0, 0, 0, 0, 0 };
 
-/* ── GGUF helpers (minimal, just enough to count layers) ──────────── */
+/* ── GGUF helpers (minimal) ───────────────────────────────────────── */
 
-/* GGUF magic: "GGUF" = 0x46554747 */
-#define GGUF_MAGIC 0x46554747u
-
-/* Read a uint32 at offset, little-endian. Assumes mmap is valid. */
-static uint32_t read_u32_le(size_t offset) {
-    if (!g_stream.map || offset + 4 > g_stream.file_size) return 0;
-    const uint8_t * p = (const uint8_t *)g_stream.map + offset;
-    return (uint32_t)p[0] | ((uint32_t)p[1] << 8)
-         | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
-}
-
-static uint64_t read_u64_le(size_t offset) {
-    if (!g_stream.map || offset + 8 > g_stream.file_size) return 0;
-    const uint8_t * p = (const uint8_t *)g_stream.map + offset;
-    return (uint64_t)p[0] | ((uint64_t)p[1] << 8)
-         | ((uint64_t)p[2] << 16) | ((uint64_t)p[3] << 24)
-         | ((uint64_t)p[4] << 32) | ((uint64_t)p[5] << 40)
-         | ((uint64_t)p[6] << 48) | ((uint64_t)p[7] << 56);
-}
-
-/* Count layers by scanning GGUF metadata for "llama.block_count" */
-static int count_layers_from_gguf(void) {
-    if (g_stream.file_size < 40) return 0;
-
-    uint32_t magic   = read_u32_le(0);
-    uint32_t version = read_u32_le(4);
-    uint64_t n_tensors = read_u64_le(8);
-    uint64_t meta_off  = read_u64_le(16);  /* offset to metadata_kv */
-
-    if (magic != GGUF_MAGIC) {
-        fprintf(stderr, "NanoRuntime: not a valid GGUF file (magic=0x%x)\n", magic);
-        return 0;
-    }
-
-    /* For GGUF v3, metadata_kv starts after the header.
-     * We scan the string-keyed metadata for "llama.block_count".
-     * This is a simplified scan — in production, parse the full GGUF metadata. */
-    (void)version;
-    (void)n_tensors;
-
-    /* Heuristic: for most GGUF models, n_tensors / 7 ≈ n_layers.
-     * Each transformer layer has ~7 tensors (attn_q, attn_k, attn_v,
-     * attn_output, ffn_gate, ffn_up, ffn_down). */
-    if (n_tensors > 0 && n_tensors < 10000) {
-        int estimated = (int)(n_tensors / 7);
-        if (estimated > 0) return estimated;
-    }
-
-    /* Fallback: typical model sizes */
-    if (g_stream.file_size > 2500000000ull) return 32;  /* 7B */
-    if (g_stream.file_size > 900000000ull)  return 28;  /* 3B */
-    return 24;  /* default */
+/* Estimate layer count from file size. Accurate enough for mmap windowing.
+ * Typical models: 1.5B ~1GB/28L, 3B ~1.7GB/32L, 7B ~2.8GB/32L */
+static int count_layers_from_size(void) {
+    size_t mb = g_stream.file_size / (1024 * 1024);
+    if (mb > 4000) return 40;   /* 14B+ */
+    if (mb > 2500) return 32;   /* 7B */
+    if (mb > 1500) return 28;   /* 3B */
+    if (mb > 800)  return 28;   /* 1.5B */
+    return 24;                   /* <1B */
 }
 
 /* ── Public API ───────────────────────────────────────────────────── */
@@ -117,7 +74,7 @@ int nanortime_streaming_init(const char * gguf_path, int window_layers) {
     /* Advise sequential access for efficient readahead */
     madvise(g_stream.map, g_stream.file_size, MADV_SEQUENTIAL);
 
-    g_stream.total_layers   = count_layers_from_gguf();
+    g_stream.total_layers   = count_layers_from_size();
     g_stream.window_layers  = window_layers > 0 ? window_layers : 3;
     g_stream.current_window_start = 0;
     g_stream.initialized    = 1;
@@ -167,12 +124,16 @@ void nanortime_streaming_release(int layer_idx) {
     if (!g_stream.initialized) return;
     if (layer_idx < 0 || layer_idx >= g_stream.total_layers) return;
 
-    /* Aggressively evict this layer from page cache */
+    /* Aggressively evict this layer from page cache.
+     * MADV_DONTNEED: mark pages as not needed (will be reclaimed).
+     * MADV_PAGEOUT: force immediate writeback + reclaim (Linux 5.4+). */
     size_t layer_size = g_stream.file_size / g_stream.total_layers;
     size_t layer_off  = (size_t)layer_idx * layer_size;
     if (layer_off < g_stream.file_size) {
-        madvise((char *)g_stream.map + layer_off, layer_size,
-                MADV_DONTNEED | MADV_PAGEOUT);
+        madvise((char *)g_stream.map + layer_off, layer_size, MADV_DONTNEED);
+#ifdef MADV_PAGEOUT
+        madvise((char *)g_stream.map + layer_off, layer_size, MADV_PAGEOUT);
+#endif
     }
 }
 
