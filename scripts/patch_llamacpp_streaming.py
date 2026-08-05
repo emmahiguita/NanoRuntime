@@ -131,11 +131,35 @@ def main():
     # 3. Insertar el tracker de capa en el graph callback
     content = patch_graph_callback(content)
 
-    # 4. Escribir el archivo modificado
+    # 4. Parchear common.cpp para deshabilitar spinners
+    content = patch_common_cpp(content)
+
+    # 5. Escribir el archivo modificado
     target.write_text(content, encoding="utf-8")
     print(f"[OK] {target} parcheado con NANORTIME_STREAMING")
     print("[OK] Compilar con: -DNANORTIME_STREAMING para activar")
     print("[OK] Sin el flag, llama.cpp es 100% upstream")
+
+
+def patch_common_cpp(content: str) -> str:
+    """Fuerza tty_can_use_colors() = false bajo NANORTIME_STREAMING.
+    
+    Esto elimina spinners, barras de progreso, y caracteres de control
+    que saturan el I/O cuando stdout/stderr van a archivo en vez de TTY.
+    """
+    marker = 'bool tty_can_use_colors() {'
+    if marker not in content:
+        print("[WARN] No se encontro tty_can_use_colors() en common.cpp")
+        return content
+
+    hook = '''bool tty_can_use_colors() {
+#ifdef NANORTIME_STREAMING
+    // NanoRuntime: siempre modo no-TTY (evita spinners que saturan eMMC)
+    return false;
+#else'''
+    content = content.replace(marker, hook, 1)
+    print("[OK] tty_can_use_colors() forzado a false (no spinners)")
+    return content
 
 if __name__ == "__main__":
     main()
