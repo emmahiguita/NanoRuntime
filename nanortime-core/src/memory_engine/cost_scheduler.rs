@@ -10,7 +10,7 @@
 //! (execution parameters), providing a formal, reproducible selection mechanism.
 
 use crate::memory_engine::auto_config::{KvCompression, PageStrategy, RuntimeConfig};
-use crate::memory_engine::policy_engine::{Constraints, CostWeights, Decision, PolicyEngine, QosMode};
+use crate::memory_engine::policy_engine::{Decision, PolicyEngine, QosMode};
 
 /// Snapshot of system state at a point in time.
 #[derive(Debug, Clone)]

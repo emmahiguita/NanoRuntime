@@ -255,6 +255,7 @@ use crate::memory_engine::hardware_hal::DeviceProfile;
             storage_read_mbps: 364,
             storage_write_mbps: 200,
             cpu_cores: 8,
+            big_cores: 4,
             cpu_temp_c: 42,
             zram_active: true,
             npu_available: false,

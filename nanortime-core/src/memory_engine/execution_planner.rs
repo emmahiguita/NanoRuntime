@@ -17,7 +17,7 @@
 use crate::memory_engine::auto_config::{KvCompression, PageStrategy, RuntimeConfig};
 use crate::memory_engine::hardware_hal::DeviceProfile;
 use crate::memory_engine::memory_model::MemoryModel;
-use crate::memory_engine::thermal_controller::{ThermalCondition, ThermalController, ThermalAction};
+use crate::memory_engine::thermal_controller::{ThermalCondition, ThermalController};
 use crate::memory_engine::battery_guardian::{BatteryGuardian, BatteryMode, BatteryConfig};
 
 /// Result of execution planning.
@@ -308,7 +308,7 @@ mod tests {
         DeviceProfile {
             ram_total_mb: 3814, ram_available_mb: 1900,
             storage_read_mbps: 364, storage_write_mbps: 200,
-            cpu_cores: 8, cpu_temp_c: 42, zram_active: true,
+            cpu_cores: 8, big_cores: 4, cpu_temp_c: 42, zram_active: true,
             npu_available: false,
             tier: crate::memory_engine::hardware_hal::DeviceTier::Budget,
             oom_score: 180, oom_score_adj: 0,
@@ -319,7 +319,7 @@ mod tests {
         DeviceProfile {
             ram_total_mb: 7823, ram_available_mb: 3900,
             storage_read_mbps: 1067, storage_write_mbps: 800,
-            cpu_cores: 8, cpu_temp_c: 38, zram_active: true,
+            cpu_cores: 8, big_cores: 4, cpu_temp_c: 38, zram_active: true,
             npu_available: false,
             tier: crate::memory_engine::hardware_hal::DeviceTier::MidRange,
             oom_score: 85, oom_score_adj: 0,

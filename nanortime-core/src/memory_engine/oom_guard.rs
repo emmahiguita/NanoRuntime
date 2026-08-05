@@ -1,7 +1,6 @@
 //! OOM Guard — Monitor Android OOM Killer. Linux/Android only.
 //! Static risk assessment and quick_check available on all platforms.
 
-use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OomRisk { Low, Medium, High, Critical }

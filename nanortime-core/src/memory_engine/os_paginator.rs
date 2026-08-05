@@ -95,7 +95,7 @@ impl OSMemoryPaginator {
     /// `MADV_FREE` le indica al kernel que puede reutilizar las páginas si hay presión de memoria,
     /// evitando I/O hasta que el kernel realmente las necesite.
     pub fn mark_as_free(&self, range: &ByteRange) -> Result<(), std::io::Error> {
-        let (ptr, len) = self.get_aligned_ptr_and_len(range)?;
+        let (_ptr, len) = self.get_aligned_ptr_and_len(range)?;
         if len == 0 {
             return Ok(());
         }

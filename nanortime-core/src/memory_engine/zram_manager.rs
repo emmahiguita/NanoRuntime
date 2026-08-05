@@ -4,7 +4,6 @@
 //! en memoria RAM con un ratio de compresión estimado de 3-4x (2GB KV cache -> ~500MB RAM).
 
 use std::path::Path;
-use std::process::Command;
 
 /// Estado de zram / zswap en el sistema.
 #[derive(Debug, Clone)]

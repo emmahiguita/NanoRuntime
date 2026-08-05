@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        NanoAI — Material Dark Theme (Compose bridge).
+        Uses android:Theme.Material.NoActionBar for compatibility with
+        pure Compose ComponentActivity (no AppCompat dependency required).
+        Compose MaterialTheme handles actual theming at runtime.
+    -->
+    <style name="Theme.NanoAI" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:colorBackground">@color/background</item>
+    </style>
+</resources>

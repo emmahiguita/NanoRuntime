@@ -15,7 +15,7 @@
 //! | > 48°C        | Pause inference, wait for cooldown, retry |
 
 use std::fs;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Thermal condition of the device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

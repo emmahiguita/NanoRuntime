@@ -10,10 +10,8 @@ use sysinfo::System;
 use crate::memory_engine::hardware_profiler::{DeviceClass, HardwareProfile, HardwareProfiler};
 
 // ── V2 modules: Hardware Abstraction Layer + Auto-Config ──────────
-use crate::memory_engine::hardware_hal::{profile_device, DeviceTier};
-use crate::memory_engine::auto_config::RuntimeConfig;
+use crate::memory_engine::hardware_hal::profile_device;
 use crate::memory_engine::oom_guard::{quick_check, OomRisk};
-use crate::memory_engine::memory_model::MemoryModel;
 use crate::memory_engine::execution_planner::ExecutionPlanner;
 
 /// Estadísticas de uso de memoria del runtime.

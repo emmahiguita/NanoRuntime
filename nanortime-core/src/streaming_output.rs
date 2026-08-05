@@ -197,7 +197,7 @@ impl StreamingOutput {
 }
 
 /// Render a stream event as a user-facing string.
-pub fn format_event(event: &StreamEvent, so: &StreamingOutput) -> String {
+pub fn format_event(event: &StreamEvent, _so: &StreamingOutput) -> String {
     match event {
         StreamEvent::Token { text, .. } => text.clone(),
         StreamEvent::Stopped { reason } =>

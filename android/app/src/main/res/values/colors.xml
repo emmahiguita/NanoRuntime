@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================
+         NanoAI — Material3 Professional Palette
+         Dark Space theme aligned with NanoRuntime Observatory Dashboard.
+         Primary: NVIDIA Green. Surface: Deep Obsidian.
+         ============================================================ -->
+
+    <!-- Primary (NVIDIA Green) -->
+    <color name="primary">#FF00E676</color>
+    <color name="primary_dark">#FF00C853</color>
+    <color name="primary_container">#FF0A3D1F</color>
+    <color name="on_primary">#FF07090E</color>
+    <color name="on_primary_container">#FFB9F6CA</color>
+
+    <!-- Secondary (Cyan) -->
+    <color name="secondary">#FF38BDF8</color>
+    <color name="secondary_container">#FF0C2D48</color>
+    <color name="on_secondary">#FF07090E</color>
+    <color name="on_secondary_container">#FFBAE6FD</color>
+
+    <!-- Tertiary (Purple) -->
+    <color name="tertiary">#FFC084FC</color>
+    <color name="tertiary_container">#FF2D1060</color>
+    <color name="on_tertiary">#FF07090E</color>
+    <color name="on_tertiary_container">#FFE9D5FF</color>
+
+    <!-- Error (Rose) -->
+    <color name="error">#FFEF4444</color>
+    <color name="error_container">#FF4C0519</color>
+    <color name="on_error">#FF07090E</color>
+    <color name="on_error_container">#FFFECACA</color>
+
+    <!-- Neutral / Surface (Dark Obsidian) -->
+    <color name="background">#FF07090E</color>
+    <color name="on_background">#FFF8FAFC</color>
+    <color name="surface">#FF0F172A</color>
+    <color name="surface_dim">#FF090D16</color>
+    <color name="surface_bright">#FF1E293B</color>
+    <color name="surface_container_lowest">#FF040611</color>
+    <color name="surface_container_low">#FF0A0F1A</color>
+    <color name="surface_container">#FF0F172A</color>
+    <color name="surface_container_high">#FF1A2236</color>
+    <color name="surface_container_highest">#FF2A3246</color>
+    <color name="on_surface">#FFF8FAFC</color>
+    <color name="on_surface_variant">#FF94A3B8</color>
+    <color name="outline">#FF475569</color>
+    <color name="outline_variant">#FF1E293B</color>
+
+    <!-- Inverse -->
+    <color name="inverse_surface">#FFF8FAFC</color>
+    <color name="inverse_on_surface">#FF07090E</color>
+    <color name="inverse_primary">#FF00C853</color>
+
+    <!-- Status / Semantic -->
+    <color name="status_success">#FF00E676</color>
+    <color name="status_warning">#FFF59E0B</color>
+    <color name="status_info">#FF38BDF8</color>
+
+    <!-- Terminal -->
+    <color name="terminal_background">#FF050810</color>
+    <color name="terminal_green">#FF00E676</color>
+
+    <!-- Divider -->
+    <color name="divider">#1E293B</color>
+
+    <!-- Icon Tint -->
+    <color name="ic_launcher_background">#FF0F172A</color>
+</resources>

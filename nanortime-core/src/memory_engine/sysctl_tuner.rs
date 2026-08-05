@@ -3,7 +3,6 @@
 //! Aplica ajustes de memoria virtual del kernel para optimizar mmap de modelos grandes,
 //! reducir la presión del vfs_cache y evitar stuttering por writebacks de I/O.
 
-use std::process::Command;
 
 /// Ajustes recomendados para inferencia LLM.
 #[derive(Debug, Clone)]
