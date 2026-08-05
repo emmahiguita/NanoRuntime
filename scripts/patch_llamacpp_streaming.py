@@ -131,8 +131,8 @@ def main():
     # 3. Insertar el tracker de capa en el graph callback
     content = patch_graph_callback(content)
 
-    # 4. Parchear common.cpp para deshabilitar spinners
-    content = patch_common_cpp(content)
+    # 4. Silenciar el progress callback en llama.cpp
+    content = patch_progress_callback(content)
 
     # 5. Escribir el archivo modificado
     target.write_text(content, encoding="utf-8")
@@ -141,7 +141,26 @@ def main():
     print("[OK] Sin el flag, llama.cpp es 100% upstream")
 
 
-def patch_common_cpp(content: str) -> str:
+def patch_progress_callback(content: str) -> str:
+    """Silencia el progress callback que imprime puntos a stdout.
+    
+    Inserta un return true temprano bajo NANORTIME_STREAMING.
+    El callback sigue existiendo pero no imprime nada.
+    """
+    marker = "[](float progress, void * ctx) {"
+    if marker not in content:
+        print("[WARN] No se encontro el progress callback en llama.cpp")
+        return content
+    
+    hook = '''[](float progress, void * ctx) {
+#ifdef NANORTIME_STREAMING
+            // NanoRuntime: no-op (los dots saturan eMMC)
+            (void)progress; (void)ctx;
+            return true;
+#endif'''
+    content = content.replace(marker, hook, 1)
+    print("[OK] Progress callback silenciado")
+    return content
     """Fuerza tty_can_use_colors() = false bajo NANORTIME_STREAMING.
     
     Esto elimina spinners, barras de progreso, y caracteres de control

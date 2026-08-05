@@ -43,10 +43,9 @@ jobs:
         run: |
           cd llama.cpp-source
           python3 ../scripts/patch_llamacpp_streaming.py src/llama-context.cpp
-          grep -q "NANORTIME_STREAMING" src/llama-context.cpp || {
-            echo "ERROR: Patch failed"
-            exit 1
-          }
+          python3 ../scripts/patch_llamacpp_streaming.py src/llama.cpp
+          grep -q "NANORTIME_STREAMING" src/llama-context.cpp || { echo "ERROR: context patch failed"; exit 1; }
+          grep -q "NANORTIME_STREAMING" src/llama.cpp || { echo "ERROR: llama patch failed"; exit 1; }
           echo "Patch OK"
 
       - name: Add stub to CMake
