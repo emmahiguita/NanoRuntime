@@ -105,6 +105,19 @@ int nanortime_streaming_init(const char * gguf_path, int window_layers) {
     /* Advise sequential access for efficient readahead */
     madvise(g_stream.map, g_stream.file_size, MADV_SEQUENTIAL);
 
+    /* Preload first window_layers into page cache (async readahead).
+     * This eliminates cold-start latency — layers are already in RAM
+     * when the first graph_compute fires. */
+    {
+        size_t layer_size  = g_stream.file_size / g_stream.total_layers;
+        size_t window_bytes = layer_size * g_stream.window_layers;
+        if (window_bytes < g_stream.file_size) {
+            madvise(g_stream.map, window_bytes, MADV_WILLNEED);
+            /* Also tell the kernel to start async readahead from disk */
+            posix_fadvise(g_stream.fd, 0, (off_t)window_bytes, POSIX_FADV_WILLNEED);
+        }
+    }
+
     g_stream.total_layers   = count_layers_from_size();
     g_stream.window_layers  = window_layers > 0 ? window_layers : 3;
     g_stream.current_window_start = 0;
