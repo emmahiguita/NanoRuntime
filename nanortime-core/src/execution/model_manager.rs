@@ -75,6 +75,24 @@ impl ModelManager {
         adapted_config.batch_size = v2_batch as usize;
         adapted_config.threads = optimal_threads;
 
+        // ── Hierarchical KV: reduce RAM 50% con compresión por capas ──
+        let kv_cache = crate::memory_engine::hierarchical_kv::HierarchicalKvCache::new(32, 128);
+        let kv_savings = kv_cache.estimate_savings(
+            adapted_config.context_size,
+            profile.ram_total_mb,
+        );
+        if kv_savings.reduction_pct > 0.0 {
+            let recommended = (adapted_config.context_size as f64 * (1.0 + kv_savings.reduction_pct / 100.0)) as usize;
+            tracing::info!(
+                "Hierarchical KV: original={:.0}MB hierarchical={:.0}MB reduction={:.0}% quality_loss={:.1}%",
+                kv_savings.original_mb, kv_savings.hierarchical_mb,
+                kv_savings.reduction_pct, kv_savings.quality_loss_pct
+            );
+            if recommended > adapted_config.context_size {
+                adapted_config.context_size = recommended.min(16384);
+            }
+        }
+
         #[cfg(feature = "simulated")]
         {
             let mut g = self.state.write().await;

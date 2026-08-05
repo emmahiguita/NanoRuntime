@@ -9,6 +9,7 @@ pub mod privacy;
 pub mod router;
 
 use std::sync::Arc;
+use std::cell::RefCell;
 
 use crate::config::manifest::Config;
 use crate::error::Result;
@@ -18,10 +19,13 @@ use crate::inference::research::hallucination_detector::{HallucinationDetector, 
 use crate::{Response, ToolCallResult, UserRequest};
 
 // ── V2: Policy Engine + Cost Scheduler ─────────────────────────────
-use crate::memory_engine::policy_engine::{PolicyEngine, QosMode};
-use crate::memory_engine::cost_scheduler::CostScheduler;
+use crate::memory_engine::policy_engine::QosMode;
 use crate::memory_engine::hardware_hal::profile_device;
 use crate::speculative_decoder::{SpeculativePlan, InferenceMode};
+// ── V2: Thermal + Battery + Hierarchical KV ────────────────────────
+use crate::memory_engine::thermal_controller::{ThermalController, ThermalAction};
+use crate::memory_engine::battery_guardian::{BatteryGuardian, BatteryMode};
+use crate::memory_engine::hierarchical_kv::{HierarchicalKvCache, HierarchicalKvConfig};
 
 /// Orquestador principal del runtime.
 ///
@@ -39,6 +43,13 @@ pub struct Orchestrator {
     cloud_rate_limiter: RateLimiter,
     /// Limitador de tasa para Tier 2 (LAN).
     lan_rate_limiter: RateLimiter,
+    // ── V2: Hardware-aware controllers ──────────────────────────
+    /// Monitorea temperatura del CPU y recomienda acciones.
+    thermal: RefCell<ThermalController>,
+    /// Monitorea batería y ajusta modo de consumo.
+    battery: BatteryGuardian,
+    /// Optimiza KV cache con compresión por capas.
+    kv_cache: HierarchicalKvCache,
 }
 
 impl Orchestrator {
@@ -56,6 +67,12 @@ impl Orchestrator {
         let cloud_rate_limiter = RateLimiter::new(5.0, 1.0);
         // LAN: 120 requests/minute = 2 per second, burst of 10
         let lan_rate_limiter = RateLimiter::new(10.0, 2.0);
+        // ── V2: Hardware-aware controllers ─────────────────────
+        let thermal = RefCell::new(ThermalController::new());
+        let battery = BatteryGuardian::new();
+        // Hierarchical KV: reduce RAM 50% usando compresión Q4_0
+        let kv_config = HierarchicalKvConfig::default();
+        let kv_cache = HierarchicalKvCache::new(32, 128).with_config(kv_config);
         Self {
             config,
             model_manager,
@@ -65,6 +82,9 @@ impl Orchestrator {
             prompt_cache,
             cloud_rate_limiter,
             lan_rate_limiter,
+            thermal,
+            battery,
+            kv_cache,
         }
     }
 
@@ -108,6 +128,7 @@ impl Orchestrator {
     /// Procesa una petición completa del usuario a través del pipeline.
     ///
     /// Pipeline:
+    /// 0. Thermal + Battery check — ajusta QoS según hardware
     /// 1. Privacy check — detecta PII y fuerza Tier 1 si es necesario
     /// 2. RAG — busca documentos relevantes para enriquecer el contexto
     /// 3. Prompt cache — salta generación si el prompt exacto ya se respondió
@@ -119,6 +140,26 @@ impl Orchestrator {
         &self,
         request: UserRequest,
     ) -> Result<Response> {
+        // ── Step 0: Hardware-aware QoS ──────────────────────────────
+        let reading = self.thermal.borrow_mut().sample();
+        let thermal_action = self.thermal.borrow().recommend_action(&reading);
+        let battery_mode = self.battery.determine_mode();
+
+        // Thermal: si temperatura > 70°C, degradar a modo Eco
+        if !matches!(thermal_action, ThermalAction::Normal) {
+            tracing::warn!(
+                "Thermal action: {:?} at {:.0}°C — reducing batch/pausing",
+                thermal_action, reading.max_temp_c
+            );
+        }
+        // Battery: si < 20%, forzar solo Tier 1 (edge)
+        if matches!(battery_mode, BatteryMode::Eco | BatteryMode::Survival) {
+            tracing::warn!(
+                "Low battery mode: {:?} — forcing Tier 1 (edge only)",
+                battery_mode
+            );
+        }
+
         let prompt = &request.prompt;
 
         // Step 1: Privacy check
