@@ -309,10 +309,37 @@ async fn process_single_prompt(
             let mut buffer = String::with_capacity(4096);
             const STOP_SEQUENCES: &[&str] = &["\n\n\n", "\n###", "\nUSER:", "<|im_end|>"];
             
-            while let Some((token, _prob)) = rx.recv().await {
+            // Track low-confidence streak for hallucination detection
+            let mut low_conf_streak: u32 = 0;
+            while let Some((token, prob)) = rx.recv().await {
                 print!("{}", token);
                 let _ = io::stdout().flush();
                 token_count += 1;
+                
+                // ── Token-Level Early Exit ────────────────────────
+                let confidence = prob;
+                // Exit early if model is very confident (factual answer done)
+                if confidence > 0.99 && token_count > 1 {
+                    tracing::info!(
+                        "Early exit: high confidence ({:.3}) at token {}",
+                        confidence, token_count
+                    );
+                    break;
+                }
+                // Track consecutive low-confidence tokens (hallucination guard)
+                if confidence < 0.1 {
+                    low_conf_streak += 1;
+                    if low_conf_streak >= 3 {
+                        tracing::warn!(
+                            "Early exit: hallucination detected ({} low-conf tokens)",
+                            low_conf_streak
+                        );
+                        break;
+                    }
+                } else {
+                    low_conf_streak = 0;
+                }
+                // ── End Early Exit ────────────────────────────────
                 
                 // Natural stop detection: check if buffer ends with a stop sequence
                 if natural_stops {
