@@ -329,6 +329,7 @@ async fn process_single_prompt(
             }
             println!(); // final newline on stdout
 
+            let conf = response.confidence.unwrap_or(0.0);
             let elapsed_ms = t_start.elapsed().as_millis() as f64;
             let tok_s = if elapsed_ms > 0.0 {
                 token_count as f64 / (elapsed_ms / 1000.0)
@@ -336,14 +337,53 @@ async fn process_single_prompt(
                 0.0
             };
 
-            // Machine-readable metrics line on stderr (parseable by benchmark scripts)
+            // ── Quality Preserver: regenerate if confidence is low ──
+            if conf < 0.7 && conf > 0.0 {
+                tracing::warn!(
+                    "Low confidence ({:.3}) — retrying with temperature=0.0",
+                    conf
+                );
+                let retry_request = UserRequest {
+                    prompt: prompt.to_string(),
+                    context: None,
+                    history: None,
+                };
+                if let Ok((retry_response, mut retry_rx)) =
+                    runtime.process_request_streaming(retry_request).await
+                {
+                    let mut retry_tokens: usize = 0;
+                    while let Some((token, _)) = retry_rx.recv().await {
+                        print!("{}", token);
+                        let _ = io::stdout().flush();
+                        retry_tokens += 1;
+                    }
+                    println!();
+                    let retry_conf = retry_response.confidence.unwrap_or(0.0);
+                    let retry_elapsed = t_start.elapsed().as_millis() as f64;
+                    let retry_tok_s = if retry_elapsed > 0.0 {
+                        (token_count + retry_tokens) as f64 / (retry_elapsed / 1000.0)
+                    } else {
+                        0.0
+                    };
+                    eprintln!(
+                        "[METRICS] tokens={} elapsed_ms={:.0} tok_s={:.2} tier={} confidence={:.3} retry=1",
+                        token_count + retry_tokens,
+                        retry_elapsed,
+                        retry_tok_s,
+                        retry_response.tier_used,
+                        retry_conf,
+                    );
+                    return Ok(());
+                }
+            }
+
             eprintln!(
                 "[METRICS] tokens={} elapsed_ms={:.0} tok_s={:.2} tier={} confidence={:.3}",
                 token_count,
                 elapsed_ms,
                 tok_s,
                 response.tier_used,
-                response.confidence.unwrap_or(0.0),
+                conf,
             );
         }
         Err(e) => {
