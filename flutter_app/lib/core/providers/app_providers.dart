@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/device_metrics.dart';
+import '../services/llm_engine_client.dart';
 
 /* ================================================================
    NanoAI — Real State Management
@@ -53,6 +54,9 @@ final settingsRepoProvider = Provider<SettingsRepository>((ref) => SettingsRepos
 class SettingsState {
   final String themeMode; final double temperature, topP; final bool madvise, oomGuard; final double thermalLimit; final String batteryMode;
   const SettingsState({this.themeMode = 'Sistema', this.temperature = 0.7, this.topP = 0.9, this.madvise = true, this.oomGuard = true, this.thermalLimit = 42, this.batteryMode = 'Balanced'});
+
+  SettingsState copyWith({String? themeMode, double? temperature, double? topP, bool? madvise, bool? oomGuard, double? thermalLimit, String? batteryMode}) =>
+    SettingsState(themeMode: themeMode ?? this.themeMode, temperature: temperature ?? this.temperature, topP: topP ?? this.topP, madvise: madvise ?? this.madvise, oomGuard: oomGuard ?? this.oomGuard, thermalLimit: thermalLimit ?? this.thermalLimit, batteryMode: batteryMode ?? this.batteryMode);
 }
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
@@ -67,18 +71,41 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   Future<void> _persist(SettingsState s) async { state = s; await _repo.save(s); }
-  void setThemeMode(String m) { _persist(SettingsState(themeMode: m, temperature: state.temperature, topP: state.topP, madvise: state.madvise, oomGuard: state.oomGuard, thermalLimit: state.thermalLimit, batteryMode: state.batteryMode)); _ref.read(themeModeProvider.notifier).state = m == 'Oscuro' ? ThemeMode.dark : m == 'Claro' ? ThemeMode.light : ThemeMode.system; }
-  void setTemperature(double v) => _persist(SettingsState(themeMode: state.themeMode, temperature: v, topP: state.topP, madvise: state.madvise, oomGuard: state.oomGuard, thermalLimit: state.thermalLimit, batteryMode: state.batteryMode));
-  void setTopP(double v) => _persist(SettingsState(themeMode: state.themeMode, temperature: state.temperature, topP: v, madvise: state.madvise, oomGuard: state.oomGuard, thermalLimit: state.thermalLimit, batteryMode: state.batteryMode));
-  void toggleMadvise(bool v) => _persist(SettingsState(themeMode: state.themeMode, temperature: state.temperature, topP: state.topP, madvise: v, oomGuard: state.oomGuard, thermalLimit: state.thermalLimit, batteryMode: state.batteryMode));
-  void toggleOom(bool v) => _persist(SettingsState(themeMode: state.themeMode, temperature: state.temperature, topP: state.topP, madvise: state.madvise, oomGuard: v, thermalLimit: state.thermalLimit, batteryMode: state.batteryMode));
-  void setThermalLimit(double v) => _persist(SettingsState(themeMode: state.themeMode, temperature: state.temperature, topP: state.topP, madvise: state.madvise, oomGuard: state.oomGuard, thermalLimit: v, batteryMode: state.batteryMode));
-  void setBatteryMode(String v) => _persist(SettingsState(themeMode: state.themeMode, temperature: state.temperature, topP: state.topP, madvise: state.madvise, oomGuard: state.oomGuard, thermalLimit: state.thermalLimit, batteryMode: v));
+  void setThemeMode(String m) { _persist(state.copyWith(themeMode: m)); _ref.read(themeModeProvider.notifier).state = m == 'Oscuro' ? ThemeMode.dark : m == 'Claro' ? ThemeMode.light : ThemeMode.system; }
+  void setTemperature(double v) => _persist(state.copyWith(temperature: v));
+  void setTopP(double v) => _persist(state.copyWith(topP: v));
+  void toggleMadvise(bool v) => _persist(state.copyWith(madvise: v));
+  void toggleOom(bool v) => _persist(state.copyWith(oomGuard: v));
+  void setThermalLimit(double v) => _persist(state.copyWith(thermalLimit: v));
+  void setBatteryMode(String v) => _persist(state.copyWith(batteryMode: v));
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>((ref) => SettingsNotifier(ref.read(settingsRepoProvider), ref));
 
 // ─── Chat State (real timer-based response, model state management) ───
+/// Catálogo REAL de modelos GGUF presentes en el dispositivo
+/// (/data/local/tmp/*.gguf). La app no puede listar el FS del device
+/// (SELinux bloquea el acceso desde el uid de la app), por eso se
+/// declaran aquí con los datos reales verificados por adb.
+///
+/// Un solo llama-server corre a la vez: cambiar de modelo requiere
+/// reiniciar el motor vía adb. La selección en la app persiste el
+/// catálogo pero no rearranca el server (restringido por SELinux).
+class LmCatalogEntry {
+  final String name; final String params; final String quant; final double sizeGb; final double ramGb; final String file;
+  const LmCatalogEntry(this.name, this.params, this.quant, this.sizeGb, this.ramGb, this.file);
+}
+
+abstract final class NeuralCatalog {
+  static const models = <LmCatalogEntry>[
+    LmCatalogEntry('Qwen2.5-1.1B-Instruct', '1.1B', 'Q8_0', 1.12, 1.8, 'qwen.gguf'),
+    LmCatalogEntry('Qwen2.5-3B-Instruct', '3B', 'Q8_0', 2.10, 2.8, 'qwen3b.gguf'),
+    LmCatalogEntry('DeepSeek-R1-7B', '7B', 'Q4_K_M', 4.68, 3.6, 'deepseek.gguf'),
+    LmCatalogEntry('DeepSeek-R1-7B-Q2', '7B', 'Q2_K', 3.01, 2.2, 'deepseek-q2k.gguf'),
+  ];
+  static String fileOf(String name) => models.firstWhere((m) => m.name == name, orElse: () => models[0]).file;
+}
+
 enum ModelConnectionState { ready, loadingModel, noModel, error }
 enum MessageSender { user, ai }
 enum MessageStatus { sending, sent, error }
@@ -89,77 +116,183 @@ class ChatMessage {
 }
 
 class ChatState {
-  final List<ChatMessage> messages; final String input; final bool generating; final String activeModel; final ModelConnectionState connection; final List<String> availableModels; final bool showModelSelector;
-  const ChatState({this.messages = const [], this.input = '', this.generating = false, this.activeModel = 'Sin modelo', this.connection = ModelConnectionState.noModel, this.availableModels = const [], this.showModelSelector = false});
+  final List<ChatMessage> messages; final String input; final bool generating; final String activeModel; final ModelConnectionState connection; final List<String> availableModels; final bool showModelSelector; final bool engineOnline; final double? liveTps;
+  const ChatState({this.messages = const [], this.input = '', this.generating = false, this.activeModel = 'Sin modelo', this.connection = ModelConnectionState.noModel, this.availableModels = const [], this.showModelSelector = false, this.engineOnline = false, this.liveTps});
+
+  ChatState copyWith({List<ChatMessage>? messages, String? input, bool? generating, String? activeModel, ModelConnectionState? connection, List<String>? availableModels, bool? showModelSelector, bool? engineOnline, double? liveTps}) =>
+    ChatState(messages: messages ?? this.messages, input: input ?? this.input, generating: generating ?? this.generating, activeModel: activeModel ?? this.activeModel, connection: connection ?? this.connection, availableModels: availableModels ?? this.availableModels, showModelSelector: showModelSelector ?? this.showModelSelector, engineOnline: engineOnline ?? this.engineOnline, liveTps: liveTps ?? this.liveTps);
 }
 
 class ChatNotifier extends StateNotifier<ChatState> {
-  final _rng = Random();
-  ChatNotifier() : super(ChatState(availableModels: const ['Qwen2.5-1.5B', 'DeepSeek-R1-7B', 'Llama-3.2-3B', 'Phi-3.5-mini']));
+  // Motor llama.cpp real desplegado en el dispositivo (loopback 127.0.0.1:8080).
+  final LLMEngineClient _engine = LLMEngineClient();
+  // Timer activo de generación: permite cancelar la respuesta con STOP.
+  Timer? _genTimer;
+  // Cancelación cooperativa: STOP o un segundo envío anulan la generación en curso.
+  bool _generationCancelled = false;
+  // Timer de carga de modelo: cancelable para que solo el último
+  // modelo seleccionado pueda transicionar a ready.
+  Timer? _loadTimer;
+  ChatNotifier() : super(ChatState(availableModels: [for (final m in NeuralCatalog.models) m.name])) { _restoreModel(); }
 
-  void setInput(String v) => state = ChatState(messages: state.messages, input: v, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels);
+  /// Restaura la última selección de modelo para que sobreviva al reinicio.
+  Future<void> _restoreModel() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('nanoai_active_model');
+      if (saved == null || saved.isEmpty) return;
+      if (!mounted) return;
+      state = state.copyWith(activeModel: saved, connection: ModelConnectionState.loadingModel);
+      await _checkEngine(saved);
+    } catch (_) { /* persistencia no disponible: seguir con default */ }
+  }
+
+  /// Consulta /health y transiciona a ready/error según el motor real.
+  Future<void> _checkEngine([String? model]) async {
+    final online = await _engine.isOnline();
+    if (!mounted) return;
+    final name = model ?? state.activeModel;
+    state = state.copyWith(
+      activeModel: name,
+      connection: online ? ModelConnectionState.ready : ModelConnectionState.error,
+      engineOnline: online,
+    );
+  }
+
+  void setInput(String v) => state = state.copyWith(input: v);
+
+  /// Re-comprueba la conectividad real con el motor llama.cpp.
+  Future<void> refreshEngine() async {
+    final online = await _engine.isOnline();
+    if (!mounted) return;
+    state = state.copyWith(engineOnline: online);
+  }
 
   void send() {
     final text = state.input.trim();
     if (text.isEmpty || state.generating || state.connection != ModelConnectionState.ready) return;
     final userMsg = ChatMessage(id: DateTime.now().microsecondsSinceEpoch.toString(), sender: MessageSender.user, text: text, timestamp: DateTime.now());
-    state = ChatState(messages: [...state.messages, userMsg], input: '', generating: true, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels);
-    // Real timer with varied response time based on input length
-    final delay = Duration(milliseconds: 400 + min(text.length * 30, 2000));
-    Future.delayed(delay, () {
-      if (!mounted) return;
-      final responses = [
-        'Procesando "$text"... El motor NanoRuntime ejecuta inferencia 100% local en tu dispositivo.',
-        'Basado en tu consulta, NanoRuntime ha procesado la solicitud usando el modelo ${state.activeModel} con cuantización Q4_K_M.',
-        'Respuesta de NanoAI: tu consulta ha sido analizada localmente sin conexión a internet. La latencia fue de ${_rng.nextInt(300) + 80}ms.',
-        'El modelo ${state.activeModel} ha generado esta respuesta en aproximadamente ${_rng.nextInt(10) + 12} tokens por segundo.',
-      ];
-      final aiMsg = ChatMessage(id: DateTime.now().microsecondsSinceEpoch.toString(), sender: MessageSender.ai, text: responses[_rng.nextInt(responses.length)], timestamp: DateTime.now(), tps: 12.0 + _rng.nextDouble() * 6);
-      if (mounted) state = ChatState(messages: [...state.messages, aiMsg], input: state.input, generating: false, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels);
-    });
+    state = state.copyWith(messages: [...state.messages, userMsg], input: '', generating: true);
+    _generate(text);
   }
 
-  void stop() => state = ChatState(messages: state.messages, input: state.input, generating: false, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels);
-  void clear() => state = ChatState(input: state.input, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels);
-  void delete(String id) => state = ChatState(messages: state.messages.where((m) => m.id != id).toList(), input: state.input, generating: state.generating, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels);
-  void toggleSelector() => state = ChatState(messages: state.messages, input: state.input, generating: state.generating, activeModel: state.activeModel, connection: state.connection, availableModels: state.availableModels, showModelSelector: !state.showModelSelector);
+  Future<void> _generate(String text) async {
+    // Formato de chat Qwen (los .gguf del device usan este chat template).
+    _generationCancelled = false;
+    final prompt = '<|im_start|>user\n$text<|im_end|>\n<|im_start|>assistant\n';
+    try {
+      final res = await _engine.generate(prompt: prompt, temperature: 0.7, maxTokens: 256);
+      if (!mounted || _generationCancelled) return;
+      _genTimer = null;
+      if (res.text.isEmpty) {
+        state = state.copyWith(generating: false, connection: ModelConnectionState.ready);
+        return;
+      }
+      final aiMsg = ChatMessage(id: DateTime.now().microsecondsSinceEpoch.toString(), sender: MessageSender.ai, text: res.text, timestamp: DateTime.now(), tps: res.tps, status: MessageStatus.sent);
+      state = state.copyWith(messages: [...state.messages, aiMsg], generating: false, connection: ModelConnectionState.ready, engineOnline: true, liveTps: res.tps ?? state.liveTps);
+    } on LLMEngineException catch (_) {
+      if (!mounted) return;
+      // Motor no responde: degradación HONESTA. No se finge inferencia real.
+      _genTimer?.cancel();
+      final aiMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: '⚠️ El motor llama.cpp no respondió. Confirma que esté levantado en el dispositivo y vuelve a intentarlo. (${state.activeModel})',
+        timestamp: DateTime.now(),
+      );
+      _genTimer = null;
+      state = state.copyWith(messages: [...state.messages, aiMsg], generating: false, engineOnline: false);
+    }
+  }
+
+  // STOP cancela la respuesta PENDIENTE: invalida la generación HTTP y el timer.
+  void stop() {
+    _generationCancelled = true;
+    _genTimer?.cancel();
+    _genTimer = null;
+    state = state.copyWith(generating: false);
+  }
+  void clear() => state = state.copyWith(messages: [], input: '');
+  void delete(String id) => state = state.copyWith(messages: state.messages.where((m) => m.id != id).toList());
+  void toggleSelector() => state = state.copyWith(showModelSelector: !state.showModelSelector);
 
   void selectModel(String name) {
-    state = ChatState(messages: state.messages, input: state.input, generating: state.generating, activeModel: name, connection: ModelConnectionState.loadingModel, availableModels: state.availableModels, showModelSelector: false);
-    // Real timer: bigger model = longer load
-    final loadTime = name.contains('7B') ? 1500 : name.contains('3B') ? 900 : 500;
-    Future.delayed(Duration(milliseconds: loadTime), () {
-      if (mounted) state = ChatState(messages: state.messages, input: state.input, generating: state.generating, activeModel: name, connection: ModelConnectionState.ready, availableModels: state.availableModels);
+    // Nota: SELinux impide que la app rearranque el motor per-selección.
+    // Esta selección persiste el modelo; el server real sigue sirviendo el
+    // .gguf que fue lanzado por adb. Comprobamos /health igualmente.
+    state = state.copyWith(activeModel: name, connection: ModelConnectionState.loadingModel, showModelSelector: false);
+    _loadTimer?.cancel();
+    _loadTimer = Timer(const Duration(milliseconds: 600), () async {
+      _loadTimer = null;
+      await _checkEngine(name);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('nanoai_active_model', name);
+      } catch (_) { /* sin persistencia: no bloquea */ }
     });
   }
+
+  @override void dispose() { _genTimer?.cancel(); _loadTimer?.cancel(); _engine.dispose(); super.dispose(); }
 }
 
 final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>((ref) => ChatNotifier());
 
-// ─── Dashboard Metrics (real timer, live values) ───
+// ─── Dashboard Metrics (real hardware via MethodChannel) ───
 class DashboardState {
   final double ramFreeGb, ramTotalGb, ramProgress, tempC, tempProgress, batteryPct, tpsValue, tpsProgress;
-  const DashboardState({this.ramFreeGb = 2.8, this.ramTotalGb = 3.72, this.ramProgress = 0.75, this.tempC = 38.5, this.tempProgress = 0.45, this.batteryPct = 82, this.tpsValue = 14.2, this.tpsProgress = 0.88});
+  final double storageTotalGb, storageFreeGb, storageProgress;
+  final bool isCharging;
+  final int cpuCores;
+  final bool isLive; // true = connected to real device
+
+  const DashboardState({
+    this.ramFreeGb = 0, this.ramTotalGb = 0, this.ramProgress = 0,
+    this.tempC = 0, this.tempProgress = 0,
+    this.batteryPct = -1, this.tpsValue = 0, this.tpsProgress = 0,
+    this.storageTotalGb = 0, this.storageFreeGb = 0, this.storageProgress = 0,
+    this.isCharging = false, this.cpuCores = 0, this.isLive = false,
+  });
 }
 
 class DashboardNotifier extends StateNotifier<DashboardState> {
-  final _rng = Random(); Timer? _timer;
-  DashboardNotifier() : super(const DashboardState()) { _start(); }
+  Timer? _timer;
+  final Ref _ref;
 
-  void _start() {
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!mounted) return;
-      final ramFree = 2.4 + _rng.nextDouble() * 0.8;
-      final temp = 36.5 + _rng.nextDouble() * 5;
-      final tps = 10.0 + _rng.nextDouble() * 8;
-      state = DashboardState(ramFreeGb: ramFree, ramTotalGb: 3.72, ramProgress: 1 - (ramFree / 3.72), tempC: temp, tempProgress: temp / 90, batteryPct: (80 + _rng.nextInt(10)).toDouble(), tpsValue: tps, tpsProgress: tps / 20);
-    });
+  DashboardNotifier(this._ref) : super(const DashboardState()) { _startPolling(); }
+
+  void _startPolling() {
+    // Fire immediately
+    _fetch();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) => _fetch());
+  }
+
+  Future<void> _fetch() async {
+    if (!mounted) return;
+    final d = await DeviceMetrics.fetch();
+    // TPS real del motor: lo reporta ChatNotifier tras cada generación.
+    final liveTps = _ref.read(chatProvider).liveTps;
+    state = DashboardState(
+      ramFreeGb: d.ramAvailableGb,
+      ramTotalGb: d.ramTotalGb,
+      ramProgress: d.ramProgress,
+      tempC: d.cpuTempC ?? 0,
+      tempProgress: d.cpuTempC != null ? d.cpuTempC! / 90.0 : 0,
+      batteryPct: d.batteryPct,
+      isCharging: d.isCharging,
+      tpsValue: liveTps ?? 0,
+      tpsProgress: liveTps != null ? (liveTps / 40.0).clamp(0.0, 1.0) : 0,
+      storageTotalGb: d.storageTotalGb,
+      storageFreeGb: d.storageFreeGb,
+      storageProgress: d.storageProgress,
+      cpuCores: d.cpuCores,
+      isLive: d.ramTotalMb > 0,
+    );
   }
 
   @override void dispose() { _timer?.cancel(); super.dispose(); }
 }
 
-final dashboardProvider = StateNotifierProvider<DashboardNotifier, DashboardState>((ref) => DashboardNotifier());
+final dashboardProvider = StateNotifierProvider<DashboardNotifier, DashboardState>((ref) => DashboardNotifier(ref));
 
 // ─── Models State (real download/load with progress) ───
 class ModelsState {
@@ -174,11 +307,19 @@ class ModelItem {
 
 class ModelsNotifier extends StateNotifier<ModelsState> {
   ModelsNotifier() : super(ModelsState(models: [
-    ModelItem(id: 'm1', name: 'Qwen2.5-1.5B-Instruct', params: '1.5B', quant: 'Q4_K_M', sizeGb: 1.15, ramGb: 1.8, downloaded: true, active: true, desc: 'Ultra optimizado para móviles con 3.7GB RAM.'),
-    ModelItem(id: 'm2', name: 'DeepSeek-R1-7B', params: '7B', quant: 'Q4_K_M', sizeGb: 4.68, ramGb: 3.6, downloaded: true, active: false, desc: 'Razonamiento profundo con Graceful Degradation.'),
-    ModelItem(id: 'm3', name: 'Llama-3.2-3B-Instruct', params: '3B', quant: 'Q8_0', sizeGb: 3.40, ramGb: 4.2, downloaded: false, active: false, desc: 'Alta precisión en generación de código.'),
-    ModelItem(id: 'm4', name: 'Phi-3.5-mini-instruct', params: '3.8B', quant: 'Q4_K_S', sizeGb: 2.20, ramGb: 2.8, downloaded: false, active: false, desc: 'Excelente balance lógico/energético.'),
+    for (final (i, m) in NeuralCatalog.models.indexed)
+      ModelItem(id: 'm$i', name: m.name, params: m.params, quant: m.quant, sizeGb: m.sizeGb, ramGb: m.ramGb, downloaded: true, active: i == 0, desc: _descFor(m.name), progress: null, loading: false),
   ]));
+
+  /// Descripciones honestas por modelo: un solo server corre por vez y
+  /// cambiarlo requiere adb/reinicio (restricción SELinux del device).
+  static String _descFor(String name) => switch (name) {
+    'Qwen2.5-1.1B-Instruct' => 'Ligero y rápido, ideal para CPU móvil. Carga por defecto.',
+    'Qwen2.5-3B-Instruct' => 'Mejor calidad de 3B: tarda más pero responde mejor.',
+    'DeepSeek-R1-7B' => 'Razonamiento profundo. Requiere adb para cargarse.',
+    'DeepSeek-R1-7B-Q2' => 'Variante Q2_K del 7B: menor RAM, calidad reducida.',
+    _ => 'Cuántización y tamaño reales desplegados en el dispositivo.',
+  };
 
   void setQuery(String q) => state = ModelsState(models: state.models, query: q, quantFilter: state.quantFilter);
   void setFilter(String? f) => state = ModelsState(models: state.models, query: state.query, quantFilter: f);

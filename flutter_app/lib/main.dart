@@ -8,11 +8,24 @@ void main() {
   runApp(const ProviderScope(child: NanoPlatformApp()));
 }
 
-class NanoPlatformApp extends ConsumerWidget {
+class NanoPlatformApp extends ConsumerStatefulWidget {
   const NanoPlatformApp({super.key});
+  @override ConsumerState<NanoPlatformApp> createState() => _NanoPlatformAppState();
+}
+
+class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Carga persistida de ajustes en el arranque: el tema guardado se
+    // aplica desde el primer frame, sin esperar a visitar Ajustes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(settingsProvider.notifier).init();
+    });
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'NanoPlatform',

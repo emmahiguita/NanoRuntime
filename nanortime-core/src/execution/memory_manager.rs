@@ -11,7 +11,6 @@ use crate::memory_engine::hardware_profiler::{DeviceClass, HardwareProfile, Hard
 
 // ── V2 modules: Hardware Abstraction Layer + Auto-Config ──────────
 use crate::memory_engine::hardware_hal::profile_device;
-use crate::memory_engine::oom_guard::{quick_check, OomRisk};
 use crate::memory_engine::execution_planner::ExecutionPlanner;
 
 /// Estadísticas de uso de memoria del runtime.
@@ -313,12 +312,13 @@ impl MemoryManager {
             plan.estimated_vma_mb, plan.estimated_rss_mb
         );
 
-        // OOM quick check
-        let oom_risk = quick_check(profile.ram_total_mb, plan.estimated_vma_mb as u64);
-        if oom_risk >= OomRisk::High {
+        // V2 risk assessment (replaces oom_guard)
+        let vma_ratio = plan.estimated_vma_mb as f64 / profile.ram_total_mb as f64;
+        let risk_level = if vma_ratio > 0.90 { "Critical" } else if vma_ratio > 0.75 { "High" } else if vma_ratio > 0.50 { "Medium" } else { "Low" };
+        if vma_ratio > 0.75 {
             tracing::warn!(
-                "OOM risk detected: {:?} (VMA={:.0}MB / RAM={}MB). Survival plan activated.",
-                oom_risk, plan.estimated_vma_mb, profile.ram_total_mb
+                "OOM risk: {} (VMA={:.0}MB / RAM={}MB). Activating survival plan.",
+                risk_level, plan.estimated_vma_mb, profile.ram_total_mb
             );
             let survival = planner.plan_survival(profile.ram_available_mb as f64, profile.ram_total_mb as f64);
             return (

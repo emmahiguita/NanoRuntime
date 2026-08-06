@@ -35,17 +35,13 @@ pub mod kv_cache_optimizer;
 pub mod memory_model;
 pub mod memory_predictor;
 pub mod model_profile;
-pub mod oom_guard;
 pub mod policy_engine;
 pub mod quality_preserver;
 pub mod storage_manager;
 pub mod streaming_ffi;
 pub mod gguf_layout;
 pub mod os_paginator;
-pub mod sysctl_tuner;
 pub mod thermal_controller;
-pub mod weight_cache_aware;
-pub mod zram_manager;
 
 pub use adaptive_scheduler::{AdaptiveScheduler, LayerPriority, MemorySchedule, SchedulingStrategy};
 pub use auto_config::{KvCompression, PageStrategy, RuntimeConfig};
@@ -61,17 +57,12 @@ pub use kv_cache_optimizer::{CompressionLevel, KvAction, KvCacheOptimizer, Token
 pub use memory_model::{MemoryEstimate, MemoryModel, ThroughputEstimate};
 pub use memory_predictor::{AttentionPattern, MemoryPredictor};
 pub use model_profile::{ArchitectureType, ModelProfile};
-pub use oom_guard::{OomRisk, SurvivalAction, quick_check};
-pub use oom_guard::imp::{OomGuard, OomStatus};
 pub use policy_engine::{Constraints, CostWeights, Decision, PolicyEngine, QosMode};
 pub use quality_preserver::{QualityMetrics, QualityPreserver, QualityReport};
 pub use storage_manager::{MmapConfig, OffloadCompression, StorageManager};
-pub use weight_cache_aware::{CacheStrategy, WeightCacheConfig, WeightCacheManager, select_strategy};
 pub use gguf_layout::{GGUFLayoutAnalyzer, ByteRange, GgufError};
 pub use os_paginator::{AccessPattern, OSMemoryPaginator};
-pub use sysctl_tuner::{MemorySysctlConfig, SysctlTuner};
 pub use thermal_controller::{ThermalAction, ThermalCondition, ThermalController, ThermalReading};
-pub use zram_manager::{ZramManager, ZramStatus};
 
 /// Facade del Nano Memory Engine — integra todos los componentes.
 ///
@@ -181,16 +172,11 @@ impl NanoMemoryEngine {
         &self.current_layers_in_ram
     }
 
-    /// Aplica las optimizaciones del kernel Linux/Android y activa ZRAM para el KV cache.
-    pub fn tune_linux_system(&self, kv_cache_swap_mb: usize) -> Result<(), String> {
-        let sys_config = MemorySysctlConfig::default();
-        SysctlTuner::apply(&sys_config)?;
-
-        let zram = ZramManager::default();
-        if zram.check_status().is_supported {
-            let _ = zram.setup_kv_cache_swap(kv_cache_swap_mb);
-        }
-
+    /// Linux kernel tuning requires root — disabled on stock Android.
+    /// Kept as placeholder for future rooted-device optimizations.
+    #[allow(dead_code)]
+    pub fn tune_linux_system(&self, _kv_cache_swap_mb: usize) -> Result<(), String> {
+        tracing::debug!("Kernel tuning skipped (requires root)");
         Ok(())
     }
 

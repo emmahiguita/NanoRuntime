@@ -48,6 +48,12 @@ class AppTheme {
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
     ),
     dividerTheme: DividerThemeData(color: c.outlineVariant, thickness: 1, space: 0),
+    // Transición de página consistente y ágil para cualquier push/route,
+    // además de la transición custom por-pestaña definida en AppRouter.
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    }),
     extensions: [NanoThemeExtension(colors: c)],
   );
 

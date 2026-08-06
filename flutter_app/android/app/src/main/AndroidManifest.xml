@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Conexión al motor llama.cpp local (loopback 127.0.0.1) y futura descarga de modelos -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="nanoai"
+        android:label="NanoAI Local"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

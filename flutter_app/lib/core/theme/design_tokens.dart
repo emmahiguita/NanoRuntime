@@ -18,6 +18,7 @@ abstract class NanoColors {
   Color get warning;
   Color get error;
   Color get info;
+  Color get tertiary;
   Color get terminalBg;
   Color get terminalGreen;
 }
@@ -38,7 +39,8 @@ class NanoDarkColors implements NanoColors {
   @override final success = const Color(0xFF00E676);
   @override final warning = const Color(0xFFF59E0B);
   @override final error = const Color(0xFFEF4444);
-  @override final info = const Color(0xFF38BDF8);
+  @override final info = const Color(0xFF22D3EE);
+  @override final tertiary = const Color(0xFFC084FC);
   @override final terminalBg = const Color(0xFF050810);
   @override final terminalGreen = const Color(0xFF00E676);
 }
@@ -59,7 +61,8 @@ class NanoLightColors implements NanoColors {
   @override final success = const Color(0xFF16A34A);
   @override final warning = const Color(0xFFD97706);
   @override final error = const Color(0xFFDC2626);
-  @override final info = const Color(0xFF0284C7);
+  @override final info = const Color(0xFF0891B2);
+  @override final tertiary = const Color(0xFF7C3AED);
   @override final terminalBg = const Color(0xFFF1F5F9);
   @override final terminalGreen = const Color(0xFF008F39);
 }

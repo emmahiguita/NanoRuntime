@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/services/llm_engine_client.dart';
 import 'terminal_core.dart';
 
 class TerminalTabScreen extends StatefulWidget { const TerminalTabScreen({super.key}); @override State<TerminalTabScreen> createState() => _S(); }
 
 class _S extends State<TerminalTabScreen> {
   int _active = 0; final _sessions = <_Sess>[]; int _counter = 0;
+  late final LLMEngineClient _engine;
 
   @override void initState() {
     super.initState();
+    _engine = LLMEngineClient();
     _sessions.add(_Sess(id: 0, name: 'bash', cwd: '/home/nanoai', type: 'bash'));
     _sessions.add(_Sess(id: 1, name: 'logs', cwd: '/home/nanoai/logs', type: 'logs', color: const Color(0xFFFFB74D)));
   }
+
+  @override void dispose() { _engine.dispose(); super.dispose(); }
 
   void _add() { final t = ['bash','python','node','ssh','docker','logs'][_counter++ % 6]; _sessions.add(_Sess(id: _sessions.length, name: t, cwd: '/home/nanoai', type: t, color: _clr(t))); setState(() => _active = _sessions.length - 1); }
   void _close(int id) { if (_sessions.length <= 1) return; setState(() { _sessions.removeWhere((s) => s.id == id); if (_active >= _sessions.length) _active = _sessions.length - 1; }); }
@@ -24,9 +29,9 @@ class _S extends State<TerminalTabScreen> {
     final chrome = dark ? const Color(0xFF0A0F1A) : const Color(0xFFE0E0EC);
     final fg = c.terminalGreen; final s = _sessions[_active];
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(bottom: false, child: Column(children: [
+    return Container(
+      color: bg,
+      child: SafeArea(bottom: false, child: Column(children: [
         // Tab bar
         Container(height: 38, padding: const EdgeInsets.only(left: 4, right: 4), decoration: BoxDecoration(color: chrome, border: Border(bottom: BorderSide(color: fg.withValues(alpha: 0.08)))), child: Row(children: [
           Expanded(child: ListView(scrollDirection: Axis.horizontal, children: [
@@ -44,7 +49,7 @@ class _S extends State<TerminalTabScreen> {
           ])),
           GestureDetector(onTap: _add, child: Container(width: 32, height: 32, margin: const EdgeInsets.only(right: 2), decoration: BoxDecoration(borderRadius: BorderRadius.circular(6), color: fg.withValues(alpha: 0.06)), child: Icon(Icons.add, size: 16, color: fg.withValues(alpha: 0.5)))),
         ])),
-        Expanded(child: NanoTerminal(key: ValueKey('t${s.id}'), sessionId: s.id, initialCwd: s.cwd)),
+        Expanded(child: NanoTerminal(key: ValueKey('t${s.id}'), sessionId: s.id, initialCwd: s.cwd, engine: _engine)),
       ])),
     );
   }

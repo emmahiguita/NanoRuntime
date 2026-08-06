@@ -71,10 +71,26 @@ class VirtualFS {
     for (final l in n.content.split('\n')) { if (l.toLowerCase().contains(args[0].toLowerCase())) out(l, 1); }
   }
 
-  void find(List<String> args, void Function(String, int) out) {
+void find(List<String> args, void Function(String, int) out) {
     final root = resolve(args.isNotEmpty ? args[0] : '.'); if (root == null) return;
     void w(VNode n, String p) { if (!n.isDir) { out('$p/${n.name}', 1); return; } for (final c in n.children) w(c, '$p/${n.name}'); }
     for (final c in root.children) w(c, root.name == '/' ? '' : root.name);
+  }
+
+  // Vista visual del arbol del FS — `tree [dir]`
+  void tree(List<String> args, void Function(String, int) out) {
+    final node = resolve(args.isNotEmpty ? args[0] : '.');
+    if (node == null || !node.isDir) { out('tree: ${args.isNotEmpty ? args[0] : "."}: No such directory', 2); return; }
+    out(args.isNotEmpty ? args[0] : '.', 1); var files = 0, dirs = 0;
+    void walk(VNode n, String prefix) {
+      final kids = n.children;
+      for (int i = 0; i < kids.length; i++) {
+        final c = kids[i]; final last = i == kids.length - 1;
+        if (c.isDir) { dirs++; out('$prefix${last ? "└── " : "├── "}${c.name}/', 3); walk(c, '$prefix${last ? "    " : "│   "}'); }
+        else { files++; out('$prefix${last ? "└── " : "├── "}${c.name}', 1); }
+      }
+    }
+    walk(node, ''); out('', 1); out('$dirs directorios, $files archivos', 3);
   }
 
   void diff(List<String> args, void Function(String, int) out) {
@@ -135,14 +151,36 @@ class PackageRegistry {
   PackageRegistry() { pkgs.addAll(_defaults()); }
   static List<Pkg> _defaults() => [Pkg(name: 'python', ver: '3.12.3', desc: 'Python', manager: 'apt', category: 'lang', sizeMb: 45, installed: true), Pkg(name: 'nodejs', ver: '20.11.0', desc: 'Node.js', manager: 'apt', category: 'lang', sizeMb: 32), Pkg(name: 'rustc', ver: '1.77.0', desc: 'Rust', manager: 'apt', category: 'lang', sizeMb: 180), Pkg(name: 'git', ver: '2.44.0', desc: 'Git', manager: 'apt', category: 'tools', sizeMb: 12, installed: true), Pkg(name: 'docker', ver: '26.0.0', desc: 'Docker', manager: 'apt', category: 'containers', sizeMb: 85, installed: true), Pkg(name: 'openssh', ver: '9.6p1', desc: 'SSH', manager: 'apt', category: 'tools', sizeMb: 8, installed: true), Pkg(name: 'vim', ver: '9.1', desc: 'Vim', manager: 'apt', category: 'tools', sizeMb: 15, installed: true), Pkg(name: 'numpy', ver: '1.26.4', desc: 'NumPy', manager: 'pip', category: 'python', sizeMb: 18, installed: true), Pkg(name: 'torch', ver: '2.2.0', desc: 'PyTorch', manager: 'pip', category: 'python', sizeMb: 850), Pkg(name: 'transformers', ver: '4.38.0', desc: 'Transformers', manager: 'pip', category: 'python', sizeMb: 320), Pkg(name: 'express', ver: '4.19.0', desc: 'Express', manager: 'npm', category: 'web', sizeMb: 2), Pkg(name: 'react', ver: '18.2.0', desc: 'React', manager: 'npm', category: 'web', sizeMb: 6), Pkg(name: 'serde', ver: '1.0.197', desc: 'Serde', manager: 'cargo', category: 'rust', sizeMb: 1), Pkg(name: 'tokio', ver: '1.36.0', desc: 'Tokio', manager: 'cargo', category: 'rust', sizeMb: 4), Pkg(name: 'rails', ver: '7.1.3', desc: 'Rails', manager: 'gem', category: 'web', sizeMb: 22)];
 
+  // Motor de instalación unificado. args puede venir como:
+  //   pkg  search/install/list/... [nombre]      (sin manager)
+  //   apt|pip|npm|cargo|gem  subcmd [nombre]     (con manager como head)
   void pkg(List<String> args, void Function(String, int) out, void Function(Duration, void Function()) after) {
-    if (args.isEmpty) { out('pkg: search, install, remove, list, update, info', 3); return; }
-    switch (args[0]) {
-      case 'search': final q = args.length > 1 ? args[1] : ''; for (final p in pkgs.where((x) => x.name.contains(q))) out('${p.name.padRight(20)} ${p.ver.padRight(10)} [${p.manager}] ${p.installed ? "(installed)" : ""}', 1); break;
-      case 'install': final n = args.length > 1 ? args[1] : ''; final p = pkgs.firstWhere((x) => x.name == n, orElse: () => Pkg(name: '', ver: '', desc: '', manager: '', category: '')); if (p.name.isEmpty) { out('pkg: "$n" not found', 2); return; } out('pkg: installing $n...', 3); after(const Duration(milliseconds: 600), () { p.installed = true; out('pkg: $n installed (${p.sizeMb} MB)', 4); }); break;
-      case 'remove': final n = args.length > 1 ? args[1] : ''; final p = pkgs.where((x) => x.name == n).firstOrNull; if (p != null) { p.installed = false; out('pkg: $n removed', 4); } break;
-      case 'list': for (final p in pkgs.where((x) => x.installed)) out('${p.name} ${p.ver} [${p.manager}]', 1); break;
-      case 'update': out('pkg: updating...', 3); after(const Duration(milliseconds: 400), () => out('pkg: 342 packages. 3 updates pending.', 4)); break;
+    const mgrs = {'apt', 'pip', 'npm', 'cargo', 'gem'};
+    final String mgr; List<String> rest;
+    if (args.isNotEmpty && mgrs.contains(args.first)) { mgr = args.first; rest = args.sublist(1); }
+    else { mgr = 'pkg'; rest = args; }
+    if (rest.isEmpty) { out('pkg: search, install, remove, list, update, info', 3); return; }
+    final sub = rest.first; final n = rest.length > 1 ? rest[1] : '';
+    switch (sub) {
+      case 'search':
+        out('pkg: buscando "$n" (via $mgr)...', 3);
+        final q = n.toLowerCase();
+        final hits = q.isEmpty ? pkgs : pkgs.where((x) => x.name.toLowerCase().contains(q) || (mgr != 'pkg' && x.manager == mgr)).toList();
+        if (hits.isEmpty && mgr != 'pkg') { final available = pkgs.where((x) => x.manager == mgr).toList(); out('ningun paquete de $mgr contiene "$n". Disponibles:', 1); for (final p in available) out('  ${p.name} ${p.ver} [${p.manager}]', 1); }
+        else if (hits.isEmpty) out('ningun paquete contiene "$n"', 2);
+        else for (final p in hits) out('${p.name.padRight(20)} ${p.ver.padRight(10)} [${p.manager}] ${p.installed ? "(installed)" : ""}', 1);
+        break;
+      case 'install':
+        final p = pkgs.firstWhere((x) => x.name == n && (mgr == 'pkg' || x.manager == mgr), orElse: () => Pkg(name: '', ver: '', desc: '', manager: '', category: ''));
+        if (p.name.isEmpty) { out('pkg: "$n" no disponible por $mgr. pkg search $n', 2); return; }
+        out('pkg: instalando $n...', 3);
+        after(const Duration(milliseconds: 600), () { p.installed = true; out('pkg: $n ${p.ver} instalado (${p.sizeMb} MB)', 4); });
+        break;
+      case 'remove': final p = pkgs.where((x) => x.name == n).firstOrNull; if (p != null) { p.installed = false; out('pkg: $n desinstalado', 4); } else out('pkg: $n no instalado', 2); break;
+      case 'list': out('paquetes instalados:', 3); for (final p in pkgs.where((x) => x.installed)) out('  ${p.name.padRight(20)} ${p.ver.padRight(10)} [${p.manager}]', 1); break;
+      case 'info': final p = pkgs.where((x) => x.name == n).firstOrNull; if (p == null) return; out('${p.name} ${p.ver}\n  desc: ${p.desc}\n  manager: ${p.manager}\n  size: ${p.sizeMb} MB\n  estado: ${p.installed ? "instalado" : "no instalado"}', 1); break;
+      case 'update': out('pkg: actualizando indice ($mgr)...', 3); after(const Duration(milliseconds: 400), () => out('pkg: 342 paquetes. 3 actualizaciones pendientes.', 4)); break;
+      default: pkg([], out, after);
     }
   }
 

@@ -9,18 +9,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_initialized) {
-        ref.read(settingsProvider.notifier).init();
-        _initialized = true;
-      }
-    });
-  }
+  // La carga persistida se realiza en main.dart (NanoPlatformApp.initState)
+  // para que el tema aplica desde el arranque. Nada que hacer aquí.
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       width: double.infinity, padding: const EdgeInsets.all(NanoSpacing.lg),
       decoration: BoxDecoration(color: colors.surface, borderRadius: NanoShapes.large, border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.4)), boxShadow: shadow), child: child);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ajustes'), backgroundColor: colors.surface),
-      body: ListView(padding: const EdgeInsets.all(NanoSpacing.lg), children: [
+    return ListView(padding: const EdgeInsets.all(NanoSpacing.lg), children: [
         _h('General', Icons.tune, colors),
         card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [Icon(Icons.brightness_6, size: 18, color: colors.primary), const SizedBox(width: NanoSpacing.sm), Text('Tema', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.onSurface))]),
@@ -57,7 +45,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _h('Batería', Icons.battery_std, colors),
         card(Row(children: ['Eco', 'Balanced', 'Survival'].map((o) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(o, style: const TextStyle(fontSize: 11)), selected: state.batteryMode == o, onSelected: (_) => notifier.setBatteryMode(o), selectedColor: colors.primaryContainer, side: BorderSide.none, shape: RoundedRectangleBorder(borderRadius: NanoShapes.full))))).toList())),
         const SizedBox(height: NanoSpacing.xxxl),
-      ]),
+      ],
     );
   }
 

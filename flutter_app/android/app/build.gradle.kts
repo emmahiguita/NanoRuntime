@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.nanoai"
+    namespace = "dev.nanoai.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,8 +20,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.nanoai"
+        // Identidad única: dev.nanoai.mobile (no choca con la app
+        // preexistente com.nanoai del dispositivo).
+        applicationId = "dev.nanoai.mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

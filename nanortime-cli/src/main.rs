@@ -145,15 +145,9 @@ async fn main() -> anyhow::Result<()> {
         config.hybrid_routing.edge_only = true;
     }
 
-    // Apply system memory tuning if requested
+    // System memory tuning requires root — disabled on stock Android.
     if cli.tune_system {
-        tracing::info!("Aplicando optimizaciones de memoria del sistema (Linux sysctl, zram, madvise)...");
-        let sys_config = nanortime_core::memory_engine::MemorySysctlConfig::default();
-        let _ = nanortime_core::memory_engine::SysctlTuner::apply(&sys_config);
-        let zram = nanortime_core::memory_engine::ZramManager::default();
-        if zram.check_status().is_supported {
-            let _ = zram.setup_kv_cache_swap(2048);
-        }
+        tracing::warn!("System tuning requires root access. Skipping.");
     }
 
     // ── V2: Auto-detect hardware and compute safe token budget ──────
