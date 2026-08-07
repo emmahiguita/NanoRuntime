@@ -275,10 +275,11 @@ async fn main() -> anyhow::Result<()> {
         process_single_prompt(&runtime, &prompt, cli.max_tokens, cli.natural_stops).await?;
 
         // ── Guardar respuesta en caché ─────────────────────────────
+        // TODO: capturar texto de respuesta para guardar en caché.
+        // Actualmente la respuesta va directo a stdout en process_single_prompt.
+        // Se requiere refactor para que retorne el texto generado.
         if cli.cache {
-            // La respuesta ya se imprimió en stdout. Guardamos el prompt
-            // como clave para futuras consultas idénticas.
-            response_cache.store(&prompt, "[cache placeholder]", "local");
+            tracing::debug!("Cache store skipped (response capture pending)");
         }
 
         // ── Session persistence: guardar KV cache después ────────
