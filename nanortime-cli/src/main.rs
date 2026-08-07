@@ -296,14 +296,12 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // Single prompt mode
-        process_single_prompt(&runtime, &prompt, cli.max_tokens, cli.natural_stops).await?;
+        let response_text = process_single_prompt(&runtime, &prompt, cli.max_tokens, cli.natural_stops).await?;
 
         // ── Guardar respuesta en caché ─────────────────────────────
-        // TODO: capturar texto de respuesta para guardar en caché.
-        // Actualmente la respuesta va directo a stdout en process_single_prompt.
-        // Se requiere refactor para que retorne el texto generado.
-        if cli.cache {
-            tracing::debug!("Cache store skipped (response capture pending)");
+        if cli.cache && !response_text.is_empty() {
+            response_cache.store(&prompt, &response_text, "local");
+            tracing::info!("Cache store: {} chars", response_text.len());
         }
 
         // ── Session persistence: guardar KV cache después ────────
@@ -325,6 +323,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Procesa un único prompt y muestra la respuesta con streaming.
+/// Retorna el texto generado para caché/procesamiento posterior.
 ///
 /// - La respuesta va a **stdout** (captureable por subprocesos).
 /// - Las métricas de rendimiento van a **stderr** como línea parseable:
@@ -334,7 +333,7 @@ async fn process_single_prompt(
     prompt: &str,
     _max_tokens: usize,
     natural_stops: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let request = UserRequest {
         prompt: prompt.to_string(),
         context: None,
@@ -342,6 +341,7 @@ async fn process_single_prompt(
     };
 
     let t_start = Instant::now();
+    let mut generated_text = String::with_capacity(4096);
 
     match runtime.process_request_streaming(request).await {
         Ok((response, mut rx)) => {
@@ -355,6 +355,7 @@ async fn process_single_prompt(
             while let Some((token, prob)) = rx.recv().await {
                 print!("{}", token);
                 let _ = io::stdout().flush();
+                generated_text.push_str(&token);
                 token_count += 1;
                 
                 // ── Token-Level Early Exit ────────────────────────
@@ -423,6 +424,7 @@ async fn process_single_prompt(
                     while let Some((token, _)) = retry_rx.recv().await {
                         print!("{}", token);
                         let _ = io::stdout().flush();
+                        generated_text.push_str(&token);
                         retry_tokens += 1;
                     }
                     println!();
@@ -441,7 +443,7 @@ async fn process_single_prompt(
                         retry_response.tier_used,
                         retry_conf,
                     );
-                    return Ok(());
+                    return Ok(generated_text);
                 }
             }
 
@@ -455,12 +457,19 @@ async fn process_single_prompt(
             );
         }
         Err(e) => {
-            eprintln!("Error processing request: {}", e);
-            return Err(e.into());
+            tracing::error!("Inference failed: {}. Falling back gracefully.", e);
+            let fallback = format!("[Error: inference failed. Please try again with a simpler model or prompt.]");
+            generated_text.push_str(&fallback);
+            println!("{}", fallback);
+            eprintln!(
+                "[METRICS] tokens=0 elapsed_ms=0 tok_s=0 tier=local confidence=0.000 error=1",
+            );
+            // Return the error message as text (system stays alive)
+            return Ok(generated_text);
         }
     }
 
-    Ok(())
+    Ok(generated_text)
 }
 
 /// Chat interactivo: lee líneas de stdin y muestra respuestas.

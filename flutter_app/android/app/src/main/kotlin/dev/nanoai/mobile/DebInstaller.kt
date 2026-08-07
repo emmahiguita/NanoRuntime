@@ -55,10 +55,10 @@ class DebInstaller(
 
         /** Paquetes mínimos para escritorio VNC funcional. */
         val DESKTOP_PACKAGES = listOf(
-            "tigervnc",    // Xvnc: servidor X11 + VNC integrado
-            "openbox",     // window manager ultraligero (~1MB)
-            "tint2",       // panel/taskbar
-            // xkbcomp no existe como paquete Termux; se usa wrapper script
+            "tigervnc",       // Xvnc: servidor X11 + VNC integrado
+            "openbox",        // window manager ultraligero (~1MB)
+            "tint2",          // panel/taskbar
+            "xorg-xkbcomp",   // keyboard compiler (requerido por Xvnc)
         )
 
         /** Convierte bytes a hex string (para verificación SHA256). */
