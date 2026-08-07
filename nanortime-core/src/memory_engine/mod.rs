@@ -42,6 +42,7 @@ pub mod streaming_ffi;
 pub mod gguf_layout;
 pub mod os_paginator;
 pub mod thermal_controller;
+pub mod traits;
 
 pub use adaptive_scheduler::{AdaptiveScheduler, LayerPriority, MemorySchedule, SchedulingStrategy};
 pub use auto_config::{KvCompression, PageStrategy, RuntimeConfig};

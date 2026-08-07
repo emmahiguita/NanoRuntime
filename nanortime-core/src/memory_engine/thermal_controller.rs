@@ -167,6 +167,19 @@ pub enum ThermalAction {
     Pause { pause_ms: u64, min_context: usize },
 }
 
+// ── Trait implementation: TemperatureSensor ─────────────────────
+use crate::memory_engine::traits::TemperatureSensor;
+
+impl TemperatureSensor for ThermalController {
+    fn sample(&mut self) -> Option<ThermalReading> {
+        Some(ThermalController::sample(self))
+    }
+
+    fn recommend_action(&self, reading: &ThermalReading) -> ThermalAction {
+        ThermalController::recommend_action(self, reading)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

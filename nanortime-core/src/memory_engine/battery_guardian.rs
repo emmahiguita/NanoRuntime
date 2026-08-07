@@ -207,6 +207,19 @@ impl From<BatteryMode> for BatteryConfig {
     }
 }
 
+// ── Trait implementation: PowerMonitor ──────────────────────────
+use crate::memory_engine::traits::PowerMonitor;
+
+impl PowerMonitor for BatteryGuardian {
+    fn determine_mode(&self) -> BatteryMode {
+        self.determine_mode()
+    }
+
+    fn estimated_remaining_tokens(&self) -> Option<u64> {
+        Some(BatteryGuardian::estimated_remaining_tokens(self) as u64)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

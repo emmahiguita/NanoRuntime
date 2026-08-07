@@ -194,6 +194,25 @@ impl fmt::Display for KvSavingsEstimate {
     }
 }
 
+// ── Trait implementation: KvEstimator ───────────────────────────
+use crate::memory_engine::traits::KvEstimator;
+
+impl KvEstimator for HierarchicalKvCache {
+    fn estimate_savings(&self, context_tokens: usize, ram_total_mb: u64) -> KvSavingsEstimate {
+        HierarchicalKvCache::estimate_savings(self, context_tokens, ram_total_mb)
+    }
+
+    fn recommended_tokens(&self, context_tokens: usize, ram_total_mb: u64) -> usize {
+        let savings = self.estimate_savings(context_tokens, ram_total_mb);
+        if savings.reduction_pct > 0.0 {
+            let rec = (context_tokens as f64 * (1.0 + savings.reduction_pct / 100.0)) as usize;
+            rec.min(16384)
+        } else {
+            context_tokens
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

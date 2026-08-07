@@ -117,15 +117,15 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
         f.writeAsBytesSync(replaced);
         debugPrint('[boot] patch $bin: ${data.length} bytes');
       }
-      // Symlinks via Dart
-      Link('/data/data/dev.nanoai.mobile/f').createSync('files/nano/usr', recursive: false);
-      Link('$usr/share/X11/xkb').createSync('../xkeyboard-config-2', recursive: false);
+      // Symlinks (ignorar si ya existen)
+      try { Link('/data/data/dev.nanoai.mobile/f').createSync('files/nano/usr', recursive: false); } catch (_) {}
+      try { Link('$usr/share/X11/xkb').createSync('../xkeyboard-config-2', recursive: false); } catch (_) {}
       for (final dir in ['compat','geometry','keycodes','rules','symbols','types']) {
         try { Link('$usr/$dir').createSync('share/xkeyboard-config-2/$dir', recursive: false); } catch (_) {}
       }
       // xkbcomp wrapper
       File('$usr/bin/xkbcomp').writeAsStringSync('#!/bin/sh\nfor a in "\$@"; do case "\$a" in *.xkm) touch "\$a";; esac;done\nexit 0\n');
-      Process.runSync('chmod', ['755', '$usr/bin/xkbcomp']);
+      try { Process.runSync('chmod', ['755', '$usr/bin/xkbcomp']); } catch (_) {}
       debugPrint('[boot] VNC patches aplicados');
     } catch (e) {
       debugPrint('[boot] VNC patch error: $e');

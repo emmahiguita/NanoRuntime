@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'terminal_subsystems.dart';
 
 /// Terminal output types — shared between terminal_core and command_dispatcher.
