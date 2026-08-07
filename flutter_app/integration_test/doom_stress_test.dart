@@ -51,8 +51,7 @@ void main() {
 
     // ── 1. RÁFAGA: 5 envíos seguidos sin esperar ──
     for (var i = 0; i < 5; i++) {
-      chat.setInput('ráfaga $i');
-      chat.send();
+      chat.send('ráfaga $i');
     }
     await tester.pump();
     // Solo el primero debe haber entrado en generación; el resto absorbido.
@@ -70,16 +69,14 @@ void main() {
         reason: 'solo 1 mensaje de usuario real: los otros fueron absorbidos por el guard');
 
     // ── 2. STOP a mitad de generación ──
-    chat.setInput('cuéntame una historia muy larga sobre el espacio');
-    chat.send();
+    chat.send('cuéntame una historia muy larga sobre el espacio');
     await tester.pump(const Duration(milliseconds: 400)); // deja que arranque
     expect(container.read(chatProvider).generating, isTrue, reason: 'generando antes del STOP');
     chat.stop();
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(chatProvider).generating, isFalse, reason: 'STOP corta la generación');
     // El motor debe seguir respondiendo tras el STOP (verificación de sanidad).
-    chat.setInput('después del stop: 2+2?');
-    chat.send();
+    chat.send('después del stop: 2+2?');
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(seconds: 1));
       if (!container.read(chatProvider).generating) break;
@@ -89,8 +86,7 @@ void main() {
     expect(trasStop.engineOnline, isTrue, reason: 'motor sigue sano tras STOP');
 
     // ── 3. CAMBIO DE MODELO EN PLENA GENERACIÓN ──
-    chat.setInput('explica la cuántica');
-    chat.send();
+    chat.send('explica la cuántica');
     await tester.pump(const Duration(milliseconds: 200));
     chat.selectModel('DeepSeek-R1-7B'); // cambia el modelo mientras genera
     await tester.pump(const Duration(milliseconds: 900)); // deja correr el timer del check
@@ -106,8 +102,7 @@ void main() {
     }
 
     // ── 4. CLEAR / DELETE durante generación ──
-    chat.setInput('historia de piratas');
-    chat.send();
+    chat.send('historia de piratas');
     await tester.pump(const Duration(milliseconds: 200));
     chat.clear(); // borra TODO mientras genera
     await tester.pump(const Duration(seconds: 1));
@@ -127,8 +122,7 @@ void main() {
       'nanoai terminal prompt: ls -la', // shell-ish
     ];
     for (final h in hostiles) {
-      chat.setInput(h);
-      chat.send();
+      chat.send(h);
       await tester.pump(const Duration(milliseconds: 100));
     }
     // Tras el input hostil el estado no puede estar corrupto. El input puede
@@ -141,8 +135,7 @@ void main() {
     debugPrint('HOSTIL: input=${hostil.input.length} users=${hostil.messages.where((m) => m.sender == MessageSender.user).length} ais=${hostil.messages.where((m) => m.sender == MessageSender.ai).length}');
 
     // ── 6. NAVEGACIÓN DURANTE GENERACIÓN ──
-    chat.setInput('respuesta larga final: explica el universo');
-    chat.send();
+    chat.send('respuesta larga final: explica el universo');
     await tester.pump(const Duration(milliseconds: 300));
     // Saltar entre pestañas mientras genera.
     await tester.tap(find.byIcon(Icons.menu_rounded));

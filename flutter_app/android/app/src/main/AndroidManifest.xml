@@ -27,6 +27,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Worker process for nanoshell: runs fork()+dlopen() in a SEPARATE
+             process WITHOUT the GPU/Flutter engine. Fork in the main process
+             (with Impeller/Vulkan + Mali driver threads) crashes the GPU
+             driver threads (SIGSEGV in mali-compiler/HeapTaskDaemon). The
+             worker has no GPU: fork+dlopen is safe there. -->
+        <service
+            android:name=".NanoshellWorkerService"
+            android:exported="false"
+            android:process=":nanoshell"
+            android:isolatedProcess="false"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'design_tokens.dart';
 
 class AppTheme {
-  static final _textTheme = GoogleFonts.interTextTheme().copyWith(
-    displayLarge: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5),
-    headlineLarge: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.bold),
-    headlineMedium: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w600),
-    titleLarge: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold),
-    titleMedium: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-    bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.normal),
-    bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal),
-    bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.normal),
-    labelLarge: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-    labelMedium: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
-    labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500),
+  /// Inter desde ASSETS locales (offline-first). No usa GoogleFonts: con
+  /// allowRuntimeFetching=false, cualquier fuente no cacheada lanzaba
+  /// excepción y CRASHEABA el arranque. 'Inter' se registra en pubspec fonts.
+  static final _textTheme = TextTheme(
+    displayLarge: const TextStyle(fontFamily: 'Inter', fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+    headlineLarge: const TextStyle(fontFamily: 'Inter', fontSize: 28, fontWeight: FontWeight.bold),
+    headlineMedium: const TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.w600),
+    titleLarge: const TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.bold),
+    titleMedium: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600),
+    bodyLarge: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.normal),
+    bodyMedium: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.normal),
+    bodySmall: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.normal),
+    labelLarge: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500),
+    labelMedium: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w500),
+    labelSmall: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w500),
   );
 
   static ThemeData _base(NanoColors c) => ThemeData(

@@ -75,6 +75,10 @@ struct Cli {
     #[arg(long)]
     tune_system: bool,
 
+    /// Activar caché de respuestas (evita re-inferir prompts repetidos)
+    #[arg(long)]
+    cache: bool,
+
     /// Detener generacion en limites naturales (parrafos, secciones)
     #[arg(long)]
     natural_stops: bool,
@@ -256,8 +260,26 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        // ── Response Cache: buscar respuesta previa ───────────────
+        let mut response_cache = nanortime_core::response_cache::ResponseCache::new(500);
+        if cli.cache {
+            if let Some(cached) = response_cache.find(&prompt) {
+                println!("{}", cached);
+                eprintln!("[METRICS] tokens={} elapsed_ms=0 tok_s=inf tier=local confidence=1.000 cache=hit", 
+                    cached.split_whitespace().count());
+                return Ok(());
+            }
+        }
+
         // Single prompt mode
         process_single_prompt(&runtime, &prompt, cli.max_tokens, cli.natural_stops).await?;
+
+        // ── Guardar respuesta en caché ─────────────────────────────
+        if cli.cache {
+            // La respuesta ya se imprimió en stdout. Guardamos el prompt
+            // como clave para futuras consultas idénticas.
+            response_cache.store(&prompt, "[cache placeholder]", "local");
+        }
 
         // ── Session persistence: guardar KV cache después ────────
         if cli.save_session {

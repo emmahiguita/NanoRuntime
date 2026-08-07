@@ -31,6 +31,13 @@ android {
         versionName = flutter.versionName
     }
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -42,4 +49,11 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Coroutines para operaciones async en platform channel handlers
+    // (download/extract del rootfs Termux en background thread).
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

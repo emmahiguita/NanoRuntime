@@ -63,8 +63,7 @@ void main() {
       'Escribe el primer programa en Dart que imprime Hola',
     ];
     for (final q in preguntas) {
-      chat.setInput(q);
-      chat.send();
+      chat.send(q);
       await tester.pump(); // marca generating=true
       // Espera a que termine la generación (hasta ~2 min por pregunta).
       for (var i = 0; i < 120; i++) {

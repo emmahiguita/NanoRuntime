@@ -48,8 +48,7 @@ void main() {
     // Envía una pregunta con motor offline. El notifier guard-a el envío
     // cuando connection != ready (NO intenta generar contra un motor muerto):
     // send() es no-op limpio, no puede colgarse ni emitir mensajes fantasma.
-    chat.setInput('hola motor muerto');
-    chat.send();
+    chat.send('hola motor muerto');
     await tester.pump();
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(seconds: 1));

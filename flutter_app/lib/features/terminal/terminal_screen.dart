@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../../core/theme/design_tokens.dart';
 import '../../core/services/llm_engine_client.dart';
 import 'terminal_core.dart';
@@ -13,11 +15,35 @@ class _S extends State<TerminalTabScreen> {
   @override void initState() {
     super.initState();
     _engine = LLMEngineClient();
+    _restoreSessions();
+  }
+
+  Future<void> _restoreSessions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('terminal_sessions');
+      if (json != null) {
+        final list = jsonDecode(json) as List;
+        for (final s in list) {
+          final m = s as Map<String, dynamic>;
+          _sessions.add(_Sess(id: m['id'], name: m['name'], cwd: m['cwd'], type: m['type']));
+        }
+        _counter = _sessions.length;
+        if (_sessions.isNotEmpty) return;
+      }
+    } catch (_) {}
+    // Default sessions
     _sessions.add(_Sess(id: 0, name: 'bash', cwd: '/home/nanoai', type: 'bash'));
     _sessions.add(_Sess(id: 1, name: 'logs', cwd: '/home/nanoai/logs', type: 'logs', color: const Color(0xFFFFB74D)));
   }
 
-  @override void dispose() { _engine.dispose(); super.dispose(); }
+  Future<void> _saveSessions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = _sessions.map((s) => {'id': s.id, 'name': s.name, 'cwd': s.cwd, 'type': s.type}).toList();
+    prefs.setString('terminal_sessions', jsonEncode(list));
+  }
+
+  @override void dispose() { _saveSessions(); _engine.dispose(); super.dispose(); }
 
   void _add() { final t = ['bash','python','node','ssh','docker','logs'][_counter++ % 6]; _sessions.add(_Sess(id: _sessions.length, name: t, cwd: '/home/nanoai', type: t, color: _clr(t))); setState(() => _active = _sessions.length - 1); }
   void _close(int id) { if (_sessions.length <= 1) return; setState(() { _sessions.removeWhere((s) => s.id == id); if (_active >= _sessions.length) _active = _sessions.length - 1; }); }
@@ -42,17 +68,30 @@ class _S extends State<TerminalTabScreen> {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Container(width: 7, height: 7, decoration: BoxDecoration(color: _sessions[i].color ?? fg, shape: BoxShape.circle, boxShadow: i == _active ? [BoxShadow(color: (_sessions[i].color ?? fg).withValues(alpha: 0.5), blurRadius: 4)] : null)),
                   const SizedBox(width: 7),
-                  Text(_sessions[i].name, style: GoogleFonts.jetBrainsMono(fontSize: 11.5, fontWeight: i == _active ? FontWeight.w600 : FontWeight.w400, color: i == _active ? fg : fg.withValues(alpha: 0.45))),
+                  Text(_sessions[i].name, style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 11.5, fontWeight: i == _active ? FontWeight.w600 : FontWeight.w400, color: i == _active ? fg : fg.withValues(alpha: 0.45))),
                   if (_sessions.length > 1) ...[const SizedBox(width: 6), GestureDetector(onTap: () => _close(_sessions[i].id), child: Icon(Icons.close, size: 13, color: fg.withValues(alpha: 0.35)))],
                 ]),
               )),
           ])),
           GestureDetector(onTap: _add, child: Container(width: 32, height: 32, margin: const EdgeInsets.only(right: 2), decoration: BoxDecoration(borderRadius: BorderRadius.circular(6), color: fg.withValues(alpha: 0.06)), child: Icon(Icons.add, size: 16, color: fg.withValues(alpha: 0.5)))),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () => context.push('/desktop'),
+            child: Container(width: 32, height: 32, margin: const EdgeInsets.only(right: 2), decoration: BoxDecoration(borderRadius: BorderRadius.circular(6), color: fg.withValues(alpha: 0.06)), child: Icon(Icons.desktop_windows, size: 16, color: fg.withValues(alpha: 0.5))),
+          ),
         ])),
-        Expanded(child: NanoTerminal(key: ValueKey('t${s.id}'), sessionId: s.id, initialCwd: s.cwd, engine: _engine)),
+        // IndexedStack mantiene vivas todas las sesiones — cambiar de tab
+        // no mata el PTY ni pierde el estado del terminal.
+        Expanded(child: IndexedStack(
+          index: _active,
+          children: [for (final s in _sessions) NanoTerminal(
+            key: ValueKey('t${s.id}'), sessionId: s.id, initialCwd: s.cwd, engine: _engine,
+            onTitle: (title) { if (title != s.name) setState(() => s.name = title); },
+          )],
+        )),
       ])),
     );
   }
 }
 
-class _Sess { final int id; final String name, cwd, type; final Color? color; _Sess({required this.id, required this.name, required this.cwd, required this.type, this.color}); }
+class _Sess { final int id; String name; final String cwd, type; final Color? color; _Sess({required this.id, required this.name, required this.cwd, required this.type, this.color}); }

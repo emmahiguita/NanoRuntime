@@ -5,6 +5,7 @@ import '../../features/chat/chat_screen.dart';
 import '../../features/models/models_screen.dart';
 import '../../features/terminal/terminal_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/desktop/vnc_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -20,6 +21,11 @@ class AppRouter {
           StatefulShellBranch(routes: [GoRoute(path: '/terminal', pageBuilder: (_, __) => _fadeSlide(const TerminalTabScreen()))]),
           StatefulShellBranch(routes: [GoRoute(path: '/settings', pageBuilder: (_, __) => _fadeSlide(const SettingsScreen()))]),
         ],
+      ),
+      // Ruta full-screen para el escritorio VNC (sin shell de tabs)
+      GoRoute(
+        path: '/desktop',
+        pageBuilder: (_, __) => const MaterialPage(child: VncScreen()),
       ),
     ],
   );

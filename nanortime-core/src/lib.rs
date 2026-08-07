@@ -42,6 +42,7 @@ pub mod nano_session;
 pub mod orchestrator;
 pub mod speculative_decoder;
 pub mod streaming_output;
+pub mod response_cache;
 
 use std::sync::Arc;
 

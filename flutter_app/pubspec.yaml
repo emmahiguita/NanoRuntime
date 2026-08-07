@@ -16,6 +16,7 @@ dependencies:
   flutter_animate: ^4.5.0
   shared_preferences: ^2.2.3
   http: ^1.2.2
+  ffi: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +29,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/bin/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
