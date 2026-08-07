@@ -458,7 +458,7 @@ async fn process_single_prompt(
         }
         Err(e) => {
             tracing::error!("Inference failed: {}. Falling back gracefully.", e);
-            let fallback = format!("[Error: inference failed. Please try again with a simpler model or prompt.]");
+            let fallback = "[Error: inference failed. Please try again with a simpler model or prompt.]".to_string();
             generated_text.push_str(&fallback);
             println!("{}", fallback);
             eprintln!(
