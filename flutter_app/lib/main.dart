@@ -4,16 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/providers/app_providers.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/design_tokens.dart';
 import 'core/router/app_router.dart';
 import 'core/services/rootfs_manager.dart';
 import 'core/services/shell_executor.dart';
+import 'features/terminal/terminal_screen.dart';
 
-void main() {
-  // Offline-first: nunca intentar descargar fuentes por HTTP.
-  // Usa las cached si existen, si no fallback del sistema.
-  GoogleFonts.config.allowRuntimeFetching = false;
-  runApp(const ProviderScope(child: NanoPlatformApp()));
-}
+void main() => runApp(const ProviderScope(child: NanoPlatformApp()));
 
 class NanoPlatformApp extends ConsumerStatefulWidget {
   const NanoPlatformApp({super.key});
@@ -21,38 +18,21 @@ class NanoPlatformApp extends ConsumerStatefulWidget {
 }
 
 class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
-  @override
-  void initState() {
-    super.initState();
-    // Carga persistida de ajustes en el arranque: el tema guardado se
-    // aplica desde el primer frame, sin esperar a visitar Ajustes.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(settingsProvider.notifier).init();
-    });
-    // Bootstrap global del rootfs Termux: instala en background si falta.
-    // Corre al ARRANCAR la app (no solo al abrir la pestaÃ±a Terminal), asÃ­
-    // el terminal interactivo queda operativo sin intervenciÃ³n manual.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootRootfsNow());
-  }
+  @override void initState() { super.initState(); _bootRootfsNow(); }
 
-  /// Descarga e instala el rootfs Termux si no estÃ¡ presente. No bloquea el
-  /// primer frame; reporta por debugPrint (la UI del terminal muestra su
-  /// propio progreso vÃ­a RootfsManager compartido).
+  static const _essentialPkgs = ['python', 'htop', 'git'];
+
   Future<void> _bootRootfsNow() async {
     try {
-      final rootfs = ref.read(rootfsProvider);
-      final ok = await rootfs.checkInstalled();
+      final rootfs = RootfsManager.instance;
+      final ok = rootfs.isInstalled;
       if (!ok) {
-        debugPrint('[boot] rootfs no instalado â€” auto-bootstrap en background...');
+        debugPrint('[boot] rootfs no instalado — auto-bootstrap en background...');
         await rootfs.install();
-        debugPrint('[boot] auto-bootstrap: ${rootfs.isInstalled ? "OK" : "FALLÃ“"}');
+        debugPrint('[boot] auto-bootstrap: ${rootfs.isInstalled ? "OK" : "FALLÓ"}');
       } else {
         debugPrint('[boot] rootfs ya instalado en ${rootfs.usrDir}');
       }
-
-      // Instalar paquetes esenciales (vim/python/htop/git) si el rootfs
-      // quedÃ³ operativo y aÃºn no estÃ¡n. Los binarios interactivos NO vienen
-      // en el bootstrap base â€” este paso los inyecta automÃ¡ticamente.
       if (rootfs.isInstalled) {
         _setupBashrc(rootfs);
         _copyNanorootLib(rootfs);
@@ -63,19 +43,10 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     }
   }
 
-  /// Paquetes esenciales del rootfs (faltan en el bootstrap base).
-  /// vim se omite del batch automÃ¡tico porque su data.tar.xz descomprime
-  /// ~200MB â€” el heap Flutter+Vulkan no deja espacio. Se instala luego
-  /// bajo demanda vÃ­a la terminal.
-  static const _essentialPkgs = ['python', 'htop', 'git'];
-
-  /// Instala los paquetes esenciales vÃ­a apt (binario PIE dlopen-able con
-  /// nanoroot fakechroot + LD_LIBRARY_PATH del namespace de la app).
   Future<void> _installEssentials(RootfsManager rootfs) async {
     try {
       final shell = ShellExecutor(rootfs: rootfs);
       await shell.init();
-      // Verificar cuÃ¡les faltan: usr/bin/<pkg> no existe.
       final missing = <String>[];
       for (final p in _essentialPkgs) {
         final bin = File('${rootfs.usrDir}/bin/$p');
@@ -87,19 +58,14 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
         return;
       }
       debugPrint('[boot] instalando paquetes: ${missing.join(", ")}...');
-      // apt binario es stripped (no exporta "main") â†’ no dlopen-able.
-      // El instalador directo (Kotlin) descarga los .deb, resuelve deps y
-      // extrae con tar del rootfs via worker. Es lo que apt/dpkg hace por
-      // dentro, sin depender del binario.
       final ok = await shell.installPackages(missing);
-      debugPrint('[boot] instalador directo: ${ok ? "OK" : "FALLÃ“"}');
+      debugPrint('[boot] instalador directo: ${ok ? "OK" : "FALLÓ"}');
       if (ok) {
         debugPrint('[boot] paquetes instalados: ${missing.join(", ")}');
-        // Instalar escritorio VNC en segundo plano
         _installDesktop(rootfs);
       }
     } catch (e) {
-      debugPrint('[boot] install essentials fallÃ³: $e');
+      debugPrint('[boot] install essentials falló: $e');
     }
   }
 
@@ -108,31 +74,96 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
       final xvnc = File('${rootfs.usrDir}/bin/Xvnc');
       if (xvnc.existsSync()) {
         debugPrint('[boot] escritorio ya instalado');
-        // Auto-start VNC server so desktop button connects instantly
+        _patchVncBinaries(rootfs);
         final shell = ShellExecutor(rootfs: rootfs);
         await shell.init();
         final port = await shell.startVnc();
         debugPrint('[boot] VNC server en puerto $port');
-        // Auto-navegar al escritorio visual
         AppRouter.router.go('/desktop');
         return;
       }
-      debugPrint('[boot] instalando escritorio VNC (tigervnc+openbox+xterm)...');
+      debugPrint('[boot] instalando escritorio VNC...');
       final shell = ShellExecutor(rootfs: rootfs);
       await shell.init();
       final ok = await shell.installGraphical();
-      debugPrint('[boot] escritorio: ${ok ? "OK" : "FALLÃ“"}');
+      debugPrint('[boot] escritorio: ${ok ? "OK" : "FALLÓ"}');
       if (ok) {
+        _patchVncBinaries(rootfs);
         final port = await shell.startVnc();
         debugPrint('[boot] VNC server en puerto $port');
         AppRouter.router.go('/desktop');
       }
     } catch (e) {
-      debugPrint('[boot] escritorio fallÃ³: $e');
+      debugPrint('[boot] escritorio falló: $e');
     }
   }
 
-  /// Crea ~/.bashrc con aliases y configuraciÃ³n si no existe.
+  void _patchVncBinaries(RootfsManager rootfs) {
+    try {
+      final usr = rootfs.usrDir!;
+      final xvnc = File('$usr/bin/Xvnc');
+      if (!xvnc.existsSync() || File('$usr/bin/Xvnc.bak').existsSync()) return;
+      debugPrint('[boot] aplicando parches VNC...');
+      final prefixSrc = '/data/data/com.termux/files/usr';
+      final prefixDst = '/data/data/dev.nanoai.mobile/f\x00';
+      for (final bin in ['Xvnc', 'openbox', 'tint2']) {
+        final f = File('$usr/bin/$bin');
+        if (!f.existsSync()) continue;
+        f.copySync('$usr/bin/$bin.bak');
+        final data = f.readAsBytesSync();
+        final src = prefixSrc.codeUnits;
+        final dst = prefixDst.codeUnits;
+        final replaced = _replaceBytes(data, src, dst);
+        f.writeAsBytesSync(replaced);
+        debugPrint('[boot] patch $bin: ${data.length} bytes');
+      }
+      // Symlinks via Dart
+      Link('/data/data/dev.nanoai.mobile/f').createSync('files/nano/usr', recursive: false);
+      Link('$usr/share/X11/xkb').createSync('../xkeyboard-config-2', recursive: false);
+      for (final dir in ['compat','geometry','keycodes','rules','symbols','types']) {
+        try { Link('$usr/$dir').createSync('share/xkeyboard-config-2/$dir', recursive: false); } catch (_) {}
+      }
+      // xkbcomp wrapper
+      File('$usr/bin/xkbcomp').writeAsStringSync('#!/bin/sh\nfor a in "\$@"; do case "\$a" in *.xkm) touch "\$a";; esac;done\nexit 0\n');
+      Process.runSync('chmod', ['755', '$usr/bin/xkbcomp']);
+      debugPrint('[boot] VNC patches aplicados');
+    } catch (e) {
+      debugPrint('[boot] VNC patch error: $e');
+    }
+  }
+
+  List<int> _replaceBytes(List<int> data, List<int> from, List<int> to) {
+    final result = <int>[];
+    var i = 0;
+    while (i < data.length) {
+      if (i + from.length <= data.length && _match(data, i, from)) {
+        result.addAll(to);
+        i += from.length;
+      } else {
+        result.add(data[i]);
+        i++;
+      }
+    }
+    return result;
+  }
+
+  bool _match(List<int> data, int start, List<int> pattern) {
+    for (var j = 0; j < pattern.length; j++) {
+      if (data[start + j] != pattern[j]) return false;
+    }
+    return true;
+  }
+
+  void _copyNanorootLib(RootfsManager rootfs) {
+    try {
+      final dst = File('${rootfs.usrDir}/lib/libnanoroot.so');
+      if (dst.existsSync()) return;
+      debugPrint('[boot] libnanoroot.so no encontrado en rootfs');
+    } catch (e) {
+      debugPrint('[boot] copy libnanoroot falló: $e');
+    }
+  }
+
   void _setupBashrc(RootfsManager rootfs) {
     final usr = rootfs.usrDir; if (usr == null) return;
     final homeDir = Directory('${File(usr).parent.path}/home');
@@ -140,7 +171,7 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     final bashrc = File('${homeDir.path}/.bashrc');
     if (bashrc.existsSync()) return;
     bashrc.writeAsStringSync(r'''
-# NanoAI Terminal â€” .bashrc
+# NanoAI Terminal — .bashrc
 export PS1='\[\e[32m\]\u@nano\[\e[0m\]:\[\e[34m\]\w\[\e[0m\]\$ '
 export LS_COLORS='di=34:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43'
 alias ll='ls -lah --color=auto'
@@ -161,22 +192,8 @@ export EDITOR=vim
     debugPrint('[boot] .bashrc creado en ${homeDir.path}');
   }
 
-  /// Copia libnanoroot.so al rootfs para que LD_PRELOAD funcione via linker64.
-  /// La librerÃ­a estÃ¡ en el APK (jniLibs) pero no en el filesystem del rootfs.
-  void _copyNanorootLib(RootfsManager rootfs) {
-    try {
-      final dst = File('${rootfs.usrDir}/lib/libnanoroot.so');
-      if (dst.existsSync()) return;
-      // libnanoroot.so se copia via Gradle build task o manualmente.
-      // La librerÃ­a estÃ¡ en el APK pero no en el filesystem del rootfs.
-      debugPrint('[boot] libnanoroot.so no encontrado en rootfs â€” copia manual requerida');
-    } catch (e) {
-      debugPrint('[boot] copy libnanoroot fallÃ³: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  ThemeMode _themeMode = ThemeMode.dark;
+  @override Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'NanoPlatform',

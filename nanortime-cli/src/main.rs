@@ -79,6 +79,10 @@ struct Cli {
     #[arg(long)]
     cache: bool,
 
+    /// Activar router híbrido (recomienda 1.5B vs 7B según complejidad)
+    #[arg(long)]
+    hybrid: bool,
+
     /// Detener generacion en limites naturales (parrafos, secciones)
     #[arg(long)]
     natural_stops: bool,
@@ -257,6 +261,26 @@ async fn main() -> anyhow::Result<()> {
             match model_manager.restore_session_state(&session_path).await {
                 Ok(_) => tracing::info!("Sesión restaurada — salta prefill"),
                 Err(e) => tracing::warn!("No se pudo restaurar sesión: {}", e),
+            }
+        }
+
+        // ── Hybrid Router: recomendar modelo según complejidad ─────
+        if cli.hybrid {
+            let tier = nanortime_core::hybrid_router::route_prompt(
+                &prompt,
+                2048, // RAM estimada disponible
+                true, // 7B disponible
+            );
+            tracing::info!(
+                "HybridRouter: prompt complexity → {:?} tier (model: {})",
+                tier,
+                match tier {
+                    nanortime_core::hybrid_router::ModelTier::Fast => "1.5B/3B",
+                    nanortime_core::hybrid_router::ModelTier::Expert => "7B",
+                }
+            );
+            if tier == nanortime_core::hybrid_router::ModelTier::Expert {
+                eprintln!("🧠 Modo experto (7B). La respuesta puede tomar ~3 minutos.");
             }
         }
 

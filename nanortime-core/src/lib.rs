@@ -43,6 +43,7 @@ pub mod orchestrator;
 pub mod speculative_decoder;
 pub mod streaming_output;
 pub mod response_cache;
+pub mod hybrid_router;
 
 use std::sync::Arc;
 

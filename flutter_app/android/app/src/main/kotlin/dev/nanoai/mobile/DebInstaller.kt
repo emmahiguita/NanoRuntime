@@ -58,9 +58,7 @@ class DebInstaller(
             "tigervnc",    // Xvnc: servidor X11 + VNC integrado
             "openbox",     // window manager ultraligero (~1MB)
             "tint2",       // panel/taskbar
-            "xkbcomp",     // keyboard compiler (requerido por Xvnc)
-            // xterm/rxvt no están en Termux; se puede usar el busybox del rootfs
-            // o instalar un terminal X11 aparte (alacritty, st, etc.)
+            // xkbcomp no existe como paquete Termux; se usa wrapper script
         )
 
         /** Convierte bytes a hex string (para verificación SHA256). */
