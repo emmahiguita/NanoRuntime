@@ -43,8 +43,8 @@ try:
         "axes.spines.top": False,
         "axes.spines.right": False,
     })
-except:
-    pass
+except Exception:
+    pass  # Matplotlib style config is cosmetic — non-fatal if unavailable
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Circle, Rectangle

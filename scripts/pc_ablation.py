@@ -45,8 +45,11 @@ def run_and_measure(cmd: list, label: str) -> dict:
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     break
                 time.sleep(0.05)
-        except Exception:
-            pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ProcessLookupError, BrokenPipeError) as e:
+            # Process died or became inaccessible during monitoring — expected
+            # when the subprocess finishes quickly. RSS data missing for this
+            # run, but all other metrics remain valid.
+            print(f"[warn] RSS monitor stopped: {e}", file=sys.stderr)
 
     t0 = time.monotonic()
     try:

@@ -161,24 +161,7 @@ def patch_progress_callback(content: str) -> str:
     content = content.replace(marker, hook, 1)
     print("[OK] Progress callback silenciado")
     return content
-    """Fuerza tty_can_use_colors() = false bajo NANORTIME_STREAMING.
-    
-    Esto elimina spinners, barras de progreso, y caracteres de control
-    que saturan el I/O cuando stdout/stderr van a archivo en vez de TTY.
-    """
-    marker = 'bool tty_can_use_colors() {'
-    if marker not in content:
-        print("[WARN] No se encontro tty_can_use_colors() en common.cpp")
-        return content
 
-    hook = '''bool tty_can_use_colors() {
-#ifdef NANORTIME_STREAMING
-    // NanoRuntime: siempre modo no-TTY (evita spinners que saturan eMMC)
-    return false;
-#else'''
-    content = content.replace(marker, hook, 1)
-    print("[OK] tty_can_use_colors() forzado a false (no spinners)")
-    return content
 
 if __name__ == "__main__":
     main()

@@ -10,7 +10,7 @@ Background:  Pure white
 Margins:     Adequate for binding and readability
 """
 
-import json, sys, numpy as np, pandas as pd, warnings
+import sys, numpy as np, pandas as pd, warnings
 from pathlib import Path
 warnings.filterwarnings('ignore')
 
@@ -20,102 +20,35 @@ if sys.platform == 'win32':
 from scipy import stats
 from scipy.stats import shapiro, mannwhitneyu, spearmanr
 
-# ── Professional setup ────────────────────────────────────────────────
+# ── Shared utilities (DI: single source of truth, no duplication) ────
+from _nanostats import (
+    cohens_d, bootstrap_ci,
+    build_stress_dataframe, setup_matplotlib_style, PALETTE,
+)
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+# ── Professional setup ────────────────────────────────────────────────
+plt = setup_matplotlib_style()
 import matplotlib.ticker as ticker
 from matplotlib.patches import FancyBboxPatch
 
-# Nature Reviews palette — elegant, professional, high contrast
-# https://www.nature.com/nature/for-authors/preparing-your-submission
-NAT = {
-    'blue':     '#2166AC',   # OPPO — azul marino
-    'red':      '#B2182B',   # Samsung — rojo vino
-    'dark':     '#2C2C2C',   # texto principal
-    'grey':     '#878787',   # lineas secundarias
-    'light':    '#D0D0D0',   # bordes
-    'bg':       '#F8F8F8',   # fondo de caja
-    'gold':     '#D4A017',   # acento (significancia)
-    'green':    '#439B5A',   # acento (positivo/savings)
-}
-
-# Device assignment
+# Local aliases from shared palette
+NAT = PALETTE
 DEVICE_COLORS = {
-    'OPPO':    NAT['blue'],
-    'Samsung': NAT['red'],
+    'OPPO':    PALETTE['oppo'],
+    'Samsung': PALETTE['samsung'],
 }
-
-matplotlib.rcParams.update({
-    'font.family':        'serif',
-    'font.serif':         ['Times New Roman', 'DejaVu Serif', 'Computer Modern Roman'],
-    'font.size':          10,
-    'axes.titlesize':     12,
-    'axes.labelsize':     10,
-    'xtick.labelsize':    9,
-    'ytick.labelsize':    9,
-    'legend.fontsize':    9,
-    'figure.dpi':         300,
-    'savefig.dpi':        300,
-    'savefig.bbox':       'tight',
-    'savefig.facecolor':  'white',
-    'savefig.edgecolor':  'none',
-    'axes.facecolor':     'white',
-    'axes.edgecolor':     NAT['dark'],
-    'axes.linewidth':     0.8,
-    'axes.grid':          True,
-    'grid.alpha':         0.15,
-    'grid.linestyle':     '-',
-    'grid.linewidth':     0.4,
-    'grid.color':         NAT['dark'],
-    'axes.spines.top':    False,
-    'axes.spines.right':  False,
-    'xtick.major.width':  0.6,
-    'ytick.major.width':  0.6,
-    'xtick.color':        NAT['dark'],
-    'ytick.color':        NAT['dark'],
-})
 
 import seaborn as sns
 sns.set_style("white")
 sns.set_context("paper", font_scale=1.0, rc={"grid.linewidth": 0.3})
 
 # ── Paths ─────────────────────────────────────────────────────────────
-
 PROJECT = Path(__file__).resolve().parent.parent
 OUT_DIR = PROJECT / "data" / "research" / "evidence_package" / "images" / "statistical"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-LOG_DIR = PROJECT / "data" / "research" / "evidence_package" / "logs"
 
-# ── Load data ─────────────────────────────────────────────────────────
-
-def load_json(name):
-    with open(LOG_DIR / name, encoding='utf-8') as f:
-        return json.load(f)
-
-datasets = {
-    "OPPO (prev)":      load_json("android_stress_results.json"),
-    "OPPO (main)":      load_json("oppo_stress_50.json"),
-    "OPPO (tech)":      load_json("oppo_tech_15.json"),
-    "Samsung (prev)":   load_json("samsung_a30_stress_results.json"),
-    "Samsung (main)":   load_json("samsung_stress_30.json"),
-    "Samsung (tech)":   load_json("samsung_tech_15.json"),
-}
-
-rows = []
-for name, data in datasets.items():
-    device = "OPPO" if "OPPO" in name else "Samsung"
-    for r in data['runs']:
-        if r.get('tok_s') and r.get('mem_avail_mb'):
-            rows.append({
-                'device': device, 'session': name,
-                'tok_s': r['tok_s'], 'ram_mb': r['mem_avail_mb'],
-                'latency_ms': r.get('latency_ms', 0),
-                'confidence': r.get('confidence', 0),
-            })
-
-df = pd.DataFrame(rows)
+# ── Load data (single implementation via _nanostats) ──────────────────
+df = build_stress_dataframe()
 oppo = df[df['device'] == 'OPPO']
 samsung = df[df['device'] == 'Samsung']
 
@@ -135,23 +68,13 @@ print(f"\n  Shapiro-Wilk [Throughput]: OPPO W={w_o:.3f} p={p_o:.4f} | Samsung W=
 u_stat, u_p = mannwhitneyu(oppo['tok_s'], samsung['tok_s'], alternative='two-sided')
 print(f"  Mann-Whitney U [OPPO vs Samsung]: U={u_stat:.0f} p={u_p:.6f} (SIGNIFICANT)")
 
-# Effect size
-def cohens_d(x, y):
-    nx, ny = len(x), len(y)
-    dof = nx + ny - 2
-    pooled_std = np.sqrt(((nx-1)*np.var(x, ddof=1) + (ny-1)*np.var(y, ddof=1)) / dof)
-    return (np.mean(x) - np.mean(y)) / pooled_std
-d = cohens_d(oppo['tok_s'], samsung['tok_s'])
+# Effect size — injected from _nanostats.cohens_d
+d = cohens_d(oppo['tok_s'].values, samsung['tok_s'].values)
 print(f"  Cohen's d: {d:.3f} (LARGE effect)")
 
-# Bootstrap CI
-boot_diffs = []
-for _ in range(10000):
-    o_samp = np.random.choice(oppo['ram_mb'].values, size=50, replace=True)
-    s_samp = np.random.choice(samsung['ram_mb'].values, size=50, replace=True)
-    boot_diffs.append(np.mean(o_samp) - np.mean(s_samp))
-ci_low, ci_high = np.percentile(boot_diffs, 2.5), np.percentile(boot_diffs, 97.5)
-print(f"  Bootstrap 95% CI [RAM diff]: [{ci_low:.0f}, {ci_high:.0f}] MB (mean={np.mean(boot_diffs):.0f})")
+# Bootstrap CI — injected from _nanostats.bootstrap_ci
+ci_low, ci_high = bootstrap_ci(oppo['ram_mb'].values, samsung['ram_mb'].values)
+print(f"  Bootstrap 95% CI [RAM diff]: [{ci_low:.0f}, {ci_high:.0f}] MB")
 
 # RAM trend
 for name, sub in [("OPPO", oppo), ("Samsung", samsung)]:

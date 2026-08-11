@@ -33,6 +33,37 @@ def load_ram_series(path: str) -> tuple:
         d = json.load(f)
     return [r['mem_avail_mb'] for r in d['runs']]
 
+
+def load_ablation_data() -> dict:
+    """Load PC ablation results and compute mean tok_s and peak_rss_mb
+    from the raw run data. Returns dict with keys: tok_s, rss_mb, labels.
+    No hardcoded constants — single source of truth is the JSON file."""
+    path = LOG_DIR / "pc_ablation_results.json"
+    with open(path, encoding='utf-8') as f:
+        d = json.load(f)
+
+    def mean_tok_s(runs):
+        vals = [r['tok_s'] for r in runs if r.get('tok_s')]
+        return sum(vals) / len(vals) if vals else 0.0
+
+    def mean_rss(runs):
+        vals = [r['peak_rss_mb'] for r in runs if r.get('peak_rss_mb')]
+        return sum(vals) / len(vals) if vals else 0.0
+
+    return {
+        "tok_s": [
+            mean_tok_s(d['nanortime_madvise']),
+            mean_tok_s(d['llamacpp_no_mmap']),
+            mean_tok_s(d['llamacpp_mmap']),
+        ],
+        "rss_mb": [
+            mean_rss(d['nanortime_madvise']),
+            mean_rss(d['llamacpp_no_mmap']),
+            mean_rss(d['llamacpp_mmap']),
+        ],
+        "labels": ['NanoRuntime', 'llama\nno-mmap', 'llama\nmmap'],
+    }
+
 datasets = {
     "Samsung A30s\n(prev, 10 iter)": load_ram_series(LOG_DIR / "samsung_a30_stress_results.json"),
     "Samsung A30s\n(HOY, 30 iter)": load_ram_series(LOG_DIR / "samsung_stress_30.json"),
@@ -265,23 +296,30 @@ ax3.set_title("RAM Distribution — 140 Total Android Queries", fontsize=11, fon
 ax3.set_ylabel("Free RAM (MB)", fontsize=10)
 ax3.grid(True, alpha=0.3, linestyle=':', axis='y')
 
-# Middle-right: PC Ablation
+# Middle-right: PC Ablation — computed from real JSON data, not hardcoded
 ax4 = fig.add_subplot(gs[1, 2])
-x_pc = np.arange(3)
+
+# Load ablation data and compute averages from raw runs (not the cherry-picked summary)
+pc_data = load_ablation_data()
+tok_vals = pc_data["tok_s"]
+rss_vals = pc_data["rss_mb"]
+labels = pc_data["labels"]
+
+x_pc = np.arange(len(tok_vals))
 width = 0.35
-bars1 = ax4.bar(x_pc - width/2, [10.74, 20.28, 20.79], width, label='Tok/s',
+bars1 = ax4.bar(x_pc - width/2, tok_vals, width, label='Tok/s',
                  color=['#2196F3', '#FF9800', '#F44336'], edgecolor='white')
 ax4_twin = ax4.twinx()
-bars2 = ax4_twin.bar(x_pc + width/2, [1840, 2038, 2510], width, label='RSS (MB)',
+bars2 = ax4_twin.bar(x_pc + width/2, rss_vals, width, label='RSS (MB)',
                       color=['#64B5F6', '#FFB74D', '#EF9A9A'], edgecolor='white', alpha=0.7)
 ax4.set_xticks(x_pc)
-ax4.set_xticklabels(['NanoRuntime', 'llama\nno-mmap', 'llama\nmmap'], fontsize=8)
+ax4.set_xticklabels(labels, fontsize=8)
 ax4.set_ylabel("Throughput (tok/s)", fontsize=9, color='#1565C0')
 ax4_twin.set_ylabel("Peak RSS (MB)", fontsize=9, color='#C62828')
-for bar, val in zip(bars1, [10.74, 20.28, 20.79]):
-    ax4.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.3, f'{val}', ha='center', fontsize=8)
-for bar, val in zip(bars2, [1840, 2038, 2510]):
-    ax4_twin.text(bar.get_x()+bar.get_width()/2, bar.get_height()+15, f'{val}', ha='center', fontsize=8)
+for bar, val in zip(bars1, tok_vals):
+    ax4.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.3, f'{val:.2f}', ha='center', fontsize=8)
+for bar, val in zip(bars2, rss_vals):
+    ax4_twin.text(bar.get_x()+bar.get_width()/2, bar.get_height()+15, f'{val:.0f}', ha='center', fontsize=8)
 ax4.set_title("PC Ablation\n(10 iter each)", fontsize=10, fontweight='bold')
 
 # Bottom: Summary stats table

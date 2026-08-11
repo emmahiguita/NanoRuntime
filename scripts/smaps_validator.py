@@ -7,7 +7,7 @@ RssAnon (real leaks) from RssFile (page cache, not leaks).
 Usage: python scripts/smaps_validator.py --device R58N21SVSPE
 """
 
-import subprocess, re, json, sys, time, argparse
+import subprocess, re, json, sys, time, argparse, shlex
 from pathlib import Path
 from datetime import datetime
 
@@ -29,7 +29,7 @@ def parse_smaps(text):
             key = parts[0].strip()
             val = parts[1].strip().replace(' kB', '')
             try: out[key] = int(val)
-            except: pass
+            except (ValueError, TypeError): pass  # non-numeric or missing field — skip
     return out
 
 def sample_smaps(device):
@@ -49,13 +49,11 @@ def sample_smaps(device):
 def run_inference(device):
     """Launch inference in background and return immediately."""
     prompt = "<|im_start|>user\nExplain the attention mechanism in transformers in one paragraph.<|im_end|>\n<|im_start|>assistant\n"
-    # Escape for shell
-    prompt = prompt.replace('"', '\\"').replace('!', '\\!').replace('$', '\\$')
     
     cmd = (
         f"cd /data/local/tmp && LD_LIBRARY_PATH=. nohup "
         f"./nanortime --model qwen.gguf --max-tokens 150 --edge-only --quiet "
-        f'--prompt "{prompt}" '
+        f"--prompt {shlex.quote(prompt)} "
         f"> /dev/null 2>&1 &"
     )
     subprocess.run([ADB, "-s", device, "shell", cmd],

@@ -5,7 +5,7 @@ Theme 1: LIGHT  (publication, paper, print) — deep navy + burgundy
 Theme 2: DARK   (presentation, slides, screen) — GitHub-style dark
 """
 
-import json, sys, numpy as np, pandas as pd, warnings
+import sys, numpy as np, pandas as pd, warnings
 from pathlib import Path
 warnings.filterwarnings('ignore')
 
@@ -15,9 +15,12 @@ if sys.platform == 'win32':
 from scipy import stats
 from scipy.stats import shapiro, mannwhitneyu, spearmanr
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+# ── Shared utilities (DI: single source of truth, no duplication) ────
+from _nanostats import (
+    cohens_d, bootstrap_ci, build_stress_dataframe, setup_matplotlib_style,
+)
+
+plt = setup_matplotlib_style()
 import matplotlib.ticker as ticker
 import seaborn as sns
 
@@ -56,34 +59,9 @@ DARK = {
 # ══════════════════════════════════════════════════════════════════════
 
 PROJECT = Path(__file__).resolve().parent.parent
-LOG_DIR = PROJECT / "data" / "research" / "evidence_package" / "logs"
 
-def load_json(name):
-    with open(LOG_DIR / name, encoding='utf-8') as f:
-        return json.load(f)
-
-datasets = {
-    "OPPO (prev)":      load_json("android_stress_results.json"),
-    "OPPO (main)":      load_json("oppo_stress_50.json"),
-    "OPPO (tech)":      load_json("oppo_tech_15.json"),
-    "Samsung (prev)":   load_json("samsung_a30_stress_results.json"),
-    "Samsung (main)":   load_json("samsung_stress_30.json"),
-    "Samsung (tech)":   load_json("samsung_tech_15.json"),
-}
-
-rows = []
-for name, data in datasets.items():
-    device = "OPPO" if "OPPO" in name else "Samsung"
-    for r in data['runs']:
-        if r.get('tok_s') and r.get('mem_avail_mb'):
-            rows.append({
-                'device': device, 'session': name,
-                'tok_s': r['tok_s'], 'ram_mb': r['mem_avail_mb'],
-                'latency_ms': r.get('latency_ms', 0),
-                'confidence': r.get('confidence', 0),
-            })
-
-df = pd.DataFrame(rows)
+# ── Load data (single implementation via _nanostats) ──────────────────
+df = build_stress_dataframe()
 oppo = df[df['device'] == 'OPPO']
 samsung = df[df['device'] == 'Samsung']
 
@@ -93,12 +71,7 @@ w_o, p_o = shapiro(oppo['tok_s'])
 w_s, p_s = shapiro(samsung['tok_s'])
 u_stat, u_p = mannwhitneyu(oppo['tok_s'], samsung['tok_s'], alternative='two-sided')
 
-def cohens_d(x, y):
-    nx, ny = len(x), len(y)
-    dof = nx + ny - 2
-    pooled_std = np.sqrt(((nx-1)*np.var(x, ddof=1) + (ny-1)*np.var(y, ddof=1)) / dof)
-    return (np.mean(x) - np.mean(y)) / pooled_std
-d_val = cohens_d(oppo['tok_s'], samsung['tok_s'])
+d_val = cohens_d(oppo['tok_s'].values, samsung['tok_s'].values)
 
 boot_diffs = []
 for _ in range(10000):

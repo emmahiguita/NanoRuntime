@@ -13,10 +13,13 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from script_utils import format_chat_prompt
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -55,9 +58,6 @@ ANDROID_PROMPTS = [
 ]
 
 
-def format_chat_prompt(user_message: str) -> str:
-    return f"<|im_start|>user\n{user_message}\n<|im_end|>\n<|im_start|>assistant\n"
-
 
 def run_android_prompt(model_path: str, prompt: str, max_tokens: int = 64, device_serial: str = None) -> dict:
     formatted = format_chat_prompt(prompt)
@@ -65,11 +65,13 @@ def run_android_prompt(model_path: str, prompt: str, max_tokens: int = 64, devic
     if device_serial:
         adb_base.extend(["-s", device_serial])
 
+    # shlex.quote() provides complete POSIX shell escaping: handles single
+    # quotes, backticks, $(), semicolons, and all other metacharacters.
     cmd = adb_base + [
         "shell",
         f"LD_LIBRARY_PATH=/data/local/tmp /data/local/tmp/nanortime "
-        f"--model {model_path} "
-        f"--prompt '{formatted}' "
+        f"--model {shlex.quote(model_path)} "
+        f"--prompt {shlex.quote(formatted)} "
         f"--max-tokens {max_tokens} "
         f"--edge-only --quiet"
     ]

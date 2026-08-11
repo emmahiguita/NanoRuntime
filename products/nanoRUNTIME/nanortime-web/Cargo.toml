@@ -1,0 +1,14 @@
+[package]
+name = "nanortime-web"
+version.workspace = true
+edition.workspace = true
+description = "NanoRuntime web interface — chat desde el navegador"
+
+[dependencies]
+nanortime-core = { path = "../nanortime-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[[bin]]
+name = "nanortime-web"
+path = "src/main.rs"

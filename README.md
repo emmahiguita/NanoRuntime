@@ -1,7 +1,8 @@
 # NanoRuntime
 
-Runtime de inferencia LLM para Android con gestión de memoria consciente de recursos.
-Ejecuta modelos 7B en dispositivos con menos de 4 GB RAM sin OOM crashes.
+NanoRuntime es un runtime de inferencia LLM edge-first escrito en Rust. El motor es independiente de Flutter: Flutter es la plataforma mobile oficial para operar, observar y configurar el runtime.
+
+Ejecuta modelos GGUF en dispositivos Android con memoria limitada mediante degradación controlada, routing híbrido y gestión explícita de recursos.
 
 ## Características
 
@@ -63,6 +64,18 @@ nanortime --model qwen.gguf --prompt "explica X" --natural-stops --temperature 0
 ```
 
 ## Arquitectura
+
+```text
+Core Engine Layer      -> nanortime-core/         Rust puro: orquestación, memoria, routing, RAG
+Inference Backend      -> nanortime-ffi/          puente FFI hacia llama.cpp / GGUF
+Platform Bridge        -> nanortime-cli/, server/ CLI, HTTP/SSE, métricas y herramientas dev
+Mobile Platform        -> platforms/mobile/flutter_app/ Flutter UI + Android nativo/JNI/C++
+Research Tooling       -> scripts/, docs/         benchmarks, paper, validación
+```
+
+Regla de dependencia: `nanortime-core` no depende de Flutter ni Android. Las plataformas dependen del runtime mediante FFI, JNI, CLI o HTTP/SSE.
+
+## Core source map
 
 ```
 nanortime-core/src/

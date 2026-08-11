@@ -1,0 +1,47 @@
+# NanoAI ProGuard/R8 Rules
+# Keep JNI native methods â€” they're looked up by name at runtime.
+# Without these rules, R8 may strip or rename native method declarations,
+# causing UnsatisfiedLinkError at runtime.
+
+# â”€â”€ NanoshellBridge JNI â”€â”€
+-keep class dev.nanoai.mobile.NanoshellBridge {
+    native <methods>;
+    <init>();
+}
+
+# â”€â”€ Flutter Engine â”€â”€
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.util.** { *; }
+-keep class io.flutter.view.** { *; }
+-keep class io.flutter.embedding.** { *; }
+
+# â”€â”€ Kotlin coroutines (kept for reflection-based dispatch) â”€â”€
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+
+# â”€â”€ Keep native library loading â”€â”€
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# â”€â”€ General Android â”€â”€
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Service
+-keep public class * extends android.content.BroadcastReceiver
+# Flutter deferred components reference Play Core classes that are optional for
+# a standalone APK. The app does not declare deferred components, so suppress
+# R8 missing-class warnings instead of adding unused Play Store runtime code.
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallException
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallManager
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallManagerFactory
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallRequest$Builder
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallRequest
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallSessionState
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallStateUpdatedListener
+-dontwarn com.google.android.play.core.tasks.OnFailureListener
+-dontwarn com.google.android.play.core.tasks.OnSuccessListener
+-dontwarn com.google.android.play.core.tasks.Task

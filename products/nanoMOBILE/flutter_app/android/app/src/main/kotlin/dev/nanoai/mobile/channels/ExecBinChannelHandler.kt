@@ -1,0 +1,407 @@
+package dev.nanoai.mobile.channels
+
+import android.util.Log
+import dev.nanoai.mobile.DownloadService
+import dev.nanoai.mobile.NativeRuntimeSupervisor
+import dev.nanoai.mobile.SecurePathPolicy
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipFile
+
+/**
+ * Handler dedicado para el canal exec_bin.
+ * Todas las operaciones de IO bloqueantes se ejecutan en ioScope.
+ * Nunca bloquea el main thread.
+ */
+class ExecBinChannelHandler(
+    private val activity: android.app.Activity,
+    private val filesDir: File,
+    private val pathPolicy: SecurePathPolicy,
+    private val downloadService: DownloadService,
+    private val ioScope: CoroutineScope,
+    private val mainHandler: android.os.Handler,
+    private val nativeSupervisor: NativeRuntimeSupervisor,
+) : MethodChannel.MethodCallHandler {
+
+    companion object {
+        private const val TAG = "ExecBinChannel"
+        const val CHANNEL_NAME = "com.nanoai/exec_bin"
+    }
+
+    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "makeExecutable" -> handleMakeExecutable(call, result)
+            "getFilesDir" -> handleGetFilesDir(result)
+            "probeExec" -> handleProbeExec(call, result)
+            "workerSpawn" -> handleWorkerSpawn(call, result)
+            "workerKill" -> handleWorkerKill(result)
+            "installPackages" -> handleInstallPackages(call, result)
+            "installGraphical" -> handleInstallGraphical(result)
+            "startVnc" -> handleStartVnc(result)
+            "stopVnc" -> handleStopVnc(result)
+            "getVncStatus" -> handleGetVncStatus(result)
+            "downloadBootstrap" -> handleDownloadBootstrap(call, result)
+            "extractBootstrap" -> handleExtractBootstrap(call, result)
+            "isBootstrapInstalled" -> handleIsBootstrapInstalled(call, result)
+            "downloadFile" -> handleDownloadFile(call, result)
+            "launchXsdl" -> handleLaunchXsdl(result)
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun handleMakeExecutable(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.arguments as? String
+        if (path == null) {
+            result.error("bad_args", "path requerido", null)
+            return
+        }
+        try {
+            val f = pathPolicy.requireInsideNanoFiles(File(path), "path")
+            val ok = f.setExecutable(true, false)
+            Log.w(TAG, "makeExecutable path=${f.name} ownerCanExec=${f.canExecute()} set=$ok")
+            result.success(ok)
+        } catch (e: IllegalArgumentException) {
+            result.error("bad_path", e.message, null)
+        }
+    }
+
+    private fun handleGetFilesDir(result: MethodChannel.Result) {
+        val base = File(filesDir.absolutePath, "nano")
+        if (!base.exists()) base.mkdirs()
+        result.success(base.absolutePath)
+    }
+
+    private fun handleLaunchXsdl(result: MethodChannel.Result) {
+        mainHandler.post {
+            try {
+                val intent = activity.packageManager.getLaunchIntentForPackage("x.org.server")
+                if (intent != null) {
+                    activity.startActivity(intent)
+                    result.success(true)
+                } else {
+                    result.error("not_installed", "XServer XSDL no está instalado", null)
+                }
+            } catch (e: Exception) {
+                result.error("launch_failed", e.message, null)
+            }
+        }
+    }
+
+    /**
+     * EJECUTA probeExec EN BACKGROUND - NO BLOQUEA MAIN THREAD
+     * Esto era el problema principal: ProcessBuilder.start() + waitFor() + readBytes()
+     * bloqueaban el MethodChannel handler que corre en el main thread.
+     */
+    private fun handleProbeExec(call: MethodCall, result: MethodChannel.Result) {
+        val spec = call.arguments as? Map<*, *>
+        val path = spec?.get("path") as? String
+        val args = spec?.get("args") as? List<*> ?: emptyList<Any?>()
+
+        if (path == null) {
+            result.error("bad_args", "path requerido", null)
+            return
+        }
+
+        ioScope.launch {
+            try {
+                val executable = pathPolicy.requireInsideNanoFiles(File(path), "path")
+                val cmd = java.util.ArrayList<String>().apply {
+                    add(executable.absolutePath)
+                    args.forEach { add(it.toString()) }
+                }
+
+                val p = ProcessBuilder(cmd).redirectErrorStream(false).start()
+                
+                // Leer streams en background - NO en main thread
+                val out = withContext(Dispatchers.IO) { p.inputStream.readBytes().toString(Charsets.UTF_8) }
+                val err = withContext(Dispatchers.IO) { p.errorStream.readBytes().toString(Charsets.UTF_8) }
+                val rc = withContext(Dispatchers.IO) { p.waitFor() }
+
+                // Retornar resultado al main thread
+                mainHandler.post {
+                    result.success(mapOf("rc" to rc, "out" to out, "err" to err))
+                }
+            } catch (e: IllegalArgumentException) {
+                mainHandler.post {
+                    result.error("bad_path", e.message, null)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "probeExec FAIL path=$path ex=$e")
+                mainHandler.post {
+                    result.success(mapOf("error" to "${e.javaClass.simpleName}: ${e.message}"))
+                }
+            }
+        }
+    }
+
+    private fun handleWorkerSpawn(call: MethodCall, result: MethodChannel.Result) {
+        val spec = call.arguments as? Map<*, *>
+        val binaryPath = spec?.get("binaryPath") as? String
+        val argv = (spec?.get("argv") as? List<*>)?.map { it.toString() } ?: emptyList()
+        val envMap = (spec?.get("envp") as? Map<*, *>) ?: emptyMap<Any?, Any?>()
+        val envp = envMap.map { "${it.key}=${it.value}" }
+        val ldPreload = spec?.get("ldPreload") as? String
+
+        if (binaryPath == null) {
+            result.error("bad_args", "binaryPath requerido", null)
+            return
+        }
+
+        try {
+            val taskId = nativeSupervisor.spawnWorker(binaryPath, argv, envp, ldPreload)
+            if (taskId != null) {
+                result.success(mapOf("taskId" to taskId))
+            } else {
+                result.error("worker_unavailable", "worker no disponible", null)
+            }
+        } catch (e: IllegalArgumentException) {
+            result.error("bad_path", e.message, null)
+        }
+    }
+
+    private fun handleWorkerKill(result: MethodChannel.Result) {
+        if (nativeSupervisor.killWorker()) result.success(true)
+        else result.error("worker_kill_failed", "worker no conectado", null)
+    }
+
+    private fun handleInstallPackages(call: MethodCall, result: MethodChannel.Result) {
+        val spec = call.arguments as? Map<*, *>
+        val pkgs = (spec?.get("packages") as? List<*>)?.map { it.toString() } ?: emptyList()
+
+        if (pkgs.isEmpty()) {
+            result.error("bad_args", "packages requerido", null)
+            return
+        }
+
+        ioScope.launch {
+            val ok = nativeSupervisor.installPackages(pkgs) { stage, pct ->
+                Log.i(TAG, "install $stage $pct%")
+            }
+            mainHandler.post {
+                if (ok) result.success(mapOf("installed" to true))
+                else result.error("install_failed", "fallo instalando ${pkgs.joinToString(", ")}", null)
+            }
+        }
+    }
+
+    private fun handleInstallGraphical(result: MethodChannel.Result) {
+        ioScope.launch {
+            val ok = nativeSupervisor.installGraphical { stage, pct ->
+                Log.i(TAG, "graphical $stage $pct%")
+            }
+            mainHandler.post {
+                if (ok) result.success(mapOf("installed" to true))
+                else result.error("install_failed", "fallo instalando escritorio", null)
+            }
+        }
+    }
+
+    private fun handleStartVnc(result: MethodChannel.Result) {
+        nativeSupervisor.startVnc(
+            onStatus = { status -> Log.i(TAG, status) },
+            onPort = { port ->
+                activity.runOnUiThread { result.success(mapOf("port" to port)) }
+            },
+            onError = { msg ->
+                activity.runOnUiThread { result.error("vnc_failed", msg, null) }
+            },
+        )
+    }
+
+    private fun handleStopVnc(result: MethodChannel.Result) {
+        nativeSupervisor.stopVnc()
+        result.success(true)
+    }
+
+    private fun handleGetVncStatus(result: MethodChannel.Result) {
+        nativeSupervisor.getVncStatus { status ->
+            activity.runOnUiThread { result.success(status) }
+        }
+    }
+
+    private fun handleDownloadBootstrap(call: MethodCall, result: MethodChannel.Result) {
+        val url = call.arguments as? String
+        if (url == null) {
+            result.error("bad_args", "url requerido", null)
+            return
+        }
+
+        ioScope.launch {
+            try {
+                downloadBootstrap(url) { pct, msg ->
+                    Log.i(TAG, "bootstrap $pct%: $msg")
+                }
+                mainHandler.post { result.success(true) }
+            } catch (e: Exception) {
+                Log.e(TAG, "downloadBootstrap fallo: $url", e)
+                mainHandler.post {
+                    result.error("download_failed", e.message, e.stackTraceToString())
+                }
+            }
+        }
+    }
+
+    private fun handleExtractBootstrap(call: MethodCall, result: MethodChannel.Result) {
+        val zipPath = call.argument<String>("zipPath")
+        val destDir = call.argument<String>("destDir")
+
+        if (zipPath == null || destDir == null) {
+            result.error("bad_args", "zipPath y destDir requeridos", null)
+            return
+        }
+
+        ioScope.launch {
+            try {
+                val count = extractBootstrap(zipPath, destDir)
+                mainHandler.post {
+                    result.success(mapOf("filesExtracted" to count))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "extractBootstrap fallo: zip=$zipPath dest=$destDir", e)
+                mainHandler.post {
+                    result.error("extract_failed", e.message, e.stackTraceToString())
+                }
+            }
+        }
+    }
+
+    private fun handleIsBootstrapInstalled(call: MethodCall, result: MethodChannel.Result) {
+        val usrDir = call.arguments as? String
+        val bash = File("$usrDir/bin/bash")
+        result.success(bash.exists() && bash.canExecute())
+    }
+
+    private fun handleDownloadFile(call: MethodCall, result: MethodChannel.Result) {
+        val url = call.argument<String>("url")
+        val destPath = call.argument<String>("destPath")
+
+        if (url == null || destPath == null) {
+            result.error("bad_args", "url y destPath requeridos", null)
+            return
+        }
+
+        ioScope.launch {
+            try {
+                val destFile = File(destPath)
+                downloadFile(url, destFile) { pct, _ ->
+                    if (pct % 25 == 0) {
+                        Log.i(TAG, "downloadFile $pct% -> $destPath")
+                    }
+                }
+                mainHandler.post { result.success(true) }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    result.error("download_failed", e.message, null)
+                }
+            }
+        }
+    }
+
+    // ========== Helper methods (moved from MainActivity) ==========
+
+    private fun downloadBootstrap(urlStr: String, onProgress: (Int, String) -> Unit) {
+        val destFile = pathPolicy.requireInsideNanoFiles(
+            File(filesDir, "nano/bootstrap-aarch64.zip"),
+            "bootstrap destino",
+        )
+        downloadService.downloadToFile(
+            urlStr,
+            destFile,
+            readTimeoutMs = 60_000,
+            maxBytes = DownloadService.BOOTSTRAP_MAX_DOWNLOAD_BYTES,
+            onProgress = onProgress,
+        )
+    }
+
+    private fun extractBootstrap(zipPath: String, destDir: String): Int {
+        val zipFile = pathPolicy.requireInsideNanoFiles(File(zipPath), "zipPath")
+        val dest = pathPolicy.requireInsideNanoFiles(File(destDir), "destDir")
+        if (!dest.exists()) dest.mkdirs()
+        val destPath: java.nio.file.Path = dest.toPath().toAbsolutePath().normalize()
+        var count = 0
+
+        ZipFile(zipFile).use { zip ->
+            val entries = zip.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                val targetPath = destPath.resolve(entry.name).normalize()
+                if (!targetPath.startsWith(destPath)) continue
+                val target = targetPath.toFile()
+                if (entry.isDirectory) {
+                    target.mkdirs()
+                } else {
+                    target.parentFile?.mkdirs()
+                    zip.getInputStream(entry).use { input ->
+                        FileOutputStream(target).use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var len: Int
+                            while (input.read(buffer).also { len = it } > 0) {
+                                output.write(buffer, 0, len)
+                            }
+                        }
+                    }
+                    if (entry.name.startsWith("bin/") ||
+                        entry.name.startsWith("usr/bin/") ||
+                        entry.name.startsWith("usr/libexec/")) {
+                        target.setExecutable(true, false)
+                    }
+                    count++
+                }
+            }
+
+            val symEntry = zip.getEntry("SYMLINKS.txt")
+            if (symEntry != null) {
+                val symText = zip.getInputStream(symEntry).use { it.readBytes().toString(Charsets.UTF_8) }
+                var linksCreated = 0
+                for (line in symText.lines()) {
+                    if (line.isBlank()) continue
+                    val idx = line.indexOf('\u2190')
+                    if (idx < 0) continue
+                    val linkTarget = line.substring(0, idx).trim()
+                    val linkName = line.substring(idx + 1).trim()
+                    val linkPath = destPath.resolve(linkName).normalize()
+                    if (!linkPath.startsWith(destPath)) continue
+                    var fixedTarget = linkTarget.replace(
+                        "/data/data/com.termux/files/usr",
+                        destPath.toString()
+                    )
+                    val t = java.nio.file.Paths.get(fixedTarget)
+                    if (!t.isAbsolute) {
+                        val isPrefixRel = fixedTarget.startsWith("./") ||
+                            fixedTarget.startsWith("../")
+                        val base = if (isPrefixRel) destPath
+                                    else linkPath.parent ?: destPath
+                        val resolved = base.resolve(fixedTarget).normalize()
+                        if (!resolved.startsWith(destPath)) continue
+                        fixedTarget = resolved.toString()
+                    }
+                    linkPath.parent?.toFile()?.mkdirs()
+                    try {
+                        java.nio.file.Files.deleteIfExists(linkPath)
+                        java.nio.file.Files.createSymbolicLink(
+                            linkPath, java.nio.file.Paths.get(fixedTarget)
+                        )
+                        linksCreated++
+                    } catch (se: Exception) {
+                        Log.w(TAG, "symlink fallo $linkName: ${se.message}")
+                    }
+                }
+                Log.i(TAG, "symlinks creados: $linksCreated")
+            }
+        }
+        val bashPath = File("$destDir/bin/bash")
+        if (bashPath.exists()) bashPath.setExecutable(true, false)
+        Log.i(TAG, "extract completo: $count archivos")
+        return count
+    }
+
+    private fun downloadFile(urlStr: String, destFile: File, onProgress: (Int, String) -> Unit) {
+        downloadService.downloadToFile(urlStr, destFile, onProgress = onProgress)
+    }
+}

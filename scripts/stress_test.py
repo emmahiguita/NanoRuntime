@@ -19,6 +19,8 @@ import re
 import subprocess
 import sys
 import time
+
+from script_utils import format_chat_prompt
 from pathlib import Path
 
 try:
@@ -50,10 +52,6 @@ STRESS_PROMPTS = [
 ]
 
 
-def format_chat_prompt(user_message: str) -> str:
-    return f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
-
-
 def run_prompt(binary: str, config: str, prompt: str, max_tokens: int = 128) -> dict:
     formatted = format_chat_prompt(prompt)
     cmd = [
@@ -71,9 +69,15 @@ def run_prompt(binary: str, config: str, prompt: str, max_tokens: int = 128) -> 
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
+        # RSS monitor with deadline: previously the while-loop polled
+        # proc.poll() indefinitely, so if the process hung the timeout
+        # on communicate() was never reached. Now the loop checks a
+        # deadline so it exits after 125s (slightly exceeding the
+        # communicate timeout of 120s).
+        deadline = time.monotonic() + 125.0
         try:
             ps = psutil.Process(proc.pid)
-            while proc.poll() is None:
+            while proc.poll() is None and time.monotonic() < deadline:
                 try:
                     rss = ps.memory_info().rss
                     if rss > peak_rss:

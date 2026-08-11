@@ -1,0 +1,62 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'core/providers/app_providers.dart';
+import 'core/router/app_router.dart';
+import 'core/services/boot_orchestrator.dart';
+import 'core/theme/app_theme.dart';
+
+/// Channel used by MainActivity to navigate when the app is already running
+/// and Android opens the app from system settings.
+const _kNavChannel = MethodChannel('com.nanoai/navigation');
+
+void main() {
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  final initialRoute = binding.platformDispatcher.defaultRouteName;
+  AppRouter.init(initialRoute == '/' ? null : initialRoute);
+
+  runApp(const ProviderScope(child: NanoPlatformApp()));
+  _listenSystemNavigation();
+}
+
+/// Warm start: app is already alive and Android asks it to open Settings.
+void _listenSystemNavigation() {
+  _kNavChannel.setMethodCallHandler((call) async {
+    if (call.method == 'openSettings') {
+      AppRouter.router.go('/settings');
+    }
+  });
+}
+
+class NanoPlatformApp extends ConsumerStatefulWidget {
+  const NanoPlatformApp({super.key});
+
+  @override
+  ConsumerState<NanoPlatformApp> createState() => _NanoPlatformAppState();
+}
+
+class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(BootOrchestrator().run());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    return MaterialApp.router(
+      title: 'NanoPlatform',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
+      routerConfig: AppRouter.router,
+    );
+  }
+}

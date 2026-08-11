@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration — NanoAI.
+  Bloquea tráfico cleartext (HTTP) por defecto.
+  Excepciones explícitas para endpoints legítimos.
+  Aplica a Android 7.0+ (API 24+, cubierto por minSdk 26).
+-->
+<network-security-config>
+    <!-- Dominio por defecto: solo HTTPS -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- llama.cpp engine: loopback local, HTTP necesario -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+
+    <!-- wttr.in: endpoint meteorológico público, solo HTTP disponible -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">wttr.in</domain>
+    </domain-config>
+</network-security-config>

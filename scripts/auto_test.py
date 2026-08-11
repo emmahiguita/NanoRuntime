@@ -7,7 +7,7 @@ Usage: python scripts/auto_test.py
 Output: data/research/evidence_package/sessions/auto_test_YYYYMMDD_HHMMSS/
 """
 
-import json, os, subprocess, sys, time, argparse, re
+import json, os, subprocess, sys, time, argparse, re, shlex
 from pathlib import Path
 from datetime import datetime
 
@@ -62,22 +62,23 @@ def run_query(device: str, model_key: str, prompt: str, max_tokens: int = 20) ->
     ram_before = adb_shell(device, "cat /proc/meminfo | grep MemAvailable").strip()
 
     t0 = time.monotonic()
-    # Use single quotes around prompt in shell to avoid escaping issues
-    safe_prompt = chat_prompt.replace("'", "'\\''")
+    # shlex.quote() provides complete POSIX shell escaping: handles single
+    # quotes, double quotes, backticks, $(), semicolons, and all other
+    # metacharacters. The previous replace("'", "'\\''") only handled
+    # single quotes, leaving the prompt vulnerable to command injection.
     cmd = (
         f"cd {WORKDIR} && LD_LIBRARY_PATH={WORKDIR} {BINARY} "
-        f"--model {model_path} --prompt '{safe_prompt}' "
+        f"--model {shlex.quote(model_path)} "
+        f"--prompt {shlex.quote(chat_prompt)} "
         f"--max-tokens {max_tokens} --temperature 0.0 --edge-only --quiet"
     )
-    output = adb_shell(device, cmd, timeout=180)
-    elapsed_s = time.monotonic() - t0
-
-    # Also capture stderr for metrics
-    output_stderr = subprocess.run(
+    result = subprocess.run(
         [ADB, "-s", device, "shell", cmd],
         capture_output=True, text=True, timeout=180
-    ).stderr
-    combined = output + output_stderr
+    )
+    output = result.stdout
+    elapsed_s = time.monotonic() - t0
+    combined = result.stdout + result.stderr
 
     ram_after = adb_shell(device, "cat /proc/meminfo | grep MemAvailable").strip()
 

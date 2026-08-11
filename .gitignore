@@ -59,4 +59,41 @@ data/
 docs/images/
 *.history.json
 manifest_cpu.json
+# Local QA / audit artifacts
+*_after_fix.png
+*_failure.png
+screenshot*.png
+palette_options.png
+output_response.txt
+real_text.txt
+AUDITORIA_TECNICA_NANOAI.*
+INFORME_AUDITORIA_TECNICA_NANOAI_*.md
+
+# Local build/debug outputs
+platforms/mobile/flutter_app/build_*.txt
+platforms/mobile/flutter_app/clean.txt
+platforms/mobile/flutter_app/pubget.txt
+
+# Python / local tooling caches
+__pycache__/
+**/__pycache__/
+
+# Flutter generated state
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# One-off codemods must not live inside app roots
+platforms/mobile/flutter_app/*_transform*.py
+platforms/mobile/flutter_app/transform_all.py
+platforms/mobile/flutter_app/refactor_*.py
+platforms/mobile/flutter_app/reduce_core*.py
+platforms/mobile/flutter_app/trim_*.py
+platforms/mobile/flutter_app/phase*.py
+platforms/mobile/flutter_app/find_reals.py
+
+# Local editor metadata
+.claude/
+*.iml
+*.out
 

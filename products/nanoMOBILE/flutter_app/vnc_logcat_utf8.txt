@@ -1,0 +1,944 @@
+﻿--------- beginning of main
+08-11 14:46:23.859 30557 31333 I vnc-service: symlink roto xkb eliminado
+08-11 14:46:23.860 30557 31333 I vnc-service: xkb → xkeyboard-config-2
+08-11 14:46:23.902 30557 31333 I vnc-service: patched lsfd: Termux → sandbox paths
+08-11 14:46:23.903 30557 31333 I vnc-service: patched waitpid: Termux → sandbox paths
+08-11 14:46:23.904 30557 31333 I vnc-service: patched hwclock: Termux → sandbox paths
+08-11 14:46:23.905 30557 31333 I vnc-service: patched hmac256: Termux → sandbox paths
+08-11 14:46:23.908 30557 31333 I vnc-service: patched free: Termux → sandbox paths
+08-11 14:46:23.909 30557 31333 I vnc-service: patched look: Termux → sandbox paths
+08-11 14:46:23.909 30557 31333 I vnc-service: patched termux-reload-settings: Termux → sandbox paths
+08-11 14:46:23.910 30557 31333 I vnc-service: patched libassuan-config: Termux → sandbox paths
+08-11 14:46:23.912 30557 31333 I vnc-service: patched choom: Termux → sandbox paths
+08-11 14:46:23.913 30557 31333 I vnc-service: patched ctrlaltdel: Termux → sandbox paths
+08-11 14:46:23.913 30557 31333 I vnc-service: patched chrt: Termux → sandbox paths
+08-11 14:46:23.916 30557 31333 I vnc-service: patched patch: Termux → sandbox paths
+08-11 14:46:23.916 30557 31333 I vnc-service: patched hostname: Termux → sandbox paths
+08-11 14:46:23.917 30557 31333 I vnc-service: patched setfacl: Termux → sandbox paths
+08-11 14:46:23.918 30557 31333 I vnc-service: patched dpkg-fsys-usrunmess: Termux → sandbox paths
+08-11 14:46:23.919 30557 31333 I vnc-service: patched pidof: Termux → sandbox paths
+08-11 14:46:23.919 30557 31333 I vnc-service: patched apt-key: Termux → sandbox paths
+08-11 14:46:23.920 30557 31333 I vnc-service: patched dumpsexp: Termux → sandbox paths
+08-11 14:46:23.920 30557 31333 I vnc-service: patched zmore: Termux → sandbox paths
+08-11 14:46:23.922 30557 31333 I vnc-service: patched wcurl: Termux → sandbox paths
+08-11 14:46:23.922 30557 31333 I vnc-service: patched lesskey: Termux → sandbox paths
+08-11 14:46:23.924 30557 31333 I vnc-service: patched apt-config: Termux → sandbox paths
+08-11 14:46:23.924 30557 31333 I vnc-service: patched bzip2recover: Termux → sandbox paths
+08-11 14:46:23.925 30557 31333 I vnc-service: patched vmstat: Termux → sandbox paths
+08-11 14:46:23.926 30557 31333 I vnc-service: patched idn2: Termux → sandbox paths
+08-11 14:46:23.926 30557 31333 I vnc-service: patched addpart: Termux → sandbox paths
+08-11 14:46:23.927 30557 31333 I vnc-service: patched termux-apps-info-env-variable: Termux → sandbox paths
+08-11 14:46:23.928 30557 31333 I vnc-service: patched xargs: Termux → sandbox paths
+08-11 14:46:23.929 30557 31333 I vnc-service: patched termux-scoped-env-variable.bash: Termux → sandbox paths
+08-11 14:46:23.929 30557 31333 I vnc-service: patched ifconfig: Termux → sandbox paths
+08-11 14:46:23.930 30557 31333 I vnc-service: patched taskset: Termux → sandbox paths
+08-11 14:46:23.932 30557 31333 I vnc-service: patched dash: Termux → sandbox paths
+08-11 14:46:23.933 30557 31333 I vnc-service: patched cmp: Termux → sandbox paths
+08-11 14:46:23.935 30557 31333 I vnc-service: patched termux-apps-info-app-version-name: Termux → sandbox paths
+08-11 14:46:23.935 30557 31333 I vnc-service: patched coresched: Termux → sandbox paths
+08-11 14:46:23.939 30557 31333 I vnc-service: patched apt-cache: Termux → sandbox paths
+08-11 14:46:23.939 30557 31333 I vnc-service: patched chsh: Termux → sandbox paths
+08-11 14:46:23.941 30557 31333 I vnc-service: patched scriptlive: Termux → sandbox paths
+08-11 14:46:23.943 30557 31333 I vnc-service: patched ed: Termux → sandbox paths
+08-11 14:46:23.944 30557 31333 I vnc-service: patched unzip: Termux → sandbox paths
+08-11 14:46:23.944 30557 31333 I vnc-service: patched xzdec: Termux → sandbox paths
+08-11 14:46:23.946 30557 31333 I vnc-service: patched losetup: Termux → sandbox paths
+08-11 14:46:23.947 30557 31333 I vnc-service: patched setfattr: Termux → sandbox paths
+08-11 14:46:23.947 30557 31333 I vnc-service: patched settings: Termux → sandbox paths
+08-11 14:46:23.948 30557 31333 I vnc-service: patched zegrep: Termux → sandbox paths
+08-11 14:46:23.948 30557 31333 I vnc-service: patched plipconfig: Termux → sandbox paths
+08-11 14:46:23.948 30557 31333 I vnc-service: patched df: Termux → sandbox paths
+08-11 14:46:23.949 30557 31333 I vnc-service: patched am: Termux → sandbox paths
+08-11 14:46:23.949 30557 31333 I vnc-service: patched lsns: Termux → sandbox paths
+08-11 14:46:23.951 30557 31333 I vnc-service: patched xz: Termux → sandbox paths
+08-11 14:46:23.952 30557 31333 I vnc-service: patched scriptreplay: Termux → sandbox paths
+08-11 14:46:23.952 30557 31333 I vnc-service: patched lsirq: Termux → sandbox paths
+08-11 14:46:23.955 30557 31333 I vnc-service: patched termux-change-repo: Termux → sandbox paths
+08-11 14:46:23.958 30557 31333 I vnc-service: patched cal: Termux → sandbox paths
+08-11 14:46:23.959 30557 31333 I vnc-service: patched logger: Termux → sandbox paths
+08-11 14:46:23.960 30557 31333 I vnc-service: patched more: Termux → sandbox paths
+08-11 14:46:23.961 30557 31333 I vnc-service: patched login: Termux → sandbox paths
+08-11 14:46:23.961 30557 31333 I vnc-service: patched zcmp: Termux → sandbox paths
+08-11 14:46:23.962 30557 31333 I vnc-service: patched blockdev: Termux → sandbox paths
+08-11 14:46:23.968 30557 31333 I vnc-service: patched bash: Termux → sandbox paths
+08-11 14:46:23.969 30557 31333 I vnc-service: patched nameif: Termux → sandbox paths
+08-11 14:46:23.970 30557 31333 I vnc-service: patched termux-apps-info-env-variable.sh: Termux → sandbox paths
+08-11 14:46:23.970 30557 31333 I vnc-service: patched lzmainfo: Termux → sandbox paths
+08-11 14:46:23.975 30557 31333 I vnc-service: patched ipmaddr: Termux → sandbox paths
+08-11 14:46:23.976 30557 31333 I vnc-service: patched nsenter: Termux → sandbox paths
+08-11 14:46:23.977 30557 31333 I vnc-service: patched tftp: Termux → sandbox paths
+08-11 14:46:23.978 30557 31333 I vnc-service: patched filecap: Termux → sandbox paths
+08-11 14:46:23.978 30557 31333 I vnc-service: patched iptunnel: Termux → sandbox paths
+08-11 14:46:23.979 30557 31333 I vnc-service: patched pm: Termux → sandbox paths
+08-11 14:46:23.980 30557 31333 I vnc-service: patched mcookie: Termux → sandbox paths
+08-11 14:46:23.982 30557 31333 I vnc-service: patched less: Termux → sandbox paths
+08-11 14:46:23.983 30557 31333 I vnc-service: patched peekfd: Termux → sandbox paths
+08-11 14:46:23.986 30557 31333 I vnc-service: patched grep: Termux → sandbox paths
+08-11 14:46:23.987 30557 31333 I vnc-service: patched sdiff: Termux → sandbox paths
+08-11 14:46:23.993 30557 31333 I vnc-service: patched curl: Termux → sandbox paths
+08-11 14:46:23.994 30557 31333 I vnc-service: patched route: Termux → sandbox paths
+08-11 14:46:23.995 30557 31333 I vnc-service: patched col: Termux → sandbox paths
+08-11 14:46:23.996 30557 31333 I vnc-service: patched xzgrep: Termux → sandbox paths
+08-11 14:46:23.996 30557 31333 I vnc-service: patched znew: Termux → sandbox paths
+08-11 14:46:23.997 30557 31333 I vnc-service: patched logcat: Termux → sandbox paths
+08-11 14:46:23.997 30557 31333 I vnc-service: patched ping: Termux → sandbox paths
+08-11 14:46:23.998 30557 31333 I vnc-service: patched gpg-error-config: Termux → sandbox paths
+08-11 14:46:23.998 30557 31333 I vnc-service: patched termux-open: Termux → sandbox paths
+08-11 14:46:24.003 30557 31333 I vnc-service: patched gawk: Termux → sandbox paths
+08-11 14:46:24.004 30557 31333 I vnc-service: patched bzmore: Termux → sandbox paths
+08-11 14:46:24.005 30557 31333 I vnc-service: patched wdctl: Termux → sandbox paths
+08-11 14:46:24.008 30557 31333 I vnc-service: patched uclampset: Termux → sandbox paths
+08-11 14:46:24.009 30557 31333 I vnc-service: patched lzmadec: Termux → sandbox paths
+08-11 14:46:24.010 30557 31333 I vnc-service: patched dnsdomainname: Termux → sandbox paths
+08-11 14:46:24.012 30557 31333 I vnc-service: patched lsof: Termux → sandbox paths
+08-11 14:46:24.016 30557 31333 I vnc-service: patched lscpu: Termux → sandbox paths
+08-11 14:46:24.017 30557 31333 I vnc-service: patched pcre2-config: Termux → sandbox paths
+08-11 14:46:24.019 30557 31333 I vnc-service: patched netstat: Termux → sandbox paths
+08-11 14:46:24.020 30557 31333 I vnc-service: patched readprofile: Termux → sandbox paths
+08-11 14:46:24.021 30557 31333 I vnc-service: patched rtcwake: Termux → sandbox paths
+08-11 14:46:24.026 30557 31333 I vnc-service: patched tar: Termux → sandbox paths
+08-11 14:46:24.027 30557 31333 I vnc-service: patched watch: Termux → sandbox paths
+08-11 14:46:24.028 30557 31333 I vnc-service: patched getfacl: Termux → sandbox paths
+08-11 14:46:24.030 30557 31333 I vnc-service: patched pwait: Termux → sandbox paths
+08-11 14:46:24.031 30557 31333 I vnc-service: patched pgrep: Termux → sandbox paths
+08-11 14:46:24.034 30557 31333 I vnc-service: patched setpriv: Termux → sandbox paths
+08-11 14:46:24.036 30557 31333 I vnc-service: patched apt-get: Termux → sandbox paths
+08-11 14:46:24.039 30557 31333 I vnc-service: patched mkfs: Termux → sandbox paths
+08-11 14:46:24.040 30557 31333 I vnc-service: patched setsid: Termux → sandbox paths
+08-11 14:46:24.040 30557 31333 I vnc-service: patched xzdiff: Termux → sandbox paths
+08-11 14:46:24.041 30557 31333 I vnc-service: patched termux-apps-info-app-version-name.sh: Termux → sandbox paths
+08-11 14:46:24.042 30557 31333 I vnc-service: patched unshare: Termux → sandbox paths
+08-11 14:46:24.043 30557 31333 I vnc-service: patched xzmore: Termux → sandbox paths
+08-11 14:46:24.044 30557 31333 I vnc-service: patched asn1Coding: Termux → sandbox paths
+08-11 14:46:24.045 30557 31333 I vnc-service: patched ul: Termux → sandbox paths
+08-11 14:46:24.045 30557 31333 I vnc-service: patched lsclocks: Termux → sandbox paths
+08-11 14:46:24.046 30557 31333 I vnc-service: patched dmesg: Termux → sandbox paths
+08-11 14:46:24.047 30557 31333 I vnc-service: patched trust: Termux → sandbox paths
+08-11 14:46:24.048 30557 31333 I vnc-service: patched mpicalc: Termux → sandbox paths
+08-11 14:46:24.049 30557 31333 I vnc-service: patched dpkg-divert: Termux → sandbox paths
+08-11 14:46:24.049 30557 31333 I vnc-service: patched fsck.minix: Termux → sandbox paths
+08-11 14:46:24.050 30557 31333 I vnc-service: patched dos2unix: Termux → sandbox paths
+08-11 14:46:24.050 30557 31333 I vnc-service: patched pwdx: Termux → sandbox paths
+08-11 14:46:24.051 30557 31333 I vnc-service: patched termux-apps-info-env-variable.bash: Termux → sandbox paths
+08-11 14:46:24.051 30557 31333 I vnc-service: patched termux-setup-package-manager: Termux → sandbox paths
+08-11 14:46:24.051 30557 31333 I vnc-service: patched gpg-error: Termux → sandbox paths
+08-11 14:46:24.052 30557 31333 I vnc-service: patched chacl: Termux → sandbox paths
+08-11 14:46:24.052 30557 31333 I vnc-service: patched termux-scoped-env-variable: Termux → sandbox paths
+08-11 14:46:24.053 30557 31333 I vnc-service: patched pipesz: Termux → sandbox paths
+08-11 14:46:24.055 30557 31333 I vnc-service: patched find: Termux → sandbox paths
+08-11 14:46:24.055 30557 31333 I vnc-service: patched termux-scoped-env-variable.sh: Termux → sandbox paths
+08-11 14:46:24.056 30557 31333 I vnc-service: patched prtstat: Termux → sandbox paths
+08-11 14:46:24.057 30557 31333 I vnc-service: patched telnet: Termux → sandbox paths
+08-11 14:46:24.057 30557 31333 I vnc-service: patched termux-wake-lock: Termux → sandbox paths
+08-11 14:46:24.060 30557 31333 I vnc-service: patched gpgv: Termux → sandbox paths
+08-11 14:46:24.060 30557 31333 I vnc-service: patched termux-am: Termux → sandbox paths
+08-11 14:46:24.061 30557 31333 I vnc-service: patched zstdgrep: Termux → sandbox paths
+08-11 14:46:24.061 30557 31333 I vnc-service: patched bzgrep: Termux → sandbox paths
+08-11 14:46:24.061 30557 31333 I vnc-service: patched uncompress: Termux → sandbox paths
+08-11 14:46:24.062 30557 31333 I vnc-service: patched setpgid: Termux → sandbox paths
+08-11 14:46:24.064 30557 31333 I vnc-service: patched nano: Termux → sandbox paths
+08-11 14:46:24.065 30557 31333 I vnc-service: patched arp: Termux → sandbox paths
+08-11 14:46:24.065 30557 31333 I vnc-service: patched yat2m: Termux → sandbox paths
+08-11 14:46:24.066 30557 31333 I vnc-service: patched hardlink: Termux → sandbox paths
+08-11 14:46:24.066 30557 31333 I vnc-service: patched termux-fix-shebang: Termux → sandbox paths
+08-11 14:46:24.066 30557 31333 I vnc-service: patched termux-backup: Termux → sandbox paths
+08-11 14:46:24.067 30557 31333 I vnc-service: patched mii-tool: Termux → sandbox paths
+08-11 14:46:24.067 30557 31333 I vnc-service: patched red: Termux → sandbox paths
+08-11 14:46:24.067 30557 31333 I vnc-service: patched getopt: Termux → sandbox paths
+08-11 14:46:24.068 30557 31333 I vnc-service: patched mkfs.bfs: Termux → sandbox paths
+08-11 14:46:24.068 30557 31333 I vnc-service: patched xzless: Termux → sandbox paths
+08-11 14:46:24.069 30557 31333 I vnc-service: patched sed: Termux → sandbox paths
+08-11 14:46:24.069 30557 31333 I vnc-service: patched pkg: Termux → sandbox paths
+08-11 14:46:24.070 30557 31333 I vnc-service: patched column: Termux → sandbox paths
+08-11 14:46:24.071 30557 31333 I vnc-service: patched ps: Termux → sandbox paths
+08-11 14:46:24.072 30557 31333 I vnc-service: patched fsck.cramfs: Termux → sandbox paths
+08-11 14:46:24.072 30557 31333 I vnc-service: patched termux-apps-info-app-version-name.bash: Termux → sandbox paths
+08-11 14:46:24.072 30557 31333 I vnc-service: patched run-parts: Termux → sandbox paths
+08-11 14:46:24.072 30557 31333 I vnc-service: patched zipgrep: Termux → sandbox paths
+08-11 14:46:24.073 30557 31333 I vnc-service: patched asn1Decoding: Termux → sandbox paths
+08-11 14:46:24.073 30557 31333 I vnc-service: patched ionice: Termux → sandbox paths
+08-11 14:46:24.073 30557 31333 I vnc-service: patched xxhsum: Termux → sandbox paths
+08-11 14:46:24.074 30557 31333 I vnc-service: patched termux-exec-system-linker-exec: Termux → sandbox paths
+08-11 14:46:24.074 30557 31333 I vnc-service: patched delpart: Termux → sandbox paths
+08-11 14:46:24.074 30557 31333 I vnc-service: patched rev: Termux → sandbox paths
+08-11 14:46:24.075 30557 31333 I vnc-service: patched hexdump: Termux → sandbox paths
+08-11 14:46:24.075 30557 31333 I vnc-service: patched setterm: Termux → sandbox paths
+08-11 14:46:24.076 30557 31333 I vnc-service: patched unix2dos: Termux → sandbox paths
+08-11 14:46:24.076 30557 31333 I vnc-service: patched fincore: Termux → sandbox paths
+08-11 14:46:24.076 30557 31333 I vnc-service: patched gpgrt-config: Termux → sandbox paths
+08-11 14:46:24.077 30557 31333 I vnc-service: patched diff3: Termux → sandbox paths
+08-11 14:46:24.077 30557 31333 I vnc-service: patched termux-info: Termux → sandbox paths
+08-11 14:46:24.077 30557 31333 I vnc-service: patched namei: Termux → sandbox paths
+08-11 14:46:24.078 30557 31333 I vnc-service: patched ldattach: Termux → sandbox paths
+08-11 14:46:24.078 30557 31333 I vnc-service: patched apt-mark: Termux → sandbox paths
+08-11 14:46:24.079 30557 31333 I vnc-service: patched pstree: Termux → sandbox paths
+08-11 14:46:24.079 30557 31333 I vnc-service: patched termux-am-socket: Termux → sandbox paths
+08-11 14:46:24.079 30557 31333 I vnc-service: patched zcat: Termux → sandbox paths
+08-11 14:46:24.080 30557 31333 I vnc-service: patched update-alternatives: Termux → sandbox paths
+08-11 14:46:24.080 30557 31333 I vnc-service: patched termux-wake-unlock: Termux → sandbox paths
+08-11 14:46:24.080 30557 31333 I vnc-service: patched fsfreeze: Termux → sandbox paths
+08-11 14:46:24.080 30557 31333 I vnc-service: patched bzdiff: Termux → sandbox paths
+08-11 14:46:24.081 30557 31333 I vnc-service: patched p11-kit: Termux → sandbox paths
+08-11 14:46:24.082 30557 31333 I vnc-service: patched ischroot: Termux → sandbox paths
+08-11 14:46:24.082 30557 31333 I vnc-service: patched resizepart: Termux → sandbox paths
+08-11 14:46:24.082 30557 31333 I vnc-service: patched dalvikvm: Termux → sandbox paths
+08-11 14:46:24.083 30557 31333 I vnc-service: patched savelog: Termux → sandbox paths
+08-11 14:46:24.083 30557 31333 I vnc-service: patched rarp: Termux → sandbox paths
+08-11 14:46:24.083 30557 31333 I vnc-service: patched fuser: Termux → sandbox paths
+08-11 14:46:24.084 30557 31333 I vnc-service: patched whereis: Termux → sandbox paths
+08-11 14:46:24.084 30557 31333 I vnc-service: patched colcrt: Termux → sandbox paths
+08-11 14:46:24.084 30557 31333 I vnc-service: patched attr: Termux → sandbox paths
+08-11 14:46:24.084 30557 31333 I vnc-service: patched zdiff: Termux → sandbox paths
+08-11 14:46:24.085 30557 31333 I vnc-service: patched termux-restore: Termux → sandbox paths
+08-11 14:46:24.085 30557 31333 I vnc-service: patched pscap: Termux → sandbox paths
+08-11 14:46:24.085 30557 31333 I vnc-service: patched pslog: Termux → sandbox paths
+08-11 14:46:24.085 30557 31333 I vnc-service: patched cmd: Termux → sandbox paths
+08-11 14:46:24.086 30557 31333 I vnc-service: patched fadvise: Termux → sandbox paths
+08-11 14:46:24.086 30557 31333 I vnc-service: patched termux-reset: Termux → sandbox paths
+08-11 14:46:24.086 30557 31333 I vnc-service: patched top: Termux → sandbox paths
+08-11 14:46:24.087 30557 31333 I vnc-service: patched zstd: Termux → sandbox paths
+08-11 14:46:24.087 30557 31333 I vnc-service: patched dpkg-buildapi: Termux → sandbox paths
+08-11 14:46:24.088 30557 31333 I vnc-service: patched gzexe: Termux → sandbox paths
+08-11 14:46:24.088 30557 31333 I vnc-service: patched isosize: Termux → sandbox paths
+08-11 14:46:24.088 30557 31333 I vnc-service: patched flock: Termux → sandbox paths
+08-11 14:46:24.090 30557 31333 I vnc-service: patched dpkg: Termux → sandbox paths
+08-11 14:46:24.090 30557 31333 I vnc-service: patched fgrep: Termux → sandbox paths
+08-11 14:46:24.090 30557 31333 I vnc-service: patched ping6: Termux → sandbox paths
+08-11 14:46:24.092 30557 31333 I vnc-service: patched dialog: Termux → sandbox paths
+08-11 14:46:24.092 30557 31333 I vnc-service: patched pkill: Termux → sandbox paths
+08-11 14:46:24.092 30557 31333 I vnc-service: patched curl-config: Termux → sandbox paths
+08-11 14:46:24.092 30557 31333 I vnc-service: patched exch: Termux → sandbox paths
+08-11 14:46:24.093 30557 31333 I vnc-service: patched tset: Termux → sandbox paths
+08-11 14:46:24.093 30557 31333 I vnc-service: patched clear: Termux → sandbox paths
+08-11 14:46:24.093 30557 31333 I vnc-service: patched chcpu: Termux → sandbox paths
+08-11 14:46:24.094 30557 31333 I vnc-service: patched pmap: Termux → sandbox paths
+08-11 14:46:24.094 30557 31333 I vnc-service: patched asn1Parser: Termux → sandbox paths
+08-11 14:46:24.095 30557 31333 I vnc-service: patched dpkg-split: Termux → sandbox paths
+08-11 14:46:24.095 30557 31333 I vnc-service: patched fallocate: Termux → sandbox paths
+08-11 14:46:24.095 30557 31333 I vnc-service: patched getprop: Termux → sandbox paths
+08-11 14:46:24.096 30557 31333 I vnc-service: patched mkfs.minix: Termux → sandbox paths
+08-11 14:46:24.096 30557 31333 I vnc-service: patched bits: Termux → sandbox paths
+08-11 14:46:24.097 30557 31333 I vnc-service: patched rename: Termux → sandbox paths
+08-11 14:46:24.097 30557 31333 I vnc-service: patched blkpr: Termux → sandbox paths
+08-11 14:46:24.097 30557 31333 I vnc-service: patched killall: Termux → sandbox paths
+08-11 14:46:24.098 30557 31333 I vnc-service: patched sysctl: Termux → sandbox paths
+08-11 14:46:24.098 30557 31333 I vnc-service: patched start-stop-daemon: Termux → sandbox paths
+08-11 14:46:24.100 30557 31333 D vnc-service: awk: ya parcheado o sin paths Termux
+08-11 14:46:24.106 30557 31333 I vnc-service: patched ls: Termux → sandbox paths
+08-11 14:46:24.111 30557 31333 D vnc-service: touch: ya parcheado o sin paths Termux
+08-11 14:46:24.115 30557 31333 D vnc-service: rmdir: ya parcheado o sin paths Termux
+08-11 14:46:24.116 30557 31333 D vnc-service: bzless: ya parcheado o sin paths Termux
+08-11 14:46:24.120 30557 31333 D vnc-service: printf: ya parcheado o sin paths Termux
+08-11 14:46:24.125 30557 31333 D vnc-service: fold: ya parcheado o sin paths Termux
+08-11 14:46:24.126 30557 31333 D vnc-service: xxh32sum: ya parcheado o sin paths Termux
+08-11 14:46:24.130 30557 31333 D vnc-service: unlink: ya parcheado o sin paths Termux
+08-11 14:46:24.135 30557 31333 D vnc-service: b2sum: ya parcheado o sin paths Termux
+08-11 14:46:24.140 30557 31333 D vnc-service: numfmt: ya parcheado o sin paths Termux
+08-11 14:46:24.144 30557 31333 D vnc-service: stat: ya parcheado o sin paths Termux
+08-11 14:46:24.150 30557 31333 D vnc-service: dd: ya parcheado o sin paths Termux
+08-11 14:46:24.151 30557 31333 D vnc-service: unzstd: ya parcheado o sin paths Termux
+08-11 14:46:24.151 30557 31333 D vnc-service: zstdcat: ya parcheado o sin paths Termux
+08-11 14:46:24.159 30557 31333 D vnc-service: kill: ya parcheado o sin paths Termux
+08-11 14:46:24.164 30557 31333 D vnc-service: sha1sum: ya parcheado o sin paths Termux
+08-11 14:46:24.169 30557 31333 D vnc-service: runcon: ya parcheado o sin paths Termux
+08-11 14:46:24.173 30557 31333 D vnc-service: chroot: ya parcheado o sin paths Termux
+08-11 14:46:24.178 30557 31333 D vnc-service: tr: ya parcheado o sin paths Termux
+08-11 14:46:24.179 30557 31333 D vnc-service: lzma: ya parcheado o sin paths Termux
+08-11 14:46:24.183 30557 31333 D vnc-service: chmod: ya parcheado o sin paths Termux
+08-11 14:46:24.184 30557 31333 D vnc-service: xxh3sum: ya parcheado o sin paths Termux
+08-11 14:46:24.188 30557 31333 D vnc-service: install: ya parcheado o sin paths Termux
+08-11 14:46:24.193 30557 31333 D vnc-service: wc: ya parcheado o sin paths Termux
+08-11 14:46:24.198 30557 31333 D vnc-service: timeout: ya parcheado o sin paths Termux
+08-11 14:46:24.198 30557 31333 I vnc-service: patched linux64: Termux → sandbox paths
+08-11 14:46:24.203 30557 31333 D vnc-service: mv: ya parcheado o sin paths Termux
+08-11 14:46:24.209 30557 31333 D vnc-service: sort: ya parcheado o sin paths Termux
+08-11 14:46:24.213 30557 31333 D vnc-service: seq: ya parcheado o sin paths Termux
+08-11 14:46:24.218 30557 31333 D vnc-service: yes: ya parcheado o sin paths Termux
+08-11 14:46:24.224 30557 31333 D vnc-service: stty: ya parcheado o sin paths Termux
+08-11 14:46:24.229 30557 31333 D vnc-service: basenc: ya parcheado o sin paths Termux
+08-11 14:46:24.233 30557 31333 D vnc-service: rm: ya parcheado o sin paths Termux
+08-11 14:46:24.234 30557 31333 D vnc-service: lzcat: ya parcheado o sin paths Termux
+08-11 14:46:24.234 30557 31333 D vnc-service: xzcmp: ya parcheado o sin paths Termux
+08-11 14:46:24.240 30557 31333 D vnc-service: date: ya parcheado o sin paths Termux
+08-11 14:46:24.245 30557 31333 D vnc-service: cksum: ya parcheado o sin paths Termux
+08-11 14:46:24.249 30557 31333 D vnc-service: expr: ya parcheado o sin paths Termux
+08-11 14:46:24.254 30557 31333 D vnc-service: vdir: ya parcheado o sin paths Termux
+08-11 14:46:24.261 30557 31333 D vnc-service: chcon: ya parcheado o sin paths Termux
+08-11 14:46:24.266 30557 31333 D vnc-service: env: ya parcheado o sin paths Termux
+08-11 14:46:24.266 30557 31333 D vnc-service: unlzma: ya parcheado o sin paths Termux
+08-11 14:46:24.275 30557 31333 D vnc-service: tac: ya parcheado o sin paths Termux
+08-11 14:46:24.275 30557 31333 D vnc-service: lzless: ya parcheado o sin paths Termux
+08-11 14:46:24.280 30557 31333 D vnc-service: echo: ya parcheado o sin paths Termux
+08-11 14:46:24.284 30557 31333 D vnc-service: factor: ya parcheado o sin paths Termux
+08-11 14:46:24.289 30557 31333 D vnc-service: pwd: ya parcheado o sin paths Termux
+08-11 14:46:24.293 30557 31333 D vnc-service: readlink: ya parcheado o sin paths Termux
+08-11 14:46:24.298 30557 31333 D vnc-service: true: ya parcheado o sin paths Termux
+08-11 14:46:24.302 30557 31333 D vnc-service: ptx: ya parcheado o sin paths Termux
+08-11 14:46:24.303 30557 31333 D vnc-service: sh: ya parcheado o sin paths Termux
+08-11 14:46:24.307 30557 31333 D vnc-service: unexpand: ya parcheado o sin paths Termux
+08-11 14:46:24.307 30557 31333 D vnc-service: lzdiff: ya parcheado o sin paths Termux
+08-11 14:46:24.312 30557 31333 D vnc-service: tsort: ya parcheado o sin paths Termux
+08-11 14:46:24.316 30557 31333 D vnc-service: nl: ya parcheado o sin paths Termux
+08-11 14:46:24.320 30557 31333 D vnc-service: csplit: ya parcheado o sin paths Termux
+08-11 14:46:24.325 30557 31333 D vnc-service: realpath: ya parcheado o sin paths Termux
+08-11 14:46:24.329 30557 31333 D vnc-service: id: ya parcheado o sin paths Termux
+08-11 14:46:24.850 30557 31338 D vnc-service: echo: ya parcheado o sin paths Termux
+08-11 14:46:24.850 30557 31333 I vnc-service: patched Xvnc: Termux → sandbox paths
+08-11 14:46:24.854 30557 31333 I vnc-service: patched x0vncserver: Termux → sandbox paths
+08-11 14:46:24.855 30557 31338 D vnc-service: factor: ya parcheado o sin paths Termux
+08-11 14:46:24.855 30557 31333 I vnc-service: patched openbox-session: Termux → sandbox paths
+08-11 14:46:24.856 30557 31333 I vnc-service: patched tint2-send: Termux → sandbox paths
+08-11 14:46:24.857 30557 31333 D vnc-service: libpng-config: ya parcheado o sin paths Termux
+08-11 14:46:24.858 30557 31333 D vnc-service: xkbcomp: ya parcheado o sin paths Termux
+08-11 14:46:24.858 30557 31333 I vnc-service: patched xterm: Termux → sandbox paths
+08-11 14:46:24.858 30557 31333 I vnc-service: patched enc2xs: Termux → sandbox paths
+08-11 14:46:24.859 30557 31333 I vnc-service: patched h2ph: Termux → sandbox paths
+08-11 14:46:24.859 30557 31333 I vnc-service: patched instmodsh: Termux → sandbox paths
+08-11 14:46:24.860 30557 31333 I vnc-service: patched json_pp: Termux → sandbox paths
+08-11 14:46:24.860 30557 31333 I vnc-service: patched perldoc: Termux → sandbox paths
+08-11 14:46:24.860 30557 31333 I vnc-service: patched perlivp: Termux → sandbox paths
+08-11 14:46:24.860 30557 31338 D vnc-service: pwd: ya parcheado o sin paths Termux
+08-11 14:46:24.860 30557 31333 I vnc-service: patched piconv: Termux → sandbox paths
+08-11 14:46:24.861 30557 31333 I vnc-service: patched pl2pm: Termux → sandbox paths
+08-11 14:46:24.861 30557 31333 I vnc-service: patched pod2text: Termux → sandbox paths
+08-11 14:46:24.861 30557 31333 I vnc-service: patched pod2usage: Termux → sandbox paths
+08-11 14:46:24.861 30557 31333 I vnc-service: patched podchecker: Termux → sandbox paths
+08-11 14:46:24.861 30557 31333 I vnc-service: patched prove: Termux → sandbox paths
+08-11 14:46:24.862 30557 31333 I vnc-service: patched ptardiff: Termux → sandbox paths
+08-11 14:46:24.862 30557 31333 I vnc-service: patched shasum: Termux → sandbox paths
+08-11 14:46:24.862 30557 31333 I vnc-service: patched splain: Termux → sandbox paths
+08-11 14:46:24.862 30557 31333 I vnc-service: patched streamzip: Termux → sandbox paths
+08-11 14:46:24.863 30557 31333 I vnc-service: patched xsubpp: Termux → sandbox paths
+08-11 14:46:24.865 30557 31333 I vnc-service: patched xauth: Termux → sandbox paths
+08-11 14:46:24.865 30557 31338 D vnc-service: readlink: ya parcheado o sin paths Termux
+08-11 14:46:24.865 30557 31333 I vnc-service: patched gdk-pixbuf-pixdata: Termux → sandbox paths
+08-11 14:46:24.867 30557 31333 I vnc-service: patched gdk-pixbuf-query-loaders: Termux → sandbox paths
+08-11 14:46:24.868 30557 31333 I vnc-service: patched gio: Termux → sandbox paths
+08-11 14:46:24.869 30557 31333 I vnc-service: patched glib-compile-schemas: Termux → sandbox paths
+08-11 14:46:24.869 30557 31338 D vnc-service: true: ya parcheado o sin paths Termux
+08-11 14:46:24.870 30557 31333 D vnc-service: glib-genmarshal: ya parcheado o sin paths Termux
+08-11 14:46:24.870 30557 31333 I vnc-service: patched gobject-query: Termux → sandbox paths
+08-11 14:46:24.871 30557 31333 I vnc-service: patched gsettings: Termux → sandbox paths
+08-11 14:46:24.871 30557 31333 I vnc-service: patched gtester: Termux → sandbox paths
+08-11 14:46:24.872 30557 31333 I vnc-service: patched imlib2_bumpmap: Termux → sandbox paths
+08-11 14:46:24.872 30557 31333 I vnc-service: patched imlib2_colorspace: Termux → sandbox paths
+08-11 14:46:24.872 30557 31333 I vnc-service: patched imlib2_poly: Termux → sandbox paths
+08-11 14:46:24.873 30557 31333 I vnc-service: patched imlib2_test: Termux → sandbox paths
+08-11 14:46:24.877 30557 31338 D vnc-service: ptx: ya parcheado o sin paths Termux
+08-11 14:46:24.877 30557 31338 D vnc-service: sh: ya parcheado o sin paths Termux
+08-11 14:46:24.886 30557 31338 D vnc-service: unexpand: ya parcheado o sin paths Termux
+08-11 14:46:24.886 30557 31338 D vnc-service: lzdiff: ya parcheado o sin paths Termux
+08-11 14:46:24.891 30557 31338 D vnc-service: tsort: ya parcheado o sin paths Termux
+08-11 14:46:24.895 30557 31338 D vnc-service: nl: ya parcheado o sin paths Termux
+08-11 14:46:24.900 30557 31338 D vnc-service: csplit: ya parcheado o sin paths Termux
+08-11 14:46:24.904 30557 31338 D vnc-service: realpath: ya parcheado o sin paths Termux
+08-11 14:46:24.909 30557 31338 D vnc-service: id: ya parcheado o sin paths Termux
+08-11 14:46:24.909 30557 31338 D vnc-service: unix2mac: ya parcheado o sin paths Termux
+08-11 14:46:24.914 30557 31338 D vnc-service: paste: ya parcheado o sin paths Termux
+08-11 14:46:24.914 30557 31338 D vnc-service: uname26: ya parcheado o sin paths Termux
+08-11 14:46:24.915 30557 31338 D vnc-service: mac2unix: ya parcheado o sin paths Termux
+08-11 14:46:24.919 30557 31338 D vnc-service: printenv: ya parcheado o sin paths Termux
+08-11 14:46:24.924 30557 31338 D vnc-service: sha256sum: ya parcheado o sin paths Termux
+08-11 14:46:24.929 30557 31338 D vnc-service: logname: ya parcheado o sin paths Termux
+08-11 14:46:24.930 30557 31338 D vnc-service: xzfgrep: ya parcheado o sin paths Termux
+08-11 14:46:24.930 30557 31338 D vnc-service: unxz: ya parcheado o sin paths Termux
+08-11 14:46:24.935 30557 31338 D vnc-service: mktemp: ya parcheado o sin paths Termux
+08-11 14:46:24.939 30557 31338 D vnc-service: mkdir: ya parcheado o sin paths Termux
+08-11 14:46:24.944 30557 31338 D vnc-service: chgrp: ya parcheado o sin paths Termux
+08-11 14:46:24.944 30557 31338 D vnc-service: py3compile: ya parcheado o sin paths Termux
+08-11 14:46:24.944 30557 31338 D vnc-service: python: ya parcheado o sin paths Termux
+08-11 14:46:24.944 30557 31338 D vnc-service: python-config: ya parcheado o sin paths Termux
+08-11 14:46:24.945 30557 31338 D vnc-service: python3: ya parcheado o sin paths Termux
+08-11 14:46:24.945 30557 31338 D vnc-service: python3-config: ya parcheado o sin paths Termux
+08-11 14:46:24.945 30557 31338 D vnc-service: python3.14: ya parcheado o sin paths Termux
+08-11 14:46:24.945 30557 31338 D vnc-service: python3.14-config: ya parcheado o sin paths Termux
+08-11 14:46:24.946 30557 31338 D vnc-service: htop: ya parcheado o sin paths Termux
+08-11 14:46:24.947 30557 31338 D vnc-service: git-cvsserver: ya parcheado o sin paths Termux
+08-11 14:46:24.948 30557 31338 D vnc-service: gdbm_load: ya parcheado o sin paths Termux
+08-11 14:46:24.948 30557 31338 D vnc-service: vncconfig: ya parcheado o sin paths Termux
+08-11 14:46:24.949 30557 31338 D vnc-service: vncpasswd: ya parcheado o sin paths Termux
+08-11 14:46:24.949 30557 31338 D vnc-service: vncserver: ya parcheado o sin paths Termux
+08-11 14:46:24.949 30557 31338 D vnc-service: obxprop: ya parcheado o sin paths Termux
+08-11 14:46:24.951 30557 31338 D vnc-service: openbox: ya parcheado o sin paths Termux
+08-11 14:46:24.952 30557 31338 D vnc-service: tint2: ya parcheado o sin paths Termux
+08-11 14:46:24.953 30557 31338 D vnc-service: tint2conf: ya parcheado o sin paths Termux
+08-11 14:46:24.953 30557 31338 D vnc-service: libpng16-config: ya parcheado o sin paths Termux
+08-11 14:46:24.954 30557 31338 D vnc-service: brotli: ya parcheado o sin paths Termux
+08-11 14:46:24.954 30557 31338 D vnc-service: aterm: ya parcheado o sin paths Termux
+08-11 14:46:24.955 30557 31338 D vnc-service: corelist: ya parcheado o sin paths Termux
+08-11 14:46:24.955 30557 31338 D vnc-service: cpan: ya parcheado o sin paths Termux
+08-11 14:46:24.955 30557 31338 D vnc-service: encguess: ya parcheado o sin paths Termux
+08-11 14:46:24.955 30557 31338 D vnc-service: h2xs: ya parcheado o sin paths Termux
+08-11 14:46:24.956 30557 31338 D vnc-service: libnetcfg: ya parcheado o sin paths Termux
+08-11 14:46:24.956 30557 31338 D vnc-service: perl: ya parcheado o sin paths Termux
+08-11 14:46:24.956 30557 31338 D vnc-service: perlbug: ya parcheado o sin paths Termux
+08-11 14:46:24.957 30557 31338 D vnc-service: perlthanks: ya parcheado o sin paths Termux
+08-11 14:46:24.957 30557 31338 D vnc-service: pod2html: ya parcheado o sin paths Termux
+08-11 14:46:24.957 30557 31338 D vnc-service: pod2man: ya parcheado o sin paths Termux
+08-11 14:46:24.957 30557 31338 D vnc-service: ptar: ya parcheado o sin paths Termux
+08-11 14:46:24.958 30557 31338 D vnc-service: ptargrep: ya parcheado o sin paths Termux
+08-11 14:46:24.959 30557 31338 D vnc-service: zipdetails: ya parcheado o sin paths Termux
+08-11 14:46:24.959 30557 31338 D vnc-service: freetype-config: ya parcheado o sin paths Termux
+08-11 14:46:24.959 30557 31338 D vnc-service: gdk-pixbuf-csource: ya parcheado o sin paths Termux
+08-11 14:46:24.959 30557 31338 D vnc-service: gapplication: ya parcheado o sin paths Termux
+08-11 14:46:24.960 30557 31338 D vnc-service: gdbus: ya parcheado o sin paths Termux
+08-11 14:46:24.960 30557 31338 D vnc-service: gdbus-codegen: ya parcheado o sin paths Termux
+08-11 14:46:24.961 30557 31338 D vnc-service: gi-compile-repository: ya parcheado o sin paths Termux
+08-11 14:46:24.961 30557 31338 D vnc-service: gi-decompile-typelib: ya parcheado o sin paths Termux
+08-11 14:46:24.961 30557 31338 D vnc-service: gi-inspect-typelib: ya parcheado o sin paths Termux
+08-11 14:46:24.961 30557 31338 D vnc-service: gio-querymodules: ya parcheado o sin paths Termux
+08-11 14:46:24.962 30557 31338 D vnc-service: glib-compile-resources: ya parcheado o sin paths Termux
+08-11 14:46:24.962 30557 31338 D vnc-service: glib-mkenums: ya parcheado o sin paths Termux
+08-11 14:46:24.963 30557 31338 D vnc-service: gresource: ya parcheado o sin paths Termux
+08-11 14:46:24.963 30557 31338 D vnc-service: imlib2_conv: ya parcheado o sin paths Termux
+08-11 14:46:24.963 30557 31338 D vnc-service: imlib2_grab: ya parcheado o sin paths Termux
+08-11 14:46:24.963 30557 31338 D vnc-service: imlib2_load: ya parcheado o sin paths Termux
+08-11 14:46:24.964 30557 31338 D vnc-service: imlib2_show: ya parcheado o sin paths Termux
+08-11 14:46:24.964 30557 31338 D vnc-service: imlib2_view: ya parcheado o sin paths Termux
+08-11 14:46:24.964 30557 31338 D vnc-service: cairo-trace: ya parcheado o sin paths Termux
+08-11 14:46:24.964 30557 31338 D vnc-service: xml2-config: ya parcheado o sin paths Termux
+08-11 14:46:24.964 30557 31338 D vnc-service: pango-list: ya parcheado o sin paths Termux
+08-11 14:46:24.965 30557 31338 D vnc-service: broadwayd: ya parcheado o sin paths Termux
+08-11 14:46:24.965 30557 31338 D vnc-service: gtk-builder-tool: ya parcheado o sin paths Termux
+08-11 14:46:24.966 30557 31338 D vnc-service: gtk-encode-symbolic-svg: ya parcheado o sin paths Termux
+08-11 14:46:24.966 30557 31338 D vnc-service: gtk-query-immodules-3.0: ya parcheado o sin paths Termux
+08-11 14:46:24.967 30557 31333 I vnc-service: patched rsvg-convert: Termux → sandbox paths
+08-11 14:46:24.968 30557 31333 I vnc-service: patched pango-segmentation: Termux → sandbox paths
+08-11 14:46:24.968 30557 31333 I vnc-service: patched pango-view: Termux → sandbox paths
+08-11 14:46:24.969 30557 31333 I vnc-service: patched gtk-launch: Termux → sandbox paths
+08-11 14:46:24.969 30557 31333 I vnc-service: patched gtk-query-settings: Termux → sandbox paths
+08-11 14:46:24.969 30557 31333 I vnc-service: patched gtk3-icon-browser: Termux → sandbox paths
+08-11 14:46:24.971 30557 31333 I vnc-service: patched gtk3-widget-factory: Termux → sandbox paths
+08-11 14:46:24.971 30557 31333 I vnc-service: patched cwebp: Termux → sandbox paths
+08-11 14:46:24.972 30557 31333 I vnc-service: patched dwebp: Termux → sandbox paths
+08-11 14:46:24.972 30557 31333 I vnc-service: patched gif2webp: Termux → sandbox paths
+08-11 14:46:24.972 30557 31338 D vnc-service: gtk3-demo: ya parcheado o sin paths Termux
+08-11 14:46:24.972 30557 31333 I vnc-service: patched img2webp: Termux → sandbox paths
+08-11 14:46:24.973 30557 31333 I vnc-service: patched webpmux: Termux → sandbox paths
+08-11 14:46:24.973 30557 31333 I vnc-service: patched dav1d: Termux → sandbox paths
+08-11 14:46:24.974 30557 31333 D vnc-service: desktop-file-edit: ya parcheado o sin paths Termux
+08-11 14:46:24.975 30557 31333 I vnc-service: patched update-desktop-database: Termux → sandbox paths
+08-11 14:46:24.976 30557 31333 I vnc-service: patched update-mime-database: Termux → sandbox paths
+08-11 14:46:24.976 30557 31333 I vnc-service: patched fc-match: Termux → sandbox paths
+08-11 14:46:24.977 30557 31333 I vnc-service: patched fc-pattern: Termux → sandbox paths
+08-11 14:46:24.977 30557 31333 I vnc-service: patched fc-query: Termux → sandbox paths
+08-11 14:46:24.978 30557 31333 I vnc-service: patched fc-scan: Termux → sandbox paths
+08-11 14:46:24.978 30557 31333 I vnc-service: patched ucs2any: Termux → sandbox paths
+08-11 14:46:24.978 30557 31333 I vnc-service: patched mkfontscale: Termux → sandbox paths
+08-11 14:46:24.978 30557 31338 D vnc-service: gtk3-demo-application: ya parcheado o sin paths Termux
+08-11 14:46:24.979 30557 31333 I vnc-service: patched dbus-cleanup-sockets: Termux → sandbox paths
+08-11 14:46:24.979 30557 31338 D vnc-service: wayland-scanner: ya parcheado o sin paths Termux
+08-11 14:46:24.979 30557 31333 I vnc-service: patched dbus-monitor: Termux → sandbox paths
+08-11 14:46:24.979 30557 31338 D vnc-service: webpinfo: ya parcheado o sin paths Termux
+08-11 14:46:24.979 30557 31338 D vnc-service: fribidi: ya parcheado o sin paths Termux
+08-11 14:46:24.979 30557 31333 I vnc-service: patched dbus-uuidgen: Termux → sandbox paths
+08-11 14:46:24.980 30557 31333 I vnc-service: xkbcomp wrapper listo → /data/user/0/dev.nanoai.mobile/files/nano/usr/xkbcomp.real
+08-11 14:46:24.980 30557 31338 D vnc-service: desktop-file-install: ya parcheado o sin paths Termux
+08-11 14:46:24.980 30557 31338 D vnc-service: desktop-file-validate: ya parcheado o sin paths Termux
+08-11 14:46:24.980 30557 31338 D vnc-service: gtk-update-icon-cache: ya parcheado o sin paths Termux
+08-11 14:46:24.981 30557 31338 D vnc-service: xkbcli: ya parcheado o sin paths Termux
+08-11 14:46:24.981 30557 31338 D vnc-service: fc-cache: ya parcheado o sin paths Termux
+08-11 14:46:24.981 30557 31338 D vnc-service: fc-cat: ya parcheado o sin paths Termux
+08-11 14:46:24.981 30557 31338 D vnc-service: fc-conflist: ya parcheado o sin paths Termux
+08-11 14:46:24.981 30557 31338 D vnc-service: fc-list: ya parcheado o sin paths Termux
+08-11 14:46:24.982 30557 31338 D vnc-service: fc-validate: ya parcheado o sin paths Termux
+08-11 14:46:24.982 30557 31338 D vnc-service: bdftruncate: ya parcheado o sin paths Termux
+08-11 14:46:24.982 30557 31338 D vnc-service: mkfontdir: ya parcheado o sin paths Termux
+08-11 14:46:24.982 30557 31338 D vnc-service: dec265: ya parcheado o sin paths Termux
+08-11 14:46:24.982 30557 31333 I vnc-service: symlink creado: /data/data/dev.nanoai.mobile/us → /data/user/0/dev.nanoai.mobile/files/nano/usr
+08-11 14:46:24.983 30557 31333 I vnc-service: symlink creado: /data/data/dev.nanoai.mobile/f → /data/user/0/dev.nanoai.mobile/files/nano/usr
+08-11 14:46:24.983 30557 31338 D vnc-service: dbus-daemon: ya parcheado o sin paths Termux
+08-11 14:46:24.983 30557 31333 I vnc-service: symlink creado: /data/user/0/dev.nanoai.mobile/us → /data/user/0/dev.nanoai.mobile/files/nano/usr
+08-11 14:46:24.983 30557 31338 D vnc-service: dbus-launch: ya parcheado o sin paths Termux
+08-11 14:46:24.984 30557 31338 D vnc-service: dbus-run-session: ya parcheado o sin paths Termux
+08-11 14:46:24.984 30557 31333 I vnc-service: symlink creado: /data/user/0/dev.nanoai.mobile/f → /data/user/0/dev.nanoai.mobile/files/nano/usr
+08-11 14:46:24.984 30557 31338 D vnc-service: dbus-send: ya parcheado o sin paths Termux
+08-11 14:46:24.984 30557 31333 I vnc-service: start abortado por stopRequested en before-xvnc-check
+08-11 14:46:24.984 30557 31338 D vnc-service: dbus-test-tool: ya parcheado o sin paths Termux
+08-11 14:46:24.985 30557 31338 D vnc-service: dbus-update-activation-environment: ya parcheado o sin paths Termux
+08-11 14:46:24.986 30557 31338 D vnc-service: diff: ya parcheado o sin paths Termux
+08-11 14:46:24.986 30557 31338 D vnc-service: ncursesw6-config: ya parcheado o sin paths Termux
+08-11 14:46:24.986 30557 31338 D vnc-service: zfgrep: ya parcheado o sin paths Termux
+08-11 14:46:24.996 30557 31338 D vnc-service: coreutils: ya parcheado o sin paths Termux
+08-11 14:46:24.997 30557 31338 D vnc-service: slattach: ya parcheado o sin paths Termux
+08-11 14:46:24.998 30557 31338 D vnc-service: dpkg-deb: ya parcheado o sin paths Termux
+08-11 14:46:24.998 30557 31338 D vnc-service: mkfs.cramfs: ya parcheado o sin paths Termux
+08-11 14:46:24.998 30557 31338 D vnc-service: renice: ya parcheado o sin paths Termux
+08-11 14:46:24.998 30557 31338 D vnc-service: gunzip: ya parcheado o sin paths Termux
+08-11 14:46:24.999 30557 31338 D vnc-service: enosys: ya parcheado o sin paths Termux
+08-11 14:46:24.999 30557 31338 D vnc-service: libgcrypt-config: ya parcheado o sin paths Termux
+08-11 14:46:24.999 30557 31338 D vnc-service: uptime: ya parcheado o sin paths Termux
+08-11 14:46:24.999 30557 31338 D vnc-service: apt: ya parcheado o sin paths Termux
+08-11 14:46:24.999 30557 31338 D vnc-service: irqtop: ya parcheado o sin paths Termux
+08-11 14:46:25.000 30557 31338 D vnc-service: getfattr: ya parcheado o sin paths Termux
+08-11 14:46:25.000 30557 31338 D vnc-service: ftp: ya parcheado o sin paths Termux
+08-11 14:46:25.000 30557 31338 D vnc-service: tempfile: ya parcheado o sin paths Termux
+08-11 14:46:25.001 30557 31338 D vnc-service: lsipc: ya parcheado o sin paths Termux
+08-11 14:46:25.001 30557 31338 D vnc-service: termux-exec-ld-preload-lib: ya parcheado o sin paths Termux
+08-11 14:46:25.001 30557 31338 D vnc-service: termux-setup-storage: ya parcheado o sin paths Termux
+08-11 14:46:25.001 30557 31338 D vnc-service: prlimit: ya parcheado o sin paths Termux
+08-11 14:46:25.002 30557 31338 D vnc-service: tload: ya parcheado o sin paths Termux
+08-11 14:46:25.002 30557 31338 D vnc-service: colrm: ya parcheado o sin paths Termux
+08-11 14:46:25.002 30557 31338 D vnc-service: script: ya parcheado o sin paths Termux
+08-11 14:46:25.002 30557 31338 D vnc-service: dpkg-realpath: ya parcheado o sin paths Termux
+08-11 14:46:25.003 30557 31338 D vnc-service: termux-open-url: ya parcheado o sin paths Termux
+08-11 14:46:25.003 30557 31338 D vnc-service: zramctl: ya parcheado o sin paths Termux
+08-11 14:46:25.004 30557 31338 D vnc-service: dpkg-trigger: ya parcheado o sin paths Termux
+08-11 14:46:25.004 30557 31338 D vnc-service: netcap: ya parcheado o sin paths Termux
+08-11 14:46:25.004 30557 31338 D vnc-service: zstdless: ya parcheado o sin paths Termux
+08-11 14:46:25.004 30557 31338 D vnc-service: su: ya parcheado o sin paths Termux
+08-11 14:46:25.004 30557 31338 D vnc-service: unzipsfx: ya parcheado o sin paths Termux
+08-11 14:46:25.005 30557 31338 D vnc-service: zgrep: ya parcheado o sin paths Termux
+08-11 14:46:25.005 30557 31338 D vnc-service: bzip2: ya parcheado o sin paths Termux
+08-11 14:46:25.005 30557 31338 D vnc-service: setarch: ya parcheado o sin paths Termux
+08-11 14:46:25.006 30557 31338 D vnc-service: npth-config: ya parcheado o sin paths Termux
+08-11 14:46:25.006 30557 31338 D vnc-service: funzip: ya parcheado o sin paths Termux
+08-11 14:46:25.006 30557 31338 D vnc-service: egrep: ya parcheado o sin paths Termux
+08-11 14:46:25.006 30557 31338 D vnc-service: zforce: ya parcheado o sin paths Termux
+08-11 14:46:25.007 30557 31338 D vnc-service: dpkg-query: ya parcheado o sin paths Termux
+08-11 14:46:25.007 30557 31338 D vnc-service: dpkg-buildtree: ya parcheado o sin paths Termux
+08-11 14:46:25.007 30557 31338 D vnc-service: gzip: ya parcheado o sin paths Termux
+08-11 14:46:25.012 30557 31338 D vnc-service: dircolors: ya parcheado o sin paths Termux
+08-11 14:46:25.012 30557 31338 D vnc-service: linux32: ya parcheado o sin paths Termux
+08-11 14:46:25.013 30557 31338 D vnc-service: bunzip2: ya parcheado o sin paths Termux
+08-11 14:46:25.017 30557 31338 D vnc-service: nice: ya parcheado o sin paths Termux
+08-11 14:46:25.018 30557 31338 D vnc-service: xzegrep: ya parcheado o sin paths Termux
+08-11 14:46:25.018 30557 31338 D vnc-service: xxh128sum: ya parcheado o sin paths Termux
+08-11 14:46:25.019 30557 31338 D vnc-service: lzmore: ya parcheado o sin paths Termux
+08-11 14:46:25.019 30557 31338 D vnc-service: lzegrep: ya parcheado o sin paths Termux
+08-11 14:46:25.024 30557 31338 D vnc-service: sha224sum: ya parcheado o sin paths Termux
+08-11 14:46:25.028 30557 31338 D vnc-service: false: ya parcheado o sin paths Termux
+08-11 14:46:25.033 30557 31338 D vnc-service: expand: ya parcheado o sin paths Termux
+08-11 14:46:25.038 30557 31338 D vnc-service: pathchk: ya parcheado o sin paths Termux
+08-11 14:46:25.043 30557 31338 D vnc-service: uname: ya parcheado o sin paths Termux
+08-11 14:46:25.043 30557 31338 D vnc-service: lzcmp: ya parcheado o sin paths Termux
+08-11 14:46:25.048 30557 31338 D vnc-service: nohup: ya parcheado o sin paths Termux
+08-11 14:46:25.052 30557 31338 D vnc-service: chown: ya parcheado o sin paths Termux
+08-11 14:46:25.058 30557 31338 D vnc-service: whoami: ya parcheado o sin paths Termux
+08-11 14:46:25.063 30557 31338 D vnc-service: base64: ya parcheado o sin paths Termux
+08-11 14:46:25.067 30557 31338 D vnc-service: sync: ya parcheado o sin paths Termux
+08-11 14:46:25.072 30557 31338 D vnc-service: test: ya parcheado o sin paths Termux
+08-11 14:46:25.077 30557 31338 D vnc-service: shred: ya parcheado o sin paths Termux
+08-11 14:46:25.082 30557 31338 D vnc-service: comm: ya parcheado o sin paths Termux
+08-11 14:46:25.087 30557 31338 D vnc-service: mknod: ya parcheado o sin paths Termux
+08-11 14:46:25.087 30557 31338 D vnc-service: zstdmt: ya parcheado o sin paths Termux
+08-11 14:46:25.092 30557 31338 D vnc-service: uniq: ya parcheado o sin paths Termux
+08-11 14:46:25.097 30557 31338 D vnc-service: [: ya parcheado o sin paths Termux
+08-11 14:46:25.097 30557 31338 D vnc-service: xdg-open: ya parcheado o sin paths Termux
+08-11 14:46:25.102 30557 31338 D vnc-service: join: ya parcheado o sin paths Termux
+08-11 14:46:25.107 30557 31338 D vnc-service: head: ya parcheado o sin paths Termux
+08-11 14:46:25.112 30557 31338 D vnc-service: shuf: ya parcheado o sin paths Termux
+08-11 14:46:25.112 30557 31338 D vnc-service: bzcat: ya parcheado o sin paths Termux
+08-11 14:46:25.118 30557 31338 D vnc-service: sleep: ya parcheado o sin paths Termux
+08-11 14:46:25.123 30557 31338 D vnc-service: fmt: ya parcheado o sin paths Termux
+08-11 14:46:25.125 30557 31338 D vnc-service: zipinfo: ya parcheado o sin paths Termux
+08-11 14:46:25.129 30557 31338 D vnc-service: tty: ya parcheado o sin paths Termux
+08-11 14:46:25.130 30557 31338 D vnc-service: lzfgrep: ya parcheado o sin paths Termux
+08-11 14:46:25.134 30557 31338 D vnc-service: dirname: ya parcheado o sin paths Termux
+08-11 14:46:25.139 30557 31338 D vnc-service: cp: ya parcheado o sin paths Termux
+08-11 14:46:25.145 30557 31338 D vnc-service: sha384sum: ya parcheado o sin paths Termux
+08-11 14:46:25.145 30557 31338 D vnc-service: xxh64sum: ya parcheado o sin paths Termux
+08-11 14:46:25.149 30557 31338 D vnc-service: du: ya parcheado o sin paths Termux
+08-11 14:46:25.154 30557 31338 D vnc-service: pr: ya parcheado o sin paths Termux
+08-11 14:46:25.159 30557 31338 D vnc-service: basename: ya parcheado o sin paths Termux
+08-11 14:46:25.164 30557 31338 D vnc-service: sha512sum: ya parcheado o sin paths Termux
+08-11 14:46:25.165 30557 31338 D vnc-service: xzcat: ya parcheado o sin paths Termux
+08-11 14:46:25.170 30557 31338 D vnc-service: od: ya parcheado o sin paths Termux
+08-11 14:46:25.176 30557 31338 D vnc-service: split: ya parcheado o sin paths Termux
+08-11 14:46:25.176 30557 31338 D vnc-service: lzgrep: ya parcheado o sin paths Termux
+08-11 14:46:25.181 30557 31338 D vnc-service: mkfifo: ya parcheado o sin paths Termux
+08-11 14:46:25.181 30557 31338 D vnc-service: bzcmp: ya parcheado o sin paths Termux
+08-11 14:46:25.185 30557 31338 D vnc-service: md5sum: ya parcheado o sin paths Termux
+08-11 14:46:25.190 30557 31338 D vnc-service: cat: ya parcheado o sin paths Termux
+08-11 14:46:25.195 30557 31338 D vnc-service: nproc: ya parcheado o sin paths Termux
+08-11 14:46:25.200 30557 31338 D vnc-service: stdbuf: ya parcheado o sin paths Termux
+08-11 14:46:25.204 30557 31338 D vnc-service: base32: ya parcheado o sin paths Termux
+08-11 14:46:25.209 30557 31338 D vnc-service: sum: ya parcheado o sin paths Termux
+08-11 14:46:25.214 30557 31338 D vnc-service: ln: ya parcheado o sin paths Termux
+08-11 14:46:25.219 30557 31338 D vnc-service: truncate: ya parcheado o sin paths Termux
+08-11 14:46:25.220 30557 31338 D vnc-service: reset: ya parcheado o sin paths Termux
+08-11 14:46:25.224 30557 31338 D vnc-service: tee: ya parcheado o sin paths Termux
+08-11 14:46:25.232 30557 31338 D vnc-service: cut: ya parcheado o sin paths Termux
+08-11 14:46:25.237 30557 31338 D vnc-service: dir: ya parcheado o sin paths Termux
+08-11 14:46:25.242 30557 31338 D vnc-service: tail: ya parcheado o sin paths Termux
+08-11 14:46:25.247 30557 31338 D vnc-service: link: ya parcheado o sin paths Termux
+08-11 14:46:25.252 30557 31338 D vnc-service: groups: ya parcheado o sin paths Termux
+08-11 14:46:25.252 30557 31338 D vnc-service: py3clean: ya parcheado o sin paths Termux
+08-11 14:46:25.252 30557 31338 D vnc-service: pydoc: ya parcheado o sin paths Termux
+08-11 14:46:25.252 30557 31338 D vnc-service: pydoc3: ya parcheado o sin paths Termux
+08-11 14:46:25.253 30557 31338 D vnc-service: pydoc3.14: ya parcheado o sin paths Termux
+08-11 14:46:25.265 30557 31338 D vnc-service: git: ya parcheado o sin paths Termux
+08-11 14:46:25.277 30557 31338 D vnc-service: git-receive-pack: ya parcheado o sin paths Termux
+08-11 14:46:25.284 30557 31338 D vnc-service: git-shell: ya parcheado o sin paths Termux
+08-11 14:46:25.298 30557 31338 D vnc-service: git-upload-archive: ya parcheado o sin paths Termux
+08-11 14:46:25.312 30557 31338 D vnc-service: git-upload-pack: ya parcheado o sin paths Termux
+08-11 14:46:25.319 30557 31338 D vnc-service: scalar: ya parcheado o sin paths Termux
+08-11 14:46:25.319 30557 31338 D vnc-service: gdbm_dump: ya parcheado o sin paths Termux
+08-11 14:46:25.320 30557 31338 D vnc-service: gdbmtool: ya parcheado o sin paths Termux
+08-11 14:46:25.329 30557 31338 D vnc-service: Xvnc: ya parcheado o sin paths Termux
+08-11 14:46:25.331 30557 31338 D vnc-service: x0vncserver: ya parcheado o sin paths Termux
+08-11 14:46:25.332 30557 31338 D vnc-service: openbox-session: ya parcheado o sin paths Termux
+08-11 14:46:25.332 30557 31338 D vnc-service: tint2-send: ya parcheado o sin paths Termux
+08-11 14:46:25.332 30557 31338 D vnc-service: libpng-config: ya parcheado o sin paths Termux
+08-11 14:46:25.945 30557 31338 I vnc-service: Xvnc PID=31340 en :1
+08-11 14:47:26.134 30557 31338 E vnc-service: Xvnc no respondió en 60s — xvnc_err: nanoroot: prefix=/data/user/0/dev.nanoai.mobile/files/nano/usr (len=45)
+08-11 14:47:26.134 30557 31338 E vnc-service: 
+08-11 14:47:26.134 30557 31338 E vnc-service: Xvnc TigerVNC 1.16.2 - built Apr 29 2026 05:55:51
+08-11 14:47:26.134 30557 31338 E vnc-service: Copyright (C) 1999-2026 TigerVNC team and many others (see README.rst)
+08-11 14:47:26.134 30557 31338 E vnc-service: See https://www.tigervnc.org for information on TigerVNC.
+08-11 14:47:26.134 30557 31338 E vnc-service: Underlying X server release 12101016
+08-11 14:47:26.134 30557 31338 E vnc-service: 
+08-11 14:47:26.134 30557 31338 E vnc-service: Built without GBM support
+08-11 14:47:26.134 30557 31338 E vnc-service: Failed to initialize DRI3 extension
+08-11 14:47:26.134 30557 31338 E vnc-service: Sync Extension 3.1
+08-11 14:47:26.134 30557 31338 E vnc-service: 
+08-11 14:47:26.134 30557 31338 E vnc-service: Tue Aug 11 14:46:26 2026
+08-11 14:47:26.134 30557 31338 E vnc-service:  vncext:      VNC extension running!
+08-11 14:47:26.134 30557 31338 E vnc-service:  vncext:      Listening for VNC connections on all interface(s), port 5901
+08-11 14:47:26.134 30557 31338 E vnc-service:  vncext:      Created VNC server for screen 0
+08-11 14:47:26.134 30557 31338 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/misc/, removing from list!
+08-11 14:47:26.134 30557 31338 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/TTF/, removing from list!
+08-11 14:47:26.134 30557 31338 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/OTF/, removing from list!
+08-11 14:47:26.134 30557 31338 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/Type1/, removing from list!
+08-11 14:47:26.134 30557 31338 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/100dpi/, removing from list!
+08-11 14:47:26.134 30557 31338 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/75dpi/, removing from list!
+08-11 14:47:26.134 30557 31338 E vnc-service: Popen: `"/data/data/dev.nanoai.mobile/us/bin/xkbcomp" -w 1 "-R/data/user/0/dev.nanoai.mobile/files/nano/usr/share/X11/xkb" -xkm "-" -em1 "The XKEYBOARD keymap compiler (xkbcomp) reports:" -emp "> " -eml "Errors from xkbcomp are not fatal to the X server" "/data/data/dev.nanoai.mobile/us/tmp/server-1.xkm"', fp = 0xb40000763700d018
+08-11 14:47:26.134 30557 31338 E vnc-service: Pclose: fp = 0xb40000763700d018
+08-11 14:47:26.134 30557 31338 E vnc-service: Popen: `"/data/data/dev.nanoai.mobile/us/bin/xkbcomp" -w 1 "-R/data/user/0/dev.nanoai.mobile/files/nano/usr/share/X11/xkb" -xkm "-" -em1 "The XKEYBOARD keymap compiler (xkbcomp) reports:" -emp "> " -eml "Errors from xkbcomp are not fatal to the X server" "/data/data/dev.nanoai.mobile/us/tmp/server-1.xkm"', fp = 0xb40000763700d018
+08-11 14:47:26.134 30557 31338 E vnc-service: Pclose: fp = 0xb40000763700d018
+08-11 14:47:26.134 30557 31338 E vnc-service: XKB: Failed to compile keymap
+08-11 14:47:26.134 30557 31338 E vnc-service: Keyboard initialization failed. This could be a missing or incorrect setup of xkeyboard-config.
+08-11 14:47:26.134 30557 31338 E vnc-service: (EE) 
+08-11 14:47:26.134 30557 31338 E vnc-service: Fatal server error:
+08-11 14:47:26.134 30557 31338 E vnc-service: (EE) Failed to activate virtual core keyboard: 2(EE) 
+08-11 14:47:53.496 30557 31362 D vnc-service: lsfd: ya parcheado o sin paths Termux
+08-11 14:47:53.497 30557 31362 D vnc-service: waitpid: ya parcheado o sin paths Termux
+08-11 14:47:53.497 30557 31362 D vnc-service: hwclock: ya parcheado o sin paths Termux
+08-11 14:47:53.497 30557 31362 D vnc-service: hmac256: ya parcheado o sin paths Termux
+08-11 14:47:53.498 30557 31362 D vnc-service: free: ya parcheado o sin paths Termux
+08-11 14:47:53.498 30557 31362 D vnc-service: look: ya parcheado o sin paths Termux
+08-11 14:47:53.498 30557 31362 D vnc-service: termux-reload-settings: ya parcheado o sin paths Termux
+08-11 14:47:53.498 30557 31362 D vnc-service: libassuan-config: ya parcheado o sin paths Termux
+08-11 14:47:53.498 30557 31362 D vnc-service: choom: ya parcheado o sin paths Termux
+08-11 14:47:53.499 30557 31362 D vnc-service: ctrlaltdel: ya parcheado o sin paths Termux
+08-11 14:47:53.499 30557 31362 D vnc-service: chrt: ya parcheado o sin paths Termux
+08-11 14:47:53.500 30557 31362 D vnc-service: patch: ya parcheado o sin paths Termux
+08-11 14:47:53.500 30557 31362 D vnc-service: hostname: ya parcheado o sin paths Termux
+08-11 14:47:53.500 30557 31362 D vnc-service: setfacl: ya parcheado o sin paths Termux
+08-11 14:47:53.501 30557 31362 D vnc-service: dpkg-fsys-usrunmess: ya parcheado o sin paths Termux
+08-11 14:47:53.501 30557 31362 D vnc-service: pidof: ya parcheado o sin paths Termux
+08-11 14:47:53.501 30557 31362 D vnc-service: apt-key: ya parcheado o sin paths Termux
+08-11 14:47:53.501 30557 31362 D vnc-service: dumpsexp: ya parcheado o sin paths Termux
+08-11 14:47:53.501 30557 31362 D vnc-service: zmore: ya parcheado o sin paths Termux
+08-11 14:47:53.501 30557 31362 D vnc-service: wcurl: ya parcheado o sin paths Termux
+08-11 14:47:53.502 30557 31362 D vnc-service: lesskey: ya parcheado o sin paths Termux
+08-11 14:47:53.502 30557 31362 D vnc-service: apt-config: ya parcheado o sin paths Termux
+08-11 14:47:53.502 30557 31362 D vnc-service: bzip2recover: ya parcheado o sin paths Termux
+08-11 14:47:53.502 30557 31362 D vnc-service: vmstat: ya parcheado o sin paths Termux
+08-11 14:47:53.503 30557 31362 D vnc-service: idn2: ya parcheado o sin paths Termux
+08-11 14:47:53.503 30557 31362 D vnc-service: addpart: ya parcheado o sin paths Termux
+08-11 14:47:53.503 30557 31362 D vnc-service: termux-apps-info-env-variable: ya parcheado o sin paths Termux
+08-11 14:47:53.503 30557 31362 D vnc-service: xargs: ya parcheado o sin paths Termux
+08-11 14:47:53.504 30557 31362 D vnc-service: termux-scoped-env-variable.bash: ya parcheado o sin paths Termux
+08-11 14:47:53.504 30557 31362 D vnc-service: ifconfig: ya parcheado o sin paths Termux
+08-11 14:47:53.504 30557 31362 D vnc-service: taskset: ya parcheado o sin paths Termux
+08-11 14:47:53.505 30557 31362 D vnc-service: dash: ya parcheado o sin paths Termux
+08-11 14:47:53.505 30557 31362 D vnc-service: cmp: ya parcheado o sin paths Termux
+08-11 14:47:53.506 30557 31362 D vnc-service: termux-apps-info-app-version-name: ya parcheado o sin paths Termux
+08-11 14:47:53.506 30557 31362 D vnc-service: coresched: ya parcheado o sin paths Termux
+08-11 14:47:53.507 30557 31362 D vnc-service: apt-cache: ya parcheado o sin paths Termux
+08-11 14:47:53.507 30557 31362 D vnc-service: chsh: ya parcheado o sin paths Termux
+08-11 14:47:53.507 30557 31362 D vnc-service: scriptlive: ya parcheado o sin paths Termux
+08-11 14:47:53.508 30557 31362 D vnc-service: ed: ya parcheado o sin paths Termux
+08-11 14:47:53.508 30557 31362 D vnc-service: unzip: ya parcheado o sin paths Termux
+08-11 14:47:53.508 30557 31362 D vnc-service: xzdec: ya parcheado o sin paths Termux
+08-11 14:47:53.509 30557 31362 D vnc-service: losetup: ya parcheado o sin paths Termux
+08-11 14:47:53.509 30557 31362 D vnc-service: setfattr: ya parcheado o sin paths Termux
+08-11 14:47:53.509 30557 31362 D vnc-service: settings: ya parcheado o sin paths Termux
+08-11 14:47:53.509 30557 31362 D vnc-service: zegrep: ya parcheado o sin paths Termux
+08-11 14:47:53.509 30557 31362 D vnc-service: plipconfig: ya parcheado o sin paths Termux
+08-11 14:47:53.509 30557 31362 D vnc-service: df: ya parcheado o sin paths Termux
+08-11 14:47:53.510 30557 31362 D vnc-service: am: ya parcheado o sin paths Termux
+08-11 14:47:53.510 30557 31362 D vnc-service: lsns: ya parcheado o sin paths Termux
+08-11 14:47:53.510 30557 31362 D vnc-service: xz: ya parcheado o sin paths Termux
+08-11 14:47:53.511 30557 31362 D vnc-service: scriptreplay: ya parcheado o sin paths Termux
+08-11 14:47:53.511 30557 31362 D vnc-service: lsirq: ya parcheado o sin paths Termux
+08-11 14:47:53.511 30557 31362 D vnc-service: termux-change-repo: ya parcheado o sin paths Termux
+08-11 14:47:53.511 30557 31362 D vnc-service: cal: ya parcheado o sin paths Termux
+08-11 14:47:53.512 30557 31362 D vnc-service: logger: ya parcheado o sin paths Termux
+08-11 14:47:53.512 30557 31362 D vnc-service: more: ya parcheado o sin paths Termux
+08-11 14:47:53.512 30557 31362 D vnc-service: login: ya parcheado o sin paths Termux
+08-11 14:47:53.512 30557 31362 D vnc-service: zcmp: ya parcheado o sin paths Termux
+08-11 14:47:53.513 30557 31362 D vnc-service: blockdev: ya parcheado o sin paths Termux
+08-11 14:47:53.516 30557 31362 D vnc-service: bash: ya parcheado o sin paths Termux
+08-11 14:47:53.516 30557 31362 D vnc-service: nameif: ya parcheado o sin paths Termux
+08-11 14:47:53.516 30557 31362 D vnc-service: termux-apps-info-env-variable.sh: ya parcheado o sin paths Termux
+08-11 14:47:53.517 30557 31362 D vnc-service: lzmainfo: ya parcheado o sin paths Termux
+08-11 14:47:53.517 30557 31362 D vnc-service: ipmaddr: ya parcheado o sin paths Termux
+08-11 14:47:53.517 30557 31362 D vnc-service: nsenter: ya parcheado o sin paths Termux
+08-11 14:47:53.518 30557 31362 D vnc-service: tftp: ya parcheado o sin paths Termux
+08-11 14:47:53.518 30557 31362 D vnc-service: filecap: ya parcheado o sin paths Termux
+08-11 14:47:53.518 30557 31362 D vnc-service: iptunnel: ya parcheado o sin paths Termux
+08-11 14:47:53.518 30557 31362 D vnc-service: pm: ya parcheado o sin paths Termux
+08-11 14:47:53.518 30557 31362 D vnc-service: mcookie: ya parcheado o sin paths Termux
+08-11 14:47:53.519 30557 31362 D vnc-service: less: ya parcheado o sin paths Termux
+08-11 14:47:53.520 30557 31362 D vnc-service: peekfd: ya parcheado o sin paths Termux
+08-11 14:47:53.521 30557 31362 D vnc-service: grep: ya parcheado o sin paths Termux
+08-11 14:47:53.521 30557 31362 D vnc-service: sdiff: ya parcheado o sin paths Termux
+08-11 14:47:53.522 30557 31362 D vnc-service: curl: ya parcheado o sin paths Termux
+08-11 14:47:53.523 30557 31362 D vnc-service: route: ya parcheado o sin paths Termux
+08-11 14:47:53.523 30557 31362 D vnc-service: col: ya parcheado o sin paths Termux
+08-11 14:47:53.524 30557 31362 D vnc-service: xzgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.524 30557 31362 D vnc-service: znew: ya parcheado o sin paths Termux
+08-11 14:47:53.524 30557 31362 D vnc-service: logcat: ya parcheado o sin paths Termux
+08-11 14:47:53.524 30557 31362 D vnc-service: ping: ya parcheado o sin paths Termux
+08-11 14:47:53.524 30557 31362 D vnc-service: gpg-error-config: ya parcheado o sin paths Termux
+08-11 14:47:53.524 30557 31362 D vnc-service: termux-open: ya parcheado o sin paths Termux
+08-11 14:47:53.526 30557 31362 D vnc-service: gawk: ya parcheado o sin paths Termux
+08-11 14:47:53.527 30557 31362 D vnc-service: bzmore: ya parcheado o sin paths Termux
+08-11 14:47:53.527 30557 31362 D vnc-service: wdctl: ya parcheado o sin paths Termux
+08-11 14:47:53.528 30557 31362 D vnc-service: uclampset: ya parcheado o sin paths Termux
+08-11 14:47:53.528 30557 31362 D vnc-service: lzmadec: ya parcheado o sin paths Termux
+08-11 14:47:53.528 30557 31362 D vnc-service: dnsdomainname: ya parcheado o sin paths Termux
+08-11 14:47:53.529 30557 31362 D vnc-service: lsof: ya parcheado o sin paths Termux
+08-11 14:47:53.530 30557 31362 D vnc-service: lscpu: ya parcheado o sin paths Termux
+08-11 14:47:53.530 30557 31362 D vnc-service: pcre2-config: ya parcheado o sin paths Termux
+08-11 14:47:53.532 30557 31362 D vnc-service: netstat: ya parcheado o sin paths Termux
+08-11 14:47:53.532 30557 31362 D vnc-service: readprofile: ya parcheado o sin paths Termux
+08-11 14:47:53.533 30557 31362 D vnc-service: rtcwake: ya parcheado o sin paths Termux
+08-11 14:47:53.535 30557 31362 D vnc-service: tar: ya parcheado o sin paths Termux
+08-11 14:47:53.535 30557 31362 D vnc-service: watch: ya parcheado o sin paths Termux
+08-11 14:47:53.536 30557 31362 D vnc-service: getfacl: ya parcheado o sin paths Termux
+08-11 14:47:53.536 30557 31362 D vnc-service: pwait: ya parcheado o sin paths Termux
+08-11 14:47:53.536 30557 31362 D vnc-service: pgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.537 30557 31362 D vnc-service: setpriv: ya parcheado o sin paths Termux
+08-11 14:47:53.537 30557 31362 D vnc-service: apt-get: ya parcheado o sin paths Termux
+08-11 14:47:53.537 30557 31362 D vnc-service: mkfs: ya parcheado o sin paths Termux
+08-11 14:47:53.538 30557 31362 D vnc-service: setsid: ya parcheado o sin paths Termux
+08-11 14:47:53.538 30557 31362 D vnc-service: xzdiff: ya parcheado o sin paths Termux
+08-11 14:47:53.538 30557 31362 D vnc-service: termux-apps-info-app-version-name.sh: ya parcheado o sin paths Termux
+08-11 14:47:53.539 30557 31362 D vnc-service: unshare: ya parcheado o sin paths Termux
+08-11 14:47:53.539 30557 31362 D vnc-service: xzmore: ya parcheado o sin paths Termux
+08-11 14:47:53.539 30557 31362 D vnc-service: asn1Coding: ya parcheado o sin paths Termux
+08-11 14:47:53.539 30557 31362 D vnc-service: ul: ya parcheado o sin paths Termux
+08-11 14:47:53.540 30557 31362 D vnc-service: lsclocks: ya parcheado o sin paths Termux
+08-11 14:47:53.540 30557 31362 D vnc-service: dmesg: ya parcheado o sin paths Termux
+08-11 14:47:53.541 30557 31362 D vnc-service: trust: ya parcheado o sin paths Termux
+08-11 14:47:53.541 30557 31362 D vnc-service: mpicalc: ya parcheado o sin paths Termux
+08-11 14:47:53.542 30557 31362 D vnc-service: dpkg-divert: ya parcheado o sin paths Termux
+08-11 14:47:53.543 30557 31362 D vnc-service: fsck.minix: ya parcheado o sin paths Termux
+08-11 14:47:53.543 30557 31362 D vnc-service: dos2unix: ya parcheado o sin paths Termux
+08-11 14:47:53.543 30557 31362 D vnc-service: pwdx: ya parcheado o sin paths Termux
+08-11 14:47:53.543 30557 31362 D vnc-service: termux-apps-info-env-variable.bash: ya parcheado o sin paths Termux
+08-11 14:47:53.544 30557 31362 D vnc-service: termux-setup-package-manager: ya parcheado o sin paths Termux
+08-11 14:47:53.544 30557 31362 D vnc-service: gpg-error: ya parcheado o sin paths Termux
+08-11 14:47:53.544 30557 31362 D vnc-service: chacl: ya parcheado o sin paths Termux
+08-11 14:47:53.544 30557 31362 D vnc-service: termux-scoped-env-variable: ya parcheado o sin paths Termux
+08-11 14:47:53.545 30557 31362 D vnc-service: pipesz: ya parcheado o sin paths Termux
+08-11 14:47:53.546 30557 31362 D vnc-service: find: ya parcheado o sin paths Termux
+08-11 14:47:53.546 30557 31362 D vnc-service: termux-scoped-env-variable.sh: ya parcheado o sin paths Termux
+08-11 14:47:53.546 30557 31362 D vnc-service: prtstat: ya parcheado o sin paths Termux
+08-11 14:47:53.547 30557 31362 D vnc-service: telnet: ya parcheado o sin paths Termux
+08-11 14:47:53.547 30557 31362 D vnc-service: termux-wake-lock: ya parcheado o sin paths Termux
+08-11 14:47:53.548 30557 31362 D vnc-service: gpgv: ya parcheado o sin paths Termux
+08-11 14:47:53.549 30557 31362 D vnc-service: termux-am: ya parcheado o sin paths Termux
+08-11 14:47:53.549 30557 31362 D vnc-service: zstdgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.549 30557 31362 D vnc-service: bzgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.549 30557 31362 D vnc-service: uncompress: ya parcheado o sin paths Termux
+08-11 14:47:53.549 30557 31362 D vnc-service: setpgid: ya parcheado o sin paths Termux
+08-11 14:47:53.551 30557 31362 D vnc-service: nano: ya parcheado o sin paths Termux
+08-11 14:47:53.551 30557 31362 D vnc-service: arp: ya parcheado o sin paths Termux
+08-11 14:47:53.552 30557 31362 D vnc-service: yat2m: ya parcheado o sin paths Termux
+08-11 14:47:53.552 30557 31362 D vnc-service: hardlink: ya parcheado o sin paths Termux
+08-11 14:47:53.552 30557 31362 D vnc-service: termux-fix-shebang: ya parcheado o sin paths Termux
+08-11 14:47:53.552 30557 31362 D vnc-service: termux-backup: ya parcheado o sin paths Termux
+08-11 14:47:53.552 30557 31362 D vnc-service: mii-tool: ya parcheado o sin paths Termux
+08-11 14:47:53.553 30557 31362 D vnc-service: red: ya parcheado o sin paths Termux
+08-11 14:47:53.553 30557 31362 D vnc-service: getopt: ya parcheado o sin paths Termux
+08-11 14:47:53.553 30557 31362 D vnc-service: mkfs.bfs: ya parcheado o sin paths Termux
+08-11 14:47:53.553 30557 31362 D vnc-service: xzless: ya parcheado o sin paths Termux
+08-11 14:47:53.554 30557 31362 D vnc-service: sed: ya parcheado o sin paths Termux
+08-11 14:47:53.554 30557 31362 D vnc-service: pkg: ya parcheado o sin paths Termux
+08-11 14:47:53.554 30557 31362 D vnc-service: column: ya parcheado o sin paths Termux
+08-11 14:47:53.555 30557 31362 D vnc-service: ps: ya parcheado o sin paths Termux
+08-11 14:47:53.556 30557 31362 D vnc-service: fsck.cramfs: ya parcheado o sin paths Termux
+08-11 14:47:53.556 30557 31362 D vnc-service: termux-apps-info-app-version-name.bash: ya parcheado o sin paths Termux
+08-11 14:47:53.556 30557 31362 D vnc-service: run-parts: ya parcheado o sin paths Termux
+08-11 14:47:53.556 30557 31362 D vnc-service: zipgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.557 30557 31362 D vnc-service: asn1Decoding: ya parcheado o sin paths Termux
+08-11 14:47:53.557 30557 31362 D vnc-service: ionice: ya parcheado o sin paths Termux
+08-11 14:47:53.557 30557 31362 D vnc-service: xxhsum: ya parcheado o sin paths Termux
+08-11 14:47:53.557 30557 31362 D vnc-service: termux-exec-system-linker-exec: ya parcheado o sin paths Termux
+08-11 14:47:53.558 30557 31362 D vnc-service: delpart: ya parcheado o sin paths Termux
+08-11 14:47:53.558 30557 31362 D vnc-service: rev: ya parcheado o sin paths Termux
+08-11 14:47:53.558 30557 31362 D vnc-service: hexdump: ya parcheado o sin paths Termux
+08-11 14:47:53.558 30557 31362 D vnc-service: setterm: ya parcheado o sin paths Termux
+08-11 14:47:53.559 30557 31362 D vnc-service: unix2dos: ya parcheado o sin paths Termux
+08-11 14:47:53.559 30557 31362 D vnc-service: fincore: ya parcheado o sin paths Termux
+08-11 14:47:53.559 30557 31362 D vnc-service: gpgrt-config: ya parcheado o sin paths Termux
+08-11 14:47:53.559 30557 31362 D vnc-service: diff3: ya parcheado o sin paths Termux
+08-11 14:47:53.559 30557 31362 D vnc-service: termux-info: ya parcheado o sin paths Termux
+08-11 14:47:53.560 30557 31362 D vnc-service: namei: ya parcheado o sin paths Termux
+08-11 14:47:53.560 30557 31362 D vnc-service: ldattach: ya parcheado o sin paths Termux
+08-11 14:47:53.560 30557 31362 D vnc-service: apt-mark: ya parcheado o sin paths Termux
+08-11 14:47:53.561 30557 31362 D vnc-service: pstree: ya parcheado o sin paths Termux
+08-11 14:47:53.561 30557 31362 D vnc-service: termux-am-socket: ya parcheado o sin paths Termux
+08-11 14:47:53.561 30557 31362 D vnc-service: zcat: ya parcheado o sin paths Termux
+08-11 14:47:53.561 30557 31362 D vnc-service: update-alternatives: ya parcheado o sin paths Termux
+08-11 14:47:53.561 30557 31362 D vnc-service: termux-wake-unlock: ya parcheado o sin paths Termux
+08-11 14:47:53.561 30557 31362 D vnc-service: fsfreeze: ya parcheado o sin paths Termux
+08-11 14:47:53.562 30557 31362 D vnc-service: bzdiff: ya parcheado o sin paths Termux
+08-11 14:47:53.563 30557 31362 D vnc-service: p11-kit: ya parcheado o sin paths Termux
+08-11 14:47:53.563 30557 31362 D vnc-service: ischroot: ya parcheado o sin paths Termux
+08-11 14:47:53.563 30557 31362 D vnc-service: resizepart: ya parcheado o sin paths Termux
+08-11 14:47:53.563 30557 31362 D vnc-service: dalvikvm: ya parcheado o sin paths Termux
+08-11 14:47:53.563 30557 31362 D vnc-service: savelog: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: rarp: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: fuser: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: whereis: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: colcrt: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: attr: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: zdiff: ya parcheado o sin paths Termux
+08-11 14:47:53.564 30557 31362 D vnc-service: termux-restore: ya parcheado o sin paths Termux
+08-11 14:47:53.565 30557 31362 D vnc-service: pscap: ya parcheado o sin paths Termux
+08-11 14:47:53.565 30557 31362 D vnc-service: pslog: ya parcheado o sin paths Termux
+08-11 14:47:53.565 30557 31362 D vnc-service: cmd: ya parcheado o sin paths Termux
+08-11 14:47:53.565 30557 31362 D vnc-service: fadvise: ya parcheado o sin paths Termux
+08-11 14:47:53.565 30557 31362 D vnc-service: termux-reset: ya parcheado o sin paths Termux
+08-11 14:47:53.565 30557 31362 D vnc-service: top: ya parcheado o sin paths Termux
+08-11 14:47:53.566 30557 31362 D vnc-service: zstd: ya parcheado o sin paths Termux
+08-11 14:47:53.566 30557 31362 D vnc-service: dpkg-buildapi: ya parcheado o sin paths Termux
+08-11 14:47:53.566 30557 31362 D vnc-service: gzexe: ya parcheado o sin paths Termux
+08-11 14:47:53.567 30557 31362 D vnc-service: isosize: ya parcheado o sin paths Termux
+08-11 14:47:53.567 30557 31362 D vnc-service: flock: ya parcheado o sin paths Termux
+08-11 14:47:53.568 30557 31362 D vnc-service: dpkg: ya parcheado o sin paths Termux
+08-11 14:47:53.568 30557 31362 D vnc-service: fgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.568 30557 31362 D vnc-service: ping6: ya parcheado o sin paths Termux
+08-11 14:47:53.569 30557 31362 D vnc-service: dialog: ya parcheado o sin paths Termux
+08-11 14:47:53.569 30557 31362 D vnc-service: pkill: ya parcheado o sin paths Termux
+08-11 14:47:53.569 30557 31362 D vnc-service: curl-config: ya parcheado o sin paths Termux
+08-11 14:47:53.570 30557 31362 D vnc-service: exch: ya parcheado o sin paths Termux
+08-11 14:47:53.570 30557 31362 D vnc-service: tset: ya parcheado o sin paths Termux
+08-11 14:47:53.570 30557 31362 D vnc-service: clear: ya parcheado o sin paths Termux
+08-11 14:47:53.570 30557 31362 D vnc-service: chcpu: ya parcheado o sin paths Termux
+08-11 14:47:53.570 30557 31362 D vnc-service: pmap: ya parcheado o sin paths Termux
+08-11 14:47:53.571 30557 31362 D vnc-service: asn1Parser: ya parcheado o sin paths Termux
+08-11 14:47:53.571 30557 31362 D vnc-service: dpkg-split: ya parcheado o sin paths Termux
+08-11 14:47:53.572 30557 31362 D vnc-service: fallocate: ya parcheado o sin paths Termux
+08-11 14:47:53.572 30557 31362 D vnc-service: getprop: ya parcheado o sin paths Termux
+08-11 14:47:53.573 30557 31362 D vnc-service: mkfs.minix: ya parcheado o sin paths Termux
+08-11 14:47:53.573 30557 31362 D vnc-service: bits: ya parcheado o sin paths Termux
+08-11 14:47:53.573 30557 31362 D vnc-service: rename: ya parcheado o sin paths Termux
+08-11 14:47:53.573 30557 31362 D vnc-service: blkpr: ya parcheado o sin paths Termux
+08-11 14:47:53.573 30557 31362 D vnc-service: killall: ya parcheado o sin paths Termux
+08-11 14:47:53.574 30557 31362 D vnc-service: sysctl: ya parcheado o sin paths Termux
+08-11 14:47:53.574 30557 31362 D vnc-service: start-stop-daemon: ya parcheado o sin paths Termux
+08-11 14:47:53.576 30557 31362 D vnc-service: awk: ya parcheado o sin paths Termux
+08-11 14:47:53.580 30557 31362 D vnc-service: ls: ya parcheado o sin paths Termux
+08-11 14:47:53.586 30557 31362 D vnc-service: touch: ya parcheado o sin paths Termux
+08-11 14:47:53.591 30557 31362 D vnc-service: rmdir: ya parcheado o sin paths Termux
+08-11 14:47:53.591 30557 31362 D vnc-service: bzless: ya parcheado o sin paths Termux
+08-11 14:47:53.596 30557 31362 D vnc-service: printf: ya parcheado o sin paths Termux
+08-11 14:47:53.601 30557 31362 D vnc-service: fold: ya parcheado o sin paths Termux
+08-11 14:47:53.601 30557 31362 D vnc-service: xxh32sum: ya parcheado o sin paths Termux
+08-11 14:47:53.606 30557 31362 D vnc-service: unlink: ya parcheado o sin paths Termux
+08-11 14:47:53.611 30557 31362 D vnc-service: b2sum: ya parcheado o sin paths Termux
+08-11 14:47:53.616 30557 31362 D vnc-service: numfmt: ya parcheado o sin paths Termux
+08-11 14:47:53.622 30557 31362 D vnc-service: stat: ya parcheado o sin paths Termux
+08-11 14:47:53.626 30557 31362 D vnc-service: dd: ya parcheado o sin paths Termux
+08-11 14:47:53.627 30557 31362 D vnc-service: unzstd: ya parcheado o sin paths Termux
+08-11 14:47:53.628 30557 31362 D vnc-service: zstdcat: ya parcheado o sin paths Termux
+08-11 14:47:53.633 30557 31362 D vnc-service: kill: ya parcheado o sin paths Termux
+08-11 14:47:53.637 30557 31362 D vnc-service: sha1sum: ya parcheado o sin paths Termux
+08-11 14:47:53.643 30557 31362 D vnc-service: runcon: ya parcheado o sin paths Termux
+08-11 14:47:53.647 30557 31362 D vnc-service: chroot: ya parcheado o sin paths Termux
+08-11 14:47:53.652 30557 31362 D vnc-service: tr: ya parcheado o sin paths Termux
+08-11 14:47:53.652 30557 31362 D vnc-service: lzma: ya parcheado o sin paths Termux
+08-11 14:47:53.657 30557 31362 D vnc-service: chmod: ya parcheado o sin paths Termux
+08-11 14:47:53.658 30557 31362 D vnc-service: xxh3sum: ya parcheado o sin paths Termux
+08-11 14:47:53.663 30557 31362 D vnc-service: install: ya parcheado o sin paths Termux
+08-11 14:47:53.669 30557 31362 D vnc-service: wc: ya parcheado o sin paths Termux
+08-11 14:47:53.674 30557 31362 D vnc-service: timeout: ya parcheado o sin paths Termux
+08-11 14:47:53.674 30557 31362 D vnc-service: linux64: ya parcheado o sin paths Termux
+08-11 14:47:53.679 30557 31362 D vnc-service: mv: ya parcheado o sin paths Termux
+08-11 14:47:53.683 30557 31362 D vnc-service: sort: ya parcheado o sin paths Termux
+08-11 14:47:53.688 30557 31362 D vnc-service: seq: ya parcheado o sin paths Termux
+08-11 14:47:53.693 30557 31362 D vnc-service: yes: ya parcheado o sin paths Termux
+08-11 14:47:53.698 30557 31362 D vnc-service: stty: ya parcheado o sin paths Termux
+08-11 14:47:53.703 30557 31362 D vnc-service: basenc: ya parcheado o sin paths Termux
+08-11 14:47:53.709 30557 31362 D vnc-service: rm: ya parcheado o sin paths Termux
+08-11 14:47:53.709 30557 31362 D vnc-service: lzcat: ya parcheado o sin paths Termux
+08-11 14:47:53.710 30557 31362 D vnc-service: xzcmp: ya parcheado o sin paths Termux
+08-11 14:47:53.715 30557 31362 D vnc-service: date: ya parcheado o sin paths Termux
+08-11 14:47:53.719 30557 31362 D vnc-service: cksum: ya parcheado o sin paths Termux
+08-11 14:47:53.724 30557 31362 D vnc-service: expr: ya parcheado o sin paths Termux
+08-11 14:47:53.729 30557 31362 D vnc-service: vdir: ya parcheado o sin paths Termux
+08-11 14:47:53.734 30557 31362 D vnc-service: chcon: ya parcheado o sin paths Termux
+08-11 14:47:53.739 30557 31362 D vnc-service: env: ya parcheado o sin paths Termux
+08-11 14:47:53.739 30557 31362 D vnc-service: unlzma: ya parcheado o sin paths Termux
+08-11 14:47:53.745 30557 31362 D vnc-service: tac: ya parcheado o sin paths Termux
+08-11 14:47:53.745 30557 31362 D vnc-service: lzless: ya parcheado o sin paths Termux
+08-11 14:47:53.751 30557 31362 D vnc-service: echo: ya parcheado o sin paths Termux
+08-11 14:47:53.756 30557 31362 D vnc-service: factor: ya parcheado o sin paths Termux
+08-11 14:47:53.760 30557 31362 D vnc-service: pwd: ya parcheado o sin paths Termux
+08-11 14:47:53.765 30557 31362 D vnc-service: readlink: ya parcheado o sin paths Termux
+08-11 14:47:53.770 30557 31362 D vnc-service: true: ya parcheado o sin paths Termux
+08-11 14:47:53.776 30557 31362 D vnc-service: ptx: ya parcheado o sin paths Termux
+08-11 14:47:53.777 30557 31362 D vnc-service: sh: ya parcheado o sin paths Termux
+08-11 14:47:53.782 30557 31362 D vnc-service: unexpand: ya parcheado o sin paths Termux
+08-11 14:47:53.782 30557 31362 D vnc-service: lzdiff: ya parcheado o sin paths Termux
+08-11 14:47:53.786 30557 31362 D vnc-service: tsort: ya parcheado o sin paths Termux
+08-11 14:47:53.791 30557 31362 D vnc-service: nl: ya parcheado o sin paths Termux
+08-11 14:47:53.796 30557 31362 D vnc-service: csplit: ya parcheado o sin paths Termux
+08-11 14:47:53.800 30557 31362 D vnc-service: realpath: ya parcheado o sin paths Termux
+08-11 14:47:53.805 30557 31362 D vnc-service: id: ya parcheado o sin paths Termux
+08-11 14:47:53.806 30557 31362 D vnc-service: unix2mac: ya parcheado o sin paths Termux
+08-11 14:47:53.812 30557 31362 D vnc-service: paste: ya parcheado o sin paths Termux
+08-11 14:47:53.813 30557 31362 D vnc-service: uname26: ya parcheado o sin paths Termux
+08-11 14:47:53.813 30557 31362 D vnc-service: mac2unix: ya parcheado o sin paths Termux
+08-11 14:47:53.819 30557 31362 D vnc-service: printenv: ya parcheado o sin paths Termux
+08-11 14:47:53.824 30557 31362 D vnc-service: sha256sum: ya parcheado o sin paths Termux
+08-11 14:47:53.829 30557 31362 D vnc-service: logname: ya parcheado o sin paths Termux
+08-11 14:47:53.829 30557 31362 D vnc-service: xzfgrep: ya parcheado o sin paths Termux
+08-11 14:47:53.830 30557 31362 D vnc-service: unxz: ya parcheado o sin paths Termux
+08-11 14:47:53.835 30557 31362 D vnc-service: mktemp: ya parcheado o sin paths Termux
+08-11 14:47:53.839 30557 31362 D vnc-service: mkdir: ya parcheado o sin paths Termux
+08-11 14:47:53.844 30557 31362 D vnc-service: chgrp: ya parcheado o sin paths Termux
+08-11 14:47:53.844 30557 31362 D vnc-service: py3compile: ya parcheado o sin paths Termux
+08-11 14:47:53.844 30557 31362 D vnc-service: python: ya parcheado o sin paths Termux
+08-11 14:47:53.845 30557 31362 D vnc-service: python-config: ya parcheado o sin paths Termux
+08-11 14:47:53.845 30557 31362 D vnc-service: python3: ya parcheado o sin paths Termux
+08-11 14:47:53.845 30557 31362 D vnc-service: python3-config: ya parcheado o sin paths Termux
+08-11 14:47:53.845 30557 31362 D vnc-service: python3.14: ya parcheado o sin paths Termux
+08-11 14:47:53.845 30557 31362 D vnc-service: python3.14-config: ya parcheado o sin paths Termux
+08-11 14:47:53.846 30557 31362 D vnc-service: htop: ya parcheado o sin paths Termux
+08-11 14:48:54.689 30557 31362 E vnc-service: Xvnc no respondió en 60s — xvnc_err: nanoroot: prefix=/data/user/0/dev.nanoai.mobile/files/nano/usr (len=45)
+08-11 14:48:54.689 30557 31362 E vnc-service: 
+08-11 14:48:54.689 30557 31362 E vnc-service: Xvnc TigerVNC 1.16.2 - built Apr 29 2026 05:55:51
+08-11 14:48:54.689 30557 31362 E vnc-service: Copyright (C) 1999-2026 TigerVNC team and many others (see README.rst)
+08-11 14:48:54.689 30557 31362 E vnc-service: See https://www.tigervnc.org for information on TigerVNC.
+08-11 14:48:54.689 30557 31362 E vnc-service: Underlying X server release 12101016
+08-11 14:48:54.689 30557 31362 E vnc-service: 
+08-11 14:48:54.689 30557 31362 E vnc-service: Built without GBM support
+08-11 14:48:54.689 30557 31362 E vnc-service: Failed to initialize DRI3 extension
+08-11 14:48:54.689 30557 31362 E vnc-service: Sync Extension 3.1
+08-11 14:48:54.689 30557 31362 E vnc-service: 
+08-11 14:48:54.689 30557 31362 E vnc-service: Tue Aug 11 14:47:54 2026
+08-11 14:48:54.689 30557 31362 E vnc-service:  vncext:      VNC extension running!
+08-11 14:48:54.689 30557 31362 E vnc-service:  vncext:      Listening for VNC connections on all interface(s), port 5901
+08-11 14:48:54.689 30557 31362 E vnc-service:  vncext:      Created VNC server for screen 0
+08-11 14:48:54.689 30557 31362 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/misc/, removing from list!
+08-11 14:48:54.689 30557 31362 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/TTF/, removing from list!
+08-11 14:48:54.689 30557 31362 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/OTF/, removing from list!
+08-11 14:48:54.689 30557 31362 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/Type1/, removing from list!
+08-11 14:48:54.689 30557 31362 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/100dpi/, removing from list!
+08-11 14:48:54.689 30557 31362 E vnc-service: [dix] Could not init font path element /data/data/dev.nanoai.mobile/us/share/fonts/75dpi/, removing from list!
+08-11 14:48:54.689 30557 31362 E vnc-service: Popen: `"/data/data/dev.nanoai.mobile/us/bin/xkbcomp" -w 1 "-R/data/user/0/dev.nanoai.mobile/files/nano/usr/share/X11/xkb" -xkm "-" -em1 "The XKEYBOARD keymap compiler (xkbcomp) reports:" -emp "> " -eml "Errors from xkbcomp are not fatal to the X server" "/data/data/dev.nanoai.mobile/us/tmp/server-1.xkm"', fp = 0xb4000072e180d018
+08-11 14:48:54.689 30557 31362 E vnc-service: Pclose: fp = 0xb4000072e180d018
+08-11 14:48:54.689 30557 31362 E vnc-service: Popen: `"/data/data/dev.nanoai.mobile/us/bin/xkbcomp" -w 1 "-R/data/user/0/dev.nanoai.mobile/files/nano/usr/share/X11/xkb" -xkm "-" -em1 "The XKEYBOARD keymap compiler (xkbcomp) reports:" -emp "> " -eml "Errors from xkbcomp are not fatal to the X server" "/data/data/dev.nanoai.mobile/us/tmp/server-1.xkm"', fp = 0xb4000072e180d018
+08-11 14:48:54.689 30557 31362 E vnc-service: Pclose: fp = 0xb4000072e180d018
+08-11 14:48:54.689 30557 31362 E vnc-service: XKB: Failed to compile keymap
+08-11 14:48:54.689 30557 31362 E vnc-service: Keyboard initialization failed. This could be a missing or incorrect setup of xkeyboard-config.
+08-11 14:48:54.689 30557 31362 E vnc-service: (EE) 
+08-11 14:48:54.689 30557 31362 E vnc-service: Fatal server error:
+08-11 14:48:54.689 30557 31362 E vnc-service: (EE) Failed to activate virtual core keyboard: 2(EE) 

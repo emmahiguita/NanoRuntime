@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Descripción mostrada en Ajustes → Apps → NanoAI Local -->
+    <string name="app_settings_description">NanoAI Local: motor de lenguaje local, terminal Linux y escritorio virtual en tu dispositivo.</string>
+</resources>

@@ -36,8 +36,8 @@ jobs:
 
       - name: Copy NanoRuntime sources
         run: |
-          cp nanortime-core/include/nanortime_streaming.h       llama.cpp-source/src/
-          cp nanortime-core/include/nanortime_streaming_stub.c  llama.cpp-source/src/
+          cp products/nanoRUNTIME/nanortime-core/include/nanortime_streaming.h       llama.cpp-source/src/
+          cp products/nanoRUNTIME/nanortime-core/include/nanortime_streaming_stub.c  llama.cpp-source/src/
 
       - name: Patch decode loop
         run: |

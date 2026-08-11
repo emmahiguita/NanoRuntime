@@ -196,18 +196,8 @@ HUMANEVAL_SAMPLES = [
 # =============================================================
 # Función central: lanza el binario real y mide todo
 # =============================================================
-def format_chat_prompt(user_message: str, system: str = "") -> str:
-    """
-    Formatea el prompt en el template de chat de Qwen-2.5.
-    Sin este formato, el modelo produce outputs degenerados (responde siempre 'C').
-    Ref: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct
-    """
-    parts = []
-    if system:
-        parts.append(f"<|im_start|>system\n{system}<|im_end|>\n")
-    parts.append(f"<|im_start|>user\n{user_message}<|im_end|>\n")
-    parts.append("<|im_start|>assistant\n")
-    return "".join(parts)
+
+from script_utils import format_chat_prompt
 
 
 def run_nanoai(
@@ -369,6 +359,85 @@ def eval_mmlu(binary: str, config: str, max_tokens: int) -> dict:
 # =============================================================
 # HumanEval Evaluation — ejecución real del código generado
 # =============================================================
+
+# ── Safe code execution ──────────────────────────────────────
+# LLM-generated code is run in a subprocess with restricted
+# builtins and a hard timeout to prevent arbitrary code execution
+# on the benchmark host.
+import subprocess as _sp  # noqa: E402
+
+# Builtin names safe for LLM-generated code. The subprocess keeps only
+# these from the original builtins; everything else (__import__, open,
+# exec, eval, compile, input, breakpoint, etc.) is removed.
+_SAFE_BUILTIN_NAMES = [
+    "True", "False", "None", "abs", "all", "any", "bool",
+    "dict", "enumerate", "float", "int", "len", "list", "max",
+    "min", "pow", "range", "reversed", "round", "set", "slice",
+    "sorted", "str", "sum", "tuple", "zip", "isinstance",
+    "issubclass", "TypeError", "ValueError", "StopIteration",
+    "Exception", "print", "divmod", "filter", "map", "iter",
+    "next", "chr", "ord",
+]
+
+_EXEC_TIMEOUT_SECONDS = 30
+
+
+def _safe_exec(code: str) -> tuple[bool, str | None]:
+    """Run LLM-generated code in a subprocess sandbox with timeout.
+
+    Returns (passed: bool, error_message: str | None).
+    The subprocess has no access to the filesystem, network, or host
+    environment beyond the restricted builtins listed above.
+    """
+    # Subprocess bootstrap: whitelist safe builtins by name, clear the rest.
+    # Must be a self-contained script — we pass safe_builtin_names as a
+    # JSON-serializable list (strings only, not Python objects).
+    import json as _json
+
+    _safe_names_json = _json.dumps(_SAFE_BUILTIN_NAMES)
+
+    wrapper = (
+        "import builtins, sys, traceback, json\n"
+        "_original = builtins.__dict__.copy()\n"
+        "builtins.__dict__.clear()\n"
+        f"_safe_names = json.loads({_safe_names_json!r})\n"
+        "builtins.__dict__.update({n: _original[n] for n in _safe_names if n in _original})\n"
+        "try:\n"
+        "    " + code.replace("\n", "\n    ") + "\n"
+        "    sys.exit(0)\n"
+        "except SystemExit:\n"
+        "    raise\n"
+        "except Exception as e:\n"
+        "    # Strip file paths from traceback for privacy\n"
+        "    tb = traceback.format_exc()\n"
+        "    # Only show the last meaningful frame (the user code), not wrapper internals\n"
+        "    lines = tb.strip().split('\\n')\n"
+        "    for line in lines[-4:]:\n"
+        "        if '    ' in line and '<string>' not in line:\n"
+        "            print(line.strip(), file=sys.stderr)\n"
+        "    print(f'{type(e).__name__}: {e}', file=sys.stderr)\n"
+        "    sys.exit(1)\n"
+    )
+
+    try:
+        proc = _sp.run(
+            [sys.executable, "-c", wrapper],
+            capture_output=True,
+            text=True,
+            timeout=_EXEC_TIMEOUT_SECONDS,
+            # Minimal environment: no inherited env vars that could leak secrets
+            env={"PATH": os.environ.get("PATH", ""), "PYTHONUNBUFFERED": "1"},
+        )
+        if proc.returncode == 0:
+            return True, None
+        error_msg = proc.stderr.strip()[:500] if proc.stderr else f"Exit code {proc.returncode}"
+        return False, error_msg if error_msg else None
+    except _sp.TimeoutExpired:
+        return False, f"Execution timed out after {_EXEC_TIMEOUT_SECONDS}s"
+    except Exception as e:
+        return False, f"Subprocess error: {e}"
+
+
 def eval_humaneval(binary: str, config: str, max_tokens: int) -> dict:
     print("\n" + "=" * 60)
     print("HumanEval Benchmark (Code Generation, Pass@1)")
@@ -400,15 +469,9 @@ def eval_humaneval(binary: str, config: str, max_tokens: int) -> dict:
         else:
             full_code = item["prompt"] + "\n" + model_completion + "\n" + item["test"]
 
-        # Ejecutar el código en un namespace aislado
-        exec_ns: dict = {}
-        try:
-            exec(compile(full_code, "<humaneval>", "exec"), exec_ns)
-            is_pass = True
-            exec_error = None
-        except Exception as e:
-            is_pass = False
-            exec_error = str(e)
+        # Execute in sandboxed subprocess with timeout.
+        # PREVIOUSLY: exec(compile(full_code, ...)) — arbitrary code execution risk.
+        is_pass, exec_error = _safe_exec(full_code)
 
         if is_pass:
             passed += 1

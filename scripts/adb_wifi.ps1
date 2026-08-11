@@ -23,7 +23,7 @@ $ErrorActionPreference = "Stop"
 $TARGET = "192.168.0.8:5555"
 $PKG    = "dev.nanoai.mobile"
 $ACTIVITY = "$PKG.MainActivity"
-$FLUTTER_DIR = Join-Path $PSScriptRoot "..\flutter_app"
+$FLUTTER_DIR = Join-Path $PSScriptRoot "..\platforms\mobile\flutter_app"
 $APK = Join-Path $FLUTTER_DIR "build\app\outputs\flutter-apk\app-debug.apk"
 
 function Write-Step { param($msg) Write-Host "`n>>> $msg" -ForegroundColor Cyan }

@@ -1,0 +1,60 @@
+[package]
+name = "nanortime-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NanoAI Runtime core — orchestrator, execution, and inference layers"
+
+[features]
+default = []
+simulated = []  # Use simulated backend for testing without real model
+lancedb = ["dep:lancedb"]
+unstable = []   # Gates dead/incomplete modules (none currently — all modules active since v0.2)
+
+[lib]
+crate-type = ["lib", "staticlib"]
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+regex = { workspace = true }
+toml = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+tempfile = "3"
+lancedb = { workspace = true, optional = true }
+
+# Real system memory stats
+sysinfo = { workspace = true }
+
+# FFI bridge to llama.cpp
+nanortime-ffi = { path = "../nanortime-ffi" }
+libc = "0.2.189"
+windows-sys = { version = "0.61.2", features = ["Win32_System_Memory"] }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+# Benchmarks disabled — files not yet ported. Re-enable when ready.
+# [[bench]]
+# name = "router_benchmark"
+# harness = false
+# [[bench]]
+# name = "benchmark_ram"
+# harness = false
+
+[[example]]
+name = "validate"
+path = "examples/validate.rs"
+
+[[example]]
+name = "verify_real"
+path = "examples/verify_real.rs"

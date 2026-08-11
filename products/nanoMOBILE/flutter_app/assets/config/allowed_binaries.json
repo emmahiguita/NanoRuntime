@@ -1,0 +1,17 @@
+{
+  "_comment": "NanoAI allowed binaries for nanoshell_ffi.dart spawnGeneric(). Binaries not listed here are rejected at runtime. Add new entries after security review.",
+  "allowed": [
+    "bash", "python", "python3",
+    "curl", "wget",
+    "tar", "xz", "gzip", "bzip2",
+    "git", "scp", "rsync",
+    "npm", "npx",
+    "node",
+    "cargo", "rustc",
+    "gem", "ruby",
+    "pip", "pip3",
+    "pkg", "apt", "apt-get", "dpkg",
+    "openssl", "ssh",
+    "Xvnc", "openbox", "tint2", "xterm"
+  ]
+}

@@ -1,0 +1,299 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'term_screen.dart';
+import 'ansi_parser.dart';
+
+// ============================================================================
+// PALETA xterm 256 (16 base + 6x6x6 cube + 24 grises)
+// ============================================================================
+const List<int> _base16 = <int>[
+  0x000000, 0xCD0000, 0x00CD00, 0xCDCD00,
+  0x0000EE, 0xCD00CD, 0x00CDCD, 0xE5E5E5,
+  0x7F7F7F, 0xFF0000, 0x00FF00, 0xFFFF00,
+  0x5C5CFF, 0xFF00FF, 0x00FFFF, 0xFFFFFF,
+];
+
+final List<Color> _palette256 = _buildPalette();
+
+List<Color> _buildPalette() {
+  final out = <Color>[];
+  for (var i = 0; i < 16; i++) {
+    out.add(Color(_base16[i]));
+  }
+  const levels = [0, 95, 135, 175, 215, 255];
+  for (final r in levels) {
+    for (final g in levels) {
+      for (final b in levels) {
+        out.add(Color.fromARGB(255, r, g, b));
+      }
+    }
+  }
+  for (var g = 0; g < 24; g++) {
+    final v = 8 + g * 10;
+    out.add(Color.fromARGB(255, v, v, v));
+  }
+  return out;
+}
+
+/// 255 = foreground por defecto (tema), 256 = fondo transparente.
+Color _rfg(int idx, Color def) =>
+    idx == 255 ? def : _palette256[idx >= 0 && idx < 256 ? idx : 255];
+Color? _rbg(int idx) => idx == 256 ? null : _palette256[idx & 0xFF];
+
+// ============================================================================
+// 3. FACADE â€” AnsiTerminal: screen + parser; API del consumidor + notificaciÃ³n.
+// ============================================================================
+class AnsiTerminal extends ChangeNotifier {
+  final TermScreen screen;
+  late final AnsiParser _parser;
+  int rows, cols;
+  String _title = '';
+  String get title => _title;
+
+  AnsiTerminal({this.rows = 24, this.cols = 80})
+      : screen = TermScreen(rows: rows, cols: cols) {
+    _parser = AnsiParser(screen);
+    _parser.onTitle = (t) { _title = t; notifyListeners(); };
+  }
+
+  int get cursorRow => screen.cursorRow;
+  int get cursorCol => screen.cursorCol;
+  bool get inAltScreen => screen.inAltScreen;
+  bool get cursorVisible => screen.cursorVisible;
+  bool get mouseEnabled => screen.mouseEnabled;
+  int get historyLength => screen.historyLength;
+  TermCell getCell(int r, int c) => screen.getCell(r, c);
+  List<TermCell> row(int r) =>
+      List.generate(cols, (c) => screen.getCell(r, c));
+  List<TermCell> historyRow(int i) => screen.historyRow(i);
+  void clearHistory() => screen.clearHistory();
+
+  void reset({int? rows, int? cols}) {
+    screen.resize(rows ?? this.rows, cols ?? this.cols);
+    this.rows = screen.rows;
+    this.cols = screen.cols;
+    _parser.reset();
+    notifyListeners();
+  }
+
+  void feed(String text) {
+    for (var i = 0; i < text.length; i++) {
+      _parser.consume(text.codeUnitAt(i));
+    }
+    notifyListeners();
+  }
+
+  void feedBytes(Uint8List data) {
+    feed(utf8.decode(data, allowMalformed: true));
+  }
+}
+
+// ============================================================================
+// 4. RENDER — widget que dibuja el grid como RichText. SRP: solo visual.
+//    StatefulWidget: parpadeo del cursor (Timer) + auto-scroll al fondo.
+// ============================================================================
+class AnsiTerminalView extends StatefulWidget {
+  final AnsiTerminal terminal;
+  const AnsiTerminalView(this.terminal, {super.key});
+
+  @override
+  State<AnsiTerminalView> createState() => _AnsiTerminalViewState();
+}
+
+class _AnsiTerminalViewState extends State<AnsiTerminalView> {
+  Timer? _blink;
+  bool _cursorOn = true;
+  ScrollController? _sc;
+  bool _wasAtBottom = true;
+  bool _pendingScroll = false;
+
+  AnsiTerminal get _term => widget.terminal;
+
+  @override
+  void initState() {
+    super.initState();
+    _sc = ScrollController();
+    // Parpadeo del cursor (~1Hz, como un terminal real).
+    _blink = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      setState(() => _cursorOn = !_cursorOn);
+    });
+    // Cuando el buffer cambia (feed), si estábamos en el fondo, seguirlo.
+    _term.addListener(_onBufferChange);
+  }
+
+  void _onBufferChange() {
+    final sc = _sc;
+    if (sc != null && sc.hasClients) {
+      final pos = sc.position;
+      _wasAtBottom = pos.maxScrollExtent - pos.pixels < 32;
+    }
+    _pendingScroll = true;
+  }
+
+  @override
+  void dispose() {
+    _blink?.cancel();
+    _term.removeListener(_onBufferChange);
+    _sc?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = DefaultTextStyle.of(context).style;
+    final mono = base.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: const ['monospace'],
+      height: 1.15,
+    );
+    final defFg = mono.color ?? const Color(0xFFE0E0E0);
+    final showCursor = _term.cursorVisible && _cursorOn;
+
+    return AnimatedBuilder(
+      animation: _term,
+      builder: (_, __) {
+        // Auto-scroll al fondo tras un feed (si el usuario no subió).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_pendingScroll) return;
+          _pendingScroll = false;
+          final sc = _sc;
+          if (sc != null && sc.hasClients && _wasAtBottom) {
+            sc.jumpTo(sc.position.maxScrollExtent);
+          }
+        });
+
+        final hist = _term.historyLength;
+        final totalRows = hist + _term.rows;
+        return ListView.builder(
+          controller: _sc,
+          padding: const EdgeInsets.all(6),
+          itemCount: totalRows,
+          itemExtent: 20,
+          itemBuilder: (context, i) {
+            if (i < hist) {
+              return RepaintBoundary(
+                child: _TermLine(
+                  cells: _term.historyRow(i),
+                  baseStyle: mono,
+                  defFg: defFg,
+                ),
+              );
+            }
+            final r = i - hist;
+            final isCursorRow = r == _term.cursorRow;
+            final cursorCol = showCursor && isCursorRow ? _term.cursorCol : null;
+            return RepaintBoundary(
+              child: _TermLine(
+                cells: _term.row(r),
+                baseStyle: mono,
+                defFg: defFg,
+                cursorCol: cursorCol,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _TermLine extends StatelessWidget {
+  final List<TermCell> cells;
+  final TextStyle baseStyle;
+  final Color defFg;
+  final int? cursorCol;
+  const _TermLine({
+    required this.cells,
+    required this.baseStyle,
+    required this.defFg,
+    this.cursorCol,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = <InlineSpan>[];
+    var start = 0;
+    final n = cells.length;
+
+    while (start < n) {
+      final ref = cells[start];
+      var end = start + 1;
+      while (end < n && _same(ref, cells[end])) {
+        end++;
+      }
+
+      // El cursor corta el run en su columna (block cursor).
+      if (cursorCol != null && cursorCol! >= start && cursorCol! < end) {
+        _pushSpan(spans, cells, start, cursorCol!, baseStyle, defFg);
+        _pushCursor(spans, cells[cursorCol!], baseStyle, defFg);
+        start = cursorCol! + 1;
+        continue;
+      }
+
+      _pushSpan(spans, cells, start, end, baseStyle, defFg);
+      start = end;
+    }
+
+    return SizedBox(
+      height: 20,
+      child: Text.rich(
+        TextSpan(children: spans),
+        style: baseStyle,
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+      ),
+    );
+  }
+
+  void _pushSpan(List<InlineSpan> out, List<TermCell> cells, int a, int b,
+      TextStyle base, Color defFg) {
+    if (b <= a) return;
+    final ref = cells[a];
+    final run = StringBuffer();
+    var lastWide = false;
+    for (var i = a; i < b; i++) {
+      final c = cells[i];
+      if (c.ch == 0 && !c.wide && lastWide) { lastWide = false; continue; }
+      lastWide = c.wide;
+      run.writeCharCode(c.ch == 0 ? 0x20 : c.ch);
+    }
+    Color fg = ref.fgRgb != null ? Color(0xFF000000 | ref.fgRgb!) : _rfg(ref.fg, defFg);
+    Color? bg = ref.bgRgb != null ? Color(0xFF000000 | ref.bgRgb!) : _rbg(ref.bg);
+    var style = base.copyWith(
+      color: ref.dim ? fg.withValues(alpha: 0.6) : fg,
+      fontWeight: ref.bold ? FontWeight.bold : FontWeight.normal,
+    );
+    if (ref.reverse) {
+      style = style.copyWith(
+        color: bg ?? defFg,
+        backgroundColor: fg,
+      );
+    } else if (bg != null) {
+      style = style.copyWith(backgroundColor: bg);
+    }
+    out.add(TextSpan(text: run.toString(), style: style));
+  }
+
+  /// Block cursor: celda invertida (fondo = fg del terminal, texto oscuro).
+  void _pushCursor(List<InlineSpan> out, TermCell cell, TextStyle base,
+      Color defFg) {
+    Color fg = _rfg(cell.fg, defFg);
+    final textColor = _rbg(cell.bg) ?? const Color(0xFF0A0F1A);
+    out.add(TextSpan(
+      text: String.fromCharCode(cell.ch == 0 ? 0x20 : cell.ch),
+      style: base.copyWith(
+        color: textColor,
+        backgroundColor: fg,
+        fontWeight: FontWeight.bold,
+      ),
+    ));
+  }
+
+  bool _same(TermCell a, TermCell b) =>
+      a.fg == b.fg && a.bg == b.bg && a.bold == b.bold &&
+      a.dim == b.dim && a.reverse == b.reverse &&
+      a.wide == b.wide && a.fgRgb == b.fgRgb && a.bgRgb == b.bgRgb;
+}

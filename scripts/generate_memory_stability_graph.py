@@ -32,53 +32,21 @@ except ImportError:
     print("ERROR: matplotlib no está instalado. Instálalo con: pip install matplotlib")
     sys.exit(1)
 
-# ── Configuración ──────────────────────────────────────────────────────────
+# ── Data loading from JSON (single source of truth, no hardcoded fallback) ──
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data" / "research" / "evidence_package" / "logs"
 OUTPUT_DIR = PROJECT_ROOT / "data" / "research" / "evidence_package" / "images"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Datos crudos del Samsung A30s extraídos del JSON de estrés
-SAMSUNG_DATA = {
-    "device": "Samsung Galaxy A30s (SM-A307G)",
-    "ram_total_mb": 3724,
-    "iterations": 10,
-    "mem_avail_series": [
-        1940.1, 1929.1, 1949.3, 1945.0, 1932.4,
-        1925.5, 2185.0, 2173.6, 2173.0, 2189.1,
-    ],
-    "tok_s_series": [
-        2.17, 2.14, 2.23, 2.18, 2.18,
-        2.18, 1.96, 2.18, 2.12, 2.35,
-    ],
-    "color": "#2196F3",
-}
-
-# Datos del OPPO CPH2557 (primeras 10 iteraciones del JSON)
-OPPO_DATA = {
-    "device": "OPPO CPH2557",
-    "ram_total_mb": 7639,
-    "iterations": 10,
-    "mem_avail_series": [
-        3693.9, 3696.8, 3724.5, 3759.7, 3714.1,
-        3734.4, 3729.4, 3746.2, 3731.2, 3776.1,
-    ],
-    "tok_s_series": [
-        2.56, 2.67, 2.66, 2.72, 2.79,
-        2.76, 2.48, 2.78, 2.64, 2.89,
-    ],
-    "color": "#4CAF50",
-}
-
-# ── Funciones ──────────────────────────────────────────────────────────────
-
 def load_samsung_from_json() -> dict:
     """Carga los datos del Samsung A30s desde el JSON real."""
     json_path = DATA_DIR / "samsung_a30_stress_results.json"
     if not json_path.exists():
-        print(f"WARNING: {json_path} no encontrado. Usando datos hardcodeados.")
-        return SAMSUNG_DATA
+        raise FileNotFoundError(
+            f"JSON de datos real no encontrado: {json_path}. "
+            f"Ejecuta primero el stress test para generar datos reales."
+        )
 
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -99,8 +67,10 @@ def load_oppo_from_json() -> dict:
     """Carga los datos del OPPO CPH2557 desde el JSON real."""
     json_path = DATA_DIR / "android_stress_results.json"
     if not json_path.exists():
-        print(f"WARNING: {json_path} no encontrado. Usando datos hardcodeados.")
-        return OPPO_DATA
+        raise FileNotFoundError(
+            f"JSON de datos real no encontrado: {json_path}. "
+            f"Ejecuta primero el stress test para generar datos reales."
+        )
 
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -315,12 +285,13 @@ def plot_comparison(samsung: dict, oppo: dict, output_path: Path):
     print(f"  ✓ Gráfico comparativo guardado: {output_path}")
 
 
-def generate_latex_figure(samsung_path: str, oppo_path: str,
-                          comparison_path: str) -> str:
-    """Genera el bloque LaTeX para incluir la figura en el paper."""
-
-    stats_s = compute_stats(SAMSUNG_DATA["mem_avail_series"])
-    stats_o = compute_stats(OPPO_DATA["mem_avail_series"])
+def generate_latex_figure(samsung: dict, oppo: dict, comparison_path: str) -> str:
+    """Genera el bloque LaTeX para incluir la figura en el paper.
+    
+    Recibe los datos reales cargados desde JSON (no hardcodeados).
+    """
+    stats_s = compute_stats(samsung["mem_avail_series"])
+    stats_o = compute_stats(oppo["mem_avail_series"])
 
     return f"""
 % ── Memory Stability Figure (auto-generated) ──
@@ -379,8 +350,7 @@ def main():
 
     # Generar snippet LaTeX
     latex = generate_latex_figure(
-        "images/memory_stability_samsung_a30s.png",
-        "images/memory_stability_oppo_cph2557.png",
+        samsung, oppo,
         "images/memory_stability_cross_device.png",
     )
 
