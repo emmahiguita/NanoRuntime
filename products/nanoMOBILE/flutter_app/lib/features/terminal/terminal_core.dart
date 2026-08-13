@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'terminal_modifier_bar.dart';
@@ -23,6 +22,7 @@ import 'noar_panel.dart';
 import 'ansi_terminal.dart';
 import 'command_dispatcher.dart';
 import 'pty_manager.dart';
+import 'real_fs_shell.dart';
 import 'terminal_types.dart';
 import 'terminalservices.dart';
 import 'plugins/system_plugin.dart';
@@ -102,9 +102,15 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
 
 
   String _bashCwd = '/';
+
+  /// Fallback dart:io real (ver real_fs_shell.dart). Solo se usa en hosts sin
+  /// binarios Android (desktop/tests): los comandos FS operan sobre el
+  /// filesystem real del host bajo un raíz sandbox. En Android manda el motor
+  /// NanoRuntime (BusyBox vía Nanoshell FFI / rootfs).
+  late final RealFsShell _realFs;
 /// Whitelist de comandos con ejecución real vía BusyBox (ver realCommands
-  /// en terminal_types.dart). _runRealSync implementa el subconjunto dart:io
-  /// como fallback cuando BusyBox no está disponible.
+  /// en terminal_types.dart). En hosts sin binarios Android, RealFsShell
+  /// implementa el subconjunto dart:io como fallback real.
   String get _ps1 {
     final h = _devId?['hostname'] as String? ?? 'oppo';
     String home = _bashCwd;
@@ -137,6 +143,9 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
 
   @override void initState() {
     super.initState(); _engine = widget.engine ?? LLMEngineClient(); _ctx.cwd = widget.initialCwd;
+    _realFs = RealFsShell(root: Platform.isAndroid
+        ? '/data/data/dev.nanoai.mobile/files/nano'
+        : '${Directory.systemTemp.path}/nano_real_root');
     _buildRegistry(); // terminal-specific commands (ai, gpu, docker, kali, etc.)
     _fetchDeviceIdentity(); // async: uid, uname, hostname reales del device
     _initShell(); // async: extrae bash/toybox + verifica rootfs (crea ShellExecutor + RootfsManager compartidos)
@@ -644,12 +653,24 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       _shellOut(result); return;
     }
     if (realCommands.contains(name)) {
-      if (_shell != null && _shell!.initialized) {
+      if (_shell != null && _shell!.initialized && Platform.isAndroid) {
         final r = await _shell!.toybox([name, ...args]);
         _shellOut(r);
+      } else if (!Platform.isAndroid && _realFs.supports(name)) {
+        _realFs.run(name, args, out: _out);
+        if (name == 'cd') _bashCwd = _realFs.cwd;
+      } else if (!Platform.isAndroid) {
+        _out('$name: no disponible (sin binarios en este host)', Ln.stderr);
       } else {
         _out('$name: shell engine not initialized.', Ln.stderr);
       }
+      return;
+    }
+    // Fallback dart:io para comandos fuera de realCommands (tree, source)
+    // en hosts sin binarios Android.
+    if (!Platform.isAndroid && _realFs.supports(name)) {
+      _realFs.run(name, args, out: _out);
+      if (name == 'cd') _bashCwd = _realFs.cwd;
       return;
     }
     if (name == 'source') {

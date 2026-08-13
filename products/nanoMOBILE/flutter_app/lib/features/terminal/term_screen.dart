@@ -290,7 +290,9 @@ class TermScreen {
       recycled.add(_cellList[rr]);
     }
     for (var r in recycled) {
-      for (var c in r) c.reset();
+      for (var c in r) {
+        c.reset();
+      }
     }
     for (var rr = rows - 1; rr >= _row + m; rr--) {
       _cellList[rr] = _cellList[rr - m];
@@ -307,7 +309,9 @@ class TermScreen {
       recycled.add(_cellList[rr]);
     }
     for (var r in recycled) {
-      for (var c in r) c.reset();
+      for (var c in r) {
+        c.reset();
+      }
     }
     for (var rr = _row; rr < rows - m; rr++) {
       _cellList[rr] = _cellList[rr + m];
@@ -319,16 +323,20 @@ class TermScreen {
   void scrollUp() {
     final topRow = _cellList[0];
     List<TermCell>? recycledRow;
-    
+
     if (_alt == null) {
       _history.add(topRow);
       if (_history.length > maxHistory) {
         recycledRow = _history.removeAt(0);
-        for (var c in recycledRow) c.reset();
+        for (var c in recycledRow) {
+          c.reset();
+        }
       }
     } else {
       recycledRow = topRow;
-      for (var c in recycledRow) c.reset();
+      for (var c in recycledRow) {
+        c.reset();
+      }
     }
 
     for (var r = 0; r < rows - 1; r++) {
@@ -342,7 +350,9 @@ class TermScreen {
     for (var r = rows - 1; r > 0; r--) {
       _cellList[r] = _cellList[r - 1];
     }
-    for (var c in bottomRow) c.reset();
+    for (var c in bottomRow) {
+      c.reset();
+    }
     _cellList[0] = bottomRow;
   }
 
