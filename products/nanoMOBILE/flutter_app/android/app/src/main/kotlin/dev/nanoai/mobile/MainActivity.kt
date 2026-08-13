@@ -8,6 +8,7 @@ import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
+import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -89,6 +90,9 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(messenger, ChannelNames.PTY)
             .setMethodCallHandler(PtyChannelHandler())
+
+        MethodChannel(messenger, ChannelNames.RUNTIME)
+            .setMethodCallHandler(RuntimeChannelHandler())
     }
 
     private companion object {

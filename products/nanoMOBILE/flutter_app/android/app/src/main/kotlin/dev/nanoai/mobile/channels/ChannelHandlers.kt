@@ -8,4 +8,5 @@ object ChannelNames {
     const val EXEC_BIN = ExecBinChannelHandler.CHANNEL_NAME
     const val PTY = PtyChannelHandler.CHANNEL_NAME
     const val NAVIGATION = NavigationChannelHandler.CHANNEL_NAME
+    const val RUNTIME = RuntimeChannelHandler.CHANNEL_NAME
 }

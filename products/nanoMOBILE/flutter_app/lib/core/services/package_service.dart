@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+
+import 'nano_runtime_api.dart';
 
 class DesktopStatus {
   final bool running;
@@ -53,17 +54,14 @@ class DesktopStatus {
 }
 
 class PackageService {
-  static const _channel = MethodChannel('com.nanoai/exec_bin');
-
   const PackageService();
+
+  /// Delega en [NanoRuntimeApi]: frontera única hacia el canal exec_bin.
+  static NanoRuntimeApi get _runtime => NanoRuntimeApi.instance;
 
   Future<bool> installPackages(List<String> packages) async {
     try {
-      final resp = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'installPackages',
-        {'packages': packages},
-      );
-      return resp?['installed'] == true;
+      return await _runtime.installPackages(packages);
     } catch (e) {
       debugPrint('[pkg] installPackages error: $e');
       return false;
@@ -72,11 +70,7 @@ class PackageService {
 
   Future<bool> installGraphical() async {
     try {
-      final resp = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'installGraphical',
-        {},
-      );
-      return resp?['installed'] == true;
+      return await _runtime.installGraphical();
     } catch (e) {
       debugPrint('[pkg] installGraphical error: $e');
       return false;
@@ -85,12 +79,7 @@ class PackageService {
 
   Future<bool> startDesktop() async {
     try {
-      // El channel Kotlin responde result.success(true) (Boolean), no Map.
-      // El cast viejo a Map<dynamic, dynamic> lanzaba
-      // "type 'bool' is not a subtype of type 'Map<dynamic, dynamic>?'"
-      // en cada arranque del desktop.
-      final ok = await _channel.invokeMethod<bool>('startDesktop', {});
-      return ok == true;
+      return await _runtime.startDesktop();
     } catch (e) {
       debugPrint('[desktop] startDesktop error: $e');
       return false;
@@ -99,10 +88,7 @@ class PackageService {
 
   Future<DesktopStatus> getDesktopStatus() async {
     try {
-      final resp = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'getDesktopStatus',
-        {},
-      );
+      final resp = await _runtime.getDesktopStatus();
       return DesktopStatus.fromMap(resp);
     } catch (e) {
       debugPrint('[desktop] getDesktopStatus error: $e');
@@ -112,7 +98,7 @@ class PackageService {
 
   Future<void> stopDesktop() async {
     try {
-      await _channel.invokeMethod('stopDesktop', {});
+      await _runtime.stopDesktop();
     } catch (e) {
       debugPrint('[desktop] stopDesktop error: $e');
     }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/package_service.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
 
@@ -24,6 +25,11 @@ class BootOrchestrator {
 
   Future<void> run() async {
     try {
+      // Handshake con el runtime nativo: verifica versión/capacidades antes
+      // de que cualquier servicio toque rootfs o canales. Degrada con warning,
+      // nunca bloquea el arranque.
+      await NanoRuntimeApi.instance.handshake();
+
       await _ensureRootfs();
       if (!_rootfs.isInstalled) return;
 
