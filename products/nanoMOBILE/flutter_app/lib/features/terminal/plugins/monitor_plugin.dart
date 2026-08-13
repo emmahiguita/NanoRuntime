@@ -48,15 +48,27 @@ class MonitorPlugin {
         });
         return;
       }
-      o('PID   USER   %CPU %MEM   VSZ   RSS TTY  STAT START   TIME COMMAND', Ln.header);
+      // Sin shell: solo columnas que /proc/[pid]/stat expone de verdad.
+      // Sin %CPU/%MEM (requieren muestreo de /proc/stat) ni tiempos
+      // inventados — un campo desconocido se marca '?', nunca un número.
       final pids = ProcFs.listPids();
+      if (pids.isEmpty) {
+        o('top: procfs no disponible en este host', Ln.stderr);
+        return;
+      }
+      o('PID   S   RSS(KB)   VSZ(KB)   COMMAND', Ln.header);
       int count = 0;
       for (final pid in pids) {
         if (count++ >= 20) break;
         final stat = ProcFs.pidStat(pid);
         final name = stat['name'] as String? ?? '?';
-        final rss = (stat['rssPages'] as int? ?? 0) * 4 ~/ 1024;
-        o('${pid.toString().padLeft(5)} nanoai  0.0  $rss  0   $rss ?    S    00:00   0:00 $name', Ln.stdout);
+        final state = stat['state'] as String? ?? '?';
+        final rssKb = (stat['rss'] as int? ?? 0) * 4; // páginas × 4 KB
+        final vszKb = (stat['vsize'] as int? ?? 0) ~/ 1024;
+        o(
+          '${pid.toString().padLeft(5)}   $state  ${rssKb.toString().padLeft(6)}  ${vszKb.toString().padLeft(7)}   $name',
+          Ln.stdout,
+        );
       }
     });
 
@@ -83,16 +95,24 @@ class MonitorPlugin {
     });
 
     r('lsof', (a, c, o, af) {
-      o('lsof (PID  $pid):', Ln.header);
+      // FDs reales de /proc/[pid]/fd (target del symlink incluido). Nunca
+      // filas REG fabricadas: si el kernel no expone un fd, no se muestra.
       final pids = ProcFs.listPids();
-      int count = 0;
-      for (final pid in pids) {
-        if (count++ >= 30) break;
-        final stat = ProcFs.pidStat(pid);
-        final name = stat['name'] as String? ?? '?';
-        o('$pid  nanoai  ${pid}u   REG  0,0  0  /data/data/$name', Ln.stdout);
+      if (pids.isEmpty) {
+        o('lsof: procfs no disponible en este host', Ln.stderr);
+        return;
       }
-      o('lsof: muestra los 30 procesos activos del app', Ln.info);
+      o('PID   COMMAND   FD   TARGET', Ln.header);
+      int shown = 0;
+      for (final pid in pids) {
+        if (shown >= 30) break;
+        final name = ProcFs.pidStat(pid)['name'] as String? ?? '?';
+        for (final fd in ProcFs.pidFds(pid)) {
+          o('$pid   $name   ${fd['fd']}   ${fd['target']}', Ln.stdout);
+          if (++shown >= 30) break;
+        }
+      }
+      o('lsof: primeros 30 fds reales de /proc', Ln.info);
     });
 
     r('vmstat', (a, c, o, af) {

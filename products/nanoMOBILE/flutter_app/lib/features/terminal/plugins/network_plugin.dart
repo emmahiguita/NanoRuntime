@@ -31,9 +31,8 @@ class NetworkPlugin {
         execNet('ssh', a, o);
         return;
       }
-      o('ssh: connecting to ${a[0]}...', Ln.info);
-      s.after(const Duration(milliseconds: 600),
-        () => o('Authenticated.\nLast login: ${DateTime.now().toString().substring(0, 19)}', Ln.system));
+      // Sin rootfs no hay ssh real: error honesto, nunca un login fingido.
+      o('ssh: requiere rootfs o shell real. Ejecuta "bootstrap".', Ln.stderr);
     });
 
     r('git', (a, c, o, af) {
@@ -48,14 +47,8 @@ class NetworkPlugin {
         });
         return;
       }
-      if (a.isEmpty) { o('git: status, log, clone, branch', Ln.info); return; }
-      switch (a[0]) {
-        case 'status': o('On branch main\nnothing to commit', Ln.stdout);
-        case 'log': o('commit a1b2c3d\nfeat: NanoPlatform v2.0', Ln.stdout);
-        case 'clone': o('git: cloning...', Ln.info); s.after(const Duration(milliseconds: 700), () => o('git: cloned', Ln.success));
-        case 'branch': o('* main\n  develop', Ln.stdout);
-        default: o('git: ${a.join(" ")} ejecutado', Ln.success);
-      }
+      // Sin git real: error honesto, nunca commits/branches inventados.
+      o('git: requiere rootfs o shell real. Ejecuta "bootstrap".', Ln.stderr);
     });
 
     r('curl', (a, c, o, af) => execNet('curl', a, o));
@@ -64,7 +57,8 @@ class NetworkPlugin {
         execNet('wget', a, o);
         return;
       }
-      o('${a.isNotEmpty ? a[0] : "?"}: transferencia completada', Ln.success);
+      // Sin wget real: error honesto, nunca "transferencia completada" falsa.
+      o('wget: requiere rootfs o shell real. Ejecuta "bootstrap".', Ln.stderr);
     });
 
     r('scp', (a, c, o, af) => execNet('scp', a, o));

@@ -80,9 +80,8 @@ class ProcessPlugin {
 
     r('sudo', (a, c, o, af) {
       if (a.isEmpty) { o('sudo: uso: sudo <comando>', Ln.stderr); return; }
-      o('sudo: ejecutando "${a.join(" ")}"', Ln.info);
-      // dispatch to the actual command via _cmds lookup -- handled in terminal
-      o('sudo: ${a.first}: usa "! ${a.join(" ")}" para ejecucion real', Ln.info);
+      // Sin root no hay sudo: no se finge ejecución, se indica la vía real.
+      o('sudo: sin root real. Usa "! ${a.join(" ")}" para ejecución real.', Ln.stderr);
     });
   }
 }

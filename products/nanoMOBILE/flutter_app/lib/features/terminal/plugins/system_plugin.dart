@@ -54,10 +54,16 @@ class SystemPlugin {
 
     r('uname', (a, c, o, af) {
       final d = s.deviceId;
-      final sys = d?['uname_sysname'] as String? ?? 'Linux';
-      final host = d?['hostname'] as String? ?? 'localhost';
-      final rel = d?['uname_release'] as String? ?? 'unknown';
-      final arch = d?['uname_machine'] as String? ?? 'aarch64';
+      // Sin identity real del device: error honesto, nunca "Linux aarch64"
+      // inventado (falso en desktop o en hardware distinto).
+      if (d == null) {
+        o('uname: identidad del dispositivo no disponible', Ln.stderr);
+        return;
+      }
+      final sys = d['uname_sysname'] as String? ?? 'Linux';
+      final host = d['hostname'] as String? ?? 'localhost';
+      final rel = d['uname_release'] as String? ?? 'unknown';
+      final arch = d['uname_machine'] as String? ?? 'unknown';
       if (a.contains('-a')) {
         o('$sys $host $rel $arch GNU/Linux', Ln.stdout);
       } else if (a.contains('-r')) {
@@ -76,11 +82,14 @@ class SystemPlugin {
 
     r('uptime', (a, c, o, af) {
       final sec = s.deviceId?['uptimeSec'] as double?;
-      if (sec == null) { o('up ??:??, 0 users', Ln.stdout); return; }
+      if (sec == null) {
+        o('uptime: no disponible (sin identity del device)', Ln.stderr);
+        return;
+      }
       final d = (sec / 86400).floor();
       final h = ((sec % 86400) / 3600).floor();
       final m = ((sec % 3600) / 60).floor();
-      o('up ${d > 0 ? '$d days, ' : ''}$h:${m.toString().padLeft(2, '0')}, 1 user', Ln.stdout);
+      o('up ${d > 0 ? '$d days, ' : ''}$h:${m.toString().padLeft(2, '0')}', Ln.stdout);
     });
 
     r('id', (a, c, o, af) {

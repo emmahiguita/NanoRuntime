@@ -294,11 +294,13 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     String fmt(double kb) => kb >= 1048576 ? '${(kb / 1048576).toStringAsFixed(2)} GB' : '${(kb / 1024).toStringAsFixed(0)} MB';
     if (totalKb > 0) {
     final pct = totalKb > 0 ? (usedKb / totalKb * 100).round() : 0;
-    o('RAM: ${fmt(totalKb)} | Used: ${fmt(usedKb)} ($pct%) | Free: ${fmt(availKb)}', Ln.stdout);
+    final cachedKb = ProcFs.meminfo()['Cached'];
+    final cacheStr = cachedKb != null ? ' | PageCache: ${fmt(cachedKb.toDouble())}' : '';
+    o('RAM: ${fmt(totalKb)} | Used: ${fmt(usedKb)} ($pct%) | Free: ${fmt(availKb)}$cacheStr', Ln.stdout);
     } else {
     o('RAM: (leyendo /proc/meminfo...)', Ln.stdout);
     }
-    o('Model: 920 MB | KV: 180 MB | PageCache: 210 MB', Ln.stdout);
+    o('Modelo/KV: sin datos del motor LLM — usa "tune" para diagnóstico real', Ln.info);
     }
     if (cpu) {
     final cores = _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
