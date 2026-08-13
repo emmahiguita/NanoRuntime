@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.22.1)
 project("nanoshell")
-enable_language(ASM)
 
-# JNI headers from NDK toolchain (NOT find_package(JNI) â€” that requires
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# JNI headers from NDK toolchain (NOT find_package(JNI) — that requires
 # a desktop JDK which is irrelevant for Android cross-compilation).
 # The Android toolchain sets CMAKE_ANDROID_NDK; we construct JNI paths from it.
 set(JNI_ROOT "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${CMAKE_HOST_SYSTEM_NAME}-${CMAKE_HOST_SYSTEM_PROCESSOR}/sysroot/usr/include")
@@ -26,6 +28,7 @@ set_target_properties(nanoshell PROPERTIES C_VISIBILITY_PRESET default)
 
 # Release optimization: -O2 for speed
 target_compile_options(nanoshell PRIVATE
+    -Wall -Wextra
     $<$<CONFIG:Release>:-O2>
     $<$<CONFIG:Release>:-DNDEBUG>
 )
@@ -39,6 +42,7 @@ target_include_directories(nanoroot PRIVATE ${JNI_INCLUDE_DIRS})
 set_target_properties(nanoroot PROPERTIES C_VISIBILITY_PRESET default)
 
 target_compile_options(nanoroot PRIVATE
+    -Wall -Wextra
     $<$<CONFIG:Release>:-O2>
     $<$<CONFIG:Release>:-DNDEBUG>
 )

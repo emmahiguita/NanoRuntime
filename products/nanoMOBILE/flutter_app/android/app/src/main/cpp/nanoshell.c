@@ -272,6 +272,8 @@ static int _spawn_internal(
 ) {
     *out_stdout = NULL;
     *out_stderr = NULL;
+    *out_stdout_len = 0;
+    *out_stderr_len = 0;
     g_last_error[0] = '\0';
 
     if (!argv || !argv[0]) {
@@ -318,6 +320,11 @@ static int _spawn_internal(
         // Delegates to util.c which reads NANOAI_RLIMIT_AS_MB env override.
         apply_rlimit_as();
 
+        // Set LD_PRELOAD before execve so the kernel linker loads it.
+        if (ld_preload && ld_preload[0]) {
+            setenv("LD_PRELOAD", ld_preload, 1);
+        }
+
         // Prefer direct execve with the prepared environment. On ColorOS,
         // forcing /system/bin/linker64 can abort with MapShadow before the
         // target binary starts, so we only fall back to dlopen here.
@@ -336,7 +343,6 @@ static int _spawn_internal(
                 fprintf(stderr, "nanoshell: dlopen(%s) warning: %s\n",
                         ld_preload, dlerror());
             }
-            setenv("LD_PRELOAD", ld_preload, 1);
         }
 
         // Preload libs of the rootfs (usr/lib) with RTLD_GLOBAL so the app
@@ -721,15 +727,28 @@ int nanoshell_worker_spawn(
 // â”€â”€ Daemon spawn (sin esperar) â”€â”€
 // Para procesos long-running (Xvnc, openbox, etc.). fork+exec sin waitpid.
 // Redirige stdout/stderr a /dev/null. Retorna PID (>0) o -1 si falla.
+//
+// setenv("LD_PRELOAD", ...) here is the critical part: daemons like Xvnc
+// are launched below via execve() (directly, or via /system/bin/linker64).
+// execve() replaces the whole process image, so a dlopen() done in THIS
+// process before the call is discarded and never applies to the exec'd
+// binary. Setting LD_PRELOAD in the environment survives execve() because
+// bionic's dynamic linker reads it again when loading the new image, so it
+// preloads libnanoroot.so and its open()/unlink()/mkdir() wrappers into
+// Xvnc itself. Without this, Xvnc's hardcoded Termux paths
+// (/data/data/com.termux/files/usr/tmp/.tX0-lock) never get redirected to
+// our own rootfs prefix and Xvnc aborts with "Could not create lock file".
 static void _load_nanoroot_for_detached(void) {
     const char* native_dir = getenv("NANO_NATIVE_LIB_DIR");
-    char preload_path[PATH_MAX];
+    static char preload_path[PATH_MAX];
     const char* target = "libnanoroot.so";
 
     if (native_dir && native_dir[0]) {
         snprintf(preload_path, sizeof(preload_path), "%s/libnanoroot.so", native_dir);
         target = preload_path;
     }
+
+    setenv("LD_PRELOAD", target, 1);
 
     void* h = dlopen(target, RTLD_NOW | RTLD_GLOBAL);
     if (!h) {
@@ -812,15 +831,49 @@ int nanoshell_worker_spawn_detached(
         int argc = count_argv(argv);
         extern char** environ;
 
-        if (binary_path && strstr(binary_path, "/Xvnc")) {
-            char** linker_argv = calloc((size_t)argc + 2, sizeof(char*));
+        // 1. execve directo del binario. En ColorOS falla con EACCES sobre
+        // binarios del sandbox; en otros dispositivos es el camino bueno.
+        __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
+            "execve(%s) argc=%d", binary_path ? binary_path : "<null>", argc);
+        execve(binary_path, (char* const*)argv, environ);
+        __android_log_print(ANDROID_LOG_WARN, "nanoshell-detached",
+            "execve(%s) failed: %s — trying linker64",
+            binary_path ? binary_path : "<null>", strerror(errno));
+        fprintf(stderr, "nanoshell-detached: execve(%s) failed: %s\n",
+                binary_path ? binary_path : "<null>", strerror(errno));
+
+        // 2. execve(/system/bin/linker64, binario): crea su propio namespace
+        //    y resuelve DT_NEEDED vía LD_LIBRARY_PATH. Evidencia device
+        //    2026-08-12: Xvnc, tint2 y openbox SOLO funcionan por esta vía.
+        //    El dlopen in-process (paso 3) hace que openbox muera status=1
+        //    (~400ms): sin input method, sin rc.xml, sin theme — binarios X11
+        //    asumen proceso real. Por eso linker64 va ANTES que dlopen.
+        //
+        //    El linker64 entrega al target argv[0] = binary_path y coloca el
+        //    argv original como argumentos a partir de argv[1]. Si el argv
+        //    del spawn trae argv[0] = basename del binario (p. ej. "openbox"),
+        //    el target lo recibe como ARGUMENTO y lo rechaza: "Invalid command
+        //    line argument 'openbox'". Se dropea ese duplicado del nombre.
+        //    (argv[0] = ":1" de Xvnc no es duplicado → no se dropea nada.)
+        {
+            const char* base_name = strrchr(binary_path, '/');
+            base_name = base_name ? base_name + 1 : binary_path;
+            int args_start = 0;
+            if (argc > 0 && argv[0] && strcmp(argv[0], base_name) == 0) {
+                args_start = 1;
+            }
+            int n_args = argc - args_start;
+            char** linker_argv = calloc((size_t)n_args + 3, sizeof(char*));
             if (linker_argv) {
                 linker_argv[0] = "/system/bin/linker64";
                 linker_argv[1] = (char*)binary_path;
-                for (int i = 1; i < argc; i++) linker_argv[i + 1] = (char*)argv[i];
-                linker_argv[argc + 1] = NULL;
+                for (int i = 0; i < n_args; i++) {
+                    linker_argv[i + 2] = (char*)argv[args_start + i];
+                }
+                linker_argv[n_args + 2] = NULL;
                 __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
-                    "execve(linker64,%s) argc=%d", binary_path, argc);
+                    "execve(linker64,%s) argc=%d (args=%d)",
+                    binary_path, argc, n_args);
                 execve("/system/bin/linker64", linker_argv, environ);
                 fprintf(stderr, "nanoshell-detached: execve(linker64,%s) failed: %s\n",
                         binary_path, strerror(errno));
@@ -828,23 +881,13 @@ int nanoshell_worker_spawn_detached(
             }
         }
 
-        __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
-            "execve(%s) argc=%d", binary_path ? binary_path : "<null>", argc);
-        execve(binary_path, (char* const*)argv, environ);
-        __android_log_print(ANDROID_LOG_WARN, "nanoshell-detached",
-            "execve(%s) failed: %s — falling back to dlopen",
-            binary_path ? binary_path : "<null>", strerror(errno));
-        fprintf(stderr, "nanoshell-detached: execve(%s) failed: %s\n",
-                binary_path ? binary_path : "<null>", strerror(errno));
-
-        // ColorOS can abort before the target starts when forcing linker64,
-        // so detached daemons fall straight from direct execve to dlopen.
+        // 3. Fallback dlopen in-process. Solo si linker64 falló.
         typedef void* (*android_dlopen_ext_t)(const char*, int, const void*);
         android_dlopen_ext_t dlopen_ext_fn =
             (android_dlopen_ext_t)dlsym(RTLD_DEFAULT, "android_dlopen_ext");
 
         char libdir[512];
-        const char* bin_sep = strstr(binary_path, "/bin/");
+        const char* bin_sep = binary_path ? strstr(binary_path, "/bin/") : NULL;
         if (bin_sep) {
             int prefix_len = (int)(bin_sep - binary_path);
             snprintf(libdir, sizeof(libdir), "%.*s/lib", prefix_len, binary_path);

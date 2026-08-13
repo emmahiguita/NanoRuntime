@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -62,6 +63,48 @@ extern int nanoshell_worker_spawn_detached(
     const char* const argv[],
     const char* const envp[]);
 
+// ── Registro de daemons por binario (anti-duplicados) ─────────────────────
+// Cada spawn detached de un mismo binario reemplaza al anterior: el viejo se
+// mata con SIGKILL antes del fork. Evidencia device 2026-08-12 (ColorOS):
+// app muere por ANR, daemons huérfanos (hijos del worker) sobreviven ocupando
+// 5901/6001, el Xvnc nuevo muere status=1 ("Address already in use"), openbox
+// nuevo status=0 (otro WM en el display) y awaitReady da ready falso contra
+// el servidor ajeno. El worker vive entre ciclos de app, así que el registro
+// persiste y limpia la cascada de duplicados de raíz.
+#define MAX_TRACKED_DAEMONS 8
+
+typedef struct {
+    char name[64];
+    pid_t pid;
+} tracked_daemon_t;
+
+static tracked_daemon_t g_daemons[MAX_TRACKED_DAEMONS];
+static pthread_mutex_t g_daemons_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// Registra (o vacía, con pid=-1) el slot del binario y devuelve el pid previo.
+static pid_t _swap_daemon_pid(const char* basename, pid_t new_pid) {
+    pid_t old = -1;
+    pthread_mutex_lock(&g_daemons_lock);
+    int slot = -1, free_slot = -1;
+    for (int i = 0; i < MAX_TRACKED_DAEMONS; i++) {
+        if (g_daemons[i].pid > 0 && strcmp(g_daemons[i].name, basename) == 0) {
+            slot = i;
+            break;
+        }
+        if (free_slot < 0 && g_daemons[i].pid <= 0) free_slot = i;
+    }
+    if (slot >= 0) {
+        old = g_daemons[slot].pid;
+        g_daemons[slot].pid = new_pid;
+    } else if (free_slot >= 0) {
+        strncpy(g_daemons[free_slot].name, basename, sizeof(g_daemons[free_slot].name) - 1);
+        g_daemons[free_slot].name[sizeof(g_daemons[free_slot].name) - 1] = '\0';
+        g_daemons[free_slot].pid = new_pid;
+    }
+    pthread_mutex_unlock(&g_daemons_lock);
+    return old;
+}
+
 // Reaper thread: espera a que un proceso detached muera y lo recolecta
 // para evitar zombies. Se lanza en background inmediatamente despues
 // del spawn; bloquea en waitpid hasta que el hijo termina.
@@ -88,7 +131,26 @@ Java_dev_nanoai_mobile_NanoshellBridge_workerSpawnDetached(
     char** cargv = jni_cstr_array_from_object_array(env, argv, &nargv);
     char** cenvp = jni_cstr_array_from_object_array(env, envp, &nenvp);
 
+    // Anti-duplicados: el spawn de un daemon reemplaza al anterior del mismo
+    // binario. El viejo muere ANTES del fork para que el nuevo pueda bindear
+    // 5901/6001 (evidencia device: Xvnc nuevo status=1 por "Address already
+    // in use" cuando el huérfano del ciclo previo seguía vivo).
+    const char* base = bin ? strrchr(bin, '/') : NULL;
+    base = base ? base + 1 : bin;
+    if (base && base[0]) {
+        pid_t prev = _swap_daemon_pid(base, -1);
+        if (prev > 0) {
+            kill(prev, SIGKILL);
+            __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
+                "matando duplicado %s pid=%d antes del spawn", base, prev);
+        }
+    }
+
     int pid = nanoshell_worker_spawn_detached(bin, cargv, cenvp);
+
+    if (pid > 0 && base && base[0]) {
+        _swap_daemon_pid(base, pid);
+    }
 
     // Lanzar reaper thread para evitar zombie cuando el proceso detached muera
     if (pid > 0) {

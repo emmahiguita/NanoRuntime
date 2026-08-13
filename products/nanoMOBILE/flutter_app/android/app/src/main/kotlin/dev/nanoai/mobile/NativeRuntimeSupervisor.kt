@@ -18,8 +18,8 @@ import kotlinx.coroutines.isActive
  * 3. unbind the worker service.
  *
  * MainActivity and MethodChannel handlers must go through this class instead
- * of killing worker/VNC resources directly. This prevents split-brain cleanup
- * where MainActivity, VncController and WorkerClient compete for ownership.
+ * of killing worker/Desktop resources directly. This prevents split-brain cleanup
+ * where MainActivity, DesktopController and WorkerClient compete for ownership.
  */
 class NativeRuntimeSupervisor(
     context: Context,
@@ -34,12 +34,14 @@ class NativeRuntimeSupervisor(
 
     private var ioScope: CoroutineScope? = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val vncController by lazy { VncController(appFilesDir, { workerClient }, { ioScope }) }
+    private val desktopController by lazy { dev.nanoai.mobile.controllers.DesktopController(appFilesDir, { workerClient }, { ioScope }) }
     private val packageInstallController by lazy { PackageInstallController(appFilesDir) { workerClient } }
     private val workerController by lazy { WorkerController(appFilesDir, pathPolicy) { workerClient } }
 
     fun start() {
         synchronized(lock) {
+            // No resucitar después de shutdown() — estado terminal.
+            if (shuttingDown) return
             if (workerClient != null && !shuttingDown) return
             shuttingDown = false
             workerClient = WorkerClient(appContext)
@@ -71,25 +73,25 @@ class NativeRuntimeSupervisor(
         return workerController.spawn(binaryPath, argv, envp, ldPreload)
     }
 
-    fun startVnc(
+    fun startDesktop(
         onStatus: (String) -> Unit = {},
-        onPort: (Int) -> Unit = {},
+        onReady: () -> Unit = {},
         onError: (String) -> Unit = {},
     ) {
         ensureRunning()
-        vncController.start(onStatus = onStatus, onPort = onPort, onError = onError)
+        desktopController.start(onStatus = onStatus, onReady = onReady, onError = onError)
     }
 
-    fun stopVnc() {
-        vncController.stop()
+    fun stopDesktop() {
+        desktopController.stop()
     }
 
-    fun getVncStatus(callback: (Map<String, Any>) -> Unit) {
-        vncController.getStatus(callback = callback)
+    fun getDesktopStatus(callback: (Map<String, Any?>) -> Unit) {
+        desktopController.getStatus(callback = callback)
     }
 
     fun killWorker(): Boolean {
-        stopVnc()
+        stopDesktop()
         val killed = workerController.killWorker()
         synchronized(lock) {
             workerClient = null
@@ -107,8 +109,8 @@ class NativeRuntimeSupervisor(
             workerClient = null
         }
 
-        Log.i(TAG, "native supervisor shutdown: stopping VNC then worker")
-        vncController.stop()
+        Log.i(TAG, "native supervisor shutdown: stopping Desktop then worker")
+        desktopController.stop()
         clientToClose?.disconnect()
         ioScope?.cancel()
         ioScope = null

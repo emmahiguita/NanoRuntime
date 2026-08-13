@@ -27,6 +27,12 @@ android {
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            // Solo arm64-v8a: todos los binarios nativos (Xvnc, openbox,
+            // libnanoshell.so, libnanoroot.so) son aarch64.
+            abiFilters.add("arm64-v8a")
+        }
     }
 
     externalNativeBuild {

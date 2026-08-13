@@ -7,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:nanoai/core/services/terminal_dependencies.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/features/desktop/desktop_launch_screen.dart';
-import 'package:nanoai/features/desktop/vnc_screen.dart';
+import 'package:nanoai/features/desktop/presentation/screens/desktop_launch_screen.dart';
+import 'package:nanoai/features/desktop/presentation/screens/vnc_screen.dart';
 import 'package:nanoai/features/terminal/terminal_core.dart';
 
 /// Pruebas REALES de la terminal mobile.

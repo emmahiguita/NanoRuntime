@@ -8,6 +8,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,14 +44,13 @@ class ExecBinChannelHandler(
             "workerKill" -> handleWorkerKill(result)
             "installPackages" -> handleInstallPackages(call, result)
             "installGraphical" -> handleInstallGraphical(result)
-            "startVnc" -> handleStartVnc(result)
-            "stopVnc" -> handleStopVnc(result)
-            "getVncStatus" -> handleGetVncStatus(result)
+            "startDesktop" -> handleStartDesktop(result)
+            "stopDesktop" -> handleStopDesktop(result)
+            "getDesktopStatus" -> handleGetDesktopStatus(result)
             "downloadBootstrap" -> handleDownloadBootstrap(call, result)
             "extractBootstrap" -> handleExtractBootstrap(call, result)
             "isBootstrapInstalled" -> handleIsBootstrapInstalled(call, result)
             "downloadFile" -> handleDownloadFile(call, result)
-            "launchXsdl" -> handleLaunchXsdl(result)
             else -> result.notImplemented()
         }
     }
@@ -77,22 +77,6 @@ class ExecBinChannelHandler(
         result.success(base.absolutePath)
     }
 
-    private fun handleLaunchXsdl(result: MethodChannel.Result) {
-        mainHandler.post {
-            try {
-                val intent = activity.packageManager.getLaunchIntentForPackage("x.org.server")
-                if (intent != null) {
-                    activity.startActivity(intent)
-                    result.success(true)
-                } else {
-                    result.error("not_installed", "XServer XSDL no está instalado", null)
-                }
-            } catch (e: Exception) {
-                result.error("launch_failed", e.message, null)
-            }
-        }
-    }
-
     /**
      * EJECUTA probeExec EN BACKGROUND - NO BLOQUEA MAIN THREAD
      * Esto era el problema principal: ProcessBuilder.start() + waitFor() + readBytes()
@@ -117,10 +101,13 @@ class ExecBinChannelHandler(
                 }
 
                 val p = ProcessBuilder(cmd).redirectErrorStream(false).start()
-                
-                // Leer streams en background - NO en main thread
-                val out = withContext(Dispatchers.IO) { p.inputStream.readBytes().toString(Charsets.UTF_8) }
-                val err = withContext(Dispatchers.IO) { p.errorStream.readBytes().toString(Charsets.UTF_8) }
+
+                // Leer stdout y stderr CONCURRENTEMENTE para evitar deadlock
+                // cuando el proceso llena ambos pipe buffers (>64KB).
+                val outDef = ioScope.async(Dispatchers.IO) { p.inputStream.readBytes().toString(Charsets.UTF_8) }
+                val errDef = ioScope.async(Dispatchers.IO) { p.errorStream.readBytes().toString(Charsets.UTF_8) }
+                val out = outDef.await()
+                val err = errDef.await()
                 val rc = withContext(Dispatchers.IO) { p.waitFor() }
 
                 // Retornar resultado al main thread
@@ -153,15 +140,26 @@ class ExecBinChannelHandler(
             return
         }
 
-        try {
-            val taskId = nativeSupervisor.spawnWorker(binaryPath, argv, envp, ldPreload)
-            if (taskId != null) {
-                result.success(mapOf("taskId" to taskId))
-            } else {
-                result.error("worker_unavailable", "worker no disponible", null)
+        // nativeSupervisor.spawnWorker() puede esperar hasta CONNECT_TIMEOUT_MS
+        // a que el proceso :nanoshell termine de conectar (WorkerClient.
+        // awaitConnected). Esto es cada comando de la terminal (shell_executor.
+        // dart -> workerSpawn): NUNCA debe correr en el main thread o congela
+        // toda la UI mientras el worker arranca en frio.
+        ioScope.launch {
+            try {
+                val taskId = withContext(Dispatchers.IO) {
+                    nativeSupervisor.spawnWorker(binaryPath, argv, envp, ldPreload)
+                }
+                mainHandler.post {
+                    if (taskId != null) {
+                        result.success(mapOf("taskId" to taskId))
+                    } else {
+                        result.error("worker_unavailable", "worker no disponible", null)
+                    }
+                }
+            } catch (e: IllegalArgumentException) {
+                mainHandler.post { result.error("bad_path", e.message, null) }
             }
-        } catch (e: IllegalArgumentException) {
-            result.error("bad_path", e.message, null)
         }
     }
 
@@ -202,25 +200,45 @@ class ExecBinChannelHandler(
         }
     }
 
-    private fun handleStartVnc(result: MethodChannel.Result) {
-        nativeSupervisor.startVnc(
+    private fun handleStartDesktop(result: MethodChannel.Result) {
+        var done = false
+        // Timeout guard: si el desktop no arranca en 60s, liberar el MethodChannel.
+        val timeoutRunnable = Runnable {
+            if (!done) {
+                done = true
+                result.error("desktop_timeout", "Timeout esperando inicio de desktop (60s)", null)
+            }
+        }
+        mainHandler.postDelayed(timeoutRunnable, 60_000)
+
+        nativeSupervisor.startDesktop(
             onStatus = { status -> Log.i(TAG, status) },
-            onPort = { port ->
-                activity.runOnUiThread { result.success(mapOf("port" to port)) }
+            onReady = {
+                if (!done) {
+                    done = true
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    activity.runOnUiThread { result.success(true) }
+                }
             },
             onError = { msg ->
-                activity.runOnUiThread { result.error("vnc_failed", msg, null) }
+                if (!done) {
+                    done = true
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    activity.runOnUiThread { result.error("desktop_failed", msg, null) }
+                }
             },
         )
     }
 
-    private fun handleStopVnc(result: MethodChannel.Result) {
-        nativeSupervisor.stopVnc()
-        result.success(true)
+    private fun handleStopDesktop(result: MethodChannel.Result) {
+        ioScope.launch {
+            nativeSupervisor.stopDesktop()
+            mainHandler.post { result.success(true) }
+        }
     }
 
-    private fun handleGetVncStatus(result: MethodChannel.Result) {
-        nativeSupervisor.getVncStatus { status ->
+    private fun handleGetDesktopStatus(result: MethodChannel.Result) {
+        nativeSupervisor.getDesktopStatus { status ->
             activity.runOnUiThread { result.success(status) }
         }
     }
@@ -288,7 +306,7 @@ class ExecBinChannelHandler(
 
         ioScope.launch {
             try {
-                val destFile = File(destPath)
+                val destFile = pathPolicy.requireInsideNanoFiles(File(destPath), "destPath")
                 downloadFile(url, destFile) { pct, _ ->
                     if (pct % 25 == 0) {
                         Log.i(TAG, "downloadFile $pct% -> $destPath")

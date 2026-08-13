@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Debug artifacts (screenshots + logs)
+screen*.png
+*_logcat*.txt
+*vnc_log*.txt
+*xvnc*.txt
+logcat*.txt

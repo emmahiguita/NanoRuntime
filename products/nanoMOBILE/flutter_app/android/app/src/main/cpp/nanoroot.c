@@ -43,11 +43,20 @@
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 // ── State ──
 
 static char g_prefix[PATH_MAX] = {0};
 static size_t g_prefix_len = 0;
+
+// Prefijo hardcodeado por termux-packages al compilar Xvnc, openbox,
+// xkbcomp, etc. (asumen $PREFIX=/data/data/com.termux/files/usr). Nuestra
+// app no es com.termux, asi que ese directorio no existe en nuestro
+// sandbox: hay que redirigirlo siempre a g_prefix.
+#define TERMUX_PREFIX "/data/data/com.termux/files/usr"
+#define TERMUX_PREFIX_LEN (sizeof(TERMUX_PREFIX) - 1)
 
 // ── Real libc functions (resolved via dlsym) ──
 
@@ -65,6 +74,8 @@ static ssize_t (*real_readlink)(const char*, char*, size_t) = NULL;
 static char* (*real_realpath)(const char*, char*) = NULL;
 static int (*real_unlink)(const char*) = NULL;
 static int (*real_rename)(const char*, const char*) = NULL;
+static int (*real_bind)(int, const struct sockaddr*, socklen_t) = NULL;
+static int (*real_connect)(int, const struct sockaddr*, socklen_t) = NULL;
 static int (*real_execve)(const char*, char* const*, char* const*) = NULL;
 static int (*real_execvp)(const char*, char* const*) = NULL;
 static int (*real_execvpe)(const char*, char* const*, char* const*) = NULL;
@@ -95,8 +106,9 @@ static int redirect_path(const char* path, char* out, size_t out_size) {
     if (strncmp(path, "/system/", 8) == 0 || strcmp(path, "/system") == 0) return 0;
     // Redirect Termux prefix to our rootfs (MUST be before /data whitelist).
     // Xvnc, openbox, etc. have /data/data/com.termux/files/usr/ hardcoded.
-    if (strncmp(path, "/data/data/com.termux/files/usr", 33) == 0) {
-        int n = snprintf(out, out_size, "%s%s", g_prefix, path + 33);
+    if (strncmp(path, TERMUX_PREFIX, TERMUX_PREFIX_LEN) == 0 &&
+        (path[TERMUX_PREFIX_LEN] == '/' || path[TERMUX_PREFIX_LEN] == '\0')) {
+        int n = snprintf(out, out_size, "%s%s", g_prefix, path + TERMUX_PREFIX_LEN);
         if (n < 0 || (size_t)n >= out_size) return -1;
         return 1;
     }
@@ -144,8 +156,25 @@ static int redirect_path(const char* path, char* out, size_t out_size) {
         int n = snprintf(out, out_size, "%s%s", g_prefix, path + 4);
         if (n < 0 || (size_t)n >= out_size) return -1;
         return 1;
+    } else if (strncmp(path, "/bin", 4) == 0 && (path[4] == '/' || path[4] == '\0')) {
+        // /bin → {prefix}/bin (Termux: usr/bin). El Popen interno de Xvnc
+        // hace execl("/bin/sh", "sh", "-c", ...): sin este mapeo, /bin
+        // caería en {parent}/bin (inexistente) y el xkbcomp jamás correría.
+        int n = snprintf(out, out_size, "%s%s", g_prefix, path);
+        if (n < 0 || (size_t)n >= out_size) return -1;
+        return 1;
+    } else if (strncmp(path, "/lib", 4) == 0 && (path[4] == '/' || path[4] == '\0')) {
+        // /lib → {prefix}/lib (Termux: usr/lib)
+        int n = snprintf(out, out_size, "%s%s", g_prefix, path);
+        if (n < 0 || (size_t)n >= out_size) return -1;
+        return 1;
+    } else if (strncmp(path, "/sbin", 5) == 0 && (path[5] == '/' || path[5] == '\0')) {
+        // /sbin → {prefix}/bin (Termux no tiene usr/sbin; toybox vive en usr/bin)
+        int n = snprintf(out, out_size, "%s/bin%s", g_prefix, path + 5);
+        if (n < 0 || (size_t)n >= out_size) return -1;
+        return 1;
     } else {
-        // /etc, /tmp, /var, /home, /bin, /sbin, /lib → {parent}/path
+        // /etc, /tmp, /var, /home → {parent}/path
         if (parent_len + strlen(path) >= out_size) return -1;
         memcpy(out, g_prefix, parent_len);
         strcpy(out + parent_len, path);
@@ -153,7 +182,72 @@ static int redirect_path(const char* path, char* out, size_t out_size) {
     }
 }
 
-// ── Intercept: execve → linker64 / dlopen (SELinux bypass) ──
+// -- Generic Termux-prefix rewrite for exec argv / popen command strings --
+//
+// redirect_path() above translates a SINGLE full path. Some binaries embed
+// the Termux prefix INSIDE arguments (e.g. xkbcomp's "-R/data/data/com.
+// termux/files/usr/share/X11/xkb") or inside a whole shell command string
+// passed to popen()/Popen(). This helper replaces every occurrence of
+// TERMUX_PREFIX found anywhere in a string with g_prefix, however many
+// times it appears. Returns 1 if at least one replacement was made (out is
+// filled), 0 otherwise (out is untouched, caller should keep the original).
+static int rewrite_termux_refs(const char* in, char* out, size_t out_size) {
+    if (!in || !g_prefix_len) return 0;
+    size_t out_pos = 0;
+    const char* p = in;
+    int replaced = 0;
+    while (*p) {
+        const char* hit = strstr(p, TERMUX_PREFIX);
+        size_t chunk = hit ? (size_t)(hit - p) : strlen(p);
+        if (out_pos + chunk + 1 > out_size) { out[out_pos] = '\0'; return replaced; }
+        memcpy(out + out_pos, p, chunk);
+        out_pos += chunk;
+        if (!hit) break;
+        if (out_pos + g_prefix_len + 1 > out_size) { out[out_pos] = '\0'; return replaced; }
+        memcpy(out + out_pos, g_prefix, g_prefix_len);
+        out_pos += g_prefix_len;
+        p = hit + TERMUX_PREFIX_LEN;
+        replaced = 1;
+    }
+    out[out_pos] = '\0';
+    return replaced;
+}
+
+// Applies rewrite_termux_refs() to every entry of argv. Allocates a new
+// NULL-terminated array (caller must free with free_rewritten_argv()).
+// Entries without the Termux prefix are reused as-is (not copied).
+static char** rewrite_argv(char* const argv[]) {
+    if (!argv || !g_prefix_len) return NULL;
+    int argc = 0;
+    while (argv[argc]) argc++;
+    char** out = calloc((size_t)argc + 1, sizeof(char*));
+    if (!out) return NULL;
+    int any = 0;
+    for (int i = 0; i < argc; i++) {
+        char buf[4096];
+        if (argv[i] && rewrite_termux_refs(argv[i], buf, sizeof(buf))) {
+            out[i] = strdup(buf);
+            any = 1;
+        } else {
+            out[i] = argv[i];
+        }
+    }
+    if (!any) {
+        free(out);
+        return NULL;
+    }
+    return out;
+}
+
+static void free_rewritten_argv(char** rewritten, char* const original[]) {
+    if (!rewritten) return;
+    for (int i = 0; original[i]; i++) {
+        if (rewritten[i] != original[i]) free(rewritten[i]);
+    }
+    free(rewritten);
+}
+
+// -- Intercept: execve -> linker64 / dlopen (SELinux bypass) --
 // On OPPO/ColorOS Android 15, execve syscall is blocked by SELinux from
 // untrusted_app domain. Strategy:
 //   1. Try real execve (works on non-restricted devices).
@@ -169,6 +263,19 @@ typedef int (*main_t)(int, char**, char**);
 // realmente — el proceso es reemplazado), -1 si falla.
 static int _try_linker64(const char* target, char* const argv[], char* const envp[]) {
     extern char** environ;
+    // P1 (evidencia device 2026-08-12): en procesos que nacen vía linker64
+    // (aterm, openbox, tint2), nano_execve_core() nunca corre y real_execve
+    // queda NULL (static init). El primer exec del proceso suele ser
+    // execlp()/execvpe() — p.ej. aterm -> execlp("bash") — y la cascada
+    // llegaba aquí con real_execve == NULL: blr a 0x0 -> SIGSEGV (pc=0x0,
+    // SEGV_MAPERR) y el terminal moría en loop cada 5s. Se resuelve lazy.
+    if (!real_execve) {
+        real_execve = dlsym(RTLD_NEXT, "execve");
+        if (!real_execve) {
+            fprintf(stderr, "nanoroot: dlsym(execve) falló en _try_linker64\n");
+            return -1;
+        }
+    }
     // Contar argc
     int argc = 0;
     while (argv && argv[argc]) argc++;
@@ -187,7 +294,31 @@ static int _try_linker64(const char* target, char* const argv[], char* const env
     return ret;
 }
 
-int execve(const char* pathname, char* const argv[], char* const envp[]) {
+// -- Instrumentación de diagnóstico (append a archivo) --
+// El Popen interno del X server descarta stdout/stderr del hijo, así que
+// fprintf(stderr) no llega a xvnc_err.txt. Este helper escribe directo a
+// usr/tmp/nanoroot_exec.log para ver el flujo real del exec.
+static int dbg_exec_enabled = -1; // 1 = sí, 0 = no (leer env una vez)
+static void dbg_exec(const char* msg) {
+    if (dbg_exec_enabled == -1) {
+        const char* e = getenv("NANOROOT_DEBUG_EXEC");
+        dbg_exec_enabled = (e && e[0] && e[0] != '0') ? 1 : 0;
+    }
+    if (dbg_exec_enabled != 1 || !g_prefix_len) return;
+    char lp[PATH_MAX];
+    snprintf(lp, sizeof(lp), "%s/tmp/nanoroot_exec.log", g_prefix);
+    FILE* f = fopen(lp, "a");
+    if (!f) return;
+    fprintf(f, "%s\n", msg);
+    fclose(f);
+}
+
+// Core compartido de execve: redirect + rewrite argv + cascada SELinux
+// (execve real -> linker64 -> dlopen/dlsym(main)). execve() y execl() lo
+// llaman; execl lo necesita porque bionic liga execl->execve por símbolo
+// interno NO interposable — el Popen del X server (os/utils.c) usa
+// execl("/bin/sh", "sh", "-c", ...) y jamás pasaba por el intercept execve.
+static int nano_execve_core(const char* pathname, char* const argv[], char* const envp[]) {
     LOAD_SYM(execve);
 
     char new_path[PATH_MAX];
@@ -196,38 +327,129 @@ int execve(const char* pathname, char* const argv[], char* const envp[]) {
         target = new_path;
     }
 
+    // xkbcomp: el wrapper sh de usr/bin no puede ejecutarse vía execve bajo
+    // SELinux (appdomain sin execute sobre app_data_file — el kernel
+    // chequea el inodo del script antes del shebang) y la cascada
+    // dlopen/linker64 solo procesa ELFs. Apuntar directo al ELF real.
+    {
+        size_t tlen = strlen(target);
+        // Sufijo "/bin/xkbcomp" mide 12 chars (antes 11: off-by-one que
+        // hacía que el fix jamás aplicara y la cascada lanzara el linker64
+        // contra el SCRIPT wrapper -> "bad ELF magic: 23212f73" -> keymap fail).
+        if (tlen >= 12 && strcmp(target + tlen - 12, "/bin/xkbcomp") == 0) {
+            int n = snprintf(new_path, sizeof(new_path), "%s/xkbcomp.real", g_prefix);
+            if (n > 0 && (size_t)n < sizeof(new_path)) target = new_path;
+        }
+    }
+
+    // Algunos binarios (xkbcomp, etc.) reciben argumentos con el prefijo de
+    // Termux hardcodeado (p.ej. "-R/data/data/com.termux/files/usr/...").
+    // redirect_path() de arriba solo corrige el ejecutable en si; esto
+    // corrige el resto de los argumentos.
+    char** eff_argv = rewrite_argv(argv);
+    char* const* use_argv = eff_argv ? (char* const*)eff_argv : argv;
+
+    // Diagnóstico: ver el argv exacto que recibe el linker64/Xvnc.
+    if (strstr(target, "Xvnc") || strstr(target, "linker64")) {
+        char buf[1024];
+        int off = 0;
+        for (int i = 0; use_argv && use_argv[i] && off < (int)sizeof(buf) - 64; i++) {
+            off += snprintf(buf + off, sizeof(buf) - off, "[%s] ", use_argv[i]);
+        }
+        fprintf(stderr, "nanoroot: execve argv: %s\n", buf);
+        fflush(stderr);
+    }
+
+    // Log de entrada (archivo): quién se ejecuta y con qué argv[0].
+    {
+        char m[1024];
+        int argc = 0;
+        while (use_argv && use_argv[argc]) argc++;
+        snprintf(m, sizeof(m), "exec: %s -> %s argc=%d argv0=[%s]",
+                 pathname, target, argc, (use_argv && use_argv[0]) ? use_argv[0] : "-");
+        dbg_exec(m);
+    }
+
     // Intento 1: execve real (funciona en dispositivos sin restricción SELinux)
-    int ret = real_execve(target, argv, envp);
+    int ret = real_execve(target, use_argv, envp);
+
+    if (ret == -1) {
+        char m[1024];
+        snprintf(m, sizeof(m), "exec rc=-1 errno=%d target=%s", errno, target);
+        dbg_exec(m);
+    }
 
     // Si SELinux bloqueó (EACCES), intentar alternativas
     if (ret == -1 && errno == EACCES) {
-        // Intento 2: dlopen + dlsym("main") — funciona con bash, busybox, etc.
+        // Intento 2: execve via linker64 (proceso real con aux vector, TLS,
+        // signal dispositions reseteadas, namespaces limpios).
+        // EVIDENCIA device 2026-08-12: aterm moría exit=0 a ~300ms tras
+        // forkpty — el dlopen-in-process corría bash DENTRO del child de rxvt
+        // sin reset de handlers; bash moría al instante y aterm salía limpio.
+        // Mismo fallo documentado en nanoshell.c: openbox murió status=1 con
+        // dlopen-in-process. Por eso linker64 va ANTES que dlopen.
+        if (_try_linker64(target, use_argv, envp) == 0) {
+            // _try_linker64 no retorna si éxito (proceso reemplazado)
+            _exit(0);
+        }
+        dbg_exec("exec EACCES: linker64 falló");
+
+        // Intento 3: dlopen + dlsym("main") — funciona con bash, busybox, etc.
         void* handle = dlopen(target, RTLD_NOW | RTLD_GLOBAL);
+        dbg_exec(handle ? "exec EACCES: dlopen OK" : "exec EACCES: dlopen falló");
         if (handle) {
             main_t binary_main = (main_t)dlsym(handle, "main");
+            dbg_exec(binary_main ? "exec EACCES: dlsym(main) OK" : "exec EACCES: dlsym(main) falló");
             if (binary_main) {
                 int argc = 0;
-                while (argv && argv[argc]) argc++;
-                int exit_code = binary_main(argc, argv, (char**)envp);
+                while (use_argv && use_argv[argc]) argc++;
+                int exit_code = binary_main(argc, (char**)use_argv, (char**)envp);
                 dlclose(handle);
                 _exit(exit_code);
             }
             dlclose(handle);
         }
 
-        // Intento 3: execve via linker64 (binarios stripped sin "main")
-        // linker64 construye proceso completo con aux vector, TLS, namespaces.
-        if (_try_linker64(target, argv, envp) == 0) {
-            // _try_linker64 no retorna si éxito (proceso reemplazado)
-            _exit(0);
-        }
-
         fprintf(stderr, "nanoroot: todos los intentos fallaron para %s\r\n", target);
+        if (eff_argv) free_rewritten_argv(eff_argv, argv);
         errno = ENOEXEC;
         return -1;
     }
 
+    if (eff_argv) free_rewritten_argv(eff_argv, argv);
     return ret;
+}
+
+// execl: reconstruye argv de los varargs y delega en el core. Sin este
+// intercept, el execl("/bin/sh", ...) del Popen del X server esquiva el
+// redirect de /bin -> {prefix}/bin y el xkbcomp jamás se ejecuta.
+int execl(const char* path, const char* arg0, ...) {
+    va_list ap;
+    va_start(ap, arg0);
+    int cap = 16, n = 0;
+    char** argv = (char**)calloc((size_t)cap, sizeof(char*));
+    if (!argv) { va_end(ap); errno = ENOMEM; return -1; }
+    argv[n++] = (char*)arg0;
+    const char* a;
+    while ((a = va_arg(ap, const char*)) != NULL) {
+        if (n + 1 >= cap) {
+            cap *= 2;
+            char** na = (char**)realloc(argv, (size_t)cap * sizeof(char*));
+            if (!na) { free(argv); va_end(ap); errno = ENOMEM; return -1; }
+            argv = na;
+        }
+        argv[n++] = (char*)a;
+    }
+    va_end(ap);
+    argv[n] = NULL;
+    extern char** environ;
+    int ret = nano_execve_core(path, argv, environ);
+    free(argv);
+    return ret;
+}
+
+int execve(const char* pathname, char* const argv[], char* const envp[]) {
+    return nano_execve_core(pathname, argv, envp);
 }
 
 // execvp: searches PATH, then calls execve internally.
@@ -240,26 +462,43 @@ int execvp(const char* file, char* const argv[]) {
         target = new_path;
     }
 
-    int ret = real_execvp(target, argv);
+    // xkbcomp: mismo fix que execve (wrapper sh → ELF real).
+    {
+        size_t tlen = strlen(target);
+        // Sufijo "/bin/xkbcomp" mide 12 chars (antes 11: off-by-one que
+        // hacía que el fix jamás aplicara y la cascada lanzara el linker64
+        // contra el SCRIPT wrapper -> "bad ELF magic: 23212f73" -> keymap fail).
+        if (tlen >= 12 && strcmp(target + tlen - 12, "/bin/xkbcomp") == 0) {
+            int n = snprintf(new_path, sizeof(new_path), "%s/xkbcomp.real", g_prefix);
+            if (n > 0 && (size_t)n < sizeof(new_path)) target = new_path;
+        }
+    }
+
+    char** eff_argv = rewrite_argv(argv);
+    char* const* use_argv = eff_argv ? (char* const*)eff_argv : argv;
+
+    int ret = real_execvp(target, use_argv);
     if (ret == -1 && errno == EACCES) {
-        // Misma cascada que execve: dlopen → linker64
+        // Misma cascada que execve: linker64 (proceso real) ANTES que dlopen.
+        if (_try_linker64(target, use_argv, NULL) == 0) _exit(0);
         void* handle = dlopen(target, RTLD_NOW | RTLD_GLOBAL);
         if (handle) {
             main_t binary_main = (main_t)dlsym(handle, "main");
             if (binary_main) {
                 int argc = 0;
-                while (argv && argv[argc]) argc++;
+                while (use_argv && use_argv[argc]) argc++;
                 extern char** environ;
-                int exit_code = binary_main(argc, argv, environ);
+                int exit_code = binary_main(argc, (char**)use_argv, environ);
                 dlclose(handle);
                 _exit(exit_code);
             }
             dlclose(handle);
         }
-        if (_try_linker64(target, argv, NULL) == 0) _exit(0);
+        if (eff_argv) free_rewritten_argv(eff_argv, argv);
         errno = ENOENT;
         return -1;
     }
+    if (eff_argv) free_rewritten_argv(eff_argv, argv);
     return ret;
 }
 
@@ -273,24 +512,42 @@ int execvpe(const char* file, char* const argv[], char* const envp[]) {
         target = new_path;
     }
 
-    int ret = real_execvpe(target, argv, envp);
+    // xkbcomp: mismo fix que execve (wrapper sh → ELF real).
+    {
+        size_t tlen = strlen(target);
+        // Sufijo "/bin/xkbcomp" mide 12 chars (antes 11: off-by-one que
+        // hacía que el fix jamás aplicara y la cascada lanzara el linker64
+        // contra el SCRIPT wrapper -> "bad ELF magic: 23212f73" -> keymap fail).
+        if (tlen >= 12 && strcmp(target + tlen - 12, "/bin/xkbcomp") == 0) {
+            int n = snprintf(new_path, sizeof(new_path), "%s/xkbcomp.real", g_prefix);
+            if (n > 0 && (size_t)n < sizeof(new_path)) target = new_path;
+        }
+    }
+
+    char** eff_argv = rewrite_argv(argv);
+    char* const* use_argv = eff_argv ? (char* const*)eff_argv : argv;
+
+    int ret = real_execvpe(target, use_argv, envp);
     if (ret == -1 && errno == EACCES) {
+        // Misma cascada que execve: linker64 (proceso real) ANTES que dlopen.
+        if (_try_linker64(target, use_argv, envp) == 0) _exit(0);
         void* handle = dlopen(target, RTLD_NOW | RTLD_GLOBAL);
         if (handle) {
             main_t binary_main = (main_t)dlsym(handle, "main");
             if (binary_main) {
                 int argc = 0;
-                while (argv && argv[argc]) argc++;
-                int exit_code = binary_main(argc, argv, (char**)envp);
+                while (use_argv && use_argv[argc]) argc++;
+                int exit_code = binary_main(argc, (char**)use_argv, (char**)envp);
                 dlclose(handle);
                 _exit(exit_code);
             }
             dlclose(handle);
         }
-        if (_try_linker64(target, argv, envp) == 0) _exit(0);
+        if (eff_argv) free_rewritten_argv(eff_argv, argv);
         errno = ENOENT;
         return -1;
     }
+    if (eff_argv) free_rewritten_argv(eff_argv, argv);
     return ret;
 }
 
@@ -473,42 +730,113 @@ int rename(const char* oldpath, const char* newpath) {
     return real_rename(o, n);
 }
 
+// ── Intercept: bind ──
+
+int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
+    LOAD_SYM(bind);
+    // Redirigir sun_path: Xvnc crea el socket .X11-unix con el path de
+    // Termux hardcodeado en sockaddr_un. mkdir/chmod/stat sí se redirigen,
+    // pero bind() sin intercept apuntaría al /data/data/com.termux literal
+    // (inexistente) y el listener X11 fallaría con ENOENT — dejando a
+    // openbox sin display.
+    if (addr && addr->sa_family == AF_UNIX && addrlen >= sizeof(sa_family_t)) {
+        struct sockaddr_un* sun = (struct sockaddr_un*)addr;
+        char new_path[sizeof(sun->sun_path)];
+        int rd = redirect_path(sun->sun_path, new_path, sizeof(new_path));
+        fprintf(stderr, "nanoroot: bind AF_UNIX pid=%d [%s] redirect=%d\n", getpid(), sun->sun_path, rd);
+        fflush(stderr);
+        if (rd == 1) {
+            struct sockaddr_un copy = *sun;
+            strncpy(copy.sun_path, new_path, sizeof(copy.sun_path) - 1);
+            copy.sun_path[sizeof(copy.sun_path) - 1] = '\0';
+            // El addrlen del llamador corresponde al path ORIGINAL (corto,
+            // 49 chars Termux). Con el path redirigido (62 chars) y el
+            // addrlen viejo, el kernel trunca sun_path a un directorio
+            // (".../usr/tmp/.") y bind() devuelve EADDRINUSE — por eso el
+            // socket X1 nunca se creaba aunque el dir estuviera vacío.
+            socklen_t new_addrlen = (socklen_t)((char*)copy.sun_path - (char*)&copy) +
+                                    (socklen_t)strlen(new_path) + 1;
+            int r = real_bind(sockfd, (struct sockaddr*)&copy, new_addrlen);
+            fprintf(stderr, "nanoroot: bind %s -> %s (rc=%d errno=%d)\n",
+                    sun->sun_path, new_path, r, r < 0 ? errno : 0);
+            fflush(stderr);
+            return r;
+        }
+    }
+    return real_bind(sockfd, addr, addrlen);
+}
+
+// ── Intercept: connect ──
+
+int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
+    LOAD_SYM(connect);
+    // openbox/libX11 buscan el display en /tmp/.X11-unix/X1. Redirigir
+    // igual que bind() para que encuentren el socket real del rootfs.
+    if (addr && addr->sa_family == AF_UNIX && addrlen >= sizeof(sa_family_t)) {
+        struct sockaddr_un* sun = (struct sockaddr_un*)addr;
+        char new_path[sizeof(sun->sun_path)];
+        if (redirect_path(sun->sun_path, new_path, sizeof(new_path)) == 1) {
+            struct sockaddr_un copy = *sun;
+            strncpy(copy.sun_path, new_path, sizeof(copy.sun_path) - 1);
+            copy.sun_path[sizeof(copy.sun_path) - 1] = '\0';
+            // Mismo ajuste de addrlen que en bind(): sin él, el kernel
+            // trunca el path redirigido y el connect apunta a un directorio.
+            socklen_t new_addrlen = (socklen_t)((char*)copy.sun_path - (char*)&copy) +
+                                    (socklen_t)strlen(new_path) + 1;
+            int r = real_connect(sockfd, (struct sockaddr*)&copy, new_addrlen);
+            fprintf(stderr, "nanoroot: connect %s -> %s (rc=%d errno=%d)\n",
+                    sun->sun_path, new_path, r, r < 0 ? errno : 0);
+            fflush(stderr);
+            return r;
+        }
+    }
+    return real_connect(sockfd, addr, addrlen);
+}
+
 // ── Intercept: popen ──
 
 FILE* popen(const char* command, const char* type) {
     LOAD_SYM(popen);
     if (!command) return real_popen(command, type);
 
-    const char* marker = "/bin/xkbcomp";
-    const char* hit = strstr(command, marker);
-    if (!hit) return real_popen(command, type);
-
-    // Xvnc invokes xkbcomp via popen("/data/.../usr/bin/xkbcomp ...").
-    // ColorOS blocks execve() of app-data binaries from /system/bin/sh.
-    // Rewriting the binary to xkbcomp.real and loading it through linker64
-    // keeps the exec target in /system while preserving popen stdin/stdout.
-    // LD_PRELOAD must be cleared or xkbcomp inherits nanoroot and recursively
-    // rewrites paths that belong to the already-patched rootfs.
-    char target[4096];
-    size_t before = (size_t)(hit - command);
-    int target_len = snprintf(
-        target,
-        sizeof(target),
-        "%.*s/xkbcomp.real%s",
-        (int)before,
-        command,
-        hit + strlen(marker)
-    );
-    if (target_len < 0 || (size_t)target_len >= sizeof(target)) {
-        return real_popen(command, type);
-    }
-
+    // Xvnc invokes xkbcomp (and possibly other helpers) via a full shell
+    // command string with the Termux prefix hardcoded, e.g.:
+    //   "/data/data/com.termux/files/usr/bin/xkbcomp" -w 1 \
+    //     "-R/data/data/com.termux/files/usr/share/X11/xkb" ... \
+    //     "/data/data/com.termux/files/usr/tmp/server-0.xkm"
+    // A single occurrence-based rewrite is not enough: the prefix appears
+    // multiple times (binary path, -R argument, output path). Rewrite
+    // every occurrence to our own rootfs prefix.
     char rewritten[4096];
-    int n = snprintf(rewritten, sizeof(rewritten), "LD_PRELOAD= /system/bin/linker64 %s", target);
-    if (n < 0 || (size_t)n >= sizeof(rewritten)) {
+    if (!rewrite_termux_refs(command, rewritten, sizeof(rewritten))) {
         return real_popen(command, type);
     }
-    fprintf(stderr, "nanoroot: popen xkbcomp via linker64\n");
+
+    // El wrapper sh en usr/bin/xkbcomp NO puede ejecutarse vía execve bajo
+    // SELinux: appdomain no tiene execute sobre app_data_file (el kernel
+    // chequea el inodo del script antes del shebang) y la cascada
+    // dlopen/linker64 de execve() solo procesa ELFs. Reescritura directa
+    // al binario ELF real, que la cascada sí arranca vía linker64.
+    {
+        const char* hit = strstr(rewritten, "usr/bin/xkbcomp");
+        if (hit) {
+            char final_cmd[4096];
+            size_t before = (size_t)(hit - rewritten);
+            size_t after = before + strlen("usr/bin/xkbcomp");
+            size_t repl_len = strlen("usr/xkbcomp.real");
+            if (before + repl_len + (strlen(rewritten) - after) < sizeof(final_cmd)) {
+                memcpy(final_cmd, rewritten, before);
+                memcpy(final_cmd + before, "usr/xkbcomp.real", repl_len);
+                strcpy(final_cmd + before + repl_len, rewritten + after);
+                fprintf(stderr, "nanoroot: popen xkbcomp -> ELF real\n");
+                fflush(stderr);
+                return real_popen(final_cmd, type);
+            }
+        }
+    }
+
+    fprintf(stderr, "nanoroot: popen rewrote termux refs: %s\n", rewritten);
+    fflush(stderr);
     return real_popen(rewritten, type);
 }
 
@@ -530,4 +858,18 @@ __attribute__((constructor)) static void nanoroot_init(void) {
     }
 
     fprintf(stderr, "nanoroot: prefix=%s (len=%zu)\n", g_prefix, g_prefix_len);
+
+    // Diagnóstico: cmdline real del proceso (Xvnc vía linker64).
+    {
+        char cmdline[1024];
+        FILE* f = fopen("/proc/self/cmdline", "r");
+        if (f) {
+            size_t n = fread(cmdline, 1, sizeof(cmdline) - 1, f);
+            fclose(f);
+            cmdline[n] = '\0';
+            for (size_t i = 0; i < n; i++) if (cmdline[i] == '\0') cmdline[i] = ' ';
+            fprintf(stderr, "nanoroot: cmdline=[%s]\n", cmdline);
+            fflush(stderr);
+        }
+    }
 }

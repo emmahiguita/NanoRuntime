@@ -51,15 +51,7 @@
             android:name=".NanoshellWorkerService"
             android:exported="false"
             android:process=":nanoshell"
-            android:foregroundServiceType="specialUse"
             android:isolatedProcess="false">
-            <!-- Requerido por Android 14+ si el worker se promueve a
-                 startForegroundService (FOREGROUND_SERVICE_SPECIAL_USE).
-                 Actualmente se arranca con bindService, así que esto es
-                 preparación, no uso activo. -->
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="nano-shell-worker: ejecución nativa de rootfs"/>
         </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

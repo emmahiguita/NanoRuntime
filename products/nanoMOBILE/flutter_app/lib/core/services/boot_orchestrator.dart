@@ -162,12 +162,7 @@ class BootOrchestrator {
   }
 
   void _ensureXkbSymlinks(String usr) {
-    try {
-      final xkbLink = Link('$usr/share/X11/xkb');
-      if (!xkbLink.existsSync()) {
-        xkbLink.createSync('../xkeyboard-config-2', recursive: false);
-      }
-    } catch (_) {}
+    _forceRelativeLink('$usr/share/X11/xkb', '../xkeyboard-config-2');
 
     for (final dir in [
       'compat',
@@ -177,12 +172,46 @@ class BootOrchestrator {
       'symbols',
       'types',
     ]) {
-      try {
-        final link = Link('$usr/$dir');
-        if (!link.existsSync()) {
-          link.createSync('share/xkeyboard-config-2/$dir', recursive: false);
+      _forceRelativeLink('$usr/$dir', 'share/xkeyboard-config-2/$dir');
+    }
+  }
+
+  /// Crea o corrige un symlink relativo en [linkPath] apuntando a
+  /// [expectedTarget].
+  ///
+  /// Termux empaqueta xkeyboard-config con su propio symlink en
+  /// share/X11/xkb que apunta a una ruta ABSOLUTA hardcodeada de
+  /// com.termux (/data/data/com.termux/files/usr/share/xkeyboard-config-2).
+  /// Ese symlink sobrevive intacto a la extraccion del .deb dentro de
+  /// nuestro propio rootfs, y como ya "existe" al llegar aqui, el chequeo
+  /// antiguo (solo crear si falta) nunca lo corregia: Xvnc terminaba
+  /// siguiendo un symlink roto y fallaba con "Failed to activate virtual
+  /// core keyboard". Por eso hay que comparar el target real contra el
+  /// esperado y sobreescribir el symlink si no coincide, no solo crearlo
+  /// cuando falta.
+  void _forceRelativeLink(String linkPath, String expectedTarget) {
+    try {
+      final link = Link(linkPath);
+      if (link.existsSync()) {
+        String? current;
+        try {
+          current = link.targetSync();
+        } catch (_) {
+          current = null;
         }
-      } catch (_) {}
+        if (current == expectedTarget) return;
+        link.deleteSync();
+      } else {
+        final type = FileSystemEntity.typeSync(linkPath, followLinks: false);
+        if (type == FileSystemEntityType.directory) {
+          Directory(linkPath).deleteSync(recursive: true);
+        } else if (type == FileSystemEntityType.file) {
+          File(linkPath).deleteSync();
+        }
+      }
+      link.createSync(expectedTarget, recursive: false);
+    } catch (_) {
+      // Best effort: algunos builds de Android niegan symlinks.
     }
   }
 
@@ -211,10 +240,10 @@ IN="$PREFIX/tmp/xkbcomp-$$.stdin"
 LOG="$PREFIX/tmp/xkbcomp.log"
 export LD_LIBRARY_PATH="$PREFIX/lib:/system/lib64"
 export XKB_CONFIG_ROOT="$PREFIX/share/X11/xkb"
+export NANO_ROOTFS="$PREFIX"
 echo "--- xkbcomp call ---" >> "$LOG"
 echo "args: $@" >> "$LOG"
 cat > "$IN"
-unset LD_PRELOAD
 /system/bin/linker64 "$PREFIX/xkbcomp.real" "$@" < "$IN" >> "$LOG" 2>&1
 RC=$?
 echo "rc=$RC" >> "$LOG"

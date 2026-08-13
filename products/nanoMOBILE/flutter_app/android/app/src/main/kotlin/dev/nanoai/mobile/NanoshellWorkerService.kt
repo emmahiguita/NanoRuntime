@@ -99,23 +99,34 @@ when (msg.what) {
         val envPairs = b.getStringArrayList("envp") ?: arrayListOf()
         val taskId = b.getString(EXTRA_TASK_ID) ?: "d${System.currentTimeMillis()}"
         val filesDir = b.getString("filesDir") ?: filesDir.absolutePath
+        // Extraer el Messenger ANTES del Thread: msg lo recicla el Looper al
+        // salir de handleMessage; acceder a msg.replyTo desde otro hilo tras
+        // el return es una carrera con el pool de Message.obtain.
+        val replyTo = msg.replyTo
 
-        val envp = withNativeRuntimeEnv(envPairs, filesDir).toTypedArray()
-        // En ColorOS/OPPO execve() sobre binarios del sandbox devuelve EACCES.
-        // Xvnc entonces cae al fallback dlopen(), que necesita las DT_NEEDED del
-        // rootfs ya cargadas en el namespace del worker (clns-7).
-        // Sin esta precarga, el detached muere con rc=127 antes de abrir 5901.
-        preloadRootfsLibs(filesDir)
-        val pid = NanoshellBridge.workerSpawnDetached(binaryPath, argv.toTypedArray(), envp)
-        android.util.Log.i("nanoshell-worker", "detached $taskId pid=$pid -> $binaryPath")
+        // K-2: preloadRootfsLibs (System.load ~70 libs x 4 passes) + fork en el
+        // MAIN looper del worker bloqueaba el latch de conexion (WorkerClient
+        // awaitConnected 20s) -> falso negativo -> Xvnc huerfano reteniendo 5901.
+        // Mover a un Thread (como handleSpawn): System.load y fork son seguros
+        // fuera del looper.
+        Thread {
+            val envp = withNativeRuntimeEnv(envPairs, filesDir).toTypedArray()
+            // En ColorOS/OPPO execve() sobre binarios del sandbox devuelve EACCES.
+            // Xvnc entonces cae al fallback dlopen(), que necesita las DT_NEEDED del
+            // rootfs ya cargadas en el namespace del worker (clns-7).
+            // Sin esta precarga, el detached muere con rc=127 antes de abrir 5901.
+            preloadRootfsLibs(filesDir)
+            val pid = NanoshellBridge.workerSpawnDetached(binaryPath, argv.toTypedArray(), envp)
+            android.util.Log.i("nanoshell-worker", "detached $taskId pid=$pid -> $binaryPath")
 
-        // Responder al cliente con el PID
-        val reply = Message.obtain(null, MSG_RESULT)
-        reply.data = Bundle().apply {
-            putString(EXTRA_TASK_ID, taskId)
-            putInt(EXTRA_PID, pid)
-        }
-        try { msg.replyTo?.send(reply) } catch (_: Exception) {}
+            // Responder al cliente con el PID
+            val reply = Message.obtain(null, MSG_RESULT)
+            reply.data = Bundle().apply {
+                putString(EXTRA_TASK_ID, taskId)
+                putInt(EXTRA_PID, pid)
+            }
+            try { replyTo?.send(reply) } catch (_: Exception) {}
+        }.start()
     }
 
     /**
@@ -128,8 +139,8 @@ when (msg.what) {
      * entero los mata; luego este proceso termina con stopSelf().
      *
      * Atentos: daemons detached (Xvnc, openbox) llaman setsid() y viven en
-     * grupo propio. No se matan aquí: NativeRuntimeSupervisor detiene VncService
-     * antes de matar el worker.
+     * grupo propio. No se matan aquí: NativeRuntimeSupervisor detiene el
+     * DesktopSessionManager antes de matar el worker.
      */
     private fun handleKill(msg: Message) {
         android.util.Log.w("nanoshell-worker", "MSG_KILL recibido â€” matando group + worker")
@@ -202,10 +213,21 @@ when (msg.what) {
             }
         }
 
+        // El set crítico con verboseFailure=true spameaba ~50 líneas WARN por
+        // spawn × 4 daemons → "LOGS OVER PROC QUOTA, rows DROPPED" en el worker
+        // (evidencia device 2026-08-12: reaps de aterm invisibles por la cuota).
+        // Se cuenta el resumen en UNA línea en vez de loguear lib por lib.
+        var criticalFailed = 0
         for (lib in libs) {
             val f = java.io.File(libDir, lib)
             if (!f.exists()) continue
-            tryLoad(f, lib, true)
+            val before = loaded.size
+            tryLoad(f, lib, false)
+            if (loaded.size == before) criticalFailed++
+        }
+        if (criticalFailed > 0) {
+            android.util.Log.w("nanoshell-worker",
+                "preload set crítico: $criticalFailed/${libs.size} sin cargar (esperado en worker sin GPU)")
         }
 
         repeat(4) { pass ->
