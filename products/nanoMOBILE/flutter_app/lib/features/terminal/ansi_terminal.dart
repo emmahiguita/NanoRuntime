@@ -103,6 +103,14 @@ class AnsiTerminal extends ChangeNotifier {
     _parser.onTitle = (t) { _title = t; notifyListeners(); };
   }
 
+  /// Respuestas a queries (DA \x1b[c, DSR \x1b[6n) → el owner escribe al PTY.
+  set onResponse(void Function(String data)? f) => _parser.onResponse = f;
+  /// OSC 52 clipboard → el owner escribe al portapapeles.
+  set onClipboard(void Function(String text)? f) => _parser.onClipboard = f;
+  /// Focus-event reporting (?1004) → el owner envía \x1b[I / \x1b[O.
+  set onFocusChange(void Function({required bool focused})? f) =>
+      _parser.onFocusChange = f;
+
   int get cursorRow => screen.cursorRow;
   int get cursorCol => screen.cursorCol;
   bool get inAltScreen => screen.inAltScreen;
@@ -312,9 +320,17 @@ class _TermLine extends StatelessWidget {
     }
     Color fg = ref.fgRgb != null ? Color(0xFF000000 | ref.fgRgb!) : _rfg(ref.fg, defFg);
     Color? bg = ref.bgRgb != null ? Color(0xFF000000 | ref.bgRgb!) : _rbg(ref.bg);
+    final decos = <TextDecoration>[];
+    if (ref.underline || ref.linkUrl != null) decos.add(TextDecoration.underline);
+    if (ref.strikethrough) decos.add(TextDecoration.lineThrough);
+    if (ref.overline) decos.add(TextDecoration.overline);
+    final deco = decos.isEmpty ? TextDecoration.none : TextDecoration.combine(decos);
     var style = base.copyWith(
       color: ref.dim ? fg.withValues(alpha: 0.6) : fg,
       fontWeight: ref.bold ? FontWeight.bold : FontWeight.normal,
+      fontStyle: ref.italic ? FontStyle.italic : FontStyle.normal,
+      decoration: deco,
+      decorationColor: fg,
     );
     if (ref.reverse) {
       style = style.copyWith(
@@ -345,5 +361,8 @@ class _TermLine extends StatelessWidget {
   bool _same(TermCell a, TermCell b) =>
       a.fg == b.fg && a.bg == b.bg && a.bold == b.bold &&
       a.dim == b.dim && a.reverse == b.reverse &&
+      a.italic == b.italic && a.underline == b.underline &&
+      a.blink == b.blink && a.strikethrough == b.strikethrough &&
+      a.overline == b.overline && a.linkUrl == b.linkUrl &&
       a.wide == b.wide && a.fgRgb == b.fgRgb && a.bgRgb == b.bgRgb;
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'term_screen.dart';
 
 /// Máquina de estados ANSI/VT100: bytes → operaciones en [TermScreen].
@@ -14,6 +16,12 @@ class AnsiParser {
   /// loses focus. The owner should write \x1b[I (gained) or \x1b[O (lost)
   /// directly to the PTY. Null when focus events are disabled.
   void Function({required bool focused})? onFocusChange;
+  /// Respuestas a queries del programa (DA \x1b[c, DSR \x1b[6n). El owner
+  /// escribe este string directo al PTY. Null = se ignora la query.
+  void Function(String data)? onResponse;
+  /// OSC 52 (clipboard): texto deserializado de la secuencia Base64. El owner
+  /// lo escribe al portapapeles. Null = se ignora.
+  void Function(String text)? onClipboard;
 
   AnsiParser(this.screen);
 
@@ -131,6 +139,25 @@ class AnsiParser {
     final pt = osc.substring(semi + 1);
     if ((ps == 0 || ps == 2) && pt.isNotEmpty) {
       onTitle?.call(pt);
+    } else if (ps == 8) {
+      // OSC 8 hyperlink: "params;url" o "url". URL vacía cierra el link.
+      final semi2 = pt.indexOf(';');
+      final url = semi2 >= 0 ? pt.substring(semi2 + 1) : pt;
+      screen.setLink(url.isEmpty ? null : url);
+    } else if (ps == 52) {
+      // OSC 52 clipboard: "selector;base64". Solo selector "c" (portapapeles).
+      final semi2 = pt.indexOf(';');
+      if (semi2 >= 0) {
+        final selector = pt.substring(0, semi2);
+        final b64 = pt.substring(semi2 + 1);
+        if (selector == 'c' && b64.isNotEmpty) {
+          try {
+            onClipboard?.call(utf8.decode(base64.decode(b64)));
+          } catch (_) {
+            // base64 inválida: ignorar silenciosamente.
+          }
+        }
+      }
     }
   }
 
@@ -200,6 +227,24 @@ class AnsiParser {
       case 0x68:
       case 0x6c:
         _decMode(cmd == 0x68, private: private, p: p);
+        break;
+      case 0x72: // DECSTBM: margen de scroll (vim/tmux)
+        if (p.isEmpty || (p.length == 1 && p[0] == 0)) {
+          screen.resetScrollRegion();
+        } else {
+          final top = _at(p, 0);
+          final bottom = p.length > 1 && p[1] > 0 ? p[1] : screen.rows;
+          screen.setScrollRegion(top, bottom);
+        }
+        break;
+      case 0x63: // DA: reportar atributos del dispositivo
+        onResponse?.call('\x1b[?1;2c');
+        break;
+      case 0x6e: // DSR: reportar posición del cursor (solo 6n)
+        if (_at(p, 0) == 6) {
+          onResponse
+              ?.call('\x1b[${screen.cursorRow + 1};${screen.cursorCol + 1}R');
+        }
         break;
       default:
         break;
@@ -292,6 +337,36 @@ class AnsiParser {
           break;
         case 27:
           screen.sgrReverseOff();
+          break;
+        case 3:
+          screen.sgrItalicOn();
+          break;
+        case 23:
+          screen.sgrItalicOff();
+          break;
+        case 4:
+          screen.sgrUnderlineOn();
+          break;
+        case 24:
+          screen.sgrUnderlineOff();
+          break;
+        case 5:
+          screen.sgrBlinkOn();
+          break;
+        case 25:
+          screen.sgrBlinkOff();
+          break;
+        case 9:
+          screen.sgrStrikeOn();
+          break;
+        case 29:
+          screen.sgrStrikeOff();
+          break;
+        case 53:
+          screen.sgrOverlineOn();
+          break;
+        case 55:
+          screen.sgrOverlineOff();
           break;
         case 39:
           screen.sgrFg(255);

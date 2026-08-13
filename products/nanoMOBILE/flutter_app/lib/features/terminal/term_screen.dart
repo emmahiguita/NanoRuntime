@@ -11,9 +11,15 @@ class TermCell {
   bool bold = false;
   bool dim = false;
   bool reverse = false;
+  bool italic = false;        // SGR 3
+  bool underline = false;     // SGR 4
+  bool blink = false;         // SGR 5 (se almacena; sin animación aún)
+  bool strikethrough = false; // SGR 9
+  bool overline = false;      // SGR 53
   int? fgRgb;
   int? bgRgb;
   bool wide = false; // double-width char (CJK, emoji)
+  String? linkUrl;   // OSC 8 hyperlink (null = sin link)
 
   void reset() {
     ch = 0;
@@ -22,9 +28,15 @@ class TermCell {
     bold = false;
     dim = false;
     reverse = false;
+    italic = false;
+    underline = false;
+    blink = false;
+    strikethrough = false;
+    overline = false;
     fgRgb = null;
     bgRgb = null;
     wide = false;
+    linkUrl = null;
   }
 
   /// Deep copy: crea una celda independiente con los mismos atributos.
@@ -39,9 +51,15 @@ class TermCell {
       ..bold = bold
       ..dim = dim
       ..reverse = reverse
+      ..italic = italic
+      ..underline = underline
+      ..blink = blink
+      ..strikethrough = strikethrough
+      ..overline = overline
       ..fgRgb = fgRgb
       ..bgRgb = bgRgb
-      ..wide = wide;
+      ..wide = wide
+      ..linkUrl = linkUrl;
   }
 }
 
@@ -70,8 +88,17 @@ class TermScreen {
   int _fg = 255, _bg = 256;
   int? _fgRgb, _bgRgb; // truecolor overrides
   bool _bold = false, _dim = false, _reverse = false;
+  bool _italic = false, _underline = false, _blink = false;
+  bool _strikethrough = false, _overline = false;
   bool _cursorVisible = true; // DECSET/DECRST 25
   bool mouseEnabled = false; // DECSET/DECRST 1000
+  // Scroll region (DECSTBM): filas 0-indexadas [top, bottom] inclusivas.
+  // Cuando top < bottom, newline/index hacen scroll SOLO dentro del margen
+  // (vim/tmux lo usan para regiones de scroll). Default = pantalla completa.
+  int _scrollTop = 0;
+  int _scrollBottom = 0; // 0 = "sin margen" (full screen)
+  // OSC 8: URL activa que se asigna a las celdas emitidas mientras esté puesta.
+  String? _currentLinkUrl;
   /// True when the remote program has enabled bracketed paste (DECSET ?2004).
   /// [terminal_modifier_bar.dart] must only wrap pastes when this is true.
   bool bracketedPasteMode = false;
@@ -112,6 +139,8 @@ class TermScreen {
     if (_alt != null) _alt = _resizeBuffer(_alt!, rows, cols);
     _row = _row.clamp(0, rows - 1);
     _col = _col.clamp(0, cols - 1);
+    // El margen de scroll quedó inválido tras el cambio de tamaño.
+    resetScrollRegion();
   }
 
   /// Resizes a cell grid to [r] rows × [c] cols, preserving existing content.
@@ -144,7 +173,13 @@ class TermScreen {
     cell.bold = _bold;
     cell.dim = _dim;
     cell.reverse = _reverse;
+    cell.italic = _italic;
+    cell.underline = _underline;
+    cell.blink = _blink;
+    cell.strikethrough = _strikethrough;
+    cell.overline = _overline;
     cell.wide = wide;
+    cell.linkUrl = _currentLinkUrl;
     _col++;
     if (wide && _col < cols) {
       final next = _cellList[_row][_col];
@@ -156,7 +191,13 @@ class TermScreen {
       next.bold = false;
       next.dim = false;
       next.reverse = false;
+      next.italic = false;
+      next.underline = false;
+      next.blink = false;
+      next.strikethrough = false;
+      next.overline = false;
       next.wide = false;
+      next.linkUrl = _currentLinkUrl;
       _col++;
     }
     if (_col >= cols) {
@@ -185,7 +226,15 @@ class TermScreen {
   }
 
   void newline() {
-    if (_row + 1 >= rows) {
+    if (hasScrollRegion) {
+      // Margen de scroll activo: LF en el borde inferior hace scroll SOLO de
+      // la región (vim/tmux), sin tocar el scrollback.
+      if (_row >= _scrollBottom) {
+        scrollUpRegion();
+      } else {
+        _row++;
+      }
+    } else if (_row + 1 >= rows) {
       scrollUp();
     } else {
       _row++;
@@ -203,7 +252,16 @@ class TermScreen {
   }
   void tab() => _col = math.min(cols - 1, ((_col ~/ 8) + 1) * 8);
   void indexUp() {
-    if (_row > 0) _row--;
+    // RI (reverse index, ESC M): respeta el margen de scroll igual que LF.
+    if (hasScrollRegion) {
+      if (_row <= _scrollTop) {
+        scrollDownRegion();
+      } else {
+        _row--;
+      }
+    } else if (_row > 0) {
+      _row--;
+    }
   }
   void indexLineLF() => newline();
 
@@ -245,6 +303,7 @@ class TermScreen {
     _row = 0;
     _col = 0;
     clearHistory();
+    resetScrollRegion();
   }
   void clearBelow() {
     for (var c = _col; c < cols; c++) {
@@ -381,6 +440,37 @@ class TermScreen {
     _cellList[0] = bottomRow;
   }
 
+  /// Scroll hacia arriba SOLO dentro del margen [_scrollTop, _scrollBottom].
+  /// Sin scrollback: las filas fuera del margen quedan intactas (DECSTBM).
+  void scrollUpRegion() {
+    final top = _scrollTop;
+    final bottom = _scrollBottom;
+    if (top >= bottom) return;
+    final topRow = _cellList[top];
+    for (var r = top; r < bottom; r++) {
+      _cellList[r] = _cellList[r + 1];
+    }
+    for (var c in topRow) {
+      c.reset();
+    }
+    _cellList[bottom] = topRow;
+  }
+
+  /// Scroll hacia abajo SOLO dentro del margen (para RI / indexUp).
+  void scrollDownRegion() {
+    final top = _scrollTop;
+    final bottom = _scrollBottom;
+    if (top >= bottom) return;
+    final bottomRow = _cellList[bottom];
+    for (var r = bottom; r > top; r--) {
+      _cellList[r] = _cellList[r - 1];
+    }
+    for (var c in bottomRow) {
+      c.reset();
+    }
+    _cellList[top] = bottomRow;
+  }
+
   // pantalla alterna
   void enterAlt() {
     if (_alt != null) return;
@@ -392,6 +482,8 @@ class TermScreen {
     // Restore the alt-screen cursor to where it was last time (start = 0,0).
     _row = _saveAltR.clamp(0, rows - 1);
     _col = _saveAltC.clamp(0, cols - 1);
+    // xterm resetea el margen de scroll al entrar en la pantalla alterna.
+    resetScrollRegion();
   }
   void leaveAlt() {
     if (_alt == null) return;
@@ -411,6 +503,8 @@ class TermScreen {
     _fgRgb = null;
     _bgRgb = null;
     _bold = _dim = _reverse = false;
+    _italic = _underline = _blink = false;
+    _strikethrough = _overline = false;
   }
   void sgrFg(int v) => _fg = v;
   void sgrBg(int v) => _bg = v;
@@ -436,4 +530,38 @@ class TermScreen {
   }
   void sgrReverseOn() => _reverse = true;
   void sgrReverseOff() => _reverse = false;
+  void sgrItalicOn() => _italic = true;
+  void sgrItalicOff() => _italic = false;
+  void sgrUnderlineOn() => _underline = true;
+  void sgrUnderlineOff() => _underline = false;
+  void sgrBlinkOn() => _blink = true;
+  void sgrBlinkOff() => _blink = false;
+  void sgrStrikeOn() => _strikethrough = true;
+  void sgrStrikeOff() => _strikethrough = false;
+  void sgrOverlineOn() => _overline = true;
+  void sgrOverlineOff() => _overline = false;
+
+  // ── Scroll region (DECSTBM) ──
+  /// Establece el margen de scroll 1-indexado [top, bottom] (como llega del CSI).
+  /// top==0 && bottom==0 → reset a pantalla completa.
+  void setScrollRegion(int top, int bottom) {
+    if (top == 0 && bottom == 0) {
+      _scrollTop = 0;
+      _scrollBottom = 0;
+      return;
+    }
+    var t = (top - 1).clamp(0, rows - 1);
+    var b = (bottom - 1).clamp(0, rows - 1);
+    if (t >= b) { t = 0; b = 0; } // región inválida → full screen
+    _scrollTop = t;
+    _scrollBottom = b;
+    _row = _row.clamp(0, rows - 1);
+    _col = 0;
+  }
+  void resetScrollRegion() {
+    _scrollTop = 0;
+    _scrollBottom = 0;
+  }
+  bool get hasScrollRegion => _scrollBottom > _scrollTop;
+  void setLink(String? url) => _currentLinkUrl = url;
 }

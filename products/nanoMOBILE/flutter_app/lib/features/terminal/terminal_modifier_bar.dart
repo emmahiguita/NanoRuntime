@@ -68,6 +68,17 @@ class TerminalModifierBar extends StatelessWidget {
             key('^', () => onWriteBytes([0x1b, 0x5b, 0x41])),
             key('>', () => onWriteBytes([0x1b, 0x5b, 0x43])),
             const SizedBox(width: 8),
+            key('Home', () => onWriteBytes([0x1b, 0x5b, 0x48])),
+            key('End', () => onWriteBytes([0x1b, 0x5b, 0x46])),
+            key('PgUp', () => onWriteBytes([0x1b, 0x5b, 0x35, 0x7e])),
+            key('PgDn', () => onWriteBytes([0x1b, 0x5b, 0x36, 0x7e])),
+            key('Del', () => onWriteBytes([0x1b, 0x5b, 0x33, 0x7e])),
+            const SizedBox(width: 8),
+            key('F1', () => onWriteBytes([0x1b, 0x4f, 0x50])),
+            key('F2', () => onWriteBytes([0x1b, 0x4f, 0x51])),
+            key('F3', () => onWriteBytes([0x1b, 0x4f, 0x52])),
+            key('F4', () => onWriteBytes([0x1b, 0x4f, 0x53])),
+            const SizedBox(width: 8),
             key('Paste', () async {
               final data = await Clipboard.getData(Clipboard.kTextPlain);
               final text = data?.text;

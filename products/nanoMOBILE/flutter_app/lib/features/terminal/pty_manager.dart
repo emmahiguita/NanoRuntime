@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import '../../core/services/pty_shell.dart';
 import '../../core/services/rootfs_manager.dart';
 import '../../core/services/terminal_audit_logger.dart';
@@ -119,6 +119,18 @@ class PtyManager {
       // Guard for edge cases where close() partially failed.
       final oldAnsi = _ansi;
       _ansi = AnsiTerminal(rows: 24, cols: 80);
+      // DA/DSR (queries de vim/tmux) → respuesta directa al PTY.
+      _ansi!.onResponse = (data) => _session?.write(data);
+      // OSC 52 clipboard → portapapeles Android (best-effort).
+      _ansi!.onClipboard = (text) {
+        try {
+          Clipboard.setData(ClipboardData(text: text));
+        } catch (_) {}
+      };
+      // ?1004 focus events → \x1b[I (gana) / \x1b[O (pierde).
+      _ansi!.onFocusChange = ({required bool focused}) {
+        _session?.write(focused ? '\x1b[I' : '\x1b[O');
+      };
       if (oldAnsi != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           try { oldAnsi.dispose(); } catch (_) {}
