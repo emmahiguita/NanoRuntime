@@ -371,10 +371,12 @@ class NanoRuntimeApi {
 
   Future<int> ptyIsAlive(int id) async {
     try {
-      return await _pty.invokeMethod<int>('ptyIsAlive', {'id': id}) ?? 0;
+      return await _pty.invokeMethod<int>('ptyIsAlive', {'id': id}) ?? 1;
     } catch (e) {
       debugPrint('[runtime] ptyIsAlive error: $e');
-      return 0;
+      // Fallo = asumir vivo: el caller sigue haciendo polling en vez de
+      // marcar la sesión como terminada por un error de canal.
+      return 1;
     }
   }
 

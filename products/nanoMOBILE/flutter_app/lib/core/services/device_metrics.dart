@@ -1,16 +1,19 @@
-import 'package:flutter/services.dart';
+import 'nano_runtime_api.dart';
 
-/// Real hardware metrics from Android via MethodChannel.
-/// Falls back to safe defaults if channel unavailable.
+/// Real hardware metrics from Android via NanoRuntimeApi.
+/// Falls back to safe defaults if runtime unavailable.
 class DeviceMetrics {
-  static const _channel = MethodChannel('com.nanoai/device_metrics');
   static bool _available = true;
 
   /// One-shot fetch of all device metrics.
   static Future<DeviceMetricsData> fetch() async {
     if (!_available) return DeviceMetricsData.fallback();
     try {
-      final Map<dynamic, dynamic> raw = await _channel.invokeMethod('getMetrics');
+      final raw = await NanoRuntimeApi.instance.getMetrics();
+      if (raw == null) {
+        _available = false;
+        return DeviceMetricsData.fallback();
+      }
       final m = raw.map((k, v) => MapEntry(k.toString(), v));
       return DeviceMetricsData(
         ramAvailableMb: (m['ramAvailableMb'] as num?)?.toDouble() ?? 0,
@@ -22,9 +25,6 @@ class DeviceMetrics {
         cpuTempC: (m['cpuTempC'] as num?)?.toDouble(),
         cpuCores: (m['cpuCores'] as int?) ?? 0,
       );
-    } on MissingPluginException {
-      _available = false;
-      return DeviceMetricsData.fallback();
     } catch (_) {
       return DeviceMetricsData.fallback();
     }

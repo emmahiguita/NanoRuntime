@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/services.dart';
+import 'nano_runtime_api.dart';
 
 /// Servicio de información de hardware del device.
 ///
@@ -16,10 +16,12 @@ class HardwareInfoService {
   /// Obtiene identidad real del device desde la plataforma.
   Future<void> fetchDeviceIdentity() async {
     try {
-      const ch = MethodChannel('com.nanoai/device_metrics');
-      _devId = Map<String, dynamic>.from(
-        await ch.invokeMethod('getDeviceIdentity') as Map? ?? {},
-      );
+      final raw = await NanoRuntimeApi.instance.getDeviceIdentity();
+      if (raw == null) {
+        _devId = null;
+        return;
+      }
+      _devId = raw.map((k, v) => MapEntry(k.toString(), v));
     } catch (_) {
       _devId = null;
     }

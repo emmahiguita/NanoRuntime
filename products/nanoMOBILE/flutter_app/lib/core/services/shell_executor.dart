@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'nano_runtime_api.dart';
 import 'rootfs_manager.dart';
 import 'nanoshell_ffi.dart';
 import 'rootfs_env.dart';
@@ -26,8 +27,6 @@ import '../../features/terminal/i_bin_executor.dart';
 /// no funcionarÃ¡n â€” pero todo lo demÃ¡s (compiladores, curl, git, pip,
 /// compilaciones largas) emite output en tiempo real.
 class ShellExecutor implements IBinExecutor {
-  static const _channel = MethodChannel('com.nanoai/exec_bin');
-
   final RootfsManager _rootfs;
 
   String? _baseDir; // files/nano/
@@ -60,7 +59,7 @@ class ShellExecutor implements IBinExecutor {
 
     // 1. Obtener directorio base (files/nano/).
     try {
-      _baseDir = await _channel.invokeMethod<String>('getFilesDir');
+      _baseDir = await NanoRuntimeApi.instance.getFilesDir();
     } catch (_) {
       // Fallback: sin channel (tests, desktop). Nanoshell aÃºn puede funcionar
       // si conocemos el path del app sandbox.
@@ -90,8 +89,8 @@ class ShellExecutor implements IBinExecutor {
     try {
       await _extractAsset('assets/bin/bash', '$_assetBinDir/bash');
       await _extractAsset('assets/bin/toybox', '$_assetBinDir/toybox');
-      await _channel.invokeMethod('makeExecutable', '$_assetBinDir/bash');
-      await _channel.invokeMethod('makeExecutable', '$_assetBinDir/toybox');
+      await NanoRuntimeApi.instance.makeExecutable('$_assetBinDir/bash');
+      await NanoRuntimeApi.instance.makeExecutable('$_assetBinDir/toybox');
       await _setupBusyBoxSymlinks();
     } catch (_) {
       // Sin assets: solo se pierde el fallback Process.start().
@@ -295,12 +294,7 @@ class ShellExecutor implements IBinExecutor {
       _running.remove(proc);
       // Fallback a probeExec nativo (sin streaming, captura completa)
       try {
-        final map =
-            await _channel.invokeMethod('probeExec', {
-                  'path': command,
-                  'args': args,
-                })
-                as Map?;
+        final map = await NanoRuntimeApi.instance.probeExec(command, args);
         if (map != null) {
           final out = (map['out'] as String? ?? '');
           final err = (map['err'] as String? ?? '');
@@ -578,16 +572,12 @@ class ShellExecutor implements IBinExecutor {
           effectiveEnv['NANO_ROOTFS'] = _baseDir!;
         }
       }
-      final resp = await _channel.invokeMethod<Map<dynamic, dynamic>>(
-        'workerSpawn',
-        {
-          'binaryPath': binaryPath,
-          'argv': [binaryPath, ...args],
-          'envp': effectiveEnv,
-          'ldPreload': ldPreload,
-        },
+      final taskId = await NanoRuntimeApi.instance.workerSpawn(
+        binaryPath: binaryPath,
+        argv: [binaryPath, ...args],
+        envp: effectiveEnv,
+        ldPreload: ldPreload,
       );
-      final taskId = resp?['taskId'] as String?;
       if (taskId == null) return null;
       // Esperar a que el worker escriba los archivos de resultado.
       final base = _baseDir ?? '/data/data/dev.nanoai.mobile/files/nano';
@@ -601,7 +591,7 @@ class ShellExecutor implements IBinExecutor {
       }
       if (!rcF.existsSync()) {
         try {
-          await _channel.invokeMethod('workerKill');
+          await NanoRuntimeApi.instance.workerKill();
         } catch (_) {}
         return const ShellResult(
           stdout: '',

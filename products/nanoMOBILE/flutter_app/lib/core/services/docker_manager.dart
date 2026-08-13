@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+
+import 'nano_runtime_api.dart';
 import 'proot_manager.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
@@ -19,7 +20,6 @@ import '../../features/terminal/i_bin_executor.dart';
 /// Compatible con imágenes ARM64 (aarch64). Las imágenes multi-arch
 /// seleccionan automáticamente la variante ARM64.
 class DockerManager {
-  static const _channel = MethodChannel('com.nanoai/exec_bin');
   static const _registryAuth = 'https://auth.docker.io/token';
   static const _registry = 'https://registry-1.docker.io';
 
@@ -44,7 +44,7 @@ class DockerManager {
 
   Future<void> init() async {
     try {
-      final base = await _channel.invokeMethod<String>('getFilesDir');
+      final base = await NanoRuntimeApi.instance.getFilesDir();
       if (base != null && base.isNotEmpty) {
         _containersDir = '$base/containers';
         Directory(_containersDir!).createSync(recursive: true);

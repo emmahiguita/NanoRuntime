@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+
+import 'nano_runtime_api.dart';
 
 /// Gestiona la instalación del rootfs Termux (bootstrap-aarch64.zip) en el
 /// directorio privado de la app (`files/nano/`).
@@ -12,8 +13,6 @@ import 'package:flutter/services.dart';
 /// Después de instalar, ShellExecutor redirige sus paths a files/nano/usr/bin/
 /// y el terminal usa un entorno Linux real con bash, coreutils, apt, dpkg...
 class RootfsManager {
-  static const _channel = MethodChannel('com.nanoai/exec_bin');
-
   /// Instancia global compartida. main.dart (auto-bootstrap al arrancar) y
   /// el terminal (ShellExecutor) usan la MISMA instancia: evita descargas
   /// duplicadas y mantiene el estado de instalación sincronizado.
@@ -43,11 +42,7 @@ class RootfsManager {
   Future<bool> checkInstalled() async {
     if (_usrDir == null) await _resolveDirs();
     try {
-      final ok = await _channel.invokeMethod<bool>(
-        'isBootstrapInstalled',
-        _usrDir,
-      );
-      _installed = ok ?? false;
+      _installed = await NanoRuntimeApi.instance.isBootstrapInstalled(_usrDir!);
       return _installed;
     } catch (_) {
       _installed = false;
@@ -97,7 +92,7 @@ class RootfsManager {
 
     try {
       // 1. Descargar bootstrap-aarch64.zip a files/nano/
-      await _channel.invokeMethod('downloadBootstrap', bootstrapUrl);
+      await NanoRuntimeApi.instance.downloadBootstrap(bootstrapUrl);
       onProgress?.call('download', 100);
 
       // 2. Extraer en files/nano/usr/ → crea usr/bin/, usr/lib/, etc.
@@ -129,23 +124,14 @@ class RootfsManager {
     }
   }
 
-  /// Extracción vía channel Kotlin (fallback sin Nanoshell).
-  Future<int> _extractKotlin(String zipPath, String baseDir) async {
-    final result = await _channel.invokeMethod('extractBootstrap', {
-      'zipPath': zipPath,
-      'destDir': baseDir,
-    });
-    if (result is Map) {
-      final v = result['filesExtracted'];
-      return v is int ? v : 0;
-    }
-    return 0;
-  }
+  /// Extracción vía runtime Kotlin (fallback sin Nanoshell).
+  Future<int> _extractKotlin(String zipPath, String baseDir) =>
+      NanoRuntimeApi.instance.extractBootstrap(zipPath, baseDir);
 
-  /// Resuelve files/nano/ (getFilesDir del MethodChannel) y deriva usrDir.
+  /// Resuelve files/nano/ (getFilesDir del runtime) y deriva usrDir.
   Future<void> _resolveDirs() async {
     try {
-      final base = await _channel.invokeMethod<String>('getFilesDir');
+      final base = await NanoRuntimeApi.instance.getFilesDir();
       if (base != null && base.isNotEmpty) {
         _usrDir = '$base/usr';
       }

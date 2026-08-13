@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/services.dart';
+
+import 'nano_runtime_api.dart';
 import 'proot_manager.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
@@ -13,8 +14,6 @@ import '../../features/terminal/i_bin_executor.dart';
 ///   3. kali shell → lanza bash dentro de Kali vía proot
 ///   4. kali run <cmd> → ejecuta un comando dentro de Kali
 class KaliManager {
-  static const _channel = MethodChannel('com.nanoai/exec_bin');
-
   /// Kali ARM64 minimal rootfs (basado en Debian, ~200MB).
   /// URL del build oficial de Kali NetHunter para ARM64.
   static const rootfsUrl =
@@ -63,10 +62,7 @@ class KaliManager {
 
     try {
       // 1. Descargar rootfs (~200 MB)
-      await _channel.invokeMethod('downloadFile', {
-        'url': rootfsUrl,
-        'destPath': tarball,
-      });
+      await NanoRuntimeApi.instance.downloadFile(rootfsUrl, tarball);
       onProgress('download', 100);
 
       // Verify SHA256 checksum if configured
@@ -168,7 +164,7 @@ class KaliManager {
 
   Future<void> _resolveDirs() async {
     try {
-      final base = await _channel.invokeMethod<String>('getFilesDir');
+      final base = await NanoRuntimeApi.instance.getFilesDir();
       if (base != null && base.isNotEmpty) {
         _distDir = '$base/distros';
         _kaliRoot = '$_distDir/kali';

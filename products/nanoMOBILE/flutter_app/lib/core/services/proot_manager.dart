@@ -1,5 +1,7 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
+import 'nano_runtime_api.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
 /// Ejecuta comandos dentro de un rootfs aislado usando proot (chroot sin root).
@@ -17,8 +19,6 @@ import '../../features/terminal/i_bin_executor.dart';
 ///   proot -r <rootfs> -b /dev -b /proc -b /sys -b /data/data/<app>/files/nano/usr:/usr/termux \
 ///     -w /root /usr/bin/env -i HOME=/root PATH=/usr/bin:/bin /bin/bash -c "<cmd>"
 class ProotManager {
-  static const _channel = MethodChannel('com.nanoai/exec_bin');
-
   final IBinExecutor _shell;
   String? _prootPath;
   bool _ready = false;
@@ -30,7 +30,7 @@ class ProotManager {
   Future<void> init() async {
     if (_ready) return;
     try {
-      final binDir = await _channel.invokeMethod<String>('getFilesDir');
+      final binDir = await NanoRuntimeApi.instance.getFilesDir();
       if (binDir == null || binDir.isEmpty) return;
 
       final dest = '$binDir/proot';
@@ -39,7 +39,7 @@ class ProotManager {
         final data = await rootBundle.load('assets/bin/proot');
         await f.writeAsBytes(data.buffer.asUint8List());
       }
-      await _channel.invokeMethod('makeExecutable', dest);
+      await NanoRuntimeApi.instance.makeExecutable(dest);
       _prootPath = dest;
       _ready = true;
     } catch (_) {

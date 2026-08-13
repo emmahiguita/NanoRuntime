@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
 
+import 'nano_runtime_api.dart';
 import 'terminal_audit_logger.dart';
 
 /// Interfaz PTY para terminales interactivos (vim, htop, python, bash -i).
@@ -25,7 +26,7 @@ import 'terminal_audit_logger.dart';
 /// ses.close();
 /// ```
 class PtySession {
-  static const ch = MethodChannel('com.nanoai/pty');
+  static NanoRuntimeApi get _runtime => NanoRuntimeApi.instance;
 
   final int _id;
   final StreamController<Uint8List> _out = StreamController.broadcast();
@@ -62,13 +63,13 @@ class PtySession {
       data: {'rows': rows, 'cols': cols, 'ldPreload': ldPreload ?? ''},
     );
     final sw = Stopwatch()..start();
-    final id = await (ch.invokeMethod<num?>('ptySpawn', {
-      'argv': argv,
-      'envp': env ?? const {},
-      'ldPreload': ldPreload,
-      'rows': rows,
-      'cols': cols,
-    }));
+    final id = await _runtime.ptySpawn(
+      argv: argv,
+      envp: env ?? const {},
+      ldPreload: ldPreload,
+      rows: rows,
+      cols: cols,
+    );
     if (id == null || id == 0) {
       throw StateError('ptySpawn falló (argv=${argv.join(" ")})');
     }
@@ -147,10 +148,7 @@ class PtySession {
       for (var i = 0; i < 8; i++) {
         if (_closed) break;
         try {
-          final data = await ch.invokeMethod<Uint8List?>('ptyRead', {
-            'id': _id,
-            'maxBytes': 4096,
-          });
+          final data = await _runtime.ptyRead(_id);
           if (_closed) break;
           if (data == null || data.isEmpty) break;
           if (!_out.isClosed) _out.add(data);
@@ -177,9 +175,9 @@ class PtySession {
       if (_closed) return;
       if (_lastAlive == 1) {
         try {
-          final alive = await ch.invokeMethod<int>('ptyIsAlive', {'id': _id});
+          final alive = await _runtime.ptyIsAlive(_id);
           if (_closed) return;
-          _lastAlive = alive ?? 1;
+          _lastAlive = alive;
           if (alive == 0) {
             _logger?.event(
               'pty.done',
@@ -224,11 +222,7 @@ class PtySession {
       data: {'sessionId': _id},
     );
     final written =
-        await ch.invokeMethod<int>('ptyWrite', {
-          'id': _id,
-          'data': Uint8List.fromList(bytes),
-        }) ??
-        0;
+        await _runtime.ptyWrite(_id, Uint8List.fromList(bytes));
     _logger?.event(
       'pty.write.ok',
       layer: 'pty',
@@ -243,7 +237,7 @@ class PtySession {
   Future<void> resize(int rows, int cols) async {
     if (_closed) return;
     _validateSize(rows, cols);
-    await ch.invokeMethod('ptyResize', {'id': _id, 'rows': rows, 'cols': cols});
+    await _runtime.ptyResize(_id, rows, cols);
     _logger?.event(
       'pty.resize.ok',
       layer: 'pty',
@@ -255,7 +249,7 @@ class PtySession {
   /// Envía una señal (por defecto SIGINT) al proceso hijo.
   Future<void> signal([int sig = 2]) async {
     if (_closed) return;
-    await ch.invokeMethod('ptyKill', {'id': _id, 'signal': sig});
+    await _runtime.ptyKill(_id, signal: sig);
     _logger?.event(
       'pty.signal.ok',
       layer: 'pty',
@@ -284,7 +278,7 @@ class PtySession {
     _closed = true;
     _poll?.cancel();
     try {
-      await ch.invokeMethod('ptyClose', {'id': _id});
+      await _runtime.ptyClose(_id);
       _logger?.event(
         'pty.close.ok',
         layer: 'pty',
