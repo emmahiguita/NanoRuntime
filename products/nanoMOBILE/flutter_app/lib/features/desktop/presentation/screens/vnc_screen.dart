@@ -666,6 +666,10 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   bool _ctrlSticky = false;
   bool _altSticky = false;
 
+  // U-6: fila de teclas plegable — colapsada por defecto para no tapar
+  // el framebuffer; se expande con el botón de teclado de la barra.
+  bool _barExpanded = false;
+
   void _sendQuickKey(int keysym) {
     _client?.sendKeyEvent(keysym, true);
     _client?.sendKeyEvent(keysym, false);
@@ -835,6 +839,9 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                 child: Center(
                   child: _MouseControlBar(
                     zoom: _zoom,
+                    expanded: _barExpanded,
+                    onToggleExpanded: () =>
+                        setState(() => _barExpanded = !_barExpanded),
                     onLeftClick: _sendLeftClick,
                     onRightClick: _sendRightClick,
                     onWheelUp: () => _sendWheel(true),
@@ -1103,7 +1110,11 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     alignment: Alignment.bottomCenter,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
+                      // U-6: con la fila de teclas expandida la toolbar tapa
+                      // este texto; se oculta para no quedar a medias.
+                      child: _barExpanded
+                          ? const SizedBox.shrink()
+                          : Text(
                         'Touchpad: arrastra para mover · tap = clic',
                         style: TextStyle(
                           fontFamily: 'Inter',
@@ -1139,6 +1150,8 @@ class _MouseControlBar extends StatelessWidget {
   final VoidCallback onToggleCtrl;
   final VoidCallback onToggleAlt;
   final double zoom;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
 
   const _MouseControlBar({
     required this.onLeftClick,
@@ -1154,14 +1167,23 @@ class _MouseControlBar extends StatelessWidget {
     required this.onToggleCtrl,
     required this.onToggleAlt,
     required this.zoom,
+    required this.expanded,
+    required this.onToggleExpanded,
   });
 
   @override
   Widget build(BuildContext context) {
+    // U-6: ancho fijo al 94% de la pantalla (máx 1200). Medido en device
+    // 1080px @3.0: 8 botones de 44dp = 352dp + separadores + padding ~370dp,
+    // caben en los ~380dp disponibles. El tope anterior (720) hacía desbordar
+    // el Row y el toggle de teclado quedaba fuera de pantalla — inaccesible.
+    final barWidth = math.min(MediaQuery.sizeOf(context).width * 0.94, 1200.0);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      width: barWidth,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22).withValues(alpha: 0.88),
+        color: const Color(0xFF161B22).withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: const [
@@ -1172,47 +1194,46 @@ class _MouseControlBar extends StatelessWidget {
           ),
         ],
       ),
-      // FittedBox scaleDown: con textScaler grande o pantallas angostas la
-      // fila de 8 botones desbordaba y el último ("Zoom 100%") quedaba
-      // cortado por el borde. scaleDown encoge la barra completa sin
-      // recortar ningún control.
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Fila 1: mouse/rueda/zoom + toggle de teclado. Siempre visible.
+          Row(
+            children: [
+              _barButton(Icons.mouse_rounded, 'Clic izquierdo', onLeftClick),
+              _barButton(Icons.ads_click_rounded, 'Clic derecho', onRightClick),
+              _separator(),
+              _barButton(Icons.arrow_upward_rounded, 'Rueda arriba', onWheelUp),
+              _barButton(Icons.arrow_downward_rounded, 'Rueda abajo', onWheelDown),
+              _separator(),
+              _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
+              _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
+              _barButton(
+                Icons.zoom_out_map_rounded,
+                'Zoom 100%',
+                zoom > 1.0 ? onResetZoom : null,
+              ),
+              const Spacer(),
+              _barButton(
+                Icons.keyboard_rounded,
+                expanded ? 'Ocultar teclas' : 'Mostrar teclas',
+                onToggleExpanded,
+                highlighted: expanded,
+              ),
+            ],
+          ),
+          // Fila 2: teclas rápidas X11 — el IME móvil no trae Esc/Tab/Ctrl/
+          // Alt/flechas; sin ellas no hay Ctrl+C ni diálogo cerrable.
+          // Plegable (U-6): colapsada no tapa el framebuffer.
+          if (expanded) ...[
+            const SizedBox(height: 6),
             Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Grupo Mouse: clics
-                _barButton(Icons.mouse_rounded, 'Clic izquierdo', onLeftClick),
-                _barButton(Icons.ads_click_rounded, 'Clic derecho', onRightClick),
-                _separator(),
-                // Grupo Rueda: scroll RFB
-                _barButton(Icons.arrow_upward_rounded, 'Rueda arriba', onWheelUp),
-                _barButton(Icons.arrow_downward_rounded, 'Rueda abajo', onWheelDown),
-                _separator(),
-                // Grupo Vista: zoom
-                _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
-                _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
-                _barButton(
-                  Icons.zoom_out_map_rounded,
-                  'Zoom 100%',
-                  zoom > 1.0 ? onResetZoom : null,
-                ),
-              ],
-            ),
-            // U-3: teclas rápidas X11 — el IME móvil no trae Esc/Tab/Ctrl/
-            // Alt/flechas; sin ellas no hay Ctrl+C ni diálogo cerrable.
-            Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 _keyChip('Esc', () => onQuickKey(0xFF1B)),
                 _keyChip('Tab', () => onQuickKey(0xFF09)),
                 _keyChip('Ctrl', onToggleCtrl, active: ctrlActive),
                 _keyChip('Alt', onToggleAlt, active: altActive),
                 _keyChip('↵', () => onQuickKey(0xFF0D)),
-                _separator(),
                 _keyChip('←', () => onQuickKey(0xFF51)),
                 _keyChip('↑', () => onQuickKey(0xFF52)),
                 _keyChip('↓', () => onQuickKey(0xFF54)),
@@ -1220,52 +1241,76 @@ class _MouseControlBar extends StatelessWidget {
               ],
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _separator() => Container(
         width: 1,
-        height: 26,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
+        height: 28,
+        margin: const EdgeInsets.symmetric(horizontal: 1),
         color: Colors.white.withValues(alpha: 0.14),
       );
 
-  Widget _barButton(IconData icon, String tooltip, VoidCallback? onTap) {
+  Widget _barButton(
+    IconData icon,
+    String tooltip,
+    VoidCallback? onTap, {
+    bool highlighted = false,
+  }) {
     final enabled = onTap != null;
     return IconButton(
       onPressed: onTap,
       icon: Icon(
         icon,
-        color: enabled ? Colors.white70 : Colors.white24,
-        size: 20,
+        color: highlighted
+            ? const Color(0xFF2DD4BF)
+            : enabled
+                ? Colors.white70
+                : Colors.white24,
+        size: 24,
       ),
       tooltip: tooltip,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      // 40x40 = 120px reales @3.0, piso táctil práctico. Flutter 3.38 (M3):
+      // el tap target va en el style — sin shrinkWrap el IconButton impone
+      // 48dp por encima de los constraints. Medido en device 1080px: con
+      // 44dp la fila (8 botones) desbordaba y el toggle de teclado quedaba
+      // cortado a 81px; con 40dp caben los 8 completos.
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
       padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(40, 40),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.zero,
+      ),
     );
   }
 
+  // Chip de tecla expandido uniformemente: ancho real de ~100px en 1080 de
+  // pantalla, altura táctil 44. Nada de texto de 12px apretado.
   Widget _keyChip(String label, VoidCallback onTap, {bool active = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-      child: Material(
-        color: active
-            ? const Color(0xFF2DD4BF).withValues(alpha: 0.22)
-            : Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: active ? const Color(0xFF2DD4BF) : Colors.white70,
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Material(
+          color: active
+              ? const Color(0xFF2DD4BF).withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              alignment: Alignment.center,
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: active ? const Color(0xFF2DD4BF) : Colors.white,
+                ),
               ),
             ),
           ),
