@@ -277,6 +277,16 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Lanza una app gráfica del escritorio (allowlist nativa).
+  Future<bool> launchApp(String app) async {
+    try {
+      return await _exec.invokeMethod<bool>('launchApp', {'app': app}) == true;
+    } catch (e) {
+      debugPrint('[runtime] launchApp($app) error: $e');
+      return false;
+    }
+  }
+
   Future<Map<dynamic, dynamic>?> getDesktopStatus() async {
     try {
       return await _exec.invokeMethod<Map<dynamic, dynamic>>(

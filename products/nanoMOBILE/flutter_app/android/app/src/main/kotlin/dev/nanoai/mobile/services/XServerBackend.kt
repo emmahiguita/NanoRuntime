@@ -80,6 +80,10 @@ class InternalXvncBackend(
             "-SecurityTypes", "None",
             "-localhost", "yes",
             "-listen", "tcp",
+            // DPI móvil: hace que las apps Xft/GTK escalen fuentes y widgets
+            // (110 = 1.15x sobre 96). Flag verificado con `Xvnc -help` en el
+            // rootfs (soportado por el binario TigerVNC de Termux).
+            "-dpi", "110",
         )
         // NOTA (evidencia device 2026-08-12): este binario Xvnc de Termux NO
         // soporta "-kb" — "Unrecognized option: -kb" y exit 1 antes de abrir

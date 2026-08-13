@@ -98,6 +98,16 @@ class DesktopController(
     }
 
     /**
+     * Lanza una app gráfica del escritorio (allowlist estricta en
+     * DesktopSessionManager: aterm/pcmanfm/mousepad/feh). Retorna false si
+     * el desktop no está corriendo o el binario no existe.
+     */
+    fun launchApp(app: String): Boolean {
+        val session = synchronized(lock) { activeSession }
+        return session?.launchApp(app) ?: false
+    }
+
+    /**
      * Retorna el estado actual del servidor.
      */
     fun getStatus(callback: (Map<String, Any?>) -> Unit) {

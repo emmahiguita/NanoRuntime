@@ -86,6 +86,11 @@ class NativeRuntimeSupervisor(
         desktopController.stop()
     }
 
+    fun launchApp(app: String): Boolean {
+        ensureRunning()
+        return desktopController.launchApp(app)
+    }
+
     fun getDesktopStatus(callback: (Map<String, Any?>) -> Unit) {
         desktopController.getStatus(callback = callback)
     }

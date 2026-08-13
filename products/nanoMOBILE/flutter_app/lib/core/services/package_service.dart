@@ -103,4 +103,15 @@ class PackageService {
       debugPrint('[desktop] stopDesktop error: $e');
     }
   }
+
+  /// Lanza una app gráfica sobre el escritorio proyectado.
+  /// El lado nativo valida contra allowlist (aterm/pcmanfm/mousepad/feh).
+  Future<bool> launchApp(String app) async {
+    try {
+      return await _runtime.launchApp(app);
+    } catch (e) {
+      debugPrint('[desktop] launchApp($app) error: $e');
+      return false;
+    }
+  }
 }

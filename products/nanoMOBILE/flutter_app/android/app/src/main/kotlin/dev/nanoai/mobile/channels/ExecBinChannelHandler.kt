@@ -46,6 +46,7 @@ class ExecBinChannelHandler(
             "installGraphical" -> handleInstallGraphical(result)
             "startDesktop" -> handleStartDesktop(result)
             "stopDesktop" -> handleStopDesktop(result)
+            "launchApp" -> handleLaunchApp(call, result)
             "getDesktopStatus" -> handleGetDesktopStatus(result)
             "downloadBootstrap" -> handleDownloadBootstrap(call, result)
             "extractBootstrap" -> handleExtractBootstrap(call, result)
@@ -234,6 +235,18 @@ class ExecBinChannelHandler(
         ioScope.launch {
             nativeSupervisor.stopDesktop()
             mainHandler.post { result.success(true) }
+        }
+    }
+
+    private fun handleLaunchApp(call: MethodCall, result: MethodChannel.Result) {
+        val app = (call.arguments as? Map<*, *>)?.get("app") as? String
+        if (app == null) {
+            result.error("bad_args", "app requerido", null)
+            return
+        }
+        ioScope.launch {
+            val ok = nativeSupervisor.launchApp(app)
+            mainHandler.post { result.success(ok) }
         }
     }
 

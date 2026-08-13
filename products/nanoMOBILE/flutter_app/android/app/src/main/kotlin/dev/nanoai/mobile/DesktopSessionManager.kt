@@ -92,6 +92,11 @@ class DesktopSessionManager(
             // variable busca en /data/data/com.termux/... y no carga el
             // backend (evidencia device 2026-08-12).
             "GIO_EXTRA_MODULES" to "${usrDir.absolutePath}/lib/gio/modules",
+            // Cursor X11 grande para pantalla táctil móvil (libXcursor lee
+            // XCURSOR_SIZE del entorno; sin xrdb instalado es la vía directa).
+            // Verificado device 2026-08-12: aterm con este env renderiza
+            // cursor 24px en el framebuffer.
+            "XCURSOR_SIZE"     to "24",
         )
     }
 
@@ -142,6 +147,40 @@ class DesktopSessionManager(
     val isBackendAlive get() = backend.isAlive()
 
     fun dispose() = stop()
+
+    /**
+     * Lanza una app gráfica sobre el escritorio proyectado con el env del WM
+     * (mismo display, LD_PRELOAD, GTK env). Allowlist estricta — nunca ejecuta
+     * binarios arbitrarios desde la capa Dart.
+     */
+    fun launchApp(app: String): Boolean {
+        if (!running || lastWmEnv.isEmpty()) {
+            Log.w(TAG, "launchApp($app): desktop no corriendo o env no listo")
+            return false
+        }
+        val (binary, argv) = when (app) {
+            // Fuente Xft 14px verificada device 2026-08-12 (tamaño móvil).
+            "aterm"    -> File(usrDir, "bin/aterm") to listOf(
+                "aterm", "-fn", "xft:DejaVu Sans Mono:pixelsize=14",
+                "-bg", "#0d1117", "-fg", "#00ff9d",
+            )
+            "pcmanfm"  -> File(usrDir, "bin/pcmanfm") to listOf("pcmanfm")
+            "mousepad" -> File(usrDir, "bin/mousepad") to listOf("mousepad")
+            "feh"      -> File(usrDir, "bin/feh") to listOf("feh")
+            else -> {
+                Log.w(TAG, "launchApp: app fuera de allowlist: $app")
+                return false
+            }
+        }
+        if (!isElf(binary)) {
+            Log.w(TAG, "launchApp: $app no existe o no es ELF")
+            return false
+        }
+        binary.setExecutable(true, false)
+        val pid = spawnBg(binary.absolutePath, argv, lastWmEnv)
+        Log.i(TAG, "launchApp($app) PID=$pid")
+        return pid > 0
+    }
 
     // ── Lógica interna (hilo de fondo) ───────────────────────────────────────
 
@@ -212,6 +251,7 @@ class DesktopSessionManager(
         setupTint2Config()
         setupOpenboxMenu()
         setupWallpaper()
+        setupGtkTheme()
 
         // Lanzar openbox
         val openboxBin = File(usrDir, "bin/openbox")
@@ -333,9 +373,13 @@ class DesktopSessionManager(
     }
 
     private fun firstExistingTerminal(): TerminalLaunch? {
+        // Fuente Xft 14px: la "fixed" integrada de Xvnc es ilegible en móvil
+        // (verificado device 2026-08-12: -fn "xft:DejaVu Sans Mono:pixelsize=14"
+        // renderiza con DejaVuSansMono.ttf del rootfs).
+        val bigFont = listOf("-fn", "xft:DejaVu Sans Mono:pixelsize=14")
         val candidates = listOf(
-            TerminalLaunch(File(usrDir, "bin/xterm"), listOf("xterm", "-bg", "#0d1117", "-fg", "#00ff9d")),
-            TerminalLaunch(File(usrDir, "bin/aterm"), listOf("aterm", "-bg", "#0d1117", "-fg", "#00ff9d")),
+            TerminalLaunch(File(usrDir, "bin/xterm"), listOf("xterm") + bigFont + listOf("-bg", "#0d1117", "-fg", "#00ff9d")),
+            TerminalLaunch(File(usrDir, "bin/aterm"), listOf("aterm") + bigFont + listOf("-bg", "#0d1117", "-fg", "#00ff9d")),
             TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal")),
         )
         return candidates.firstOrNull { isElf(it.file) }
@@ -479,24 +523,27 @@ class DesktopSessionManager(
         try {
             val configDir = File(usrDir, "etc/xdg/tint2").also { it.mkdirs() }
             val tint2Rc   = File(configDir, "tint2rc")
-            if (!tint2Rc.exists()) {
-                tint2Rc.writeText("""
-                    panel_position = bottom center horizontal
-                    panel_size = 100% 36
-                    panel_margin = 0 0
-                    panel_background_id = 1
-                    panel_dock = 0
-                    font_shadow = 0
-                    panel_color = #0f141d 100
-                    taskbar_mode = single_desktop
-                    task_text = 1
-                    task_maximum_size = 200 35
-                    clock_enabled = 1
-                    clock_format = %H:%M:%S
-                    clock_font = Monospace 10
-                    clock_color = #00ff9d 100
-                """.trimIndent())
-            }
+            // Siempre se reescribe: versiones previas de la app escribieron
+            // un panel de 36px con fuentes chicas; al existir el archivo, el
+            // guard `if (!exists)` de antes lo dejaba congelado en la versión
+            // vieja. Config móvil: panel alto (46px) y fuentes DejaVu legibles.
+            tint2Rc.writeText("""
+                panel_position = bottom center horizontal
+                panel_size = 100% 46
+                panel_margin = 0 0
+                panel_background_id = 1
+                panel_dock = 0
+                font_shadow = 0
+                panel_color = #0f141d 100
+                taskbar_mode = single_desktop
+                task_text = 1
+                task_maximum_size = 280 44
+                task_font = DejaVu Sans 11
+                clock_enabled = 1
+                clock_format = %H:%M
+                clock_font = DejaVu Sans 12
+                clock_color = #00ff9d 100
+            """.trimIndent())
         } catch (e: Exception) {
             Log.w(TAG, "setupTint2Config: ${e.message}")
         }
@@ -509,14 +556,15 @@ class DesktopSessionManager(
             val homeDir = File(usrDir.parentFile, "home")
             val obDir = File(homeDir, ".config/openbox").also { it.mkdirs() }
             val menuXml = File(obDir, "menu.xml")
-            if (!menuXml.exists()) {
-                menuXml.writeText("""
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <openbox_menu xmlns="http://openbox.org/3.4/menu">
-                      <menu id="root-menu" label="NanoAI">
-                        <item label="Terminal">
-                          <action name="Execute"><execute>aterm -bg #0d1117 -fg #00ff9d</execute></action>
-                        </item>
+            // Siempre se reescribe (mismo motivo que tint2rc): el menú quedó
+            // congelado en la versión sin la fuente Xft grande del aterm.
+            menuXml.writeText("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <openbox_menu xmlns="http://openbox.org/3.4/menu">
+                  <menu id="root-menu" label="NanoAI">
+                    <item label="Terminal">
+                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0d1117 -fg #00ff9d</execute></action>
+                    </item>
                         <item label="Archivos">
                           <action name="Execute"><execute>pcmanfm</execute></action>
                         </item>
@@ -536,10 +584,30 @@ class DesktopSessionManager(
                       </menu>
                     </openbox_menu>
                 """.trimIndent())
-                Log.i(TAG, "openbox menu.xml escrito")
-            }
+            Log.i(TAG, "openbox menu.xml escrito")
         } catch (e: Exception) {
             Log.w(TAG, "setupOpenboxMenu: ${e.message}")
+        }
+    }
+
+    // Tema GTK móvil: fuente DejaVu Sans 14 + tema oscuro para pcmanfm,
+    // mousepad y demás apps GTK3. El DPI viene del servidor X (Xvnc -dpi
+    // 110); esta fuente agranda menús y listas para dedos en pantalla.
+    private fun setupGtkTheme() {
+        try {
+            val gtkDir = File(File(usrDir.parentFile, "home"), ".config/gtk-3.0")
+                .also { it.mkdirs() }
+            val settingsIni = File(gtkDir, "settings.ini")
+            if (!settingsIni.exists()) {
+                settingsIni.writeText("""
+                    [Settings]
+                    gtk-font-name=DejaVu Sans 14
+                    gtk-application-prefer-dark-theme=1
+                """.trimIndent())
+                Log.i(TAG, "GTK settings.ini escrito (fuente 14px, tema oscuro)")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "setupGtkTheme: ${e.message}")
         }
     }
 
