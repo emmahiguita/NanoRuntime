@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,9 +12,9 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 /// Pantalla de control y lanzamiento del escritorio Linux.
 ///
 /// Incluye:
-/// - Temporizador/Cronómetro en vivo (`00:01`, `00:02`...) para medir el tiempo de arranque.
+/// - Temporizador/CronÃ³metro en vivo (`00:01`, `00:02`...) para medir el tiempo de arranque.
 /// - Barra de progreso animada con etapas (25%, 50%, 75%, 100%).
-/// - Transición automática e inmediata al visor gráfico (/desktop/vnc) en cuanto Xvnc responde.
+/// - TransiciÃ³n automÃ¡tica e inmediata al visor grÃ¡fico (/desktop/vnc) en cuanto Xvnc responde.
 class DesktopLaunchScreen extends ConsumerStatefulWidget {
   const DesktopLaunchScreen({super.key});
 
@@ -109,11 +109,11 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
     _desktopReady = desktopStatus.reachable;
 
     if (desktopStatus.failed) {
-      // Etapa real del backend en fallo — el error viene de Xvnc/watchdog,
+      // Etapa real del backend en fallo â€” el error viene de Xvnc/watchdog,
       // no de un timeout inventado.
       _status = 'Fallo al arrancar el escritorio';
       _detail = desktopStatus.lastError ??
-          'El backend gráfico reportó un error. Revisa el log.';
+          'El backend grÃ¡fico reportÃ³ un error. Revisa el log.';
       _stageLabel = 'Error';
       _progress = 0.0;
       return;
@@ -128,12 +128,12 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
     }
 
     // Etapas reales reportadas por DesktopSessionManager (idle/starting/
-    // xvnc/rfb/wm/ready) — en vez de porcentajes inventados.
+    // xvnc/rfb/wm/ready) â€” en vez de porcentajes inventados.
     switch (desktopStatus.stage) {
       case 'starting':
       case 'xvnc':
         _status = 'Iniciando servidor Xvnc';
-        _detail = 'Lanzando backend gráfico nativo...';
+        _detail = 'Lanzando backend grÃ¡fico nativo...';
         _stageLabel = 'Xvnc (60%)';
         _progress = 0.6;
         return;
@@ -168,7 +168,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
     if (_rootfsReady) {
       _status = 'Rootfs listo';
       _detail =
-          'Faltan paquetes X11. El arranque los instalará automáticamente.';
+          'Faltan paquetes X11. El arranque los instalarÃ¡ automÃ¡ticamente.';
       _stageLabel = 'Rootfs (25%)';
       _progress = 0.25;
       return;
@@ -180,7 +180,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
     _progress = 0.0;
   }
 
-  /// Inicia la preparación con animaciones de tiempo y progreso, y navega automáticamente al visor.
+  /// Inicia la preparaciÃ³n con animaciones de tiempo y progreso, y navega automÃ¡ticamente al visor.
   Future<void> _prepareStartAndEnter() async {
     if (_busy) return;
 
@@ -195,7 +195,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
       _progress = 0.15;
       _stageLabel = 'Verificando Rootfs';
       _status = 'Preparando entorno Linux';
-      _detail = 'Verificando estructura de archivos e índices nativos...';
+      _detail = 'Verificando estructura de archivos e Ã­ndices nativos...';
     });
 
     try {
@@ -222,15 +222,15 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
         return;
       }
 
-      // #20: instalar el set gráfico SOLO si falta — antes cada click (y cada
-      // boot vía boot_orchestrator) relanzaba installGraphical() completo.
+      // #20: instalar el set grÃ¡fico SOLO si falta â€” antes cada click (y cada
+      // boot vÃ­a boot_orchestrator) relanzaba installGraphical() completo.
       // graphicalExtras cubre los extras nuevos (dbus/pcmanfm/feh/mousepad):
       // el instalador es idempotente y salta todo lo ya registrado en dpkg.
       final statusBefore = await _pkg.getDesktopStatus();
       if (!statusBefore.installed || !statusBefore.graphicalExtras) {
         setState(() {
           _progress = 0.60;
-          _stageLabel = 'Entorno Gráfico';
+          _stageLabel = 'Entorno GrÃ¡fico';
           _status = 'Instalando Paquetes X11';
           _detail =
               'Descargando Xvnc, Openbox, tint2 y dependencias...';
@@ -240,8 +240,8 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
           _stopStopwatch();
           setState(() {
             _progress = 0.0;
-            _status = 'Entorno gráfico incompleto';
-            _detail = 'Faltan paquetes del entorno gráfico. Reintenta.';
+            _status = 'Entorno grÃ¡fico incompleto';
+            _detail = 'Faltan paquetes del entorno grÃ¡fico. Reintenta.';
           });
           return;
         }
@@ -254,21 +254,24 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
         _detail = 'Arrancando Xvnc y Openbox...';
       });
 
-      // Xvnc arranca con el password VNC persistido (Ajustes → Escritorio).
-      // Vacío = SecurityTypes None (sin auth), como siempre.
+      // Xvnc arranca con el password VNC persistido (Ajustes â†’ Escritorio).
+      // VacÃ­o = SecurityTypes None (sin auth), como siempre.
       // D-1: framebuffer con el aspect del viewport (cap 1920 en backend).
+      // U-9: sizeOf devuelve dp lÃ³gicos; el backend espera pÃ­xeles fÃ­sicos
+      // (ver vnc_screen.dart â€” mismo fix). Sin el factor, Xvnc en 360x800.
       if (!mounted) return;
       final viewport = MediaQuery.sizeOf(context);
+      final dpr = MediaQuery.devicePixelRatioOf(context);
       await _pkg.startDesktop(
         vncPassword: ref.read(settingsProvider).vncPassword,
-        width: viewport.width.round(),
-        height: viewport.height.round(),
+        width: (viewport.width * dpr).round(),
+        height: (viewport.height * dpr).round(),
       );
 
       // startDesktop responde cuando el backend reporta onReady (puerto RFB
       // abierto) o lanza PlatformException(desktop_failed) si Xvnc falla.
       // Sin polling extra: el visor VNC maneja cualquier carrera residual
-      // con su propia reconexión exponencial.
+      // con su propia reconexiÃ³n exponencial.
       _stopStopwatch();
 
       if (mounted) {
@@ -280,7 +283,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
       }
     } catch (e) {
       _stopStopwatch();
-      // El error real del backend (si existe) llega vía DesktopStatus.
+      // El error real del backend (si existe) llega vÃ­a DesktopStatus.
       var detail = '$e';
       try {
         final failedStatus = await _pkg.getDesktopStatus();
@@ -320,8 +323,8 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
   void _openVisor() {
     // Visor VNC interno (RFB 3.8 sobre Xvnc :1). El visor tiene su propio
     // auto-arranque resiliente (_ensureDesktopStarted): si el puerto no
-    // responde, instala rootfs y lanza Xvnc/Openbox él mismo. Aquí solo
-    // navegamos — sin duplicar el flujo de preparación del botón principal.
+    // responde, instala rootfs y lanza Xvnc/Openbox Ã©l mismo. AquÃ­ solo
+    // navegamos â€” sin duplicar el flujo de preparaciÃ³n del botÃ³n principal.
     context.pushReplacement('/desktop/vnc?port=$_port');
   }
 
@@ -329,7 +332,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final bg = colors.background;
-
+    final mobileMode = ref.watch(settingsProvider).desktopMobileMode;
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
@@ -351,7 +354,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
               onDirectVisor: _openVisor,
             ),
             const SizedBox(height: 16),
-            _StatusBadges(
+            if (!mobileMode) _StatusBadges(
               colors: colors,
               rootfsReady: _rootfsReady,
               vncReady: _desktopReady,
@@ -360,7 +363,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
               busy: _busy,
             ),
             const SizedBox(height: 16),
-            _ActionGrid(
+            if (!mobileMode) _ActionGrid(
               colors: colors,
               busy: _busy,
               vncReady: _desktopReady,
@@ -371,6 +374,10 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
             ),
             const SizedBox(height: 20),
             _InfoSection(colors: colors),
+            if (mobileMode) ...[
+              const SizedBox(height: 12),
+              _CompactMobileHint(colors: colors),
+            ],
           ],
         ),
       ),
@@ -407,7 +414,7 @@ class _TopBar extends StatelessWidget {
               ),
             ),
             Text(
-              'Xvnc + Openbox + Terminal Gráfica',
+              'Xvnc + Openbox + Terminal GrÃ¡fica',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
@@ -845,6 +852,41 @@ class _ActionGrid extends StatelessWidget {
   }
 }
 
+class _CompactMobileHint extends StatelessWidget {
+  final NanoColors colors;
+
+  const _CompactMobileHint({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.smartphone_rounded, color: colors.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Modo móvil activo: la pantalla prioriza el visor y reduce acciones repetidas.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                height: 1.35,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _InfoSection extends StatelessWidget {
   final NanoColors colors;
 
@@ -869,8 +911,8 @@ class _InfoSection extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Xvnc interno proyecta Openbox en el puerto 5901 vía RFB 3.8. '
-              'El visor integrado muestra el escritorio en tiempo real con control táctil y teclado.',
+              'Xvnc interno proyecta Openbox en el puerto 5901 vÃ­a RFB 3.8. '
+              'El visor integrado muestra el escritorio en tiempo real con control tÃ¡ctil y teclado.',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
@@ -884,3 +926,10 @@ class _InfoSection extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+

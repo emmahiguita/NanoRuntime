@@ -45,6 +45,7 @@
 #include <limits.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/shm.h>
 
 // ── State ──
 
@@ -747,6 +748,20 @@ int rename(const char* oldpath, const char* newpath) {
     const char* o = (r1 == 1) ? new_old : oldpath;
     const char* n = (r2 == 1) ? new_new : newpath;
     return real_rename(o, n);
+}
+
+// ── Intercept: shmget ──
+// Kernels Android compilan con CONFIG_SYSVIPC=n: shmget (syscall arm64 194)
+// devuelve ENOSYS. ColorOS ademas aplica seccomp a los procesos de la app
+// que convierte esa syscall en SIGSYS y mata el proceso (lxterminal/gtk3
+// muere via libGLX_mesa y libcairo, ambos usan MIT-SHM). Toda la cadena
+// GTK/cairo maneja ENOSYS con fallback limpio (verificado: sin seccomp el
+// mismo binario renderiza bien). Devolvemos ENOSYS sin llamar al kernel.
+
+int shmget(key_t key, size_t size, int shmflg) {
+    (void)key; (void)size; (void)shmflg;
+    errno = ENOSYS;
+    return -1;
 }
 
 // ── Intercept: bind ──

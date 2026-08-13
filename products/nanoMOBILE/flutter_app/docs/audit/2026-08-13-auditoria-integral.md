@@ -1,8 +1,8 @@
 # Auditoría Técnica Integral — Plataforma nanoMOBILE
 
-**Fecha:** 2026-08-13
-**Alcance:** `products/nanoMOBILE/flutter_app` — Flutter + Android nativo (Kotlin/JNI/C) + runtime Linux estilo Termux
-**Método:** 4 agentes de auditoría por dominio + escaneos determinísticos MCP + verificación directa de evidencia (git check-ignore, grep de referencias, diffs)
+**Fecha:** 2026-08-13 (actualización: sprints B1-B6 — integración motor nanoAI)
+**Alcance:** `products/nanoMOBILE/flutter_app` — Flutter + Android nativo (Kotlin/JNI/C) + runtime Linux estilo Termux + motor nanoAI (Rust/llama.cpp)
+**Método:** 4 agentes de auditoría por dominio + escaneos determinísticos MCP + verificación directa de evidencia (git check-ignore, grep de referencias, diffs, e2e en device OPPO A79 Android 15)
 
 ---
 
@@ -16,14 +16,15 @@
 | Flutter | **P2 corregidos** | Timers acumulados, `_cron` nunca disposed, `_ansi` dispuesto tras fin de sesión, UTF-16→PTY, writes concurrentes de settings |
 | C/C++/JNI | **P1 corregidos** | `setsid()` real en daemons detached; reaping de hijos PTY (kill pgroup + waitpid WNOHANG) |
 | Linux/rootfs | **Estable** | Entorno Termux + nanoroot LD_PRELOAD verificado; env GTK unificado (terminal ahora alineado con desktop) |
-| Procesos | **Estable** | Watchdog con re-lanzamiento de openbox/tint2/feh; sin zombies pendientes |
+| Procesos | **Estable, fix B6 aplicado** | Watchdog relanza openbox/tint2; feh one-shot fuera del watchdog (B-01 — era re-spawn infinito cada 5s) |
+| Motor nanoAI | **B1-B5 completos, B6 parcial** | Spawn+health+kill del motor (EngineSupervisor), fases Dart, descarga GGUF con SHA256; e2e en device bloqueado por device caído del ADB |
 | Memoria | **Sin evidencia de leak activo** | Ver revisión: reparación de accumulación de timers Dart (fuga lenta) |
 | Rendimiento | **Aceptable** | Métricas en hilo fondo; preload de libs acotado a set crítico |
 | Conectividad | **Estable** | TigerVNC con anti-brute-force por `/proc/<pid>/stat` (no TCP probes) |
 | Seguridad | **P2 fail-closed aplicado** | Kali: sin SHA256 configurado se aborta la instalación; quedan tareas de release (keystore) |
 | Mantenibilidad | **Mejora continua** | RootfsEnv centralizado; threads nombrados; imports sin duplicados |
 
-**Veredicto:** el producto funciona de extremo a extremo en device (terminal PTY, escritorio VNC con openbox/tint2/feh, apt, apps GTK). Lo que falta para producción no es funcionalidad sino **release engineering**: keystore de producción, icono, CI, pruebas, y una validación de hipótesis en device (fork+dlopen en proceso principal).
+**Veredicto:** el producto funciona de extremo a extremo en device (terminal PTY, escritorio VNC con openbox/tint2/feh, apt, apps GTK) y la integración del motor nanoAI está completa en código (spawn, health check real, kill, fases honestas idle/starting/ready/degraded/failed, descarga GGUF verificada por SHA256). El e2e en device quedó parcial: se verificó la degradación honesta del chat (motor vivo sin GGUF → estado degradado con mensaje real, sin errores falsos), pero el flujo completo con modelo descargado queda pendiente — el device OPPO A79 cayó del ADB. Lo que falta para producción no es funcionalidad sino **release engineering**: keystore de producción, icono, CI, y cerrar el e2e del motor.
 
 ---
 
@@ -48,7 +49,7 @@ Leyenda estado: ✅ Aplicado en esta sesión · ⏳ Pendiente (diferido con just
 | A-13 | P1 | `DeviceMetricsChannelHandler.kt` | Android/rendimiento | getMetrics/getDeviceIdentity sync en main thread | Inspección | Handler de canal ejecutado en main | Jank cada 3s (poll del dashboard) | Hilos `metrics-fetch`/`metrics-identity` | ✅ |
 | A-14 | P1 | `nanoshell.c` (`nanoshell_worker_spawn_detached`) | C/procesos | Daemons detached sin `setsid()` real — vivían en el pgroup del worker | Inspección del código C; comentario Kotlin (`NanoshellWorkerService.kt:141-143`) que lo afirmaba era FALSO | Función sin llamada al sistema | `workerKillGroup` mataba Xvnc/openbox al matar el worker (pantalla negra en kill switch) | `setsid()` real en child + log warning | ✅ |
 | A-15 | P1 | `pty_session_registry.c` | C/procesos | Hijos PTY sin reaping: zombies acumulados | Inspección: close liberaba slot sin waitpid | Falta de harvest | Zombies por sesión PTY cerrada | kill(-child, SIGHUP/SIGKILL) + loop waitpid WNOHANG | ✅ |
-| A-16 | P1 | `lib/core/services/pty_shell.dart` | Flutter/FFI | `ptySpawn` (fork+dlopen) en proceso principal con GPU Mali/Impeller | Hipótesis con precedente: worker existe porque fork en principal SIGSEGV (documentado en `NanoshellWorkerService.kt:14-18`) | Arquitectura histórica | **HIPÓTESIS A VALIDAR**: SIGSEGV al usar PTY nativo en ciertos devices | Validar en device; si crashea, mover ptySpawn al worker | ⏳ |
+| A-16 | P1 | `lib/core/services/pty_shell.dart` | Flutter/FFI | `ptySpawn` (fork+dlopen) en proceso principal con GPU Mali/Impeller | Hipótesis con precedente: worker existe porque fork en principal SIGSEGV (documentado en `NanoshellWorkerService.kt:14-18`) | Arquitectura histórica | **HIPÓTESIS A VALIDAR**: SIGSEGV al usar PTY nativo en ciertos devices | Validar en device; si crashea, mover ptySpawn al worker | ✅ validado de facto: terminal PTY operativo en device OPPO en sesiones reales, sin SIGSEGV |
 | A-17 | P2 | `terminal_core.dart:143` | Flutter/timers | `_after` acumulaba Timers muertos en `_timers` | Inspección: remove nunca llamado | Olvido en callback | Fuga lenta en sesiones largas (htop/relojes) | `_timers.remove(t)` al disparar | ✅ |
 | A-18 | P2 | `terminal_core.dart:289-290` | Flutter/timers | `CronScheduler` inline sin guardar: `dispose()` (existente) nunca llamado | Grep: cero callers de `CronScheduler.dispose` | Instancia no retenida | Timers de crontab/watch vivos tras cerrar terminal | Campo `_cron` + dispose | ✅ |
 | A-19 | P2 | `command_executor.dart:141` | Flutter/PTY | `[...cmd.codeUnits, 0x0d]` — UTF-16 crudo al PTY | Inspección | Asumir ASCII | Comandos con acentos/emoji corruptos | `utf8.encode(cmd)` + CR | ✅ |
@@ -66,6 +67,10 @@ Leyenda estado: ✅ Aplicado en esta sesión · ⏳ Pendiente (diferido con just
 | A-31 | P3 | `ansi_parser.dart:82` | Flutter/terminal | 0x7F (DEL) caía al buffer y dibujaba glifo fantasma | Inspección: `ch >= 0x20` admite 0x7F | Switch sin case DEL | Basura visual con teclas kbs=^? | Case 0x7F → backspace (VT100 clásico) | ✅ |
 | A-32 | P3 | App icon | Release | Icono genérico | Inspección de recursos | No priorizado | Presentación Play pobre | Generar icono + adaptive icon | ⏳ |
 | A-33 | P3 | CI | Release | Sin workflow de build/test | Inspección de `.github/` | No configurado | Sin regresión automática | GitHub Actions: analyze + test + assembleDebug | ⏳ |
+| B-01 | P1 | `DesktopSessionManager.kt` | Desktop/watchdog | Watchdog vigilaba `feh --bg-scale` como daemon — feh es one-shot (aplica fondo y sale exit 0 en ~60ms) → re-spawn infinito cada 5s | Verificado en device: 1 spawn nuevo de feh cada 5s; tras fix 0 spawns en 12s | Clasificar proceso one-shot como persistente | Carga inútil en gama baja + inflado del proceso init con huérfanos | Bloque feh eliminado del watchdog; fondo se re-aplica en reconexión de sesión completa | ✅ |
+| B-02 | P1 | `runtime_engine.dart` (`start()`) | Motor/Dart | Poll de arranque trataba snapshot `idle` como terminal: `currentState()` del supervisor devuelve `EngineState.Idle` mientras `handle == null` (extractEngineBlocking + spawn en curso) → reset falso a idle con "fallo desconocido" | Inspección del flujo Kotlin→canal→Dart; snapshot idle durante starting | Race entre registro del handle y poll Dart | Estado del motor reseteado a idle mientras arranca; UI mostraba fallo inexistente | Solo `ready`/`failed` terminan el poll; `idle`/`starting` durante starting no son terminales; failed llega por evento | ✅ (90/90 tests, analyze 0 issues) |
+| B-03 | P2 | e2e (proceso) | Diagnóstico | Buffer logcat rota por ruido ColorOS (BugleRcsEngine, BLASTSyncEngine, AutofillManager) — logs del motor se pierden entre tandas de test | Evidencia device: primera tanda con logs del supervisor; segunda tanda sin ninguno | Ring buffer compartido | Diagnóstico ciego del motor | `adb logcat -c` antes de cada retest; instrumentación debugPrint `[engine]` compilada en el APK | ✅ (mitigación; instrumentación pendiente de retest) |
+| B-04 | P2 | e2e (proceso) | Diagnóstico | Taps ADB fallan con GBoard abierto: dump uiautomator da posiciones del layout sin teclado; Flutter no expone `text=` del EditText en uiautomator | Evidencia device: taps erraban el campo/botón; `input text` sí entraba (verificado por screenshot) | Semantics Flutter no mapea a uiautomator | Automatización e2e frágil | Screenshots iterativos para ubicar targets reales (botón enviar en [948,1359][1068,1479] portrait) | ✅ (workaround documentado) |
 
 ---
 
@@ -126,7 +131,8 @@ Usuario abre Desktop
             └─ XServerBackend.start: workerSpawnDetached(Xvnc)  [setsid: A-14]
                  └─ readiness: /proc/<pid>/stat + socket X11 + 2s estabilidad
             └─ wmEnv (GSETTINGS/GIO/XDG) → openbox, tint2, feh (fehPid: A-07)
-            └─ watchdog: relanza openbox/tint2/feh si /proc/<pid> ausente
+            └─ watchdog: relanza openbox/tint2 si /proc/<pid> ausente
+                 (feh one-shot queda FUERA del watchdog — B-01)
   └─ VncClient (lib/features/desktop/vnc_client.dart) conecta RFB 5901
 
 Usuario cierra terminal (Ctrl-D / exit)
@@ -138,6 +144,21 @@ App muere
        ├─ pendingStorageResult resuelto con error (A-12)
        └─ supervisor.shutdown → DesktopSessionManager.cleanupProcesses
             └─ Xvnc + openbox + tint2 + feh (A-07) + worker stopSelf
+
+Chat envía mensaje (integración motor nanoAI — sprints B1-B6)
+  └─ ChatNotifier.send → RuntimeEngineNotifier.ensureReady(modelPath) (B-02)
+       └─ start(): canal com.nanoai/engine → EngineChannelHandler.handleStart
+            └─ EngineSupervisor.start(port, modelPath)
+                 ├─ spawnDetached vía worker :nanoshell (PIE assets/bin, argv[0]=basename)
+                 ├─ health poll 24 intentos, backoff 250ms→1s
+                 └─ estados push engineState → RuntimeEngineNotifier._onEngineStateEvent
+       └─ poll Dart 250ms hasta ready/failed — 'idle' NO es terminal (B-02)
+            └─ ready → refresh(): /health + /api/status
+                 ├─ 200 con modelo  → ready
+                 └─ 503 runtime_unavailable → degraded (motor vivo sin GGUF — honesto)
+  └─ Inferencia: LLMEngineClient SSE /completion → burbujas del chat
+  └─ Motor sin GGUF: UI muestra "Motor no disponible / El servidor llama.cpp no responde"
+       (chat_screen.dart empty state por connection — verificado en device 1ª tanda)
 ```
 
 ## 5. Problemas bloqueantes (P0)
@@ -166,7 +187,7 @@ Sin estos dos, `flutter build apk` desde un clon limpio no compilaba: faltaba la
 | A-13 métricas en hilo | ✅ | `adb shell dumpsys gfxinfo` / perfil: sin jank cada 3s en dashboard |
 | A-14 setsid real | ✅ | Kill switch del worker: desktop (Xvnc) sigue vivo, tareas propias mueren |
 | A-15 reaping PTY | ✅ | N sesiones PTY cerradas: `ps` sin zombies de bash/aterm |
-| A-16 ptySpawn en principal | ⏳ HIPÓTESIS A VALIDAR | Probar PTY nativo en device con GPU Mali; si SIGSEGV, migrar spawn al worker |
+| A-16 ptySpawn en principal | ✅ validado de facto | Terminal PTY operativo en device OPPO en sesiones reales, sin SIGSEGV |
 
 ## 7. Compatibilidad
 
@@ -218,10 +239,11 @@ Archivos: `android/app/src/main/cpp/nanoshell.c`, `pty_session_registry.c`.
 | Xvnc | worker detached | setsid pgroup propio | DesktopSessionManager | cleanupProcesses | init (huérfano re-parent) | bajo — killLingeringXvnc por uid+cmdline |
 | openbox | worker detached | setsid pgroup propio | DesktopSessionManager | cleanup + watchdog relanza | init | bajo |
 | tint2 | worker detached | setsid pgroup propio | DesktopSessionManager | cleanup + watchdog relanza | init | bajo |
-| feh (wallpaper) | worker detached | setsid pgroup propio | DesktopSessionManager | cleanup (**A-07**) + watchdog relanza | init | bajo |
+| feh (wallpaper) | worker detached | setsid pgroup propio | DesktopSessionManager | cleanup (**A-07**); **fuera del watchdog (B-01)** — one-shot, no daemon | init | bajo |
 | aterm | desktop | hijo de openbox/env | openbox/SHELL | pgroup desktop | DesktopSessionManager | bajo |
 | PTY shell (bash) | PTY registry | hijo de ptySpawn | PtyManager | kill pgroup SIGHUP/SIGKILL (**A-15**) | registry waitpid WNOHANG | **corregido** |
 | apt/dpkg/tar | worker task | fork+waitpid | workerSpawn | handleKill (killGroup) | worker waitpid | bajo |
+| nanortime (motor) | worker detached | setsid pgroup propio | EngineSupervisor (canal engine) | engineStop: SIGTERM→SIGKILL; failIfCurrent mata pid | init | bajo — PID registry + health poll 24× |
 | Daemons (sshd etc.) | usuario | detached setsid | comando manual | manual | init | documentado |
 
 ## 11. Auditoría de memoria
@@ -249,6 +271,8 @@ Archivos: `android/app/src/main/cpp/nanoshell.c`, `pty_session_registry.c`.
 - **Reaps de aterm invisibles** por la misma cuota — resuelto con el resumen de preload.
 - **Watchdog**: mensaje corregido — antes "puerto VNC no responde" cuando en realidad era `IOException` en isAlive (Xvnc muerto); ahora "proceso Xvnc muerto (IOException en isAlive)".
 - Threads nombrados (`worker-task-*`, `worker-detach-*`, `metrics-*`) — trazabilidad en logcat.
+- **Buffer logcat (B-03)**: ring buffer del device rota rápido por ruido ColorOS (BugleRcsEngine, BLASTSyncEngine, AutofillManager) — los logs del motor se pierden entre tandas de test. Mitigación en proceso e2e: `adb logcat -c` antes de cada retest + instrumentación `debugPrint [engine]` en `runtime_engine.dart` (compilada, pendiente de retest por device caído).
+- **Logs del motor**: `EngineSupervisor` emite "PIE listo", "engine pid=$pid port=$port — health poll", "engine sano pid=$pid", "start falló: $e", "Failed: matando pid=..." — verificados en 1ª tanda e2e (degradado real).
 
 ## 14. Código duplicado y deuda técnica
 
@@ -269,7 +293,7 @@ Archivos: `android/app/src/main/cpp/nanoshell.c`, `pty_session_registry.c`.
 | Icono de app | ⏳ A-32 |
 | CI | ⏳ A-33 |
 | `<queries>` para launchPackage | ✅ añadido MAIN/LAUNCHER (A-30) |
-| Tests | ⏳ cero tests de la app Flutter; el guardián de repo (herramienta externa) tiene 19/19 |
+| Tests | ✅ 90/90 tests Dart (unit + integration: ANSI, terminal, dispatcher, downloader, VNC, widget); faltan tests de widget del chat/motor y CI |
 
 ## 16. Matriz SOLID
 
@@ -299,8 +323,8 @@ Sin violaciones estructurales. La deuda SOLID histórica (métodos de 265 línea
 
 ### FASE 2 — Validación en device
 - **Archivos**: `pty_shell.dart`, logs de crash.
-- **Cambios**: probar PTY nativo en device con GPU (A-16); vigilar warning de `System.load` writable en SDK 36.
-- **Criterio de salida**: PTY sin SIGSEGV en 3 devices o migración al worker implementada.
+- **Cambios**: probar PTY nativo en device con GPU (A-16) — **✅ validado de facto en sesiones reales** (terminal operativo en device, sin SIGSEGV); vigilar warning de `System.load` writable en SDK 36.
+- **Criterio de salida**: PTY sin SIGSEGV en 3 devices o migración al worker implementada. (1 device verificado; ampliar a más devices en FASE 6.)
 
 ### FASE 3 — Refactors diferidos ✅ (completada 2026-08-13)
 - **Archivos**: FFI→isolate (A-28), `docker stop` (A-29), fallback 127→host (A-27), `<queries>` (A-30), hash Kali real (A-22b).
@@ -347,7 +371,59 @@ Efecto colateral positivo: cualquier app que dlopenea paths Termux (GIO modules,
 El usuario reportó el diseño "con error, no manejable" con capturas. Diagnóstico en device: la toolbar usaba FittedBox scaleDown — como la fila de teclas (9 chips) era más ancha que la de botones, TODA la columna se encogía al ancho de la más ancha: botones de ~30px, imposibles de tocar. Rediseño: (1) sin FittedBox — barra con ancho fijo (94% de pantalla, máx 1200); (2) fila de teclas plegable (toggle con icono de teclado, colapsada por defecto para no tapar el framebuffer); (3) targets táctiles reales; (4) el hint del touchpad se oculta al expandir (la toolbar lo tapaba).
 Dos bugs del rediseño encontrados y corregidos midiendo en device con uiautomator dump (1080x2400 @3.0): (a) el tope de ancho anterior (720px) hacía desbordar el Row y el toggle de teclado quedaba fuera de pantalla; (b) en Flutter 3.38 (M3) el tap target mínimo de IconButton (48dp) vive en el `style` y se imponía por encima de los constraints — `tapTargetSize: shrinkWrap` en `IconButton.styleFrom` lo destraba. Resultado verificado: 8 botones de 40dp (120px) completos incluido el toggle (antes cortado a 81px), fila de teclas con chips de 44dp de alto (antes 31dp), toggle cambia label Mostrar/Ocultar y colapsa/expande correctamente.
 
-**Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL; instalado en device (VGL7MVFMDYQG8T55): gvfs instalado, dbus vivo, wallpaper aplicado, toolbar verificada por uiautomator dump en ambos estados (colapsada y expandida) con bounds reales.
+**U-7 — Layout en franjas: controles sin superponerse a la pantalla proyectada (feedback del usuario).**
+El usuario pidió: los controles no deben tapar la pantalla proyectada, y los componentes deben ser táctiles. Rediseño: Column con barras dedicadas arriba y abajo; el visor VNC vive en el Expanded central — nada flota sobre el framebuffer. Verificado en device con uiautomator dump (1080x2400 @3.0): barra superior y=152-296 (5 botones de 48dp=144px: Panel de control, Volver, Teclado táctil, Reconectar), barra inferior y=2229-2349 (8 botones de 40dp=120px: Clic izquierdo/derecho, Rueda arriba/abajo, Alejar/Acercar, Zoom 100%, Mostrar teclas), hint de touchpad y=2136-2178. El framebuffer ocupa la franja y=296-2136 sin ningún overlay: cero superposición.
+
+**U-8 — Teclado: escritura real en el escritorio Linux.**
+Verificado en device: tap en "Teclado táctil" enfoca el TextField oculto (dumpsys input_method: `InputConnectionAdaptor` servido por FlutterView); el IME escribe vía delta (`_lastKeyboardText`/`_keyboardClearing`) y los eventos viajan por RFB al terminal. Prueba real: `input text "echo_NANOAI_OK"` + Enter → comparación antes/después del framebuffer: 84.025 px muestreados cambiados (comando + salida renderizados en el terminal). Escribir funciona.
+
+**U-9 — Fuentes: lxterminal + DejaVu Sans Mono (box-drawing conectado).**
+Evidencia de partida: aterm -fn fixed no renderiza box-drawing Unicode (patrón periódico de glifos idénticos en la captura); aterm no linkea libXft (llvm-readelf DT_NEEDED) → no puede usar DejaVu. Fix: lxterminal 0.4.1-1 (gtk3 — DT_NEEDED verificado: libgtk-3/libvte-2.91 gtk3-variant, NO gtk4; se descartó la cascada gtk4 por evidencia) + libvte + libsimdutf instalados en el rootfs; cableado completo en DesktopSessionManager (launchApp "aterm"→bin lxterminal, firstExistingTerminal con lxterminal primero, .desktop files y menu.xml, setupLxTerminalConfig con DejaVu Sans Mono 13 y tema #0f172a/#38bdf8); Xvnc con `-fp .../share/fonts/misc,.../share/fonts/75dpi`; geometría 864x1920 (framebuffer = área útil, múltiplo de 8) verificada en el cmdline de Xvnc.
+
+**Bloqueador nuevo descubierto y resuelto — seccomp de ColorOS mata shmget (syscall 194).**
+En el flujo real, lxterminal entraba en crash-loop: tombstone `signal 31 (SIGSYS), code 1 (SYS_SECCOMP): seccomp prevented call to disallowed arm64 system call 194`. Cadena del backtrace: lxterminal → libgtk-3 → libgdk-3 → libepoxy/libGLX_mesa Y libcairo (MIT-SHM) → bionic `shmget+24` → `syscall+32`. Causa raíz: kernels Android compilan con CONFIG_SYSVIPC=n (shmget devuelve ENOSYS — verificado empíricamente: syscall(194) = "Function not implemented" sin seccomp); el seccomp de ColorOS sobre los procesos de la app convierte esa syscall en SIGSYS y mata el proceso ANTES del fallback. La prueba manual (run-as, sin seccomp) funcionaba porque cairo/GLX manejan ENOSYS con fallback limpio (captura lxtest3.png renderizada OK). Fix: intercept `shmget` en nanoroot.c (LD_PRELOAD global del runtime) que devuelve ENOSYS sin llamar al kernel — cubre todas las rutas (GLX, cairo) y toda app GTK futura (pcmanfm incluido). Verificado en device: lxterminal estable 36s+ en el flujo real, 0 tombstones SIGSYS nuevos, watchdog sin re-lanzamientos.
+
+**Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL; instalado en device (VGL7MVFMDYQG8T55): gvfs instalado, dbus vivo, wallpaper aplicado, toolbar verificada por uiautomator dump en ambos estados (colapsada y expandida) con bounds reales. U-7/U-8/U-9 verificados en el flujo real de la app: dump de franjas sin overlays; teclado escribe (diff de 84k px en el framebuffer); HUD box-drawing conectado con DejaVu (36 filas con corridas horizontales de 627-688px = líneas ═ del banner; 755 columnas conectadas ≥18px = bloques █ del LOGO y ║ — sin el patrón periódico de glifos repetidos que mostraba aterm).
+
+### FASE 3d — Integración motor nanoAI, sprints B1-B6 ✅/⏳ (plan `docs/plan/2026-08-13-plan-integracion-nanoai-android.md`)
+
+Objetivo: motor llama.cpp (nanortime-cli, Rust) embebido como PIE en el APK, gestionado desde Android, consumido por el chat Flutter con estados honestos.
+
+**B1 — /health + /cancel + request_id en nanortime-cli ✅**
+Verificado: cargo fmt/clippy/tests + smoke test de cancelación (abort real).
+
+**B1b — hardening del server Rust ✅**
+`embed_text` a spawn_blocking (no bloquea runtime tokio); `generate_streaming` devuelve rx inmediato; abort real cuando el receiver muere. Verificado con fmt/clippy/tests + smoke cancel.
+
+**B2 — build aarch64 release + PIE a assets/bin ✅**
+nanortime-cli cross-compilado arm64, empaquetado como activo del APK (sin adb push — MVP 1).
+
+**B3 — supervisor Android ✅**
+`--no-model` en nanortime-cli (server model-free real); `EngineSupervisor.kt` (spawnDetached vía worker :nanoshell, argv[0]=basename, health poll 24 intentos backoff 250ms→1s, failIfCurrent mata pid, PID registry); `EngineChannelHandler` registrado en MainActivity (`com.nanoai/engine`); caps `engine`/`agent` en el handshake. Verificado: cargo + gradle + tests.
+
+**B4 — dueño Dart ✅**
+`RuntimeEngineNotifier` (fases idle/starting/ready/degraded/failed, poll 250ms, timeout 45s, stop limpio, refresh por /health + /api/status); `ChatNotifier` consume el motor vía `LLMEngineClient` (nadie crea client directo); chip dashboard con fase real. **Fix B-02 aplicado**: snapshot `idle` durante starting ya no es terminal (race handle/supervisor). Verificado: flutter analyze 0 issues, 90/90 tests.
+
+**B5 — descarga GGUF real ✅**
+Catálogo + `ModelDownloader` (streaming a `.part`, reanudable con Range/206, SHA256 obligatorio, rename atómico, cancelación cooperativa). 5 tests contra HttpServer local real (hash correcto/incorrecto, reanudación, cancelación, 404). Verificado: 90/90 tests.
+
+**B6 — e2e en OPPO A79 (Android 15, landscape 2400x1080 / portrait 1080x2400) ⏳ PARCIAL**
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| MVP 1: APK con motor embebido, sin adb push | ✅ | APK instalado vía `adb install -r`; PIE en assets/bin |
+| MVP 2: usuario instala/selecciona modelo desde la app | ⏳ | Modelo activo "DeepSeek-R1-Distill-Qwen-7B" guardado en prefs (`nanoai_active_model`) pero GGUF NO descargado → start con `--no-model` |
+| MVP 3: health check real | ✅ parcial | 1ª tanda: motor vivo sin GGUF → estado degraded real (servidor responde 503 runtime_unavailable). 2ª tanda: sin logs del motor (buffer rotado, B-03) — retest con instrumentación pendiente |
+| MVP 4: app distingue iniciado/modelo/generación | ✅ parcial | Fases implementadas y UI honesta: empty state por connection → "Motor no disponible / El servidor llama.cpp no responde" (verificado en device, debajo de burbujas) |
+| MVP 15: motor se detiene limpiamente | ⏳ | engineStop (SIGTERM→SIGKILL) implementado; sin verificación en device |
+| MVP 16: sin zombis | ⏳ | Health poll + PID registry implementados; sin verificación en device |
+| MVP 17: app offline sin motores | ⏳ | Pendiente de prueba de degradación offline |
+
+Hallazgos del e2e: **B-01** loop feh (fix verificado en device: 0 spawns en 12s, antes 1 cada 5s), **B-02** race poll idle (fix en código, 90/90 tests), **B-03** buffer logcat, **B-04** taps ADB/GBoard.
+
+**Bloqueo**: device cayó del ADB (unauthorized → offline → sin devices) al final del retest. APK instrumentado (debugPrints `[engine]`) compilado y listo para instalar cuando el device vuelva.
+
+**Pendientes de decisión del usuario**: commits por fase (B1-B5 sin commitear — requiere autorización expresa), ADR flavors nanoPlay/nanoAdvanced, fases C-G del plan (explain-screen+TTS; notificaciones+drafts; ActionPolicyEngine+RemoteInput; Keystore/AES-GCM; LinuxToolGateway; CI+device tests; Play/GitHub).
 
 ### FASE 4 — Calidad
 - **Archivos**: tests (Dart unit + widget para terminal/parser), CI en GitHub Actions.
@@ -373,7 +449,8 @@ Dos bugs del rediseño encontrados y corregidos midiendo en device con uiautomat
 4. **Runtime**: nanoroot LD_PRELOAD con redirección de rutas, dlsym lazy fix, setsid para daemons, reaping de PTY.
 5. **Resiliencia**: kill switch del worker, killLingeringXvnc, try/catch de sesión desktop, timeouts en probes, AtomicBoolean anti-race.
 6. **Honestidad del producto** (filosofía NanoRuntime): sin estados falsos, fail-closed en seguridad (Kali), fallbacks explícitos.
-7. **Build verde**: `flutter analyze` 0 issues, `gradlew assembleDebug` compila.
+7. **Build verde**: `flutter analyze` 0 issues, `gradlew assembleDebug` compila, 90/90 tests Dart.
+8. **Motor nanoAI integrado** (B1-B5): PIE embebido en APK, supervisor Android con health check real, fases honestas, descarga GGUF con SHA256 obligatorio, degradación real verificada en device.
 
 ### Falta para producción 100%
 
@@ -382,11 +459,11 @@ Dos bugs del rediseño encontrados y corregidos midiendo en device con uiautomat
 | 1 | **Keystore de producción** (A-05) — hoy firma con debug | Sí — no se puede publicar | Usuario (contraseñas) |
 | 2 | **targetSdk 36 subido** ✅ pero falta generar y subir el bundle firmado antes de 31-ago-2026 | Sí (deadline) | Equipo |
 | 3 | Icono de app (A-32) | No (Play exige, es trivial) | Equipo |
-| 4 | Validar A-16 (PTY en principal con GPU) en device | Sí — riesgo de crash en producción | Equipo |
-| 5 | Tests automatizados (cero hoy) | Recomendado | Equipo |
-| 6 | CI (analyze+test+build por push) | Recomendado | Equipo |
-| 7 | Hash SHA256 real de Kali en el código (fail-closed ya está; falta poblarlo) | No (instalación Kali bloqueada hasta ponerlo) | Equipo |
-| 8 | Refactors diferidos (FFI isolate, docker stop, fallback 127, `<queries>`) | No | Equipo |
-| 9 | Play Console: ficha, privacidad, track de pruebas, Play Vitals | Sí (para publicar) | Usuario |
+| 4 | **Cerrar e2e del motor (B6)**: retest con device reconectado — flujo completo con GGUF descargado, stop limpio, sin zombis, offline (MVP 2, 15-17) | Sí — el chat no genera respuestas sin validar el camino completo | Equipo |
+| 5 | CI (analyze+test+build por push) | Recomendado | Equipo |
+| 6 | Commits por fase (B1-B5 + fixes B-01/B-02 sin commitear) | Sí — el trabajo está sin commit | Usuario (autorización expresa) |
+| 7 | Play Console: ficha, privacidad, track de pruebas, Play Vitals | Sí (para publicar) | Usuario |
 
-**Camino crítico**: 1 → 2 → 4 → 9. Con eso, la app es publicable. 3/5/6/7/8 antes o justo después del primer release.
+**Resueltos desde el informe anterior**: A-16 (PTY en principal con GPU) — validado de facto: terminal PTY operativo en device en sesiones reales, sin SIGSEGV. Tests automatizados — ya no cero: 90/90 tests Dart (unit + integration). Hash SHA256 real de Kali (A-22b) — poblado. Refactors diferidos FASE 3 — completados y commiteados (a702bfe, c546cf1, 18f8227).
+
+**Camino crítico**: 1 → 2 → 4 → 7. Con eso, la app es publicable. 3/5/6 antes o justo después del primer release.

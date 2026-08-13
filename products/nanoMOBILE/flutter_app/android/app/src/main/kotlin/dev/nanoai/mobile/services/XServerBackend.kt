@@ -169,6 +169,15 @@ class InternalXvncBackend(
             // (110 = 1.15x sobre 96). Flag verificado con `Xvnc -help` en el
             // rootfs (soportado por el binario TigerVNC de Termux).
             "-dpi", "110",
+            // U-9: sin -fp el Xvnc nace SIN fuentes core (xdpyinfo vivo: sin
+            // "default font path" — los defaults compilados apuntan a paths
+            // que no existen en Android). aterm (que NO linkea libXft) caía
+            // a "fixed" inexistente y renderizaba glifos basura. misc trae
+            // fixed.bdf (6x13, fonts.dir + alias "fixed"), 75dpi las UTBI__10.
+            // Paths reales del rootfs: el proceso corre bajo nanoroot y estos
+            // archivos viven en su propio files dir — acceso directo sin
+            // depender de redirecciones.
+            "-fp", "${usrDir.absolutePath}/share/fonts/misc,${usrDir.absolutePath}/share/fonts/75dpi",
         ) + rfbAuthArg
         // NOTA (evidencia device 2026-08-12): este binario Xvnc de Termux NO
         // soporta "-kb" — "Unrecognized option: -kb" y exit 1 antes de abrir

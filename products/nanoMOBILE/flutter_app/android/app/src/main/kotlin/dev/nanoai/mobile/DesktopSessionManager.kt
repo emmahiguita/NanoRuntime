@@ -168,11 +168,13 @@ class DesktopSessionManager(
             return false
         }
         val (binary, argv) = when (app) {
-            // Fuente Xft 16px (D-2): con el framebuffer 1:1 del device, 14px
-            // quedaba ~4mm — 16px es el tamaño táctil mínimo cómodo.
-            "aterm"    -> File(usrDir, "bin/aterm") to listOf(
-                "aterm", "-fn", "xft:DejaVu Sans Mono:pixelsize=16",
-                "-bg", "#0d1117", "-fg", "#00ff9d",
+            // U-9: aterm del rootfs NO linkea libXft (0 maps fontconfig/freetype
+            // en /proc/<pid>/maps, verificado device) — el -fn "xft:..." se
+            // ignoraba y aterm caía a "fixed", que no existía porque Xvnc
+            // arrancaba sin -fp. Ahora -fp carga misc+75dpi del rootfs y
+            // "fixed" (6x13) rinde ~144 columnas en el framebuffer 864px.
+            "aterm"    -> File(usrDir, "bin/lxterminal") to listOf(
+                "lxterminal", "-e", "sh", "-c", "exec bash -i",
             )
             "pcmanfm"  -> File(usrDir, "bin/pcmanfm") to listOf("pcmanfm")
             "mousepad" -> File(usrDir, "bin/mousepad") to listOf("mousepad")
@@ -295,6 +297,7 @@ class DesktopSessionManager(
         setupOpenboxRc()
         setupWallpaper()
         setupGtkTheme()
+        setupLxTerminalConfig()
 
         // U-1: session bus de D-Bus — gvfs (papelera trash:// de pcmanfm) y
         // los daemons gvfsd lo necesitan. Socket UNIX en el tmp del rootfs
@@ -442,10 +445,14 @@ class DesktopSessionManager(
     }
 
     private fun firstExistingTerminal(): TerminalLaunch? {
-        // Fuente Xft 14px: la "fixed" integrada de Xvnc es ilegible en móvil
-        // (verificado device 2026-08-12: -fn "xft:DejaVu Sans Mono:pixelsize=16"
-        // renderiza con DejaVuSansMono.ttf del rootfs).
-        val bigFont = listOf("-fn", "xft:DejaVu Sans Mono:pixelsize=16")
+        // U-9: aterm del rootfs NO linkea libXft — el -fn "xft:DejaVu Sans Mono"
+        // anterior se ignoraba (0 maps fontconfig/freetype en /proc/<pid>/maps)
+        // y aterm caía a "fixed" sin fontpath en el Xvnc: glifos basura
+        // (bloques/corchetes, evidencia captura 2026-08-13). Fix doble:
+        // -fp con misc+75dpi del rootfs en XServerBackend.kt y aquí -fn fixed,
+        // la fuente bitmap con fonts.dir real. En 864px (~144 cols) el HUD y
+        // el shell se ven completos sin wrap.
+        val bigFont = listOf("-fn", "fixed")
         val colors = listOf("-bg", "#0f172a", "-fg", "#38bdf8")
         // Terminal de bienvenida: muestra el HUD (banner nano-sec con info real
         // del sistema vía /proc) y deja el shell interactivo debajo. El
@@ -454,6 +461,7 @@ class DesktopSessionManager(
         val hud = "python3 ${File(usrDir.parentFile, "home/.hud.py").absolutePath}"
         val shellCmd = "$hud; exec bash -i"
         val candidates = listOf(
+            TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal", "-e", "sh", "-c", shellCmd)),
             TerminalLaunch(
                 File(usrDir, "bin/xterm"),
                 listOf("xterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
@@ -462,7 +470,6 @@ class DesktopSessionManager(
                 File(usrDir, "bin/aterm"),
                 listOf("aterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
             ),
-            TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal")),
         )
         return candidates.firstOrNull { isElf(it.file) }
     }
@@ -606,18 +613,14 @@ class DesktopSessionManager(
                             Log.i(TAG, "Watchdog: tint2 re-lanzado PID=$tint2Pid")
                         }
                     }
-                    val fePid = fehPid
-                    if (fePid > 0 && !File("/proc/$fePid").exists()) {
-                        Log.w(TAG, "Watchdog: feh PID=$fePid muerto — re-aplicando wallpaper")
-                        fehPid = -1
-                        val feh = File(usrDir, "bin/feh")
-                        val (wallpaper, wallFlag) = wallpaperForLaunch()
-                        if (feh.exists() && wallpaper.exists() && lastWmEnv.isNotEmpty()) {
-                            feh.setExecutable(true, false)
-                            fehPid = spawnBg(feh.absolutePath, listOf("feh", wallFlag, wallpaper.absolutePath), lastWmEnv)
-                            Log.i(TAG, "Watchdog: feh re-lanzado PID=$fehPid")
-                        }
-                    }
+                    // feh --bg-scale es one-shot: aplica el fondo y SALE
+                    // (exit 0). No es daemon persistente — vigilarlo aquí
+                    // producía re-spawn infinito cada 5s: feh terminaba su
+                    // trabajo, el watchdog lo veía "muerto" y lo re-lanzaba
+                    // para siempre (evidencia OPPO 2026-08-13, reaper status=0
+                    // + stderr vacío en cadencia exacta de 5s). Si el fondo
+                    // se pierde (reset de X), se re-aplica al reconectar la
+                    // sesión completa — no en el watchdog.
                 } catch (e: InterruptedException) {
                     // stopWatchdog() llamó interrupt() — salida limpia.
                     break
@@ -658,10 +661,18 @@ class DesktopSessionManager(
             val appsDir = File(homeDir, ".local/share/applications").also { it.mkdirs() }
 
             // Crear .desktop files para los launchers del panel (Terminal, Archivos, Editor, Imágenes)
-            File(appsDir, "aterm.desktop").writeText("""
+            File(appsDir, "lxterminal.desktop").writeText("""
                 [Desktop Entry]
                 Name=Terminal
-                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8
+                Exec=lxterminal -e sh -c "exec bash -i"
+                Icon=utilities-terminal
+                Type=Application
+            """.trimIndent())
+
+            File(appsDir, "aterm.desktop").writeText("""
+                [Desktop Entry]
+                Name=Terminal (fallback)
+                Exec=lxterminal -e sh -c "exec bash -i"
                 Icon=utilities-terminal
                 Type=Application
             """.trimIndent())
@@ -697,7 +708,7 @@ class DesktopSessionManager(
             File(appsDir, "nano-info.desktop").writeText("""
                 [Desktop Entry]
                 Name=Monitor
-                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8 -e python3 $hudPy
+                Exec=lxterminal -e sh -c "python3 $hudPy; exec bash -i"
                 Icon=utilities-system-monitor
                 Type=Application
             """.trimIndent())
@@ -725,7 +736,7 @@ class DesktopSessionManager(
                 startup_notifications = 1
                 launcher_tooltip = 1
                 launcher_item_app = ~/.local/share/applications/nano-info.desktop
-                launcher_item_app = ~/.local/share/applications/aterm.desktop
+                launcher_item_app = ~/.local/share/applications/lxterminal.desktop
                 launcher_item_app = ~/.local/share/applications/pcmanfm.desktop
                 launcher_item_app = ~/.local/share/applications/mousepad.desktop
                 launcher_item_app = ~/.local/share/applications/feh.desktop
@@ -769,10 +780,10 @@ class DesktopSessionManager(
                 <openbox_menu xmlns="http://openbox.org/3.4/menu">
                   <menu id="root-menu" label="NanoAI Linux Desktop">
                     <item label="Monitor del Sistema">
-                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8 -e python3 $hudPy</execute></action>
+                      <action name="Execute"><execute>lxterminal -e sh -c "python3 $hudPy; exec bash -i"</execute></action>
                     </item>
                     <item label="Terminal">
-                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8</execute></action>
+                      <action name="Execute"><execute>lxterminal -e sh -c "exec bash -i"</execute></action>
                     </item>
                     <item label="Archivos">
                       <action name="Execute"><execute>pcmanfm</execute></action>
@@ -868,6 +879,25 @@ class DesktopSessionManager(
             Log.i(TAG, "GTK settings.ini escrito (fuente 14px, tema oscuro)")
         } catch (e: Exception) {
             Log.w(TAG, "setupGtkTheme: ${e.message}")
+        }
+    }
+
+    private fun setupLxTerminalConfig() {
+        try {
+            val lxDir = File(File(usrDir.parentFile, "home"), ".config/lxterminal")
+                .also { it.mkdirs() }
+            val lxConf = File(lxDir, "lxterminal.conf")
+            lxConf.writeText("""
+                [general]
+                fontname=DejaVu Sans Mono 13
+                bgcolor=#0f172a
+                fgcolor=#38bdf8
+                disallowbold=true
+                selectbyword=true
+            """.trimIndent())
+            Log.i(TAG, "lxterminal.conf escrito (DejaVu Sans Mono 13)")
+        } catch (e: Exception) {
+            Log.w(TAG, "setupLxTerminalConfig: ${e.message}")
         }
     }
 
