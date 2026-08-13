@@ -250,6 +250,7 @@ class DesktopSessionManager(
 
         setupTint2Config()
         setupOpenboxMenu()
+        setupOpenboxRc()
         setupWallpaper()
         setupGtkTheme()
 
@@ -528,7 +529,7 @@ class DesktopSessionManager(
             // soporta: panel_color/clock_enabled/clock_format/clock_font/clock_color
             // → "invalid option" x5 → "panel items: (null)" → tint2 exit.
             // Opciones correctas (tint2 17.x): reloj = time1_format/time1_font/
-            // time1_font_color; fondo del panel = panel_background_id + bloque
+            // clock_font_color; fondo del panel = panel_background_id + bloque
             // background (background_color/rounded/border_width).
             val homeDir   = File(usrDir.parentFile, "home")
             val configDir = File(homeDir, ".config/tint2").also { it.mkdirs() }
@@ -608,6 +609,57 @@ class DesktopSessionManager(
             Log.i(TAG, "openbox menu.xml escrito")
         } catch (e: Exception) {
             Log.w(TAG, "setupOpenboxMenu: ${e.message}")
+        }
+    }
+
+    // Configuración rc.xml de openbox (temas de ventana y fuentes)
+    private fun setupOpenboxRc() {
+        try {
+            val homeDir = File(usrDir.parentFile, "home")
+            val obDir = File(homeDir, ".config/openbox").also { it.mkdirs() }
+            val rcXml = File(obDir, "rc.xml")
+            // rc.xml para Openbox: Configura el tema Onyx, desactiva animaciones/sombras
+            // innecesarias para mejorar performance en VNC, y setea DejaVu Sans.
+            rcXml.writeText("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <openbox_config xmlns="http://openbox.org/3.4/rc">
+                  <theme>
+                    <name>Onyx</name>
+                    <cornerRadius>4</cornerRadius>
+                    <font place="ActiveWindow">
+                      <name>DejaVu Sans</name>
+                      <size>10</size>
+                      <weight>Bold</weight>
+                    </font>
+                    <font place="InactiveWindow">
+                      <name>DejaVu Sans</name>
+                      <size>10</size>
+                      <weight>Normal</weight>
+                    </font>
+                    <font place="MenuHeader">
+                      <name>DejaVu Sans</name>
+                      <size>10</size>
+                      <weight>Bold</weight>
+                    </font>
+                    <font place="MenuItem">
+                      <name>DejaVu Sans</name>
+                      <size>10</size>
+                      <weight>Normal</weight>
+                    </font>
+                    <font place="OnScreenDisplay">
+                      <name>DejaVu Sans</name>
+                      <size>10</size>
+                      <weight>Bold</weight>
+                    </font>
+                  </theme>
+                  <keyboard>
+                    <chainQuitKey>C-g</chainQuitKey>
+                  </keyboard>
+                </openbox_config>
+            """.trimIndent())
+            Log.i(TAG, "openbox rc.xml escrito (Tema Onyx + DejaVu Sans)")
+        } catch (e: Exception) {
+            Log.w(TAG, "setupOpenboxRc: ${e.message}")
         }
     }
 
