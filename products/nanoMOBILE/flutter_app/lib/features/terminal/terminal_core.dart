@@ -955,6 +955,7 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
           },
           onWriteBytes: (bytes) => _pty?.writeBytes(bytes),
           onWrite: (text) => _pty?.write(text),
+          bracketedPasteEnabled: _ansi?.screen.bracketedPasteMode ?? false,
         ),
       if (sug.isNotEmpty && _in.text.isNotEmpty && _fn.hasFocus)
         Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: chrome, border: Border(top: BorderSide(color: fg.withValues(alpha: 0.08)))), child: Wrap(spacing: 6, runSpacing: 4, children: sug.map((s) => GestureDetector(

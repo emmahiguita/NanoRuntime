@@ -12,6 +12,7 @@ class TerminalModifierBar extends StatelessWidget {
     required this.onToggleCtrl,
     required this.onWriteBytes,
     required this.onWrite,
+    this.bracketedPasteEnabled = false,
   });
 
   final Color fg;
@@ -20,6 +21,9 @@ class TerminalModifierBar extends StatelessWidget {
   final VoidCallback onToggleCtrl;
   final void Function(List<int> bytes) onWriteBytes;
   final void Function(String text) onWrite;
+  /// Whether the remote program has negotiated bracketed paste mode (?2004).
+  /// When false, clipboard text is sent raw (no ESC[200~/201~ wrappers).
+  final bool bracketedPasteEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -68,9 +72,13 @@ class TerminalModifierBar extends StatelessWidget {
               final data = await Clipboard.getData(Clipboard.kTextPlain);
               final text = data?.text;
               if (text == null) return;
-              onWrite('[200~');
+              // Only wrap in bracketed paste sequences when the remote program
+              // has explicitly requested it via DECSET ?2004. Sending the
+              // wrappers unconditionally causes literal "^[[200~" garbage to
+              // appear in shells that have not enabled the mode.
+              if (bracketedPasteEnabled) onWrite('\x1b[200~');
               onWriteBytes(utf8.encode(text));
-              onWrite('[201~');
+              if (bracketedPasteEnabled) onWrite('\x1b[201~');
             }),
             key('/', () => onWriteBytes([0x2f])),
             key('-', () => onWriteBytes([0x2d])),

@@ -10,6 +10,10 @@ class AnsiParser {
   final StringBuffer _csi = StringBuffer();
   final StringBuffer _osc = StringBuffer();
   void Function(String title)? onTitle; // OSC 0/2 callback
+  /// Called when ?1004 focus-event mode is active and the terminal gains or
+  /// loses focus. The owner should write \x1b[I (gained) or \x1b[O (lost)
+  /// directly to the PTY. Null when focus events are disabled.
+  void Function({required bool focused})? onFocusChange;
 
   AnsiParser(this.screen);
 
@@ -231,6 +235,17 @@ class AnsiParser {
       case 1002:
       case 1003:
         screen.mouseEnabled = set;
+        break;
+      // Bracketed Paste Mode: when enabled the remote program expects paste
+      // content wrapped in \x1b[200~ ... \x1b[201~. The modifier bar must
+      // check screen.bracketedPasteMode before wrapping clipboard text.
+      case 2004:
+        screen.bracketedPasteMode = set;
+        break;
+      // Focus Event Reporting: when enabled, send \x1b[I on focus-in and
+      // \x1b[O on focus-out. The owner wires up onFocusChange to handle this.
+      case 1004:
+        screen.focusEventsMode = set;
         break;
       default:
         break;

@@ -60,12 +60,24 @@ class TermScreen {
   static const int maxHistory = 2000;
 
   int _row = 0, _col = 0;
+  // Separate save/restore cursors for main and alt buffers (DECSC/DECRC).
+  // enterAlt() saves main cursor; leaveAlt() restores it; each buffer tracks
+  // its own position independently so rotation never corrupts them.
+  int _saveMainR = 0, _saveMainC = 0;
+  int _saveAltR = 0, _saveAltC = 0;
+  // Legacy alias used by saveCursor/restoreCursor (single-slot DEC behavior).
   int _saveR = 0, _saveC = 0;
   int _fg = 255, _bg = 256;
   int? _fgRgb, _bgRgb; // truecolor overrides
   bool _bold = false, _dim = false, _reverse = false;
   bool _cursorVisible = true; // DECSET/DECRST 25
   bool mouseEnabled = false; // DECSET/DECRST 1000
+  /// True when the remote program has enabled bracketed paste (DECSET ?2004).
+  /// [terminal_modifier_bar.dart] must only wrap pastes when this is true.
+  bool bracketedPasteMode = false;
+  /// True when the remote program has enabled focus-event reporting (?1004).
+  /// On focus-in the terminal should send \x1b[I; on focus-out \x1b[O.
+  bool focusEventsMode = false;
 
   TermScreen({this.rows = 24, this.cols = 80}) {
     _main = List.generate(rows, (_) => _blankRow());
@@ -87,21 +99,31 @@ class TermScreen {
   int get historyLength => _history.length;
   void clearHistory() => _history.clear();
 
-  /// Redimensiona conservando contenido actual visible.
+  /// Resize both main and alt buffers independently, preserving their content.
+  ///
+  /// The previous implementation copied `_alt ?? _main` into a single new
+  /// `_main` and then set `_alt = null`. This destroyed the alternate screen
+  /// whenever the user rotated the device while Vim/tmux was active, causing
+  /// a blank or garbled display. We now resize each buffer on its own.
   void resize(int r, int c) {
     rows = r.clamp(1, 200);
     cols = c.clamp(1, 300);
-    final old = _main;
-    final src = _alt ?? old;
-    _main = List.generate(rows, (_) => _blankRow());
-    for (var rr = 0; rr < rows && rr < src.length; rr++) {
-      for (var cc = 0; cc < cols && cc < src[rr].length; cc++) {
-        _main[rr][cc] = src[rr][cc];
-      }
-    }
-    _alt = null;
+    _main = _resizeBuffer(_main, rows, cols);
+    if (_alt != null) _alt = _resizeBuffer(_alt!, rows, cols);
     _row = _row.clamp(0, rows - 1);
     _col = _col.clamp(0, cols - 1);
+  }
+
+  /// Resizes a cell grid to [r] rows × [c] cols, preserving existing content.
+  List<List<TermCell>> _resizeBuffer(
+      List<List<TermCell>> buf, int r, int c) {
+    final next = List.generate(r, (_) => _blankRow());
+    for (var rr = 0; rr < r && rr < buf.length; rr++) {
+      for (var cc = 0; cc < c && cc < buf[rr].length; cc++) {
+        next[rr][cc] = buf[rr][cc];
+      }
+    }
+    return next;
   }
 
   // controles básicos
@@ -362,17 +384,24 @@ class TermScreen {
   // pantalla alterna
   void enterAlt() {
     if (_alt != null) return;
-    _saveR = _row;
-    _saveC = _col;
+    // Save the main-screen cursor position into a dedicated slot so that
+    // saveCursor()/restoreCursor() within the alt screen don't overwrite it.
+    _saveMainR = _row;
+    _saveMainC = _col;
     _alt = List.generate(rows, (_) => _blankRow());
-    _row = 0;
-    _col = 0;
+    // Restore the alt-screen cursor to where it was last time (start = 0,0).
+    _row = _saveAltR.clamp(0, rows - 1);
+    _col = _saveAltC.clamp(0, cols - 1);
   }
   void leaveAlt() {
     if (_alt == null) return;
+    // Save alt-screen cursor so re-entering alt restores it.
+    _saveAltR = _row;
+    _saveAltC = _col;
     _alt = null;
-    _row = _saveR;
-    _col = _saveC;
+    // Restore main-screen cursor.
+    _row = _saveMainR.clamp(0, rows - 1);
+    _col = _saveMainC.clamp(0, cols - 1);
   }
 
   // SGR
