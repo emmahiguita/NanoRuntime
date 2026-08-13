@@ -237,15 +237,20 @@ class DockerManager {
     }).toList();
   }
 
-  void rm(String id) {
+  /// Elimina el contenedor [id] y su rootfs. Retorna false si no existe.
+  bool rm(String id) {
     final c = _containers.remove(id);
-    if (c != null) {
-      try { Directory(c.rootfs).deleteSync(recursive: true); } catch (_) {}
-    }
+    if (c == null) return false;
+    try { Directory(c.rootfs).deleteSync(recursive: true); } catch (_) {}
+    return true;
   }
 
-  void stop(String id) {
-    _containers[id]?.status = 'stopped';
+  /// Detiene el contenedor [id]. Retorna false si no existe.
+  bool stop(String id) {
+    final c = _containers[id];
+    if (c == null) return false;
+    c.status = 'stopped';
+    return true;
   }
 
   void dispose() {

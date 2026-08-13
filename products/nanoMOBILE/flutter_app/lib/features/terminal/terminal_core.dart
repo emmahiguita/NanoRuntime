@@ -21,6 +21,7 @@ import 'i_bin_executor.dart';
 import 'noar_panel.dart';
 import 'ansi_terminal.dart';
 import 'command_dispatcher.dart';
+import 'cron_scheduler.dart';
 import 'pty_manager.dart';
 import 'real_fs_shell.dart';
 import 'terminal_types.dart';
@@ -283,6 +284,18 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     NetworkPlugin().register(r, s);
     DevOpsPlugin().register(r, s);
     DashboardPlugin().register(r, s);
+    // crontab/watch REALES: timers que ejecutan _execAsync de verdad.
+    // Registrados después de DevOpsPlugin para pisar cualquier stub.
+    CronScheduler(execCmd: (raw) => _execAsync(raw), isAlive: () => _alive)
+        .register(r, _out);
+    // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
+    // nunca finge apertura — este registro lo reemplaza por el real).
+    _cmds['pty'] = (a, c, o, af) {
+      final usr = _rootfs?.usrDir;
+      if (usr == null) { o('pty: rootfs no instalado', Ln.stderr); return; }
+      final bashPath = a.isNotEmpty ? a[0] : '$usr/bin/bash';
+      _ptyOpen([bashPath, ...a.sublist(1)], o: o);
+    };
     _cmds['stat'] = (a, c, o, af) {
     final all = a.contains('--all'), mem = all || a.contains('--memory'), cpu = all || a.contains('--cpu');
     o('══ NanoRuntime Status ══', Ln.header);
@@ -307,7 +320,7 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     final hw = _devId?['cpuHardware'] as String?;
     final tempC = _readCpuTemp();
     final tempStr = tempC != null ? ' | Temp: ${tempC.toStringAsFixed(1)}°C' : '';
-    o('CPU: $cores cores${hw != null ? ' ($hw)' : ''}$tempStr | Procs: ${c.procs.procs.length}', Ln.stdout);
+    o('CPU: $cores cores${hw != null ? ' ($hw)' : ''}$tempStr | Procs: ${ProcFs.listPids().length}', Ln.stdout);
     }
     };
     _cmds['infer'] = (a, c, o, af) {
@@ -405,7 +418,8 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     };
     _cmds['gpu'] = (a, c, o, af) {
     final info = _readGpuInfo();
-    final name = info['name'] ?? 'Adreno';
+    // Sin nombre real del sysfs: 'desconocida', nunca una marca inventada.
+    final name = info['name'] as String? ?? 'desconocida';
     final freq = info['freqMhz'];
     final temp = info['tempC'];
     final freqStr = freq != null ? ' | Freq: $freq MHz' : '';

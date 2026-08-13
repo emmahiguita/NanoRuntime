@@ -122,13 +122,9 @@ class HardwareInfoService {
         info['name'] = 'Mali';
       }
     }
-    // GPU dedicated memory size (Adreno)
-    try {
-      final memDesc = File('$kgslBase/mem_desc');
-      if (memDesc.existsSync()) {
-        info['gpuMemMb'] = 512;
-      }
-    } catch (_) {}
+    // GPU dedicated memory: el sysfs de kgsl expone el descriptor pero no un
+    // tamaño portable en bytes (varía por SoC). No se inventa un valor fijo
+    // (antes 512 hardcodeado): sin lectura real, el campo no se reporta.
     return info;
   }
 }

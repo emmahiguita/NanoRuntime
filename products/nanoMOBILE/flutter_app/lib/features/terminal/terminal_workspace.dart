@@ -33,23 +33,13 @@ class TerminalWorkspace {
       readme.writeAsStringSync('# NanoAI\nMotor LLM Local\n');
     }
 
-    final model = File('$here/models/qwen2.5-1.5b.gguf');
-    if (!model.existsSync()) model.writeAsStringSync('');
-
+    // Sin archivos de modelo ni logs prefabricados: un .gguf vacío parecería
+    // un modelo instalado y un log con timestamps inventados sería simulación.
+    // El directorio models/ queda vacío hasta que algo real lo pueble.
     final config = File('$here/models/config.json');
     if (!config.existsSync()) {
       config.writeAsStringSync(
         '{"temperature":0.7,"top_p":0.9,"context":2048}',
-      );
-    }
-
-    final runtimeLog = File('$here/logs/nanortime.log');
-    if (!runtimeLog.parent.existsSync()) {
-      runtimeLog.parent.createSync(recursive: true);
-    }
-    if (!runtimeLog.existsSync()) {
-      runtimeLog.writeAsStringSync(
-        '[14:32:01] Boot OK\n[14:32:02] madvise 24 layers\n[14:32:15] OOM Guard: 0',
       );
     }
 

@@ -57,13 +57,19 @@ class DevOpsPlugin {
           break;
         case 'rm':
           if (a.length < 2) { o('docker rm <id>', Ln.stderr); return; }
-          d.rm(a[1]);
-          o('[docker] contenedor ${a[1]} eliminado', Ln.success);
+          if (d.rm(a[1])) {
+            o('[docker] contenedor ${a[1]} eliminado', Ln.success);
+          } else {
+            o('[docker] contenedor ${a[1]} no encontrado', Ln.stderr);
+          }
           break;
         case 'stop':
           if (a.length < 2) { o('docker stop <id>', Ln.stderr); return; }
-          d.stop(a[1]);
-          o('[docker] contenedor ${a[1]} detenido', Ln.success);
+          if (d.stop(a[1])) {
+            o('[docker] contenedor ${a[1]} detenido', Ln.success);
+          } else {
+            o('[docker] contenedor ${a[1]} no encontrado', Ln.stderr);
+          }
           break;
         default:
           o('docker pull <imagen>      — descargar imagen (ej: alpine)', Ln.info);
@@ -127,8 +133,10 @@ class DevOpsPlugin {
     r('pty', (a, c, o, af) {
       final usr = s.rootfs?.usrDir;
       if (usr == null) { o('pty: rootfs no instalado', Ln.stderr); return; }
-      final bashPath = a.isNotEmpty ? a[0] : '$usr/bin/bash';
-      o('pty: abriendo $bashPath...', Ln.info);
+      // Este stub es pisado por terminal_core._buildRegistry, que registra
+      // 'pty' con el manejador real (_ptyOpen). Si llegara a ejecutarse
+      // (uso standalone del plugin), nunca se finge apertura.
+      o('pty: gestor de sesiones no disponible en este contexto', Ln.stderr);
     });
 
     for (final inter in ['vim', 'vi', 'nano', 'python', 'python3',
@@ -142,23 +150,21 @@ class DevOpsPlugin {
 
     r('script', (a, c, o, af) {
       if (a.isEmpty) { o('script: uso: script cmd1; cmd2; cmd3...', Ln.stderr); return; }
-      o('script: ejecutando...', Ln.info);
-    });
-
-    r('crontab', (a, c, o, af) {
-      if (a.isEmpty || a[0] == '-l') {
-        o('crontab: sin tareas programadas', Ln.stdout);
-      } else if (a[0] == '-e') {
-        o('crontab: editor no disponible en modo offline', Ln.stderr);
-      } else {
-        o('crontab: usa -l (listar) o -e (editar)', Ln.info);
+      // Ejecución real via ash -c. Nunca "ejecutando..." sin ejecutar.
+      if (s.shell != null && s.shell!.initialized) {
+        final cmd = a.join(' ');
+        s.shell!.toybox(['ash', '-c', cmd]).then((wr) {
+          if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+          if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+        });
+        return;
       }
+      o('script: requiere shell real. Ejecuta "bootstrap".', Ln.stderr);
     });
 
-    r('watch', (a, c, o, af) {
-      if (a.isEmpty) { o('watch: uso: watch <comando>', Ln.stderr); return; }
-      o('watch: ejecutando "${a.join(" ")}" cada 2s...', Ln.info);
-    });
+    // 'crontab' y 'watch' son registrados por CronScheduler (timers reales
+    // que ejecutan comandos de verdad) en terminal_core._buildRegistry,
+    // que pisa estos registros. Aquí no se declaran stubs mentirosos.
 
     r('plugin', (a, c, o, af) {
       if (a.isEmpty) { o('plugin: list, enable <plugin>, disable <plugin>', Ln.info); return; }

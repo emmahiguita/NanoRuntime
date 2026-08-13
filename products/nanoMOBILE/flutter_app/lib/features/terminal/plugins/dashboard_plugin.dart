@@ -84,8 +84,10 @@ class DashboardPlugin {
 
     r('man', (a, c, o, af) {
       if (a.isEmpty) { o('man: Uso: man <pagina>', Ln.stderr); return; }
+      // man es interactivo (usa pager): sin PTY no hay página real que abrir.
+      // Se redirige al flujo PTY real en vez de fingir apertura.
       if (s.rootfs?.isInstalled == true) {
-        o('man: abriendo pagina para ${a[0]}...', Ln.info);
+        o('man: usa "pty man ${a[0]}" para abrir la pagina en el PTY', Ln.info);
         return;
       }
       o('man: rootfs no instalado. Ejecuta "bootstrap".', Ln.stderr);
