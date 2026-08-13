@@ -436,13 +436,11 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     };
     _cmds['nvtop'] = (a, c, o, af) {
     final info = _readGpuInfo();
-    final name = (info['name'] as String?) ?? 'GPU';
+    final name = (info['name'] as String?) ?? 'desconocida';
     final freq = info['freqMhz'];
-    final mem = info['gpuMemMb'];
     o('╔══ nvtop ══╗', Ln.header);
     o('║ GPU: $name ${" ".padLeft(15 - name.length)}║', Ln.header);
     if (freq != null) o('║ Freq: $freq MHz ${" ".padLeft(8)}║', Ln.header);
-    if (mem != null) o('║ Mem: ${mem}M ${" ".padLeft(14)}║', Ln.header);
     o('╚═══════════╝', Ln.header);
     };
   }
