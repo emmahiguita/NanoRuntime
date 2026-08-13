@@ -1,6 +1,7 @@
 package dev.nanoai.mobile.controllers
 
 import dev.nanoai.mobile.DesktopSessionManager
+import dev.nanoai.mobile.RuntimeHeartbeat
 import dev.nanoai.mobile.WorkerClient
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -103,7 +104,14 @@ class DesktopController(
             session = activeSession
             activeSession = null
         }
-        session?.stop()
+        if (session != null) {
+            session.stop()
+        } else {
+            // U-10: sin sesión activa (p.ej. proceso resucitado tras un kill
+            // del OS) — el "Detener" del usuario es ack implícito del kill:
+            // borra el heartbeat para que el aviso de restauración se limpie.
+            RuntimeHeartbeat.markCleanShutdown(File(appFilesDir, "nano"))
+        }
     }
 
     /**
@@ -168,6 +176,10 @@ class DesktopController(
             ),
             "stage"     to (session?.currentStage ?: "idle"),
             "lastError" to session?.currentError,
+            // U-10: kill del OS detectado (heartbeat vivo sin apagado limpio).
+            // La UI de lanzamiento muestra el aviso honesto de restauración;
+            // el service de accesibilidad lo usa para re-lanzar la app.
+            "wasKilledByOs" to RuntimeHeartbeat.wasKilledByOs(File(appFilesDir, "nano")),
         )
     }
 

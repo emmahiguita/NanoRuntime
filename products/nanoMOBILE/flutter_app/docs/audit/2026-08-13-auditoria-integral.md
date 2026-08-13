@@ -385,6 +385,35 @@ En el flujo real, lxterminal entraba en crash-loop: tombstone `signal 31 (SIGSYS
 
 **Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL; instalado en device (VGL7MVFMDYQG8T55): gvfs instalado, dbus vivo, wallpaper aplicado, toolbar verificada por uiautomator dump en ambos estados (colapsada y expandida) con bounds reales. U-7/U-8/U-9 verificados en el flujo real de la app: dump de franjas sin overlays; teclado escribe (diff de 84k px en el framebuffer); HUD box-drawing conectado con DejaVu (36 filas con corridas horizontales de 627-688px = líneas ═ del banner; 755 columnas conectadas ≥18px = bloques █ del LOGO y ║ — sin el patrón periódico de glifos repetidos que mostraba aterm).
 
+### FASE 3e — U-10: kill de ColorOS usado a favor (resurrección + honestidad) ✅ (completada 2026-08-13)
+
+Pedido: "ESTO COMO LO USAMOS A NUESTRO FAVOR" — el cached-kill de ColorOS (TimedProcessReaper mata la app al pasar a cached y con ella todo el runtime, mismo cgroup). Decisión del usuario: ambos vectores (resurrección + heartbeat).
+
+**U-10a — Heartbeat de vida (`RuntimeHeartbeat`, Kotlin nuevo).**
+`files/nano/state/alive.timestamp` (epoch ms del último ready) + `resurrect.timestamp` (ventana anti-loop de 2 min). `markAlive()` al llegar a ready en DesktopSessionManager; `markCleanShutdown()` en stop limpio (DesktopSessionManager.stop y en DesktopController.stop cuando no hay sesión activa — ack implícito del usuario). Sin apagado limpio + heartbeat presente = kill del OS demostrado.
+
+**U-10b — Resurrección vía AccessibilityService (cero permisos nuevos).**
+El binding del accessibility service es iniciado por el SISTEMA: cuando el proceso muere, AccessibilityManagerService lo reinicia él mismo (`mCrashedServices` → `Start proc ... for service`). En `onServiceConnected`, si el heartbeat indica kill, el service relanza MainActivity — los accessibility services están exentos de las restricciones de background activity launch (BAL). Verificado en device con SIGKILL (equivalente LMK, sin force-stop):
+
+```
+17:12:10 AccessibilityUserState: serviceDisconnectedLocked → mCrashedServices
+17:12:11 ActivityManager: Start proc 25407 ... for service {AgentAccessibilityService}
+17:12:11 nanoagent: AgentAccessibilityService conectado
+17:12:11 nanoagent: U-10: kill del OS detectado — relanzando MainActivity
+topResumedActivity = dev.nanoai.mobile/.MainActivity
+```
+
+Ciclo completo: kill → sistema reinicia proceso en ~1s → onServiceConnected → heartbeat detectado → MainActivity relanzada → boot_orchestrator re-arranca Xvnc/openbox/lxterminal → escritorio activo de nuevo ("Escritorio Linux Activo" en el visor, Xvnc + openbox + lxterminal vivos, alive.timestamp re-escrito).
+Ventana anti-loop verificada: segundo kill a ~80s del primero → `beginResurrect` devuelve false (resurrect.timestamp dentro de la ventana de 2 min) → el sistema re-vincula el service pero SIN relanzar (log: "conectado" sin "U-10:"). Kill-loop de ColorOS no despierta la app en bucle.
+Force-stop del usuario ≠ cached kill: force-stop deshabilita los bindings y el sistema NO re-vincula — apagado intencional respetado.
+
+**U-10c — UI honesta de restauración.**
+`DesktopController.buildStatus` expone `wasKilledByOs` (heartbeat presente + runtime no corriendo); `DesktopStatus` (Dart) lo parsea; el launch screen muestra un banner warning: "El sistema operativo cerró el escritorio en segundo plano (ahorro de batería). Nada se perdió: toca arrancar para restaurarlo limpio." Verificado en device: banner presente con runtime muerto tras kill (uiautomator dump con el texto exacto), oculto cuando el runtime re-arranca (running=true), limpiado en apagado limpio (alive borrado → banner desaparece en el probe siguiente).
+
+**Kill como apagado limpio garantizado**: los hijos (Xvnc/openbox/lxterminal) mueren con la app en el mismo cgroup — cero zombies, cero CPU oculta, cero estado corrupto. El kill del OS es un reset que ahora se detecta, se informa y se restaura.
+
+**Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL; ciclo completo verificado en device (VGL7MVFMDYQG8T55) con SIGKILL simulado: resurrección (log arriba), banner (texto exacto en uiautomator dump), re-arranque automático del runtime (Xvnc 864x1920 + openbox + lxterminal vivos), apagado limpio (alive.timestamp borrado, Xvnc detenido). Nota: `am kill` no sirve para la prueba — el binding de accessibility eleva la importancia del proceso y el reaper lo ignora (efecto colateral esperado del vector).
+
 ### FASE 3d — Integración motor nanoAI, sprints B1-B6 ✅/⏳ (plan `docs/plan/2026-08-13-plan-integracion-nanoai-android.md`)
 
 Objetivo: motor llama.cpp (nanortime-cli, Rust) embebido como PIE en el APK, gestionado desde Android, consumido por el chat Flutter con estados honestos.

@@ -20,6 +20,11 @@ class DesktopStatus {
   /// Último error del backend si stage == failed.
   final String? lastError;
 
+  /// U-10: el OS mató el runtime en segundo plano (heartbeat vivo sin
+  /// apagado limpio). La UI de lanzamiento lo muestra como aviso honesto
+  /// de restauración.
+  final bool wasKilledByOs;
+
   const DesktopStatus({
     required this.running,
     required this.reachable,
@@ -28,6 +33,7 @@ class DesktopStatus {
     this.graphicalExtras = false,
     this.stage = 'idle',
     this.lastError,
+    this.wasKilledByOs = false,
   });
 
   bool get ready => reachable;
@@ -49,6 +55,7 @@ class DesktopStatus {
       graphicalExtras: raw['graphicalExtras'] == true,
       stage: raw['stage'] as String? ?? 'idle',
       lastError: raw['lastError'] as String?,
+      wasKilledByOs: raw['wasKilledByOs'] == true,
     );
   }
 }

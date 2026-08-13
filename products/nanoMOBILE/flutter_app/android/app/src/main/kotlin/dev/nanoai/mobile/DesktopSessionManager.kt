@@ -140,7 +140,12 @@ class DesktopSessionManager(
         stopRequested = true
         // Si no hay nada corriendo ni arrancando, no hay nada que detener.
         // Pero si starting==true, debemos esperar/abortar — no retornar temprano.
-        if (!running && !starting && openboxPid <= 0 && tint2Pid <= 0 && terminalPid <= 0) return
+        if (!running && !starting && openboxPid <= 0 && tint2Pid <= 0 && terminalPid <= 0) {
+            // U-10: nada que detener — pero el usuario pidió apagar: ack
+            // implícito del kill anterior (el aviso de restauración se limpia).
+            usrDir.parentFile?.let { RuntimeHeartbeat.markCleanShutdown(it) }
+            return
+        }
         Log.i(TAG, "Deteniendo Desktop…")
         cleanupProcesses()
         runBlocking {
@@ -148,6 +153,8 @@ class DesktopSessionManager(
         }
         starting = false
         stage = "idle"
+        // U-10: apagado limpio — borra el heartbeat (no es kill del OS).
+        usrDir.parentFile?.let { RuntimeHeartbeat.markCleanShutdown(it) }
     }
 
     val isRunning: Boolean get() = running
@@ -410,6 +417,11 @@ class DesktopSessionManager(
             onError("Desktop start abortado en before-ready")
             return
         }
+        // U-10: heartbeat de vida — el service de accesibilidad lo usa para
+        // re-lanzar la app tras un cached-kill de ColorOS, y la UI de
+        // lanzamiento para el aviso honesto de restauración.
+        usrDir.parentFile?.let { RuntimeHeartbeat.markAlive(it) }
+
         startWatchdog()
         val msg = "Escritorio listo en $displayStr"
         Log.i(TAG, msg)

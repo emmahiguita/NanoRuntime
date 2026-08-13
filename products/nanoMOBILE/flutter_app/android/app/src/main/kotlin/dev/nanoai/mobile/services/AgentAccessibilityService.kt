@@ -9,6 +9,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import dev.nanoai.mobile.MainActivity
+import dev.nanoai.mobile.RuntimeHeartbeat
+import java.io.File
 import java.util.concurrent.Executors
 
 /**
@@ -50,6 +53,22 @@ class AgentAccessibilityService : AccessibilityService() {
         // res/xml/accessibility_service_config.xml.
         AgentAccessibilityBridge.onConnected(this)
         Log.i(TAG, "AgentAccessibilityService conectado")
+        // U-10: vector resurrección — tras un cached-kill de ColorOS el
+        // sistema re-vincula este service él mismo (los accessibility
+        // services habilitados se reinician sin acción del usuario). Si el
+        // runtime desktop quedó vivo sin apagado limpio, re-lanzamos
+        // MainActivity: los accessibility services están exentos de las
+        // restricciones de background activity launch (BAL). beginResurrect
+        // aplica ventana anti-loop — si ColorOS mata en bucle el proceso
+        // recién revivido, no relanzamos en cada rebind.
+        val nanoDir = File(filesDir, "nano")
+        if (RuntimeHeartbeat.wasKilledByOs(nanoDir) && RuntimeHeartbeat.beginResurrect(nanoDir)) {
+            Log.i(TAG, "U-10: kill del OS detectado — relanzando MainActivity")
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

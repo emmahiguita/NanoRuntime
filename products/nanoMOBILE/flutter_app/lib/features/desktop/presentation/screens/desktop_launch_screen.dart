@@ -32,6 +32,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
   bool _busy = false;
   bool _rootfsReady = false;
   bool _desktopReady = false;
+  bool _killedByOs = false;
   int _port = 5901;
   double _progress = 0.0;
   int _elapsedSeconds = 0;
@@ -107,6 +108,12 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
   void _applyDesktopStatus(DesktopStatus desktopStatus) {
     if (desktopStatus.port > 0) _port = desktopStatus.port;
     _desktopReady = desktopStatus.reachable;
+
+    // U-10: kill del OS — el runtime anterior murió en segundo plano
+    // (ahorro de batería de ColorOS). Aviso honesto: nada se perdió.
+    // Se limpia solo cuando el runtime vuelve a estar corriendo o el
+    // usuario detiene explícitamente (ack implícito en stop()).
+    _killedByOs = desktopStatus.wasKilledByOs && !desktopStatus.running;
 
     if (desktopStatus.failed) {
       // Etapa real del backend en fallo â€” el error viene de Xvnc/watchdog,
@@ -354,6 +361,10 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
               onDirectVisor: _openVisor,
             ),
             const SizedBox(height: 16),
+            if (_killedByOs) ...[
+              _KillRestoreBanner(colors: colors),
+              const SizedBox(height: 16),
+            ],
             if (!mobileMode) _StatusBadges(
               colors: colors,
               rootfsReady: _rootfsReady,
@@ -380,6 +391,45 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// U-10: aviso honesto de restauración tras un cached-kill del OS.
+class _KillRestoreBanner extends StatelessWidget {
+  final NanoColors colors;
+
+  const _KillRestoreBanner({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.warning.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.warning.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.restore_rounded, color: colors.warning, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'El sistema operativo cerró el escritorio en segundo plano '
+              '(ahorro de batería). Nada se perdió: toca arrancar para '
+              'restaurarlo limpio.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                height: 1.35,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
