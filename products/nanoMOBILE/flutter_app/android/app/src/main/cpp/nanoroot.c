@@ -24,7 +24,7 @@
  *   Uses __attribute__((constructor)) to load at dlopen time (before main).
  *   Reads NANO_ROOTFS from environment.
  *   Intercepts: open, openat, stat, lstat, fstatat, access, faccessat,
- *   mkdir, mkdirat, opendir, readlink, realpath, unlink, rename.
+ *   mkdir, mkdirat, opendir, dlopen, readlink, realpath, unlink, rename.
  *
  * Build:
  *   NDK cmake, links against libc only.
@@ -80,6 +80,7 @@ static int (*real_execve)(const char*, char* const*, char* const*) = NULL;
 static int (*real_execvp)(const char*, char* const*) = NULL;
 static int (*real_execvpe)(const char*, char* const*, char* const*) = NULL;
 static FILE* (*real_popen)(const char*, const char*) = NULL;
+static void* (*real_dlopen)(const char*, int) = NULL;
 
 #define LOAD_SYM(name) do { \
     if (!real_##name) { \
@@ -679,6 +680,24 @@ DIR* opendir(const char* name) {
         return real_opendir(new_path);
     }
     return real_opendir(name);
+}
+
+// ── Intercept: dlopen ──
+// El dynamic linker de Android resuelve el path con sus propios open/stat
+// internos: la redirección de openat NO aplica dentro del linker. Sin este
+// intercept, dlopen("/data/data/com.termux/files/usr/lib/imlib2/loaders/
+// pnm.so") falla "library not found" y apps como feh/imlib2 quedan sin
+// loaders ("No Imlib2 loader for that file format"), GIO sin módulos, etc.
+
+void* dlopen(const char* filename, int flags) {
+    LOAD_SYM(dlopen);
+    if (filename && filename[0] == '/') {
+        char new_path[PATH_MAX];
+        if (redirect_path(filename, new_path, sizeof(new_path)) == 1) {
+            return real_dlopen(new_path, flags);
+        }
+    }
+    return real_dlopen(filename, flags);
 }
 
 // ── Intercept: readlink ──

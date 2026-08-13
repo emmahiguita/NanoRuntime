@@ -85,6 +85,7 @@ class DebInstaller(
             "pcmanfm",          // gestor de archivos GTK3 (~7 MB; GTK3 ya instalado)
             "feh",              // visor de imágenes y wallpaper (~1 MB)
             "mousepad",         // editor gráfico XFCE (~15 MB con gtksourceview4+gspell)
+            "gvfs",             // VFS de GLib: papelera (trash://) y mounts en pcmanfm
             "hicolor-icon-theme", // tema de íconos base XDG para GTK3/pcmanfm
             "librsvg",          // renderizador de íconos vectoriales SVG para aplicaciones GTK
             "psmisc",           // utilidades de procesos: pstree, killall, fuser

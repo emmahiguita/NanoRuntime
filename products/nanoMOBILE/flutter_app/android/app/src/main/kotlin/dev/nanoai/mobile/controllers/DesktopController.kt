@@ -160,7 +160,11 @@ class DesktopController(
                 File(usrDir, "bin/pcmanfm").exists() &&
                 File(usrDir, "bin/feh").exists() &&
                 File(usrDir, "bin/mousepad").exists() &&
-                File(usrDir, "bin/dbus-launch").exists()
+                File(usrDir, "bin/dbus-launch").exists() &&
+                // U-1: papelera (trash://) de pcmanfm vía gvfs. Si falta,
+                // installGraphical corre y lo instala (devices existentes
+                // también lo reciben, no solo installs limpios).
+                File(usrDir, "libexec/gvfsd-trash").exists()
             ),
             "stage"     to (session?.currentStage ?: "idle"),
             "lastError" to session?.currentError,

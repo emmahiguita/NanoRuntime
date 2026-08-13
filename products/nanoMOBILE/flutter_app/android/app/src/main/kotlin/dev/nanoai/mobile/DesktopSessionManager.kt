@@ -28,6 +28,7 @@ class DesktopSessionManager(
     @Volatile private var terminalPid: Long = -1
     @Volatile private var tint2Pid: Long   = -1
     @Volatile private var fehPid: Long     = -1
+    @Volatile private var dbusPid: Long   = -1
     @Volatile private var running = false
     @Volatile private var stopRequested = false
     @Volatile private var starting = false
@@ -295,6 +296,33 @@ class DesktopSessionManager(
         setupWallpaper()
         setupGtkTheme()
 
+        // U-1: session bus de D-Bus — gvfs (papelera trash:// de pcmanfm) y
+        // los daemons gvfsd lo necesitan. Socket UNIX en el tmp del rootfs
+        // (nanoroot redirige /tmp a files/nano/tmp); el address se exporta en
+        // wmEnv para que TODOS los hijos (openbox/tint2/feh/aterm/pcmanfm)
+        // compartan el mismo bus. Sin bus, pcmanfm borra archivos sin
+        // papelera (delete directo) — evidencia: bin/dbus-launch instalado
+        // pero NADIE lo lanzaba (grep en todo el repo, solo 2 menciones).
+        val dbusBin = File(usrDir, "bin/dbus-daemon")
+        if (dbusBin.exists()) {
+            dbusBin.setExecutable(true, false)
+            val dbusSock = File(tmpDir, "dbus-session.sock")
+            dbusPid = spawnBg(
+                dbusBin.absolutePath,
+                listOf(
+                    "dbus-daemon", "--session", "--nofork",
+                    "--address=unix:path=${dbusSock.absolutePath}",
+                ),
+                wmEnv,
+            )
+            if (dbusPid > 0) {
+                wmEnv["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=${dbusSock.absolutePath}"
+                Log.i(TAG, "dbus-daemon PID=$dbusPid (session bus en $dbusSock)")
+            } else {
+                Log.w(TAG, "dbus-daemon no arrancó — gvfs/papelera deshabilitados")
+            }
+        }
+
         // Lanzar openbox
         val openboxBin = File(usrDir, "bin/openbox")
         if (openboxBin.exists()) {
@@ -455,6 +483,7 @@ class DesktopSessionManager(
         killPid(tint2Pid);   tint2Pid   = -1
         killPid(openboxPid); openboxPid = -1
         killPid(fehPid);     fehPid     = -1
+        killPid(dbusPid);    dbusPid    = -1
         running = false
     }
 

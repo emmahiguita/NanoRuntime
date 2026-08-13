@@ -321,6 +321,30 @@ Pedido: escritorio completo sin errores de diseño, resolución, colores o píxe
 
 **Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL (1m13s, compileDebugKotlin ejecutado). Pendiente device: captura nueva para confirmar fb portrait completo.
 
+### FASE 3c — UX del escritorio ✅ (completada 2026-08-13)
+
+Pedido: mejorar UX del escritorio Linux en 4 frentes elegidos por el usuario.
+
+**U-1 — pcmanfm: papelera (trash://) vía gvfs + session bus D-Bus.**
+Evidencia de partida: `bin/dbus-launch` instalado pero NADIE lo lanzaba (grep en repo: 2 menciones); sin session bus, pcmanfm borra directo sin papelera.
+Fix: `gvfs` añadido a DESKTOP_PACKAGES; `DesktopSessionManager` lanza `dbus-daemon --session --nofork --address=unix:path=<tmp>/dbus-session.sock` antes de openbox y exporta `DBUS_SESSION_BUS_ADDRESS` en wmEnv (todos los hijos comparten el bus); gate `graphicalExtras` ampliado con `libexec/gvfsd-trash` para que devices existentes reciban gvfs vía installGraphical incremental (idempotente, salta lo registrado en dpkg).
+Verificado en device: gvfs 1.60.2 `install ok installed` en dpkg; `gvfsd-trash` + `trash.mount` presentes; dbus-daemon vivo con socket UNIX en usr/tmp; openbox/tint2 arriba con el env. (Nota: el postinst de gvfs reporta rc=1 — `gschemas.compiled` y binarios presentes, sin impacto funcional detectado.)
+
+**U-2 — Touch: long-press = clic derecho, scroll 2 dedos.**
+Long-press 550ms sin mover (≥8px cancela) suelta el botón izquierdo y envía clic derecho (RFB mask 4) en el punto, con HapticFeedback. Scroll 2 dedos: decisión sticky al inicio del gesto (desplazamiento vertical dominante = wheel RFB cada 40px acumulados; |scale-1| ≥ 0.05 = pinch zoom).
+
+**U-3 — Visor VNC: toolbar con teclas rápidas X11.**
+Fila nueva bajo los controles de mouse/rueda/zoom: Esc, Tab, Ctrl (sticky), Alt (sticky), Enter, ← ↑ ↓ → (keysyms 0xFF1B/0xFF09/0xFFE3/0xFFE9/0xFF0D/0xFF51-0xFF54). Ctrl/Alt sticky con estado visual (chip turquesa) y haptics — sin teclado físico se puede hacer Ctrl+C o cerrar diálogos.
+
+**U-4 — Fuentes y temas: verificado óptimo, sin cambios.**
+Fontconfig del device ya en configuración correcta para framebuffer sin subpixel LCD: `10-yes-antialias.conf` (antialias), `10-hinting-slight.conf`, `10-sub-pixel-none.conf`; DejaVu instaladas en `share/fonts/TTF/` con cache generada. Subpixel RGB/LCD sería INCORRECTO en fb — no se tocó nada.
+
+**Fix colateral descubierto — nanoroot: intercept de dlopen (feh roto).**
+Al verificar U-1/U-4, feh fallaba en bucle (`No Imlib2 loader for that file format`) y el wallpaper nunca se aplicaba. Causa raíz demostrada: imlib2 dlopenea sus loaders con el path compilado `/data/data/com.termux/files/usr/lib/imlib2/loaders/pnm.so`; el dynamic linker de Android resuelve ese path con sus propios open/stat INTERNOS, que NO pasan por los intercepts open/openat de nanoroot → `dlopen failed: library not found` → imlib2 sin loaders. La redirección de openat era insuficiente para dlopen. Fix: intercept de `dlopen` en nanoroot (redirect_path antes de llamar real_dlopen). Verificado: `imlib2_load`/`imlib2_conv` convierten PPM→PNG (pnm.so+png.so cargados vía dlopen redirigido); root window del Xvnc capturado con imlib2_grab muestra el wallpaper aplicado (1668 colores, promedio RGB 22/82/119 — fondo azul del tema, no negro).
+Efecto colateral positivo: cualquier app que dlopenea paths Termux (GIO modules, GTK immodules, gstreamer plugins) queda cubierta.
+
+**Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL; instalado en device (VGL7MVFMDYQG8T55): gvfs instalado, dbus vivo, wallpaper aplicado, toolbar visible con las 2 filas.
+
 ### FASE 4 — Calidad
 - **Archivos**: tests (Dart unit + widget para terminal/parser), CI en GitHub Actions.
 - **Criterio de salida**: analyze + test + assembleDebug en cada push.

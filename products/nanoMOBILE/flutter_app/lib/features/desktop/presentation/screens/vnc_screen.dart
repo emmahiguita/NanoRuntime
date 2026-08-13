@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,6 +90,16 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   Offset _panAtGestureStart = Offset.zero;
   Offset _pinchStartFocal = Offset.zero;
 
+  // U-2: long-press (550ms sin mover) = clic derecho en el punto tocado.
+  Timer? _longPressTimer;
+  bool _longPressFired = false;
+
+  // U-2: scroll de 2 dedos (wheel RFB). Sticky: el gesto decide una vez —
+  // desplazamiento vertical dominante = scroll; |scale-1| >= 0.05 = pinch.
+  bool _pinchScroll = false;
+  bool _pinchZoomed = false;
+  double _scrollAccum = 0;
+
   final FocusNode _keyboardFocus = FocusNode();
   final TextEditingController _keyboardInput = TextEditingController();
 
@@ -113,6 +124,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   @override
   void dispose() {
     _reconnectTimer?.cancel();
+    _longPressTimer?.cancel();
     _client?.disconnect();
     _frame?.dispose();
     _keyboardFocus.dispose();
@@ -457,10 +469,14 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   void _onScaleStart(ScaleStartDetails d, Size widgetSize) {
     if (d.pointerCount >= 2) {
       // Pinch de 2 dedos: zoom anclado al foco inicial + pan por arrastre.
+      // U-2: si el desplazamiento vertical domina, es scroll de rueda.
       _gestureMode = _GestureMode.pinch;
       _zoomAtGestureStart = _zoom;
       _panAtGestureStart = _panFb;
       _pinchStartFocal = d.localFocalPoint;
+      _pinchScroll = false;
+      _pinchZoomed = false;
+      _scrollAccum = 0;
       return;
     }
 
@@ -477,6 +493,23 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       _cursorFb = fb;
       _lastPanFb = fb;
       _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 1);
+      // U-2: long-press = clic derecho (menú de openbox en el escritorio).
+      _longPressFired = false;
+      _longPressTimer?.cancel();
+      _longPressTimer = Timer(const Duration(milliseconds: 550), () {
+        if (_gestureMode != _GestureMode.touch) return;
+        if (_dragTotal.distance >= 8) return;
+        _longPressFired = true;
+        final p = _lastPanFb;
+        if (p != null && _client != null) {
+          // Soltar el izquierdo antes del derecho (sin drag fantasma P2-8).
+          _client?.sendPointerEvent(p.dx.round(), p.dy.round(), 0);
+          _activeMask = 0;
+          _client?.sendPointerEvent(p.dx.round(), p.dy.round(), 4);
+          _client?.sendPointerEvent(p.dx.round(), p.dy.round(), 0);
+          HapticFeedback.mediumImpact();
+        }
+      });
     }
   }
 
@@ -485,6 +518,36 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       case _GestureMode.pinch:
         final fit = _fitScale(widgetSize);
         if (fit == null) return;
+        // U-2: decidir intención UNA vez (sticky) — scroll vs pinch real.
+        if (!_pinchScroll && !_pinchZoomed) {
+          if ((d.scale - 1.0).abs() >= 0.05) {
+            _pinchZoomed = true;
+          } else {
+            final dy = d.localFocalPoint.dy - _pinchStartFocal.dy;
+            if (dy.abs() > 24) _pinchScroll = true;
+          }
+        }
+        if (_pinchScroll) {
+          // Scroll de rueda: cada ~40px verticales = un paso RFB (8/16).
+          _scrollAccum += d.focalPointDelta.dy;
+          const notch = 40.0;
+          final fb = _localToFb(d.localFocalPoint, widgetSize);
+          while (_scrollAccum <= -notch) {
+            _scrollAccum += notch;
+            if (fb != null && _client != null) {
+              _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 8);
+              _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 0);
+            }
+          }
+          while (_scrollAccum >= notch) {
+            _scrollAccum -= notch;
+            if (fb != null && _client != null) {
+              _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 16);
+              _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 0);
+            }
+          }
+          return;
+        }
         final newZoom = (_zoomAtGestureStart * d.scale).clamp(1.0, _maxZoom);
         var pan = _panAtGestureStart;
         if (newZoom > 1.0) {
@@ -523,8 +586,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
 
       case _GestureMode.touch:
         _dragTotal += d.focalPointDelta;
+        // U-2: movimiento real cancela el long-press pendiente.
+        if (_dragTotal.distance >= 8) {
+          _longPressTimer?.cancel();
+          _longPressFired = false;
+        }
         final fb = _localToFb(d.localFocalPoint, widgetSize);
-        if (fb != null && _activeMask != 0) {
+        if (fb != null && _activeMask != 0 && !_longPressFired) {
           _cursorFb = fb;
           _lastPanFb = fb;
           _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), _activeMask);
@@ -539,6 +607,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   void _onScaleEnd(ScaleEndDetails d, Size widgetSize) {
     switch (_gestureMode) {
       case _GestureMode.touch:
+        _longPressTimer?.cancel();
+        if (_longPressFired) {
+          // El clic derecho ya se envió completo en el timer; nada que soltar.
+          _longPressFired = false;
+          _activeMask = 0;
+          break;
+        }
         // Soltar el botón izquierdo con la última posición conocida
         // (P2-8: sin release el servidor queda con drag fantasma).
         if (_activeMask != 0) {
@@ -559,6 +634,10 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         break;
 
       case _GestureMode.pinch:
+        _pinchScroll = false;
+        _pinchZoomed = false;
+        break;
+
       case _GestureMode.none:
         break;
     }
@@ -576,6 +655,32 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   void _sendLeftClick() {
     _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 1);
     _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 0);
+  }
+
+  // ── Teclas rápidas X11 (U-3) ──
+  // El IME móvil no tiene Esc/Tab/Ctrl/Alt/flechas — sin esto, cerrar
+  // diálogos o hacer Ctrl+C en la terminal es imposible sin teclado físico.
+
+  // X11 keysyms: Esc=0xFF1B, Tab=0xFF09, Return=0xFF0D, Ctrl_L=0xFFE3,
+  // Alt_L=0xFFE9, Left=0xFF51, Up=0xFF52, Right=0xFF53, Down=0xFF54.
+  bool _ctrlSticky = false;
+  bool _altSticky = false;
+
+  void _sendQuickKey(int keysym) {
+    _client?.sendKeyEvent(keysym, true);
+    _client?.sendKeyEvent(keysym, false);
+  }
+
+  void _toggleCtrl() {
+    setState(() => _ctrlSticky = !_ctrlSticky);
+    _client?.sendKeyEvent(0xFFE3, _ctrlSticky);
+    HapticFeedback.selectionClick();
+  }
+
+  void _toggleAlt() {
+    setState(() => _altSticky = !_altSticky);
+    _client?.sendKeyEvent(0xFFE9, _altSticky);
+    HapticFeedback.selectionClick();
   }
 
   /// Scroll de rueda RFB en la posición del puntero virtual.
@@ -737,6 +842,11 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     onZoomIn: () => _zoomBy(1.25),
                     onZoomOut: () => _zoomBy(1 / 1.25),
                     onResetZoom: _resetZoom,
+                    onQuickKey: _sendQuickKey,
+                    ctrlActive: _ctrlSticky,
+                    altActive: _altSticky,
+                    onToggleCtrl: _toggleCtrl,
+                    onToggleAlt: _toggleAlt,
                   ),
                 ),
               ),
@@ -1023,6 +1133,11 @@ class _MouseControlBar extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onResetZoom;
+  final void Function(int keysym) onQuickKey;
+  final bool ctrlActive;
+  final bool altActive;
+  final VoidCallback onToggleCtrl;
+  final VoidCallback onToggleAlt;
   final double zoom;
 
   const _MouseControlBar({
@@ -1033,6 +1148,11 @@ class _MouseControlBar extends StatelessWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onResetZoom,
+    required this.onQuickKey,
+    required this.ctrlActive,
+    required this.altActive,
+    required this.onToggleCtrl,
+    required this.onToggleAlt,
     required this.zoom,
   });
 
@@ -1058,24 +1178,46 @@ class _MouseControlBar extends StatelessWidget {
       // recortar ningún control.
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Grupo Mouse: clics
-            _barButton(Icons.mouse_rounded, 'Clic izquierdo', onLeftClick),
-            _barButton(Icons.ads_click_rounded, 'Clic derecho', onRightClick),
-            _separator(),
-            // Grupo Rueda: scroll RFB
-            _barButton(Icons.arrow_upward_rounded, 'Rueda arriba', onWheelUp),
-            _barButton(Icons.arrow_downward_rounded, 'Rueda abajo', onWheelDown),
-            _separator(),
-            // Grupo Vista: zoom
-            _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
-            _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
-            _barButton(
-              Icons.zoom_out_map_rounded,
-              'Zoom 100%',
-              zoom > 1.0 ? onResetZoom : null,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Grupo Mouse: clics
+                _barButton(Icons.mouse_rounded, 'Clic izquierdo', onLeftClick),
+                _barButton(Icons.ads_click_rounded, 'Clic derecho', onRightClick),
+                _separator(),
+                // Grupo Rueda: scroll RFB
+                _barButton(Icons.arrow_upward_rounded, 'Rueda arriba', onWheelUp),
+                _barButton(Icons.arrow_downward_rounded, 'Rueda abajo', onWheelDown),
+                _separator(),
+                // Grupo Vista: zoom
+                _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
+                _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
+                _barButton(
+                  Icons.zoom_out_map_rounded,
+                  'Zoom 100%',
+                  zoom > 1.0 ? onResetZoom : null,
+                ),
+              ],
+            ),
+            // U-3: teclas rápidas X11 — el IME móvil no trae Esc/Tab/Ctrl/
+            // Alt/flechas; sin ellas no hay Ctrl+C ni diálogo cerrable.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _keyChip('Esc', () => onQuickKey(0xFF1B)),
+                _keyChip('Tab', () => onQuickKey(0xFF09)),
+                _keyChip('Ctrl', onToggleCtrl, active: ctrlActive),
+                _keyChip('Alt', onToggleAlt, active: altActive),
+                _keyChip('↵', () => onQuickKey(0xFF0D)),
+                _separator(),
+                _keyChip('←', () => onQuickKey(0xFF51)),
+                _keyChip('↑', () => onQuickKey(0xFF52)),
+                _keyChip('↓', () => onQuickKey(0xFF54)),
+                _keyChip('→', () => onQuickKey(0xFF53)),
+              ],
             ),
           ],
         ),
@@ -1102,6 +1244,33 @@ class _MouseControlBar extends StatelessWidget {
       tooltip: tooltip,
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       padding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _keyChip(String label, VoidCallback onTap, {bool active = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+      child: Material(
+        color: active
+            ? const Color(0xFF2DD4BF).withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? const Color(0xFF2DD4BF) : Colors.white70,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
