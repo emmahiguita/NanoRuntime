@@ -1,22 +1,29 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'terminal_types.dart';
 
-/// Fallback dart:io para comandos de filesystem — SIN simulación.
+/// Shell de filesystem REAL — sin simulación, binarios Linux reales primero.
 ///
-/// Cuando el shell real (BusyBox vía Nanoshell FFI / rootfs Termux) no puede
-/// ejecutar — típicamente en desktop/tests donde no hay binarios ARM64 — este
-/// fallback opera directamente sobre el filesystem REAL del host, dentro de un
-/// directorio raíz sandbox. Cada comando (mkdir, cp, rm...) toca disco de
-/// verdad; los comandos que requieren Android (`id`, `free` sin /proc) dan
-/// error honesto, nunca datos inventados.
+/// Orden de resolución en cada comando:
+/// 1. **Binario real del host** (Linux/macOS): si existe en el PATH (o es
+///    applet de busybox), se ejecuta el binario de verdad con cwd en el
+///    sandbox. `sed`, `awk`, `tar`, `chmod`, `diff`... corren la lógica
+///    Linux real, no una imitación. `runShell` delega pipes/redirección/
+///    `&&`/`;` a `sh -c` real.
+/// 2. **Fallback dart:io**: cubre el subconjunto [supported] para hosts sin
+///    binarios (Windows de desarrollo/tests). Cada comando toca disco de
+///    verdad; los que requieren Android (`id`, `free` sin /proc) dan error
+///    honesto, nunca datos inventados.
 ///
 /// El cwd es un path LÓGICO estilo Unix (`/`, `/sub`) mapeado al raíz real,
 /// igual que el prompt `_ps1` de terminal_core. `..` no puede escapar del
-/// raíz.
+/// raíz. Con binario real: los paths RELATIVOS quedan dentro del sandbox
+/// (workingDirectory); los ABSOLUTOS (`/etc/...`) apuntan al host real,
+/// como en un chroot parcial — real y documentado.
 ///
 /// Nunca se usa en Android con shell activo: ahí manda el motor NanoRuntime
-/// (toybox real). Este fallback solo cubre el subconjunto [supported].
+/// (toybox real vía Nanoshell FFI). `hostSh` es null en Android/Windows.
 class RealFsShell {
   RealFsShell({required String root}) : _root = Directory(root) {
     try {
@@ -28,6 +35,32 @@ class RealFsShell {
 
   /// Cwd lógico (estilo Unix). Empieza en `/`.
   String cwd = '/';
+
+  /// Shell real del host (`sh`) detectado una vez. Solo Linux/macOS: en
+  /// Windows el sh de Git Bash usa rutas POSIX incompatibles con el
+  /// sandbox (`C:\...`) y no debe usarse. En Android manda NanoRuntime.
+  static final String? hostSh = _findHostSh();
+
+  static String? _findHostSh() {
+    if (Platform.isWindows) return null;
+    try {
+      final r = Process.runSync('sh', const ['-c', 'command -v sh']);
+      if (r.exitCode == 0 && (r.stdout as String).trim().isNotEmpty) {
+        return (r.stdout as String).trim();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// true si hay un sh real del host para delegar comandos completos
+  /// (pipes `|`, redirección `> >> <`, `&&`, `;`).
+  bool get hasRealShell => hostSh != null;
+
+  Map<String, String> get _env => {
+        'TERM': 'dumb',
+        'PWD': cwd,
+        ...Platform.environment,
+      };
 
   /// Subconjunto de comandos con implementación dart:io real.
   static const supported = {
@@ -61,10 +94,31 @@ class RealFsShell {
 
   bool supports(String name) => supported.contains(name);
 
+  /// Comandos sin binario estándar del host: se resuelven SIEMPRE con el
+  /// fallback dart:io (cd/pwd/source mantienen el cwd lógico del sandbox;
+  /// tree no existe en la mayoría de distros base). `vi` es interactivo:
+  /// sin tty emite escapes basura — va por PTY o toybox, nunca por binario.
+  static const _noHostBinary = {'cd', 'pwd', 'source', 'tree', 'vi'};
+
   /// Ejecuta [name] con [args] y emite por [out] (stdout/stderr con [Ln]).
-  void run(String name, List<String> args, {required void Function(String, Ln) out}) {
+  Future<void> run(
+    String name,
+    List<String> args, {
+    required void Function(String, Ln) out,
+  }) async {
     void o(String t) => out(t, Ln.stdout);
     void e(String t) => out(t, Ln.stderr);
+
+    // 1) Binario Linux real del host: sed/awk/tar/chmod/diff... reales.
+    if (hasRealShell && !_noHostBinary.contains(name)) {
+      final bin = await _resolveBinary(name);
+      if (bin != null) {
+        await _runBinary(bin, name, args, out);
+        return;
+      }
+    }
+
+    // 2) Fallback dart:io real (hosts sin binarios).
     try {
       switch (name) {
         case 'mkdir':
@@ -125,6 +179,110 @@ class RealFsShell {
     } catch (err) {
       e('$name: $err');
     }
+  }
+
+  /// Ejecuta [cmd] completo con `sh -c` real del host: pipes `|`,
+  /// redirección `> >> <`, `&&`, `||`, `;` — la semántica Linux de verdad
+  /// sobre el sandbox. Sin sh del host → error honesto.
+  Future<void> runShell(
+    String cmd, {
+    required void Function(String, Ln) out,
+  }) async {
+    final sh = hostSh;
+    if (sh == null) {
+      out('sh: no disponible en este host', Ln.stderr);
+      return;
+    }
+    Process process;
+    try {
+      process = await Process.start(
+        sh,
+        ['-c', cmd],
+        workingDirectory: resolve('.'),
+        environment: _env,
+      );
+    } catch (err) {
+      out('sh: $err', Ln.stderr);
+      return;
+    }
+    await _pump(process, out);
+  }
+
+  /// Resuelve el binario del host para [name]: primero el binario nativo
+  /// del PATH (coreutils/GNU reales), luego busybox si existe (applets).
+  Future<String?> _resolveBinary(String name) async {
+    final sh = hostSh;
+    if (sh == null) return null;
+    final cached = _binCache[name];
+    if (cached == true) return name;
+    if (cached == false) return await _resolveBusybox();
+    try {
+      final r =
+          await Process.run(sh, ['-c', r'command -v "$1"', 'sh', name]);
+      final ok = r.exitCode == 0 && (r.stdout as String).trim().isNotEmpty;
+      _binCache[name] = ok;
+      if (ok) return name;
+    } catch (_) {
+      _binCache[name] = false;
+    }
+    return await _resolveBusybox();
+  }
+
+  static final Map<String, bool> _binCache = {};
+  static bool? _haveBusybox;
+
+  Future<String?> _resolveBusybox() async {
+    final sh = hostSh;
+    if (sh == null) return null;
+    if (_haveBusybox == true) return 'busybox';
+    if (_haveBusybox == false) return null;
+    try {
+      final r = await Process.run(sh, ['-c', 'command -v busybox']);
+      final ok = r.exitCode == 0 && (r.stdout as String).trim().isNotEmpty;
+      _haveBusybox = ok;
+      return ok ? 'busybox' : null;
+    } catch (_) {
+      _haveBusybox = false;
+      return null;
+    }
+  }
+
+  /// Lanza [bin] real ([name] como applet si es busybox) con cwd en el
+  /// sandbox y vuelca stdout/stderr por [out].
+  Future<void> _runBinary(
+    String bin,
+    String name,
+    List<String> args,
+    void Function(String, Ln) out,
+  ) async {
+    Process process;
+    try {
+      process = await Process.start(
+        bin,
+        bin == 'busybox' ? [name, ...args] : args,
+        workingDirectory: resolve('.'),
+        environment: _env,
+      );
+    } catch (err) {
+      out('$name: $err', Ln.stderr);
+      return;
+    }
+    await _pump(process, out);
+  }
+
+  /// Vuelca stdout/stderr de [process] línea a línea por [out] y espera el
+  /// exit code. Sin salida y con rc != 0 no se inventa nada: un shell real
+  /// también vuelve en silencio (p. ej. `grep` sin coincidencias).
+  Future<void> _pump(Process process, void Function(String, Ln) out) async {
+    process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((l) => out(l, Ln.stdout));
+    process.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((l) => out(l, Ln.stderr));
+    await process.exitCode;
   }
 
   // ── resolución de paths ──

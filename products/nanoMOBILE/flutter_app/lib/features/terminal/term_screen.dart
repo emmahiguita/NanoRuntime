@@ -174,7 +174,10 @@ class TermScreen {
   void backspace() {
     if (_col <= 0) return;
     _col--;
-    if (_col > 0 && _cellList[_row][_col].wide) _col--;
+    // Si el cursor queda sobre la celda continuadora de un char wide
+    // (ch=0 tras la celda wide), retrocede al inicio del wide: borrar un
+    // CJK/emoji debe consumir las 2 celdas, no dejar media celda fantasma.
+    _snapFromContinuation();
   }
   void tab() => _col = math.min(cols - 1, ((_col ~/ 8) + 1) * 8);
   void indexUp() {

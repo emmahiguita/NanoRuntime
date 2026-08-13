@@ -43,6 +43,51 @@ Color _rfg(int idx, Color def) =>
 Color? _rbg(int idx) => idx == 256 ? null : _palette256[idx & 0xFF];
 
 // ============================================================================
+// MÉTRICAS DE CELDA REALES (medidas con TextPainter, no mágicos 7.6/20)
+// ============================================================================
+/// Ancho y alto reales de una celda del grid con el estilo mono del render.
+/// Compartidas entre AnsiTerminalView (itemExtent, altura de fila) y
+/// terminal_core (`_applyPtySize`, taps de mouse): el grid del buffer y el
+/// render deben usar la MISMA celda o las cajas de htop/vim se descuadran
+/// (el clásico "error de píxel" de terminales custom).
+class AnsiMetrics {
+  AnsiMetrics._(this.cellW, this.cellH);
+
+  final double cellW;
+  final double cellH;
+
+  static AnsiMetrics? _cached;
+
+  /// Mide una celda con el estilo dado y cachea. Sin estilo: devuelve la
+  /// medida previa (hecha por AnsiTerminalView al montar) o un default
+  /// medido con el estilo base del terminal.
+  static AnsiMetrics measure([TextStyle? style]) {
+    if (style == null) {
+      final cached = _cached;
+      if (cached != null) return cached;
+      style = const TextStyle(
+        fontFamily: 'monospace',
+        fontFamilyFallback: ['monospace'],
+        height: 1.15,
+      );
+    }
+    final w = TextPainter(
+      text: TextSpan(text: 'M', style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final h = TextPainter(
+      text: TextSpan(text: 'M\nM', style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final cellW = w.width > 0 ? w.width : 8.4;
+    final cellH = h.height > 0 ? h.height / 2 : 20.0;
+    final metric = AnsiMetrics._(cellW, cellH);
+    _cached = metric;
+    return metric;
+  }
+}
+
+// ============================================================================
 // 3. FACADE â€” AnsiTerminal: screen + parser; API del consumidor + notificaciÃ³n.
 // ============================================================================
 class AnsiTerminal extends ChangeNotifier {
@@ -151,6 +196,7 @@ class _AnsiTerminalViewState extends State<AnsiTerminalView> {
     );
     final defFg = mono.color ?? const Color(0xFFE0E0E0);
     final showCursor = _term.cursorVisible && _cursorOn;
+    final metrics = AnsiMetrics.measure(mono);
 
     return AnimatedBuilder(
       animation: _term,
@@ -171,7 +217,7 @@ class _AnsiTerminalViewState extends State<AnsiTerminalView> {
           controller: _sc,
           padding: const EdgeInsets.all(6),
           itemCount: totalRows,
-          itemExtent: 20,
+          itemExtent: metrics.cellH,
           itemBuilder: (context, i) {
             if (i < hist) {
               return RepaintBoundary(
@@ -179,6 +225,7 @@ class _AnsiTerminalViewState extends State<AnsiTerminalView> {
                   cells: _term.historyRow(i),
                   baseStyle: mono,
                   defFg: defFg,
+                  lineHeight: metrics.cellH,
                 ),
               );
             }
@@ -191,6 +238,7 @@ class _AnsiTerminalViewState extends State<AnsiTerminalView> {
                 baseStyle: mono,
                 defFg: defFg,
                 cursorCol: cursorCol,
+                lineHeight: metrics.cellH,
               ),
             );
           },
@@ -205,10 +253,12 @@ class _TermLine extends StatelessWidget {
   final TextStyle baseStyle;
   final Color defFg;
   final int? cursorCol;
+  final double lineHeight;
   const _TermLine({
     required this.cells,
     required this.baseStyle,
     required this.defFg,
+    required this.lineHeight,
     this.cursorCol,
   });
 
@@ -238,7 +288,7 @@ class _TermLine extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 20,
+      height: lineHeight,
       child: Text.rich(
         TextSpan(children: spans),
         style: baseStyle,

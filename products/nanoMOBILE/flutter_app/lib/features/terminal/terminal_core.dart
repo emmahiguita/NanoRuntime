@@ -456,10 +456,16 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
   int _ptyRows = 24, _ptyCols = 80;
 
   /// Aplica el tamaño del área visible al PTY y al buffer ANSI. Los apps fullscreen (vim/htop) consultan TIOCGWINSZ en cada redibujo; sin resize real dibujan en 24x80 aunque la pantalla sea mayor. Se difiere a post-frame porque toca ChangeNotifier (evita rebuild en build).
+  ///
+  /// Usa las MISMAS métricas de celda que AnsiTerminalView (AnsiMetrics):
+  /// antes se asumía 7.6px de ancho y 20px de alto a mano; con la fuente
+  /// real del device el grid del render y el del buffer divergían y las
+  /// cajas/columnas de apps fullscreen se descuadraban (errores de píxel).
   void _applyPtySize(double w, double h) {
     if (_pty == null || !_ptyActive || _ansi == null) return;
-    final rows = (h / 20).floor().clamp(1, 200);
-    final cols = (w / 7.6).floor().clamp(1, 300);
+    final m = AnsiMetrics.measure();
+    final rows = (h / m.cellH).floor().clamp(1, 200);
+    final cols = (w / m.cellW).floor().clamp(1, 300);
     if (rows == _ptyRows && cols == _ptyCols) return;
     _ptyRows = rows;
     _ptyCols = cols;
@@ -630,13 +636,24 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       }
       return;
     }
-    if (_hasShellOps(cmd) && _shell != null && _shell!.initialized) {
-      _out('[ash] $cmd', Ln.system);
-      final extraEnv = _rootfs?.isInstalled == true
-          ? _deps.rootfsEnv(ldPreload: 'libnanoroot.so')
-          : null;
-      final r = await _shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
-      _shellOut(r);
+    if (_hasShellOps(cmd)) {
+      // Host con sh real (Linux/macOS desktop): pipes/redirección/&& reales
+      // delegando a `sh -c` sobre el sandbox real. En Android manda toybox
+      // ash del motor NanoRuntime. Sin ninguno: error honesto.
+      if (!Platform.isAndroid && _realFs.hasRealShell) {
+        await _realFs.runShell(cmd, out: _out);
+        return;
+      }
+      if (_shell != null && _shell!.initialized) {
+        _out('[ash] $cmd', Ln.system);
+        final extraEnv = _rootfs?.isInstalled == true
+            ? _deps.rootfsEnv(ldPreload: 'libnanoroot.so')
+            : null;
+        final r = await _shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
+        _shellOut(r);
+        return;
+      }
+      _out('sh: no disponible (sin rootfs ni shell del host)', Ln.stderr);
       return;
     }
     var parts = _tok(cmd); if (parts.isNotEmpty && _ctx.aliases.containsKey(parts[0])) parts = _tok(_ctx.aliases[parts[0]]!);
@@ -656,8 +673,11 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       if (_shell != null && _shell!.initialized && Platform.isAndroid) {
         final r = await _shell!.toybox([name, ...args]);
         _shellOut(r);
-      } else if (!Platform.isAndroid && _realFs.supports(name)) {
-        _realFs.run(name, args, out: _out);
+      } else if (!Platform.isAndroid &&
+          (_realFs.supports(name) || _realFs.hasRealShell)) {
+        // Desktop: binario real del host (sed/awk/tar/chmod... GNU reales)
+        // con fallback dart:io para el subconjunto soportado.
+        await _realFs.run(name, args, out: _out);
         if (name == 'cd') _bashCwd = _realFs.cwd;
       } else if (!Platform.isAndroid) {
         _out('$name: no disponible (sin binarios en este host)', Ln.stderr);
@@ -669,7 +689,7 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     // Fallback dart:io para comandos fuera de realCommands (tree, source)
     // en hosts sin binarios Android.
     if (!Platform.isAndroid && _realFs.supports(name)) {
-      _realFs.run(name, args, out: _out);
+      await _realFs.run(name, args, out: _out);
       if (name == 'cd') _bashCwd = _realFs.cwd;
       return;
     }
@@ -865,8 +885,9 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
               GestureDetector(
                 onTap: () => _fn.requestFocus(),
                 onTapDown: _ansi?.mouseEnabled == true ? (d) {
-                  final row = (d.localPosition.dy / 20).floor();
-                  final col = (d.localPosition.dx / 7.6).floor();
+                  final m = AnsiMetrics.measure();
+                  final row = (d.localPosition.dy / m.cellH).floor();
+                  final col = (d.localPosition.dx / m.cellW).floor();
                   _pty?.writeBytes([0x1b, 0x5b, 0x4d, 32, col + 33, row + 33]);
                 } : null,
                 child: ColoredBox(
@@ -898,7 +919,7 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
                       padding: const EdgeInsets.only(bottom: 1.5),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         SizedBox(width: 32, child: Text('${i + 1}', style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 10, color: fg.withValues(alpha: 0.15), height: 1.6))),
-                        Expanded(child: Text(line.text, style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12.5, color: _c(line.type, fg), height: 1.6, letterSpacing: 0.2))),
+                        Expanded(child: Text(line.text, style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12.5, color: _c(line.type, fg), height: 1.6))),
                       ]),
                     );
                   },
