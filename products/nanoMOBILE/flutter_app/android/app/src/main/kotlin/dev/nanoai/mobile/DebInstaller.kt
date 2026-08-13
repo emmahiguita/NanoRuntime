@@ -85,8 +85,13 @@ class DebInstaller(
             "pcmanfm",          // gestor de archivos GTK3 (~7 MB; GTK3 ya instalado)
             "feh",              // visor de imágenes y wallpaper (~1 MB)
             "mousepad",         // editor gráfico XFCE (~15 MB con gtksourceview4+gspell)
-            // NOTA: NO añadir lxterminal — su libvte 0.84 depende de gtk4
-            // (40 MB duplicados). aterm ya cubre la terminal gráfica.
+            "hicolor-icon-theme", // tema de íconos base XDG para GTK3/pcmanfm
+            "librsvg",          // renderizador de íconos vectoriales SVG para aplicaciones GTK
+            "psmisc",           // utilidades de procesos: pstree, killall, fuser
+            "nano",             // editor de código/texto en terminal
+            "curl",             // cliente de red y transferencia HTTP
+            "wget",             // descargador de archivos por red
+            "ttf-dejavu",       // Fuentes vectoriales TrueType DejaVu (Sans, Sans Mono) para Xft/GTK
         )
 
         /** Convierte bytes a hex string (para verificación SHA256). */
@@ -342,9 +347,8 @@ class DebInstaller(
         }
         val res = install(DESKTOP_PACKAGES, onProgress)
         if (res) {
-            // Asegurar symlinks .so -> .so.1 para el Linker de Android
             libDir.listFiles()?.forEach { f ->
-                if (f.name.endsWith(".so.1") || f.name.endsWith(".so.3") || f.name.endsWith(".so.1.0")) {
+                if (f.name.contains(".so.") && !f.name.endsWith(".so")) {
                     val baseName = f.name.substringBefore(".so.") + ".so"
                     val target = File(libDir, baseName)
                     if (!target.exists()) {

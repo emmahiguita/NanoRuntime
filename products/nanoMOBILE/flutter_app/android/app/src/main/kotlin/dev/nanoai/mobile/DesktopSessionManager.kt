@@ -378,8 +378,8 @@ class DesktopSessionManager(
         // renderiza con DejaVuSansMono.ttf del rootfs).
         val bigFont = listOf("-fn", "xft:DejaVu Sans Mono:pixelsize=14")
         val candidates = listOf(
-            TerminalLaunch(File(usrDir, "bin/xterm"), listOf("xterm") + bigFont + listOf("-bg", "#0d1117", "-fg", "#00ff9d")),
-            TerminalLaunch(File(usrDir, "bin/aterm"), listOf("aterm") + bigFont + listOf("-bg", "#0d1117", "-fg", "#00ff9d")),
+            TerminalLaunch(File(usrDir, "bin/xterm"), listOf("xterm") + bigFont + listOf("-bg", "#0f172a", "-fg", "#38bdf8")),
+            TerminalLaunch(File(usrDir, "bin/aterm"), listOf("aterm") + bigFont + listOf("-bg", "#0f172a", "-fg", "#38bdf8")),
             TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal")),
         )
         return candidates.firstOrNull { isElf(it.file) }
@@ -521,28 +521,51 @@ class DesktopSessionManager(
 
     private fun setupTint2Config() {
         try {
-            val configDir = File(usrDir, "etc/xdg/tint2").also { it.mkdirs() }
+            // BUG tint2 (2026-08-12): se escribía a usr/etc/xdg/tint2 pero tint2
+            // lee $HOME/.config/tint2/tint2rc (XDG_CONFIG_HOME=home/.config) →
+            // "could not find a config file" y tint2 creaba un default propio.
+            // Además el config viejo usaba opciones que ESTE tint2 de Termux no
+            // soporta: panel_color/clock_enabled/clock_format/clock_font/clock_color
+            // → "invalid option" x5 → "panel items: (null)" → tint2 exit.
+            // Opciones correctas (tint2 17.x): reloj = time1_format/time1_font/
+            // time1_font_color; fondo del panel = panel_background_id + bloque
+            // background (background_color/rounded/border_width).
+            val homeDir   = File(usrDir.parentFile, "home")
+            val configDir = File(homeDir, ".config/tint2").also { it.mkdirs() }
             val tint2Rc   = File(configDir, "tint2rc")
-            // Siempre se reescribe: versiones previas de la app escribieron
-            // un panel de 36px con fuentes chicas; al existir el archivo, el
-            // guard `if (!exists)` de antes lo dejaba congelado en la versión
-            // vieja. Config móvil: panel alto (46px) y fuentes DejaVu legibles.
+            // Panel móvil: Slate Navy (#1e293b), reloj Sky Blue (#38bdf8),
+            // fuentes DejaVu Sans escaladas. Se reescribe siempre para que los
+            // cambios de UX sobrevivan a booteos previos.
             tint2Rc.writeText("""
+                panel_items = TSC
                 panel_position = bottom center horizontal
                 panel_size = 100% 46
                 panel_margin = 0 0
                 panel_background_id = 1
                 panel_dock = 0
                 font_shadow = 0
-                panel_color = #0f141d 100
+                wm_menu = 1
+
                 taskbar_mode = single_desktop
                 task_text = 1
                 task_maximum_size = 280 44
                 task_font = DejaVu Sans 11
-                clock_enabled = 1
-                clock_format = %H:%M
-                clock_font = DejaVu Sans 12
-                clock_color = #00ff9d 100
+                task_font_color = #e2e8f0 100
+                task_background_id = 1
+                task_active_background_id = 1
+
+                systray = 1
+                systray_background_id = 1
+
+                time1_format = %H:%M
+                time1_font = DejaVu Sans 12
+                clock_font_color = #38bdf8 100
+
+                # Background 1: panel/taskbar (Slate Navy)
+                rounded = 0
+                border_width = 0
+                background_color = #1e293b 100
+                border_color = #1e293b 100
             """.trimIndent())
         } catch (e: Exception) {
             Log.w(TAG, "setupTint2Config: ${e.message}")
@@ -556,34 +579,32 @@ class DesktopSessionManager(
             val homeDir = File(usrDir.parentFile, "home")
             val obDir = File(homeDir, ".config/openbox").also { it.mkdirs() }
             val menuXml = File(obDir, "menu.xml")
-            // Siempre se reescribe (mismo motivo que tint2rc): el menú quedó
-            // congelado en la versión sin la fuente Xft grande del aterm.
             menuXml.writeText("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <openbox_menu xmlns="http://openbox.org/3.4/menu">
-                  <menu id="root-menu" label="NanoAI">
+                  <menu id="root-menu" label="NanoAI Linux Desktop">
                     <item label="Terminal">
-                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0d1117 -fg #00ff9d</execute></action>
+                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8</execute></action>
                     </item>
-                        <item label="Archivos">
-                          <action name="Execute"><execute>pcmanfm</execute></action>
-                        </item>
-                        <item label="Editor">
-                          <action name="Execute"><execute>mousepad</execute></action>
-                        </item>
-                        <item label="Imágenes">
-                          <action name="Execute"><execute>feh</execute></action>
-                        </item>
-                        <separator/>
-                        <item label="Reconfigurar">
-                          <action name="Reconfigure"/>
-                        </item>
-                        <item label="Salir">
-                          <action name="Exit"/>
-                        </item>
-                      </menu>
-                    </openbox_menu>
-                """.trimIndent())
+                    <item label="Archivos">
+                      <action name="Execute"><execute>pcmanfm</execute></action>
+                    </item>
+                    <item label="Editor">
+                      <action name="Execute"><execute>mousepad</execute></action>
+                    </item>
+                    <item label="Imágenes">
+                      <action name="Execute"><execute>feh</execute></action>
+                    </item>
+                    <separator/>
+                    <item label="Reconfigurar">
+                      <action name="Reconfigure"/>
+                    </item>
+                    <item label="Salir">
+                      <action name="Exit"/>
+                    </item>
+                  </menu>
+                </openbox_menu>
+            """.trimIndent())
             Log.i(TAG, "openbox menu.xml escrito")
         } catch (e: Exception) {
             Log.w(TAG, "setupOpenboxMenu: ${e.message}")
@@ -598,36 +619,46 @@ class DesktopSessionManager(
             val gtkDir = File(File(usrDir.parentFile, "home"), ".config/gtk-3.0")
                 .also { it.mkdirs() }
             val settingsIni = File(gtkDir, "settings.ini")
-            if (!settingsIni.exists()) {
-                settingsIni.writeText("""
-                    [Settings]
-                    gtk-font-name=DejaVu Sans 14
-                    gtk-application-prefer-dark-theme=1
-                """.trimIndent())
-                Log.i(TAG, "GTK settings.ini escrito (fuente 14px, tema oscuro)")
-            }
+            settingsIni.writeText("""
+                [Settings]
+                gtk-font-name=DejaVu Sans 14
+                gtk-application-prefer-dark-theme=1
+            """.trimIndent())
+            Log.i(TAG, "GTK settings.ini escrito (fuente 14px, tema oscuro)")
         } catch (e: Exception) {
             Log.w(TAG, "setupGtkTheme: ${e.message}")
         }
     }
 
-    // Wallpaper: PPM 1x1 (#0d1117) para que feh --bg-scale pinte el fondo.
-    // PPM es texto plano + bytes RGB: no necesita encoder PNG.
+    // Wallpaper: Genera un archivo PPM P6 (32x32 px) con un gradiente visual
+    // profesional desde Slate Navy (#0F172A) a Deep Ocean Teal (#0369A1).
+    // feh --bg-scale lo escala suavemente sin pixelar el framebuffer.
     private fun setupWallpaper() {
         try {
             val homeDir = File(usrDir.parentFile, "home").also { it.mkdirs() }
             val ppm = File(homeDir, ".nano-wallpaper.ppm")
-            if (!ppm.exists()) {
-                val body = byteArrayOf(
-                    0x0D, 0x11, 0x17 // #0d1117
-                )
-                val header = "P6\n1 1\n255\n".toByteArray(Charsets.US_ASCII)
-                ppm.outputStream().use { out ->
-                    out.write(header)
-                    out.write(body)
+            val w = 32
+            val h = 32
+            val header = "P6\n$w $h\n255\n".toByteArray(Charsets.US_ASCII)
+            val pixels = ByteArray(w * h * 3)
+            var idx = 0
+            for (y in 0 until h) {
+                val factor = y.toDouble() / (h - 1)
+                // Gradiente: #0F172A (15, 23, 42) -> #0284C7 (2, 132, 199)
+                val r = (15 + factor * (2 - 15)).toInt().coerceIn(0, 255)
+                val g = (23 + factor * (132 - 23)).toInt().coerceIn(0, 255)
+                val b = (42 + factor * (199 - 42)).toInt().coerceIn(0, 255)
+                for (x in 0 until w) {
+                    pixels[idx++] = r.toByte()
+                    pixels[idx++] = g.toByte()
+                    pixels[idx++] = b.toByte()
                 }
-                Log.i(TAG, "wallpaper PPM escrito")
             }
+            ppm.outputStream().use { out ->
+                out.write(header)
+                out.write(pixels)
+            }
+            Log.i(TAG, "wallpaper PPM gradiente escrito")
         } catch (e: Exception) {
             Log.w(TAG, "setupWallpaper: ${e.message}")
         }
