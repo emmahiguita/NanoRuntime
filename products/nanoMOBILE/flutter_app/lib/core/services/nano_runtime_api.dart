@@ -260,11 +260,37 @@ class NanoRuntimeApi {
   }
 
   /// El canal responde Boolean (no Map). Timeout nativo: 60s.
-  Future<bool> startDesktop() async {
+  /// [vncPassword] vacío = Xvnc sin auth (SecurityTypes None); no vacío =
+  /// Xvnc con -rfbauth (VNC Auth). Solo se usa la primera vez que arranca el
+  /// escritorio; un cambio posterior requiere stopDesktop + startDesktop.
+  Future<bool> startDesktop({
+    String vncPassword = '',
+    int? width,
+    int? height,
+  }) async {
     try {
-      return await _exec.invokeMethod<bool>('startDesktop', {}) == true;
+      // D-1: width/height = px del viewport lógico (MediaQuery del widget).
+      // El framebuffer de Xvnc nace con el aspect del device (cap 1920),
+      // no con el 1280x720 landscape fijo que dejaba franjas en portrait.
+      return await _exec.invokeMethod<bool>('startDesktop', {
+        'vncPassword': vncPassword,
+        if (width != null) 'width': width,
+        if (height != null) 'height': height,
+      }) == true;
     } catch (e) {
       debugPrint('[runtime] startDesktop error: $e');
+      return false;
+    }
+  }
+
+  /// Solicita los permisos de lectura de medios compartidos (Android 13+:
+  /// READ_MEDIA_IMAGES/VIDEO/AUDIO; <=32: READ_EXTERNAL_STORAGE). Retorna
+  /// true si todos los necesarios están concedidos. No-op en < API 23.
+  Future<bool> requestStoragePermission() async {
+    try {
+      return await _exec.invokeMethod<bool>('requestStoragePermission') == true;
+    } catch (e) {
+      debugPrint('[runtime] requestStoragePermission error: $e');
       return false;
     }
   }

@@ -215,6 +215,11 @@ class ExecBinChannelHandler(
 
     private fun handleStartDesktop(call: MethodCall, result: MethodChannel.Result) {
         val vncPassword = call.argument<String>("vncPassword") ?: ""
+        // D-1: geometría del viewport lógico (px) — 0 = fallback 1280x720 en
+        // XServerBackend.resolveGeometry. El framebuffer nace con el aspect
+        // del device para que el visor no deje bandas ni distorsione.
+        val width = call.argument<Int>("width") ?: 0
+        val height = call.argument<Int>("height") ?: 0
         // AtomicBoolean: se escribe desde el thread "desktop-start" (onReady/
         // onError) y se lee desde main (timeoutRunnable); con un Boolean plano
         // podía haber doble result o timeout fantasma por falta de visibilidad.
@@ -229,6 +234,8 @@ class ExecBinChannelHandler(
 
         nativeSupervisor.startDesktop(
             vncPassword = vncPassword,
+            width = width,
+            height = height,
             onStatus = { status -> Log.i(TAG, status) },
             onReady = {
                 if (done.compareAndSet(false, true)) {

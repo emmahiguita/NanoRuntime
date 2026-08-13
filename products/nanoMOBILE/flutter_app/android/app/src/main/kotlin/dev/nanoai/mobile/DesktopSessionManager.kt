@@ -32,6 +32,12 @@ class DesktopSessionManager(
     @Volatile private var stopRequested = false
     @Volatile private var starting = false
 
+    // Geometría activa del framebuffer (D-1): la resuelve el backend con
+    // resolveGeometry(width, height) — el manager la retiene para elegir el
+    // wallpaper correcto por aspect (wallpaperForLaunch).
+    @Volatile private var fbWidth: Int = DEFAULT_WIDTH
+    @Volatile private var fbHeight: Int = DEFAULT_HEIGHT
+
     // Etapa real del arranque (idle/starting/xvnc/rfb/wm/ready/failed/stopped)
     // y último error — la UI Flutter los consume vía getDesktopStatus en vez
     // de un progress falso.
@@ -98,7 +104,7 @@ class DesktopSessionManager(
             // XCURSOR_SIZE del entorno; sin xrdb instalado es la vía directa).
             // Verificado device 2026-08-12: aterm con este env renderiza
             // cursor 24px en el framebuffer.
-            "XCURSOR_SIZE"     to "24",
+            "XCURSOR_SIZE"     to "28",
         )
     }
 
@@ -123,7 +129,7 @@ class DesktopSessionManager(
         lastError = null
 
         thread(name = "desktop-start", isDaemon = true) {
-            startInternal(onStatus, onReady, onError)
+            startInternal(onStatus, onReady, onError, width, height)
         }
         return true
     }
@@ -161,9 +167,10 @@ class DesktopSessionManager(
             return false
         }
         val (binary, argv) = when (app) {
-            // Fuente Xft 14px verificada device 2026-08-12 (tamaño móvil).
+            // Fuente Xft 16px (D-2): con el framebuffer 1:1 del device, 14px
+            // quedaba ~4mm — 16px es el tamaño táctil mínimo cómodo.
             "aterm"    -> File(usrDir, "bin/aterm") to listOf(
-                "aterm", "-fn", "xft:DejaVu Sans Mono:pixelsize=14",
+                "aterm", "-fn", "xft:DejaVu Sans Mono:pixelsize=16",
                 "-bg", "#0d1117", "-fg", "#00ff9d",
             )
             "pcmanfm"  -> File(usrDir, "bin/pcmanfm") to listOf("pcmanfm")
@@ -190,12 +197,14 @@ class DesktopSessionManager(
         onStatus: (String) -> Unit,
         onReady: () -> Unit,
         onError: (String) -> Unit,
+        width: Int,
+        height: Int,
     ) {
         // Guard final: una excepción no esperada (no cubierta por los checks
         // internos) no debe dejar starting=true ni el stage a medio camino
         // — la UI quedaría en "starting" para siempre.
         try {
-            startInternalImpl(onStatus, onReady, onError)
+            startInternalImpl(onStatus, onReady, onError, width, height)
         } catch (e: Exception) {
             Log.e(TAG, "startInternal: excepción no esperada", e)
             lastError = "Error interno al iniciar escritorio: ${e.javaClass.simpleName}: ${e.message}"
@@ -211,6 +220,8 @@ class DesktopSessionManager(
         onStatus: (String) -> Unit,
         onReady: () -> Unit,
         onError: (String) -> Unit,
+        width: Int,
+        height: Int,
     ) {
         val tmpDir = File(usrDir, "tmp").also { it.mkdirs() }
 
@@ -239,7 +250,7 @@ class DesktopSessionManager(
         stage = "xvnc"
 
         runBlocking {
-            if (!backend.start(wmEnv)) {
+            if (!backend.start(wmEnv, width, height)) {
                 val msg = "Fallo al iniciar el backend del servidor X11."
                 lastError = msg
                 stage = "failed"
@@ -265,6 +276,13 @@ class DesktopSessionManager(
             runBlocking { backend.stop() }
             starting = false
             return
+        }
+
+        // Retener la geometría REAL (resuelta por el backend con el cap de
+        // memoria) — wallpaperForLaunch la usa para elegir el fondo por aspect.
+        if (backend.fbWidth > 0 && backend.fbHeight > 0) {
+            fbWidth = backend.fbWidth
+            fbHeight = backend.fbHeight
         }
 
         onStatus("DISPLAY=$displayStr válido — iniciando entorno de escritorio…")
@@ -302,18 +320,13 @@ class DesktopSessionManager(
             if (abortIfStopped("after-tint2-spawn", onError)) return
         }
 
-        // Wallpaper: PNG nano-cyber desplegado por el boot (assets/exe/
-        // nano-wallpaper.png → home/.nano-wallpaper.png) aplicado con
-        // --bg-fill (resolución exacta 1280x720, sin escalado). Si el PNG no
-        // está (primer boot sin asset), cae al PPM degradado de setupWallpaper.
-        // Sin fondo el root de X es un ruido de píxeles heredado; feh aplica
-        // el pixmap propio sin depender de xsetroot (no instalado).
+        // Wallpaper: sin fondo el root de X es ruido de píxeles heredado;
+        // feh aplica el pixmap propio sin depender de xsetroot (no instalado).
         val fehBin = File(usrDir, "bin/feh")
-        val wallpaper = wallpaperTarget()
+        val (wallpaper, wallFlag) = wallpaperForLaunch()
         if (fehBin.exists() && wallpaper.exists()) {
-            val flag = if (wallpaper.name.endsWith(".png")) "--bg-fill" else "--bg-scale"
-            fehPid = spawnBg(fehBin.absolutePath, listOf("feh", flag, wallpaper.absolutePath), wmEnv)
-            Log.i(TAG, "feh wallpaper aplicado ($flag ${wallpaper.name}, PID=$fehPid)")
+            fehPid = spawnBg(fehBin.absolutePath, listOf("feh", wallFlag, wallpaper.absolutePath), wmEnv)
+            Log.i(TAG, "feh wallpaper aplicado ($wallFlag ${wallpaper.name}, PID=$fehPid)")
         }
 
         // Lanzar terminal gráfica
@@ -402,9 +415,9 @@ class DesktopSessionManager(
 
     private fun firstExistingTerminal(): TerminalLaunch? {
         // Fuente Xft 14px: la "fixed" integrada de Xvnc es ilegible en móvil
-        // (verificado device 2026-08-12: -fn "xft:DejaVu Sans Mono:pixelsize=14"
+        // (verificado device 2026-08-12: -fn "xft:DejaVu Sans Mono:pixelsize=16"
         // renderiza con DejaVuSansMono.ttf del rootfs).
-        val bigFont = listOf("-fn", "xft:DejaVu Sans Mono:pixelsize=14")
+        val bigFont = listOf("-fn", "xft:DejaVu Sans Mono:pixelsize=16")
         val colors = listOf("-bg", "#0f172a", "-fg", "#38bdf8")
         // Terminal de bienvenida: muestra el HUD (banner nano-sec con info real
         // del sistema vía /proc) y deja el shell interactivo debajo. El
@@ -565,15 +578,14 @@ class DesktopSessionManager(
                         }
                     }
                     val fePid = fehPid
-                    val wallpaper = wallpaperTarget()
                     if (fePid > 0 && !File("/proc/$fePid").exists()) {
                         Log.w(TAG, "Watchdog: feh PID=$fePid muerto — re-aplicando wallpaper")
                         fehPid = -1
                         val feh = File(usrDir, "bin/feh")
+                        val (wallpaper, wallFlag) = wallpaperForLaunch()
                         if (feh.exists() && wallpaper.exists() && lastWmEnv.isNotEmpty()) {
-                            val flag = if (wallpaper.name.endsWith(".png")) "--bg-fill" else "--bg-scale"
                             feh.setExecutable(true, false)
-                            fehPid = spawnBg(feh.absolutePath, listOf("feh", flag, wallpaper.absolutePath), lastWmEnv)
+                            fehPid = spawnBg(feh.absolutePath, listOf("feh", wallFlag, wallpaper.absolutePath), lastWmEnv)
                             Log.i(TAG, "Watchdog: feh re-lanzado PID=$fehPid")
                         }
                     }
@@ -620,7 +632,7 @@ class DesktopSessionManager(
             File(appsDir, "aterm.desktop").writeText("""
                 [Desktop Entry]
                 Name=Terminal
-                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8
+                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8
                 Icon=utilities-terminal
                 Type=Application
             """.trimIndent())
@@ -656,7 +668,7 @@ class DesktopSessionManager(
             File(appsDir, "nano-info.desktop").writeText("""
                 [Desktop Entry]
                 Name=Monitor
-                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8 -e python3 $hudPy
+                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8 -e python3 $hudPy
                 Icon=utilities-system-monitor
                 Type=Application
             """.trimIndent())
@@ -667,7 +679,7 @@ class DesktopSessionManager(
             tint2Rc.writeText("""
                 panel_items = LTSC
                 panel_position = bottom center horizontal
-                panel_size = 100% 46
+                panel_size = 100% 52
                 panel_margin = 0 0
                 panel_background_id = 1
                 panel_dock = 0
@@ -692,7 +704,7 @@ class DesktopSessionManager(
                 taskbar_mode = single_desktop
                 task_text = 1
                 task_maximum_size = 280 44
-                task_font = DejaVu Sans 11
+                task_font = DejaVu Sans 12
                 task_font_color = #e2e8f0 100
                 task_background_id = 1
                 task_active_background_id = 1
@@ -701,7 +713,7 @@ class DesktopSessionManager(
                 systray_background_id = 1
 
                 time1_format = %H:%M
-                time1_font = DejaVu Sans 12
+                time1_font = DejaVu Sans 13
                 clock_font_color = #38bdf8 100
 
                 # Background 1: panel/taskbar (Slate Navy)
@@ -728,10 +740,10 @@ class DesktopSessionManager(
                 <openbox_menu xmlns="http://openbox.org/3.4/menu">
                   <menu id="root-menu" label="NanoAI Linux Desktop">
                     <item label="Monitor del Sistema">
-                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8 -e python3 $hudPy</execute></action>
+                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8 -e python3 $hudPy</execute></action>
                     </item>
                     <item label="Terminal">
-                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8</execute></action>
+                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=16" -bg #0f172a -fg #38bdf8</execute></action>
                     </item>
                     <item label="Archivos">
                       <action name="Execute"><execute>pcmanfm</execute></action>
@@ -821,7 +833,7 @@ class DesktopSessionManager(
                 [Settings]
                 gtk-theme-name=Adwaita-dark
                 gtk-icon-theme-name=Adwaita
-                gtk-font-name=DejaVu Sans 14
+                gtk-font-name=DejaVu Sans 16
                 gtk-application-prefer-dark-theme=1
             """.trimIndent())
             Log.i(TAG, "GTK settings.ini escrito (fuente 14px, tema oscuro)")
@@ -830,28 +842,59 @@ class DesktopSessionManager(
         }
     }
 
-    // Wallpaper: PNG nano-cyber 1280x720 desplegado por el boot
-    // (assets/exe/nano-wallpaper.png → home/.nano-wallpaper.png) con prioridad;
-    // si no está, el PPM degradado de setupWallpaper() es el fallback.
-    private fun wallpaperTarget(): File {
-        val png = File(File(usrDir.parentFile, "home"), ".nano-wallpaper.png")
-        if (png.exists() && png.length() > 10000) return png
-        return File(File(usrDir.parentFile, "home"), ".nano-wallpaper.ppm")
+    // Wallpaper por aspect (D-3): el PNG nano-cyber es 1280x720 landscape.
+    // Si el framebuffer es portrait (device móvil), --bg-fill recortaría el
+    // PNG a la franja central y --bg-scale estiraría el patrón ~3x — en ambos
+    // casos el diseño se destruye. Solo se usa el PNG cuando el aspect casa
+    // (±5%, leído del header IHDR); si no, cae al PPM gradiente vertical
+    // (32x32, --bg-scale suave sin distorsión visible).
+    private fun wallpaperForLaunch(): Pair<File, String> {
+        val homeDir = File(usrDir.parentFile, "home")
+        val png = File(homeDir, ".nano-wallpaper.png")
+        val ppm = File(homeDir, ".nano-wallpaper.ppm")
+        if (png.exists() && png.length() > 10000 && pngMatchesAspect(png)) {
+            return png to "--bg-fill"
+        }
+        return ppm to "--bg-scale"
+    }
+
+    private fun pngMatchesAspect(png: File): Boolean {
+        if (fbWidth <= 0 || fbHeight <= 0) return false
+        return try {
+            // IHDR: ancho BE u32 en bytes 16-19, alto BE u32 en bytes 20-23.
+            val hdr = ByteArray(24)
+            png.inputStream().use { ins ->
+                var off = 0
+                while (off < hdr.size) {
+                    val n = ins.read(hdr, off, hdr.size - off)
+                    if (n < 0) return false
+                    off += n
+                }
+            }
+            fun be32(i: Int): Int = ((hdr[i].toInt() and 0xFF) shl 24) or
+                ((hdr[i + 1].toInt() and 0xFF) shl 16) or
+                ((hdr[i + 2].toInt() and 0xFF) shl 8) or
+                (hdr[i + 3].toInt() and 0xFF)
+            val w = be32(16)
+            val h = be32(20)
+            if (w <= 0 || h <= 0) return false
+            val ratio = (w.toDouble() / h) / (fbWidth.toDouble() / fbHeight)
+            ratio in 0.95..1.05
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // Wallpaper: Genera un archivo PPM P6 (32x32 px) con un gradiente visual
     // profesional desde Slate Navy (#0F172A) a Deep Ocean Teal (#0369A1).
     // feh --bg-scale lo escala suavemente sin pixelar el framebuffer.
-    // SOLO es el fallback: el boot despliega el PNG de alta resolución y
-    // wallpaperTarget() lo prefiere (--bg-fill, sin escalado).
+    // Se genera SIEMPRE: es el fondo activo cuando el PNG no casa con el
+    // aspect del framebuffer (wallpaperForLaunch).
     private fun setupWallpaper() {
         try {
-            if (wallpaperTarget().name.endsWith(".png")) {
-                Log.i(TAG, "wallpaper PNG nano-cyber presente — se omite PPM fallback")
-                return
-            }
             val homeDir = File(usrDir.parentFile, "home").also { it.mkdirs() }
             val ppm = File(homeDir, ".nano-wallpaper.ppm")
+            if (ppm.exists() && ppm.length() > 0) return
             val w = 32
             val h = 32
             val header = "P6\n$w $h\n255\n".toByteArray(Charsets.US_ASCII)

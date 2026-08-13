@@ -256,8 +256,13 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
 
       // Xvnc arranca con el password VNC persistido (Ajustes → Escritorio).
       // Vacío = SecurityTypes None (sin auth), como siempre.
+      // D-1: framebuffer con el aspect del viewport (cap 1920 en backend).
+      if (!mounted) return;
+      final viewport = MediaQuery.sizeOf(context);
       await _pkg.startDesktop(
         vncPassword: ref.read(settingsProvider).vncPassword,
+        width: viewport.width.round(),
+        height: viewport.height.round(),
       );
 
       // startDesktop responde cuando el backend reporta onReady (puerto RFB

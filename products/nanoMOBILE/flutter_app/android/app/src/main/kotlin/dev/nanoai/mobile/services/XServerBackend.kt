@@ -15,8 +15,14 @@ data class XDisplayEndpoint(
 interface XServerBackend {
     /** Inicia el servidor X. [env] debe incluir PREFIX/HOME/LD_LIBRARY_PATH/
      *  XDG_CONFIG_HOME — Xvnc los necesita para resolver share/X11/xkb/rules
-     *  y sus libs; sin ellos aborta silenciosamente antes de abrir el puerto RFB. */
-    suspend fun start(env: Map<String, String> = emptyMap()): Boolean
+     *  y sus libs; sin ellos aborta silenciosamente antes de abrir el puerto RFB.
+     *  [width]/[height] = geometría del framebuffer (px del viewport lógico);
+     *  0/ausente = fallback 1280x720. */
+    suspend fun start(
+        env: Map<String, String> = emptyMap(),
+        width: Int = 0,
+        height: Int = 0,
+    ): Boolean
 
     /** Espera activamente a que el servidor reporte estar listo. */
     suspend fun awaitReady(): Boolean
@@ -26,6 +32,11 @@ interface XServerBackend {
 
     /** Retorna el estado y configuración actual de display. */
     fun getEndpoint(): XDisplayEndpoint
+
+    /** Geometría real del framebuffer tras el último start (0 = nunca arrancado).
+     *  Puede diferir de la pedida por el cap de memoria (resolveGeometry). */
+    val fbWidth: Int get() = 0
+    val fbHeight: Int get() = 0
 
     /** Puerto RFB del display (5900 + número de display). */
     val rfbPort: Int get() = 5900 + getEndpoint().display
@@ -64,16 +75,51 @@ class InternalXvncBackend(
     }
 
     @Volatile private var xvncPid: Long = -1
+    @Volatile private var resolvedWidth = 0
+    @Volatile private var resolvedHeight = 0
     private val endpoint = XDisplayEndpoint(
         display = 1,
         host = null,
         transport = XTransport.UNIX
     )
 
+    override val fbWidth: Int get() = resolvedWidth
+    override val fbHeight: Int get() = resolvedHeight
+
     @Volatile override var lastError: String? = null
         private set
 
-    override suspend fun start(env: Map<String, String>): Boolean {
+    /**
+     * Geometría del framebuffer a partir del viewport lógico. Reglas:
+     *  - 0/ausente → 1280x720 (comportamiento previo).
+     *  - Lado mayor capado a 1920: en loopback un frame Raw de 1080x2400x4
+     *    (~10 MB) ya es pesado para el raster; en 1440x3120 (~18 MB) el
+     *    primer FBU completo satura el decodificador. El cap escala AMBOS
+     *    lados por el mismo factor → aspect exacto del device preservado
+     *    (el visor no distorsiona ni deja bandas).
+     *  - Múltiplo de 8: evita filas de píxeles muertos en el borde con
+     *    algunos builds de Xvnc/TigerVNC.
+     */
+    private fun resolveGeometry(w: Int, h: Int): Pair<Int, Int> {
+        var width = if (w > 0) w else 1280
+        var height = if (h > 0) h else 720
+        val cap = 1920
+        val maxDim = maxOf(width, height)
+        if (maxDim > cap) {
+            val k = cap.toDouble() / maxDim
+            width = (width * k).toInt().coerceAtLeast(8)
+            height = (height * k).toInt().coerceAtLeast(8)
+        }
+        width = (width / 8) * 8
+        height = (height / 8) * 8
+        return width to height
+    }
+
+    override suspend fun start(
+        env: Map<String, String>,
+        width: Int,
+        height: Int,
+    ): Boolean {
         // K-1: un Xvnc residual de NUESTRO uid (huérfano setsid de un ciclo
         // previo, o SIGKILL asíncrono de un stop() reciente) puede retener el
         // puerto 5901 → el nuevo Xvnc muere EADDRINUSE y la UI entra en loop
@@ -103,9 +149,17 @@ class InternalXvncBackend(
             rfbAuthArg = emptyList()
         }
 
+        // D-1: geometry ANTES fija 1280x720 (landscape 16:9). En un device
+        // portrait (1080x2400) el visor mostraba el framebuffer como una
+        // franja centrada con bandas enormes (fit mantiene aspect — s1.png).
+        // Ahora el framebuffer nace con el aspect del viewport: sin bandas
+        // y sin distorsión (BoxFit.fill con aspect igual).
+        val (geoW, geoH) = resolveGeometry(width, height)
+        resolvedWidth = geoW
+        resolvedHeight = geoH
         val argv = listOf(
             ":${endpoint.display}",
-            "-geometry", "1280x720",
+            "-geometry", "${geoW}x$geoH",
             "-depth", "24",
             "-rfbport", "$vncPort",
             "-SecurityTypes", secTypes,

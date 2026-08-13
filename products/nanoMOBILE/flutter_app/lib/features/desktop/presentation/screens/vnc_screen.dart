@@ -370,8 +370,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       _status = 'Iniciando servidor VNC...';
       _detail = 'Arrancando Xvnc y Openbox en 127.0.0.1:$port.';
     });
+    // D-1: el framebuffer nace con el aspect del viewport del device
+    // (cap 1920 en el backend) — sin franjas en portrait ni distorsión.
+    final viewport = MediaQuery.sizeOf(context);
     final started = await _pkg.startDesktop(
       vncPassword: ref.read(settingsProvider).vncPassword,
+      width: viewport.width.round(),
+      height: viewport.height.round(),
     );
     if (!mounted) return false;
     if (!started) {

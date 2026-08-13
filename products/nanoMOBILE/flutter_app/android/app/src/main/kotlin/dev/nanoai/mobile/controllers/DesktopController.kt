@@ -25,11 +25,17 @@ class DesktopController(
 
     /**
      * Inicia el escritorio en un hilo IO.
+     * [vncPassword] vacío = Xvnc sin auth; no vacío = Xvnc con -rfbauth
+     * (VNC Auth). Solo se aplica en el arranque: para cambiarla hay que
+     * detener y volver a iniciar el escritorio.
      * [onStatus]→ mensajes de progreso (hilo IO).
      * [onReady] → invocado cuando el servidor está listo (hilo IO).
      * [onError] → invocado con mensaje de error si falla (hilo IO).
      */
     fun start(
+        vncPassword: String = "",
+        width: Int = 0,
+        height: Int = 0,
         onStatus: (String) -> Unit = {},
         onReady:  ()       -> Unit = {},
         onError:  (String) -> Unit = {},
@@ -46,6 +52,7 @@ class DesktopController(
             startGeneration = generation
             session = DesktopSessionManager(
                 usrDir = usrDir,
+                vncPassword = vncPassword,
                 spawnBg = { bin, argv, envp ->
                     if (!isCurrent(session, startGeneration)) {
                         -1L
@@ -70,6 +77,8 @@ class DesktopController(
         }
 
         session.start(
+            width = width,
+            height = height,
             onStatus = onStatus,
             onReady  = {
                 if (isCurrent(session, startGeneration)) {

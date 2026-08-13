@@ -74,12 +74,22 @@ class NativeRuntimeSupervisor(
     }
 
     fun startDesktop(
+        vncPassword: String = "",
+        width: Int = 0,
+        height: Int = 0,
         onStatus: (String) -> Unit = {},
         onReady: () -> Unit = {},
         onError: (String) -> Unit = {},
     ) {
         ensureRunning()
-        desktopController.start(onStatus = onStatus, onReady = onReady, onError = onError)
+        desktopController.start(
+            vncPassword = vncPassword,
+            width = width,
+            height = height,
+            onStatus = onStatus,
+            onReady = onReady,
+            onError = onError,
+        )
     }
 
     fun stopDesktop() {

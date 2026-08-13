@@ -307,6 +307,20 @@ Sin violaciones estructurales. La deuda SOLID histórica (métodos de 265 línea
 - **Criterio de salida**: cada cambio vinculado a su hallazgo; `flutter analyze` 0 issues + `gradlew assembleDebug` BUILD SUCCESSFUL (13s) verificado. ✅
 - Pendiente device: validar en dispositivo que el isolate no rompe el fork del worker (A-28) y que `docker stop` mata el proot real.
 
+### FASE 3b — Escritorio Linux: diseño/resolución ✅ (completada 2026-08-13)
+
+Pedido: escritorio completo sin errores de diseño, resolución, colores o píxeles. Evidencia de partida: `build/s1.png` (screenshot 1080x2400 portrait) — el escritorio aparecía como franja 1080x607 centrada con bandas enormes.
+
+**D-1 — Resolución: framebuffer con el aspect del device.** `Xvnc -geometry 1280x720` fijo (landscape) contra device portrait → el visor (fit=contain) mostraba el fb como franja centrada. Además la cadena `startDesktop` no propagaba width/height (Dart solo enviaba `vncPassword`; `DesktopSessionManager.start(width, height)` recibía parámetros que nadie usaba). Fix: cadena completa `vnc_screen`/`desktop_launch_screen` (MediaQuery.sizeOf) → `package_service` → `nano_runtime_api` → `ExecBinChannelHandler` → `NativeRuntimeSupervisor` → `DesktopController` → `DesktopSessionManager` → `XServerBackend.resolveGeometry` (cap 1920 preservando aspect, múltiplo de 8, fallback 1280x720 si llega 0). Resultado: sin bandas, sin distorsión, sin franjas de píxeles muertos.
+
+**D-2 — Diseño/escala para fb 1:1.** Con fb 1280 estirado a 1080px, la fuente 14px quedaba en ~11.8px físicos. Escalas subidas para fb 1:1 del device: tint2 `pixelsize=14→16`, `panel_size 46→52`, `task_font 11→12`, `time1_font 12→13`, `XCURSOR_SIZE 24→28`, GTK `gtk-font-name 14→16`.
+
+**D-3 — Fondo de pantalla por aspect.** PNG 1280x720 con `--bg-fill` en fb portrait recortaba a franja central. Fix: `wallpaperForLaunch()` elige el PNG solo si su aspect (IHDR real) casa con el fb ±5%; si no, genera PPM gradiente vertical y lo aplica con `--bg-scale`. `setupWallpaper` ahora regenera el PPM siempre (sin early return).
+
+**Colores**: verificados correctos — visor negocia RGB888 (32bpp, depth 24, shifts r=16 g=8 b=0), sin banding. No se tocaron.
+
+**Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL (1m13s, compileDebugKotlin ejecutado). Pendiente device: captura nueva para confirmar fb portrait completo.
+
 ### FASE 4 — Calidad
 - **Archivos**: tests (Dart unit + widget para terminal/parser), CI en GitHub Actions.
 - **Criterio de salida**: analyze + test + assembleDebug en cada push.

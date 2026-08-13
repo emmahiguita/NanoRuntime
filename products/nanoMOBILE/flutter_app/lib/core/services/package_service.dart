@@ -77,11 +77,29 @@ class PackageService {
     }
   }
 
-  Future<bool> startDesktop() async {
+  Future<bool> startDesktop({
+    String vncPassword = '',
+    int? width,
+    int? height,
+  }) async {
     try {
-      return await _runtime.startDesktop();
+      return await _runtime.startDesktop(
+        vncPassword: vncPassword,
+        width: width,
+        height: height,
+      );
     } catch (e) {
       debugPrint('[desktop] startDesktop error: $e');
+      return false;
+    }
+  }
+
+  /// Permisos de lectura de medios para el visor de archivos del escritorio.
+  Future<bool> requestStoragePermission() async {
+    try {
+      return await _runtime.requestStoragePermission();
+    } catch (e) {
+      debugPrint('[desktop] requestStoragePermission error: $e');
       return false;
     }
   }
