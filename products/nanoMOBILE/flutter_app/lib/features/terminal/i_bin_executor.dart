@@ -59,5 +59,10 @@ abstract class IBinExecutor {
     void Function(String line)? onOut,
     void Function(String line)? onErr,
     Duration timeout,
+    String? trackTag,
   });
+
+  /// Mata un proceso lanzado con [stream] bajo [trackTag].
+  /// SIGTERM inmediato + SIGKILL a los 2s. Retorna false si no existe.
+  bool killTracked(String tag);
 }

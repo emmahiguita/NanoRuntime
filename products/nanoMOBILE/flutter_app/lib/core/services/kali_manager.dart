@@ -16,12 +16,18 @@ import '../../features/terminal/i_bin_executor.dart';
 class KaliManager {
   /// Kali ARM64 minimal rootfs (basado en Debian, ~200MB).
   /// URL del build oficial de Kali NetHunter para ARM64.
+  ///
+  /// A-22b: la URL anterior (kalifs-arm64-minimal.tar.xz) devolvía HTTP 404
+  /// — el naming oficial migró a kali-nethunter-rootfs-* (verificado
+  /// 2026-08-13). El hash se lee de SHA256SUMS oficial; fail-closed: si no
+  /// coincide o está vacío, la instalación aborta.
   static const rootfsUrl =
-      'https://kali.download/nethunter-images/current/rootfs/kalifs-arm64-minimal.tar.xz';
-  /// Expected SHA256 of the rootfs tarball. Update this when Kali releases
-  /// a new rootfs build. Set to empty string to skip verification.
-  /// Get the current hash from: https://kali.download/nethunter-images/current/rootfs/SHA256SUMS
-  static const expectedSha256 = ''; // Populate from official SHA256SUMS file
+      'https://kali.download/nethunter-images/current/rootfs/kali-nethunter-rootfs-minimal-arm64.tar.xz';
+  /// SHA256 oficial del tarball (SHA256SUMS, 2026-08-13). Actualizar cuando
+  /// Kali publique un build nuevo — NUNCA dejar vacío (instalación aborta).
+  /// Fuente: https://kali.download/nethunter-images/current/rootfs/SHA256SUMS
+  static const expectedSha256 =
+      'd6403a5da175df325611d23af4b92330856059c45454eced7f4cdf3ca6df2e4e';
 
   final ProotManager _proot;
   final IBinExecutor _shell;

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'nano_runtime_api.dart';
+import 'shell_executor.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
 /// Ejecuta comandos dentro de un rootfs aislado usando proot (chroot sin root).
@@ -63,6 +64,7 @@ class ProotManager {
     void Function(String line)? onOut,
     void Function(String line)? onErr,
     Duration timeout = const Duration(seconds: 120),
+    String? tag,
   }) async {
     if (!_ready) await init();
     if (!_ready) {
@@ -151,7 +153,15 @@ class ProotManager {
       onOut: onOut,
       onErr: onErr,
       timeout: timeout,
+      trackTag: tag,
     );
+  }
+
+  /// Mata el proceso proot lanzado con [tag] vía exec().
+  /// Solo ShellExecutor soporta tracking; con otro ejecutor es no-op.
+  bool killByTag(String tag) {
+    final s = _shell;
+    return s is ShellExecutor ? s.killTracked(tag) : false;
   }
 
   /// Ejecuta bash interactivo dentro del rootfs.

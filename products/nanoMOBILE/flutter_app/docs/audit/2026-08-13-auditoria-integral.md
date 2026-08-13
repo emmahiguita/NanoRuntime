@@ -59,10 +59,10 @@ Leyenda estado: ✅ Aplicado en esta sesión · ⏳ Pendiente (diferido con just
 | A-24 | P2 | `plugins/system_plugin.dart:130-131` | Flutter/terminal | Handler `type` vacío; `which` sí delegado a realCommands pero `type` NO está en realCommands | Grep `realCommands` en `terminal_types.dart:17`: sin `'type'` | Asumir delegación que no existe | `type <cmd>` moría en silencio (éxito falso) | Implementar `type` real (realCommands/alias/env) | ✅ |
 | A-25 | P2 | `rootfs_env.dart` | Linux/env | Faltaban `GSETTINGS_SCHEMA_DIR`, `GIO_EXTRA_MODULES`, `XDG_DATA_DIRS`, `XDG_RUNTIME_DIR` | Contraste con `DesktopSessionManager.kt:89-96` (mismas vars con evidencia device 2026-08-12) | Env centralizado sin el bloque GTK | Apps GTK lanzadas desde PTY morían como en el desktop pre-fix | Añadir las 4 vars | ✅ |
 | A-26 | P2 | `expression_evaluator.dart` | Flutter/terminal | `expr "1+"`, `"()"`, `"2/0"` lanzaban FormatException/UnsupportedError | Lectura del parser | Parser sin guardas | Crash del dispatch en input malformado | try/catch documentado + `_parseTerm` con token vacío y paréntesis sin cerrar | ✅ |
-| A-27 | P2 | `command_executor.dart:316-320` | Flutter/terminal | Fallback silencioso rc=127 → ejecutar en host | Inspección | Sin alternativa al rootfs | Comando falla en rootfs y se ejecuta fuera — semántica engañosa | Fallback honesto (error explícito) o eliminar | ⏳ |
-| A-28 | P2 | FFI (`nanoshell.dart`-style) | Flutter/FFI | Llamadas FFI bloqueantes en UI isolate | Inspección de call sites | Sin isolate dedicado | Jank bajo carga (tar, apt) | Mover a isolate | ⏳ (refactor amplio, riesgo alto — FASE 3) |
-| A-29 | P2 | `docker` command | Terminal | `docker stop` no real (sin implementación) | Inspección del handler | Scope | `docker ps` funciona, stop no — expectativa rota | Implementar o reportar "no soportado" | ⏳ |
-| A-30 | P2 | AndroidManifest `<queries>` | Android | Sin `<queries>` para `launchPackage` | Inspección del manifest | Paquete no declarado | `launchPackage` silenciosamente falla en Android 11+ | Añadir `<queries>` | ⏳ |
+| A-27 | P2 | `command_executor.dart:296-319` | Flutter/terminal | Fallback silencioso rc=127 → ejecutar en host | Inspección | Sin alternativa al rootfs | Comando falla en rootfs y se ejecuta fuera — semántica engañosa | Fallback honesto: stderr del rootfs tal cual, sin host fallback (campos runRealSync/realOut eliminados) | ✅ |
+| A-28 | P2 | FFI (`nanoshell.dart`-style) | Flutter/FFI | Llamadas FFI bloqueantes en UI isolate | Inspección de call sites | Sin isolate dedicado | Jank bajo carga (tar, apt) | `Isolate.run` en `_execBusyBox`/`execRootfs` + `seedAllowed` (allowlist no cruza isolates; lastError capturado dentro del closure) | ✅ |
+| A-29 | P2 | `docker` command | Terminal | `docker stop` no real (sin implementación) | Inspección del handler | Scope | `docker ps` funciona, stop no — expectativa rota | `trackTag: docker:<id>` → `ShellExecutor.killTracked` (SIGTERM + SIGKILL a 2s); guard del estado `stopped` en run | ✅ |
+| A-30 | P2 | AndroidManifest `<queries>` | Android | Sin `<queries>` para `launchPackage` | Inspección del manifest | Paquete no declarado | `launchPackage` silenciosamente falla en Android 11+ | `<queries>` MAIN/LAUNCHER (caso permitido por Play sin QUERY_ALL_PACKAGES) | ✅ |
 | A-31 | P3 | `ansi_parser.dart:82` | Flutter/terminal | 0x7F (DEL) caía al buffer y dibujaba glifo fantasma | Inspección: `ch >= 0x20` admite 0x7F | Switch sin case DEL | Basura visual con teclas kbs=^? | Case 0x7F → backspace (VT100 clásico) | ✅ |
 | A-32 | P3 | App icon | Release | Icono genérico | Inspección de recursos | No priorizado | Presentación Play pobre | Generar icono + adaptive icon | ⏳ |
 | A-33 | P3 | CI | Release | Sin workflow de build/test | Inspección de `.github/` | No configurado | Sin regresión automática | GitHub Actions: analyze + test + assembleDebug | ⏳ |
@@ -241,7 +241,7 @@ Archivos: `android/app/src/main/cpp/nanoshell.c`, `pty_session_registry.c`.
 - **Cuello demostrado corregido (previo)**: `AnsiMetrics.measure` hacía 2 TextPainter.layout por frame — cache por clave de estilo (ver `ansi_terminal.dart:59-105`).
 - **Cuello corregido (esta sesión)**: métricas del device en main thread (A-13) — poll de 3s jankeaba la UI.
 - **Cuello residual conocido**: preloadRootfsLibs (~70 System.load) en cada spawn de daemon — amortizado por el diseño detached (solo 4 daemons), no en hot path.
-- **FFI bloqueante en UI isolate (A-28)**: real bajo carga (tar/apt largos); diferido a FASE 3 por riesgo de refactor.
+- **FFI bloqueante en UI isolate (A-28)**: corregido en FASE 3 — `Isolate.run` en `_execBusyBox`/`execRootfs` con seed del allowlist y lastError capturado dentro del isolate.
 
 ## 13. Auditoría de logs
 
@@ -262,13 +262,13 @@ Archivos: `android/app/src/main/cpp/nanoshell.c`, `pty_session_registry.c`.
 | Función | Estado |
 |---|---|
 | `type` en terminal | ✅ implementado (A-24) |
-| Verificación SHA256 de Kali | ✅ fail-closed (A-22) — falta poblar hash real desde SHA256SUMS oficial |
-| `docker stop` | ⏳ sin implementación real (A-29) |
-| Fallback 127→host en command_executor | ⏳ semántica engañosa (A-27) |
+| Verificación SHA256 de Kali | ✅ fail-closed (A-22) + hash real poblado (A-22b) — URL actualizada a `kali-nethunter-rootfs-minimal-arm64.tar.xz` (la anterior daba 404) |
+| `docker stop` | ✅ implementación real (A-29): SIGTERM + SIGKILL a 2s vía killTracked |
+| Fallback 127→host en command_executor | ✅ eliminado (A-27): stderr del rootfs tal cual, sin ejecución fuera |
 | Keystore release | ⏳ A-05 |
 | Icono de app | ⏳ A-32 |
 | CI | ⏳ A-33 |
-| `<queries>` para launchPackage | ⏳ A-30 |
+| `<queries>` para launchPackage | ✅ añadido MAIN/LAUNCHER (A-30) |
 | Tests | ⏳ cero tests de la app Flutter; el guardián de repo (herramienta externa) tiene 19/19 |
 
 ## 16. Matriz SOLID
@@ -302,9 +302,10 @@ Sin violaciones estructurales. La deuda SOLID histórica (métodos de 265 línea
 - **Cambios**: probar PTY nativo en device con GPU (A-16); vigilar warning de `System.load` writable en SDK 36.
 - **Criterio de salida**: PTY sin SIGSEGV en 3 devices o migración al worker implementada.
 
-### FASE 3 — Refactors diferidos
+### FASE 3 — Refactors diferidos ✅ (completada 2026-08-13)
 - **Archivos**: FFI→isolate (A-28), `docker stop` (A-29), fallback 127→host (A-27), `<queries>` (A-30), hash Kali real (A-22b).
-- **Criterio de salida**: cada cambio con su hallazgo y verificación device.
+- **Criterio de salida**: cada cambio vinculado a su hallazgo; `flutter analyze` 0 issues + `gradlew assembleDebug` BUILD SUCCESSFUL (13s) verificado. ✅
+- Pendiente device: validar en dispositivo que el isolate no rompe el fork del worker (A-28) y que `docker stop` mata el proot real.
 
 ### FASE 4 — Calidad
 - **Archivos**: tests (Dart unit + widget para terminal/parser), CI en GitHub Actions.

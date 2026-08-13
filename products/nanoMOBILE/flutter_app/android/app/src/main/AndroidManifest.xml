@@ -15,6 +15,18 @@
          (exported=false, sin startForeground/startService en todo el código).
          Declararlos sin uso dispara el escrutinio specialUse de Play. -->
 
+    <!-- A-30: el agente lanza apps Android por packageName (elegido por el
+         LLM en runtime — imposible declararlas una a una). Android 11+
+         oculta los paquetes no declarados: sin esta visibilidad de apps
+         launcher, getLaunchIntentForPackage devuelve null para casi todo.
+         Es el caso permitido por Play sin QUERY_ALL_PACKAGES. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
+    </queries>
+
     <application
         android:label="NanoAI Local"
         android:name="${applicationName}"

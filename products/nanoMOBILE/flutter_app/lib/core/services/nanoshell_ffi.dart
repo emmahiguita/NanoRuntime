@@ -85,6 +85,14 @@ final class Nanoshell {
     _allowedBinaries = await AllowedBinaries.load();
   }
 
+  /// Seed del allowlist desde otro isolate: los campos de instancia no
+  /// cruzan isolates, así que el isolate que ejecuta spawnGeneric debe
+  /// recibir el set ya cargado (rootBundle no está disponible en un
+  /// isolate sin Flutter binding).
+  void seedAllowed(Set<String> allowed) {
+    _allowedBinaries = allowed;
+  }
+
   /// Whitelist rationale: spawnGeneric uses dlopen+main() which bypasses
   /// Android SELinux exec restrictions. Only trusted, audited binaries are
   /// allowed to prevent arbitrary code execution.

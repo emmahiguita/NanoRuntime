@@ -48,15 +48,8 @@ class CmdExecCtx {
   }) rootfsEnv;
   final void Function(ShellResult) shellOut;
 
-  // ── Real commands (dart:io fallback) ──
+  // ── Real commands (rootfs toybox como fuente de verdad) ──
   final Set<String> realCmds;
-  final (String, String, int)? Function(String, List<String>) runRealSync;
-  final void Function(
-    (String, String, int),
-    String,
-    List<String>,
-    String,
-  ) realOut;
 
   // ── Tokenizer ──
   final List<String> Function(String) tokenize;
@@ -91,8 +84,6 @@ class CmdExecCtx {
     required this.rootfsEnv,
     required this.shellOut,
     required this.realCmds,
-    required this.runRealSync,
-    required this.realOut,
     required this.tokenize,
     required this.ctx,
     required this.cmds,
@@ -302,7 +293,11 @@ class CommandExecutor {
       return;
     }
 
-    // ── Comandos whitelist → toybox real + dart:io fallback ──
+    // ── Comandos whitelist → toybox real del rootfs ──
+    // A-27: antes un 127 "not found" del rootfs caía en silencio al HOST
+    // (dart:io) — el usuario creía que el comando corría en Linux y
+    // corría en Android. El rootfs es la fuente de verdad: su stderr se
+    // muestra tal cual, sin fallback engañoso.
     if (x.realCmds.contains(name)) {
       if (x.shell != null && x.shell!.initialized) {
         final r = await x.shell!.toybox([name, ...args]);
@@ -316,28 +311,11 @@ class CommandExecutor {
           duration: started.elapsed,
           data: {'path': 'real_cmd_shell'},
         );
-        if (r.exitCode != 127 ||
-            r.stderr.contains('applet not found') ||
-            r.stderr.contains('not found')) {
-          x.shellOut(r);
-          if (r.exitCode != 127) return;
-        }
-      }
-      final r = x.runRealSync(name, args);
-      if (r != null) {
-        x.audit?.event(
-          'command.dartio.result',
-          layer: 'dart-io',
-          traceId: traceId,
-          command: name,
-          argv: [name, ...args],
-          exitCode: r.$3,
-          duration: started.elapsed,
-          data: {'path': 'real_cmd_dartio'},
-        );
-        x.realOut(r, name, args, raw);
+        x.shellOut(r);
         return;
       }
+      x.out('$name: shell engine not initialized.', Ln.stderr);
+      return;
     }
 
     // ── Registry dispatch (plugins + inline commands) ──

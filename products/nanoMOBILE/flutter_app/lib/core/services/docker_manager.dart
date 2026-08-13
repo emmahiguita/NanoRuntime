@@ -196,7 +196,8 @@ class DockerManager {
     );
     _containers[id] = container;
 
-    // Ejecutar vía proot
+    // Ejecutar vía proot (tag registra el proceso para que docker stop
+    // pueda matarlo selectivamente — A-29).
     log('Ejecutando contenedor $id...');
     final exitCode = await _proot.exec(
       rootfs: rootfs,
@@ -210,8 +211,15 @@ class DockerManager {
         container.output.add('[stderr] $l');
         onErr?.call(l);
       },
+      tag: 'docker:$id',
     );
 
+    // Si docker stop mató el proceso, el exitCode es el del SIGTERM —
+    // no pisar el estado "stopped" que dejó el usuario.
+    if (container.status == 'stopped') {
+      log('Contenedor $id detenido por docker stop');
+      return id;
+    }
     container.exitCode = exitCode;
     container.status = exitCode == 0 ? 'exited' : 'error';
     log('Contenedor $id terminó con código $exitCode');
@@ -246,9 +254,22 @@ class DockerManager {
   }
 
   /// Detiene el contenedor [id]. Retorna false si no existe.
+  ///
+  /// A-29: antes solo marcaba status='stopped' — el proceso proot seguía
+  /// vivo hasta terminar solo. Ahora mata el proceso real (SIGTERM y, a
+  /// los 2s, SIGKILL vía ShellExecutor.killTracked) antes de marcar.
   bool stop(String id) {
     final c = _containers[id];
     if (c == null) return false;
+    if (c.status != 'stopped') {
+      final killed = _proot.killByTag('docker:$id');
+      if (killed) {
+        log('Contenedor $id: proceso proot detenido');
+      } else if (c.status == 'running') {
+        // Sin proceso trackeado (run no en vuelo): solo marcar.
+        log('Contenedor $id: sin proceso activo, marcando como detenido');
+      }
+    }
     c.status = 'stopped';
     return true;
   }

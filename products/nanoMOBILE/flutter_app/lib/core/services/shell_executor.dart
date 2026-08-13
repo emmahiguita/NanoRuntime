@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'nano_runtime_api.dart';
+import 'allowed_binaries.dart';
 import 'rootfs_manager.dart';
 import 'nanoshell_ffi.dart';
 import 'rootfs_env.dart';
@@ -37,6 +39,9 @@ class ShellExecutor implements IBinExecutor {
 
   /// Procesos activos. Se limpian en dispose() para no dejar zombies.
   final List<Process> _running = [];
+
+  /// Procesos etiquetados (docker stop): tag → Process en vuelo.
+  final Map<String, Process> _tracked = {};
 
   /// Directorio de binarios activo: rootfs/bin si instalado, assets si no.
   @override
@@ -233,6 +238,7 @@ class ShellExecutor implements IBinExecutor {
     void Function(String line)? onOut,
     void Function(String line)? onErr,
     Duration timeout = const Duration(seconds: 30),
+    String? trackTag,
   }) async {
     if (!_initialized) await init();
 
@@ -257,6 +263,7 @@ class ShellExecutor implements IBinExecutor {
       );
       final p = proc;
       _running.add(p);
+      if (trackTag != null) _tracked[trackTag] = p;
 
       // Leer stdout y stderr en streams paralelos
       final outSub = p.stdout
@@ -289,9 +296,11 @@ class ShellExecutor implements IBinExecutor {
       await outSub.asFuture<void>();
       await errSub.asFuture<void>();
       _running.remove(p);
+      if (trackTag != null) _tracked.remove(trackTag);
       return exitCode;
     } catch (e) {
       _running.remove(proc);
+      if (trackTag != null) _tracked.remove(trackTag);
       // Fallback a probeExec nativo (sin streaming, captura completa)
       try {
         final map = await NanoRuntimeApi.instance.probeExec(command, args);
@@ -311,6 +320,21 @@ class ShellExecutor implements IBinExecutor {
       return -126; // cÃ³digo distinto de 127 (command not found) para que el
       // caller pueda distinguir "error interno" de "fallo real"
     }
+  }
+
+  @override
+  bool killTracked(String tag) {
+    final p = _tracked.remove(tag);
+    if (p == null) return false;
+    try {
+      p.kill(ProcessSignal.sigterm);
+    } catch (_) {}
+    Future.delayed(const Duration(seconds: 2), () {
+      try {
+        p.kill(ProcessSignal.sigkill);
+      } catch (_) {}
+    });
+    return true;
   }
 
   /// Conveniencia: ejecuta y junta toda la salida. Para comandos rÃ¡pidos.
@@ -428,35 +452,56 @@ class ShellExecutor implements IBinExecutor {
   }
 
   /// Ejecuta un comando real vÃ­a BusyBox (Nanoshell FFI), con fallback a bash.
+  ///
+  /// A-28: spawnBusyBox hace fork + waitpid del hijo COMPLETO de forma
+  /// sÃ­ncrona. Correrlo en el UI isolate congelaba la app mientras el
+  /// comando vive (tar grande, sleep). Isolate dedicado: el waitpid
+  /// bloquea el isolate, no la UI. Cada isolate abre su propio handle de
+  /// libnanoshell.so (los DL handles no cruzan isolates; el linker lo
+  /// cachea, coste ~1ms).
   Future<ShellResult> _execBusyBox(
     List<String> args, {
     Map<String, String>? env,
   }) async {
     try {
-      final ns = Nanoshell.instance;
-      if (!ns.isLoaded) {
+      final result = await Isolate.run(() {
+        final ns = Nanoshell.instance; // isolate nuevo: singleton propio
         try {
           ns.load();
         } catch (_) {
           // libnanoshell.so no disponible (build sin NDK, o dispositivo
-          // que no extrajo jniLibs). Fallback a bash.
-          return _execBusyBoxFallback(args, env: env);
+          // que no extrajo jniLibs). Marcador para el fallback de afuera.
+          return (
+            stdout: '',
+            stderr: '',
+            exitCode: -2,
+            error: 'load failed',
+          );
         }
+        final r = ns.spawnBusyBox(args, env: env);
+        return (
+          stdout: r.stdout,
+          stderr: r.stderr,
+          exitCode: r.exitCode,
+          // lastError es estado del isolate donde corriÃ³ el spawn — hay que
+          // sacarlo ANTES de que Isolate.run lo destruya.
+          error: r.exitCode == -1 ? ns.lastError : '',
+        );
+      });
+
+      if (result.exitCode == -2) {
+        return _execBusyBoxFallback(args, env: env);
       }
-
-      final result = ns.spawnBusyBox(args, env: env);
-
       if (result.exitCode == -1) {
         // Error interno de nanoshell (fork/pipe/dlopen fallÃ³).
-        // Intentar fallback.
-        final errMsg = ns.lastError;
-        if (errMsg.contains('dlopen')) {
+        // Intentar fallback si es problema de dlopen.
+        if (result.error.contains('dlopen')) {
           // libbusybox.so o sus deps no encontradas en jniLibs.
           return _execBusyBoxFallback(args, env: env);
         }
         return ShellResult(
           stdout: result.stdout,
-          stderr: 'nanoshell error: $errMsg\n${result.stderr}',
+          stderr: 'nanoshell error: ${result.error}\n${result.stderr}',
           exitCode: result.exitCode,
         );
       }
@@ -506,9 +551,6 @@ class ShellExecutor implements IBinExecutor {
     String? ldPreload,
   }) async {
     try {
-      final ns = Nanoshell.instance;
-      if (!ns.isLoaded) ns.load();
-
       // Construir env con NANO_ROOTFS y LD_LIBRARY_PATH si se usa ldPreload.
       // Sin esto, libnanoroot.so se carga pero no sabe dÃ³nde estÃ¡ el rootfs.
       // OJO: nanoroot.c mapea /usr/X â†’ {NANO_ROOTFS}/X, asÃ­ que NANO_ROOTFS
@@ -525,12 +567,22 @@ class ShellExecutor implements IBinExecutor {
         }
       }
 
-      final result = ns.spawnGeneric(
-        binaryPath,
-        args,
-        env: effectiveEnv,
-        ldPreload: ldPreload,
-      );
+      // A-28: spawnGeneric = fork + waitpid completo, sÃ­ncrono. Isolate
+      // aparte (mismo motivo que _execBusyBox). El allowlist no cruza
+      // isolates (estÃ¡tico por isolate) — se carga afuera y se siembra
+      // dentro con seedAllowed; sin seed, fail-closed rechazarÃ­a todo.
+      final allowed = await AllowedBinaries.load();
+      final result = await Isolate.run(() {
+        final ns = Nanoshell.instance;
+        ns.seedAllowed(allowed);
+        ns.load();
+        return ns.spawnGeneric(
+          binaryPath,
+          args,
+          env: effectiveEnv,
+          ldPreload: ldPreload,
+        );
+      });
 
       return ShellResult(
         stdout: result.stdout,
