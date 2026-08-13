@@ -775,6 +775,18 @@ int nanoshell_worker_spawn_detached(
         // Do not apply RLIMIT_AS to graphical daemons. Xvnc and X11 libs map
         // large virtual regions even when RSS stays moderate.
 
+        // Grupo propio: los daemons gráficos (Xvnc/openbox/tint2) NO deben
+        // vivir en el process group del worker — workerKillGroup() mata con
+        // kill(-getpgrp(), SIGKILL) y se llevaría el escritorio entero. Con
+        // setsid() sobreviven al kill del worker y solo mueren por su PID
+        // explícito (backend.stop()/cleanupProcesses). El reaper del worker
+        // sigue cubriéndolos (siguen siendo sus hijos).
+        if (setsid() < 0) {
+            __android_log_print(ANDROID_LOG_WARN, "nanoshell-detached",
+                "setsid() failed: %s (daemon queda en el grupo del worker)",
+                strerror(errno));
+        }
+
         if (envp) {
             for (int i = 0; envp[i]; i++) {
                 char* dup = strdup(envp[i]);
@@ -789,12 +801,21 @@ int nanoshell_worker_spawn_detached(
             }
         }
 
-        setenv("LD_LIBRARY_PATH",
-               "/data/user/0/dev.nanoai.mobile/files/nano/usr/lib:"
-               "/data/data/dev.nanoai.mobile/files/nano/usr/lib:"
-               "/system/lib64", 1);
-        setenv("HOME", "/data/user/0/dev.nanoai.mobile/files/nano/home", 1);
-        setenv("TMPDIR", "/data/user/0/dev.nanoai.mobile/files/nano/usr/tmp", 1);
+        // NO pisar el entorno que Kotlin ya construyó (baseEnv) — una sola
+        // fuente de verdad para LD_LIBRARY_PATH/HOME/TMPDIR. El fallback
+        // hardcodeado solo aplica para callers que no pasan envp.
+        if (!getenv("LD_LIBRARY_PATH")) {
+            setenv("LD_LIBRARY_PATH",
+                   "/data/user/0/dev.nanoai.mobile/files/nano/usr/lib:"
+                   "/data/data/dev.nanoai.mobile/files/nano/usr/lib:"
+                   "/system/lib64", 1);
+        }
+        if (!getenv("HOME")) {
+            setenv("HOME", "/data/user/0/dev.nanoai.mobile/files/nano/home", 1);
+        }
+        if (!getenv("TMPDIR")) {
+            setenv("TMPDIR", "/data/user/0/dev.nanoai.mobile/files/nano/usr/tmp", 1);
+        }
         if (!getenv("NANO_ROOTFS")) {
             setenv("NANO_ROOTFS", "/data/user/0/dev.nanoai.mobile/files/nano/usr", 1);
         }

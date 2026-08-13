@@ -1,13 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Conexion al motor llama.cpp local (loopback 127.0.0.1) y descarga de modelos -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Foreground service para worker nanoshell y VNC (Android 14+) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Acceso a medios compartidos (Android 13+, runtime grant). El visor de
+         archivos pcmanfm dentro del escritorio Linux los necesita para montar
+         /storage/emulated/0; se solicitan en Ajustes → Escritorio. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <!-- Fallback <= API 32 (READ_MEDIA_* no existe): runtime grant también. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <!-- Sin permisos de foreground service: el worker nanoshell es bind-only
+         (exported=false, sin startForeground/startService en todo el código).
+         Declararlos sin uso dispara el escrutinio specialUse de Play. -->
+
     <application
         android:label="NanoAI Local"
         android:name="${applicationName}"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:description="@string/app_settings_description"
         android:settingsActivity=".MainActivity"
@@ -52,6 +63,20 @@
             android:exported="false"
             android:process=":nanoshell"
             android:isolatedProcess="false">
+        </service>
+        <!-- Agente de UI: lee el árbol de accesibilidad y ejecuta gestos para
+             el LLM local. El usuario lo activa en Ajustes → Accesibilidad. -->
+        <service
+            android:name=".services.AgentAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_settings_description"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config"/>
         </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

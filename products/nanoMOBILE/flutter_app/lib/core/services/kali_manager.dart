@@ -65,32 +65,40 @@ class KaliManager {
       await NanoRuntimeApi.instance.downloadFile(rootfsUrl, tarball);
       onProgress('download', 100);
 
-      // Verify SHA256 checksum if configured
-      if (expectedSha256.isNotEmpty) {
-        onProgress('verify', 0);
-        log('Verifying rootfs integrity (SHA256)...');
-        final tarballFile = File(tarball);
-        if (!tarballFile.existsSync()) {
-          log('Error: tarball not found after download');
-          return false;
-        }
-        final fileBytes = await tarballFile.readAsBytes();
-        final actualHash = sha256.convert(fileBytes).toString();
-        if (actualHash != expectedSha256) {
-          log('SECURITY: Rootfs checksum mismatch!');
-          log('  Expected: $expectedSha256');
-          log('  Got:      $actualHash');
-          log('  The downloaded file may be corrupted or tampered with.');
-          log('  Aborting installation for safety.');
-          try { tarballFile.deleteSync(); } catch (_) {}
-          onProgress('error', 0);
-          return false;
-        }
-        log('Rootfs integrity verified (SHA256).');
-        onProgress('verify', 100);
-      } else {
-        log('Warning: No SHA256 checksum configured for rootfs. Skipping integrity check.');
+      // P2 fail-closed: instalar un rootfs de ~200MB bajado por HTTP sin
+      // verificar su hash es aceptar suministro comprometido o corrupto.
+      // Antes '' saltaba la verificación en silencio; ahora aborta.
+      // Hash oficial: kali.download/nethunter-images/current/rootfs/SHA256SUMS
+      if (expectedSha256.isEmpty) {
+        log('ERROR: SHA256 del rootfs no configurado (KaliManager.expectedSha256).');
+        log('       Instalación abortada: no se instala un rootfs sin verificar.');
+        log('       Fuente oficial: https://kali.download/nethunter-images/current/rootfs/SHA256SUMS');
+        onProgress('error', 0);
+        return false;
       }
+
+      // Verify SHA256 checksum (obligatorio)
+      onProgress('verify', 0);
+      log('Verifying rootfs integrity (SHA256)...');
+      final tarballFile = File(tarball);
+      if (!tarballFile.existsSync()) {
+        log('Error: tarball not found after download');
+        return false;
+      }
+      final fileBytes = await tarballFile.readAsBytes();
+      final actualHash = sha256.convert(fileBytes).toString();
+      if (actualHash != expectedSha256) {
+        log('SECURITY: Rootfs checksum mismatch!');
+        log('  Expected: $expectedSha256');
+        log('  Got:      $actualHash');
+        log('  The downloaded file may be corrupted or tampered with.');
+        log('  Aborting installation for safety.');
+        try { tarballFile.deleteSync(); } catch (_) {}
+        onProgress('error', 0);
+        return false;
+      }
+      log('Rootfs integrity verified (SHA256).');
+      onProgress('verify', 100);
 
       // 2. Extraer tarball con proot + tar (más rápido que ZipInputStream)
       onProgress('extract', 0);

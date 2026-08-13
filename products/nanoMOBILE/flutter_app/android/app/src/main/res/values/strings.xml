@@ -2,4 +2,7 @@
 <resources>
     <!-- Descripción mostrada en Ajustes → Apps → NanoAI Local -->
     <string name="app_settings_description">NanoAI Local: motor de lenguaje local, terminal Linux y escritorio virtual en tu dispositivo.</string>
+    <!-- Descripción del servicio de accesibilidad del agente (obligatoria:
+         Android rechaza el servicio sin android:description). -->
+    <string name="accessibility_service_description">Permite al agente de NanoAI Local leer la pantalla y ejecutar acciones (tocar, escribir, navegar) para automatizar tareas en cualquier aplicación.</string>
 </resources>

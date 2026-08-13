@@ -3,17 +3,14 @@ import 'nano_runtime_api.dart';
 /// Real hardware metrics from Android via NanoRuntimeApi.
 /// Falls back to safe defaults if runtime unavailable.
 class DeviceMetrics {
-  static bool _available = true;
-
-  /// One-shot fetch of all device metrics.
+  /// P2: antes un fallo transitorio (canal aún no listo al arranque en frío)
+  /// ponía _available=false de por vida y el dashboard quedaba a ceros hasta
+  /// reiniciar la app. Sin cache: cada fetch reintenta. El poll es cada 3s,
+  /// así que un intento fallido cuesta un invokeMethod descartado.
   static Future<DeviceMetricsData> fetch() async {
-    if (!_available) return DeviceMetricsData.fallback();
     try {
       final raw = await NanoRuntimeApi.instance.getMetrics();
-      if (raw == null) {
-        _available = false;
-        return DeviceMetricsData.fallback();
-      }
+      if (raw == null) return DeviceMetricsData.fallback();
       final m = raw.map((k, v) => MapEntry(k.toString(), v));
       return DeviceMetricsData(
         ramAvailableMb: (m['ramAvailableMb'] as num?)?.toDouble() ?? 0,

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 
 /**
@@ -28,6 +29,7 @@ class ExecBinChannelHandler(
     private val ioScope: CoroutineScope,
     private val mainHandler: android.os.Handler,
     private val nativeSupervisor: NativeRuntimeSupervisor,
+    private val onRequestStoragePermission: ((MethodChannel.Result) -> Unit)? = null,
 ) : MethodChannel.MethodCallHandler {
 
     companion object {
@@ -44,10 +46,11 @@ class ExecBinChannelHandler(
             "workerKill" -> handleWorkerKill(result)
             "installPackages" -> handleInstallPackages(call, result)
             "installGraphical" -> handleInstallGraphical(result)
-            "startDesktop" -> handleStartDesktop(result)
+            "startDesktop" -> handleStartDesktop(call, result)
             "stopDesktop" -> handleStopDesktop(result)
             "launchApp" -> handleLaunchApp(call, result)
             "getDesktopStatus" -> handleGetDesktopStatus(result)
+            "requestStoragePermission" -> handleRequestStoragePermission(result)
             "downloadBootstrap" -> handleDownloadBootstrap(call, result)
             "extractBootstrap" -> handleExtractBootstrap(call, result)
             "isBootstrapInstalled" -> handleIsBootstrapInstalled(call, result)
@@ -109,7 +112,16 @@ class ExecBinChannelHandler(
                 val errDef = ioScope.async(Dispatchers.IO) { p.errorStream.readBytes().toString(Charsets.UTF_8) }
                 val out = outDef.await()
                 val err = errDef.await()
-                val rc = withContext(Dispatchers.IO) { p.waitFor() }
+                // Timeout: un binario colgado (p.ej. esperando stdin) no debe
+                // colgar el Future de Dart para siempre ni retener el hilo IO.
+                val finished = withContext(Dispatchers.IO) { p.waitFor(30, TimeUnit.SECONDS) }
+                val rc = if (finished) {
+                    p.exitValue()
+                } else {
+                    Log.w(TAG, "probeExec timeout 30s path=$path — matando proceso")
+                    withContext(Dispatchers.IO) { p.destroyForcibly() }
+                    -1
+                }
 
                 // Retornar resultado al main thread
                 mainHandler.post {
@@ -201,34 +213,50 @@ class ExecBinChannelHandler(
         }
     }
 
-    private fun handleStartDesktop(result: MethodChannel.Result) {
-        var done = false
+    private fun handleStartDesktop(call: MethodCall, result: MethodChannel.Result) {
+        val vncPassword = call.argument<String>("vncPassword") ?: ""
+        // AtomicBoolean: se escribe desde el thread "desktop-start" (onReady/
+        // onError) y se lee desde main (timeoutRunnable); con un Boolean plano
+        // podía haber doble result o timeout fantasma por falta de visibilidad.
+        val done = java.util.concurrent.atomic.AtomicBoolean(false)
         // Timeout guard: si el desktop no arranca en 60s, liberar el MethodChannel.
         val timeoutRunnable = Runnable {
-            if (!done) {
-                done = true
+            if (done.compareAndSet(false, true)) {
                 result.error("desktop_timeout", "Timeout esperando inicio de desktop (60s)", null)
             }
         }
         mainHandler.postDelayed(timeoutRunnable, 60_000)
 
         nativeSupervisor.startDesktop(
+            vncPassword = vncPassword,
             onStatus = { status -> Log.i(TAG, status) },
             onReady = {
-                if (!done) {
-                    done = true
+                if (done.compareAndSet(false, true)) {
                     mainHandler.removeCallbacks(timeoutRunnable)
                     activity.runOnUiThread { result.success(true) }
                 }
             },
             onError = { msg ->
-                if (!done) {
-                    done = true
+                if (done.compareAndSet(false, true)) {
                     mainHandler.removeCallbacks(timeoutRunnable)
                     activity.runOnUiThread { result.error("desktop_failed", msg, null) }
                 }
             },
         )
+    }
+
+    /**
+     * Permisos de medios compartidos (READ_MEDIA_* / READ_EXTERNAL_STORAGE).
+     * La resolución real la hace MainActivity (diálogo del sistema + callback
+     * onRequestPermissionsResult); aquí solo se reenvía el Result.
+     */
+    private fun handleRequestStoragePermission(result: MethodChannel.Result) {
+        val callback = onRequestStoragePermission
+        if (callback == null) {
+            result.error("unavailable", "requestStoragePermission no registrado", null)
+            return
+        }
+        callback(result)
     }
 
     private fun handleStopDesktop(result: MethodChannel.Result) {

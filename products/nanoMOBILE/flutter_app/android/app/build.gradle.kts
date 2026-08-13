@@ -24,7 +24,8 @@ android {
         // minSdk 26 = Android 8.0 (linker namespaces require API 24+;
         // 26 chosen for Treble/VNDK stability and >=95% device coverage).
         minSdk = 26
-        targetSdk = 35
+        // Play exige targetSdk 36 (Android 16) a partir de 31-ago-2026.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

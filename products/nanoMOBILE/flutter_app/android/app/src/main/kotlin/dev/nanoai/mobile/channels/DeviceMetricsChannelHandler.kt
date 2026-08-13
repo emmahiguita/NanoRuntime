@@ -6,7 +6,8 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * Handler dedicado para el canal de métricas del dispositivo.
- * Operaciones rápidas y no bloqueantes.
+ * StatFs + lecturas de /proc y /sys corren en hilo de fondo: el dashboard
+ * llama getMetrics cada 3s y no debe causar jank en el main thread.
  */
 class DeviceMetricsChannelHandler(
     private val deviceMetricsProvider: DeviceMetricsProvider,
@@ -18,8 +19,12 @@ class DeviceMetricsChannelHandler(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "getMetrics" -> result.success(deviceMetricsProvider.getDeviceMetrics())
-            "getDeviceIdentity" -> result.success(deviceMetricsProvider.getDeviceIdentity())
+            "getMetrics" -> Thread({
+                result.success(deviceMetricsProvider.getDeviceMetrics())
+            }, "metrics-fetch").start()
+            "getDeviceIdentity" -> Thread({
+                result.success(deviceMetricsProvider.getDeviceIdentity())
+            }, "metrics-identity").start()
             else -> result.notImplemented()
         }
     }

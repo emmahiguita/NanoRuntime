@@ -15,6 +15,7 @@ import kotlinx.coroutines.runBlocking
  */
 class DesktopSessionManager(
     private val usrDir: File,
+    private val vncPassword: String = "",
     private val spawnBg: (binaryPath: String, argv: List<String>, envp: Map<String, String>) -> Long,
 ) {
     companion object {
@@ -26,6 +27,7 @@ class DesktopSessionManager(
     @Volatile private var openboxPid: Long = -1
     @Volatile private var terminalPid: Long = -1
     @Volatile private var tint2Pid: Long   = -1
+    @Volatile private var fehPid: Long     = -1
     @Volatile private var running = false
     @Volatile private var stopRequested = false
     @Volatile private var starting = false
@@ -48,7 +50,7 @@ class DesktopSessionManager(
     // pueda reiniciar todo limpiamente.
     private var watchdogThread: Thread? = null
 
-    private val backend: XServerBackend = InternalXvncBackend(usrDir, spawnBg)
+    private val backend: XServerBackend = InternalXvncBackend(usrDir, spawnBg, vncPassword)
 
     // ── Entorno base ─────────────────────────────────────────────────────────
 
@@ -189,6 +191,27 @@ class DesktopSessionManager(
         onReady: () -> Unit,
         onError: (String) -> Unit,
     ) {
+        // Guard final: una excepción no esperada (no cubierta por los checks
+        // internos) no debe dejar starting=true ni el stage a medio camino
+        // — la UI quedaría en "starting" para siempre.
+        try {
+            startInternalImpl(onStatus, onReady, onError)
+        } catch (e: Exception) {
+            Log.e(TAG, "startInternal: excepción no esperada", e)
+            lastError = "Error interno al iniciar escritorio: ${e.javaClass.simpleName}: ${e.message}"
+            stage = "failed"
+            starting = false
+            try { cleanupProcesses() } catch (ignored: Exception) { }
+            try { runBlocking { backend.stop() } } catch (ignored: Exception) { }
+            onError(lastError!!)
+        }
+    }
+
+    private fun startInternalImpl(
+        onStatus: (String) -> Unit,
+        onReady: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
         val tmpDir = File(usrDir, "tmp").also { it.mkdirs() }
 
         // 1. Limpiar locks X11 previos
@@ -279,14 +302,18 @@ class DesktopSessionManager(
             if (abortIfStopped("after-tint2-spawn", onError)) return
         }
 
-        // Wallpaper feh (PPM 1x1 color oscuro escalado a pantalla completa).
+        // Wallpaper: PNG nano-cyber desplegado por el boot (assets/exe/
+        // nano-wallpaper.png → home/.nano-wallpaper.png) aplicado con
+        // --bg-fill (resolución exacta 1280x720, sin escalado). Si el PNG no
+        // está (primer boot sin asset), cae al PPM degradado de setupWallpaper.
         // Sin fondo el root de X es un ruido de píxeles heredado; feh aplica
         // el pixmap propio sin depender de xsetroot (no instalado).
         val fehBin = File(usrDir, "bin/feh")
-        val wallpaper = File(usrDir.parentFile, "home/.nano-wallpaper.ppm")
+        val wallpaper = wallpaperTarget()
         if (fehBin.exists() && wallpaper.exists()) {
-            spawnBg(fehBin.absolutePath, listOf("feh", "--bg-scale", wallpaper.absolutePath), wmEnv)
-            Log.i(TAG, "feh wallpaper aplicado")
+            val flag = if (wallpaper.name.endsWith(".png")) "--bg-fill" else "--bg-scale"
+            fehPid = spawnBg(fehBin.absolutePath, listOf("feh", flag, wallpaper.absolutePath), wmEnv)
+            Log.i(TAG, "feh wallpaper aplicado ($flag ${wallpaper.name}, PID=$fehPid)")
         }
 
         // Lanzar terminal gráfica
@@ -378,9 +405,22 @@ class DesktopSessionManager(
         // (verificado device 2026-08-12: -fn "xft:DejaVu Sans Mono:pixelsize=14"
         // renderiza con DejaVuSansMono.ttf del rootfs).
         val bigFont = listOf("-fn", "xft:DejaVu Sans Mono:pixelsize=14")
+        val colors = listOf("-bg", "#0f172a", "-fg", "#38bdf8")
+        // Terminal de bienvenida: muestra el HUD (banner nano-sec con info real
+        // del sistema vía /proc) y deja el shell interactivo debajo. El
+        // watchdog granular re-lanza la terminal con el MISMO argv, así el
+        // banner vuelve a aparecer si la terminal muere.
+        val hud = "python3 ${File(usrDir.parentFile, "home/.hud.py").absolutePath}"
+        val shellCmd = "$hud; exec bash -i"
         val candidates = listOf(
-            TerminalLaunch(File(usrDir, "bin/xterm"), listOf("xterm") + bigFont + listOf("-bg", "#0f172a", "-fg", "#38bdf8")),
-            TerminalLaunch(File(usrDir, "bin/aterm"), listOf("aterm") + bigFont + listOf("-bg", "#0f172a", "-fg", "#38bdf8")),
+            TerminalLaunch(
+                File(usrDir, "bin/xterm"),
+                listOf("xterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
+            ),
+            TerminalLaunch(
+                File(usrDir, "bin/aterm"),
+                listOf("aterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
+            ),
             TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal")),
         )
         return candidates.firstOrNull { isElf(it.file) }
@@ -401,6 +441,7 @@ class DesktopSessionManager(
         killPid(terminalPid); terminalPid = -1
         killPid(tint2Pid);   tint2Pid   = -1
         killPid(openboxPid); openboxPid = -1
+        killPid(fehPid);     fehPid     = -1
         running = false
     }
 
@@ -497,12 +538,51 @@ class DesktopSessionManager(
                             Log.i(TAG, "Watchdog: terminal re-lanzado PID=$terminalPid")
                         }
                     }
+                    // openbox/tint2/feh antes quedaban sin vigilancia: "ready"
+                    // con WM muerto = ventanas sin decorar; feh muerto = fondo
+                    // de ruido de píxeles sin restauración. Mismo patrón que
+                    // el terminal: re-lanzar solo el proceso caído.
+                    val obPid = openboxPid
+                    if (obPid > 0 && !File("/proc/$obPid").exists()) {
+                        Log.w(TAG, "Watchdog: openbox PID=$obPid muerto — re-lanzando")
+                        openboxPid = -1
+                        val ob = File(usrDir, "bin/openbox")
+                        if (ob.exists() && lastWmEnv.isNotEmpty()) {
+                            ob.setExecutable(true, false)
+                            openboxPid = spawnBg(ob.absolutePath, listOf("openbox"), lastWmEnv)
+                            Log.i(TAG, "Watchdog: openbox re-lanzado PID=$openboxPid")
+                        }
+                    }
+                    val tiPid = tint2Pid
+                    if (tiPid > 0 && !File("/proc/$tiPid").exists()) {
+                        Log.w(TAG, "Watchdog: tint2 PID=$tiPid muerto — re-lanzando")
+                        tint2Pid = -1
+                        val ti = File(usrDir, "bin/tint2")
+                        if (ti.exists() && lastWmEnv.isNotEmpty()) {
+                            ti.setExecutable(true, false)
+                            tint2Pid = spawnBg(ti.absolutePath, listOf("tint2"), lastWmEnv)
+                            Log.i(TAG, "Watchdog: tint2 re-lanzado PID=$tint2Pid")
+                        }
+                    }
+                    val fePid = fehPid
+                    val wallpaper = wallpaperTarget()
+                    if (fePid > 0 && !File("/proc/$fePid").exists()) {
+                        Log.w(TAG, "Watchdog: feh PID=$fePid muerto — re-aplicando wallpaper")
+                        fehPid = -1
+                        val feh = File(usrDir, "bin/feh")
+                        if (feh.exists() && wallpaper.exists() && lastWmEnv.isNotEmpty()) {
+                            val flag = if (wallpaper.name.endsWith(".png")) "--bg-fill" else "--bg-scale"
+                            feh.setExecutable(true, false)
+                            fehPid = spawnBg(feh.absolutePath, listOf("feh", flag, wallpaper.absolutePath), lastWmEnv)
+                            Log.i(TAG, "Watchdog: feh re-lanzado PID=$fehPid")
+                        }
+                    }
                 } catch (e: InterruptedException) {
                     // stopWatchdog() llamó interrupt() — salida limpia.
                     break
                 } catch (e: Exception) {
                     if (stopRequested || !running) break
-                    Log.w(TAG, "Watchdog: puerto VNC $vncPort no responde — Xvnc puede haber caído")
+                    Log.w(TAG, "Watchdog: proceso Xvnc muerto (IOException en isAlive)")
                     running = false
                     stage = "failed"
                     lastError = "Xvnc dejó de responder (watchdog, puerto $vncPort)"
@@ -534,11 +614,58 @@ class DesktopSessionManager(
             val homeDir   = File(usrDir.parentFile, "home")
             val configDir = File(homeDir, ".config/tint2").also { it.mkdirs() }
             val tint2Rc   = File(configDir, "tint2rc")
+            val appsDir = File(homeDir, ".local/share/applications").also { it.mkdirs() }
+
+            // Crear .desktop files para los launchers del panel (Terminal, Archivos, Editor, Imágenes)
+            File(appsDir, "aterm.desktop").writeText("""
+                [Desktop Entry]
+                Name=Terminal
+                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8
+                Icon=utilities-terminal
+                Type=Application
+            """.trimIndent())
+
+            File(appsDir, "pcmanfm.desktop").writeText("""
+                [Desktop Entry]
+                Name=Archivos
+                Exec=pcmanfm
+                Icon=system-file-manager
+                Type=Application
+            """.trimIndent())
+
+            File(appsDir, "mousepad.desktop").writeText("""
+                [Desktop Entry]
+                Name=Editor
+                Exec=mousepad
+                Icon=accessories-text-editor
+                Type=Application
+            """.trimIndent())
+
+            File(appsDir, "feh.desktop").writeText("""
+                [Desktop Entry]
+                Name=Imágenes
+                Exec=feh
+                Icon=image-x-generic
+                Type=Application
+            """.trimIndent())
+
+            // Monitor del sistema: re-ejecuta el HUD (banner nano-sec) en su
+            // propia terminal. Ruta absoluta: tint2 hace execvp sin shell, no
+            // expande "~".
+            val hudPy = File(homeDir, ".hud.py").absolutePath
+            File(appsDir, "nano-info.desktop").writeText("""
+                [Desktop Entry]
+                Name=Monitor
+                Exec=aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8 -e python3 $hudPy
+                Icon=utilities-system-monitor
+                Type=Application
+            """.trimIndent())
+
             // Panel móvil: Slate Navy (#1e293b), reloj Sky Blue (#38bdf8),
             // fuentes DejaVu Sans escaladas. Se reescribe siempre para que los
             // cambios de UX sobrevivan a booteos previos.
             tint2Rc.writeText("""
-                panel_items = TSC
+                panel_items = LTSC
                 panel_position = bottom center horizontal
                 panel_size = 100% 46
                 panel_margin = 0 0
@@ -546,6 +673,21 @@ class DesktopSessionManager(
                 panel_dock = 0
                 font_shadow = 0
                 wm_menu = 1
+
+                # Launchers
+                launcher_padding = 4 4 4
+                launcher_background_id = 0
+                launcher_icon_background_id = 0
+                launcher_icon_size = 24
+                launcher_icon_asb = 100 0 0
+                launcher_icon_theme_override = 0
+                startup_notifications = 1
+                launcher_tooltip = 1
+                launcher_item_app = ~/.local/share/applications/nano-info.desktop
+                launcher_item_app = ~/.local/share/applications/aterm.desktop
+                launcher_item_app = ~/.local/share/applications/pcmanfm.desktop
+                launcher_item_app = ~/.local/share/applications/mousepad.desktop
+                launcher_item_app = ~/.local/share/applications/feh.desktop
 
                 taskbar_mode = single_desktop
                 task_text = 1
@@ -580,10 +722,14 @@ class DesktopSessionManager(
             val homeDir = File(usrDir.parentFile, "home")
             val obDir = File(homeDir, ".config/openbox").also { it.mkdirs() }
             val menuXml = File(obDir, "menu.xml")
+            val hudPy = File(homeDir, ".hud.py").absolutePath
             menuXml.writeText("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <openbox_menu xmlns="http://openbox.org/3.4/menu">
                   <menu id="root-menu" label="NanoAI Linux Desktop">
+                    <item label="Monitor del Sistema">
+                      <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8 -e python3 $hudPy</execute></action>
+                    </item>
                     <item label="Terminal">
                       <action name="Execute"><execute>aterm -fn "xft:DejaVu Sans Mono:pixelsize=14" -bg #0f172a -fg #38bdf8</execute></action>
                     </item>
@@ -673,6 +819,8 @@ class DesktopSessionManager(
             val settingsIni = File(gtkDir, "settings.ini")
             settingsIni.writeText("""
                 [Settings]
+                gtk-theme-name=Adwaita-dark
+                gtk-icon-theme-name=Adwaita
                 gtk-font-name=DejaVu Sans 14
                 gtk-application-prefer-dark-theme=1
             """.trimIndent())
@@ -682,11 +830,26 @@ class DesktopSessionManager(
         }
     }
 
+    // Wallpaper: PNG nano-cyber 1280x720 desplegado por el boot
+    // (assets/exe/nano-wallpaper.png → home/.nano-wallpaper.png) con prioridad;
+    // si no está, el PPM degradado de setupWallpaper() es el fallback.
+    private fun wallpaperTarget(): File {
+        val png = File(File(usrDir.parentFile, "home"), ".nano-wallpaper.png")
+        if (png.exists() && png.length() > 10000) return png
+        return File(File(usrDir.parentFile, "home"), ".nano-wallpaper.ppm")
+    }
+
     // Wallpaper: Genera un archivo PPM P6 (32x32 px) con un gradiente visual
     // profesional desde Slate Navy (#0F172A) a Deep Ocean Teal (#0369A1).
     // feh --bg-scale lo escala suavemente sin pixelar el framebuffer.
+    // SOLO es el fallback: el boot despliega el PNG de alta resolución y
+    // wallpaperTarget() lo prefiere (--bg-fill, sin escalado).
     private fun setupWallpaper() {
         try {
+            if (wallpaperTarget().name.endsWith(".png")) {
+                Log.i(TAG, "wallpaper PNG nano-cyber presente — se omite PPM fallback")
+                return
+            }
             val homeDir = File(usrDir.parentFile, "home").also { it.mkdirs() }
             val ppm = File(homeDir, ".nano-wallpaper.ppm")
             val w = 32

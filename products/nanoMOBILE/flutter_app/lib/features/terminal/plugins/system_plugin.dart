@@ -127,8 +127,26 @@ class SystemPlugin {
     // 'source' is handled directly in terminal_core._buildRegistry()
     // because it needs _execCmd to dispatch each script line.
 
-    r('which', (a, c, o, af) {}); // delegated to realCommands
-    r('type', (a, c, o, af) {});  // delegated to realCommands
+    r('which', (a, c, o, af) {}); // delegated to realCommands (BusyBox)
+
+    // P2: `type` NO está en realCommands (solo `which` lo está), así que el
+    // handler vacío era el único registro y el comando moría en silencio.
+    r('type', (a, c, o, af) {
+      if (a.isEmpty) {
+        o('type: uso: type <comando>', Ln.stderr);
+        return;
+      }
+      final name = a[0];
+      if (realCommands.contains(name)) {
+        o('$name es un comando real (BusyBox/rootfs)', Ln.stdout);
+      } else if (c.aliases.containsKey(name)) {
+        o('$name es un alias de ${c.aliases[name]}', Ln.stdout);
+      } else if (c.env.containsKey(name)) {
+        o('$name es una variable de entorno', Ln.stdout);
+      } else {
+        o('type: $name no encontrado', Ln.stderr);
+      }
+    });
 
     r('sleep', (a, c, o, af) {
       final sec = double.tryParse(a.isNotEmpty ? a[0] : '0') ?? 0;

@@ -44,7 +44,9 @@ Thumbs.db
 
 # ── Documentos de trabajo locales ─────────────
 descarga1/
-desktop/
+# Solo carpeta "desktop" en la raíz del monorepo. La feature Flutter
+# lib/features/desktop/ SÍ se versiona (es parte del build mobile).
+/desktop/
 *.docx
 
 # ── Sesiones generadas (no versionar) ─────

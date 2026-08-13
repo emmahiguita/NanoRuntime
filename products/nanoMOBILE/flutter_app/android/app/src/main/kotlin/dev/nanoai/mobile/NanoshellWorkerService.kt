@@ -73,7 +73,7 @@ when (msg.what) {
 
         val envp = envPairs.toTypedArray()
 
-        Thread {
+        Thread({
             try {
                 // Preload de libs versionadas del rootfs: System.load() registra
                 // la lib en el namespace del proceso (clns-7), que dlopen luego
@@ -87,7 +87,7 @@ when (msg.what) {
             } catch (e: Throwable) {
                 android.util.Log.e("nanoshell-worker", "spawn $taskId fallÃ³: $e")
             }
-        }.start()
+        }, "worker-task-$taskId").start()
     }
 
     /** Spawn sin esperar â€” para daemons (Xvnc, openbox). Retorna PID al
@@ -109,7 +109,7 @@ when (msg.what) {
         // awaitConnected 20s) -> falso negativo -> Xvnc huerfano reteniendo 5901.
         // Mover a un Thread (como handleSpawn): System.load y fork son seguros
         // fuera del looper.
-        Thread {
+        Thread({
             val envp = withNativeRuntimeEnv(envPairs, filesDir).toTypedArray()
             // En ColorOS/OPPO execve() sobre binarios del sandbox devuelve EACCES.
             // Xvnc entonces cae al fallback dlopen(), que necesita las DT_NEEDED del
@@ -126,7 +126,7 @@ when (msg.what) {
                 putInt(EXTRA_PID, pid)
             }
             try { replyTo?.send(reply) } catch (_: Exception) {}
-        }.start()
+        }, "worker-detach-$taskId").start()
     }
 
     /**
@@ -230,22 +230,16 @@ when (msg.what) {
                 "preload set crítico: $criticalFailed/${libs.size} sin cargar (esperado en worker sin GPU)")
         }
 
-        repeat(4) { pass ->
-            var progress = false
-            val libFiles = libDir.listFiles()
-                ?.filter { it.isFile && it.name.contains(".so") }
-                ?.sortedBy { it.name }
-                ?: emptyList()
-            for (f in libFiles) {
-                val before = loaded.size
-                tryLoad(f, f.name, false)
-                if (loaded.size > before) progress = true
-            }
-            if (!progress) return@repeat
-            android.util.Log.i("nanoshell-worker", "preload pass ${pass + 1}: ${loaded.size} libs")
-        }
-
-        android.util.Log.i("nanoshell-worker", "preload de libs rootfs completado (${libDir.path})")
+        // IMPORTANTE: NO barrer TODAS las .so del usr/lib. Tras install runtime
+        // hay +300 libs (absl, gstreamer, mesa, ffmpeg) y cargarlas vía System.load:
+        //  1) genera cientos de "Attempt to load writable file" (SDK 35 ya avisa
+        //     de throw futuro) y fallos de dependencia en cascada (orden alfabético
+        //     rompe deps); 2) el proceso acaba ABORTANDO (Fatal signal 6 SIGABRT)
+        //     — evidencia device 2026-08-13: worker :nanoshell muere en el preload
+        //     ANTES de poder spawnear Xvnc → pantalla negra permanente.
+        // Solo el set crítico versionado (arriba) es necesario para apt/dlopen.
+        android.util.Log.i("nanoshell-worker",
+            "preload de libs rootfs completado (${libDir.path}, ${loaded.size} libs)")
     }
 
     private fun withNativeRuntimeEnv(envPairs: List<String>, filesDir: String): List<String> {
@@ -260,10 +254,4 @@ when (msg.what) {
         return out
     }
 
-    /** Graceful shutdown: detiene el servicio. Llamado desde MainActivity.onDestroy
-     *  para evitar que el worker siga ejecutando tareas huÃ©rfanas. */
-    private fun handleKill() {
-        android.util.Log.i("nanoshell-worker", "recibido MSG_KILL â€” deteniendo worker")
-        stopSelf()
-    }
 }

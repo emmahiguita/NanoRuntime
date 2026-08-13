@@ -86,6 +86,7 @@ class _TermState extends State<NanoTerminal> {
   PtySession? _pty;
   final _ptyLines = <String>[]; // buffer acumulado del output PTY
   AnsiTerminal? _ansi;
+  CronScheduler? _cron;
   final _cmds = <String, CmdFn>{};
   CommandDispatcher? _dispatcher;
   PtyManager? _ptyManager;
@@ -140,7 +141,14 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       });
     }
   }
-  void _after(Duration d, VoidCallback cb) { final t = Timer(d, () { if (_alive) cb(); }); _timers.add(t); }
+  void _after(Duration d, VoidCallback cb) {
+    late final Timer t;
+    t = Timer(d, () {
+      _timers.remove(t); // no acumular timers muertos en sesiones largas
+      if (_alive) cb();
+    });
+    _timers.add(t);
+  }
 
   @override void initState() {
     super.initState(); _engine = widget.engine ?? LLMEngineClient(); _ctx.cwd = widget.initialCwd;
@@ -201,7 +209,15 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     _dispatcher!.buildRegistry();
     _ptyManager = PtyManager(
       rootfs: _rootfs,
-      rootfsEnv: _deps.rootfsEnv, onTitle: widget.onTitle,
+      rootfsEnv: _deps.rootfsEnv,
+      onTitle: widget.onTitle,
+      // P1: sin este callback, _ansi seguía apuntando al ChangeNotifier ya
+      // dispuesto por el manager tras el fin de la sesión (Ctrl-D/exit) —
+      // cualquier rebuild posterior lanzaba "used after being disposed".
+      onSessionEnd: () {
+        if (!mounted) return;
+        setState(() => _ansi = null);
+      },
     );
     if (_shell?.initialized == true) {
       _out('[shell] bash + toybox listos en ${_shell!.binDir}', Ln.system);
@@ -263,6 +279,8 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       t.cancel();
     }
     _timers.clear();
+    _cron?.dispose();
+    _cron = null;
     try { _shell?.killAll(); } catch (_) {}
     try { _docker?.dispose(); } catch (_) {}
     _in.dispose();
@@ -286,8 +304,10 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     DashboardPlugin().register(r, s);
     // crontab/watch REALES: timers que ejecutan _execAsync de verdad.
     // Registrados después de DevOpsPlugin para pisar cualquier stub.
-    CronScheduler(execCmd: (raw) => _execAsync(raw), isAlive: () => _alive)
-        .register(r, _out);
+    // P2: la instancia se guarda — antes su dispose() nunca se llamaba y
+    // los timers de crontab/watch quedaban vivos para siempre.
+    _cron = CronScheduler(execCmd: (raw) => _execAsync(raw), isAlive: () => _alive)
+      ..register(r, _out);
     // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
     // nunca finge apertura — este registro lo reemplaza por el real).
     _cmds['pty'] = (a, c, o, af) {

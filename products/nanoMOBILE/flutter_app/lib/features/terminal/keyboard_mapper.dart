@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 
 /// Traduce eventos de teclado (KeyEvent) a secuencias de bytes de terminal
@@ -69,9 +71,14 @@ class KeyboardMapper {
       return null;
     }
 
-    // Carácter imprimible (incluye mayúsculas con Shift)
+    // Carácter imprimible (incluye mayúsculas con Shift).
+    // P2: el codeUnit crudo >0x7F (teclado con símbolos locales) enviaba
+    // un byte suelto inválido al PTY; hay que codificar UTF-8.
     final ch = logicalToChar(k);
-    if (ch != null && ch >= 0x20) return [ch];
+    if (ch != null && ch >= 0x20) {
+      if (ch <= 0x7F) return [ch];
+      return utf8.encode(String.fromCharCode(ch));
+    }
     return null;
   }
 

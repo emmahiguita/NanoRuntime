@@ -45,6 +45,15 @@ class RootfsEnv {
       'TERMUX_APP__PID': '${appPid ?? 0}',
       'TERMUX_APK_RELEASE': 'F_DROID',
       'TERMUX_APP__IS_DEBUGGABLE': 'false',
+      // ── Apps GTK lanzadas desde el terminal ──
+      // P2: sin estas vars, mousepad/pcmanfm lanzados vía PTY mueren igual
+      // que en el desktop: g_settings_schema_source_lookup() con source NULL
+      // y GIO buscando módulos en el path Termux compilado en el binario
+      // (evidencia device 2026-08-12, mismo env en DesktopSessionManager).
+      'GSETTINGS_SCHEMA_DIR': '$usr/share/glib-2.0/schemas',
+      'GIO_EXTRA_MODULES': '$usr/lib/gio/modules',
+      'XDG_DATA_DIRS': '$usr/share',
+      'XDG_RUNTIME_DIR': '$usr/tmp',
       // ── Puente Android ──
       'ANDROID_DATA': '/data',
       'ANDROID_ROOT': '/system',

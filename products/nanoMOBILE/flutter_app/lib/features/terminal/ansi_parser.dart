@@ -73,6 +73,12 @@ class AnsiParser {
       case 0x08:
         screen.backspace();
         return;
+      // P3: DEL caía al default y dibujaba un glifo fantasma en el grid
+      // (0x7F >= 0x20). Es control, jamás imprimible — VT100 clásico lo
+      // trata como backspace (teclas con kbs=^?).
+      case 0x7f:
+        screen.backspace();
+        return;
       case 0x09:
         screen.tab();
         return;
@@ -297,13 +303,19 @@ class AnsiParser {
     }
   }
 
+  /// Precompilados: _parseParams corre por cada secuencia CSI del stream.
+  /// Compilar dos RegExp por invocación era un cuello de botella real en
+  /// redraws densos (htop/vim/`ls --color`) — el compilador de regex hacía
+  /// backtracking en cada cursor-move/SGR/clear.
+  static final RegExp _numEnd = RegExp(r'[0-9]+\z');
+  static final RegExp _numAny = RegExp(r'[0-9]+');
+
   List<int> _parseParams(String s) {
     if (s.isEmpty) return const [0];
     final out = <int>[];
     for (final part in s.split(';')) {
       final clean = part.replaceAll('?', '');
-      final m = RegExp(r'[0-9]+\z').firstMatch(clean) ??
-          RegExp(r'[0-9]+').firstMatch(clean);
+      final m = _numEnd.firstMatch(clean) ?? _numAny.firstMatch(clean);
       out.add(m == null ? 0 : (int.tryParse(m.group(0)!) ?? 0));
     }
     return out;

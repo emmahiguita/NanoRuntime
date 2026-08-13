@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'i_bin_executor.dart';
 import '../../core/services/rootfs_manager.dart';
@@ -138,7 +139,9 @@ class CommandExecutor {
           command: cmd,
           byteCount: cmd.length + 1,
         );
-        x.pty!.writeBytes([...cmd.codeUnits, 0x0d]);
+        // P2: cmd.codeUnits (UTF-16) rompía cualquier comando con acentos o
+        // emojis escritos al PTY. El PTY espera UTF-8 + CR.
+        x.pty!.writeBytes([...utf8.encode(cmd), 0x0d]);
       }
       return;
     }

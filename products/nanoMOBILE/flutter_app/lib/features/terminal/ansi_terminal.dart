@@ -57,34 +57,51 @@ class AnsiMetrics {
   final double cellH;
 
   static AnsiMetrics? _cached;
+  static String? _cachedKey;
 
-  /// Mide una celda con el estilo dado y cachea. Sin estilo: devuelve la
-  /// medida previa (hecha por AnsiTerminalView al montar) o un default
-  /// medido con el estilo base del terminal.
+  /// Mide una celda con el estilo dado y cachea por clave de estilo.
+  ///
+  /// El build del render llama esto con un `TextStyle` recién derivado
+  /// (`copyWith`) en CADA rebuild. La versión previa solo cacheaba cuando
+  /// style == null, así que el hot path hacía 2 TextPainter.layout() por
+  /// frame (uno por cada rebuild de cada feed PTY). Ahora la clave compara
+  /// solo los campos que afectan las métricas (familia, tamaño, altura,
+  /// peso, espaciado) — el color/fondo no alteran cellW/cellH.
   static AnsiMetrics measure([TextStyle? style]) {
-    if (style == null) {
-      final cached = _cached;
-      if (cached != null) return cached;
-      style = const TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: ['monospace'],
-        height: 1.15,
-      );
-    }
+    final key = style == null ? '<default>' : _styleKey(style);
+    final cached = _cached;
+    if (cached != null && _cachedKey == key) return cached;
+    final s = style ??
+        const TextStyle(
+          fontFamily: 'monospace',
+          fontFamilyFallback: ['monospace'],
+          height: 1.15,
+        );
     final w = TextPainter(
-      text: TextSpan(text: 'M', style: style),
+      text: TextSpan(text: 'M', style: s),
       textDirection: TextDirection.ltr,
     )..layout();
     final h = TextPainter(
-      text: TextSpan(text: 'M\nM', style: style),
+      text: TextSpan(text: 'M\nM', style: s),
       textDirection: TextDirection.ltr,
     )..layout();
     final cellW = w.width > 0 ? w.width : 8.4;
     final cellH = h.height > 0 ? h.height / 2 : 20.0;
     final metric = AnsiMetrics._(cellW, cellH);
     _cached = metric;
+    _cachedKey = key;
     return metric;
   }
+
+  /// Clave estable de los campos que importan para medir una celda.
+  static String _styleKey(TextStyle s) => [
+        s.fontFamily,
+        s.fontSize,
+        s.height,
+        s.fontWeight,
+        s.letterSpacing,
+        (s.fontFamilyFallback ?? const <String>[]).join(','),
+      ].join('|');
 }
 
 // ============================================================================
@@ -138,8 +155,42 @@ class AnsiTerminal extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Bytes UTF-8 incompletos al final del último chunk PTY: un carácter
+  /// multibyte puede venir partido entre dos lecturas del socket.
+  final List<int> _pendingBytes = [];
+
   void feedBytes(Uint8List data) {
-    feed(utf8.decode(data, allowMalformed: true));
+    // Decodificar cada chunk aislado con utf8.decode producía U+FFFD y
+    // basura visible cuando un carácter multibyte caía partido entre chunks.
+    // Aquí se retienen los bytes finales incompletos y se decodifican
+    // secuencias completas; los bytes de continuación sueltos se descartan.
+    _pendingBytes.addAll(data);
+    final buf = StringBuffer();
+    var i = 0;
+    var n = _pendingBytes.length;
+    while (i < n) {
+      final b = _pendingBytes[i];
+      int len;
+      if (b < 0x80) {
+        len = 1;
+      } else if ((b & 0xE0) == 0xC0) {
+        len = 2;
+      } else if ((b & 0xF0) == 0xE0) {
+        len = 3;
+      } else if ((b & 0xF8) == 0xF0) {
+        len = 4;
+      } else {
+        // Byte de continuación suelto o secuencia inválida: descartar.
+        _pendingBytes.removeAt(i);
+        n = _pendingBytes.length;
+        continue;
+      }
+      if (i + len > n) break; // incompleto: esperar al siguiente chunk
+      buf.write(utf8.decode(_pendingBytes.sublist(i, i + len), allowMalformed: true));
+      i += len;
+    }
+    if (i > 0) _pendingBytes.removeRange(0, i);
+    if (buf.isNotEmpty) feed(buf.toString());
   }
 }
 

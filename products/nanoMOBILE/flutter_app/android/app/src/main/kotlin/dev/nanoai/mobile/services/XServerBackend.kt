@@ -47,17 +47,27 @@ interface XServerBackend {
  */
 class InternalXvncBackend(
     private val usrDir: java.io.File,
-    private val spawnBg: (binaryPath: String, argv: List<String>, envp: Map<String, String>) -> Long
+    private val spawnBg: (binaryPath: String, argv: List<String>, envp: Map<String, String>) -> Long,
+    private val vncPassword: String = "",
 ) : XServerBackend {
     companion object {
         private const val TAG = "InternalXvncBackend"
+
+        // Máscara XOR fija del formato vncpasswd (TigerVNC). El archivo guarda
+        // el password de 8 bytes XOR-eado con esta máscara; NO es cifrado real
+        // — solo evita el dump casual. La seguridad real la da VNC Auth
+        // (DES challenge) en el wire protocol.
+        private val VNC_PASS_MASK = byteArrayOf(
+            0x17, 0x52.toByte(), 0x6b.toByte(), 0x06,
+            0x35, 0x78.toByte(), 0x88.toByte(), 0x07,
+        )
     }
 
-    private var xvncPid: Long = -1
+    @Volatile private var xvncPid: Long = -1
     private val endpoint = XDisplayEndpoint(
         display = 1,
-        host = "127.0.0.1",
-        transport = XTransport.TCP
+        host = null,
+        transport = XTransport.UNIX
     )
 
     @Volatile override var lastError: String? = null
@@ -72,19 +82,40 @@ class InternalXvncBackend(
         killLingeringXvnc()
 
         val vncPort = rfbPort
+
+        // Con contraseña → VNC Auth (-rfbauth). Sin contraseña → None, como
+        // siempre. Solo afecta a ESTE arranque: cambiar el password requiere
+        // stop + start del escritorio.
+        val secTypes: String
+        val rfbAuthArg: List<String>
+        if (vncPassword.isNotEmpty()) {
+            val passFile = writeVncPassFile()
+            if (passFile != null) {
+                secTypes = "VncAuth"
+                rfbAuthArg = listOf("-rfbauth", passFile.absolutePath)
+            } else {
+                android.util.Log.w(TAG, "Fallo escribiendo vncpasswd — cayendo a SecurityTypes None")
+                secTypes = "None"
+                rfbAuthArg = emptyList()
+            }
+        } else {
+            secTypes = "None"
+            rfbAuthArg = emptyList()
+        }
+
         val argv = listOf(
             ":${endpoint.display}",
             "-geometry", "1280x720",
             "-depth", "24",
             "-rfbport", "$vncPort",
-            "-SecurityTypes", "None",
+            "-SecurityTypes", secTypes,
             "-localhost", "yes",
             "-listen", "tcp",
             // DPI móvil: hace que las apps Xft/GTK escalen fuentes y widgets
             // (110 = 1.15x sobre 96). Flag verificado con `Xvnc -help` en el
             // rootfs (soportado por el binario TigerVNC de Termux).
             "-dpi", "110",
-        )
+        ) + rfbAuthArg
         // NOTA (evidencia device 2026-08-12): este binario Xvnc de Termux NO
         // soporta "-kb" — "Unrecognized option: -kb" y exit 1 antes de abrir
         // el puerto RFB. El flag estaba oculto por el bug de argv desplazado
@@ -184,6 +215,35 @@ class InternalXvncBackend(
         val deadline = System.currentTimeMillis() + 3000
         while (System.currentTimeMillis() < deadline && findLingeringXvncPids().isNotEmpty()) {
             delay(100)
+        }
+    }
+
+    /**
+     * Escribe usr/.vnc/passwd en el formato vncpasswd de TigerVNC: el password
+     * truncado/padded a 8 bytes, XOR-eado con [VNC_PASS_MASK]. Permisos
+     * owner-only (0600) — Xvnc rechaza archivos con permisos abiertos en
+     * algunos builds. Retorna el archivo, o null si falló la escritura.
+     */
+    private fun writeVncPassFile(): java.io.File? {
+        return try {
+            val dir = java.io.File(usrDir, ".vnc").apply { mkdirs() }
+            val file = java.io.File(dir, "passwd")
+            val raw = ByteArray(VNC_PASS_MASK.size)
+            val pw = vncPassword.take(VNC_PASS_MASK.size).toByteArray(Charsets.UTF_8)
+            pw.copyInto(raw, 0, 0, minOf(pw.size, VNC_PASS_MASK.size))
+            val obfuscated = ByteArray(VNC_PASS_MASK.size) { i ->
+                (raw[i].toInt() xor VNC_PASS_MASK[i].toInt()).toByte()
+            }
+            file.writeBytes(obfuscated)
+            file.setReadable(false, false)
+            file.setReadable(true, true)
+            file.setWritable(false, false)
+            file.setExecutable(false, false)
+            android.util.Log.i(TAG, "vncpasswd escrito: ${file.absolutePath} (${obfuscated.size} bytes)")
+            file
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "writeVncPassFile: ${e.message}")
+            null
         }
     }
 

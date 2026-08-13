@@ -8,24 +8,35 @@ class ExpressionEvaluator {
 
   /// Evalúa una expresión aritmética simple. Soporta números, +, -, *, /,
   /// paréntesis, y espacios.
+  ///
+  /// P2: malformadas ("1+", "()", "2**3") o división por cero lanzaban
+  /// FormatException / UnsupportedError y crasheaban el dispatch.
+  /// Resultado 0 con fallo silencioso documentado — `expr` sin canal de
+  /// stderr aquí; BusyBox real hace lo mismo (status 2).
   int eval(String expr) {
-    final s = expr.replaceAll(' ', '');
-    // Solo números y operadores básicos
-    if (RegExp(r'^[\d\+\-\*/\(\)]+$').hasMatch(s)) {
-      return _evalSimple(s);
+    try {
+      final s = expr.replaceAll(' ', '');
+      // Solo números y operadores básicos
+      if (RegExp(r'^[\d\+\-\*/\(\)]+$').hasMatch(s)) {
+        return _evalSimple(s);
+      }
+      // Fallback: sumar si es "X + Y"
+      final add = RegExp(r'(\d+)\s*\+\s*(\d+)').firstMatch(expr);
+      if (add != null) return int.parse(add.group(1)!) + int.parse(add.group(2)!);
+      final sub = RegExp(r'(\d+)\s*\-\s*(\d+)').firstMatch(expr);
+      if (sub != null) return int.parse(sub.group(1)!) - int.parse(sub.group(2)!);
+      final mul = RegExp(r'(\d+)\s*\*\s*(\d+)').firstMatch(expr);
+      if (mul != null) return int.parse(mul.group(1)!) * int.parse(mul.group(2)!);
+      final div = RegExp(r'(\d+)\s*/\s*(\d+)').firstMatch(expr);
+      if (div != null) {
+        return int.parse(div.group(1)!) ~/ int.parse(div.group(2)!);
+      }
+      return 0;
+    } on FormatException {
+      return 0;
+    } on UnsupportedError {
+      return 0; // división por cero con ~/ lanza UnsupportedError en Dart 3
     }
-    // Fallback: sumar si es "X + Y"
-    final add = RegExp(r'(\d+)\s*\+\s*(\d+)').firstMatch(expr);
-    if (add != null) return int.parse(add.group(1)!) + int.parse(add.group(2)!);
-    final sub = RegExp(r'(\d+)\s*\-\s*(\d+)').firstMatch(expr);
-    if (sub != null) return int.parse(sub.group(1)!) - int.parse(sub.group(2)!);
-    final mul = RegExp(r'(\d+)\s*\*\s*(\d+)').firstMatch(expr);
-    if (mul != null) return int.parse(mul.group(1)!) * int.parse(mul.group(2)!);
-    final div = RegExp(r'(\d+)\s*/\s*(\d+)').firstMatch(expr);
-    if (div != null) {
-      return int.parse(div.group(1)!) ~/ int.parse(div.group(2)!);
-    }
-    return 0;
   }
 
   int _evalSimple(String s) {
@@ -62,7 +73,11 @@ class ExpressionEvaluator {
     if (_pos < _exprSrc.length && _exprSrc[_pos] == '(') {
       _pos++;
       final v = _parseExpr();
-      _pos++;
+      if (_pos < _exprSrc.length && _exprSrc[_pos] == ')') {
+        _pos++;
+      } else {
+        throw const FormatException('paréntesis sin cerrar');
+      }
       return v;
     }
     final start = _pos;
@@ -70,6 +85,8 @@ class ExpressionEvaluator {
         RegExp(r'[0-9]').hasMatch(_exprSrc[_pos])) {
       _pos++;
     }
+    // "1+", "**", "()" : sin dígitos que parsear, int.parse('') explota.
+    if (start == _pos) throw const FormatException('token vacío');
     return int.parse(_exprSrc.substring(start, _pos));
   }
 }
