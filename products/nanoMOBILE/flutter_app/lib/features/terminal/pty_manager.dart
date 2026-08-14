@@ -26,9 +26,9 @@ class PtyManager {
   final void Function(String title)? onTitle;
   final TerminalAuditLogger? logger;
 
-  /// Se invoca cuando la sesiÃ³n termina o se cierra (done o close()).
-  /// El dueÃ±o (NanoTerminal) lo usa para limpiar su propia referencia al
-  /// AnsiTerminal compartido ANTES de que se haga dispose â€” sin esto, el
+  /// Se invoca cuando la sesión termina o se cierra (done o close()).
+  /// El dueño (NanoTerminal) lo usa para limpiar su propia referencia al
+  /// AnsiTerminal compartido ANTES de que se haga dispose — sin esto, el
   /// build renderiza un ChangeNotifier ya disposed y crashea.
   final void Function()? onSessionEnd;
 
@@ -133,7 +133,9 @@ class PtyManager {
       };
       if (oldAnsi != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          try { oldAnsi.dispose(); } catch (_) {}
+          try {
+            oldAnsi.dispose();
+          } catch (_) {}
         });
       }
 
@@ -202,9 +204,9 @@ class PtyManager {
     return null;
   }
 
-  /// Limpia el estado interno tras el fin/cierre de la sesiÃ³n.
+  /// Limpia el estado interno tras el fin/cierre de la sesión.
   ///
-  /// El orden importa: primero se avisa al dueÃ±o (onSessionEnd â†’ setState â†’
+  /// El orden importa: primero se avisa al dueño (onSessionEnd → setState →
   /// desmonta AnsiTerminalView) y el dispose del AnsiTerminal se difiere a
   /// post-frame. AnsiTerminalView.dispose() hace removeListener() sobre el
   /// terminal; removeListener en un ChangeNotifier ya disposed lanza
@@ -274,11 +276,6 @@ class PtyManager {
     _session?.writeBytes(bytes);
   }
 
-  /// Write a string to the PTY.
-  void writeString(String s) {
-    _session?.write(s);
-  }
-
   /// Apply new dimensions (SIGWINCH).
   void resize(int w, int h, {double? cellW, double? cellH}) {
     if (!isActive) return;
@@ -293,13 +290,13 @@ class PtyManager {
     _session?.signal(sig);
   }
 
-  /// Pausa el polling de la sesiÃ³n PTY (pestaÃ±a oculta). Rate limiting:
-  /// N tabs abiertas = NÃ—20 MethodChannel calls/sec; las ocultas no deben
+  /// Pausa el polling de la sesión PTY (pestaña oculta). Rate limiting:
+  /// N tabs abiertas = N×20 MethodChannel calls/sec; las ocultas no deben
   /// consumir overhead.
   void pausePolling() => _session?.pausePolling();
 
-  /// Reanuda el polling PTY (pestaÃ±a visible de nuevo). Ignorada si la
-  /// sesiÃ³n ya cerrÃ³ o pausar nunca llegÃ³ a aplicarse.
+  /// Reanuda el polling PTY (pestaña visible de nuevo). Ignorada si la
+  /// sesión ya cerró o pausar nunca llegó a aplicarse.
   void resumePolling() => _session?.resumePolling();
 
   void dispose() {

@@ -7,8 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/providers/rootfs_provider.dart';
+import 'package:nanoai/core/providers/kali_provider.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
+import 'package:nanoai/core/services/kali_manager.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/models/application/models_notifier.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
@@ -29,6 +31,8 @@ void main() {
     Size physicalSize = const Size(1080, 1920),
     double devicePixelRatio = 3.0,
     bool disableAnimations = false,
+    KaliManager? kali,
+    List<RouteBase> extraRoutes = const [],
   }) async {
     tester.view.physicalSize = physicalSize;
     tester.view.devicePixelRatio = devicePixelRatio;
@@ -56,6 +60,7 @@ void main() {
           path: '/models',
           builder: (_, __) => const _Placeholder('models'),
         ),
+        ...extraRoutes,
       ],
     );
 
@@ -87,6 +92,7 @@ void main() {
             (ref) => ModelsNotifier.fixed(ref, modelsState),
           ),
           rootfsProvider.overrideWithValue(RootfsManager()),
+          kaliProvider.overrideWithValue(kali),
         ],
         child: app,
       ),
@@ -147,6 +153,8 @@ void main() {
     await pumpDashboard(tester);
     await tester.tap(find.text('Modelos'));
     await tester.pumpAndSettle();
+    // La ruta /models del harness es un placeholder: valida la navegación,
+    // no el contenido real de la pantalla.
     expect(find.text('placeholder:models'), findsOneWidget);
   });
 
@@ -196,6 +204,8 @@ void main() {
         batteryPct: 100, isLive: true,
       ),
     );
+    // Los contadores animan desde 0 hasta el valor real.
+    await tester.pumpAndSettle();
     expect(find.text('3.9 GB'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
     expect(find.text('35 \u00B0C'), findsOneWidget);
@@ -219,6 +229,116 @@ void main() {
       chatState: const ChatState(engineOnline: true),
     );
     expect(find.text('Habla con NanoAI'), findsOneWidget);
+  });
+
+  // 11. Transición linuxReady false→true tras initState: el pulso de la
+  // card Terminal no debe crashear (bug pantalla roja del inicio).
+  testWidgets('linuxReady false->true does not crash pulse', (tester) async {
+    Widget build(bool ready) => ProviderScope(
+          overrides: [kaliProvider.overrideWithValue(null)],
+          child: MaterialApp(
+            home: NanoHomeScreen(
+              ramFreeGb: null,
+              cpuCores: null,
+              temperatureC: null,
+              storageFreeGb: null,
+              batteryPercent: null,
+              linuxReady: ready,
+              onTerminal: () {},
+              onChat: () {},
+              onModels: () {},
+              onDesktop: () {},
+              onSettings: () {},
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(build(false));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Preparando Linux'), findsOneWidget);
+
+    await tester.pumpWidget(build(true));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), isNull,
+        reason: 'pulse false->true must not throw');
+    expect(find.text('Linux listo'), findsOneWidget);
+  });
+
+  // 12. Card Kali con layout propio: no comparte GlassActionCard con la
+  // card Terminal (solo Terminal + Chat/Modelos/Escritorio/Ajustes la usan).
+  testWidgets('Kali card has its own layout, not GlassActionCard',
+      (tester) async {
+    await pumpDashboard(tester);
+    expect(find.byType(GlassActionCard), findsNWidgets(5),
+        reason: 'Terminal + 4 action cards; Kali usa su propio layout');
+    expect(find.text('Kali'), findsOneWidget);
+  });
+
+  // 13. Estado Kali sin manager: chip honesto NO INICIALIZADO, sin overflow
+  // ni siquiera en pantallas angostas (el chip largo es el peor caso).
+  testWidgets('Kali shows honest chip when manager is null', (tester) async {
+    tester.view.physicalSize = const Size(960, 1704);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(() {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1.0;
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [kaliProvider.overrideWithValue(null)],
+        child: MaterialApp(
+          home: NanoHomeScreen(
+            ramFreeGb: null,
+            cpuCores: null,
+            temperatureC: null,
+            storageFreeGb: null,
+            batteryPercent: null,
+            linuxReady: false,
+            onTerminal: () {},
+            onChat: () {},
+            onModels: () {},
+            onDesktop: () {},
+            onSettings: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Kali'), findsOneWidget);
+    expect(find.text('NO INICIALIZADO'), findsOneWidget);
+    expect(tester.takeException(), isNull,
+        reason: 'chip largo no debe desbordar a 320 lógicos');
+  });
+
+  // 14. Atajo Escritorio: navega a /desktop (flujo completo: instala,
+  // arranca Xvnc, espera TCP) — nunca directo a /desktop/vnc sin servidor.
+  testWidgets('Desktop shortcut navigates to /desktop', (tester) async {
+    await pumpDashboard(
+      tester,
+      kali: null,
+      extraRoutes: [
+        GoRoute(
+          path: '/desktop',
+          builder: (_, __) => const _Placeholder('desktop'),
+        ),
+        GoRoute(
+          path: '/desktop/vnc',
+          builder: (_, __) => const _Placeholder('vnc'),
+        ),
+      ],
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Escritorio'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Escritorio'));
+    await tester.pumpAndSettle();
+    expect(find.text('placeholder:desktop'), findsOneWidget,
+        reason: 'atajo debe pasar por /desktop (arranque Xvnc), no VNC directo');
+    expect(find.text('placeholder:vnc'), findsNothing);
   });
 }
 

@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
@@ -117,8 +118,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// Abre el selector de archivos (SAF) e inserta el contenido textual en el
-  /// input. Binarios o archivos ilegibles se reportan, no se inventa texto.
+  /// Abre el selector de archivos (SAF) y registra el contenido textual como
+  /// adjunto real en el estado del chat (chip visible en el composer). El
+  /// contenido viaja al prompt del motor SOLO al enviar. Binarios o archivos
+  /// ilegibles se reportan, no se inventa texto.
   Future<void> _attachFile() async {
     try {
       final result = await FilePicker.pickFiles(
@@ -143,10 +146,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final clipped = text.length > _maxAttachChars
           ? '${text.substring(0, _maxAttachChars)}\n…[truncado]'
           : text;
-      _inputController.text = clipped;
-      _inputController.selection = TextSelection.collapsed(
-        offset: _inputController.text.length,
-      );
+      ref
+          .read(chatProvider.notifier)
+          .addAttachment(ChatAttachment(name: file.name, content: clipped));
     } catch (e) {
       if (!mounted) return;
       _showHonestError('No se pudo leer el archivo: $e');
@@ -203,10 +205,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: state.messages.isEmpty
                 ? _EmptyChat(
                     engineOnline: state.engineOnline,
+                    hasModel: state.activeModelPath != null,
                     onSuggestion: (text) {
                       _inputController.text = text;
                     },
                     onRetry: () => notifier.refreshEngine(),
+                    onGoModels: () => context.go('/models'),
                   )
                 : ListView.builder(
                     controller: _scrollController,
@@ -232,6 +236,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           model: state.activeModel,
                           timestamp: message.timestamp,
                           isError: message.status == MessageStatus.error,
+                          attachmentNames: message.attachmentNames,
                         ),
                       );
                     },
@@ -239,9 +244,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           _Composer(
             controller: _inputController,
-            enabled: state.engineOnline && !state.generating,
+            enabled: state.canSend && !state.generating,
             generating: state.generating,
             listening: _listening,
+            attachments: state.attachments,
+            onRemoveAttachment: notifier.removeAttachment,
             onAttach: _attachFile,
             onMic: _toggleMic,
             onSend: () {
@@ -378,6 +385,7 @@ class _MessageBubble extends StatelessWidget {
     required this.timestamp,
     this.isError = false,
     this.trailing,
+    this.attachmentNames = const [],
   });
 
   final String text;
@@ -385,6 +393,10 @@ class _MessageBubble extends StatelessWidget {
   final String model;
   final DateTime timestamp;
   final bool isError;
+
+  /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
+  /// el contenido se inyectó al prompt y no se persiste).
+  final List<String> attachmentNames;
 
   /// Widget inline tras el texto (cursor de streaming).
   final Widget? trailing;
@@ -442,6 +454,25 @@ class _MessageBubble extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
+                          if (attachmentNames.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: [
+                                for (final name in attachmentNames)
+                                  Text(
+                                    '📎 $name',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.78,
+                                      ),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                          ],
                           if (trailing == null)
                             Text(
                               text,
@@ -527,6 +558,8 @@ class _Composer extends StatelessWidget {
     required this.enabled,
     required this.generating,
     required this.listening,
+    required this.attachments,
+    required this.onRemoveAttachment,
     required this.onAttach,
     required this.onMic,
     required this.onSend,
@@ -537,6 +570,8 @@ class _Composer extends StatelessWidget {
   final bool enabled;
   final bool generating;
   final bool listening;
+  final List<ChatAttachment> attachments;
+  final ValueChanged<String> onRemoveAttachment;
   final VoidCallback onAttach;
   final VoidCallback onMic;
   final VoidCallback onSend;
@@ -602,14 +637,39 @@ class _Composer extends StatelessWidget {
                 color: const Color(0xFF42D9FF).withValues(alpha: 0.32),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  tooltip: 'Adjuntar archivo',
-                  onPressed: enabled ? onAttach : null,
-                  icon: const Icon(Icons.attach_file_rounded),
-                ),
+                if (attachments.isNotEmpty) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                      child: Row(
+                        children: [
+                          for (final a in attachments)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: _AttachmentChip(
+                                name: a.name,
+                                onRemove: () => onRemoveAttachment(a.name),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      tooltip: 'Adjuntar archivo',
+                      onPressed: enabled ? onAttach : null,
+                      icon: const Icon(Icons.attach_file_rounded),
+                    ),
                 Expanded(
                   child: reduceMotion
                       ? inputField
@@ -653,6 +713,8 @@ class _Composer extends StatelessWidget {
                           child: sendButton,
                         ),
                 ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -662,16 +724,64 @@ class _Composer extends StatelessWidget {
   }
 }
 
+/// Chip de adjunto en el composer: nombre del archivo + X para quitarlo.
+/// El contenido real ya vive en el estado; el chip solo lo representa.
+class _AttachmentChip extends StatelessWidget {
+  const _AttachmentChip({required this.name, required this.onRemove});
+
+  final String name;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(left: 10, right: 2, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF005D72).withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF42D9FF).withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            name,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          const SizedBox(width: 2),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onRemove,
+            child: Tooltip(
+              message: 'Quitar adjunto: $name',
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close_rounded, size: 14, color: Colors.white54),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyChat extends StatelessWidget {
   const _EmptyChat({
     required this.engineOnline,
+    required this.hasModel,
     required this.onSuggestion,
     required this.onRetry,
+    required this.onGoModels,
   });
 
   final bool engineOnline;
+  final bool hasModel;
   final ValueChanged<String> onSuggestion;
   final VoidCallback onRetry;
+  final VoidCallback onGoModels;
 
   @override
   Widget build(BuildContext context) {
@@ -726,11 +836,11 @@ class _EmptyChat extends StatelessWidget {
                   ),
                 ],
               ),
-            ] else ...[
+            ] else if (hasModel) ...[
               const SizedBox(height: 8),
               Text(
-                'Activa un modelo GGUF en la pantalla Modelos y el '
-                'motor correrá 100% en el dispositivo.',
+                'El modelo está instalado pero el motor está apagado. '
+                'Arrancará solo con tu primer mensaje.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.58),
@@ -742,6 +852,23 @@ class _EmptyChat extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Reintentar'),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Text(
+                'Descarga un modelo GGUF en la pantalla Modelos y el '
+                'motor correrá 100% en el dispositivo.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.58),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: onGoModels,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text('Ir a Modelos'),
               ),
             ],
           ],

@@ -11,15 +11,15 @@ class TermCell {
   bool bold = false;
   bool dim = false;
   bool reverse = false;
-  bool italic = false;        // SGR 3
-  bool underline = false;     // SGR 4
-  bool blink = false;         // SGR 5 (se almacena; sin animación aún)
+  bool italic = false; // SGR 3
+  bool underline = false; // SGR 4
+  bool blink = false; // SGR 5 (se almacena; sin animación aún)
   bool strikethrough = false; // SGR 9
-  bool overline = false;      // SGR 53
+  bool overline = false; // SGR 53
   int? fgRgb;
   int? bgRgb;
   bool wide = false; // double-width char (CJK, emoji)
-  String? linkUrl;   // OSC 8 hyperlink (null = sin link)
+  String? linkUrl; // OSC 8 hyperlink (null = sin link)
 
   void reset() {
     ch = 0;
@@ -99,9 +99,11 @@ class TermScreen {
   int _scrollBottom = 0; // 0 = "sin margen" (full screen)
   // OSC 8: URL activa que se asigna a las celdas emitidas mientras esté puesta.
   String? _currentLinkUrl;
+
   /// True when the remote program has enabled bracketed paste (DECSET ?2004).
   /// [terminal_modifier_bar.dart] must only wrap pastes when this is true.
   bool bracketedPasteMode = false;
+
   /// True when the remote program has enabled focus-event reporting (?1004).
   /// On focus-in the terminal should send \x1b[I; on focus-out \x1b[O.
   bool focusEventsMode = false;
@@ -144,8 +146,7 @@ class TermScreen {
   }
 
   /// Resizes a cell grid to [r] rows × [c] cols, preserving existing content.
-  List<List<TermCell>> _resizeBuffer(
-      List<List<TermCell>> buf, int r, int c) {
+  List<List<TermCell>> _resizeBuffer(List<List<TermCell>> buf, int r, int c) {
     final next = List.generate(r, (_) => _blankRow());
     for (var rr = 0; rr < r && rr < buf.length; rr++) {
       for (var cc = 0; cc < c && cc < buf[rr].length; cc++) {
@@ -250,19 +251,8 @@ class TermScreen {
     // CJK/emoji debe consumir las 2 celdas, no dejar media celda fantasma.
     _snapFromContinuation();
   }
+
   void tab() => _col = math.min(cols - 1, ((_col ~/ 8) + 1) * 8);
-  void indexUp() {
-    // RI (reverse index, ESC M): respeta el margen de scroll igual que LF.
-    if (hasScrollRegion) {
-      if (_row <= _scrollTop) {
-        scrollDownRegion();
-      } else {
-        _row--;
-      }
-    } else if (_row > 0) {
-      _row--;
-    }
-  }
   void indexLineLF() => newline();
 
   void moveRow(int d) => _row = (_row + d).clamp(0, rows - 1);
@@ -278,15 +268,18 @@ class TermScreen {
       if (c.ch == 0 && !c.wide && prev.wide) _col--;
     }
   }
+
   void setCursor(int r, int c) {
     _row = r.clamp(0, rows - 1);
     _col = c.clamp(0, cols - 1);
     _snapFromContinuation();
   }
+
   void saveCursor() {
     _saveR = _row;
     _saveC = _col;
   }
+
   void restoreCursor() {
     _row = _saveR;
     _col = _saveC;
@@ -305,6 +298,7 @@ class TermScreen {
     clearHistory();
     resetScrollRegion();
   }
+
   void clearBelow() {
     for (var c = _col; c < cols; c++) {
       _cellList[_row][c].reset();
@@ -315,6 +309,7 @@ class TermScreen {
       }
     }
   }
+
   void clearAbove() {
     for (var r = 0; r <= _row; r++) {
       for (var c = 0; c < cols; c++) {
@@ -322,6 +317,7 @@ class TermScreen {
       }
     }
   }
+
   void clearLine(int mode) {
     if (_row >= rows) return;
     final l = _cellList[_row];
@@ -351,6 +347,7 @@ class TermScreen {
       _cellList[_row][c] = TermCell();
     }
   }
+
   void deleteChars(int n) {
     final m = math.min(n, cols - _col);
     if (m <= 0) return;
@@ -361,12 +358,14 @@ class TermScreen {
       _cellList[_row][c] = TermCell();
     }
   }
+
   void eraseChars(int n) {
     final m = math.min(n, cols - _col);
     for (var c = _col; c < _col + m; c++) {
       _cellList[_row][c] = TermCell();
     }
   }
+
   void insertLines(int n) {
     final m = math.min(n, rows - _row);
     final recycled = <List<TermCell>>[];
@@ -385,6 +384,7 @@ class TermScreen {
       _cellList[_row + i] = recycled[i];
     }
   }
+
   void deleteLines(int n) {
     final m = math.min(n, rows - _row);
     if (m <= 0) return;
@@ -404,6 +404,7 @@ class TermScreen {
       _cellList[rows - m + i] = recycled[i];
     }
   }
+
   void scrollUp() {
     final topRow = _cellList[0];
     List<TermCell>? recycledRow;
@@ -429,6 +430,7 @@ class TermScreen {
     _cellList[rows - 1] = recycledRow ?? _blankRow();
     if (_row > 0) _row--;
   }
+
   void scrollDown() {
     final bottomRow = _cellList[rows - 1];
     for (var r = rows - 1; r > 0; r--) {
@@ -456,21 +458,6 @@ class TermScreen {
     _cellList[bottom] = topRow;
   }
 
-  /// Scroll hacia abajo SOLO dentro del margen (para RI / indexUp).
-  void scrollDownRegion() {
-    final top = _scrollTop;
-    final bottom = _scrollBottom;
-    if (top >= bottom) return;
-    final bottomRow = _cellList[bottom];
-    for (var r = bottom; r > top; r--) {
-      _cellList[r] = _cellList[r - 1];
-    }
-    for (var c in bottomRow) {
-      c.reset();
-    }
-    _cellList[top] = bottomRow;
-  }
-
   // pantalla alterna
   void enterAlt() {
     if (_alt != null) return;
@@ -485,6 +472,7 @@ class TermScreen {
     // xterm resetea el margen de scroll al entrar en la pantalla alterna.
     resetScrollRegion();
   }
+
   void leaveAlt() {
     if (_alt == null) return;
     // Save alt-screen cursor so re-entering alt restores it.
@@ -506,28 +494,34 @@ class TermScreen {
     _italic = _underline = _blink = false;
     _strikethrough = _overline = false;
   }
+
   void sgrFg(int v) => _fg = v;
   void sgrBg(int v) => _bg = v;
   void sgrFgRgb(int rgb) {
     _fgRgb = rgb;
     _fg = 255;
   }
+
   void sgrBgRgb(int rgb) {
     _bgRgb = rgb;
     _bg = 256;
   }
+
   void sgrBoldOn() {
     _bold = true;
     _dim = false;
   }
+
   void sgrDimOn() {
     _dim = true;
     _bold = false;
   }
+
   void sgrWeightOff() {
     _bold = false;
     _dim = false;
   }
+
   void sgrReverseOn() => _reverse = true;
   void sgrReverseOff() => _reverse = false;
   void sgrItalicOn() => _italic = true;
@@ -552,16 +546,21 @@ class TermScreen {
     }
     var t = (top - 1).clamp(0, rows - 1);
     var b = (bottom - 1).clamp(0, rows - 1);
-    if (t >= b) { t = 0; b = 0; } // región inválida → full screen
+    if (t >= b) {
+      t = 0;
+      b = 0;
+    } // región inválida → full screen
     _scrollTop = t;
     _scrollBottom = b;
     _row = _row.clamp(0, rows - 1);
     _col = 0;
   }
+
   void resetScrollRegion() {
     _scrollTop = 0;
     _scrollBottom = 0;
   }
+
   bool get hasScrollRegion => _scrollBottom > _scrollTop;
   void setLink(String? url) => _currentLinkUrl = url;
 }

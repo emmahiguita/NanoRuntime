@@ -10,7 +10,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(JNI_ROOT "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${CMAKE_HOST_SYSTEM_NAME}-${CMAKE_HOST_SYSTEM_PROCESSOR}/sysroot/usr/include")
 set(JNI_INCLUDE_DIRS "${JNI_ROOT}")
 
-# â”€â”€ libnanoshell.so â€” fork+dlopen BusyBox or generic PIE binaries + PTY â”€â”€
+# â”€â”€ libnanoshell.so — fork+dlopen BusyBox or generic PIE binaries + PTY â”€â”€
 add_library(nanoshell SHARED
     util.c
     nanoshell.c
@@ -33,7 +33,7 @@ target_compile_options(nanoshell PRIVATE
     $<$<CONFIG:Release>:-DNDEBUG>
 )
 
-# â”€â”€ libnanoroot.so â€” LD_PRELOAD fakechroot (path redirection) â”€â”€
+# â”€â”€ libnanoroot.so — LD_PRELOAD fakechroot (path redirection) â”€â”€
 add_library(nanoroot SHARED
     nanoroot.c
 )

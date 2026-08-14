@@ -31,6 +31,7 @@ class WorkerClient(private val ctx: Context) {
         const val MSG_SPAWN_DETACHED = 3
         const val MSG_KILL = 4
         const val MSG_OPEN_FD = 5
+        const val MSG_IS_PID_ALIVE = 6
         // El proceso :nanoshell corre en un proceso Android separado (aislado
         // de la GPU/Flutter); bindService() es async y Android puede tardar
         // varios cientos de ms en arrancarlo en frío. Sin esta espera, la
@@ -220,6 +221,60 @@ class WorkerClient(private val ctx: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "sendDetached fallo: $e")
             -1
+        } finally {
+            try {
+                replyThread?.quitSafely()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
+     * ¿El proceso detached [pid] sigue vivo? Delega al worker (el padre):
+     * el proceso principal no puede leer /proc de los hijos del worker —
+     * Android restringe /proc a los hijos directos del lector. El backend
+     * Xvnc usa esto para awaitReady/watchdog en vez de leer /proc él mismo.
+     * False ante timeout o worker desconectado (fail-closed: se trata como
+     * muerto y el arranque aborta con error honesto).
+     */
+    fun isPidAlive(pid: Int): Boolean {
+        if (shuttingDown || pid <= 0) return false
+        if (!awaitConnected(CONNECT_TIMEOUT_MS)) {
+            Log.e(TAG, "isPidAlive abortado: worker no conectó a tiempo pid=$pid")
+            return false
+        }
+        val m = workerMessenger ?: return false
+        var replyThread: HandlerThread? = null
+        return try {
+            val aliveRef = AtomicReference<Boolean?>(null)
+            val latch = CountDownLatch(1)
+            val taskId = "alive${System.currentTimeMillis()}"
+            replyThread = HandlerThread("nano-alive").apply { start() }
+
+            val msg = Message.obtain(null, MSG_IS_PID_ALIVE)
+            msg.data = Bundle().apply {
+                putInt("pid", pid)
+                putString(NanoshellWorkerService.EXTRA_TASK_ID, taskId)
+            }
+            msg.replyTo = Messenger(object : Handler(replyThread.looper) {
+                override fun handleMessage(reply: Message) {
+                    if (reply.data.getString(NanoshellWorkerService.EXTRA_TASK_ID) == taskId) {
+                        aliveRef.set(reply.data.getBoolean("alive", false))
+                        latch.countDown()
+                    }
+                }
+            })
+            m.send(msg)
+
+            if (!latch.await(3, TimeUnit.SECONDS)) {
+                Log.e(TAG, "isPidAlive timeout pid=$pid")
+                false
+            } else {
+                aliveRef.get() == true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "isPidAlive fallo: $e")
+            false
         } finally {
             try {
                 replyThread?.quitSafely()

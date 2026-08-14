@@ -2,13 +2,13 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'allowed_binaries.dart';
 
-/// FFI bindings for libnanoshell.so â€” in-process binary execution.
+/// FFI bindings for libnanoshell.so — in-process binary execution.
 ///
 /// Two modes:
-///   spawnBusyBox() â€” dlopen libbusybox.so â†’ busybox_main (fast path)
-///   spawnGeneric() â€” dlopen any PIE binary by absolute path â†’ main()
+///   spawnBusyBox() — dlopen libbusybox.so → busybox_main (fast path)
+///   spawnGeneric() — dlopen any PIE binary by absolute path → main()
 ///
-/// Both fork() + dlopen() + pipe stdout/stderr. No execve() â€” bypasses SELinux.
+/// Both fork() + dlopen() + pipe stdout/stderr. No execve() — bypasses SELinux.
 ///
 /// Allowed binaries are loaded from assets/config/allowed_binaries.json
 /// at startup. Runtime-cached; no recompilation needed to add new binaries.
@@ -71,7 +71,7 @@ final class Nanoshell {
   /// Run any PIE binary (ET_DYN) by absolute path.
   ///
   /// [binaryPath] must be absolute (e.g. /data/.../files/nano/usr/bin/python).
-  /// Only whitelisted binaries are permitted â€” arbitrary execution is blocked.
+  /// Only whitelisted binaries are permitted — arbitrary execution is blocked.
   /// [ldPreload] sets LD_PRELOAD in child for fakechroot (e.g. "libnanoroot.so").
   ///
   /// Allowed binaries loaded from assets/config/allowed_binaries.json.
@@ -119,7 +119,7 @@ final class Nanoshell {
     // Defense-in-depth: solo se permite ejecutar binarios dentro del
     // directorio de la app (/data/data/.../files/nano/). Paths externos
     // (como /tmp/malicioso) se rechazan incluso si el basename coincide.
-    // Los callers legÃ­timos siempre usan $usrDir/bin/ o $baseDir/.
+    // Los callers legítimos siempre usan $usrDir/bin/ o $baseDir/.
     if (!binaryPath.startsWith('/data/data/') &&
         !binaryPath.startsWith('/data/user/')) {
       return (
@@ -230,7 +230,7 @@ final class Nanoshell {
 
 // â”€â”€ FFI type aliases â”€â”€
 
-// nanoshell_spawn_busybox: (argv, envp, out_stdout, out_stderr) â†’ int
+// nanoshell_spawn_busybox: (argv, envp, out_stdout, out_stderr) → int
 typedef _SpawnBusyBoxC =
     Int32 Function(
       Pointer<Pointer<Utf8>> argv,
@@ -246,7 +246,7 @@ typedef _SpawnBusyBox =
       Pointer<Pointer<Utf8>> outE,
     );
 
-// nanoshell_spawn_generic: (path, argv, envp, ld_preload, out_stdout, out_stderr) â†’ int
+// nanoshell_spawn_generic: (path, argv, envp, ld_preload, out_stdout, out_stderr) → int
 typedef _SpawnGenericC =
     Int32 Function(
       Pointer<Utf8> path,

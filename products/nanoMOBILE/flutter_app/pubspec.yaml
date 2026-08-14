@@ -20,6 +20,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Requerido por integration_test/ (chat_engine_test, doom_stress_test,
+  # full_app_test, offline_degradation_test, pty_real_test,
+  # terminal_linux_test): sin la dep, analyze falla en 6 archivos.
   integration_test:
     sdk: flutter
   flutter_lints: ^4.0.0

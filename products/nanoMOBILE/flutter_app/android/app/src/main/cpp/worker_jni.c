@@ -6,6 +6,7 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <jni.h>
 #include <pthread.h>
 #include <signal.h>
@@ -105,6 +106,21 @@ static pid_t _swap_daemon_pid(const char* basename, pid_t new_pid) {
     return old;
 }
 
+// Marca el slot del registro cuyo pid coincida con el proceso reapeado.
+// Así workerIsProcessAlive puede distinguir "vivo" de "pid reciclado":
+// sin esta marca, un pid reutilizado por Android tras la muerte del daemon
+// devolvería un falso positivo en kill(pid, 0).
+static void _daemon_mark_reaped(pid_t pid) {
+    pthread_mutex_lock(&g_daemons_lock);
+    for (int i = 0; i < MAX_TRACKED_DAEMONS; i++) {
+        if (g_daemons[i].pid == pid) {
+            g_daemons[i].pid = 0;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_daemons_lock);
+}
+
 // Reaper thread: espera a que un proceso detached muera y lo recolecta
 // para evitar zombies. Se lanza en background inmediatamente despues
 // del spawn; bloquea en waitpid hasta que el hijo termina.
@@ -114,6 +130,7 @@ static void* _reap_detached(void* arg) {
     free(arg);
     int status;
     waitpid(pid, &status, 0);
+    _daemon_mark_reaped(pid);
     // H3: un segfault (139) reportaba 0 porque WEXITSTATUS sin chequear
     // WIFSIGNALED enmascara la señal. Reportar señal real cuando muere
     // por señal (evidencia device 2026-08-13: tint2 segfault en librsvg
@@ -180,6 +197,31 @@ Java_dev_nanoai_mobile_NanoshellBridge_workerSpawnDetached(
     jni_cstr_array_free(cenvp, nenvp);
     if (bin) (*env)->ReleaseStringUTFChars(env, binaryPath, bin);
     return (jint)pid;
+}
+
+// ── Liveness de daemons detached (Xvnc/openbox) ─────────────────────────
+// El proceso PRINCIPAL no puede leer /proc/<pid> de los hijos del worker
+// (Android restringe /proc a los hijos directos del proceso lector — el
+// refactor al worker :nanoshell dejó ciego al backend). El worker es el
+// PADRE: puede preguntar por sus hijos con kill(pid, 0) sin tocar sockets
+// ni /proc. La marca del reaper (_daemon_mark_reaped) cierra la brecha del
+// pid reciclado: alive = registro aún apunta al pid Y kill(0) lo confirma.
+JNIEXPORT jint JNICALL
+Java_dev_nanoai_mobile_NanoshellBridge_workerIsProcessAlive(
+    JNIEnv* env, jclass cls, jint pid) {
+    if (pid <= 0) return 0;
+    pthread_mutex_lock(&g_daemons_lock);
+    int registered = 0;
+    for (int i = 0; i < MAX_TRACKED_DAEMONS; i++) {
+        if (g_daemons[i].pid == pid) {
+            registered = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_daemons_lock);
+    if (!registered) return 0;
+    if (kill(pid, 0) == 0) return 1;
+    return (errno == EPERM) ? 1 : 0;
 }
 
 // Kill switch: terminate the worker process group

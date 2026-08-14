@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 
 import 'noar_builtin_commands.dart';
 
-/// Noar Command Library â€” librerÃ­a de comandos organizada por tags.
+/// Noar Command Library — librería de comandos organizada por tags.
 ///
 /// Muestra el historial de comandos ejecutados en la terminal, organizados
-/// por categorÃ­a (tag), con bÃºsqueda, copia al portapapeles, y una biblioteca
-/// pre-cargada de comandos Ãºtiles con descripciones.
+/// por categoría (tag), con búsqueda, copia al portapapeles, y una biblioteca
+/// pre-cargada de comandos útiles con descripciones.
 class NoarPanel extends StatefulWidget {
   final List<Map<String, dynamic>> library;
   final Color fg;
@@ -44,10 +44,7 @@ class _NoarPanelState extends State<NoarPanel> {
   };
 
   List<Map<String, dynamic>> get _filtered {
-    final all = [
-      ...noarBuiltinCommands,
-      ...widget.library,
-    ];
+    final all = [...noarBuiltinCommands, ...widget.library];
     return all.where((c) {
       final tag = c['tag'] as String? ?? 'general';
       if (_activeTag != 'all' && tag != _activeTag) return false;
@@ -65,7 +62,10 @@ class _NoarPanelState extends State<NoarPanel> {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Copiado: $text', style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12)),
+        content: Text(
+          'Copiado: $text',
+          style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12),
+        ),
         duration: const Duration(seconds: 1),
         backgroundColor: widget.fg.withValues(alpha: 0.15),
       ),
@@ -80,7 +80,9 @@ class _NoarPanelState extends State<NoarPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final chrome = widget.dark ? const Color(0xFF0A0F1A) : const Color(0xFFE0E0EC);
+    final chrome = widget.dark
+        ? const Color(0xFF07192B)
+        : const Color(0xFFE0E0EC);
     final items = _filtered;
 
     return Container(
@@ -88,14 +90,17 @@ class _NoarPanelState extends State<NoarPanel> {
       decoration: BoxDecoration(
         color: chrome,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border(top: BorderSide(color: widget.fg.withValues(alpha: 0.15))),
+        border: Border(
+          top: BorderSide(color: widget.fg.withValues(alpha: 0.15)),
+        ),
       ),
       child: Column(
         children: [
           // â”€â”€ Handle bar â”€â”€
           Container(
             margin: const EdgeInsets.only(top: 10),
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
               color: widget.fg.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(2),
@@ -109,15 +114,22 @@ class _NoarPanelState extends State<NoarPanel> {
               children: [
                 Icon(Icons.menu_book_rounded, color: widget.fg, size: 22),
                 const SizedBox(width: 8),
-                Text('Noar Library',
-                  style: TextStyle(fontFamily: 'JetBrainsMono', 
-                    fontSize: 15, fontWeight: FontWeight.w700, color: widget.fg,
+                Text(
+                  'Noar Library',
+                  style: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: widget.fg,
                   ),
                 ),
                 const Spacer(),
-                Text('${items.length} comandos',
-                  style: TextStyle(fontFamily: 'JetBrainsMono', 
-                    fontSize: 11, color: widget.fg.withValues(alpha: 0.4),
+                Text(
+                  '${items.length} comandos',
+                  style: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 11,
+                    color: widget.fg.withValues(alpha: 0.4),
                   ),
                 ),
               ],
@@ -130,27 +142,48 @@ class _NoarPanelState extends State<NoarPanel> {
             child: TextField(
               controller: _searchCtl,
               onChanged: (v) => setState(() => _search = v),
-              style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: widget.fg),
+              style: TextStyle(
+                fontFamily: 'JetBrainsMono',
+                fontSize: 13,
+                color: widget.fg,
+              ),
               cursorColor: widget.fg,
               decoration: InputDecoration(
-                hintText: 'buscar comando o descripciÃ³n...',
-                hintStyle: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12, color: widget.fg.withValues(alpha: 0.25)),
-                prefixIcon: Icon(Icons.search, color: widget.fg.withValues(alpha: 0.35), size: 18),
+                hintText: 'buscar comando o descripción...',
+                hintStyle: TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 12,
+                  color: widget.fg.withValues(alpha: 0.25),
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: widget.fg.withValues(alpha: 0.35),
+                  size: 18,
+                ),
                 filled: true,
                 fillColor: widget.fg.withValues(alpha: 0.04),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: widget.fg.withValues(alpha: 0.1)),
+                  borderSide: BorderSide(
+                    color: widget.fg.withValues(alpha: 0.1),
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: widget.fg.withValues(alpha: 0.1)),
+                  borderSide: BorderSide(
+                    color: widget.fg.withValues(alpha: 0.1),
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: widget.fg.withValues(alpha: 0.3)),
+                  borderSide: BorderSide(
+                    color: widget.fg.withValues(alpha: 0.3),
+                  ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 isDense: true,
               ),
             ),
@@ -169,16 +202,32 @@ class _NoarPanelState extends State<NoarPanel> {
                   child: GestureDetector(
                     onTap: () => setState(() => _activeTag = e.key),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: active ? widget.fg.withValues(alpha: 0.12) : widget.fg.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: widget.fg.withValues(alpha: active ? 0.25 : 0.06)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
                       ),
-                      child: Text(e.value,
-                        style: TextStyle(fontFamily: 'JetBrainsMono', 
-                          fontSize: 11, color: active ? widget.fg : widget.fg.withValues(alpha: 0.5),
-                          fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? widget.fg.withValues(alpha: 0.12)
+                            : widget.fg.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: widget.fg.withValues(
+                            alpha: active ? 0.25 : 0.06,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        e.value,
+                        style: TextStyle(
+                          fontFamily: 'JetBrainsMono',
+                          fontSize: 11,
+                          color: active
+                              ? widget.fg
+                              : widget.fg.withValues(alpha: 0.5),
+                          fontWeight: active
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -194,12 +243,20 @@ class _NoarPanelState extends State<NoarPanel> {
           Expanded(
             child: items.isEmpty
                 ? Center(
-                    child: Text('sin resultados',
-                      style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12, color: widget.fg.withValues(alpha: 0.3)),
+                    child: Text(
+                      'sin resultados',
+                      style: TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 12,
+                        color: widget.fg.withValues(alpha: 0.3),
+                      ),
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
                     itemCount: items.length,
                     itemBuilder: (_, i) {
                       final c = items[i];
@@ -212,7 +269,9 @@ class _NoarPanelState extends State<NoarPanel> {
                         color: widget.fg.withValues(alpha: 0.03),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: widget.fg.withValues(alpha: 0.06)),
+                          side: BorderSide(
+                            color: widget.fg.withValues(alpha: 0.06),
+                          ),
                         ),
                         margin: const EdgeInsets.only(bottom: 6),
                         child: Padding(
@@ -224,23 +283,39 @@ class _NoarPanelState extends State<NoarPanel> {
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: widget.fg.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(5),
                                     ),
-                                    child: Text(tagLabel,
-                                      style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 9, color: widget.fg.withValues(alpha: 0.5)),
+                                    child: Text(
+                                      tagLabel,
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrainsMono',
+                                        fontSize: 9,
+                                        color: widget.fg.withValues(alpha: 0.5),
+                                      ),
                                     ),
                                   ),
                                   if (isHistory) ...[
                                     const SizedBox(width: 6),
-                                    Icon(Icons.history, size: 11, color: widget.fg.withValues(alpha: 0.25)),
+                                    Icon(
+                                      Icons.history,
+                                      size: 11,
+                                      color: widget.fg.withValues(alpha: 0.25),
+                                    ),
                                   ],
                                   const Spacer(),
                                   GestureDetector(
                                     onTap: () => _copy(cmd),
-                                    child: Icon(Icons.copy, size: 16, color: widget.fg.withValues(alpha: 0.4)),
+                                    child: Icon(
+                                      Icons.copy,
+                                      size: 16,
+                                      color: widget.fg.withValues(alpha: 0.4),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -252,21 +327,31 @@ class _NoarPanelState extends State<NoarPanel> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: widget.dark ? const Color(0xFF111827) : const Color(0xFFF0F0F5),
+                                    color: widget.dark
+                                        ? const Color(0xFF06101E)
+                                        : const Color(0xFFF0F0F5),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Text(cmd,
-                                    style: TextStyle(fontFamily: 'JetBrainsMono', 
-                                      fontSize: 12.5, color: widget.fg, height: 1.4,
+                                  child: Text(
+                                    cmd,
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrainsMono',
+                                      fontSize: 12.5,
+                                      color: widget.fg,
+                                      height: 1.4,
                                     ),
                                   ),
                                 ),
                               ),
                               if (desc.isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                Text(desc,
-                                  style: TextStyle(fontFamily: 'JetBrainsMono', 
-                                    fontSize: 11, color: widget.fg.withValues(alpha: 0.5), height: 1.3,
+                                Text(
+                                  desc,
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrainsMono',
+                                    fontSize: 11,
+                                    color: widget.fg.withValues(alpha: 0.5),
+                                    height: 1.3,
                                   ),
                                 ),
                               ],

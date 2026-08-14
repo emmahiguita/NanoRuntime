@@ -464,27 +464,33 @@ class _TopBar extends StatelessWidget {
           tooltip: 'Volver',
         ),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Escritorio Linux',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: colors.onSurface,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Escritorio Linux',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: colors.onSurface,
+                ),
               ),
-            ),
-            Text(
-              'Xvnc + Openbox + Terminal GrÃ¡fica',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: colors.onSurfaceVariant,
+              Text(
+                'Xvnc + Openbox + Terminal Gráfica',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: colors.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -566,17 +572,21 @@ class _HeroCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          status,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: colors.onSurface,
+                        Expanded(
+                          child: Text(
+                            status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: colors.onSurface,
+                            ),
                           ),
                         ),
+                        if (busy) const SizedBox(width: 8),
                         if (busy)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -612,6 +622,8 @@ class _HeroCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
@@ -706,6 +718,8 @@ class _HeroCard extends StatelessWidget {
                 vncReady
                     ? 'Entrar al Escritorio Linux'
                     : 'Arrancar e Iniciar Escritorio',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 15,
@@ -804,6 +818,8 @@ class _BadgeItem extends StatelessWidget {
               children: [
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
@@ -812,6 +828,8 @@ class _BadgeItem extends StatelessWidget {
                 ),
                 Text(
                   value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,

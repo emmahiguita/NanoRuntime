@@ -158,9 +158,45 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   void setInput(String v) => state = state.copyWith(input: v);
 
-  /// Re-comprueba la conectividad real con el motor llama.cpp.
+  /// Máximo de adjuntos simultáneos en el composer. El cuarto desplaza al
+  /// más antiguo (FIFO) — nunca se bloquea el gesto de adjuntar.
+  static const int _maxAttachments = 3;
+
+  /// Agrega un adjunto pendiente. Un nombre repetido reemplaza el anterior
+  /// (mismo archivo re-elegido = última versión).
+  void addAttachment(ChatAttachment attachment) {
+    final current = [...state.attachments]
+      ..removeWhere((a) => a.name == attachment.name);
+    if (current.length >= _maxAttachments) {
+      current.removeAt(0);
+    }
+    current.add(attachment);
+    state = state.copyWith(attachments: current);
+  }
+
+  /// Quita un adjunto pendiente por nombre (chip con X en el composer).
+  void removeAttachment(String name) {
+    state = state.copyWith(
+      attachments: state.attachments.where((a) => a.name != name).toList(),
+    );
+  }
+
+  /// Re-comprueba la conectividad real con el motor llama.cpp y, si hay un
+  /// modelo instalado, lo ARRANCA (ensureReady) en lugar de solo sondear:
+  /// el botón Reintentar del empty state rompe el deadlock de arranque.
   Future<void> refreshEngine() async {
     final engine = _ref.read(runtimeEngineProvider.notifier);
+    if (state.activeModelPath != null) {
+      final ready = await engine.ensureReady(modelPath: state.activeModelPath);
+      if (!mounted) return;
+      state = state.copyWith(
+        engineOnline: ready || engine.isLive,
+        connection: ready
+            ? ModelConnectionState.ready
+            : ModelConnectionState.error,
+      );
+      return;
+    }
     await engine.refresh();
     if (!mounted) return;
     state = state.copyWith(engineOnline: engine.isLive);
@@ -176,17 +212,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> send(String text) async {
     final t = text.trim();
     if (t.isEmpty || state.generating) return;
+    // Captura y consume los adjuntos pendientes: viajan SOLO con este
+    // mensaje y se inyectan al prompt real de la generación.
+    final attachments = state.attachments;
     final userMsg = ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       sender: MessageSender.user,
       text: t,
       timestamp: DateTime.now(),
+      attachmentNames: [for (final a in attachments) a.name],
     );
     state = state.copyWith(
       messages: [...state.messages, userMsg],
       input: '',
       generating: true,
       streamingText: '',
+      attachments: const [],
     );
     _persistMessages(); // guardar el user msg inmediatamente
 
@@ -242,23 +283,45 @@ class ChatNotifier extends StateNotifier<ChatState> {
       connection: ModelConnectionState.ready,
       engineOnline: true,
     );
-    _generate(t);
+    _generate(t, attachments);
   }
 
   /// Construye el prompt multi-turno según el [ChatTemplate] del modelo activo.
   /// Delega a [_buildQwenPrompt] o [_buildDeepSeekPrompt] según corresponda.
-  String _buildChatPrompt(List<ChatMessage> history, String newUserText) {
+  String _buildChatPrompt(
+    List<ChatMessage> history,
+    String newUserText,
+    List<ChatAttachment> attachments,
+  ) {
     final template = NeuralCatalog.templateOf(state.activeModel);
     switch (template) {
       case ChatTemplate.deepseek:
-        return _buildDeepSeekPrompt(history, newUserText);
+        return _buildDeepSeekPrompt(history, newUserText, attachments);
       case ChatTemplate.qwen:
-        return _buildQwenPrompt(history, newUserText);
+        return _buildQwenPrompt(history, newUserText, attachments);
     }
   }
 
+  /// Bloque de adjuntos que se inyecta al turno user del prompt: contenido
+  /// REAL del archivo, delimitado para que el modelo lo distinga del texto
+  /// escrito por el usuario.
+  String _attachmentsBlock(List<ChatAttachment> attachments) {
+    final buffer = StringBuffer();
+    for (final a in attachments) {
+      buffer
+        ..writeln('[Adjunto: ${a.name}]')
+        ..writeln(a.content)
+        ..writeln('[Fin de adjunto]');
+    }
+    return buffer.toString();
+  }
+
   /// Prompt en formato Qwen (ChatML-like):
-  String _buildQwenPrompt(List<ChatMessage> history, String newUserText) {
+  String _buildQwenPrompt(
+    List<ChatMessage> history,
+    String newUserText,
+    List<ChatAttachment> attachments,
+  ) {
     final buffer = StringBuffer();
     buffer.write('<|im_start|>system\n$_systemPrompt<|im_end|>\n');
     final window = history.length > _maxHistoryMessages
@@ -268,13 +331,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final role = msg.sender == MessageSender.user ? 'user' : 'assistant';
       buffer.write('<|im_start|>$role\n${msg.text}<|im_end|>\n');
     }
-    buffer.write('<|im_start|>user\n$newUserText<|im_end|>\n');
+    buffer.write(
+      '<|im_start|>user\n${_attachmentsBlock(attachments)}$newUserText'
+      '<|im_end|>\n',
+    );
     buffer.write('<|im_start|>assistant\n');
     return buffer.toString();
   }
 
   /// Prompt en formato DeepSeek-R1:
-  String _buildDeepSeekPrompt(List<ChatMessage> history, String newUserText) {
+  String _buildDeepSeekPrompt(
+    List<ChatMessage> history,
+    String newUserText,
+    List<ChatAttachment> attachments,
+  ) {
     // Tokens especiales native de DeepSeek-R1.
     const bos = '<｜begin▁of▁sentence｜>';
     const eos = '<｜end▁of▁sentence｜>';
@@ -287,7 +357,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final role = msg.sender == MessageSender.user ? 'user' : 'assistant';
       buffer.write('$bos$role\n${msg.text}\n$eos\n');
     }
-    buffer.write('$bos\nuser\n$newUserText\n$eos\n');
+    buffer.write(
+      '$bos\nuser\n${_attachmentsBlock(attachments)}$newUserText\n$eos\n',
+    );
     buffer.write('$bos\nassistant\n');
     return buffer.toString();
   }
@@ -328,20 +400,34 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _flushTimer = null;
   }
 
-  Future<void> _generate(String text) => _generateRound(text, const <String>[]);
+  Future<void> _generate(
+    String text,
+    List<ChatAttachment> attachments,
+  ) => _generateRound(text, const <String>[], attachments);
 
   /// Una ronda de generación. [toolTrace] contiene pares
   /// (llamadaJSON, resultado) de herramientas ya ejecutadas en este turno;
   /// se inyectan al prompt como turnos assistant/user para que el modelo
   /// continúe informado del resultado real.
-  Future<void> _generateRound(String text, List<String> toolTrace) async {
+  ///
+  /// [attachments] se inyecta al prompt base SOLO en la primera ronda:
+  /// el contenido ya está en el contexto de las rondas siguientes.
+  Future<void> _generateRound(
+    String text,
+    List<String> toolTrace,
+    List<ChatAttachment> attachments,
+  ) async {
     _generationCancelled = false;
     // El historial YA incluye el mensaje del usuario recién enviado (en send()).
     // Lo excluimos del historial para evitar duplicarlo.
     final history = state.messages.length > 1
         ? state.messages.sublist(0, state.messages.length - 1)
         : <ChatMessage>[];
-    var prompt = _buildChatPrompt(history, text);
+    var prompt = _buildChatPrompt(
+      history,
+      text,
+      toolTrace.isEmpty ? attachments : const <ChatAttachment>[],
+    );
     for (var i = 0; i + 1 < toolTrace.length; i += 2) {
       prompt += _toolTurnSuffix(toolTrace[i], toolTrace[i + 1]);
     }
@@ -418,7 +504,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           streamingText: '',
         );
         _persistMessages();
-        await _generateRound(text, [...toolTrace, fullText, result]);
+        await _generateRound(text, [...toolTrace, fullText, result], const []);
         return;
       }
 

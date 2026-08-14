@@ -7,6 +7,7 @@ import '../../features/terminal/presentation/screens/terminal_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_launch_screen.dart';
 import '../../features/desktop/presentation/screens/vnc_screen.dart';
+import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -53,7 +54,11 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/terminal',
-                pageBuilder: (_, __) => _fadeSlide(const TerminalTabScreen()),
+                pageBuilder: (_, state) {
+                  // Comando inyectado por la UI: /terminal?cmd=kali%20shell
+                  final cmd = state.uri.queryParameters['cmd'];
+                  return _fadeSlide(TerminalTabScreen(initialCommand: cmd));
+                },
               ),
             ],
           ),
@@ -72,6 +77,10 @@ class AppRouter {
         path: '/desktop',
         pageBuilder: (_, __) =>
             const MaterialPage(child: DesktopLaunchScreen()),
+      ),
+      GoRoute(
+        path: '/desktop/audit',
+        pageBuilder: (_, __) => const MaterialPage(child: DesktopAuditScreen()),
       ),
       // /desktop/vnc → cliente RFB real (requiere el puerto activo; ?port=5901)
       GoRoute(

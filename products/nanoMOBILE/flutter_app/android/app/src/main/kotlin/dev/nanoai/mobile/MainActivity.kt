@@ -212,6 +212,13 @@ class MainActivity : FlutterActivity() {
         modelStorageHandler?.onActivityResult(requestCode, resultCode, data)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Resuelve requestAllFilesAccess (MANAGE_EXTERNAL_STORAGE) al
+        // volver de la pantalla del sistema.
+        modelStorageHandler?.onResume()
+    }
+
     private companion object {
         private const val RUNTIME_WARMUP_DELAY_MS = 1_500L
         private const val REQ_STORAGE_PERMISSION = 4101

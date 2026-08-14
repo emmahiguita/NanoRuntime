@@ -24,21 +24,6 @@ class ProcFs {
 
   // ── /proc/stat ─────────────────────────────────────────────────
 
-  /// CPU times: [user, nice, system, idle, iowait, irq, softirq, steal].
-  /// Primer valor agregado de todos los cores.
-  static List<int> cpuTimes() {
-    try {
-      final lines = File('/proc/stat').readAsLinesSync();
-      for (final line in lines) {
-        if (line.startsWith('cpu ')) {
-          final parts = line.split(RegExp(r'\s+'));
-          return parts.sublist(1, 9).map((s) => int.tryParse(s) ?? 0).toList();
-        }
-      }
-    } catch (_) {}
-    return [0, 0, 0, 0, 0, 0, 0, 0];
-  }
-
   /// Número de procesos en ejecución + bloqueados.
   static (int running, int blocked) procsRunning() {
     try {
@@ -58,7 +43,9 @@ class ProcFs {
 
   static (double, double, double) loadavg() {
     try {
-      final parts = File('/proc/loadavg').readAsStringSync().trim().split(RegExp(r'\s+'));
+      final parts = File(
+        '/proc/loadavg',
+      ).readAsStringSync().trim().split(RegExp(r'\s+'));
       return (
         double.tryParse(parts[0]) ?? 0,
         double.tryParse(parts[1]) ?? 0,
@@ -72,81 +59,12 @@ class ProcFs {
 
   static double uptimeSec() {
     try {
-      final parts = File('/proc/uptime').readAsStringSync().trim().split(RegExp(r'\s+'));
+      final parts = File(
+        '/proc/uptime',
+      ).readAsStringSync().trim().split(RegExp(r'\s+'));
       return double.tryParse(parts[0]) ?? 0;
     } catch (_) {}
     return 0;
-  }
-
-  // ── /proc/net/* ────────────────────────────────────────────────
-
-  /// Parsea /proc/net/tcp (y tcp6, udp, udp6).
-  /// Retorna lista de sockets con {localAddr, localPort, remoteAddr, remotePort,
-  /// state, uid, inode}.
-  static List<Map<String, dynamic>> netTcp({bool ipv6 = false}) {
-    return _parseNetSocket(ipv6 ? '/proc/net/tcp6' : '/proc/net/tcp');
-  }
-
-  static List<Map<String, dynamic>> _parseNetSocket(String path) {
-    final result = <Map<String, dynamic>>[];
-    try {
-      final lines = File(path).readAsLinesSync();
-      if (lines.isEmpty) return result;
-      // Header: sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode
-      for (int i = 1; i < lines.length; i++) {
-        final cols = lines[i].trim().split(RegExp(r'\s+'));
-        if (cols.length < 10) continue;
-        // local_address: hex IP:hex port (little-endian)
-        final local = _parseHexAddr(cols[1]);
-        final remote = _parseHexAddr(cols[2]);
-        final stateHex = int.tryParse(cols[3], radix: 16);
-        final uid = int.tryParse(cols[7]);
-        final inode = int.tryParse(cols[9]);
-        result.add({
-          'localAddr': local.$1,
-          'localPort': local.$2,
-          'remoteAddr': remote.$1,
-          'remotePort': remote.$2,
-          'state': _tcpState(stateHex),
-          'stateHex': stateHex,
-          'uid': uid,
-          'inode': inode,
-        });
-      }
-    } catch (_) {}
-    return result;
-  }
-
-  /// Hex IP:port (little-endian en /proc/net) → (String addr, int port).
-  static (String, int) _parseHexAddr(String hexPair) {
-    final parts = hexPair.split(':');
-    if (parts.length != 2) return ('?', 0);
-    final hexIp = parts[0];
-    final hexPort = parts[1];
-    // IP en hex little-endian (8 dígitos para IPv4)
-    int ipInt = int.tryParse(hexIp, radix: 16) ?? 0;
-    final addr =
-        '${ipInt & 0xFF}.${(ipInt >> 8) & 0xFF}.${(ipInt >> 16) & 0xFF}.${(ipInt >> 24) & 0xFF}';
-    final port = int.tryParse(hexPort, radix: 16) ?? 0;
-    return (addr, port);
-  }
-
-  static String _tcpState(int? hex) {
-    if (hex == null) return '??';
-    return switch (hex) {
-      1 => 'ESTABLISHED',
-      2 => 'SYN_SENT',
-      3 => 'SYN_RECV',
-      4 => 'FIN_WAIT1',
-      5 => 'FIN_WAIT2',
-      6 => 'TIME_WAIT',
-      7 => 'CLOSE',
-      8 => 'CLOSE_WAIT',
-      9 => 'LAST_ACK',
-      10 => 'LISTEN',
-      11 => 'CLOSING',
-      _ => 'UNKNOWN($hex)',
-    };
   }
 
   // ── /proc/[pid]/* ──────────────────────────────────────────────
@@ -185,28 +103,12 @@ class ProcFs {
         'ppid': restParts.length > 1 ? (int.tryParse(restParts[1]) ?? 0) : 0,
         'vsize': restParts.length > 20 ? (int.tryParse(restParts[20]) ?? 0) : 0,
         'rss': restParts.length > 21 ? (int.tryParse(restParts[21]) ?? 0) : 0,
-        'threads': restParts.length > 17 ? (int.tryParse(restParts[17]) ?? 0) : 0,
+        'threads': restParts.length > 17
+            ? (int.tryParse(restParts[17]) ?? 0)
+            : 0,
       };
     } catch (_) {}
     return {};
-  }
-
-  /// /proc/[pid]/status → Map<String, String> (Uid, Gid, Groups, Name, VmRSS...).
-  static Map<String, String> pidStatus(int pid) {
-    final m = <String, String>{};
-    try {
-      for (final line in File('/proc/$pid/status').readAsLinesSync()) {
-        final colon = line.indexOf(':');
-        if (colon < 0) continue;
-        m[line.substring(0, colon).trim()] = line.substring(colon + 1).trim();
-      }
-    } catch (_) {}
-    return m;
-  }
-
-  /// /proc/[pid]/io → Map con rchar, wchar, read_bytes, write_bytes.
-  static Map<String, int> pidIo(int pid) {
-    return _parseKeyValInt('/proc/$pid/io');
   }
 
   /// /proc/[pid]/fd/ → lista de {fd: int, target: String}.
@@ -227,16 +129,6 @@ class ProcFs {
       }
     } catch (_) {}
     return result;
-  }
-
-  /// Nombre de usuario para un UID. En Android: u0_aNNN → app_NNN.
-  /// Para UIDs del sistema (< 10000), usa nombres estándar.
-  static String uidToName(int uid) {
-    if (uid == 0) return 'root';
-    if (uid < 10000) return 'system';
-    // Android app UID: u0_aXXX
-    final appId = uid - 10000;
-    return appId >= 0 ? 'u0_a$appId' : 'uid$uid';
   }
 
   // ── /dev/kmsg (kernel ring buffer) ─────────────────────────────

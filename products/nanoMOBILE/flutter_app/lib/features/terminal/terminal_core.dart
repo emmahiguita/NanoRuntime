@@ -17,6 +17,7 @@ import '../../core/services/pty_shell.dart';
 import '../../core/services/hardware_info_service.dart';
 import '../../core/services/terminal_dependencies.dart';
 import 'i_bin_executor.dart';
+import 'keyboard_mapper.dart';
 
 import 'noar_panel.dart';
 import 'ansi_terminal.dart';
@@ -34,20 +35,39 @@ import 'plugins/network_plugin.dart';
 import 'plugins/pkg_plugin.dart';
 import 'plugins/process_plugin.dart';
 
-
 class NanoTerminal extends StatefulWidget {
-  final int sessionId; final String initialCwd; final LLMEngineClient? engine;
+  final int sessionId;
+  final String initialCwd;
+  final LLMEngineClient? engine;
   final void Function(String title)? onTitle;
+
   /// true = pestaña visible en el IndexedStack. Dirige pause/resume del
   /// polling PTY: solo la pestaña activa consume 20 polls/seg (rate limit).
   final bool visible;
   final TerminalDependencies? deps; // optional override for testing
-  const NanoTerminal({super.key, this.sessionId = 0, this.initialCwd = '/home/nanoai', this.engine, this.onTitle, this.visible = true, this.deps});
-  @override State<NanoTerminal> createState() => _TermState();
+
+  /// Comando que se ejecuta una sola vez cuando el shell está listo
+  /// (ej: "kali shell" desde la card Kali del dashboard). Cuando existe,
+  /// se suprime el bash PTY automático para que el stream del comando
+  /// sea el dueño del terminal.
+  final String? initialCommand;
+  const NanoTerminal({
+    super.key,
+    this.sessionId = 0,
+    this.initialCwd = '/home/nanoai',
+    this.engine,
+    this.onTitle,
+    this.visible = true,
+    this.deps,
+    this.initialCommand,
+  });
+  @override
+  State<NanoTerminal> createState() => _TermState();
 }
 
 class _TermState extends State<NanoTerminal> {
-  TerminalDependencies get _deps => widget.deps ?? TerminalDependencies.instance;
+  TerminalDependencies get _deps =>
+      widget.deps ?? TerminalDependencies.instance;
   IBinExecutor? get _shell => _deps.shell;
   RootfsManager? get _rootfs => _deps.rootfs;
   ProotManager? get _proot => _deps.proot;
@@ -70,18 +90,31 @@ class _TermState extends State<NanoTerminal> {
     kali: _kali,
     proot: _proot,
     deviceId: _devId,
-    onClear: () { if (mounted) setState(() => _lines.clear()); },
-    onNavigate: (route) { if (!mounted) return; try { context.push(route); } catch (_) { Navigator.of(context).pushNamed(route); } },
+    onClear: () {
+      if (mounted) setState(() => _lines.clear());
+    },
+    onNavigate: (route) {
+      if (!mounted) return;
+      try {
+        context.push(route);
+      } catch (_) {
+        Navigator.of(context).pushNamed(route);
+      }
+    },
     mounted: mounted,
   );
 
   final HardwareInfoService _hw = HardwareInfoService();
   Map<String, dynamic>? get _devId => _hw.deviceId;
 
-  final _in = TextEditingController(), _sc = ScrollController(), _fn = FocusNode();
+  final _in = TextEditingController(),
+      _sc = ScrollController(),
+      _fn = FocusNode();
   final _lines = <TL>[], _hist = <String>[], _timers = <Timer>[];
   final _ctx = TerminalCtx();
-  int _hIdx = -1; bool _ctrl = false, _alive = true;
+  int _hIdx = -1;
+  bool _ctrl = false, _alive = true;
+  bool _initialCmdDone = false;
   LLMEngineClient? _engine;
   PtySession? _pty;
   final _ptyLines = <String>[]; // buffer acumulado del output PTY
@@ -96,12 +129,11 @@ class _TermState extends State<NanoTerminal> {
     return usr.endsWith('/usr') ? usr.substring(0, usr.length - 4) : usr;
   }
 
-String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
+  String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
 
   Offset _fabOffset = Offset.zero;
   bool _fabInit = false;
   static const double _fabSize = 40;
-
 
   String _bashCwd = '/';
 
@@ -110,7 +142,8 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
   /// filesystem real del host bajo un raíz sandbox. En Android manda el motor
   /// NanoRuntime (BusyBox vía Nanoshell FFI / rootfs).
   late final RealFsShell _realFs;
-/// Whitelist de comandos con ejecución real vía BusyBox (ver realCommands
+
+  /// Whitelist de comandos con ejecución real vía BusyBox (ver realCommands
   /// en terminal_types.dart). En hosts sin binarios Android, RealFsShell
   /// implementa el subconjunto dart:io como fallback real.
   String get _ps1 {
@@ -131,7 +164,9 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     if (t.isEmpty && ty == Ln.stdout) return;
     setState(() {
       _lines.add(TL(t, ty));
-      if (_lines.length > _maxLines) _lines.removeRange(0, _lines.length - _maxLines);
+      if (_lines.length > _maxLines) {
+        _lines.removeRange(0, _lines.length - _maxLines);
+      }
     });
     if (!_scrollPending) {
       _scrollPending = true;
@@ -141,6 +176,7 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       });
     }
   }
+
   void _after(Duration d, VoidCallback cb) {
     late final Timer t;
     t = Timer(d, () {
@@ -150,11 +186,16 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     _timers.add(t);
   }
 
-  @override void initState() {
-    super.initState(); _engine = widget.engine ?? LLMEngineClient(); _ctx.cwd = widget.initialCwd;
-    _realFs = RealFsShell(root: Platform.isAndroid
-        ? '/data/data/dev.nanoai.mobile/files/nano'
-        : '${Directory.systemTemp.path}/nano_real_root');
+  @override
+  void initState() {
+    super.initState();
+    _engine = widget.engine ?? LLMEngineClient();
+    _ctx.cwd = widget.initialCwd;
+    _realFs = RealFsShell(
+      root: Platform.isAndroid
+          ? '/data/data/dev.nanoai.mobile/files/nano'
+          : '${Directory.systemTemp.path}/nano_real_root',
+    );
     _buildRegistry(); // terminal-specific commands (ai, gpu, docker, kali, etc.)
     _fetchDeviceIdentity(); // async: uid, uname, hostname reales del device
     _initShell(); // async: extrae bash/toybox + verifica rootfs (crea ShellExecutor + RootfsManager compartidos)
@@ -171,7 +212,8 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     _out('NanoTerminal  rootfs ARM64', Ln.header);
     _out('Modo: auto-PTY (bash interactivo real)', Ln.info);
     _out('', Ln.stdout);
-    _loadHistory(); HardwareKeyboard.instance.addHandler(_onKey);
+    _loadHistory();
+    HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
@@ -202,8 +244,10 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     }
     _dispatcher = CommandDispatcher(
       shell: _shell,
-      ctx: _ctx, out: _out,
-      getBaseDir: () => _baseDir, getUsrDir: () => _usrDir,
+      ctx: _ctx,
+      out: _out,
+      getBaseDir: () => _baseDir,
+      getUsrDir: () => _usrDir,
       rootfsEnv: _deps.rootfsEnv,
     );
     _dispatcher!.buildRegistry();
@@ -243,32 +287,49 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
         _ctx.env['ANDROID_ROOT'] = '/system';
         _ctx.env['LANG'] = 'en_US.UTF-8';
         _bashCwd = '$base/home';
-        try { Directory('$base/home').createSync(recursive: true); } catch (_) {}
-        try { Directory('$usr/tmp').createSync(recursive: true); } catch (_) {}
-        try { Directory('$usr/var/lib/dpkg').createSync(recursive: true); } catch (_) {}
-        try { Directory('$usr/var/log').createSync(recursive: true); } catch (_) {}
+        try {
+          Directory('$base/home').createSync(recursive: true);
+        } catch (_) {}
+        try {
+          Directory('$usr/tmp').createSync(recursive: true);
+        } catch (_) {}
+        try {
+          Directory('$usr/var/lib/dpkg').createSync(recursive: true);
+        } catch (_) {}
+        try {
+          Directory('$usr/var/log').createSync(recursive: true);
+        } catch (_) {}
       }
-      _after(const Duration(milliseconds: 500), () => _ptyOpen(['bash']));
+      // Sin comando inicial inyectado: bash PTY automático. Con comando
+      // inicial (ej: kali shell), el dispatcher y su stream proot son el
+      // dueño del terminal; abrir bash encima mezclaría las dos sesiones.
+      if (widget.initialCommand == null) {
+        _after(const Duration(milliseconds: 500), () => _ptyOpen(['bash']));
+      }
     } else {
       _out('[rootfs] no instalado. Ejecuta "bootstrap".', Ln.info);
     }
     if (_proot != null && _proot!.isReady) {
-      _out('[proot] listo � chroot sin root disponible', Ln.system);
+      _out('[proot] listo → chroot sin root disponible', Ln.system);
     } else {
       _out('[proot] no disponible (ptrace bloqueado por SELinux?)', Ln.warn);
     }
     if (_kali != null) {
       await _kali!.checkInstalled();
-      if (_kali!.isInstalled) _out('[kali] detectado en ${_kali!.kaliRoot}', Ln.success);
+      if (_kali!.isInstalled) {
+        _out('[kali] detectado en ${_kali!.kaliRoot}', Ln.success);
+      }
     }
     if (_docker != null) {
       _out('[docker] runtime listo', Ln.system);
     }
+    // Comando inicial inyectado desde la UI (card Kali del dashboard):
+    // dispatcher ya construido, se ejecuta una sola vez.
+    if (widget.initialCommand != null && !_initialCmdDone) {
+      _initialCmdDone = true;
+      _execAsync(widget.initialCommand!);
+    }
   }
-
-
-
-
 
   @override
   void dispose() {
@@ -281,8 +342,12 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     _timers.clear();
     _cron?.dispose();
     _cron = null;
-    try { _shell?.killAll(); } catch (_) {}
-    try { _docker?.dispose(); } catch (_) {}
+    try {
+      _shell?.killAll();
+    } catch (_) {}
+    try {
+      _docker?.dispose();
+    } catch (_) {}
     _in.dispose();
     _sc.dispose();
     _fn.dispose();
@@ -306,173 +371,275 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     // Registrados después de DevOpsPlugin para pisar cualquier stub.
     // P2: la instancia se guarda — antes su dispose() nunca se llamaba y
     // los timers de crontab/watch quedaban vivos para siempre.
-    _cron = CronScheduler(execCmd: (raw) => _execAsync(raw), isAlive: () => _alive)
-      ..register(r, _out);
+    _cron = CronScheduler(
+      execCmd: (raw) => _execAsync(raw),
+      isAlive: () => _alive,
+    )..register(r, _out);
     // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
     // nunca finge apertura — este registro lo reemplaza por el real).
     _cmds['pty'] = (a, c, o, af) {
       final usr = _rootfs?.usrDir;
-      if (usr == null) { o('pty: rootfs no instalado', Ln.stderr); return; }
+      if (usr == null) {
+        o('pty: rootfs no instalado', Ln.stderr);
+        return;
+      }
       final bashPath = a.isNotEmpty ? a[0] : '$usr/bin/bash';
       _ptyOpen([bashPath, ...a.sublist(1)], o: o);
     };
     _cmds['stat'] = (a, c, o, af) {
-    final all = a.contains('--all'), mem = all || a.contains('--memory'), cpu = all || a.contains('--cpu');
-    o('══ NanoRuntime Status ══', Ln.header);
-    if (mem) {
-    final d = _devId;
-    final double totalKb = (d?['memTotalKb'] as num?)?.toDouble() ?? 0.0;
-    final double availKb = (d?['memAvailKb'] as num?)?.toDouble() ?? 0.0;
-    final double usedKb = totalKb > 0 ? totalKb - availKb : 0.0;
-    String fmt(double kb) => kb >= 1048576 ? '${(kb / 1048576).toStringAsFixed(2)} GB' : '${(kb / 1024).toStringAsFixed(0)} MB';
-    if (totalKb > 0) {
-    final pct = totalKb > 0 ? (usedKb / totalKb * 100).round() : 0;
-    final cachedKb = ProcFs.meminfo()['Cached'];
-    final cacheStr = cachedKb != null ? ' | PageCache: ${fmt(cachedKb.toDouble())}' : '';
-    o('RAM: ${fmt(totalKb)} | Used: ${fmt(usedKb)} ($pct%) | Free: ${fmt(availKb)}$cacheStr', Ln.stdout);
-    } else {
-    o('RAM: (leyendo /proc/meminfo...)', Ln.stdout);
-    }
-    o('Modelo/KV: sin datos del motor LLM — usa "tune" para diagnóstico real', Ln.info);
-    }
-    if (cpu) {
-    final cores = _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
-    final hw = _devId?['cpuHardware'] as String?;
-    final tempC = _readCpuTemp();
-    final tempStr = tempC != null ? ' | Temp: ${tempC.toStringAsFixed(1)}°C' : '';
-    o('CPU: $cores cores${hw != null ? ' ($hw)' : ''}$tempStr | Procs: ${ProcFs.listPids().length}', Ln.stdout);
-    }
+      final all = a.contains('--all'),
+          mem = all || a.contains('--memory'),
+          cpu = all || a.contains('--cpu');
+      o('══ NanoRuntime Status ══', Ln.header);
+      if (mem) {
+        final d = _devId;
+        final double totalKb = (d?['memTotalKb'] as num?)?.toDouble() ?? 0.0;
+        final double availKb = (d?['memAvailKb'] as num?)?.toDouble() ?? 0.0;
+        final double usedKb = totalKb > 0 ? totalKb - availKb : 0.0;
+        String fmt(double kb) => kb >= 1048576
+            ? '${(kb / 1048576).toStringAsFixed(2)} GB'
+            : '${(kb / 1024).toStringAsFixed(0)} MB';
+        if (totalKb > 0) {
+          final pct = totalKb > 0 ? (usedKb / totalKb * 100).round() : 0;
+          final cachedKb = ProcFs.meminfo()['Cached'];
+          final cacheStr = cachedKb != null
+              ? ' | PageCache: ${fmt(cachedKb.toDouble())}'
+              : '';
+          o(
+            'RAM: ${fmt(totalKb)} | Used: ${fmt(usedKb)} ($pct%) | Free: ${fmt(availKb)}$cacheStr',
+            Ln.stdout,
+          );
+        } else {
+          o('RAM: (leyendo /proc/meminfo...)', Ln.stdout);
+        }
+        o(
+          'Modelo/KV: sin datos del motor LLM — usa "tune" para diagnóstico real',
+          Ln.info,
+        );
+      }
+      if (cpu) {
+        final cores =
+            _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
+        final hw = _devId?['cpuHardware'] as String?;
+        final tempC = _readCpuTemp();
+        final tempStr = tempC != null
+            ? ' | Temp: ${tempC.toStringAsFixed(1)}°C'
+            : '';
+        o(
+          'CPU: $cores cores${hw != null ? ' ($hw)' : ''}$tempStr | Procs: ${ProcFs.listPids().length}',
+          Ln.stdout,
+        );
+      }
     };
     _cmds['infer'] = (a, c, o, af) {
-    if (a.isEmpty) { o('infer: prompt requerido', Ln.stderr); return; }
-    final prompt = a.join(' ');
-    final engine = _engine;
-    if (engine == null) { o('infer: motor LLM no disponible', Ln.stderr); return; }
-    o('[NanoRuntime] Enviando a ${engine.baseUrl}...', Ln.system);
-    final start = DateTime.now();
-    engine.generate(prompt: prompt, maxTokens: 128).then((res) {
-    if (!_alive || !mounted) return;
-    final ms = DateTime.now().difference(start).inMilliseconds;
-    for (final line in res.text.split('\n')) { if (line.isNotEmpty) o(line, Ln.success); }
-    o('${ms}ms @ ${res.tps?.toStringAsFixed(1) ?? "?"} tok/s', Ln.info);
-    }).catchError((e) {
-    if (!_alive || !mounted) return;
-    o('infer: el motor no respondió — $e', Ln.stderr);
-    });
+      if (a.isEmpty) {
+        o('infer: prompt requerido', Ln.stderr);
+        return;
+      }
+      final prompt = a.join(' ');
+      final engine = _engine;
+      if (engine == null) {
+        o('infer: motor LLM no disponible', Ln.stderr);
+        return;
+      }
+      o('[NanoRuntime] Enviando a ${engine.baseUrl}...', Ln.system);
+      final start = DateTime.now();
+      engine
+          .generate(prompt: prompt, maxTokens: 128)
+          .then((res) {
+            if (!_alive || !mounted) return;
+            final ms = DateTime.now().difference(start).inMilliseconds;
+            for (final line in res.text.split('\n')) {
+              if (line.isNotEmpty) o(line, Ln.success);
+            }
+            o('${ms}ms @ ${res.tps?.toStringAsFixed(1) ?? "?"} tok/s', Ln.info);
+          })
+          .catchError((e) {
+            if (!_alive || !mounted) return;
+            o('infer: el motor no respondió — $e', Ln.stderr);
+          });
     };
     _cmds['ai'] = (a, c, o, af) {
-    if (a.isEmpty) { o('ai: escribe un prompt. Ej: ai ¿cómo optimizar RAM?', Ln.stderr); return; }
-    final prompt = a.join(' ');
-    final engine = _engine;
-    if (engine == null) { o('ai: motor LLM no disponible', Ln.stderr); return; }
-    o('[NanoAI] Pensando... (${engine.baseUrl})', Ln.info);
-    engine.generate(prompt: prompt, maxTokens: 512).then((res) {
-    if (!_alive || !mounted) return;
-    for (final line in res.text.split('\n')) { if (line.isNotEmpty) o(line, Ln.stdout); }
-    if (res.tps != null) o('${res.tps!.toStringAsFixed(1)} tok/s', Ln.info);
-    }).catchError((e) {
-    if (!_alive || !mounted) return;
-    o('ai: el motor no respondió. ¿Está corriendo llama.cpp en 127.0.0.1:8080?', Ln.stderr);
-    o('  $e', Ln.stderr);
-    });
+      if (a.isEmpty) {
+        o('ai: escribe un prompt. Ej: ai ¿cómo optimizar RAM?', Ln.stderr);
+        return;
+      }
+      final prompt = a.join(' ');
+      final engine = _engine;
+      if (engine == null) {
+        o('ai: motor LLM no disponible', Ln.stderr);
+        return;
+      }
+      o('[NanoAI] Pensando... (${engine.baseUrl})', Ln.info);
+      engine
+          .generate(prompt: prompt, maxTokens: 512)
+          .then((res) {
+            if (!_alive || !mounted) return;
+            for (final line in res.text.split('\n')) {
+              if (line.isNotEmpty) o(line, Ln.stdout);
+            }
+            if (res.tps != null) {
+              o('${res.tps!.toStringAsFixed(1)} tok/s', Ln.info);
+            }
+          })
+          .catchError((e) {
+            if (!_alive || !mounted) return;
+            o(
+              'ai: el motor no respondió. ¿Está corriendo llama.cpp en 127.0.0.1:8080?',
+              Ln.stderr,
+            );
+            o('  $e', Ln.stderr);
+          });
     };
     _cmds['tune'] = (a, c, o, af) async {
-    o('══ NanoAI Auto-Tune ══', Ln.header);
-    final mem = ProcFs.meminfo();
-    final totalMb = (mem['MemTotal'] ?? 0) ~/ 1024;
-    final availMb = (mem['MemAvailable'] ?? mem['MemFree'] ?? 0) ~/ 1024;
-    final cores = _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
-    final tempC = _readCpuTemp();
-    o('Device: ${totalMb}MB RAM, ${availMb}MB libre, $cores cores'
-    '${tempC != null ? ', ${tempC.toStringAsFixed(1)}°C' : ''}',
-    Ln.info);
-    final engine = _engine;
-    if (engine == null) {
-    o('Motor LLM: no configurado (sin engine client)', Ln.warn);
-    o('Sugerencias: instala llama.cpp en 127.0.0.1:8080', Ln.info);
-    return;
-    }
-    o('Motor URL: ${engine.baseUrl}', Ln.info);
-    final online = await engine.isOnline();
-    if (!online) {
-    o('Motor: OFFLINE (no responde en ${engine.baseUrl})', Ln.warn);
-    o('Sugerencia: lanza llama.cpp con --server --port 8080', Ln.info);
-    return;
-    }
-    o('Motor: ONLINE', Ln.success);
-    o('Benchmark TPS... (prompt de prueba)', Ln.info);
-    try {
-    final res = await engine.generate(
-    prompt: 'Hello',
-    maxTokens: 10,
-    temperature: 0.0,
-    );
-    o('Respuesta: "${res.text.length > 40 ? '${res.text.substring(0, 40)}...' : res.text}"', Ln.stdout);
-    if (res.tps != null) {
-    o('Velocidad: ${res.tps!.toStringAsFixed(1)} tok/s', Ln.success);
-    if (res.tps! < 5) {
-    o('⚠ TPS bajo. Considera:', Ln.warn);
-    o('  - Usar un modelo más pequeño (Qwen 0.5B en vez de 1.5B)', Ln.info);
-    o('  - Reducir context window (--ctx-size 512)', Ln.info);
-    o('  - Deshabilitar GPU layers si tenés poca RAM', Ln.info);
-    } else if (res.tps! < 20) {
-    o('TPS aceptable. Optimizaciones:', Ln.info);
-    o('  - Subir --threads a $cores para mejor rendimiento', Ln.info);
-    o('  - Aumentar --batch-size a 512 si tenés RAM', Ln.info);
-    } else {
-    o('TPS excelente. Sugerencias:', Ln.info);
-    o('  - Podés usar modelos más grandes (Qwen 3B, 7B)', Ln.info);
-    o('  - Aumentar --ctx-size a 4096 para prompts largos', Ln.info);
-    }
-    }
-    if (availMb < 500) {
-    o('⚠ RAM baja (${availMb}MB libre). Riesgo de OOM con modelos grandes.', Ln.warn);
-    } else if (availMb > 2000) {
-    o('RAM suficiente para modelos de hasta ~2B parámetros (Qwen-1.5B, Gemma-2B).', Ln.info);
-    } else {
-    o('RAM adecuada para modelos de ~1B parámetros.', Ln.info);
-    }
-    } on LLMEngineException catch (e) {
-    o('Benchmark falló: ${e.message}', Ln.stderr);
-    }
+      o('══ NanoAI Auto-Tune ══', Ln.header);
+      final mem = ProcFs.meminfo();
+      final totalMb = (mem['MemTotal'] ?? 0) ~/ 1024;
+      final availMb = (mem['MemAvailable'] ?? mem['MemFree'] ?? 0) ~/ 1024;
+      final cores = _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
+      final tempC = _readCpuTemp();
+      o(
+        'Device: ${totalMb}MB RAM, ${availMb}MB libre, $cores cores'
+        '${tempC != null ? ', ${tempC.toStringAsFixed(1)}°C' : ''}',
+        Ln.info,
+      );
+      final engine = _engine;
+      if (engine == null) {
+        o('Motor LLM: no configurado (sin engine client)', Ln.warn);
+        o('Sugerencias: instala llama.cpp en 127.0.0.1:8080', Ln.info);
+        return;
+      }
+      o('Motor URL: ${engine.baseUrl}', Ln.info);
+      final online = await engine.isOnline();
+      if (!online) {
+        o('Motor: OFFLINE (no responde en ${engine.baseUrl})', Ln.warn);
+        o('Sugerencia: lanza llama.cpp con --server --port 8080', Ln.info);
+        return;
+      }
+      o('Motor: ONLINE', Ln.success);
+      o('Benchmark TPS... (prompt de prueba)', Ln.info);
+      try {
+        final res = await engine.generate(
+          prompt: 'Hello',
+          maxTokens: 10,
+          temperature: 0.0,
+        );
+        o(
+          'Respuesta: "${res.text.length > 40 ? '${res.text.substring(0, 40)}...' : res.text}"',
+          Ln.stdout,
+        );
+        if (res.tps != null) {
+          o('Velocidad: ${res.tps!.toStringAsFixed(1)} tok/s', Ln.success);
+          if (res.tps! < 5) {
+            o('⚠ TPS bajo. Considera:', Ln.warn);
+            o(
+              '  - Usar un modelo más pequeño (Qwen 0.5B en vez de 1.5B)',
+              Ln.info,
+            );
+            o('  - Reducir context window (--ctx-size 512)', Ln.info);
+            o('  - Deshabilitar GPU layers si tenés poca RAM', Ln.info);
+          } else if (res.tps! < 20) {
+            o('TPS aceptable. Optimizaciones:', Ln.info);
+            o('  - Subir --threads a $cores para mejor rendimiento', Ln.info);
+            o('  - Aumentar --batch-size a 512 si tenés RAM', Ln.info);
+          } else {
+            o('TPS excelente. Sugerencias:', Ln.info);
+            o('  - Podés usar modelos más grandes (Qwen 3B, 7B)', Ln.info);
+            o('  - Aumentar --ctx-size a 4096 para prompts largos', Ln.info);
+          }
+        }
+        if (availMb < 500) {
+          o(
+            '⚠ RAM baja (${availMb}MB libre). Riesgo de OOM con modelos grandes.',
+            Ln.warn,
+          );
+        } else if (availMb > 2000) {
+          o(
+            'RAM suficiente para modelos de hasta ~2B parámetros (Qwen-1.5B, Gemma-2B).',
+            Ln.info,
+          );
+        } else {
+          o('RAM adecuada para modelos de ~1B parámetros.', Ln.info);
+        }
+      } on LLMEngineException catch (e) {
+        o('Benchmark falló: ${e.message}', Ln.stderr);
+      }
     };
     _cmds['gpu'] = (a, c, o, af) {
-    final info = _readGpuInfo();
-    // Sin nombre real del sysfs: 'desconocida', nunca una marca inventada.
-    final name = info['name'] as String? ?? 'desconocida';
-    final freq = info['freqMhz'];
-    final temp = info['tempC'];
-    final freqStr = freq != null ? ' | Freq: $freq MHz' : '';
-    final tempStr = temp != null ? ' | Temp: ${temp.toStringAsFixed(1)}°C' : '';
-    o('GPU: $name$freqStr$tempStr', Ln.stdout);
-    final load = info['gpuLoad'];
-    if (load != null) {
-    o('  Load: ${load.toStringAsFixed(1)}%', Ln.stdout);
-    }
-    if (freq == null && temp == null) {
-    final hw = _devId?['cpuHardware'] as String?;
-    if (hw != null) o('  SoC: $hw (GPU info via /sys/class/kgsl/ no disponible)', Ln.info);
-    }
+      final info = _readGpuInfo();
+      // Sin nombre real del sysfs: 'desconocida', nunca una marca inventada.
+      final name = info['name'] as String? ?? 'desconocida';
+      final freq = info['freqMhz'];
+      final temp = info['tempC'];
+      final freqStr = freq != null ? ' | Freq: $freq MHz' : '';
+      final tempStr = temp != null
+          ? ' | Temp: ${temp.toStringAsFixed(1)}°C'
+          : '';
+      o('GPU: $name$freqStr$tempStr', Ln.stdout);
+      final load = info['gpuLoad'];
+      if (load != null) {
+        o('  Load: ${load.toStringAsFixed(1)}%', Ln.stdout);
+      }
+      if (freq == null && temp == null) {
+        final hw = _devId?['cpuHardware'] as String?;
+        if (hw != null) {
+          o(
+            '  SoC: $hw (GPU info via /sys/class/kgsl/ no disponible)',
+            Ln.info,
+          );
+        }
+      }
     };
     _cmds['nvtop'] = (a, c, o, af) {
-    final info = _readGpuInfo();
-    final name = (info['name'] as String?) ?? 'desconocida';
-    final freq = info['freqMhz'];
-    o('╔══ nvtop ══╗', Ln.header);
-    o('║ GPU: $name ${" ".padLeft(15 - name.length)}║', Ln.header);
-    if (freq != null) o('║ Freq: $freq MHz ${" ".padLeft(8)}║', Ln.header);
-    o('╚═══════════╝', Ln.header);
+      final info = _readGpuInfo();
+      final name = (info['name'] as String?) ?? 'desconocida';
+      final freq = info['freqMhz'];
+      o('╔══ nvtop ══╗', Ln.header);
+      o('║ GPU: $name ${" ".padLeft(15 - name.length)}║', Ln.header);
+      if (freq != null) o('║ Freq: $freq MHz ${" ".padLeft(8)}║', Ln.header);
+      o('╚═══════════╝', Ln.header);
     };
   }
-  List<String> _tok(String c) { final t = <String>[], b = StringBuffer(); bool sq = false, dq = false; for (int i = 0; i < c.length; i++) { final ch = c[i]; if (ch == "'" && !dq) { sq = !sq; continue; } if (ch == '"' && !sq) { dq = !dq; continue; } if (ch == ' ' && !sq && !dq) { if (b.isNotEmpty) { t.add(b.toString()); b.clear(); } continue; } b.write(ch); } if (b.isNotEmpty) t.add(b.toString()); return t; }
+
+  List<String> _tok(String c) {
+    final t = <String>[], b = StringBuffer();
+    bool sq = false, dq = false;
+    for (int i = 0; i < c.length; i++) {
+      final ch = c[i];
+      if (ch == "'" && !dq) {
+        sq = !sq;
+        continue;
+      }
+      if (ch == '"' && !sq) {
+        dq = !dq;
+        continue;
+      }
+      if (ch == ' ' && !sq && !dq) {
+        if (b.isNotEmpty) {
+          t.add(b.toString());
+          b.clear();
+        }
+        continue;
+      }
+      b.write(ch);
+    }
+    if (b.isNotEmpty) t.add(b.toString());
+    return t;
+  }
 
   /// Detecta operadores de shell (| > < >> && || ;) fuera de comillas. Si están presentes, el comando debe delegarse a bash -c.
   bool _hasShellOps(String cmd) {
     bool sq = false, dq = false;
     for (int i = 0; i < cmd.length; i++) {
       final ch = cmd[i];
-      if (ch == "'" && !dq) { sq = !sq; continue; }
-      if (ch == '"' && !sq) { dq = !dq; continue; }
+      if (ch == "'" && !dq) {
+        sq = !sq;
+        continue;
+      }
+      if (ch == '"' && !sq) {
+        dq = !dq;
+        continue;
+      }
       if (sq || dq) continue;
       if (ch == '|') return true;
       if (ch == '>' || ch == '<') return true;
@@ -483,7 +650,9 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     return false;
   }
 
-  void _exec(String raw) { _execAsync(raw); } // puente sync→async para onSubmitted
+  void _exec(String raw) {
+    _execAsync(raw);
+  } // puente sync→async para onSubmitted
 
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
 
@@ -522,7 +691,10 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       try {
         if (!File(argv.first).existsSync()) {
           final name = argv.first.split('/').last;
-          out('pty: "$name" no está en el rootfs. Ejecuta "pkg install $name".', Ln.stderr);
+          out(
+            'pty: "$name" no está en el rootfs. Ejecuta "pkg install $name".',
+            Ln.stderr,
+          );
           return;
         }
       } catch (_) {}
@@ -544,9 +716,13 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     _pty = pm.session;
     _ansi = pm.ansi;
     if (mounted) setState(() {});
-    out('— terminal interactivo (Ctrl+C para SIGINT, escribe "exit") —', Ln.system);
+    out(
+      '— terminal interactivo (Ctrl+C para SIGINT, escribe "exit") —',
+      Ln.system,
+    );
     out('pty> ', Ln.prompt);
   }
+
   Future<void> _ptyClose({bool notify = true}) async {
     final p = _pty;
     _pty = null;
@@ -557,17 +733,24 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     _ansi = null;
     if (oldAnsi != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        try { oldAnsi.dispose(); } catch (_) {}
+        try {
+          oldAnsi.dispose();
+        } catch (_) {}
       });
     }
     if (p != null) {
-      try { await p.signal(2); } catch (_) {}
-      try { await p.close(); } catch (_) {}
+      try {
+        await p.signal(2);
+      } catch (_) {}
+      try {
+        await p.close();
+      } catch (_) {}
     }
     if (notify && mounted) setState(() {});
   }
 
   final List<Map<String, dynamic>> _noarLib = [];
+
   /// Guarda un comando ejecutado en la librería Noar con timestamp y tag.
   void _saveToNoar(String cmd, String tag) {
     _noarLib.insert(0, {
@@ -577,8 +760,8 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     });
     if (_noarLib.length > 500) _noarLib.removeRange(500, _noarLib.length);
     SharedPreferences.getInstance().then((p) {
-        p.setString('noar_library', jsonEncode(_noarLib.take(500).toList()));
-      });
+      p.setString('noar_library', jsonEncode(_noarLib.take(500).toList()));
+    });
   }
 
   Future<void> _loadNoar() async {
@@ -591,21 +774,50 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       }
     } catch (_) {}
   }
+
   /// Clasifica un comando en un tag basado en su nombre.
   String _tagFor(String cmd) {
     final name = cmd.split(' ').first;
-    if (['ls','cat','cd','pwd','mkdir','touch','rm','cp','mv','echo','grep','find','wc','head','tail','diff','chmod','tree'].contains(name)) return 'fs';
-    if (['apt','pkg','pip','npm','gem','cargo'].contains(name)) return 'pkgs';
+    if ([
+      'ls',
+      'cat',
+      'cd',
+      'pwd',
+      'mkdir',
+      'touch',
+      'rm',
+      'cp',
+      'mv',
+      'echo',
+      'grep',
+      'find',
+      'wc',
+      'head',
+      'tail',
+      'diff',
+      'chmod',
+      'tree',
+    ].contains(name)) {
+      return 'fs';
+    }
+    if (['apt', 'pkg', 'pip', 'npm', 'gem', 'cargo'].contains(name)) {
+      return 'pkgs';
+    }
     if (['docker'].contains(name)) return 'containers';
     if (['kali'].contains(name)) return 'kali';
-    if (['ps','kill','htop','top','pstree','free','df'].contains(name)) return 'monitor';
-    if (['git','ssh','curl','wget','scp'].contains(name)) return 'remote';
-    if (['ai','infer','stat','tune','gpu','nvtop'].contains(name)) return 'ai';
+    if (['ps', 'kill', 'htop', 'top', 'pstree', 'free', 'df'].contains(name)) {
+      return 'monitor';
+    }
+    if (['git', 'ssh', 'curl', 'wget', 'scp'].contains(name)) return 'remote';
+    if (['ai', 'infer', 'stat', 'tune', 'gpu', 'nvtop'].contains(name)) {
+      return 'ai';
+    }
     if (['bootstrap'].contains(name)) return 'rootfs';
-    if (['bash','toybox'].contains(name)) return 'shell';
+    if (['bash', 'toybox'].contains(name)) return 'shell';
     if (cmd.startsWith('!')) return 'shell';
     return 'general';
   }
+
   Future<void> _execAsync(String raw) async {
     if (_ptyActive) {
       final cmd = raw.trim();
@@ -619,8 +831,12 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       _pty!.writeBytes([0x0d]);
       return;
     }
-    _out(_ps1 + raw, Ln.prompt); final cmd = raw.trim(); if (cmd.isEmpty) return;
-    _hist.add(cmd); _hIdx = -1; _in.clear();
+    _out(_ps1 + raw, Ln.prompt);
+    final cmd = raw.trim();
+    if (cmd.isEmpty) return;
+    _hist.add(cmd);
+    _hIdx = -1;
+    _in.clear();
     _saveToNoar(cmd, _tagFor(cmd));
     if (cmd == 'exit' || cmd == 'logout') {
       _out('— Sesion finalizada ($cmd) —', Ln.system);
@@ -628,8 +844,11 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     }
     if (_dispatcher != null && !_hasShellOps(cmd)) {
       final parts = cmd.split(RegExp(r'\s+'));
-      if (parts.isNotEmpty && _dispatcher!.dispatch(parts[0],
-          parts.length > 1 ? parts.sublist(1) : <String>[])) {
+      if (parts.isNotEmpty &&
+          _dispatcher!.dispatch(
+            parts[0],
+            parts.length > 1 ? parts.sublist(1) : <String>[],
+          )) {
         return;
       }
     }
@@ -641,7 +860,9 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       if (shellCmd.startsWith('cd ') || shellCmd == 'cd') {
         final target = shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
         if (target == '..') {
-          _bashCwd = _bashCwd == '/' ? '/' : _bashCwd.substring(0, _bashCwd.lastIndexOf('/'));
+          _bashCwd = _bashCwd == '/'
+              ? '/'
+              : _bashCwd.substring(0, _bashCwd.lastIndexOf('/'));
           if (_bashCwd.isEmpty) _bashCwd = '/';
         } else if (target.startsWith('/')) {
           _bashCwd = target;
@@ -658,12 +879,17 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
                 'NANO_ROOTFS': _shell!.usrDir!,
                 'LD_LIBRARY_PATH': '${_shell!.usrDir}/lib',
                 'HOME': '${_shell!.baseDir!}/home',
-                'PATH': '${_shell!.usrDir}/bin:${_shell!.usrDir}/bin/applets:/system/bin:/system/xbin',
+                'PATH':
+                    '${_shell!.usrDir}/bin:${_shell!.usrDir}/bin/applets:/system/bin:/system/xbin',
                 'TERMUX': 'true',
                 'LANG': 'en_US.UTF-8',
               }
             : null;
-        final r = await _shell!.toybox(['ash', '-c', shellCmd], extraEnv: extraEnv);
+        final r = await _shell!.toybox([
+          'ash',
+          '-c',
+          shellCmd,
+        ], extraEnv: extraEnv);
         _shellOut(r);
       } else {
         _out('! : shell no disponible (binarios no extraídos)', Ln.stderr);
@@ -690,18 +916,23 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       _out('sh: no disponible (sin rootfs ni shell del host)', Ln.stderr);
       return;
     }
-    var parts = _tok(cmd); if (parts.isNotEmpty && _ctx.aliases.containsKey(parts[0])) parts = _tok(_ctx.aliases[parts[0]]!);
+    var parts = _tok(cmd);
+    if (parts.isNotEmpty && _ctx.aliases.containsKey(parts[0])) {
+      parts = _tok(_ctx.aliases[parts[0]]!);
+    }
     if (parts.isEmpty) return;
     final name = parts[0], args = parts.sublist(1);
     if (name == 'bash' && _shell != null && _shell!.initialized) {
       final shellCmd = args.isNotEmpty ? args.join(' ') : '-i';
       _out('[ash] $shellCmd', Ln.system);
       final r = await _shell!.toybox(['ash', '-c', shellCmd]);
-      _shellOut(r); return;
+      _shellOut(r);
+      return;
     }
     if (name == 'toybox' && _shell != null && _shell!.initialized) {
       final result = await _shell!.toybox(args);
-      _shellOut(result); return;
+      _shellOut(result);
+      return;
     }
     if (realCommands.contains(name)) {
       if (_shell != null && _shell!.initialized && Platform.isAndroid) {
@@ -728,7 +959,10 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
       return;
     }
     if (name == 'source') {
-      if (args.isEmpty) { _out('source: falta archivo', Ln.stderr); return; }
+      if (args.isEmpty) {
+        _out('source: falta archivo', Ln.stderr);
+        return;
+      }
       if (_shell != null && _shell!.initialized) {
         final r = await _shell!.toybox(['ash', '-c', 'source ${args[0]}']);
         _shellOut(r);
@@ -749,11 +983,13 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
   /// Vuelca la salida de un ShellResult en el buffer del terminal.
   void _shellOut(ShellResult r) {
     if (!_alive || !mounted) return;
-    for (final l in r.stdout.split('\n')) { if (l.isNotEmpty) _out(l, Ln.stdout); }
-    for (final l in r.stderr.split('\n')) { if (l.isNotEmpty) _out(l, Ln.stderr); }
+    for (final l in r.stdout.split('\n')) {
+      if (l.isNotEmpty) _out(l, Ln.stdout);
+    }
+    for (final l in r.stderr.split('\n')) {
+      if (l.isNotEmpty) _out(l, Ln.stderr);
+    }
   }
-
-
 
   /// Handler global de teclado (HardwareKeyboard).  En modo PTY interactivo cada keydown se convierte a bytes y se envía al terminal (vim/htop/python necesitan teclas individuales, no líneas con Enter). Fuera de PTY conserva Ctrl+L/C de la shell integrada.
   bool _onKey(KeyEvent e) {
@@ -792,7 +1028,7 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
           _pty!.write('\x04');
           return true;
         }
-        final ch = _logicalToChar(e.logicalKey);
+        final ch = const KeyboardMapper().logicalToChar(e.logicalKey);
         if (ch != null && ch >= 0x61 && ch <= 0x7a) {
           _pty!.writeBytes([ch - 0x60]);
           return true;
@@ -803,14 +1039,21 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
         }
         return false;
       }
-      if (HardwareKeyboard.instance.isAltPressed && !HardwareKeyboard.instance.isControlPressed) {
-        final bytes = _keyToPtyBytes(e);
+      if (HardwareKeyboard.instance.isAltPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        final bytes = const KeyboardMapper().keyToPtyBytes(
+          e.logicalKey,
+          ctrl: _ctrl,
+        );
         if (bytes != null && bytes.length == 1 && bytes[0] >= 0x20) {
           _pty!.writeBytes([0x1b, bytes[0]]);
           return true;
         }
       }
-      final bytes = _keyToPtyBytes(e);
+      final bytes = const KeyboardMapper().keyToPtyBytes(
+        e.logicalKey,
+        ctrl: _ctrl,
+      );
       if (bytes != null) _pty!.writeBytes(bytes);
       return bytes != null;
     }
@@ -828,259 +1071,403 @@ String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
     return false;
   }
 
-  /// Traduce un KeyDownEvent a la secuencia de bytes de terminal (modo PTY). Devuelve null si la tecla no debe enviarse (modificadores sueltos, etc.).
-  List<int>? _keyToPtyBytes(KeyEvent e) {
-    final k = e.logicalKey;
-
-
-    if (k.keyId >= LogicalKeyboardKey.f1.keyId &&
-        k.keyId <= LogicalKeyboardKey.f12.keyId) {
-      final n = k.keyId - LogicalKeyboardKey.f1.keyId + 1;
-      if (n == 1) return [0x1b, 0x4f, 0x50]; // F1
-      if (n == 2) return [0x1b, 0x4f, 0x51]; // F2
-      if (n == 3) return [0x1b, 0x4f, 0x52]; // F3
-      if (n == 4) return [0x1b, 0x4f, 0x53]; // F4
-      final fn = [15, 17, 18, 19, 20, 21, 23, 24][n - 5];
-      final digits = '$fn'.codeUnits; // e.g. "17" ? [0x31, 0x37]
-      return [0x1b, 0x5b, ...digits, 0x7e];
-    }
-    if (k == LogicalKeyboardKey.arrowUp) return [0x1b, 0x5b, 0x41];
-    if (k == LogicalKeyboardKey.arrowDown) return [0x1b, 0x5b, 0x42];
-    if (k == LogicalKeyboardKey.arrowRight) return [0x1b, 0x5b, 0x43];
-    if (k == LogicalKeyboardKey.arrowLeft) return [0x1b, 0x5b, 0x44];
-    if (k == LogicalKeyboardKey.home) return [0x1b, 0x5b, 0x48];
-    if (k == LogicalKeyboardKey.end) return [0x1b, 0x5b, 0x46];
-    if (k == LogicalKeyboardKey.pageUp) return [0x1b, 0x5b, 0x35, 0x7e];
-    if (k == LogicalKeyboardKey.pageDown) return [0x1b, 0x5b, 0x36, 0x7e];
-    if (k == LogicalKeyboardKey.insert) return [0x1b, 0x5b, 0x32, 0x7e];
-    if (k == LogicalKeyboardKey.delete) return [0x1b, 0x5b, 0x33, 0x7e];
-    if (k == LogicalKeyboardKey.enter) return [0x0d];
-    if (k == LogicalKeyboardKey.tab) return [0x09];
-    if (k == LogicalKeyboardKey.backspace) return [0x7f];
-    if (k == LogicalKeyboardKey.escape) return [0x1b];
-    if (k == LogicalKeyboardKey.space) return [0x20];
-    if (k == LogicalKeyboardKey.shiftLeft || k == LogicalKeyboardKey.shiftRight ||
-        k == LogicalKeyboardKey.altLeft || k == LogicalKeyboardKey.altRight ||
-        k == LogicalKeyboardKey.metaLeft || k == LogicalKeyboardKey.metaRight ||
-        k == LogicalKeyboardKey.capsLock || k == LogicalKeyboardKey.numLock) {
-      return null;
-    }
-    if (_ctrl) {
-      final ch = _logicalToChar(k);
-      if (ch != null && ch >= 0x61 && ch <= 0x7a) return [ch - 0x60];
-      if (ch != null && ch >= 0x41 && ch <= 0x5a) return [ch - 0x40];
-      return null;
-    }
-    final ch = _logicalToChar(k);
-    if (ch != null && ch >= 0x20) return [ch];
-    return null;
+  List<String> _sug() {
+    final p = _in.text.trim();
+    if (p.isEmpty) return _cmds.keys.take(8).toList();
+    return _cmds.keys.where((c) => c.startsWith(p)).take(10).toList();
   }
 
-  /// Extrae el carácter simple de una tecla lógica (sin mods de control).
-  int? _logicalToChar(LogicalKeyboardKey k) {
-    final kid = k.keyId;
-    final chr = kid >= 0x20 && kid <= 0x7e ? kid : null;
-    if (chr != null) return chr;
-    final label = k.keyLabel;
-    if (label.isNotEmpty && label.length == 1) {
-      final c = label.codeUnitAt(0);
-      if (c >= 0x20) return c;
-    }
-    return null;
+  Future<void> _loadHistory() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final j = p.getString('term_hist_${widget.sessionId}');
+      if (j != null) _hist.addAll((jsonDecode(j) as List).cast<String>());
+    } catch (_) {}
   }
 
-  List<String> _sug() { final p = _in.text.trim(); if (p.isEmpty) return _cmds.keys.take(8).toList(); return _cmds.keys.where((c) => c.startsWith(p)).take(10).toList(); }
+  Future<void> _saveHistory() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(
+        'term_hist_${widget.sessionId}',
+        jsonEncode(
+          _hist.length > 500 ? _hist.sublist(_hist.length - 500) : _hist,
+        ),
+      );
+    } catch (_) {}
+  }
 
-  Future<void> _loadHistory() async { try { final p = await SharedPreferences.getInstance(); final j = p.getString('term_hist_${widget.sessionId}'); if (j != null) _hist.addAll((jsonDecode(j) as List).cast<String>()); } catch (_) {} }
-  Future<void> _saveHistory() async { try { final p = await SharedPreferences.getInstance(); await p.setString('term_hist_${widget.sessionId}', jsonEncode(_hist.length > 500 ? _hist.sublist(_hist.length - 500) : _hist)); } catch (_) {} }
+  Color _c(Ln t, Color fg) => switch (t) {
+    Ln.prompt => fg.withValues(alpha: 0.9),
+    Ln.stdout => fg.withValues(alpha: 0.78),
+    Ln.stderr => const Color(0xFFFF5C6C),
+    Ln.success => fg,
+    Ln.info => fg.withValues(alpha: 0.65),
+    Ln.warn => const Color(0xFFFFA726),
+    Ln.system => fg.withValues(alpha: 0.55),
+    Ln.header => const Color(0xFF21F2B2),
+  };
 
-  Color _c(Ln t, Color fg) => switch (t) { Ln.prompt => fg.withValues(alpha: 0.9), Ln.stdout => fg.withValues(alpha: 0.78), Ln.stderr => const Color(0xFFFF6B6B), Ln.success => fg, Ln.info => fg.withValues(alpha: 0.65), Ln.warn => const Color(0xFFFFB74D), Ln.system => fg.withValues(alpha: 0.55), Ln.header => const Color(0xFF00E676) };
-
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final c = NanoThemeExtension.of(context).colors;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final chrome = dark ? const Color(0xFF0A0F1A) : const Color(0xFFE0E0EC);
-    final fg = c.terminalGreen; final sug = _sug();
-    return Stack(children: [
-      Column(children: [
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        color: _ptyActive ? const Color(0xFF0A3D0A) : const Color(0xFF3D2E00),
-        child: Text(
-          _ptyActive ? 'PTY: bash (rootfs real)' : 'OFFLINE (rootfs no instalado)',
-          style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 10, color: _ptyActive ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24)),
-        ),
-      ),
-      Expanded(
-        child: Stack(children: [
-          Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _ScanlinePainter(_ansi != null ? fg.withValues(alpha: 0.4) : fg)))),
-          if (_ansi != null)
-              GestureDetector(
-                onTap: () => _fn.requestFocus(),
-                onTapDown: _ansi?.mouseEnabled == true ? (d) {
-                  final m = AnsiMetrics.measure();
-                  final row = (d.localPosition.dy / m.cellH).floor();
-                  final col = (d.localPosition.dx / m.cellW).floor();
-                  _pty?.writeBytes([0x1b, 0x5b, 0x4d, 32, col + 33, row + 33]);
-                } : null,
-                child: ColoredBox(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: LayoutBuilder(
-                    builder: (context, cons) {
-                      _applyPtySize(cons.maxWidth, cons.maxHeight);
-                      return SelectionArea(
-                        child: AnsiTerminalView(_ansi!),
-                      );
-                    },
+    final chrome = dark ? const Color(0xFF07192B) : const Color(0xFFE0E0EC);
+    final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
+    final sug = _sug();
+    return Stack(
+      children: [
+        Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+              color: const Color(0xFF07192B),
+              child: Text(
+                _ptyActive
+                    ? 'PTY: bash (rootfs real)'
+                    : 'OFFLINE (rootfs no instalado)',
+                style: TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 10,
+                  color: _ptyActive
+                      ? const Color(0xFF21F2B2)
+                      : const Color(0xFFFFA726),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ScanlinePainter(
+                          _ansi != null ? fg.withValues(alpha: 0.4) : fg,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_ansi != null)
+                    GestureDetector(
+                      onTap: () => _fn.requestFocus(),
+                      onTapDown: _ansi?.mouseEnabled == true
+                          ? (d) {
+                              final m = AnsiMetrics.measure();
+                              final row = (d.localPosition.dy / m.cellH)
+                                  .floor();
+                              final col = (d.localPosition.dx / m.cellW)
+                                  .floor();
+                              _pty?.writeBytes([
+                                0x1b,
+                                0x5b,
+                                0x4d,
+                                32,
+                                col + 33,
+                                row + 33,
+                              ]);
+                            }
+                          : null,
+                      child: ColoredBox(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        child: LayoutBuilder(
+                          builder: (context, cons) {
+                            _applyPtySize(cons.maxWidth, cons.maxHeight);
+                            return SelectionArea(
+                              child: AnsiTerminalView(_ansi!),
+                            );
+                          },
+                        ),
+                      ),
+                    )
+                  else
+                    SelectionArea(
+                      child: InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 2.5,
+                        child: GestureDetector(
+                          onTap: () => _fn.requestFocus(),
+                          child: ListView.builder(
+                            controller: _sc,
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            itemCount: _lines.length,
+                            itemBuilder: (_, i) {
+                              final line = _lines[i];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 1.5),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 32,
+                                      child: Text(
+                                        '${i + 1}',
+                                        style: TextStyle(
+                                          fontFamily: 'JetBrainsMono',
+                                          fontSize: 10,
+                                          color: fg.withValues(alpha: 0.15),
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        line.text,
+                                        style: TextStyle(
+                                          fontFamily: 'JetBrainsMono',
+                                          fontSize: 12.5,
+                                          color: _c(line.type, fg),
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (_ptyActive)
+              TerminalModifierBar(
+                fg: fg,
+                chrome: chrome,
+                ctrlActive: _ctrl,
+                onToggleCtrl: () {
+                  setState(() {
+                    _ctrl = !_ctrl;
+                  });
+                },
+                onWriteBytes: (bytes) => _pty?.writeBytes(bytes),
+                onWrite: (text) => _pty?.write(text),
+                bracketedPasteEnabled:
+                    _ansi?.screen.bracketedPasteMode ?? false,
+              ),
+            if (sug.isNotEmpty && _in.text.isNotEmpty && _fn.hasFocus)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: chrome,
+                  border: Border(
+                    top: BorderSide(color: fg.withValues(alpha: 0.08)),
                   ),
                 ),
-              )
-          else
-            SelectionArea(
-            child: InteractiveViewer(
-              minScale: 0.8, maxScale: 2.5,
-              child: GestureDetector(
-                onTap: () => _fn.requestFocus(),
-                child: ListView.builder(
-                  controller: _sc,
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: _lines.length,
-                  itemBuilder: (_, i) {
-                    final line = _lines[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 1.5),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        SizedBox(width: 32, child: Text('${i + 1}', style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 10, color: fg.withValues(alpha: 0.15), height: 1.6))),
-                        Expanded(child: Text(line.text, style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12.5, color: _c(line.type, fg), height: 1.6))),
-                      ]),
-                    );
-                  },
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: sug
+                      .map(
+                        (s) => GestureDetector(
+                          onTap: () {
+                            _in.text = s;
+                            _in.selection = TextSelection.collapsed(
+                              offset: s.length,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: fg.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                color: fg.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Text(
+                              s,
+                              style: TextStyle(
+                                fontFamily: 'JetBrainsMono',
+                                fontSize: 11.5,
+                                color: fg.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
-            ),
-          ),
-        ]),
-      ),
-      if (_ptyActive)
-        TerminalModifierBar(
-          fg: fg,
-          chrome: chrome,
-          ctrlActive: _ctrl,
-          onToggleCtrl: () {
-            setState(() {
-              _ctrl = !_ctrl;
-            });
-          },
-          onWriteBytes: (bytes) => _pty?.writeBytes(bytes),
-          onWrite: (text) => _pty?.write(text),
-          bracketedPasteEnabled: _ansi?.screen.bracketedPasteMode ?? false,
-        ),
-      if (sug.isNotEmpty && _in.text.isNotEmpty && _fn.hasFocus)
-        Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: chrome, border: Border(top: BorderSide(color: fg.withValues(alpha: 0.08)))), child: Wrap(spacing: 6, runSpacing: 4, children: sug.map((s) => GestureDetector(
-          onTap: () { _in.text = s; _in.selection = TextSelection.collapsed(offset: s.length); },
-          child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: fg.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(5), border: Border.all(color: fg.withValues(alpha: 0.08))), child: Text(s, style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 11.5, color: fg.withValues(alpha: 0.7)))))).toList())),
-      Container(
-        decoration: BoxDecoration(color: chrome, border: Border(top: BorderSide(color: fg.withValues(alpha: 0.12)))),
-        padding: const EdgeInsets.fromLTRB(16, 12, 14, 14),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Text(_ps1, style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, fontWeight: FontWeight.w600, color: fg)),
-          Expanded(
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.arrowUp): () { if (_hIdx < _hist.length - 1) { _hIdx++; _in.text = _hist.reversed.toList()[_hIdx]; _in.selection = TextSelection.collapsed(offset: _in.text.length); } },
-                const SingleActivator(LogicalKeyboardKey.arrowDown): () { if (_hIdx > 0) { _hIdx--; _in.text = _hist.reversed.toList()[_hIdx]; } else { _hIdx = -1; _in.clear(); } },
-                const SingleActivator(LogicalKeyboardKey.tab): () { if (sug.isNotEmpty) { _in.text = sug.first; _in.selection = TextSelection.collapsed(offset: _in.text.length); } },
-              },
-              child: TextField(
-                controller: _in, focusNode: _fn, autofocus: true,
-                style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: fg, height: 1.5),
-                cursorColor: fg, cursorWidth: 2,
-                decoration: InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero, hintText: _ptyActive ? 'terminal interactivo — escribe directo (Ctrl+C salir)' : 'comando o "ai <pregunta>"...', hintStyle: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 13, color: fg.withValues(alpha: 0.18))),
-                onSubmitted: _exec,
-                onChanged: (v) {
-                  if (_ptyActive && v.isNotEmpty) {
-                    // Send raw bytes including printable chars. Control chars
-                    // (backspace 0x7F, etc.) are handled by _onKey/modifier row,
-                    // not the soft keyboard, so filtering >= 0x20 is correct.
-                    final bytes = utf8.encode(v);
-                    if (bytes.isNotEmpty) _pty!.writeBytes(bytes);
-                    // Clear without triggering another onChanged (avoid loop).
-                    _in.value = TextEditingValue.empty;
-                    return;
-                  }
-                  _hIdx = -1;
-                },
+            Container(
+              decoration: BoxDecoration(
+                color: chrome,
+                border: Border(
+                  top: BorderSide(color: fg.withValues(alpha: 0.12)),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 12, 14, 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    _ps1,
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: fg,
+                    ),
+                  ),
+                  Expanded(
+                    child: CallbackShortcuts(
+                      bindings: {
+                        const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+                          if (_hIdx < _hist.length - 1) {
+                            _hIdx++;
+                            _in.text = _hist.reversed.toList()[_hIdx];
+                            _in.selection = TextSelection.collapsed(
+                              offset: _in.text.length,
+                            );
+                          }
+                        },
+                        const SingleActivator(
+                          LogicalKeyboardKey.arrowDown,
+                        ): () {
+                          if (_hIdx > 0) {
+                            _hIdx--;
+                            _in.text = _hist.reversed.toList()[_hIdx];
+                          } else {
+                            _hIdx = -1;
+                            _in.clear();
+                          }
+                        },
+                        const SingleActivator(LogicalKeyboardKey.tab): () {
+                          if (sug.isNotEmpty) {
+                            _in.text = sug.first;
+                            _in.selection = TextSelection.collapsed(
+                              offset: _in.text.length,
+                            );
+                          }
+                        },
+                      },
+                      child: TextField(
+                        controller: _in,
+                        focusNode: _fn,
+                        autofocus: true,
+                        style: TextStyle(
+                          fontFamily: 'JetBrainsMono',
+                          fontSize: 13,
+                          color: fg,
+                          height: 1.5,
+                        ),
+                        cursorColor: fg,
+                        cursorWidth: 2,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          hintText: _ptyActive
+                              ? 'terminal interactivo — escribe directo (Ctrl+C salir)'
+                              : 'comando o "ai <pregunta>"...',
+                          hintStyle: TextStyle(
+                            fontFamily: 'JetBrainsMono',
+                            fontSize: 13,
+                            color: fg.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        onSubmitted: _exec,
+                        onChanged: (v) {
+                          if (_ptyActive && v.isNotEmpty) {
+                            // Send raw bytes including printable chars. Control chars
+                            // (backspace 0x7F, etc.) are handled by _onKey/modifier row,
+                            // not the soft keyboard, so filtering >= 0x20 is correct.
+                            final bytes = utf8.encode(v);
+                            if (bytes.isNotEmpty) _pty!.writeBytes(bytes);
+                            // Clear without triggering another onChanged (avoid loop).
+                            _in.value = TextEditingValue.empty;
+                            return;
+                          }
+                          _hIdx = -1;
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          ]),
+          ],
         ),
-      ]),
-      if (_fabInit)
-      Positioned(
-        left: _fabOffset.dx,
-        top: _fabOffset.dy,
-        child: GestureDetector(
-          onPanUpdate: (d) {
-            setState(() {
-              final sw = MediaQuery.of(context).size.width;
-              final sh = MediaQuery.of(context).size.height;
-              _fabOffset = Offset(
-                (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabSize),
-                (_fabOffset.dy + d.delta.dy).clamp(40.0, sh - _fabSize - 100),
-              );
-            });
-          },
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: _fabInit ? 0.55 : 0.0,
-            child: Material(
-              color: chrome,
-              borderRadius: BorderRadius.circular(12),
-              elevation: 4,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => NoarPanel(
-                      library: _noarLib,
-                      fg: fg,
-                      dark: dark,
+        if (_fabInit)
+          Positioned(
+            left: _fabOffset.dx,
+            top: _fabOffset.dy,
+            child: GestureDetector(
+              onPanUpdate: (d) {
+                setState(() {
+                  final sw = MediaQuery.of(context).size.width;
+                  final sh = MediaQuery.of(context).size.height;
+                  _fabOffset = Offset(
+                    (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabSize),
+                    (_fabOffset.dy + d.delta.dy).clamp(
+                      40.0,
+                      sh - _fabSize - 100,
                     ),
                   );
-                },
-                child: Container(
-                  width: _fabSize,
-                  height: _fabSize,
-                  decoration: BoxDecoration(
+                });
+              },
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _fabInit ? 0.55 : 0.0,
+                child: Material(
+                  color: chrome,
+                  borderRadius: BorderRadius.circular(12),
+                  elevation: 4,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: fg.withValues(alpha: 0.18)),
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) =>
+                            NoarPanel(library: _noarLib, fg: fg, dark: dark),
+                      );
+                    },
+                    child: Container(
+                      width: _fabSize,
+                      height: _fabSize,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: fg.withValues(alpha: 0.18)),
+                      ),
+                      child: Icon(Icons.menu_book_rounded, color: fg, size: 20),
+                    ),
                   ),
-                  child: Icon(Icons.menu_book_rounded, color: fg, size: 20),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 }
+
 /// Subtle scanline effect for retro terminal feel
 class _ScanlinePainter extends CustomPainter {
   final Color color;
   _ScanlinePainter(this.color);
-  @override void paint(Canvas canvas, Size size) {
+  @override
+  void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color.withValues(alpha: 0.015);
-    for (double y = 0; y < size.height; y += 3) { canvas.drawLine(Offset(0, y), Offset(size.width, y), paint); }
+    for (double y = 0; y < size.height; y += 3) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
   }
-  @override bool shouldRepaint(covariant CustomPainter old) => false;
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }
-
-
-

@@ -73,6 +73,13 @@ class DesktopController(
                         }
                     }
                 },
+                // Liveness de Xvnc delegado al worker: el proceso principal
+                // no puede leer /proc de los hijos del worker. Fail-closed:
+                // sin worker el arranque aborta con error honesto en vez de
+                // matar un Xvnc vivo con SIGKILL propio.
+                isPidAlive = { pid ->
+                    workerClientProvider()?.isPidAlive(pid.toInt()) ?: false
+                },
             )
             activeSession = session
         }
@@ -116,8 +123,9 @@ class DesktopController(
 
     /**
      * Lanza una app gráfica del escritorio (allowlist estricta en
-     * DesktopSessionManager: aterm/pcmanfm/mousepad/feh). Retorna false si
-     * el desktop no está corriendo o el binario no existe.
+     * DesktopSessionManager: lxterminal/pcmanfm/mousepad/xpdf/file-roller/
+     * feh). Retorna false si el desktop no está corriendo o el binario no
+     * existe.
      */
     fun launchApp(app: String): Boolean {
         val session = synchronized(lock) { activeSession }
@@ -173,6 +181,17 @@ class DesktopController(
                 // installGraphical corre y lo instala (devices existentes
                 // también lo reciben, no solo installs limpios).
                 File(usrDir, "libexec/gvfsd-trash").exists()
+            ),
+            // Estado instalado por app del panel (appId → binario ELF en
+            // disco). Verdad por existencia real, no por dpkg status: el
+            // status se pierde en extracciones parciales (evidencia device).
+            "apps" to mapOf(
+                "lxterminal" to File(usrDir, "bin/lxterminal").exists(),
+                "pcmanfm" to File(usrDir, "bin/pcmanfm").exists(),
+                "mousepad" to File(usrDir, "bin/mousepad").exists(),
+                "xpdf" to File(usrDir, "bin/xpdf").exists(),
+                "file-roller" to File(usrDir, "bin/file-roller").exists(),
+                "feh" to File(usrDir, "bin/feh").exists(),
             ),
             "stage"     to (session?.currentStage ?: "idle"),
             "lastError" to session?.currentError,

@@ -17,6 +17,10 @@ class DesktopSessionManager(
     private val usrDir: File,
     private val vncPassword: String = "",
     private val spawnBg: (binaryPath: String, argv: List<String>, envp: Map<String, String>) -> Long,
+    // Liveness de Xvnc delegado al worker (padre del proceso). El proceso
+    // principal no puede leer /proc de los hijos del worker: isAlive() local
+    // devolvía false siempre y mataba a un Xvnc vivo con SIGKILL propio.
+    private val isPidAlive: (Long) -> Boolean = { false },
 ) {
     companion object {
         private const val TAG = "desktop-session"
@@ -26,7 +30,6 @@ class DesktopSessionManager(
 
     @Volatile private var openboxPid: Long = -1
     @Volatile private var terminalPid: Long = -1
-    @Volatile private var tint2Pid: Long   = -1
     @Volatile private var fehPid: Long     = -1
     @Volatile private var dbusPid: Long   = -1
     @Volatile private var running = false
@@ -57,7 +60,7 @@ class DesktopSessionManager(
     // pueda reiniciar todo limpiamente.
     private var watchdogThread: Thread? = null
 
-    private val backend: XServerBackend = InternalXvncBackend(usrDir, spawnBg, vncPassword)
+    private val backend: XServerBackend = InternalXvncBackend(usrDir, spawnBg, vncPassword, isPidAlive)
 
     // ── Entorno base ─────────────────────────────────────────────────────────
 
@@ -140,7 +143,7 @@ class DesktopSessionManager(
         stopRequested = true
         // Si no hay nada corriendo ni arrancando, no hay nada que detener.
         // Pero si starting==true, debemos esperar/abortar — no retornar temprano.
-        if (!running && !starting && openboxPid <= 0 && tint2Pid <= 0 && terminalPid <= 0) {
+        if (!running && !starting && openboxPid <= 0 && terminalPid <= 0) {
             // U-10: nada que detener — pero el usuario pidió apagar: ack
             // implícito del kill anterior (el aviso de restauración se limpia).
             usrDir.parentFile?.let { RuntimeHeartbeat.markCleanShutdown(it) }
@@ -169,27 +172,44 @@ class DesktopSessionManager(
      * (mismo display, LD_PRELOAD, GTK env). Allowlist estricta — nunca ejecuta
      * binarios arbitrarios desde la capa Dart.
      */
+    /**
+     * Resuelve appId → (binario, argv) con allowlist estricta. Nunca ejecuta
+     * binarios arbitrarios desde la capa Dart. Null si el appId no está en
+     * la allowlist (lanzamiento e instalación comparten este lookup).
+     */
+    private fun appBinary(app: String): Pair<File, List<String>>? = when (app) {
+        // U-9: aterm del rootfs NO linkea libXft (0 maps fontconfig/freetype
+        // en /proc/<pid>/maps, verificado device) — el -fn "xft:..." se
+        // ignoraba y aterm caía a "fixed", que no existía porque Xvnc
+        // arrancaba sin -fp. Ahora -fp carga misc+75dpi del rootfs y
+        // "fixed" (6x13) rinde ~144 columnas en el framebuffer 864px.
+        // El appId real es 'lxterminal' (binario lxterminal); 'aterm' fue
+        // el nombre histórico del tile del panel y confundía instalación.
+        "lxterminal" -> File(usrDir, "bin/lxterminal") to listOf(
+            "lxterminal", "-e", "sh", "-c", "exec bash -i",
+        )
+        "pcmanfm"  -> File(usrDir, "bin/pcmanfm") to listOf("pcmanfm")
+        "mousepad" -> File(usrDir, "bin/mousepad") to listOf("mousepad")
+        "xpdf"     -> File(usrDir, "bin/xpdf") to listOf("xpdf")
+        "file-roller" -> File(usrDir, "bin/file-roller") to listOf("file-roller")
+        "feh"      -> File(usrDir, "bin/feh") to listOf("feh")
+        else -> null
+    }
+
+    /** ¿El binario de la app existe y es ELF? Estado real de instalación. */
+    fun isAppInstalled(app: String): Boolean {
+        val (binary, _) = appBinary(app) ?: return false
+        return isElf(binary)
+    }
+
     fun launchApp(app: String): Boolean {
         if (!running || lastWmEnv.isEmpty()) {
             Log.w(TAG, "launchApp($app): desktop no corriendo o env no listo")
             return false
         }
-        val (binary, argv) = when (app) {
-            // U-9: aterm del rootfs NO linkea libXft (0 maps fontconfig/freetype
-            // en /proc/<pid>/maps, verificado device) — el -fn "xft:..." se
-            // ignoraba y aterm caía a "fixed", que no existía porque Xvnc
-            // arrancaba sin -fp. Ahora -fp carga misc+75dpi del rootfs y
-            // "fixed" (6x13) rinde ~144 columnas en el framebuffer 864px.
-            "aterm"    -> File(usrDir, "bin/lxterminal") to listOf(
-                "lxterminal", "-e", "sh", "-c", "exec bash -i",
-            )
-            "pcmanfm"  -> File(usrDir, "bin/pcmanfm") to listOf("pcmanfm")
-            "mousepad" -> File(usrDir, "bin/mousepad") to listOf("mousepad")
-            "feh"      -> File(usrDir, "bin/feh") to listOf("feh")
-            else -> {
-                Log.w(TAG, "launchApp: app fuera de allowlist: $app")
-                return false
-            }
+        val (binary, argv) = appBinary(app) ?: run {
+            Log.w(TAG, "launchApp: app fuera de allowlist: $app")
+            return false
         }
         if (!isElf(binary)) {
             Log.w(TAG, "launchApp: $app no existe o no es ELF")
@@ -246,7 +266,7 @@ class DesktopSessionManager(
         ensureTmpLink(tmpDir)
 
         // El entorno (PREFIX/HOME/LD_LIBRARY_PATH/XDG_CONFIG_HOME...) se calcula
-        // ANTES de arrancar el backend: Xvnc lo necesita tanto como openbox/tint2
+        // ANTES de arrancar el backend: Xvnc lo necesita tanto como openbox
         // para resolver sus libs y las reglas XKB (share/X11/xkb/rules/evdev).
         // Pasarle emptyMap() a Xvnc lo hace abortar en silencio antes de abrir
         // el puerto RFB.
@@ -299,7 +319,6 @@ class DesktopSessionManager(
         stage = "wm"
         if (abortIfStopped("before-wm", onError)) return
 
-        setupTint2Config()
         setupOpenboxMenu()
         setupOpenboxRc()
         setupWallpaper()
@@ -309,7 +328,7 @@ class DesktopSessionManager(
         // U-1: session bus de D-Bus — gvfs (papelera trash:// de pcmanfm) y
         // los daemons gvfsd lo necesitan. Socket UNIX en el tmp del rootfs
         // (nanoroot redirige /tmp a files/nano/tmp); el address se exporta en
-        // wmEnv para que TODOS los hijos (openbox/tint2/feh/aterm/pcmanfm)
+        // wmEnv para que TODOS los hijos (openbox/feh/aterm/pcmanfm)
         // compartan el mismo bus. Sin bus, pcmanfm borra archivos sin
         // papelera (delete directo) — evidencia: bin/dbus-launch instalado
         // pero NADIE lo lanzaba (grep en todo el repo, solo 2 menciones).
@@ -347,16 +366,6 @@ class DesktopSessionManager(
 
         Thread.sleep(800)
         if (abortIfStopped("after-openbox-wait", onError)) return
-
-        // Lanzar tint2
-        val tint2Bin = File(usrDir, "bin/tint2")
-        if (tint2Bin.exists()) {
-            tint2Bin.setExecutable(true, false)
-            tint2Pid = spawnBg(tint2Bin.absolutePath, listOf("tint2"), wmEnv)
-            Log.i(TAG, "tint2 PID=$tint2Pid")
-            onStatus("tint2 arrancado (PID=$tint2Pid)")
-            if (abortIfStopped("after-tint2-spawn", onError)) return
-        }
 
         // Wallpaper: sin fondo el root de X es ruido de píxeles heredado;
         // feh aplica el pixmap propio sin depender de xsetroot (no instalado).
@@ -472,15 +481,13 @@ class DesktopSessionManager(
         // banner vuelve a aparecer si la terminal muere.
         val hud = "python3 ${File(usrDir.parentFile, "home/.hud.py").absolutePath}"
         val shellCmd = "$hud; exec bash -i"
+        // Trim 2026-08-14: fuera el fallback aterm — ya no se instala
+        // (DESKTOP_PACKAGES) y el escritorio lo eliminó de la allowlist.
         val candidates = listOf(
             TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal", "-e", "sh", "-c", shellCmd)),
             TerminalLaunch(
                 File(usrDir, "bin/xterm"),
                 listOf("xterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
-            ),
-            TerminalLaunch(
-                File(usrDir, "bin/aterm"),
-                listOf("aterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
             ),
         )
         return candidates.firstOrNull { isElf(it.file) }
@@ -499,7 +506,6 @@ class DesktopSessionManager(
     private fun cleanupProcesses() {
         stopWatchdog()
         killPid(terminalPid); terminalPid = -1
-        killPid(tint2Pid);   tint2Pid   = -1
         killPid(openboxPid); openboxPid = -1
         killPid(fehPid);     fehPid     = -1
         killPid(dbusPid);    dbusPid    = -1
@@ -569,8 +575,6 @@ class DesktopSessionManager(
         }
     }
 
-    // ── Configuración tint2 ───────────────────────────────────────────────────
-
     // ── Watchdog de proceso ─────────────────────────────────────────────────
 
     private fun startWatchdog() {
@@ -599,7 +603,7 @@ class DesktopSessionManager(
                             Log.i(TAG, "Watchdog: terminal re-lanzado PID=$terminalPid")
                         }
                     }
-                    // openbox/tint2/feh antes quedaban sin vigilancia: "ready"
+                    // openbox/feh antes quedaban sin vigilancia: "ready"
                     // con WM muerto = ventanas sin decorar; feh muerto = fondo
                     // de ruido de píxeles sin restauración. Mismo patrón que
                     // el terminal: re-lanzar solo el proceso caído.
@@ -612,17 +616,6 @@ class DesktopSessionManager(
                             ob.setExecutable(true, false)
                             openboxPid = spawnBg(ob.absolutePath, listOf("openbox"), lastWmEnv)
                             Log.i(TAG, "Watchdog: openbox re-lanzado PID=$openboxPid")
-                        }
-                    }
-                    val tiPid = tint2Pid
-                    if (tiPid > 0 && !File("/proc/$tiPid").exists()) {
-                        Log.w(TAG, "Watchdog: tint2 PID=$tiPid muerto — re-lanzando")
-                        tint2Pid = -1
-                        val ti = File(usrDir, "bin/tint2")
-                        if (ti.exists() && lastWmEnv.isNotEmpty()) {
-                            ti.setExecutable(true, false)
-                            tint2Pid = spawnBg(ti.absolutePath, listOf("tint2"), lastWmEnv)
-                            Log.i(TAG, "Watchdog: tint2 re-lanzado PID=$tint2Pid")
                         }
                     }
                     // feh --bg-scale es one-shot: aplica el fondo y SALE
@@ -654,133 +647,6 @@ class DesktopSessionManager(
     private fun stopWatchdog() {
         watchdogThread?.interrupt()
         watchdogThread = null
-    }
-
-    private fun setupTint2Config() {
-        try {
-            // BUG tint2 (2026-08-12): se escribía a usr/etc/xdg/tint2 pero tint2
-            // lee $HOME/.config/tint2/tint2rc (XDG_CONFIG_HOME=home/.config) →
-            // "could not find a config file" y tint2 creaba un default propio.
-            // Además el config viejo usaba opciones que ESTE tint2 de Termux no
-            // soporta: panel_color/clock_enabled/clock_format/clock_font/clock_color
-            // → "invalid option" x5 → "panel items: (null)" → tint2 exit.
-            // Opciones correctas (tint2 17.x): reloj = time1_format/time1_font/
-            // clock_font_color; fondo del panel = panel_background_id + bloque
-            // background (background_color/rounded/border_width).
-            val homeDir   = File(usrDir.parentFile, "home")
-            val configDir = File(homeDir, ".config/tint2").also { it.mkdirs() }
-            val tint2Rc   = File(configDir, "tint2rc")
-            val appsDir = File(homeDir, ".local/share/applications").also { it.mkdirs() }
-
-            // Crear .desktop files para los launchers del panel (Terminal, Archivos, Editor, Imágenes)
-            File(appsDir, "lxterminal.desktop").writeText("""
-                [Desktop Entry]
-                Name=Terminal
-                Exec=lxterminal -e sh -c "exec bash -i"
-                Icon=utilities-terminal
-                Type=Application
-            """.trimIndent())
-
-            File(appsDir, "aterm.desktop").writeText("""
-                [Desktop Entry]
-                Name=Terminal (fallback)
-                Exec=lxterminal -e sh -c "exec bash -i"
-                Icon=utilities-terminal
-                Type=Application
-            """.trimIndent())
-
-            File(appsDir, "pcmanfm.desktop").writeText("""
-                [Desktop Entry]
-                Name=Archivos
-                Exec=pcmanfm
-                Icon=system-file-manager
-                Type=Application
-            """.trimIndent())
-
-            File(appsDir, "mousepad.desktop").writeText("""
-                [Desktop Entry]
-                Name=Editor
-                Exec=mousepad
-                Icon=accessories-text-editor
-                Type=Application
-            """.trimIndent())
-
-            File(appsDir, "feh.desktop").writeText("""
-                [Desktop Entry]
-                Name=Imágenes
-                Exec=feh
-                Icon=image-x-generic
-                Type=Application
-            """.trimIndent())
-
-            // Monitor del sistema: re-ejecuta el HUD (banner nano-sec) en su
-            // propia terminal. Ruta absoluta: tint2 hace execvp sin shell, no
-            // expande "~".
-            val hudPy = File(homeDir, ".hud.py").absolutePath
-            File(appsDir, "nano-info.desktop").writeText("""
-                [Desktop Entry]
-                Name=Monitor
-                Exec=lxterminal -e sh -c "python3 $hudPy; exec bash -i"
-                Icon=utilities-system-monitor
-                Type=Application
-            """.trimIndent())
-
-            // Panel NanoAI (identidad nanoai, sintaxis tint2 17.x):
-            // superior flotante, azul noche translúcido #07192B, borde cyan
-            // #42D9FF, esquinas redondeadas, reloj blanco y tarea activa en
-            // verde #21F2B2. Se reescribe siempre para que los cambios de UX
-            // sobrevivan a booteos previos.
-            tint2Rc.writeText("""
-                panel_items = LTSC
-                panel_position = top center horizontal
-                panel_size = 96% 46
-                panel_margin = 0 8
-                panel_background_id = 1
-                panel_dock = 0
-                font_shadow = 0
-                wm_menu = 1
-
-                # Launchers
-                launcher_padding = 4 4 4
-                launcher_background_id = 0
-                launcher_icon_background_id = 0
-                launcher_icon_size = 24
-                launcher_icon_asb = 100 0 0
-                launcher_icon_theme_override = 0
-                startup_notifications = 1
-                launcher_tooltip = 1
-                launcher_item_app = ~/.local/share/applications/nano-info.desktop
-                launcher_item_app = ~/.local/share/applications/lxterminal.desktop
-                launcher_item_app = ~/.local/share/applications/pcmanfm.desktop
-                launcher_item_app = ~/.local/share/applications/mousepad.desktop
-                launcher_item_app = ~/.local/share/applications/feh.desktop
-
-                taskbar_mode = single_desktop
-                task_text = 1
-                task_maximum_size = 280 44
-                task_font = DejaVu Sans 12
-                task_font_color = #e2e8f0 100
-                task_active_font_color = #21F2B2 100
-                task_background_id = 1
-                task_active_background_id = 1
-
-                systray = 1
-                systray_background_id = 1
-
-                time1_format = %H:%M
-                time1_font = DejaVu Sans 13
-                clock_font_color = #ffffff 100
-                clock_tooltip = 1
-
-                # Background 1: panel flotante NanoAI translúcido
-                rounded = 12
-                border_width = 1
-                background_color = #07192B 88
-                border_color = #42D9FF 55
-            """.trimIndent())
-        } catch (e: Exception) {
-            Log.w(TAG, "setupTint2Config: ${e.message}")
-        }
     }
 
     // Menú de openbox (clic derecho en el escritorio) con las apps gráficas

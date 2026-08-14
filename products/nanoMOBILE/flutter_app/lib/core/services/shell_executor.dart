@@ -16,17 +16,17 @@ import '../../features/terminal/i_bin_executor.dart';
 ///
 /// Dos fases:
 ///   Fase 1 (pre-bootstrap): extrae bash + toybox de assets/bin/ como bootstrap
-///     loader mÃ­nimo. Permite comandos bÃ¡sicos mientras se descarga el rootfs.
+///     loader mínimo. Permite comandos básicos mientras se descarga el rootfs.
 ///   Fase 2 (post-bootstrap): usa el rootfs Termux completo en
 ///     files/nano/usr/ con bash real, coreutils, apt, dpkg, etc.
 ///
-/// La transiciÃ³n es automÃ¡tica: si RootfsManager.isInstalled == true,
+/// La transición es automática: si RootfsManager.isInstalled == true,
 /// los paths de binarios apuntan a files/nano/usr/bin/. Si no, a files/nano/.
 ///
 /// DIFERENCIA CLAVE vs Termux: no usamos PTY (requiere JNI + forkpty).
 /// En su lugar usamos Process.start con stdout/stderr pipeados. Esto
 /// significa que los programas interactivos (vim, htop, python REPL)
-/// no funcionarÃ¡n â€” pero todo lo demÃ¡s (compiladores, curl, git, pip,
+/// no funcionarán — pero todo lo demás (compiladores, curl, git, pip,
 /// compilaciones largas) emite output en tiempo real.
 class ShellExecutor implements IBinExecutor {
   final RootfsManager _rootfs;
@@ -66,7 +66,7 @@ class ShellExecutor implements IBinExecutor {
     try {
       _baseDir = await NanoRuntimeApi.instance.getFilesDir();
     } catch (_) {
-      // Fallback: sin channel (tests, desktop). Nanoshell aÃºn puede funcionar
+      // Fallback: sin channel (tests, desktop). Nanoshell aún puede funcionar
       // si conocemos el path del app sandbox.
       _baseDir = '/data/data/dev.nanoai.mobile/files/nano';
     }
@@ -75,7 +75,7 @@ class ShellExecutor implements IBinExecutor {
     }
     _assetBinDir = _baseDir;
 
-    // 2. NanoShell: cargar libnanoshell.so para ejecuciÃ³n real vÃ­a BusyBox.
+    // 2. NanoShell: cargar libnanoshell.so para ejecución real vía BusyBox.
     //    Esto NO requiere assets, channels, ni symlinks.
     try {
       Nanoshell.instance.load();
@@ -90,7 +90,7 @@ class ShellExecutor implements IBinExecutor {
     }
 
     // 3. (Opcional) Extraer assets + symlinks para dispositivos sin Nanoshell.
-    //    Si falla, no bloquea â€” Nanoshell ya cubre la ejecuciÃ³n real.
+    //    Si falla, no bloquea — Nanoshell ya cubre la ejecución real.
     try {
       await _extractAsset('assets/bin/bash', '$_assetBinDir/bash');
       await _extractAsset('assets/bin/toybox', '$_assetBinDir/toybox');
@@ -112,7 +112,7 @@ class ShellExecutor implements IBinExecutor {
     _initialized = true;
   }
 
-  /// Crea symlinks para los applets mÃ¡s comunes de BusyBox en el dir base.
+  /// Crea symlinks para los applets más comunes de BusyBox en el dir base.
   /// BusyBox es un multi-call binary: necesita ser invocado con argv[0] igual
   /// al nombre del applet. Usamos dart:io Link.create() (syscall nativo, sin
   /// proceso) porque Process.run() tiene Permission denied en Android/SELinux.
@@ -194,7 +194,7 @@ class ShellExecutor implements IBinExecutor {
         }
       } catch (_) {
         // Symlink no soportado (ej. FAT32, exFAT). Los comandos
-        // usarÃ¡n exec -a via bash como fallback.
+        // usarán exec -a via bash como fallback.
       }
     }
   }
@@ -206,27 +206,27 @@ class ShellExecutor implements IBinExecutor {
       final data = await rootBundle.load(assetPath);
       await dest.writeAsBytes(data.buffer.asUint8List());
     } catch (e) {
-      // Log para diagnÃ³stico: asset no encontrado en pubspec.yaml, build
+      // Log para diagnóstico: asset no encontrado en pubspec.yaml, build
       // incorrecto, o path mal escrito.
       debugPrint('[shell_executor] ERROR extrayendo asset $assetPath: $e');
       rethrow;
     }
   }
 
-  // â”€â”€ API pÃºblica â”€â”€
+  // â”€â”€ API pública â”€â”€
 
-  /// Entry-point real para ejecuciÃ³n de procesos.
+  /// Entry-point real para ejecución de procesos.
   /// Android SELinux bloquea execve() desde el app data dir. Usamos
   /// /system/bin/sh como launcher (trusted path) que luego carga nuestros
-  /// binarios vÃ­a PATH o exec -a.
+  /// binarios vía PATH o exec -a.
   static const _shPath = '/system/bin/sh';
 
   /// Ejecuta un binario y emite su salida en tiempo real mediante [onOut]
   /// y [onErr]. Retorna el exitCode cuando el proceso termina.
   ///
-  /// [onOut] recibe cada lÃ­nea de stdout (sin el \n final).
-  /// [onErr] recibe cada lÃ­nea de stderr.
-  /// [onDone] recibe el exitCode (0 = Ã©xito).
+  /// [onOut] recibe cada línea de stdout (sin el \n final).
+  /// [onErr] recibe cada línea de stderr.
+  /// [onDone] recibe el exitCode (0 = éxito).
   ///
   /// Si el proceso no se completa en [timeout] segundos, se mata.
   @override
@@ -317,7 +317,7 @@ class ShellExecutor implements IBinExecutor {
         }
       } catch (_) {}
       onErr?.call('exec bloqueado: $e');
-      return -126; // cÃ³digo distinto de 127 (command not found) para que el
+      return -126; // código distinto de 127 (command not found) para que el
       // caller pueda distinguir "error interno" de "fallo real"
     }
   }
@@ -337,7 +337,7 @@ class ShellExecutor implements IBinExecutor {
     return true;
   }
 
-  /// Conveniencia: ejecuta y junta toda la salida. Para comandos rÃ¡pidos.
+  /// Conveniencia: ejecuta y junta toda la salida. Para comandos rápidos.
   Future<ShellResult> exec(
     String command,
     List<String> args, {
@@ -361,10 +361,10 @@ class ShellExecutor implements IBinExecutor {
     );
   }
 
-  /// Ejecuta comando vÃ­a /system/bin/sh -c con streaming de salida en tiempo real.
+  /// Ejecuta comando vía /system/bin/sh -c con streaming de salida en tiempo real.
   /// Usa /system/bin/sh como entry point porque SELinux bloquea execve() desde
   /// el app data dir en Android 10+ (error=13 Permission denied).
-  /// /system/bin/sh estÃ¡ en trusted path y puede ejecutar nuestros binarios.
+  /// /system/bin/sh está en trusted path y puede ejecutar nuestros binarios.
   /// [timeout] por defecto 120s.
   Future<int> bashStream(
     String cmd, {
@@ -388,7 +388,7 @@ class ShellExecutor implements IBinExecutor {
     );
   }
 
-  /// Ejecuta comando vÃ­a bash -c (sin streaming, captura completa).
+  /// Ejecuta comando vía bash -c (sin streaming, captura completa).
   @override
   Future<ShellResult> bash(
     String cmd, {
@@ -414,7 +414,7 @@ class ShellExecutor implements IBinExecutor {
   /// Ejecuta un applet de BusyBox REAL via Nanoshell FFI.
   ///
   /// Nanoshell hace fork() + dlopen(libbusybox.so) + busybox_main().
-  /// No usa execve() â†’ elude SELinux en OPPO/ColorOS.
+  /// No usa execve() → elude SELinux en OPPO/ColorOS.
   /// Salida completamente real, capturada de pipes stdout/stderr.
   ///
   /// Fallback: si libnanoshell.so no se carga (dispositivo sin NDK-built apk),
@@ -436,7 +436,7 @@ class ShellExecutor implements IBinExecutor {
     return _execBusyBox(args, env: env);
   }
 
-  /// Entorno mÃ­nimo para comandos BusyBox via Nanoshell.
+  /// Entorno mínimo para comandos BusyBox via Nanoshell.
   /// Sin PATH ni HOME, busybox_main no encuentra sus applets ni archivos.
   Map<String, String> get _defaultEnv {
     final base = _baseDir ?? '/data/data/dev.nanoai.mobile/files/nano';
@@ -451,10 +451,10 @@ class ShellExecutor implements IBinExecutor {
     };
   }
 
-  /// Ejecuta un comando real vÃ­a BusyBox (Nanoshell FFI), con fallback a bash.
+  /// Ejecuta un comando real vía BusyBox (Nanoshell FFI), con fallback a bash.
   ///
   /// A-28: spawnBusyBox hace fork + waitpid del hijo COMPLETO de forma
-  /// sÃ­ncrona. Correrlo en el UI isolate congelaba la app mientras el
+  /// síncrona. Correrlo en el UI isolate congelaba la app mientras el
   /// comando vive (tar grande, sleep). Isolate dedicado: el waitpid
   /// bloquea el isolate, no la UI. Cada isolate abre su propio handle de
   /// libnanoshell.so (los DL handles no cruzan isolates; el linker lo
@@ -483,7 +483,7 @@ class ShellExecutor implements IBinExecutor {
           stdout: r.stdout,
           stderr: r.stderr,
           exitCode: r.exitCode,
-          // lastError es estado del isolate donde corriÃ³ el spawn — hay que
+          // lastError es estado del isolate donde corrió el spawn — hay que
           // sacarlo ANTES de que Isolate.run lo destruya.
           error: r.exitCode == -1 ? ns.lastError : '',
         );
@@ -493,7 +493,7 @@ class ShellExecutor implements IBinExecutor {
         return _execBusyBoxFallback(args, env: env);
       }
       if (result.exitCode == -1) {
-        // Error interno de nanoshell (fork/pipe/dlopen fallÃ³).
+        // Error interno de nanoshell (fork/pipe/dlopen falló).
         // Intentar fallback si es problema de dlopen.
         if (result.error.contains('dlopen')) {
           // libbusybox.so o sus deps no encontradas en jniLibs.
@@ -516,7 +516,7 @@ class ShellExecutor implements IBinExecutor {
     }
   }
 
-  /// Fallback: ejecuciÃ³n vÃ­a bash/sh (Process.start). Solo funciona en
+  /// Fallback: ejecución vía bash/sh (Process.start). Solo funciona en
   /// dispositivos con SELinux permisivo (no OPPO/ColorOS).
   Future<ShellResult> _execBusyBoxFallback(
     List<String> args, {
@@ -527,7 +527,7 @@ class ShellExecutor implements IBinExecutor {
     return bash(cmd, env: env);
   }
 
-  /// Verifica si BusyBox real estÃ¡ disponible vÃ­a Nanoshell.
+  /// Verifica si BusyBox real está disponible vía Nanoshell.
   bool get busyboxRealAvailable {
     try {
       if (!Nanoshell.instance.isLoaded) Nanoshell.instance.load();
@@ -538,8 +538,8 @@ class ShellExecutor implements IBinExecutor {
     }
   }
 
-  /// Ejecuta un binario genÃ©rico del rootfs vÃ­a nanoshell_spawn_generic.
-  /// Ãštil para git, curl, python, dpkg y cualquier PIE del rootfs Termux.
+  /// Ejecuta un binario genérico del rootfs vía nanoshell_spawn_generic.
+  /// Útil para git, curl, python, dpkg y cualquier PIE del rootfs Termux.
   ///
   /// [binaryPath] debe ser path absoluto al binario (ej. /data/.../usr/bin/curl).
   /// [ldPreload] opcional: si se pasa "libnanoroot.so", activa fakechroot.
@@ -552,9 +552,9 @@ class ShellExecutor implements IBinExecutor {
   }) async {
     try {
       // Construir env con NANO_ROOTFS y LD_LIBRARY_PATH si se usa ldPreload.
-      // Sin esto, libnanoroot.so se carga pero no sabe dÃ³nde estÃ¡ el rootfs.
-      // OJO: nanoroot.c mapea /usr/X â†’ {NANO_ROOTFS}/X, asÃ­ que NANO_ROOTFS
-      // DEBE ser .../files/nano/usr (NO el baseDir). /etc â†’ {parent}/etc.
+      // Sin esto, libnanoroot.so se carga pero no sabe dónde está el rootfs.
+      // OJO: nanoroot.c mapea /usr/X → {NANO_ROOTFS}/X, así que NANO_ROOTFS
+      // DEBE ser .../files/nano/usr (NO el baseDir). /etc → {parent}/etc.
       final effectiveEnv = Map<String, String>.from(env ?? _defaultEnv);
       if (ldPreload != null && ldPreload.isNotEmpty) {
         effectiveEnv['LD_PRELOAD'] = ldPreload;
@@ -567,10 +567,10 @@ class ShellExecutor implements IBinExecutor {
         }
       }
 
-      // A-28: spawnGeneric = fork + waitpid completo, sÃ­ncrono. Isolate
+      // A-28: spawnGeneric = fork + waitpid completo, síncrono. Isolate
       // aparte (mismo motivo que _execBusyBox). El allowlist no cruza
-      // isolates (estÃ¡tico por isolate) — se carga afuera y se siembra
-      // dentro con seedAllowed; sin seed, fail-closed rechazarÃ­a todo.
+      // isolates (estático por isolate) — se carga afuera y se siembra
+      // dentro con seedAllowed; sin seed, fail-closed rechazaría todo.
       final allowed = await AllowedBinaries.load();
       final result = await Isolate.run(() {
         final ns = Nanoshell.instance;
@@ -604,7 +604,7 @@ class ShellExecutor implements IBinExecutor {
   /// activa (SIGSEGV del driver Mali al ejecutar apt/binarios pesados).
   /// El worker (`:nanoshell` process) no tiene GPU: fork seguro.
   ///
-  /// Devuelve null si el worker no estÃ¡ disponible (se usa el in-process).
+  /// Devuelve null si el worker no está disponible (se usa el in-process).
   @override
   Future<ShellResult?> execRootfsWorker(
     String binaryPath,
@@ -666,7 +666,7 @@ class ShellExecutor implements IBinExecutor {
       } catch (_) {}
       return ShellResult(stdout: out, stderr: err, exitCode: rc);
     } catch (e) {
-      return null; // worker no disponible â†’ usar in-process
+      return null; // worker no disponible → usar in-process
     }
   }
 
@@ -694,7 +694,7 @@ class ShellExecutor implements IBinExecutor {
 
   // â”€â”€ Entorno Linux completo (compatible con Termux) â”€â”€
 
-  /// Variables de entorno que emulan el entorno Termux estÃ¡ndar.
+  /// Variables de entorno que emulan el entorno Termux estándar.
   /// Los paquetes .deb de Termux esperan estas variables para funcionar.
   Map<String, String> _linuxEnv() => RootfsEnv.build(
     usr: _rootfs.usrDir!,

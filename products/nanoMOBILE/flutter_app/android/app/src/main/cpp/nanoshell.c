@@ -1,12 +1,12 @@
 /*
- * nanoshell.c â€” In-process binary execution for NanoAI.
+ * nanoshell.c — In-process binary execution for NanoAI.
  *
  * Problem: SELinux on OPPO/ColorOS blocks execve() from app data dirs.
  * Solution: fork() + dlopen() + call main() in child. No execve().
  *
  * Two modes:
- *   1. busybox mode: dlopen("libbusybox.so") â†’ busybox_main (fast path)
- *   2. generic mode: dlopen("/absolute/path/to/binary.so") â†’ main (any PIE binary)
+ *   1. busybox mode: dlopen("libbusybox.so") → busybox_main (fast path)
+ *   2. generic mode: dlopen("/absolute/path/to/binary.so") → main (any PIE binary)
  *
  * LD_PRELOAD support: sets LD_PRELOAD=libnanoroot.so in child if
  * NANO_ROOTFS is set, enabling fakechroot path redirection.
@@ -120,7 +120,7 @@ static void* _elf_entry_of(const char* path) {
     return (void*)(base + e_entry);
 }
 
-// â”€â”€ TrampolÃ­n de arranque ARM64 (nivel global) â”€â”€
+// â”€â”€ Trampolín de arranque ARM64 (nivel global) â”€â”€
 // Construye el stack de bionic para el _start de binarios C++ (apt):
 // sp[0]=argc, sp[1..argc]=argv, sp[argc+1]=NULL, sp[argc+2]=NULL, x29=0.
 #if defined(__aarch64__)
@@ -164,7 +164,7 @@ static int _call_stack_entry(void* entry, int argc, char** argv) {
 // las libs) crasheaba el driver GPU del proceso principal (SIGSEGV en
 // mali-compiler): dlopen de ~117 libs en el hijo dispara los hilos del GPU
 // heredados. En su lugar cargamos SOLO las libs base del rootfs (las deps
-// comunes de binarios Termux: libc++, android-support, crypto, etc.) â€”
+// comunes de binarios Termux: libc++, android-support, crypto, etc.) —
 // suficiente para que el linker resuelva el DT_NEEDED del target.
 static const char* const kRootfsBaseLibs[] = {
     "libc++_shared.so",
@@ -217,8 +217,8 @@ static void _preload_rootfs_libs(const char* dir) {
     char path[600];
 
     // Cargar con android_dlopen_ext + ANDROID_DLEXT_USE_NAMESPACE en el
-    // namespace del APK (classloader-namespace, clns-7). AsÃ­ las libs
-    // versionadas (libz.so.1) quedan registradas en clns-7 â€” el MISMO
+    // namespace del APK (classloader-namespace, clns-7). Así las libs
+    // versionadas (libz.so.1) quedan registradas en clns-7 — el MISMO
     // namespace donde apt (libapt-pkg.so del APK) resuelve sus DT_NEEDED.
     typedef struct android_namespace_t android_namespace_t;
     typedef android_namespace_t* (*android_get_exported_namespace_t)(const char*);
@@ -248,7 +248,7 @@ static void _preload_rootfs_libs(const char* dir) {
 #endif
         if (!h) h = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
         if (!h) {
-            // No fatal: lib opcional (no todas estÃ¡n en todos los rootfs).
+            // No fatal: lib opcional (no todas están en todos los rootfs).
             fprintf(stderr, "nanoshell: preload %s warning: %s\n", path, dlerror());
         }
         // Keep handle open (RTLD_GLOBAL queda registrado en el proceso).
@@ -335,7 +335,7 @@ static int _spawn_internal(
                     lib_path, strerror(errno));
         }
 
-        // â”€â”€ Fallback: dlopen + main / trampolÃ­n â”€â”€
+        // â”€â”€ Fallback: dlopen + main / trampolín â”€â”€
         // Preload fakechroot library BEFORE the target binary.
         if (ld_preload && ld_preload[0]) {
             void* preload_handle = dlopen(ld_preload, RTLD_NOW | RTLD_GLOBAL);
@@ -348,17 +348,17 @@ static int _spawn_internal(
         // Preload libs of the rootfs (usr/lib) with RTLD_GLOBAL so the app
         // namespace can resolve the target's DT_NEEDED. Android namespaces
         // ignore LD_LIBRARY_PATH; dlopen manual registra las libs en el
-        // namespace del proceso y el linker las encuentra despuÃ©s.
+        // namespace del proceso y el linker las encuentra después.
         // NANO_ROOTFS (inyectado por execRootfs) localiza usr/lib.
         {
             const char* nano_rootfs = getenv("NANO_ROOTFS");
             if (nano_rootfs && nano_rootfs[0]) {
                 char libdir[512];
                 snprintf(libdir, sizeof(libdir), "%s/lib", nano_rootfs);
-                // El linker del namespace reporta paths canÃ³nicos
+                // El linker del namespace reporta paths canónicos
                 // (/data/data/... porque user/0 es symlink). Si preloadamos
                 // con /data/user/0/..., el registro no coincide con lo que el
-                // linker busca â†’ "not found". realpath() canoniza.
+                // linker busca → "not found". realpath() canoniza.
                 char canon[PATH_MAX];
                 if (realpath(libdir, canon)) {
                     _preload_rootfs_libs(canon);
@@ -377,8 +377,8 @@ static int _spawn_internal(
             dl_path = dl_real;
         }
 
-        // Android aÃ­sla namespaces: un dlopen simple de apt usa el namespace
-        // por defecto, que NO ve libs de usr/lib (solo APK/system). La vÃ­a
+        // Android aísla namespaces: un dlopen simple de apt usa el namespace
+        // por defecto, que NO ve libs de usr/lib (solo APK/system). La vía
         // oficial: android_create_namespace con permitted_paths=usr/lib, y
         // cargar apt en ese namespace con android_dlopen_ext. Fallback con
         // ANDROID_DLEXT_EXTEND_RELAXED (extiende el namespace del proceso).
@@ -396,7 +396,7 @@ static int _spawn_internal(
             static const uint64_t ANDROID_NAMESPACE_TYPE_ISOLATED_ = 0x1;
             static const uint64_t ANDROID_DLEXT_USE_NAMESPACE_ = 0x200;
             // ANDROID_DLEXT_EXTEND_RELAXED = 0x8000: permite que un dlopen
-            // extienda el namespace actual con rutas no estÃ¡ndar.
+            // extienda el namespace actual con rutas no estándar.
             static const uint64_t ANDROID_DLEXT_EXTEND_RELAXED_ = 0x8000;
 
             android_create_namespace_t create_ns =
@@ -442,7 +442,7 @@ static int _spawn_internal(
                 }
             }
             // Intento 2: EXTEND_RELAXED + library_path=usr/lib: el campo
-            // library_path del dlextinfo extiende la ruta de bÃºsqueda de libs
+            // library_path del dlextinfo extiende la ruta de búsqueda de libs
             // para la lib CARGADA (apt), permitiendo resolver DT_NEEDED de
             // usr/lib (libz.so.1, libssl.so.3...) en el namespace del proceso.
             if (!handle && dlopen_ext) {
@@ -453,7 +453,7 @@ static int _spawn_internal(
                 if (!handle) fprintf(stderr, "nanoshell: ns2 relaxed: %s\n", dlerror());
             }
             if (!handle && create_ns) {
-                // Intento 3: namespace sin parent (raÃ­z) con usr/lib.
+                // Intento 3: namespace sin parent (raíz) con usr/lib.
                 android_namespace_t* ns = create_ns("nanoai_rootfs2", libdir, libdir,
                                        ANDROID_NAMESPACE_TYPE_ISOLATED_,
                                        libdir, NULL);
@@ -510,7 +510,7 @@ static int _spawn_internal(
             _exit(127);
         }
 
-        // Build mutable argv (NULL-checked: OOM in child â†’ _exit gracefully)
+        // Build mutable argv (NULL-checked: OOM in child → _exit gracefully)
         int argc = count_argv(argv);
         char** mutable_argv = malloc(sizeof(char*) * (argc + 1));
         if (!mutable_argv) {
@@ -547,7 +547,7 @@ static int _spawn_internal(
     close(err_pipe[1]);
 
     // Read stdout and stderr CONCURRENTLY with poll().
-    // Sequential _slurp_fd(out) â†’ _slurp_fd(err) causes deadlock when
+    // Sequential _slurp_fd(out) → _slurp_fd(err) causes deadlock when
     // child writes >64KB to stderr while parent blocks on stdout read.
     // poll() drains whichever pipe has data, then waitpid() safely.
     size_t out_len = 0, err_len = 0;
@@ -569,13 +569,13 @@ static int _spawn_internal(
     fds[1].fd = err_pipe[0]; fds[1].events = POLLIN;
 
     while (!out_eof || !err_eof) {
-        int ret = poll(fds, 2, 30000); // 30s timeout â€” child hung
+        int ret = poll(fds, 2, 30000); // 30s timeout — child hung
         if (ret < 0) {
             if (errno == EINTR) continue;
             break;
         }
         if (ret == 0) {
-            fprintf(stderr, "nanoshell: poll timeout â€” killing child\n");
+            fprintf(stderr, "nanoshell: poll timeout — killing child\n");
             kill(pid, SIGKILL);
             break;
         }
@@ -645,7 +645,7 @@ int nanoshell_spawn_busybox(
     char** out_stderr
 ) {
     return _spawn_internal(
-        NULL,              // lib_path = NULL â†’ dlopen("libbusybox.so")
+        NULL,              // lib_path = NULL → dlopen("libbusybox.so")
         "busybox_main",    // main_symbol
         argv, envp,
         NULL,              // no LD_PRELOAD for standalone busybox
@@ -681,10 +681,10 @@ const char* nanoshell_last_error(void) {
 }
 
 // â”€â”€ Worker-process spawn (sin GPU) â”€â”€
-// Ejecuta el binario vÃ­a _spawn_internal y escribe stdout/stderr/rc a
+// Ejecuta el binario vía _spawn_internal y escribe stdout/stderr/rc a
 // archivos en filesDir (el proceso principal los lee; los punteros nativos
 // no cruzan procesos). Solo se invoca desde NanoshellWorkerService (proceso
-// :nanoshell, sin Flutter/GPU â†’ fork+dlopen seguro).
+// :nanoshell, sin Flutter/GPU → fork+dlopen seguro).
 int nanoshell_worker_spawn(
     const char* binary_path,
     const char* const argv[],

@@ -14,6 +14,10 @@ class DesktopStatus {
   /// pantalla de lanzamiento dispara installGraphical incremental.
   final bool graphicalExtras;
 
+  /// Estado instalado por app del panel (appId → binario presente en disco).
+  /// Verdad por existencia real, no por dpkg status.
+  final Map<String, bool> apps;
+
   /// Etapa real del arranque (idle/starting/xvnc/rfb/wm/ready/failed/stopped).
   final String stage;
 
@@ -31,6 +35,7 @@ class DesktopStatus {
     required this.port,
     this.installed = false,
     this.graphicalExtras = false,
+    this.apps = const {},
     this.stage = 'idle',
     this.lastError,
     this.wasKilledByOs = false,
@@ -53,6 +58,9 @@ class DesktopStatus {
       port: raw['port'] as int? ?? 5901,
       installed: raw['installed'] == true,
       graphicalExtras: raw['graphicalExtras'] == true,
+      apps: (raw['apps'] as Map<dynamic, dynamic>?)
+              ?.map((k, v) => MapEntry(k.toString(), v == true)) ??
+          const {},
       stage: raw['stage'] as String? ?? 'idle',
       lastError: raw['lastError'] as String?,
       wasKilledByOs: raw['wasKilledByOs'] == true,
@@ -130,7 +138,7 @@ class PackageService {
   }
 
   /// Lanza una app gráfica sobre el escritorio proyectado.
-  /// El lado nativo valida contra allowlist (aterm/pcmanfm/mousepad/feh).
+  /// El lado nativo valida contra allowlist real del escritorio.
   Future<bool> launchApp(String app) async {
     try {
       return await _runtime.launchApp(app);

@@ -40,9 +40,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       duration: const Duration(milliseconds: 750),
     );
 
-    // Auto-escaneo del storage SAF al entrar: no-op si no hay árbol
-    // concedido o si el último escaneo tiene menos de 30 s.
-    ref.read(modelsProvider.notifier).maybeAutoScan();
+    // Auto-escaneo de todo el storage al entrar: no-op si el permiso no
+    // está concedido o si el último escaneo tiene menos de 30 s.
+    ref.read(modelsProvider.notifier).maybeAutoScanAll();
   }
 
   @override
@@ -89,11 +89,12 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
           const SizedBox(height: 12),
           _ScanBar(
             scanning: state.scanning,
-            treeGranted: state.treeGranted,
+            allFilesGranted: state.allFilesGranted,
             detectedCount: detected.length,
             error: state.scanError,
+            onGrant: notifier.requestAllFilesAccess,
             onPickTree: notifier.pickTreeAndScan,
-            onRescan: notifier.scanStorage,
+            onRescan: notifier.scanStorageAll,
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -108,7 +109,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                   final detectedModel = detected[index - state.models.length];
                   return _DetectedCard(
                     model: detectedModel,
-                    loading: state.loadingDetectedUri == detectedModel.uri,
+                    loading: state.loadingDetectedUri ==
+                        (detectedModel.path ?? detectedModel.uri),
                     onUse: () => notifier.useDetected(detectedModel),
                   );
                 }
@@ -610,24 +612,27 @@ class _ModelAction extends StatelessWidget {
   }
 }
 
-/// Barra de escaneo del storage SAF. Tres estados honestos:
-/// escaneando (spinner), sin permiso (botón "Escanear storage" que abre el
-/// selector de carpeta) o concedido (N detectados + re-escanear). El error
-/// del último escaneo se muestra debajo.
+/// Barra del scanner automático del storage. Estados honestos:
+/// escaneando (spinner), sin permiso MANAGE (botón "Conceder acceso" que
+/// abre Ajustes del sistema; el SAF queda como fallback discreto debajo) o
+/// concedido (N detectados + re-escanear). El error del último escaneo se
+/// muestra debajo.
 class _ScanBar extends StatelessWidget {
   const _ScanBar({
     required this.scanning,
-    required this.treeGranted,
+    required this.allFilesGranted,
     required this.detectedCount,
     required this.error,
+    required this.onGrant,
     required this.onPickTree,
     required this.onRescan,
   });
 
   final bool scanning;
-  final bool treeGranted;
+  final bool allFilesGranted;
   final int detectedCount;
   final String? error;
+  final VoidCallback onGrant;
   final VoidCallback onPickTree;
   final VoidCallback onRescan;
 
@@ -654,41 +659,78 @@ class _ScanBar extends StatelessWidget {
           ),
         ],
       );
-    } else if (!treeGranted) {
+    } else if (!allFilesGranted) {
       content = LayoutBuilder(
         builder: (context, constraints) {
-          final label = const Row(
+          const label = Row(
             children: [
               Icon(Icons.folder_open_rounded, color: Color(0xFF42D9FF)),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Detecta GGUF en todo el storage',
+                  'Encuentra tus GGUF en todo el storage',
                   style: TextStyle(color: Colors.white70),
                 ),
               ),
             ],
           );
-          final button = PressableScale(
-            child: OutlinedButton(
-              onPressed: onPickTree,
-              child: const Text('Escanear storage'),
-            ),
+          // Fallback SAF discreto: icono de carpeta con tooltip, misma fila
+          // (sin fila extra para no empujar las cards en pantallas bajas).
+          final actions = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PressableScale(
+                child: OutlinedButton(
+                  onPressed: onGrant,
+                  child: const Text('Conceder acceso'),
+                ),
+              ),
+              const SizedBox(width: 2),
+              IconButton(
+                tooltip: 'Elegir carpeta específica (SAF)',
+                onPressed: onPickTree,
+                icon: const Icon(
+                  Icons.folder_outlined,
+                  color: Color(0xFF42D9FF),
+                ),
+              ),
+            ],
           );
 
-          // En pantallas angostas el botón no cabe junto al texto: baja a
-          // su propia fila (mismo patrón que _ModelCard).
+          // En pantallas angostas los botones no caben junto al texto:
+          // bajan a su propia fila, con el botón flexible (Expanded) para
+          // que el texto se elipsice en vez de desbordar.
           if (constraints.maxWidth < 330) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 label,
                 const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: button),
+                Row(
+                  children: [
+                    Expanded(
+                      child: PressableScale(
+                        child: OutlinedButton(
+                          onPressed: onGrant,
+                          child: const Text('Conceder acceso'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    IconButton(
+                      tooltip: 'Elegir carpeta específica (SAF)',
+                      onPressed: onPickTree,
+                      icon: const Icon(
+                        Icons.folder_outlined,
+                        color: Color(0xFF42D9FF),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             );
           }
-          return Row(children: [label, button]);
+          return Row(children: [label, actions]);
         },
       );
     } else {

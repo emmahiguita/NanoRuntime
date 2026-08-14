@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'nano_ambient_background.dart';
+
 /// Shell compartido de las pantallas Chat y Modelos.
 ///
 /// Identidad visual de la pantalla Inicio: fondo azul marino casi negro con
@@ -24,7 +26,7 @@ class NanoScreenShell extends StatelessWidget {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientBackground()),
+          const Positioned.fill(child: NanoAmbientBackground()),
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,59 +76,3 @@ class NanoScreenShell extends StatelessWidget {
   }
 }
 
-class _AmbientBackground extends StatelessWidget {
-  const _AmbientBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF020611),
-            Color(0xFF06101E),
-            Color(0xFF00152B),
-            Color(0xFF020611),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 100,
-            right: -150,
-            child: _Glow(size: 340, color: Color(0xFF0068D6)),
-          ),
-          Positioned(
-            bottom: 80,
-            left: -170,
-            child: _Glow(size: 380, color: Color(0xFF00AD82)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Glow extends StatelessWidget {
-  const _Glow({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0)],
-        ),
-      ),
-    );
-  }
-}

@@ -1,13 +1,13 @@
 /*
- * pty_jni.c â€” Puente JNI entre Kotlin (NanoshellBridge) y las sesiones PTY.
+ * pty_jni.c — Puente JNI entre Kotlin (NanoshellBridge) y las sesiones PTY.
  *
  * Expone a Kotlin:
- *   ptySpawn(argv, envp, ldPreload, rows, cols) â†’ long sessionId
- *   ptyWrite(sessionId, bytes)  â†’ int
- *   ptyRead(sessionId, maxBytes) â†’ byte[]
- *   ptyResize(sessionId, rows, cols) â†’ int
- *   ptyKill(sessionId, signal) â†’ int
- *   ptyClose(sessionId) â†’ void
+ *   ptySpawn(argv, envp, ldPreload, rows, cols) → long sessionId
+ *   ptyWrite(sessionId, bytes)  → int
+ *   ptyRead(sessionId, maxBytes) → byte[]
+ *   ptyResize(sessionId, rows, cols) → int
+ *   ptyKill(sessionId, signal) → int
+ *   ptyClose(sessionId) → void
  *
  * Mantiene un registro global de sesiones activas (PtySession) con mutex
  * para operar de forma segura desde threads de background de Kotlin.
@@ -75,7 +75,7 @@ Java_dev_nanoai_mobile_NanoshellBridge_ptySpawn(
     return id;
 }
 
-// â”€â”€ ptyWrite: envÃ­a bytes al master (input del usuario al terminal) â”€â”€
+// â”€â”€ ptyWrite: envía bytes al master (input del usuario al terminal) â”€â”€
 
 JNIEXPORT jint JNICALL
 Java_dev_nanoai_mobile_NanoshellBridge_ptyWrite(
@@ -133,7 +133,7 @@ Java_dev_nanoai_mobile_NanoshellBridge_ptyResize(
     return rc;
 }
 
-// â”€â”€ ptyKill: envÃ­a seÃ±al al proceso hijo â”€â”€
+// â”€â”€ ptyKill: envía señal al proceso hijo â”€â”€
 
 JNIEXPORT jint JNICALL
 Java_dev_nanoai_mobile_NanoshellBridge_ptyKill(
@@ -144,7 +144,7 @@ Java_dev_nanoai_mobile_NanoshellBridge_ptyKill(
     return pty_kill(pid, signal);
 }
 
-// â”€â”€ ptyClose: cierra fd master y libera la sesiÃ³n â”€â”€
+// â”€â”€ ptyClose: cierra fd master y libera la sesión â”€â”€
 
 JNIEXPORT void JNICALL
 Java_dev_nanoai_mobile_NanoshellBridge_ptyClose(

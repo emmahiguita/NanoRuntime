@@ -52,8 +52,8 @@ class TerminalDependencies {
        _dockerFactory = dockerFactory ?? _defaultDockerFactory;
 
   /// Solo para tests: inyecta servicios NULOS para ejercitar la terminal en
-  /// modo offline honesto (comandos dart:io reales + errores sin simulaci?n).
-  /// No toca el singleton de producci?n ni dispara descargas del rootfs.
+  /// modo offline honesto (comandos dart:io reales + errores sin simulación).
+  /// No toca el singleton de producción ni dispara descargas del rootfs.
   @visibleForTesting
   TerminalDependencies.forTest()
     : _rootfs = null,

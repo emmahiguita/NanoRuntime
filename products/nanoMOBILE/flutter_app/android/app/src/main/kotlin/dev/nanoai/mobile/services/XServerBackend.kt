@@ -44,7 +44,8 @@ interface XServerBackend {
     /** Último error de start/awaitReady (null si el último intento fue limpio). */
     val lastError: String?
 
-    /** ¿Proceso del servidor X vivo? Lee /proc/<pid>/stat, SIN tocar el socket.
+    /** ¿Proceso del servidor X vivo? Delegado al worker (padre del proceso),
+     *  SIN tocar el socket.
      * Un probe TCP que corta a mitad del handshake RFB cuenta como "security
      * failure" para el anti-brute-force de TigerVNC — tras ~5 cortes rechaza
      * TODA conexión ("Too many security failures"). Los checks periódicos
@@ -60,6 +61,13 @@ class InternalXvncBackend(
     private val usrDir: java.io.File,
     private val spawnBg: (binaryPath: String, argv: List<String>, envp: Map<String, String>) -> Long,
     private val vncPassword: String = "",
+    // Liveness delegado al worker (:nanoshell), padre real de Xvnc. El
+    // proceso principal NO puede leer /proc/<pid> de los hijos del worker
+    // (Android restringe /proc a hijos directos del lector) — leerlo aquí
+    // devolvía false siempre, awaitReady reportaba "murió durante el
+    // arranque" 1 ms tras el spawn y stop() mataba a un Xvnc vivo con
+    // SIGKILL. Evidencia device 2026-08-14: reap "signal=9" + kill del app.
+    private val isPidAlive: (Long) -> Boolean = { false },
 ) : XServerBackend {
     companion object {
         private const val TAG = "InternalXvncBackend"
@@ -120,13 +128,12 @@ class InternalXvncBackend(
         width: Int,
         height: Int,
     ): Boolean {
-        // K-1: un Xvnc residual de NUESTRO uid (huérfano setsid de un ciclo
-        // previo, o SIGKILL asíncrono de un stop() reciente) puede retener el
-        // puerto 5901 → el nuevo Xvnc muere EADDRINUSE y la UI entra en loop
-        // de reintento. Matar el residual y esperar a que libere el puerto
-        // antes de spawn.
-        killLingeringXvnc()
-
+        // K-1: el anti-duplicado ahora vive en el worker (worker_jni.c,
+        // registro g_daemons: cada spawn de un binario mata con SIGKILL al
+        // anterior ANTES del fork — evidencia logcat "matando duplicado Xvnc
+        // pid=... antes del spawn"). El viejo killLingeringXvnc de acá
+        // escaneaba /proc, invisible para el proceso principal desde el
+        // refactor al worker (cero hallazgos K-1 con duplicados vivos).
         val vncPort = rfbPort
 
         // Con contraseña → VNC Auth (-rfbauth). Sin contraseña → None, como
@@ -188,7 +195,7 @@ class InternalXvncBackend(
         // Sin -nodaemon: Xvnc de TigerVNC invocado directamente queda en
         // foreground (el fork lo hace el wrapper vncserver, no Xvnc) — pasar
         // un flag inexistente lo haría abortar en el arranque.
-        // Xvnc necesita el mismo entorno que openbox/tint2 (PREFIX, HOME,
+        // Xvnc necesita el mismo entorno que openbox (PREFIX, HOME,
         // LD_LIBRARY_PATH, XDG_CONFIG_HOME...) para resolver sus libs y las
         // reglas XKB en share/X11/xkb/rules/evdev. Sin esto aborta antes de
         // abrir el puerto RFB (fallo silencioso bajo Android/ColorOS).
@@ -211,7 +218,8 @@ class InternalXvncBackend(
         // (bind fail) y un servidor ajeno respondiendo.
         //
         // Señales locales de readiness:
-        //   1. xvncPid vivo (/proc/<pid>/stat, sin tocar sockets).
+        //   1. xvncPid vivo (delegado al worker: kill(pid, 0) del padre,
+        //      sin tocar sockets).
         //   2. Socket X11 del display creado por el proceso: Xvnc crea
         //      usr/tmp/.X11-unix/X<display> al abrir el display, incluso con
         //      -listen tcp (verificado en device).
@@ -263,25 +271,6 @@ class InternalXvncBackend(
     }
 
     /**
-     * K-1: localiza y mata cualquier Xvnc residual de NUESTRO uid que siga
-     * reteniendo el puerto RFB (huérfano setsid de un force-stop, o proceso
-     * previo cuyo SIGKILL aún no se reapea). Espera bounded a que libere el
-     * puerto. No toca el xvncPid propio (re-start idempotente).
-     */
-    private suspend fun killLingeringXvnc() {
-        val lingering = findLingeringXvncPids()
-        if (lingering.isEmpty()) return
-        for (pid in lingering) {
-            android.util.Log.w(TAG, "K-1: Xvnc residual PID=$pid reteniendo puerto — matando")
-            try { android.os.Process.killProcess(pid) } catch (_: Exception) {}
-        }
-        val deadline = System.currentTimeMillis() + 3000
-        while (System.currentTimeMillis() < deadline && findLingeringXvncPids().isNotEmpty()) {
-            delay(100)
-        }
-    }
-
-    /**
      * Escribe usr/.vnc/passwd en el formato vncpasswd de TigerVNC: el password
      * truncado/padded a 8 bytes, XOR-eado con [VNC_PASS_MASK]. Permisos
      * owner-only (0600) — Xvnc rechaza archivos con permisos abiertos en
@@ -310,37 +299,16 @@ class InternalXvncBackend(
         }
     }
 
-    private fun findLingeringXvncPids(): List<Int> {
-        val myUid = android.os.Process.myUid()
-        val procs = java.io.File("/proc").listFiles() ?: return emptyList()
-        val result = mutableListOf<Int>()
-        for (dir in procs) {
-            val pid = dir.name.toIntOrNull() ?: continue
-            if (pid <= 0 || pid.toLong() == xvncPid) continue
-            val status = try { dir.resolve("status").readText() } catch (_: Exception) { continue }
-            val uid = Regex("^Uid:\\s+(\\d+)", RegexOption.MULTILINE)
-                .find(status)?.groupValues?.get(1)?.toIntOrNull()
-            if (uid != myUid) continue
-            val cmdline = try { dir.resolve("cmdline").readText().replace('\u0000', ' ') } catch (_: Exception) { continue }
-            if (cmdline.contains("/bin/Xvnc")) result.add(pid)
-        }
-        return result
-    }
 
     override fun getEndpoint(): XDisplayEndpoint = endpoint
 
     override fun isAlive(): Boolean {
         val pid = xvncPid
         if (pid <= 0) return false
-        return try {
-            val stat = java.io.File("/proc/$pid/stat").readText()
-            val end = stat.lastIndexOf(')')
-            // Formato "<pid> (comm) <state> ..." — estado es el char tras ") ".
-            // 'Z' = zombie (proceso muerto sin reaper): funcionalmente caído.
-            end >= 0 && end + 2 < stat.length && stat[end + 2] != 'Z'
-        } catch (e: Exception) {
-            // /proc/<pid> ausente o ilegible: proceso muerto.
-            false
-        }
+        // Delegado al worker (padre de Xvnc). El proceso principal no puede
+        // leer /proc/<pid> de los hijos del worker — Android restringe /proc
+        // a los hijos directos del proceso lector. Sin delegar, esto devolvía
+        // false siempre y el backend mataba a un Xvnc vivo (SIGKILL propio).
+        return isPidAlive(pid)
     }
 }

@@ -75,6 +75,9 @@ class ScaffoldShell extends ConsumerWidget {
                         selectedIcon: _tabs[i].sel,
                         selected: i == idx,
                         colors: colors,
+                        // Teléfono (≤600dp): solo icono — con etiqueta la
+                        // fila desborda y "Ajustes" queda cortada del borde.
+                        iconOnly: !wide,
                         onTap: () =>
                             shell.goBranch(i, initialLocation: i == idx),
                       ),
@@ -130,6 +133,7 @@ class ScaffoldShell extends ConsumerWidget {
     required bool selected,
     required NanoColors colors,
     required VoidCallback onTap,
+    bool iconOnly = false,
   }) {
     final bg = selected ? colors.primary : colors.surfaceVariant;
     final fg = selected ? Colors.white : colors.onSurface;
@@ -140,21 +144,26 @@ class ScaffoldShell extends ConsumerWidget {
         onTap: onTap,
         borderRadius: NanoShapes.full,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: EdgeInsets.symmetric(
+            horizontal: iconOnly ? 12 : 10,
+            vertical: 7,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(selected ? selectedIcon : icon, size: 15, color: fg),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: fg,
+              if (!iconOnly) ...[
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

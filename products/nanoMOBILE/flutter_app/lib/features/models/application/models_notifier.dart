@@ -51,14 +51,6 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     }
   }
 
-  void setQuery(String query) {
-    state = state.copyWith(query: query);
-  }
-
-  void setFilter(String? quant) {
-    state = state.copyWith(quantFilter: quant);
-  }
-
   /// Descarga real del GGUF (URL HuggingFace + SHA256 obligatorio).
   ///
   /// Estados: notInstalled → downloading (progress) → verifying → installed,
@@ -205,6 +197,67 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     await _scanInternal();
   }
 
+  // ── Escaneo automático de todo el storage (MANAGE_EXTERNAL_STORAGE) ────
+
+  /// Auto-escaneo de todo el storage al entrar. Es la vía principal: si el
+  /// permiso está concedido, encuentra los GGUF con su ruta real sin pedir
+  /// carpeta ni descargar nada. Mismo throttle de 30 s que el SAF.
+  Future<void> maybeAutoScanAll() async {
+    bool granted;
+    try {
+      granted = await _storage.hasAllFilesAccess();
+    } catch (_) {
+      // Canal sin handler (tests/desktop): sin scanner de storage completo.
+      granted = false;
+    }
+    if (!mounted) return;
+    state = state.copyWith(allFilesGranted: granted);
+    if (!granted) return;
+    final last = _lastScanAt;
+    if (last != null && DateTime.now().difference(last).inSeconds < 30) return;
+    await _scanAllInternal();
+  }
+
+  /// Abre la pantalla del sistema para conceder el permiso. Si queda
+  /// concedido al volver, escanea de inmediato.
+  Future<void> requestAllFilesAccess() async {
+    final granted = await _storage.requestAllFilesAccess();
+    if (!mounted) return;
+    state = state.copyWith(allFilesGranted: granted);
+    if (granted) await _scanAllInternal();
+  }
+
+  /// Escaneo manual de todo el storage. Idempotente contra el spinner.
+  Future<void> scanStorageAll() async {
+    if (state.scanning) return;
+    await _scanAllInternal();
+  }
+
+  Future<void> _scanAllInternal() async {
+    state = state.copyWith(scanning: true, scanError: null);
+    try {
+      final detected = await _storage.scanAll();
+      if (!mounted) return;
+      _lastScanAt = DateTime.now();
+      state = state.copyWith(
+        scanning: false,
+        detected: _deduped(detected),
+        scanError: null,
+      );
+    } on StateError {
+      // El canal lanza StateError cuando el permiso MANAGE no está
+      // concedido: mensaje propio, distinto del flujo SAF.
+      if (!mounted) return;
+      _lastScanAt = null;
+      state = state.copyWith(
+        scanning: false,
+        scanError: 'Acceso al storage no concedido. Toca "Conceder acceso".',
+      );
+    } catch (e) {
+      _scanFailed(e);
+    }
+  }
+
   Future<void> _scanInternal() async {
     state = state.copyWith(scanning: true, scanError: null);
     try {
@@ -244,16 +297,28 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     );
   }
 
-  /// Usa un modelo detectado directamente desde su ubicación original:
-  /// abre el fd en el worker (:nanoshell) y arranca el engine con el path
-  /// `/proc/self/fd/N`. Cero copias de archivos pesados.
+  /// Usa un modelo detectado directamente desde su ubicación original.
+  ///
+  /// Con MANAGE_EXTERNAL_STORAGE el scanner devuelve el path absoluto: el
+  /// worker (:nanoshell) lo abre directo y el engine lo lee con
+  /// `--model <path>`. Cero copias de archivos pesados. Si vino del árbol
+  /// SAF (sin path), se abre el fd en el worker (`/proc/self/fd/N`).
   Future<void> useDetected(DetectedModel model) async {
     if (!model.usable) return;
     if (state.loadingDetectedUri != null) return; // una apertura a la vez
+    final directPath = model.path;
     state = state.copyWith(
-      loadingDetectedUri: model.uri,
+      loadingDetectedUri: directPath ?? model.uri,
       scanError: null,
     );
+    if (directPath != null) {
+      if (!mounted) return;
+      state = state.copyWith(loadingDetectedUri: null);
+      _ref
+          .read(chatProvider.notifier)
+          .selectModel(model.name, path: directPath);
+      return;
+    }
     try {
       final fdPath = await _storage.openFd(model.uri);
       if (!mounted) return;

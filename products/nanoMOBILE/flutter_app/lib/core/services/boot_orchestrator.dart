@@ -344,7 +344,7 @@ exit $RC
   /// Despliega los assets de "eye candy" del escritorio al home del rootfs:
   /// wallpaper nano-cyber (PNG 1280x720) y el HUD de bienvenida (hud.py).
   /// Idempotente y no destructivo: escribe solo si faltan o cambió el tamaño.
-  /// Los consume el DesktopSessionManager nativo (feh --bg-fill + aterm -e).
+  /// Los consume el DesktopSessionManager nativo (feh --bg-fill + lxterminal -e).
   Future<void> _deployDesktopEyeCandy() async {
     final usr = _rootfs.usrDir;
     if (usr == null) return;

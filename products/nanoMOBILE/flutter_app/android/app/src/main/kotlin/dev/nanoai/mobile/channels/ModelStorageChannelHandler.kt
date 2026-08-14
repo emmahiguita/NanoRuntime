@@ -4,15 +4,19 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
+import android.provider.Settings
 import android.util.Log
 import dev.nanoai.mobile.MainActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Canal `com.nanoai/model_storage` — detección y uso directo de modelos
@@ -60,6 +64,7 @@ class ModelStorageChannelHandler(
     }
 
     private var pendingPick: MethodChannel.Result? = null
+    private var pendingAllFiles: MethodChannel.Result? = null
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -67,7 +72,116 @@ class ModelStorageChannelHandler(
             "persistedTree" -> result.success(persistedTreeUri())
             "scan" -> handleScan(result)
             "openFd" -> handleOpenFd(call, result)
+            "scanAll" -> handleScanAll(result)
+            "hasAllFilesAccess" -> result.success(hasAllFilesAccess())
+            "requestAllFilesAccess" -> handleRequestAllFilesAccess(result)
             else -> result.notImplemented()
+        }
+    }
+
+    // ── Escaneo de todo el storage compartido (MANAGE_EXTERNAL_STORAGE) ──
+
+    /** Reenvío de MainActivity.onResume: resuelve requestAllFilesAccess con
+     *  el estado real del permiso al volver de la pantalla del sistema. */
+    fun onResume() {
+        val pending = pendingAllFiles ?: return
+        pendingAllFiles = null
+        pending.success(hasAllFilesAccess())
+    }
+
+    private fun hasAllFilesAccess(): Boolean =
+        Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager()
+
+    private fun handleRequestAllFilesAccess(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 30 || hasAllFilesAccess()) {
+            result.success(true)
+            return
+        }
+        pendingAllFiles?.error("pending", "solicitud anterior aún abierta", null)
+        pendingAllFiles = result
+        try {
+            activity.startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:${activity.packageName}"),
+                ),
+            )
+        } catch (e: Exception) {
+            pendingAllFiles = null
+            result.error("launch_failed", e.message, null)
+        }
+    }
+
+    private fun handleScanAll(result: MethodChannel.Result) {
+        ioScope.launch {
+            val found = walkFileTree(Environment.getExternalStorageDirectory())
+            mainHandler.post { result.success(found) }
+        }
+    }
+
+    /**
+     * BFS con java.io.File sobre /storage/emulated/0. Mismos topes que el
+     * walk SAF: entradas visitadas y tiempo máximo. Sin permiso
+     * MANAGE_EXTERNAL_STORAGE listFiles devuelve null en Android 11+ y el
+     * resultado queda vacío (honesto: no hay nada legible).
+     */
+    private fun walkFileTree(root: File): List<Map<String, Any?>> {
+        val out = ArrayList<Map<String, Any?>>()
+        val queue = ArrayDeque<File>().apply { add(root) }
+        val deadline = System.currentTimeMillis() + SCAN_TIMEOUT_MS
+        var visited = 0
+
+        while (queue.isNotEmpty() && visited < MAX_ENTRIES &&
+            System.currentTimeMillis() < deadline
+        ) {
+            val dir = queue.removeFirst()
+            val children = try {
+                dir.listFiles()
+            } catch (e: Exception) {
+                Log.w(TAG, "listFiles falló en ${dir.absolutePath}: ${e.message}")
+                null
+            } ?: continue
+
+            for (child in children) {
+                if (visited >= MAX_ENTRIES) break
+                visited++
+                if (child.isDirectory) {
+                    queue.addLast(child)
+                    continue
+                }
+                val name = child.name
+                val ext = name.substringAfterLast('.', "").lowercase()
+                if (ext !in MODEL_EXTENSIONS) continue
+
+                val magicOk = if (ext == "gguf") isGgufFile(child) else true
+                if (ext == "gguf" && !magicOk) {
+                    Log.w(TAG, "extensión .gguf sin magic GGUF: ${child.absolutePath}")
+                }
+
+                out.add(
+                    mapOf(
+                        "name" to name,
+                        "sizeBytes" to child.length(),
+                        "path" to child.absolutePath,
+                        "format" to ext,
+                        "magicOk" to magicOk,
+                    ),
+                )
+            }
+        }
+        return out
+    }
+
+    /** Lee los primeros 4 bytes del archivo y compara contra "GGUF". */
+    private fun isGgufFile(file: File): Boolean {
+        return try {
+            file.inputStream().use { fis ->
+                val header = ByteArray(4)
+                fis.read(header) == 4 &&
+                    header.contentEquals("GGUF".toByteArray(Charsets.US_ASCII))
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 

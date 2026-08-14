@@ -12,16 +12,16 @@ import android.os.ParcelFileDescriptor
 import android.system.Os
 
 /**
- * Proceso worker `:nanoshell` para ejecuciÃ³n nativa segura.
+ * Proceso worker `:nanoshell` para ejecución nativa segura.
  *
  * PROBLEMA REAL (verificado en device): fork()+dlopen() de apt en el proceso
  * principal de Flutter crashea SIEMPRE (SIGSEGV, fault addr "USER=nan",
  * "at/usr/..."): el hijo hereda el driver GPU Mali/Impeller en estado
- * inconsistente y apt (con mÃ¡s allocaciÃ³n que bash) lo dispara.
+ * inconsistente y apt (con más allocación que bash) lo dispara.
  *
- * SOLUCIÃ“N: este Service corre en un proceso SEPARADO (`:nanoshell`) sin
- * Flutter ni GPU. fork+dlopen es seguro ahÃ­. El proceso principal envÃ­a la
- * tarea (binaryPath, argv, envp, ldPreload) vÃ­a Messenger; el worker ejecuta
+ * SOLUCIÓN: este Service corre en un proceso SEPARADO (`:nanoshell`) sin
+ * Flutter ni GPU. fork+dlopen es seguro ahí. El proceso principal envía la
+ * tarea (binaryPath, argv, envp, ldPreload) vía Messenger; el worker ejecuta
  * con NanoshellBridge y escribe stdout/stderr/exitCode a archivos temporales
  * en files/ que el principal lee (los punteros nativos no cruzan procesos).
  */
@@ -33,6 +33,7 @@ companion object {
         const val MSG_SPAWN_DETACHED = 3
         const val MSG_KILL = 4
         const val MSG_OPEN_FD = 5
+        const val MSG_IS_PID_ALIVE = 6
         const val EXTRA_OUT = "nanoai.worker.out"
         const val EXTRA_ERR = "nanoai.worker.err"
         const val EXTRA_RC = "nanoai.worker.rc"
@@ -48,6 +49,7 @@ when (msg.what) {
                 MSG_SPAWN_DETACHED -> handleSpawnDetached(msg)
                 MSG_KILL -> handleKill(msg)
                 MSG_OPEN_FD -> handleOpenFd(msg)
+                MSG_IS_PID_ALIVE -> handleIsPidAlive(msg)
                 else -> android.util.Log.w("nanoshell-worker", "msg desconocido ${msg.what}")
             }
         }
@@ -67,7 +69,7 @@ when (msg.what) {
             System.loadLibrary("nanoshell")
             android.util.Log.i("nanoshell-worker", "libnanoshell.so cargada en worker (sin GPU)")
         } catch (e: Throwable) {
-            android.util.Log.e("nanoshell-worker", "loadLibrary fallÃ³: $e")
+            android.util.Log.e("nanoshell-worker", "loadLibrary falló: $e")
         }
     }
 
@@ -97,13 +99,13 @@ when (msg.what) {
                 )
                 android.util.Log.i("nanoshell-worker", "task $taskId rc=$rc")
             } catch (e: Throwable) {
-                android.util.Log.e("nanoshell-worker", "spawn $taskId fallÃ³: $e")
+                android.util.Log.e("nanoshell-worker", "spawn $taskId falló: $e")
             }
         }, "worker-task-$taskId").start()
     }
 
-    /** Spawn sin esperar â€” para daemons (Xvnc, openbox). Retorna PID al
-     *  cliente vÃ­a messenger. */
+    /** Spawn sin esperar — para daemons (Xvnc, openbox). Retorna PID al
+     *  cliente vía messenger. */
     private fun handleSpawnDetached(msg: Message) {
         val b = msg.data
         val binaryPath = b.getString("binaryPath") ?: return
@@ -155,10 +157,31 @@ when (msg.what) {
      * DesktopSessionManager antes de matar el worker.
      */
     private fun handleKill(msg: Message) {
-        android.util.Log.w("nanoshell-worker", "MSG_KILL recibido â€” matando group + worker")
+        android.util.Log.w("nanoshell-worker", "MSG_KILL recibido — matando group + worker")
         try { NanoshellBridge.workerKillGroup() } catch (_: Throwable) {}
-        // stopSelf() si el SIGKILL anterior no tumbÃ³ el proceso (fallback).
+        // stopSelf() si el SIGKILL anterior no tumbó el proceso (fallback).
         this.stopSelf()
+    }
+
+    /**
+     * Liveness de un daemon detached: el worker es el padre del proceso, así
+     * que pregunta directo por JNI (kill(pid, 0) + marca del reaper). El
+     * backend del proceso principal delega acá porque Android no le deja
+     * leer /proc de los hijos del worker. kill(0) no bloquea — seguro en el
+     * looper. Responde al cliente por el replyTo del mensaje.
+     */
+    private fun handleIsPidAlive(msg: Message) {
+        val b = msg.data
+        val pid = b.getInt("pid", -1)
+        val taskId = b.getString(EXTRA_TASK_ID) ?: "alive$pid"
+        val replyTo = msg.replyTo ?: return
+        val alive = if (pid > 0) NanoshellBridge.workerIsProcessAlive(pid) == 1 else false
+        val reply = Message.obtain(null, MSG_RESULT)
+        reply.data = Bundle().apply {
+            putString(EXTRA_TASK_ID, taskId)
+            putBoolean("alive", alive)
+        }
+        try { replyTo.send(reply) } catch (_: Exception) {}
     }
 
     /**

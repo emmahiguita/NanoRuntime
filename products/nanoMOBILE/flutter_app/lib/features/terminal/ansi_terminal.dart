@@ -9,10 +9,22 @@ import 'ansi_parser.dart';
 // PALETA xterm 256 (16 base + 6x6x6 cube + 24 grises)
 // ============================================================================
 const List<int> _base16 = <int>[
-  0x000000, 0xCD0000, 0x00CD00, 0xCDCD00,
-  0x0000EE, 0xCD00CD, 0x00CDCD, 0xE5E5E5,
-  0x7F7F7F, 0xFF0000, 0x00FF00, 0xFFFF00,
-  0x5C5CFF, 0xFF00FF, 0x00FFFF, 0xFFFFFF,
+  0x000000,
+  0xCD0000,
+  0x00CD00,
+  0xCDCD00,
+  0x0000EE,
+  0xCD00CD,
+  0x00CDCD,
+  0xE5E5E5,
+  0x7F7F7F,
+  0xFF0000,
+  0x00FF00,
+  0xFFFF00,
+  0x5C5CFF,
+  0xFF00FF,
+  0x00FFFF,
+  0xFFFFFF,
 ];
 
 final List<Color> _palette256 = _buildPalette();
@@ -71,7 +83,8 @@ class AnsiMetrics {
     final key = style == null ? '<default>' : _styleKey(style);
     final cached = _cached;
     if (cached != null && _cachedKey == key) return cached;
-    final s = style ??
+    final s =
+        style ??
         const TextStyle(
           fontFamily: 'monospace',
           fontFamilyFallback: ['monospace'],
@@ -95,17 +108,17 @@ class AnsiMetrics {
 
   /// Clave estable de los campos que importan para medir una celda.
   static String _styleKey(TextStyle s) => [
-        s.fontFamily,
-        s.fontSize,
-        s.height,
-        s.fontWeight,
-        s.letterSpacing,
-        (s.fontFamilyFallback ?? const <String>[]).join(','),
-      ].join('|');
+    s.fontFamily,
+    s.fontSize,
+    s.height,
+    s.fontWeight,
+    s.letterSpacing,
+    (s.fontFamilyFallback ?? const <String>[]).join(','),
+  ].join('|');
 }
 
 // ============================================================================
-// 3. FACADE â€” AnsiTerminal: screen + parser; API del consumidor + notificaciÃ³n.
+// 3. FACADE — AnsiTerminal: screen + parser; API del consumidor + notificación.
 // ============================================================================
 class AnsiTerminal extends ChangeNotifier {
   final TermScreen screen;
@@ -115,15 +128,20 @@ class AnsiTerminal extends ChangeNotifier {
   String get title => _title;
 
   AnsiTerminal({this.rows = 24, this.cols = 80})
-      : screen = TermScreen(rows: rows, cols: cols) {
+    : screen = TermScreen(rows: rows, cols: cols) {
     _parser = AnsiParser(screen);
-    _parser.onTitle = (t) { _title = t; notifyListeners(); };
+    _parser.onTitle = (t) {
+      _title = t;
+      notifyListeners();
+    };
   }
 
   /// Respuestas a queries (DA \x1b[c, DSR \x1b[6n) → el owner escribe al PTY.
   set onResponse(void Function(String data)? f) => _parser.onResponse = f;
+
   /// OSC 52 clipboard → el owner escribe al portapapeles.
   set onClipboard(void Function(String text)? f) => _parser.onClipboard = f;
+
   /// Focus-event reporting (?1004) → el owner envía \x1b[I / \x1b[O.
   set onFocusChange(void Function({required bool focused})? f) =>
       _parser.onFocusChange = f;
@@ -135,8 +153,7 @@ class AnsiTerminal extends ChangeNotifier {
   bool get mouseEnabled => screen.mouseEnabled;
   int get historyLength => screen.historyLength;
   TermCell getCell(int r, int c) => screen.getCell(r, c);
-  List<TermCell> row(int r) =>
-      List.generate(cols, (c) => screen.getCell(r, c));
+  List<TermCell> row(int r) => List.generate(cols, (c) => screen.getCell(r, c));
   List<TermCell> historyRow(int i) => screen.historyRow(i);
   void clearHistory() => screen.clearHistory();
 
@@ -186,7 +203,9 @@ class AnsiTerminal extends ChangeNotifier {
         continue;
       }
       if (i + len > n) break; // incompleto: esperar al siguiente chunk
-      buf.write(utf8.decode(_pendingBytes.sublist(i, i + len), allowMalformed: true));
+      buf.write(
+        utf8.decode(_pendingBytes.sublist(i, i + len), allowMalformed: true),
+      );
       i += len;
     }
     if (i > 0) _pendingBytes.removeRange(0, i);
@@ -290,7 +309,9 @@ class _AnsiTerminalViewState extends State<AnsiTerminalView> {
             }
             final r = i - hist;
             final isCursorRow = r == _term.cursorRow;
-            final cursorCol = showCursor && isCursorRow ? _term.cursorCol : null;
+            final cursorCol = showCursor && isCursorRow
+                ? _term.cursorCol
+                : null;
             return RepaintBoundary(
               child: _TermLine(
                 cells: _term.row(r),
@@ -357,25 +378,42 @@ class _TermLine extends StatelessWidget {
     );
   }
 
-  void _pushSpan(List<InlineSpan> out, List<TermCell> cells, int a, int b,
-      TextStyle base, Color defFg) {
+  void _pushSpan(
+    List<InlineSpan> out,
+    List<TermCell> cells,
+    int a,
+    int b,
+    TextStyle base,
+    Color defFg,
+  ) {
     if (b <= a) return;
     final ref = cells[a];
     final run = StringBuffer();
     var lastWide = false;
     for (var i = a; i < b; i++) {
       final c = cells[i];
-      if (c.ch == 0 && !c.wide && lastWide) { lastWide = false; continue; }
+      if (c.ch == 0 && !c.wide && lastWide) {
+        lastWide = false;
+        continue;
+      }
       lastWide = c.wide;
       run.writeCharCode(c.ch == 0 ? 0x20 : c.ch);
     }
-    Color fg = ref.fgRgb != null ? Color(0xFF000000 | ref.fgRgb!) : _rfg(ref.fg, defFg);
-    Color? bg = ref.bgRgb != null ? Color(0xFF000000 | ref.bgRgb!) : _rbg(ref.bg);
+    Color fg = ref.fgRgb != null
+        ? Color(0xFF000000 | ref.fgRgb!)
+        : _rfg(ref.fg, defFg);
+    Color? bg = ref.bgRgb != null
+        ? Color(0xFF000000 | ref.bgRgb!)
+        : _rbg(ref.bg);
     final decos = <TextDecoration>[];
-    if (ref.underline || ref.linkUrl != null) decos.add(TextDecoration.underline);
+    if (ref.underline || ref.linkUrl != null) {
+      decos.add(TextDecoration.underline);
+    }
     if (ref.strikethrough) decos.add(TextDecoration.lineThrough);
     if (ref.overline) decos.add(TextDecoration.overline);
-    final deco = decos.isEmpty ? TextDecoration.none : TextDecoration.combine(decos);
+    final deco = decos.isEmpty
+        ? TextDecoration.none
+        : TextDecoration.combine(decos);
     var style = base.copyWith(
       color: ref.dim ? fg.withValues(alpha: 0.6) : fg,
       fontWeight: ref.bold ? FontWeight.bold : FontWeight.normal,
@@ -384,10 +422,7 @@ class _TermLine extends StatelessWidget {
       decorationColor: fg,
     );
     if (ref.reverse) {
-      style = style.copyWith(
-        color: bg ?? defFg,
-        backgroundColor: fg,
-      );
+      style = style.copyWith(color: bg ?? defFg, backgroundColor: fg);
     } else if (bg != null) {
       style = style.copyWith(backgroundColor: bg);
     }
@@ -395,25 +430,39 @@ class _TermLine extends StatelessWidget {
   }
 
   /// Block cursor: celda invertida (fondo = fg del terminal, texto oscuro).
-  void _pushCursor(List<InlineSpan> out, TermCell cell, TextStyle base,
-      Color defFg) {
+  void _pushCursor(
+    List<InlineSpan> out,
+    TermCell cell,
+    TextStyle base,
+    Color defFg,
+  ) {
     Color fg = _rfg(cell.fg, defFg);
-    final textColor = _rbg(cell.bg) ?? const Color(0xFF0A0F1A);
-    out.add(TextSpan(
-      text: String.fromCharCode(cell.ch == 0 ? 0x20 : cell.ch),
-      style: base.copyWith(
-        color: textColor,
-        backgroundColor: fg,
-        fontWeight: FontWeight.bold,
+    final textColor = _rbg(cell.bg) ?? const Color(0xFF020611);
+    out.add(
+      TextSpan(
+        text: String.fromCharCode(cell.ch == 0 ? 0x20 : cell.ch),
+        style: base.copyWith(
+          color: textColor,
+          backgroundColor: fg,
+          fontWeight: FontWeight.bold,
+        ),
       ),
-    ));
+    );
   }
 
   bool _same(TermCell a, TermCell b) =>
-      a.fg == b.fg && a.bg == b.bg && a.bold == b.bold &&
-      a.dim == b.dim && a.reverse == b.reverse &&
-      a.italic == b.italic && a.underline == b.underline &&
-      a.blink == b.blink && a.strikethrough == b.strikethrough &&
-      a.overline == b.overline && a.linkUrl == b.linkUrl &&
-      a.wide == b.wide && a.fgRgb == b.fgRgb && a.bgRgb == b.bgRgb;
+      a.fg == b.fg &&
+      a.bg == b.bg &&
+      a.bold == b.bold &&
+      a.dim == b.dim &&
+      a.reverse == b.reverse &&
+      a.italic == b.italic &&
+      a.underline == b.underline &&
+      a.blink == b.blink &&
+      a.strikethrough == b.strikethrough &&
+      a.overline == b.overline &&
+      a.linkUrl == b.linkUrl &&
+      a.wide == b.wide &&
+      a.fgRgb == b.fgRgb &&
+      a.bgRgb == b.bgRgb;
 }

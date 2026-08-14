@@ -14,6 +14,11 @@
     <!-- Dictado por voz en el Chat (speech_to_text): runtime grant al primer
          uso del micrófono; sin él el reconocimiento falla con permiso. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Scanner de modelos: lee todo /storage/emulated/0 para encontrar GGUF
+         y sus rutas sin descargar nada. Grant especial vía Ajustes del
+         sistema (ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION), no runtime.
+         Sin él el scanner devuelve vacío (honesto) y queda el SAF. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <!-- Sin permisos de foreground service: el worker nanoshell es bind-only
          (exported=false, sin startForeground/startService en todo el código).
          Declararlos sin uso dispara el escrutinio specialUse de Play. -->

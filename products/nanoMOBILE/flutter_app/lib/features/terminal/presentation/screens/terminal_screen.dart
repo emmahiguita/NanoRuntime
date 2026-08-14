@@ -7,7 +7,10 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/terminal/terminal_core.dart';
 
 class TerminalTabScreen extends StatefulWidget {
-  const TerminalTabScreen({super.key});
+  /// Comando que se ejecuta una sola vez en la sesión inicial cuando el
+  /// shell está listo (ej: "kali shell" desde la card Kali del dashboard).
+  final String? initialCommand;
+  const TerminalTabScreen({super.key, this.initialCommand});
   @override
   State<TerminalTabScreen> createState() => _S();
 }
@@ -115,21 +118,23 @@ class _S extends State<TerminalTabScreen> {
   }
 
   Color _clr(String t) => switch (t) {
-    'bash' => const Color(0xFF00E676),
-    'python' => const Color(0xFF38BDF8),
-    'node' => const Color(0xFF8BC34A),
+    'bash' => const Color(0xFF21F2B2),
+    'python' => const Color(0xFF42D9FF),
+    'node' => const Color(0xFF9B8AFF),
     'ssh' => const Color(0xFFC084FC),
-    'docker' => const Color(0xFF0EA5E9),
-    _ => const Color(0xFFFFB74D),
+    'docker' => const Color(0xFF6592FF),
+    _ => const Color(0xFFFFA726),
   };
 
   @override
   Widget build(BuildContext context) {
     final c = NanoThemeExtension.of(context).colors;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final bg = dark ? const Color(0xFF02040A) : const Color(0xFFF0F0F5);
-    final chrome = dark ? const Color(0xFF0A0F1A) : const Color(0xFFE0E0EC);
-    final fg = c.terminalGreen;
+    // Identidad nanoai local al módulo (tokens globales intactos):
+    // azul noche #020611 de fondo, chrome #07192B y verde #21F2B2.
+    final bg = dark ? const Color(0xFF020611) : const Color(0xFFF0F0F5);
+    final chrome = dark ? const Color(0xFF07192B) : const Color(0xFFE0E0EC);
+    final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
 
     return Container(
       color: bg,
@@ -267,7 +272,7 @@ class _S extends State<TerminalTabScreen> {
                 ],
               ),
             ),
-            // IndexedStack mantiene vivas todas las sesiones â€” cambiar de tab
+            // IndexedStack mantiene vivas todas las sesiones — cambiar de tab
             // no mata el PTY ni pierde el estado del terminal.
             Expanded(
               child: IndexedStack(
@@ -280,6 +285,8 @@ class _S extends State<TerminalTabScreen> {
                       initialCwd: s.cwd,
                       engine: _engine,
                       visible: i == _active,
+                      // Solo la primera sesión consume el comando inicial.
+                      initialCommand: s.id == 0 ? widget.initialCommand : null,
                       onTitle: (title) {
                         if (title != s.name) setState(() => s.name = title);
                       },

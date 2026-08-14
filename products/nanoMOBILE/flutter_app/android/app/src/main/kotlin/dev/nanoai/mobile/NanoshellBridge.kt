@@ -91,6 +91,14 @@ object NanoshellBridge {
     ): Int
 
     /**
+     * 1 si el proceso detached [pid] sigue vivo, 0 si murió. SOLO desde el
+     * worker: el proceso principal no puede leer /proc de los hijos del
+     * worker (Android restringe /proc a hijos directos del lector). El worker
+     * es el padre — pregunta con kill(pid, 0) y la marca del reaper.
+     */
+    @JvmStatic external fun workerIsProcessAlive(pid: Int): Int
+
+    /**
      * Kill switch: manda SIGKILL al group del worker. El worker corre tareas
      * en threads con fork+waitpid; un binario colgado (apt esperando input)
      * bloquea el waitpid indefinidamente. Como el hijo vive en el group del
