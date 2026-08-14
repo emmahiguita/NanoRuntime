@@ -12,34 +12,20 @@ Filosofía NanoRuntime (define severidad y valor):
 
 ---
 
-## Sección 1: Puente agente — JSON de acción en prompt
+## Sección 1: Agente — gap real verificado (corrección de auditoría)
 
-**Decisión:** JSON de acción delimitado en el prompt de sistema, parseado y ejecutado en Dart vía `NanoAgentExecutor`. Descarta tool-calling nativo del motor (depende del backend llama.cpp, más RAM/tokens — viola pilar 3) y regex ad-hoc (frágil).
+**Corrección al veredicto (verificada en código 2026-08-13):** la cadena snapshot→resolve→actionability→gesto SÍ está cableada. `AgentToolDispatcher` (`lib/core/agent/agent_tool_dispatcher.dart`) ya implementa: parseo tolerante de JSON de herramienta (`AgentToolProtocol.extractToolCall`), ejecución vía `NanoAgentExecutor`, comandos `@` deterministas, y el bucle tool-calling está en `chat_provider.dart` `_generateRound` (líneas 404-423) con `_maxToolRounds=2`, `_toolTurnSuffix` que inyecta el resultado al trace, y trace honesto visible en el chat. Hay 7 tests de integración (`test/agent/chat_tool_loop_test.dart`). El hallazgo de auditoría "nunca se cablea / clase inexistente" era falso.
 
-**Estado actual verificado:**
-- `NanoAgentExecutor` existe (`lib/core/agent/agent_executor.dart`) con invariantes completas: snapshot con retry de rebind (3×250ms), resolve ponderado, actionability, settle + re-resolución, gesto solo por centro del bounds.
-- Único consumidor: consola manual de Settings (`lib/features/settings/presentation/widgets/agent_console_section.dart:27,40`).
-- Chat es completion plano sin tool-calling (`lib/core/providers/chat_provider.dart`).
-- Los `@Deprecated` en `nano_runtime_api.dart:490,510` apuntan a clases reales; no hay referencia rota. Corrección al hallazgo de auditoría.
+**Gap real (lo único que falta):**
+1. `AgentToolDispatcher.runTool` solo expone `screen/tap/write/back`. El canal y `NanoRuntimeApi` ya soportan `swipe`, `globalAction`, `launchPackage` (`nano_runtime_api.dart:546,580,593`) pero el modelo no puede llamarlas — el prompt de sistema tampoco las anuncia.
+2. `_maxToolRounds=2` (ya testeado) se mantiene en 2 — el código real manda sobre el spec original que pedía 3.
 
-**Componentes nuevos:**
+**Componentes:**
+1. `agent_tool_dispatcher.dart`: añadir al switch de `runTool`: `swipe` (con `swipeFrom/swipeTo` o selector resuelto + dirección), `global` (globalAction: back/home/recents), `launch` (launchPackage con packageName).
+2. `chat_provider.dart` `_systemPrompt`: anunciar las 3 herramientas nuevas con sintaxis exacta.
+3. Tests: extender `test/agent/agent_tool_dispatcher_test.dart` y `chat_tool_loop_test.dart` (una herramienta nueva llamada por el LLM → se ejecuta y re-genera).
 
-1. `lib/core/agent/agent_action.dart`:
-   - `enum AgentActionType { tap, setText, swipe, globalAction, launchPackage }`.
-   - `class AgentAction { AgentActionType type; NanoSelector? selector; String? text; ... }`.
-   - `static AgentAction? tryParse(String text)`: busca bloque delimitado `[[ACTION:{...}]]`, parsea JSON con tolerancia, valida contra campos de `NanoSelector`. Puro, sin canal, testable.
-2. Prompt de sistema en `chat_provider.dart`: instrucción corta al modelo para emitir `[[ACTION:{"action":"tap","selector":{"text":"..."}}]]` únicamente cuando deba actuar sobre la UI. Un bloque por turno.
-3. Bucle de ejecución en el provider:
-   - Tras streaming completo: si `tryParse` devuelve acción → ejecutar con `NanoAgentExecutor` (inyectable para tests).
-   - Resultado tipado `AgentExecutionResult` se inyecta como mensaje del sistema al historial; el modelo continúa con el contexto del resultado.
-   - Máximo 3 ciclos de acción por turno del usuario (anti-bucle, pilar 1).
-4. Degradación: sin bloque de acción → chat normal. Canal muerto (`serviceOff`) → resultado honesto al usuario, sin reintento infinito.
-
-**Flujo de datos:** `modelo → texto con [[ACTION]] → tryParse → NanoAgentExecutor → AgentExecutionResult → historial → modelo`.
-
-**Manejo de errores:** JSON roto → ignorado, chat normal (el modelo ve el texto tal cual, sin acción). Acción no resuelta (`notFound`/`ambiguous`/`notActionable`) → resultado tipado al historial con motivo en español.
-
-**Tests:** parser puro (bloque válido, JSON roto, sin bloque, dos bloques = primero gana); integración con fakes de `NanoRuntimeApi` y `NanoAgentExecutor` inyectado; límite de 3 ciclos.
+**Flujo de datos:** sin cambios — `modelo → JSON {"tool":...} → extractToolCall → runTool → resultado al trace`.
 
 ---
 
