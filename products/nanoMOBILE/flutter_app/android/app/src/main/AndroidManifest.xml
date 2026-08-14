@@ -11,6 +11,9 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
+    <!-- Dictado por voz en el Chat (speech_to_text): runtime grant al primer
+         uso del micrófono; sin él el reconocimiento falla con permiso. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Sin permisos de foreground service: el worker nanoshell es bind-only
          (exported=false, sin startForeground/startService en todo el código).
          Declararlos sin uso dispara el escrutinio specialUse de Play. -->

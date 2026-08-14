@@ -1,1148 +1,716 @@
-import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/providers/app_providers.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/core/models/chat_models.dart';
+import 'package:nanoai/core/providers/chat_provider.dart';
+import 'package:nanoai/core/widgets/live_animations.dart';
+import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
-/// Ancho mínimo en dp para layout ancho (tablets / landscape).
-const _kWideBreakpoint = 600.0;
-
-/// Ancho máximo de burbuja en modo compacto.
-const _kMaxBubbleCompact = 300.0;
-
-/// Ancho máximo de burbuja en modo ancho (tablet / landscape).
-const _kMaxBubbleWide = 480.0;
-
+/// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
+///
+/// Los nombres de estado y métodos son los REALES de ChatNotifier:
+/// `send(text)`, `stop()`, `refreshEngine()`. El motor nunca se simula:
+/// cuando no está disponible, el envío queda desactivado y la UI lo dice.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
+
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  final _inputCtrl = TextEditingController();
-  final _scrollCtrl = ScrollController();
-  final _focusNode = FocusNode();
-  bool _fabVisible = false;
-  bool _autoScroll = true;
-  Timer? _scrollTimer;
+  final _inputController = TextEditingController();
+  final _scrollController = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollCtrl.addListener(() {
-      final v = _scrollCtrl.hasClients && _scrollCtrl.position.pixels > 300;
-      if (v != _fabVisible) setState(() => _fabVisible = v);
-      // Desactivar auto-scroll si el usuario scrollea hacia arriba.
-      if (_scrollCtrl.hasClients &&
-          _scrollCtrl.position.pixels <
-              _scrollCtrl.position.maxScrollExtent - 60) {
-        _autoScroll = false;
-      }
-      // Re-enganchar auto-scroll si vuelve al fondo manualmente.
-      if (_scrollCtrl.hasClients &&
-          _scrollCtrl.position.pixels >=
-              _scrollCtrl.position.maxScrollExtent - 10) {
-        _autoScroll = true;
-      }
-    });
-  }
+  // Dictado por voz real (speech_to_text) y adjunto de archivos real
+  // (file_picker → SAF de Android). Ambos fallan a mensaje honesto,
+  // nunca a excepción suelta.
+  final SpeechToText _speech = SpeechToText();
+  bool _speechReady = false;
+  bool _listening = false;
+
+  /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
+  static const _maxAttachChars = 8000;
 
   @override
   void dispose() {
-    _scrollTimer?.cancel();
-    _inputCtrl.dispose();
-    _scrollCtrl.dispose();
-    _focusNode.dispose();
+    if (_speechReady && _speech.isListening) {
+      _speech.stop();
+    }
+    _inputController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  /// Scroll al fondo: jumpTo si está cerca, animateTo si está lejos.
-  void _scrollToBottom({bool force = false}) {
-    if (!_scrollCtrl.hasClients) return;
-    if (!_autoScroll && !force) return;
-    final dist =
-        _scrollCtrl.position.maxScrollExtent - _scrollCtrl.position.pixels;
-    if (dist < 120 && dist > 0) {
-      _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
-    } else if (dist >= 120) {
-      _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
-        duration: NanoDurations.fast,
-        curve: Curves.easeOutCubic,
+  void _showHonestError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color(0xFF07192B),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-    }
   }
 
-  void _send(ChatNotifier n, [String? text]) {
-    final t = (text ?? _inputCtrl.text).trim();
-    if (t.isEmpty) return;
-    // Guard: solo permitir enviar si el motor está listo (misma condición que ChatNotifier.send).
-    final conn = ref.read(chatProvider).connection;
-    if (conn != ModelConnectionState.ready) {
-      HapticFeedback.heavyImpact();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              conn == ModelConnectionState.loadingModel
-                  ? 'El modelo aún está cargando...'
-                  : 'El motor no está conectado. Revisa la conexión en Modelos.',
-              style: NanoType.caption(
-                NanoThemeExtension.of(context).colors.onSurface,
-              ),
-            ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
+  /// Inicializa el motor de voz una sola vez (pide permiso RECORD_AUDIO
+  /// en el primer uso) y alterna escucha con resultados al input.
+  Future<void> _toggleMic() async {
+    if (!_speechReady) {
+      try {
+        _speechReady = await _speech.initialize(
+          onStatus: (status) {
+            if (!mounted) return;
+            setState(() => _listening = status == 'listening');
+          },
+          onError: (error) {
+            if (!mounted) return;
+            setState(() => _listening = false);
+            _showHonestError('Micrófono no disponible: $error');
+          },
         );
+      } catch (e) {
+        _speechReady = false;
+        if (!mounted) return;
+        _showHonestError('Micrófono no disponible: $e');
+        return;
       }
+      if (!_speechReady) {
+        if (!mounted) return;
+        _showHonestError(
+          'Reconocimiento de voz no disponible en este '
+          'dispositivo.',
+        );
+        return;
+      }
+    }
+
+    if (_speech.isListening) {
+      await _speech.stop();
       return;
     }
-    HapticFeedback.lightImpact();
-    n.send(t);
-    // Solo borrar el input si el mensaje fue aceptado (generating pasó a true).
-    if (ref.read(chatProvider).generating) {
-      _inputCtrl.clear();
-      _autoScroll = true;
-      _scrollTimer?.cancel();
-      _scrollTimer = Timer(
-        NanoDurations.normal,
-        () => _scrollToBottom(force: true),
+
+    try {
+      await _speech.listen(
+        onResult: (result) {
+          if (!mounted) return;
+          _inputController.text = result.recognizedWords;
+          _inputController.selection = TextSelection.collapsed(
+            offset: _inputController.text.length,
+          );
+        },
+        listenOptions: SpeechListenOptions(
+          listenFor: const Duration(seconds: 60),
+          pauseFor: const Duration(seconds: 5),
+        ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      _showHonestError('No se pudo iniciar el dictado: $e');
     }
   }
 
-  void _copyMessage(String id, String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    HapticFeedback.selectionClick();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Copiado al portapapeles',
-            style: NanoType.caption(
-              NanoThemeExtension.of(context).colors.onSurface,
-            ),
-          ),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-          width: 200,
-        ),
+  /// Abre el selector de archivos (SAF) e inserta el contenido textual en el
+  /// input. Binarios o archivos ilegibles se reportan, no se inventa texto.
+  Future<void> _attachFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.any,
+        withData: true,
       );
+      final file = result?.files.single;
+      if (file == null || file.path == null) return;
+
+      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final text = utf8.decode(bytes, allowMalformed: true);
+
+      // Heurística honesta: si el contenido no es texto imprimible, no sirve.
+      if (text.trim().isEmpty || text.contains('�') || _looksBinary(text)) {
+        _showHonestError(
+          'El archivo no parece texto legible; adjunta '
+          'archivos .txt/.md/.log.',
+        );
+        return;
+      }
+
+      final clipped = text.length > _maxAttachChars
+          ? '${text.substring(0, _maxAttachChars)}\n…[truncado]'
+          : text;
+      _inputController.text = clipped;
+      _inputController.selection = TextSelection.collapsed(
+        offset: _inputController.text.length,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showHonestError('No se pudo leer el archivo: $e');
     }
   }
 
-  void _deleteMessage(String id) => ref.read(chatProvider.notifier).delete(id);
-  void _retryMessage(String id) {
-    ref.read(chatProvider.notifier).retry(id);
-    _autoScroll = true;
+  bool _looksBinary(String text) {
+    const window = 512;
+    final sample = text.length > window ? text.substring(0, window) : text;
+    var controlChars = 0;
+    for (final codeUnit in sample.codeUnits) {
+      if (codeUnit < 9 || (codeUnit > 13 && codeUnit < 32)) {
+        controlChars++;
+      }
+    }
+    return controlChars > sample.length / 100; // >1% de control chars
   }
 
-  Future<void> _confirmClear(ChatNotifier n) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          'Limpiar chat',
-          style: NanoType.title(NanoThemeExtension.of(ctx).colors.onSurface),
-        ),
-        content: Text(
-          '¿Borrar todo el historial de esta conversación?',
-          style: NanoType.body(
-            NanoThemeExtension.of(ctx).colors.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancelar',
-              style: NanoType.label(
-                NanoThemeExtension.of(ctx).colors.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Borrar',
-              style: NanoType.label(NanoThemeExtension.of(ctx).colors.error),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) n.clear();
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _scrollController.jumpTo(target);
+      } else {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
-    final colors = NanoThemeExtension.of(context).colors;
-    final shadow = NanoShadows.card(colors);
 
-    // Auto-scroll durante streaming: cada token nuevo baja el scroll.
-    ref.listen(chatProvider, (prev, next) {
-      if (next.generating && next.streamingText.isNotEmpty) _scrollToBottom();
+    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
+    ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
+      _scrollToBottom();
+    });
+    ref.listen(chatProvider.select((s) => s.generating), (_, __) {
+      _scrollToBottom();
     });
 
-    final msgs = state.messages;
-    const suggestions = [
-      '¿Qué modelos tengo?',
-      'Explica NanoRuntime',
-      'Escribe función Kotlin',
-      'Estado del sistema',
-    ];
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return NanoScreenShell(
+      title: 'Chat',
+      trailing: _EngineBadge(online: state.engineOnline),
+      body: Column(
+        children: [
+          Expanded(
+            child: state.messages.isEmpty
+                ? _EmptyChat(
+                    engineOnline: state.engineOnline,
+                    onSuggestion: (text) {
+                      _inputController.text = text;
+                    },
+                    onRetry: () => notifier.refreshEngine(),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                    itemCount:
+                        state.messages.length + (state.generating ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == state.messages.length) {
+                        return _StreamingBubble(
+                          text: state.streamingText,
+                          model: state.activeModel,
+                        );
+                      }
 
-    return Stack(
-      children: [
-        Column(
-          children: [
-            _ModelBar(
-              state: state,
-              colors: colors,
-              onToggle: notifier.toggleSelector,
-              onSelect: notifier.selectModel,
-              shadow: shadow,
-              hasMessages: msgs.isNotEmpty,
-              onClear: () => _confirmClear(notifier),
-            ),
-            const Divider(height: 1),
-            if (msgs.isEmpty)
-              Expanded(
-                child: _EmptyChat(
-                  connection: state.connection,
-                  colors: colors,
-                  suggestions: suggestions,
-                  onTap: (s) => _send(notifier, s),
-                ),
-              )
-            else
-              Expanded(
-                child: _MessageList(
-                  scrollCtrl: _scrollCtrl,
-                  msgs: msgs,
-                  generating: state.generating,
-                  streamingText: state.streamingText,
-                  colors: colors,
-                  onCopy: _copyMessage,
-                  onDelete: _deleteMessage,
-                  onRetry: _retryMessage,
-                ),
-              ),
-            _InputBar(
-              ctrl: _inputCtrl,
-              focusNode: _focusNode,
-              colors: colors,
-              generating: state.generating,
-              onSend: () => _send(notifier),
-              onStop: () {
-                HapticFeedback.lightImpact();
-                notifier.stop();
-              },
-              suggestions: suggestions,
-              onSuggestion: (s) => _send(notifier, s),
-              shadow: shadow,
-              bottomInset: bottomInset,
-            ),
-          ],
-        ),
-        Positioned(
-          right: 16,
-          bottom: bottomInset + 16,
-          child: AnimatedScale(
-            scale: _fabVisible ? 1.0 : 0.0,
-            duration: NanoDurations.normal,
-            curve: Curves.easeOutBack,
-            child: AnimatedOpacity(
-              opacity: _fabVisible ? 1.0 : 0.0,
-              duration: NanoDurations.fast,
-              child: FloatingActionButton.small(
-                onPressed: () {
-                  _autoScroll = false;
-                  _scrollToBottom(force: true);
-                },
-                backgroundColor: colors.primaryContainer,
-                elevation: 4,
-                tooltip: 'Ir al final',
-                child: Icon(
-                  Icons.keyboard_arrow_down,
-                  size: NanoIcons.medium,
-                  color: colors.onPrimaryContainer,
-                ),
-              ),
-            ),
+                      final message = state.messages[index];
+
+                      return AnimatedMessageEntry(
+                        key: ValueKey(message.id),
+                        isUser: message.sender == MessageSender.user,
+                        child: _MessageBubble(
+                          text: message.text,
+                          isUser: message.sender == MessageSender.user,
+                          model: state.activeModel,
+                          timestamp: message.timestamp,
+                          isError: message.status == MessageStatus.error,
+                        ),
+                      );
+                    },
+                  ),
           ),
-        ),
-      ],
+          _Composer(
+            controller: _inputController,
+            enabled: state.engineOnline && !state.generating,
+            generating: state.generating,
+            listening: _listening,
+            onAttach: _attachFile,
+            onMic: _toggleMic,
+            onSend: () {
+              final text = _inputController.text.trim();
+              if (text.isEmpty) return;
+
+              notifier.send(text);
+              _inputController.clear();
+            },
+            onStop: notifier.stop,
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Model Bar ──
-class _ModelBar extends StatelessWidget {
-  final ChatState state;
-  final NanoColors colors;
-  final VoidCallback onToggle;
-  final Function(String) onSelect;
-  final List<BoxShadow> shadow;
-  final bool hasMessages;
-  final VoidCallback onClear;
-  const _ModelBar({
-    required this.state,
-    required this.colors,
-    required this.onToggle,
-    required this.onSelect,
-    required this.shadow,
-    required this.hasMessages,
-    required this.onClear,
-  });
+/// Badge de estado del motor con pulso lento cuando está online. Detenido:
+/// sin animación (estado quieto, honesto — solo lo vivo respira).
+class _EngineBadge extends StatefulWidget {
+  const _EngineBadge({required this.online});
+
+  final bool online;
+
+  @override
+  State<_EngineBadge> createState() => _EngineBadgeState();
+}
+
+class _EngineBadgeState extends State<_EngineBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+
+    if (widget.online) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _EngineBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.online) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final c = colors;
-    final dot = {
-      ModelConnectionState.ready: c.success,
-      ModelConnectionState.loadingModel: c.secondary,
-      ModelConnectionState.noModel: c.onSurfaceVariant,
-      ModelConnectionState.error: c.error,
-    }[state.connection]!;
-    final label = {
-      ModelConnectionState.ready: 'Conectado',
-      ModelConnectionState.loadingModel: 'Cargando modelo...',
-      ModelConnectionState.noModel: 'Sin modelo activo',
-      ModelConnectionState.error: 'Error de conexión',
-    }[state.connection]!;
-    final matches = NeuralCatalog.models.where(
-      (m) => m.name == state.activeModel,
-    );
-    final entry = matches.isNotEmpty ? matches.first : null;
-    final sub = entry != null ? '${entry.params} · ${entry.quant}' : null;
-    return Column(
-      children: [
-        InkWell(
-          onTap: onToggle,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: NanoSpacing.lg,
-              vertical: NanoSpacing.md,
+    final online = widget.online;
+    final color = online ? const Color(0xFF21F2B2) : const Color(0xFFFFA726);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return Semantics(
+      label: online ? 'Motor local conectado' : 'Motor local detenido',
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final intensity = reduceMotion
+              ? 0.10
+              : 0.10 + _controller.value * 0.18;
+
+          return Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            decoration: BoxDecoration(
+              color: const Color(0xFF07192B).withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withValues(alpha: 0.45)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: intensity),
+                  blurRadius: 12,
+                ),
+              ],
             ),
-            decoration: BoxDecoration(color: c.surface, boxShadow: shadow),
-            child: Row(
-              children: [
-                AnimatedContainer(
-                  duration: NanoDurations.normal,
-                  curve: Curves.easeInOutCubic,
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: dot,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: dot.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: NanoSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        state.activeModel,
-                        style: NanoType.subtitle(c.onSurface),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (sub != null)
-                        Text(sub, style: NanoType.caption(c.onSurfaceVariant)),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: c.surfaceVariant,
-                      borderRadius: NanoShapes.small,
-                    ),
-                    child: Text(
-                      label,
-                      style: NanoType.overline(c.onSurfaceVariant),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: NanoSpacing.sm),
-                if (hasMessages) ...[
-                  SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: IconButton(
-                      onPressed: onClear,
-                      icon: Icon(
-                        Icons.delete_sweep_outlined,
-                        size: NanoIcons.small,
-                        color: c.onSurfaceVariant,
-                      ),
-                      padding: EdgeInsets.zero,
-                      tooltip: 'Limpiar chat',
-                    ),
-                  ),
-                  const SizedBox(width: 2),
+            child: child,
+          );
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8),
                 ],
-                Icon(
-                  state.showModelSelector
-                      ? Icons.expand_less
-                      : Icons.expand_more,
-                  size: NanoIcons.small,
-                  color: c.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              online ? 'LOCAL' : 'DETENIDO',
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({
+    required this.text,
+    required this.isUser,
+    required this.model,
+    required this.timestamp,
+    this.isError = false,
+    this.trailing,
+  });
+
+  final String text;
+  final bool isUser;
+  final String model;
+  final DateTime timestamp;
+  final bool isError;
+
+  /// Widget inline tras el texto (cursor de streaming).
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final time =
+        '${timestamp.hour.toString().padLeft(2, '0')}:'
+        '${timestamp.minute.toString().padLeft(2, '0')}';
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Semantics(
+        label: isUser ? 'Mensaje del usuario' : 'Respuesta de NanoAI',
+        child: RepaintBoundary(
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+            ),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                if (!isUser) ...[
+                  Text(
+                    'NanoAI · ${model.isEmpty || model == 'Sin modelo' ? 'modelo local' : model}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.58),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                ],
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(15, 12, 15, 9),
+                      decoration: BoxDecoration(
+                        color: isUser
+                            ? const Color(0xFF005D72).withValues(alpha: 0.62)
+                            : const Color(0xFF072238).withValues(alpha: 0.66),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isError
+                              ? const Color(0xFFFF5C6C).withValues(alpha: 0.55)
+                              : isUser
+                              ? const Color(0xFF42D9FF).withValues(alpha: 0.42)
+                              : const Color(0xFF21F2B2).withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (trailing == null)
+                            Text(
+                              text,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                height: 1.42,
+                              ),
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    text,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      height: 1.42,
+                                    ),
+                                  ),
+                                ),
+                                trailing!,
+                              ],
+                            ),
+                          const SizedBox(height: 5),
+                          Text(
+                            time,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.48),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        AnimatedSize(
-          duration: NanoDurations.normal,
-          curve: Curves.easeInOutCubic,
-          alignment: Alignment.topCenter,
-          child: state.showModelSelector
-              ? ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.sizeOf(context).height * 0.4,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: state.availableModels
-                          .map(
-                            (m) => InkWell(
-                              onTap: () => onSelect(m),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: NanoSpacing.lg,
-                                  vertical: NanoSpacing.md,
-                                ),
-                                color: m == state.activeModel
-                                    ? c.primaryContainer.withValues(alpha: 0.5)
-                                    : c.surface,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.psychology,
-                                      size: NanoIcons.small,
-                                      color: m == state.activeModel
-                                          ? c.primary
-                                          : c.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: NanoSpacing.sm),
-                                    Expanded(
-                                      child: Text(
-                                        m,
-                                        style: NanoType.body(c.onSurface),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (m == state.activeModel)
-                                      Icon(
-                                        Icons.check_circle,
-                                        size: NanoIcons.small,
-                                        color: c.primary,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Empty Chat ──
-class _EmptyChat extends StatelessWidget {
-  final ModelConnectionState connection;
-  final NanoColors colors;
-  final List<String> suggestions;
-  final Function(String) onTap;
-  const _EmptyChat({
-    required this.connection,
-    required this.colors,
-    required this.suggestions,
-    required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) {
-    final c = colors;
-    if (connection == ModelConnectionState.noModel) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.psychology,
-              size: NanoIcons.hero,
-              color: c.onSurfaceVariant.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: NanoSpacing.lg),
-            Text('Sin modelo activo', style: NanoType.title(c.onSurface)),
-            const SizedBox(height: 4),
-            Text(
-              'Selecciona uno en Modelos para chatear',
-              style: NanoType.caption(c.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
-    if (connection == ModelConnectionState.loadingModel) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: NanoSpacing.lg),
-            Text(
-              'Cargando modelo en memoria...',
-              style: NanoType.body(c.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
-    if (connection == ModelConnectionState.error) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off,
-              size: NanoIcons.hero,
-              color: c.error.withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: NanoSpacing.lg),
-            Text('Motor no disponible', style: NanoType.title(c.onSurface)),
-            const SizedBox(height: 4),
-            Text(
-              'El servidor llama.cpp no responde.\nRevisa que esté levantado en el dispositivo.',
-              textAlign: TextAlign.center,
-              style: NanoType.caption(c.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(NanoSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: NanoSpacing.xxl),
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: c.primary.withValues(alpha: 0.1),
-                borderRadius: NanoShapes.large,
-              ),
-              child: Icon(Icons.chat, size: NanoIcons.large, color: c.primary),
-            ),
-            const SizedBox(height: NanoSpacing.lg),
-            Text('NanoAI Chat', style: NanoType.display(c.onSurface)),
-            const SizedBox(height: 4),
-            Text(
-              '100% local · sin internet · privado',
-              style: NanoType.caption(c.onSurfaceVariant),
-            ),
-            const SizedBox(height: NanoSpacing.xl),
-            ...suggestions.map(
-              (s) => Padding(
-                padding: const EdgeInsets.only(bottom: NanoSpacing.sm),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => onTap(s),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      side: BorderSide(color: c.outlineVariant),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: NanoSpacing.lg,
-                        vertical: NanoSpacing.md,
-                      ),
-                    ),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(s, style: NanoType.body(c.onSurface)),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 }
 
-// ── Input Bar ──
-class _InputBar extends StatefulWidget {
-  final TextEditingController ctrl;
-  final FocusNode focusNode;
-  final NanoColors colors;
-  final bool generating;
-  final VoidCallback onSend;
-  final VoidCallback onStop;
-  final List<String> suggestions;
-  final Function(String) onSuggestion;
-  final List<BoxShadow> shadow;
-  final double bottomInset;
-  const _InputBar({
-    required this.ctrl,
-    required this.focusNode,
-    required this.colors,
+class _StreamingBubble extends StatelessWidget {
+  const _StreamingBubble({required this.text, required this.model});
+
+  final String text;
+  final String model;
+
+  @override
+  Widget build(BuildContext context) {
+    // Generando sin tokens todavía: onda de tres puntos. Con texto: burbuja
+    // real + cursor respirando inline.
+    if (text.isEmpty) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: ThinkingIndicator(),
+        ),
+      );
+    }
+
+    return _MessageBubble(
+      text: text,
+      isUser: false,
+      model: model,
+      timestamp: DateTime.now(),
+      trailing: const StreamingCursor(),
+    );
+  }
+}
+
+class _Composer extends StatelessWidget {
+  const _Composer({
+    required this.controller,
+    required this.enabled,
     required this.generating,
+    required this.listening,
+    required this.onAttach,
+    required this.onMic,
     required this.onSend,
     required this.onStop,
-    required this.suggestions,
-    required this.onSuggestion,
-    required this.shadow,
-    required this.bottomInset,
   });
-  @override
-  State<_InputBar> createState() => _InputBarState();
-}
 
-class _InputBarState extends State<_InputBar> {
-  bool _focused = false;
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_onFocus);
-    widget.ctrl.addListener(_onTextChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.focusNode.removeListener(_onFocus);
-    widget.ctrl.removeListener(_onTextChanged);
-    super.dispose();
-  }
-
-  void _onFocus() {
-    if (mounted) setState(() => _focused = widget.focusNode.hasFocus);
-  }
-
-  void _onTextChanged() {
-    if (mounted) setState(() {});
-  }
+  final TextEditingController controller;
+  final bool enabled;
+  final bool generating;
+  final bool listening;
+  final VoidCallback onAttach;
+  final VoidCallback onMic;
+  final VoidCallback onSend;
+  final VoidCallback onStop;
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.colors;
-    return AnimatedContainer(
-      duration: NanoDurations.normal,
-      curve: Curves.easeInOutCubic,
-      decoration: BoxDecoration(
-        color: c.surface,
-        boxShadow: _focused
-            ? [
-                BoxShadow(
-                  color: c.primary.withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ]
-            : widget.shadow,
-      ),
+    return Padding(
       padding: EdgeInsets.fromLTRB(
-        NanoSpacing.sm,
-        NanoSpacing.xs,
-        NanoSpacing.xs,
-        NanoSpacing.sm + widget.bottomInset,
+        16,
+        8,
+        16,
+        14 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
-        children: [
-          AnimatedSize(
-            duration: NanoDurations.fast,
-            alignment: Alignment.topCenter,
-            child: (!widget.generating && widget.ctrl.text.isEmpty)
-                ? SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: widget.suggestions
-                          .take(3)
-                          .map(
-                            (s) => Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ActionChip(
-                                avatar: Icon(
-                                  Icons.lightbulb_outline,
-                                  size: NanoIcons.tiny,
-                                  color: c.primary,
-                                ),
-                                label: Text(
-                                  s,
-                                  style: NanoType.caption(c.onSurface),
-                                ),
-                                onPressed: () => widget.onSuggestion(s),
-                                backgroundColor: c.surfaceVariant,
-                                side: BorderSide(color: c.outlineVariant),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 62),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFF07192B).withValues(alpha: 0.74),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF42D9FF).withValues(alpha: 0.32),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Adjuntar archivo',
+                  onPressed: enabled ? onAttach : null,
+                  icon: const Icon(Icons.attach_file_rounded),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    enabled: enabled,
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: listening
+                          ? 'Escuchando…'
+                          : enabled
+                          ? 'Escribe un mensaje'
+                          : 'Motor local no disponible',
+                      hintStyle: TextStyle(
+                        color: listening
+                            ? const Color(0xFF21F2B2)
+                            : Colors.white.withValues(alpha: 0.42),
+                      ),
+                      border: InputBorder.none,
                     ),
-                  )
-                : const SizedBox.shrink(),
+                  ),
+                ),
+                IconButton(
+                  tooltip: listening ? 'Detener dictado' : 'Dictar por voz',
+                  onPressed: enabled ? onMic : null,
+                  icon: Icon(
+                    listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                    color: listening ? const Color(0xFF21F2B2) : null,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                IconButton.filled(
+                  tooltip: generating ? 'Detener' : 'Enviar',
+                  onPressed: generating
+                      ? onStop
+                      : enabled
+                      ? onSend
+                      : null,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    backgroundColor: const Color(0xFF21D991),
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: Icon(
+                    generating
+                        ? Icons.stop_rounded
+                        : Icons.arrow_upward_rounded,
+                  ),
+                ),
+              ],
+            ),
           ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: widget.ctrl,
-                  focusNode: widget.focusNode,
-                  maxLines: 4,
-                  minLines: 1,
-                  decoration: InputDecoration(
-                    hintText: 'Escribe un mensaje...',
-                    hintStyle: NanoType.caption(
-                      c.onSurfaceVariant.withValues(alpha: 0.4),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: NanoSpacing.sm,
-                      vertical: NanoSpacing.sm,
-                    ),
-                  ),
-                  style: NanoType.body(c.onSurface),
-                  onSubmitted: (_) {
-                    if (!widget.generating &&
-                        widget.ctrl.text.trim().isNotEmpty) {
-                      widget.onSend();
-                    }
-                  },
-                ),
-              ),
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: AnimatedSwitcher(
-                  duration: NanoDurations.fast,
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, anim) => ScaleTransition(
-                    scale: anim,
-                    child: FadeTransition(opacity: anim, child: child),
-                  ),
-                  child: IconButton(
-                    key: ValueKey(widget.generating),
-                    onPressed: widget.generating
-                        ? widget.onStop
-                        : widget.onSend,
-                    icon: Icon(
-                      widget.generating
-                          ? Icons.stop_rounded
-                          : Icons.send_rounded,
-                      size: NanoIcons.medium,
-                      color: widget.generating ? c.error : c.primary,
-                    ),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Typing ──
-class _TypingBubble extends StatefulWidget {
-  final NanoColors colors;
-  const _TypingBubble({required this.colors});
-  @override
-  State<_TypingBubble> createState() => _TypingBubbleState();
-}
-
-class _TypingBubbleState extends State<_TypingBubble>
-    with SingleTickerProviderStateMixin {
-  late final _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat();
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
-    padding: const EdgeInsets.symmetric(
-      horizontal: NanoSpacing.lg,
-      vertical: NanoSpacing.md,
-    ),
-    decoration: BoxDecoration(
-      color: widget.colors.surfaceVariant,
-      borderRadius: NanoShapes.aiBubble,
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        3,
-        (i) => AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, __) {
-            final a = (_ctrl.value * 3 - i).clamp(0.0, 1.0);
-            return Container(
-              width: 7,
-              height: 7,
-              margin: const EdgeInsets.only(right: 3),
-              decoration: BoxDecoration(
-                color: widget.colors.onSurfaceVariant.withValues(
-                  alpha: a * 0.7,
-                ),
-                shape: BoxShape.circle,
-              ),
-            );
-          },
         ),
       ),
-    ),
-  );
-}
-
-// -- Message List --
-class _MessageList extends StatelessWidget {
-  final ScrollController scrollCtrl;
-  final List<ChatMessage> msgs;
-  final bool generating;
-  final String streamingText;
-  final NanoColors colors;
-  final void Function(String id, String text) onCopy;
-  final void Function(String id) onDelete;
-  final void Function(String id) onRetry;
-  const _MessageList({
-    required this.scrollCtrl,
-    required this.msgs,
-    required this.generating,
-    required this.streamingText,
-    required this.colors,
-    required this.onCopy,
-    required this.onDelete,
-    required this.onRetry,
-  });
-  @override
-  Widget build(BuildContext context) {
-    final c = colors;
-    final wide = MediaQuery.sizeOf(context).width > _kWideBreakpoint;
-    final maxW = wide ? _kMaxBubbleWide : _kMaxBubbleCompact;
-    return ListView.builder(
-      controller: scrollCtrl,
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.symmetric(
-        horizontal: NanoSpacing.lg,
-        vertical: NanoSpacing.sm,
-      ),
-      itemCount: msgs.length + (generating ? 1 : 0),
-      itemBuilder: (_, i) {
-        if (i < msgs.length) {
-          final msg = msgs[i];
-          final isUser = msg.sender == MessageSender.user;
-          final isError = msg.status == MessageStatus.error;
-          final isSending = msg.status == MessageStatus.sending;
-          final bg = isUser
-              ? c.primaryContainer
-              : isError
-              ? c.error.withValues(alpha: 0.08)
-              : c.surfaceVariant;
-          final fg = isUser ? c.onPrimaryContainer : c.onSurface;
-          final time =
-              '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}';
-
-          void showContextMenu() => showModalBottomSheet(
-            context: context,
-            backgroundColor: c.surface,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            builder: (_) => SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(NanoSpacing.sm),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: c.outlineVariant,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.copy, color: c.primary),
-                      title: Text(
-                        'Copiar texto',
-                        style: NanoType.body(c.onSurface),
-                      ),
-                      onTap: () {
-                        onCopy(msg.id, msg.text);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.delete_outline, color: c.error),
-                      title: Text(
-                        'Eliminar mensaje',
-                        style: NanoType.body(c.onSurface),
-                      ),
-                      onTap: () {
-                        onDelete(msg.id);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    if (isError && !isUser)
-                      ListTile(
-                        leading: Icon(Icons.refresh, color: c.success),
-                        title: Text(
-                          'Reintentar',
-                          style: NanoType.body(c.onSurface),
-                        ),
-                        onTap: () {
-                          onRetry(msg.id);
-                          Navigator.pop(context);
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-
-          return Align(
-            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-            child: GestureDetector(
-              onLongPress: showContextMenu,
-              onTap: () => onCopy(msg.id, msg.text),
-              child: Container(
-                constraints: BoxConstraints(maxWidth: maxW),
-                margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
-                padding: const EdgeInsets.all(NanoSpacing.md),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: isUser
-                      ? NanoShapes.userBubble
-                      : NanoShapes.aiBubble,
-                  border: isError
-                      ? Border.all(
-                          color: c.error.withValues(alpha: 0.3),
-                          width: 1,
-                        )
-                      : null,
-                  boxShadow: [
-                    BoxShadow(
-                      color: c.onSurface.withValues(alpha: 0.03),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Opacity(
-                  opacity: isSending ? 0.6 : 1.0,
-                  child: Semantics(
-                    label:
-                        '${isUser ? "Tú" : "NanoAI"}: ${msg.text.length > 50 ? "${msg.text.substring(0, 50)}..." : msg.text}',
-                    child: Column(
-                      crossAxisAlignment: isUser
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start,
-                      children: [
-                        if (isError) ...[
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: NanoIcons.small,
-                                color: c.error,
-                              ),
-                              const SizedBox(width: 4),
-                              Text('Error', style: NanoType.label(c.error)),
-                              const Spacer(),
-                              InkWell(
-                                onTap: () => onRetry(msg.id),
-                                borderRadius: NanoShapes.small,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.refresh,
-                                        size: NanoIcons.tiny,
-                                        color: c.success,
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        'Reintentar',
-                                        style: NanoType.caption(c.success),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                        Text(msg.text, style: NanoType.body(fg)),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isSending) ...[
-                              Icon(
-                                Icons.schedule,
-                                size: NanoIcons.tiny,
-                                color: fg.withValues(alpha: 0.4),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            if (msg.tps != null)
-                              Text(
-                                '${msg.tps!.toStringAsFixed(1)} t/s ·',
-                                style: NanoType.caption(
-                                  fg.withValues(alpha: 0.4),
-                                ),
-                              ),
-                            Text(
-                              time,
-                              style: NanoType.caption(
-                                fg.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-        if (streamingText.isNotEmpty) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: _StreamingBubble(text: streamingText, colors: colors),
-          );
-        }
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: _TypingBubble(colors: colors),
-        );
-      },
     );
   }
 }
 
-// ── Streaming Bubble ──
-class _StreamingBubble extends StatefulWidget {
-  final String text;
-  final NanoColors colors;
-  const _StreamingBubble({required this.text, required this.colors});
-  @override
-  State<_StreamingBubble> createState() => _StreamingBubbleState();
-}
+class _EmptyChat extends StatelessWidget {
+  const _EmptyChat({
+    required this.engineOnline,
+    required this.onSuggestion,
+    required this.onRetry,
+  });
 
-class _StreamingBubbleState extends State<_StreamingBubble>
-    with SingleTickerProviderStateMixin {
-  late final _cursorCtrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 600),
-  )..repeat(reverse: true);
-  @override
-  void dispose() {
-    _cursorCtrl.dispose();
-    super.dispose();
-  }
+  final bool engineOnline;
+  final ValueChanged<String> onSuggestion;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.colors;
-    final wide = MediaQuery.sizeOf(context).width > _kWideBreakpoint;
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: wide ? _kMaxBubbleWide : _kMaxBubbleCompact,
-      ),
-      margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
-      padding: const EdgeInsets.all(NanoSpacing.md),
-      decoration: BoxDecoration(
-        color: c.surfaceVariant,
-        borderRadius: NanoShapes.aiBubble,
-        boxShadow: [
-          BoxShadow(
-            color: c.onSurface.withValues(alpha: 0.03),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(child: Text(widget.text, style: NanoType.body(c.onSurface))),
-          const SizedBox(width: 2),
-          AnimatedBuilder(
-            animation: _cursorCtrl,
-            builder: (_, __) => Container(
-              width: 2,
-              height: NanoType.body(c.onSurface).fontSize ?? 14,
-              decoration: BoxDecoration(
-                color: c.primary.withValues(alpha: _cursorCtrl.value),
-                borderRadius: BorderRadius.circular(1),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              engineOnline
+                  ? Icons.auto_awesome_rounded
+                  : Icons.cloud_off_rounded,
+              color: engineOnline
+                  ? const Color(0xFF21F2B2)
+                  : const Color(0xFFFFA726),
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              engineOnline
+                  ? '¿En qué puedo ayudarte?'
+                  : 'El motor local está detenido',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        ],
+            if (engineOnline) ...[
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  ActionChip(
+                    label: const Text('Explica esta pantalla'),
+                    onPressed: () =>
+                        onSuggestion('Explica lo que aparece en pantalla'),
+                  ),
+                  ActionChip(
+                    label: const Text('Abrir Linux'),
+                    onPressed: () =>
+                        onSuggestion('Ayúdame a usar el escritorio Linux'),
+                  ),
+                ],
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Text(
+                'Activa un modelo GGUF en la pantalla Modelos y el '
+                'motor correrá 100% en el dispositivo.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.58),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -336,9 +337,15 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(MaterialApp.router(
-      theme: ThemeData(extensions: [NanoThemeExtension(colors: NanoDarkColors())]),
-      routerConfig: router,
+    // DesktopLaunchScreen es ConsumerStateful: requiere ProviderScope.
+    // Sin overrides: los providers reales fallan a error honesto, no crash.
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        theme: ThemeData(
+          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+        ),
+        routerConfig: router,
+      ),
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));

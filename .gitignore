@@ -4,7 +4,9 @@
 
 # ── Modelos GGUF (son grandes, no subir) ─────
 *.gguf
-models/
+# Solo carpeta "models" en la raíz del monorepo. La feature Flutter
+# lib/features/models/ SÍ se versiona (es parte del build mobile).
+/models/
 modelos/
 *.safetensors
 *.bin
@@ -54,7 +56,9 @@ descarga1/
 *.nano
 
 # ── Subproyectos separados / no necesarios para el build ─
-dashboard/
+# Solo carpeta "dashboard" en la raíz del monorepo. La feature Flutter
+# lib/features/dashboard/ SÍ se versiona (es parte del build mobile).
+/dashboard/
 graphify-out/
 .opencode/
 data/
