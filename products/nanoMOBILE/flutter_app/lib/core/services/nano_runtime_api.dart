@@ -472,8 +472,23 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Snapshot enriquecido para el Selector Engine:
+  /// `{package, nodes:[{..., depth}]}`. null si el servicio no responde.
+  /// Usa [NanoAgentExecutor] en vez de este método directo — aquí solo el
+  /// transporte.
+  Future<Map<dynamic, dynamic>?> agentDumpSnapshot() async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>('dumpSnapshot');
+    } catch (e) {
+      debugPrint('[runtime] agentDumpSnapshot error: $e');
+      return null;
+    }
+  }
+
   /// Nodos cuyo texto/desc contiene [query]. maxResults limita el volcado
   /// (default 10) — el agente LLM solo necesita los mejores candidatos.
+  @Deprecated('Usa NanoAgentExecutor / NanoSelectorEngine: resuelve con '
+      'puntuación ponderada y aborta en ambigüedad.')
   Future<List<dynamic>> agentFindText(
     String query, {
     int maxResults = 10,
@@ -492,6 +507,8 @@ class NanoRuntimeApi {
 
   /// Tap sobre el nodo cuyo texto/desc contiene [text] (bounds reales del
   /// nodo, no coordenadas adivinadas).
+  @Deprecated('Peligroso: coge el primer nodo con contains sin unicidad ni '
+      'estado. Usa NanoAgentExecutor.tap() con NanoSelector.')
   Future<bool> agentTapOnText(String text) async {
     try {
       return await _agent.invokeMethod<bool>('tapOnText', {'text': text}) ==

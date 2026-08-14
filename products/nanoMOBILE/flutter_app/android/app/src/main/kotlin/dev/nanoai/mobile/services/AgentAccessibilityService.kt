@@ -101,34 +101,60 @@ class AgentAccessibilityService : AccessibilityService() {
         return result
     }
 
-    private fun walk(node: AccessibilityNodeInfo?, depth: Int, out: MutableList<Map<String, Any?>>) {
+    /**
+     * Snapshot enriquecido de la ventana activa: package del root + nodos con
+     * depth. Lo consume el Selector Engine en Dart: el package permite
+     * verificar expectedPackage y el depth alimenta el rol/posición.
+     *
+     * Asunción: [AccessibilityNodeInfo.getPackageName] existe desde API 14
+     * (minSdk 26 OK). En ventanas OEM (overlays, launchers) puede ser null →
+     * "" (nunca excepción).
+     */
+    fun dumpSnapshot(): Map<String, Any?> {
+        val root = rootInActiveWindow
+            ?: return mapOf("package" to "", "nodes" to emptyList<Map<String, Any?>>())
+        val result = mutableListOf<Map<String, Any?>>()
+        walk(root, 0, result, withDepth = true)
+        val pkg = root.packageName?.toString() ?: ""
+        root.recycle()
+        return mapOf("package" to pkg, "nodes" to result)
+    }
+
+    private fun walk(
+        node: AccessibilityNodeInfo?,
+        depth: Int,
+        out: MutableList<Map<String, Any?>>,
+        withDepth: Boolean = false,
+    ) {
         if (node == null || depth > MAX_DEPTH || out.size >= MAX_NODES) return
-        out.add(nodeToMap(node))
+        out.add(if (withDepth) nodeToMap(node, depth) else nodeToMap(node))
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
-            walk(child, depth + 1, out)
+            walk(child, depth + 1, out, withDepth)
             child?.recycle()
         }
     }
 
-    private fun nodeToMap(node: AccessibilityNodeInfo): Map<String, Any?> {
+    private fun nodeToMap(node: AccessibilityNodeInfo, depth: Int? = null): Map<String, Any?> {
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
-        return mapOf(
-            "id" to (node.viewIdResourceName ?: ""),
-            "type" to (node.className?.toString() ?: ""),
-            "text" to (node.text?.toString() ?: ""),
-            "desc" to (node.contentDescription?.toString() ?: ""),
-            "clickable" to node.isClickable,
-            "editable" to node.isEditable,
-            "scrollable" to node.isScrollable,
-            "checked" to node.isChecked,
-            "focusable" to node.isFocusable,
-            "focused" to node.isFocused,
-            "visible" to node.isVisibleToUser,
-            "enabled" to node.isEnabled,
-            "bounds" to intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom),
-        )
+        return buildMap {
+            put("id", node.viewIdResourceName ?: "")
+            put("type", node.className?.toString() ?: "")
+            put("text", node.text?.toString() ?: "")
+            put("desc", node.contentDescription?.toString() ?: "")
+            put("clickable", node.isClickable)
+            put("editable", node.isEditable)
+            put("scrollable", node.isScrollable)
+            put("checked", node.isChecked)
+            put("focusable", node.isFocusable)
+            put("focused", node.isFocused)
+            put("visible", node.isVisibleToUser)
+            put("enabled", node.isEnabled)
+            put("bounds", intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom))
+            // Solo dumpSnapshot incluye depth; dumpScreen conserva su contrato.
+            if (depth != null) put("depth", depth)
+        }
     }
 
     // ── Búsqueda ─────────────────────────────────────────────────────────────

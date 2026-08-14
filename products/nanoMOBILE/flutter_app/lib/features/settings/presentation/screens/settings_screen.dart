@@ -7,11 +7,13 @@ import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/features/settings/presentation/widgets/agent_console_section.dart';
+import 'package:nanoai/features/settings/presentation/widgets/settings_widgets.dart';
 
 /// Opciones disponibles para el modo de tema.
 const _themeOptions = ['Sistema', 'Oscuro', 'Claro'];
 
-/// Modos de ahorro de baterÃ­a.
+/// Modos de ahorro de batería.
 const _batteryModes = ['Eco', 'Balanced', 'Survival'];
 
 class SettingsScreen extends ConsumerWidget {
@@ -37,8 +39,8 @@ class SettingsScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: NanoSpacing.md, vertical: NanoSpacing.md),
         children: [
-          _SectionHeader('General', Icons.tune, colors: colors),
-          _Card(
+          SectionHeader('General', Icons.tune, colors: colors),
+          SettingsCard(
             shadow: shadow,
             colors: colors,
             child: Column(
@@ -80,8 +82,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: NanoSpacing.md),
-          _SectionHeader('Memoria RAM', Icons.memory, colors: colors),
-          _Card(
+          SectionHeader('Memoria RAM', Icons.memory, colors: colors),
+          SettingsCard(
             shadow: shadow,
             colors: colors,
             child: Column(
@@ -105,23 +107,23 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: NanoSpacing.md),
-          _SectionHeader('Control T?rmico', Icons.thermostat, colors: colors),
-          _Card(
+          SectionHeader('Control Térmico', Icons.thermostat, colors: colors),
+          SettingsCard(
             shadow: shadow,
             colors: colors,
             child: _SliderRow(
-              label: 'L?mite Temperatura Max',
+              label: 'Límite Temperatura Max',
               value: state.thermalLimit,
               min: 35,
               max: 50,
-              unit: '?C',
+              unit: '°C',
               onChanged: notifier.setThermalLimit,
               colors: colors,
             ),
           ),
           const SizedBox(height: NanoSpacing.md),
-          _SectionHeader('Inferencia LLM', Icons.psychology, colors: colors),
-          _Card(
+          SectionHeader('Inferencia LLM', Icons.psychology, colors: colors),
+          SettingsCard(
             shadow: shadow,
             colors: colors,
             child: Column(
@@ -143,7 +145,7 @@ class SettingsScreen extends ConsumerWidget {
                   colors: colors,
                 ),
                 _SliderRow(
-                  label: 'Tokens m?ximos',
+                  label: 'Tokens máximos',
                   value: state.maxTokens.toDouble(),
                   min: 64,
                   max: 2048,
@@ -154,8 +156,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: NanoSpacing.md),
-          _SectionHeader('Bater?a', Icons.battery_std, colors: colors),
-          _Card(
+          SectionHeader('Batería', Icons.battery_std, colors: colors),
+          SettingsCard(
             shadow: shadow,
             colors: colors,
             child: Wrap(
@@ -180,7 +182,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: NanoSpacing.xxxl),
-          const _AgentSection(),
+          const AgentConsoleSection(),
           const _DesktopSection(),
           const SizedBox(height: NanoSpacing.xxxl),
         ],
@@ -189,120 +191,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// â”€â”€ Agente de UI (diagnÃ³stico del AccessibilityService) â”€â”€
-class _AgentSection extends ConsumerStatefulWidget {
-  const _AgentSection();
-
-  @override
-  ConsumerState<_AgentSection> createState() => _AgentSectionState();
-}
-
-class _AgentSectionState extends ConsumerState<_AgentSection> {
-  String _status = 'Sin consultar';
-  List<String> _nodes = const [];
-  bool _busy = false;
-
-  Future<void> _probe() async {
-    setState(() {
-      _busy = true;
-      _status = 'Consultandoâ€¦';
-    });
-    final runtime = NanoRuntimeApi.instance;
-    final status = await runtime.agentStatus();
-    final connected = status?['connected'] == true;
-    var nodes = <String>[];
-    if (connected) {
-      final screen = await runtime.agentDumpScreen();
-      nodes = screen.take(20).map((n) {
-        final m = Map<dynamic, dynamic>.from(n as Map);
-        final text = (m['text'] as String? ?? '').trim();
-        final desc = (m['desc'] as String? ?? '').trim();
-        final bounds = (m['bounds'] as List?)?.cast<num>() ?? const [];
-        final label = text.isNotEmpty
-            ? text
-            : (desc.isNotEmpty ? desc : m['type']);
-        return '$label @(${bounds.isNotEmpty ? "${bounds[0]},${bounds[1]}" : "?"})';
-      }).toList();
-    }
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _status = connected
-          ? 'Conectado â€” ${nodes.length} nodos visibles'
-          : 'No conectado â€” activar en Ajustes â†’ Accesibilidad â†’ NanoAI Local';
-      _nodes = nodes;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final shadow = NanoShadows.card(colors);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader('Agente de UI', Icons.smart_toy, colors: colors),
-        _Card(
-          shadow: shadow,
-          colors: colors,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_status, style: NanoType.body(colors.onSurface)),
-              const SizedBox(height: NanoSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _busy ? null : _probe,
-                  icon: const Icon(Icons.visibility, size: 18),
-                  label: Text(
-                    _busy ? 'Leyendo Ã¡rbolâ€¦' : 'Leer pantalla actual',
-                    style: NanoType.body(colors.onSurface),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    disabledBackgroundColor: colors.primary.withValues(
-                      alpha: 0.4,
-                    ),
-                  ),
-                ),
-              ),
-              if (_nodes.isNotEmpty) ...[
-                const SizedBox(height: NanoSpacing.md),
-                ..._nodes
-                    .take(8)
-                    .map(
-                      (n) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(
-                          n,
-                          style: NanoType.caption(colors.onSurfaceVariant),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-              ],
-              const SizedBox(height: NanoSpacing.md),
-              _ActionRow(
-                runtime: NanoRuntimeApi.instance,
-                colors: colors,
-                actions: const [
-                  ('Back', Icons.arrow_back, 'back'),
-                  ('Tap "Ajustes"', Icons.touch_app, 'tap'),
-                  ('Launch Ajustes', Icons.launch, 'launch'),
-                  ('Swipe â†‘', Icons.swipe_up, 'swipe'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// â”€â”€ Escritorio Linux (protecciÃ³n VNC + almacenamiento compartido) â”€â”€
+// â”€â”€ Escritorio Linux (protección VNC + almacenamiento compartido) â”€â”€
 class _DesktopSection extends ConsumerStatefulWidget {
   const _DesktopSection();
 
@@ -329,11 +218,11 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
     super.dispose();
   }
 
-  /// Recorta al lÃ­mite de 8 bytes del protocolo VNC y persiste.
+  /// Recorta al límite de 8 bytes del protocolo VNC y persiste.
   void _applyPassword(String v) {
     var trimmed = v;
     // Bytes UTF-8 (los caracteres multibyte cuentan por bytes, no por
-    // codeUnits UTF-16): recortar de atrÃ¡s hasta caber en 8 bytes.
+    // codeUnits UTF-16): recortar de atrás hasta caber en 8 bytes.
     while (utf8.encode(trimmed).length > 8 && trimmed.isNotEmpty) {
       trimmed = trimmed.substring(0, trimmed.length - 1);
     }
@@ -356,8 +245,8 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
     setState(() {
       _permBusy = false;
       _permResult = ok
-          ? 'Concedido â€” pcmanfm verÃ¡ tus fotos, vÃ­deos y audio'
-          : 'No se pudo conceder (Â¿denegado en ajustes del sistema?)';
+          ? 'Concedido — pcmanfm verá tus fotos, vídeos y audio'
+          : 'No se pudo conceder (¿denegado en ajustes del sistema?)';
     });
   }
 
@@ -371,12 +260,12 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(
+        SectionHeader(
           'Escritorio Linux',
           Icons.desktop_windows,
           colors: colors,
         ),
-        _Card(
+        SettingsCard(
           shadow: shadow,
           colors: colors,
           child: Column(
@@ -386,7 +275,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                 value: vncEnabled,
                 onChanged: (on) {
                   if (on) {
-                    // Activar con el contenido actual del campo (si vacÃ­o,
+                    // Activar con el contenido actual del campo (si vacío,
                     // la auth queda pendiente hasta escribirla).
                     notifier.setVncPassword(_pwController.text);
                   } else {
@@ -395,7 +284,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                   }
                 },
                 title: Text(
-                  'ProtecciÃ³n por contraseÃ±a',
+                  'Protección por contraseña',
                   style: NanoType.body(colors.onSurface),
                 ),
                 subtitle: Text(
@@ -413,18 +302,18 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                     obscureText: true,
                     maxLength: 8,
                     inputFormatters: [
-                      // ASCII imprimible Ãºnicamente: el DES del cliente y el
+                      // ASCII imprimible únicamente: el DES del cliente y el
                       // archivo vncpasswd operan sobre BYTES, y Dart codeUnits
-                      // (UTF-16) â‰  bytes UTF-8 para caracteres no ASCII â†’ claves
+                      // (UTF-16) â‰  bytes UTF-8 para caracteres no ASCII → claves
                       // divergentes entre app y servidor. Con ASCII ambos
                       // coinciden byte a byte.
                       FilteringTextInputFormatter.allow(RegExp(r'[\x20-\x7E]')),
                     ],
                     onChanged: _applyPassword,
                     decoration: InputDecoration(
-                      labelText: 'ContraseÃ±a (mÃ¡x. 8 caracteres)',
+                      labelText: 'Contraseña (máx. 8 caracteres)',
                       helperText:
-                          'Se aplica al iniciar el escritorio; reinÃ­cialo si lo cambias.',
+                          'Se aplica al iniciar el escritorio; reinícialo si lo cambias.',
                       counterText: '',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -447,7 +336,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                     const SizedBox(height: 4),
                     Text(
                       'El gestor de archivos (pcmanfm) del escritorio necesita '
-                      'este permiso para ver tus fotos, vÃ­deos y audio.',
+                      'este permiso para ver tus fotos, vídeos y audio.',
                       style: NanoType.caption(colors.onSurfaceVariant),
                     ),
                     const SizedBox(height: NanoSpacing.md),
@@ -458,7 +347,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                         icon: const Icon(Icons.folder_rounded, size: 18),
                         label: Text(
                           _permBusy
-                              ? 'Solicitandoâ€¦'
+                              ? 'Solicitando…'
                               : 'Permitir acceso a archivos',
                           style: NanoType.body(colors.onSurface),
                         ),
@@ -492,122 +381,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
   }
 }
 
-// â”€â”€ Fila de acciones de prueba del agente (validaciÃ³n end-to-end) â”€â”€
-class _ActionRow extends StatefulWidget {
-  final NanoRuntimeApi runtime;
-  final NanoColors colors;
-  final List<(String, IconData, String)> actions;
-
-  const _ActionRow({
-    required this.runtime,
-    required this.colors,
-    required this.actions,
-  });
-
-  @override
-  State<_ActionRow> createState() => _ActionRowState();
-}
-
-class _ActionRowState extends State<_ActionRow> {
-  String _feedback = '';
-
-  Future<void> _run(String kind) async {
-    final r = widget.runtime;
-    final ok = switch (kind) {
-      'back' => await r.agentGlobalAction('back'),
-      'tap' => await r.agentTapOnText('Ajustes'),
-      'launch' => await r.agentLaunchPackage('com.android.settings'),
-      'swipe' => await r.agentSwipe(540, 2000, 540, 600),
-      _ => false,
-    };
-    if (!mounted) return;
-    setState(() => _feedback = '$kind â†’ ${ok ? 'ok' : 'FAIL'}');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: widget.actions
-              .map(
-                (a) => Padding(
-                  padding: const EdgeInsets.only(right: NanoSpacing.sm),
-                  child: OutlinedButton.icon(
-                    onPressed: () => _run(a.$3),
-                    icon: Icon(a.$2, size: 16),
-                    label: Text(
-                      a.$1,
-                      style: NanoType.caption(widget.colors.onSurface),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-        if (_feedback.isNotEmpty) ...[
-          const SizedBox(height: NanoSpacing.sm),
-          Text(_feedback, style: NanoType.caption(widget.colors.primary)),
-        ],
-      ],
-    );
-  }
-}
-
-// â”€â”€ Section Header â”€â”€
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  final IconData icon;
-  final NanoColors colors;
-  const _SectionHeader(this.text, this.icon, {required this.colors});
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: NanoSpacing.sm),
-    child: Row(
-      children: [
-        Icon(icon, size: NanoIcons.small, color: colors.primary),
-        const SizedBox(width: NanoSpacing.sm),
-        Text(
-          text.toUpperCase(),
-          style: NanoType.overline(colors.onSurfaceVariant),
-        ),
-      ],
-    ),
-  );
-}
-
-// â”€â”€ Card Wrapper â”€â”€
-class _Card extends StatelessWidget {
-  final Widget child;
-  final List<BoxShadow> shadow;
-  final NanoColors colors;
-  const _Card({
-    required this.child,
-    required this.shadow,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(NanoSpacing.lg),
-    decoration: BoxDecoration(
-      color: colors.surface,
-      borderRadius: NanoShapes.large,
-      border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.4)),
-      boxShadow: shadow,
-    ),
-    child: child,
-  );
-}
-
-// â”€â”€ Switch Row â”€â”€
+// ── Switch Row ──
 class _SwitchRow extends StatelessWidget {
   final String title, subtitle;
   final bool value;

@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit
  * Contrato de métodos (v1):
  * - `getStatus`                 → {connected, root}
  * - `dumpScreen`                → List<Map> — árbol a11y de la ventana activa
+ * - `dumpSnapshot`              → {package, nodes:[{…, depth}]} para el
+ *                                 Selector Engine en Dart
  * - `findText {query, maxResults}` → List<Map>
  * - `tapOnText {text}`          → bool
  * - `tapAt {x, y}`              → bool
@@ -35,6 +37,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
         val CAPABILITIES = listOf(
             "agent",        // agente de UI instalado (service declarado)
             "dump-screen",  // dumpScreen / findText
+            "snapshot",     // dumpSnapshot {package, nodes+depth}
             "gestures",     // tapAt / longPressAt / swipe
             "text-input",   // inputText
             "global",       // globalAction back/home/recents
@@ -60,6 +63,9 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             }
 
             "dumpScreen" -> postToService(AgentAccessibilityBridge.service, result) { it.dumpScreen() }
+
+            "dumpSnapshot" ->
+                postToService(AgentAccessibilityBridge.service, result) { it.dumpSnapshot() }
 
             "findText" -> {
                 val query = call.argument<String>("query")
