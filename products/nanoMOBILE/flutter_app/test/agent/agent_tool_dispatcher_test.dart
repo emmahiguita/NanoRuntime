@@ -1,0 +1,238 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:nanoai/core/agent/actionability_engine.dart';
+import 'package:nanoai/core/agent/agent_executor.dart';
+import 'package:nanoai/core/agent/agent_tool_dispatcher.dart';
+
+import 'fixtures.dart';
+
+/// Tests del AgentToolDispatcher: comandos `@` deterministas y parseo
+/// tolerante del protocolo JSON de tool-calling, con canal mockeado.
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('com.nanoai/agent');
+
+  final methodCalls = <String>[];
+  final tapCalls = <List<int>>[];
+  final inputCalls = <String>[];
+  var dumpProvider = () => snapshotAjustes();
+  var focused = false;
+
+  final dispatcher = AgentToolDispatcher(
+    executor: NanoAgentExecutor(
+      stability: const StabilityChecker(
+        wait: Duration.zero,
+        maxCenterDeltaPx: 24,
+        maxSizeChangeRatio: 0.10,
+      ),
+    ),
+  );
+
+  Map<String, dynamic> ajustesFocused() {
+    final raw = snapshotAjustes();
+    ((raw['nodes'] as List)[5] as Map)['focused'] = focused;
+    return raw;
+  }
+
+  setUp(() {
+    methodCalls.clear();
+    tapCalls.clear();
+    inputCalls.clear();
+    dumpProvider = () => snapshotAjustes();
+    focused = false;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      methodCalls.add(call.method);
+      switch (call.method) {
+        case 'dumpSnapshot':
+          return dumpProvider();
+        case 'tapAt':
+          final args = call.arguments as Map;
+          tapCalls.add([args['x'] as int, args['y'] as int]);
+          return true;
+        case 'inputText':
+          inputCalls.add((call.arguments as Map)['text'] as String);
+          return true;
+        case 'globalAction':
+          return true;
+        default:
+          return null;
+      }
+    });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+
+  group('isToolCommand', () {
+    test('detecta @ y no confunde @@ ni texto plano', () {
+      expect(AgentToolDispatcher.isToolCommand('@tap text=Bluetooth'), isTrue);
+      expect(AgentToolDispatcher.isToolCommand('  @pantalla '), isTrue);
+      expect(AgentToolDispatcher.isToolCommand('@@literal'), isFalse);
+      expect(AgentToolDispatcher.isToolCommand('hola @tap'), isFalse);
+      expect(AgentToolDispatcher.isToolCommand(''), isFalse);
+    });
+  });
+
+  group('comandos @', () {
+    test('@pantalla → resumen con package y nodos visibles', () async {
+      final r = await dispatcher.runCommand('@pantalla');
+      expect(r, contains('✅ Pantalla "com.android.settings" · 7 nodos'));
+      expect(r, contains('3 Ajustes @(540,180)'));
+    });
+
+    test('@resolver → top con criterios', () async {
+      final r = await dispatcher.runCommand('@resolver text=Bluetooth');
+      expect(r, contains('✅ Resuelto: "Bluetooth" (75 pts)'));
+      expect(r, contains('75 pts [textExact:+75]'));
+      expect(tapCalls, isEmpty);
+    });
+
+    test('@tap → ok con coordenadas del centro', () async {
+      final r = await dispatcher.runCommand('@tap text=Bluetooth');
+      expect(r, '✅ tap en "Bluetooth" @(540,340)');
+      expect(tapCalls, [
+        [540, 340]
+      ]);
+      expect(methodCalls, isNot(contains('tapOnText')));
+    });
+
+    test('@tap ambiguo → FAIL tipado sin gesto', () async {
+      dumpProvider = () => snapshotDobleAceptar();
+      final r = await dispatcher.runCommand('@tap text=Aceptar');
+      expect(r, contains('❌ [ambiguousTarget]'));
+      expect(tapCalls, isEmpty);
+    });
+
+    test('@escribir → ok y inputText con el texto exacto', () async {
+      focused = true;
+      dumpProvider = ajustesFocused;
+      final r = await dispatcher.runCommand('@escribir wifi | editable=true');
+      expect(r, contains('✅ "wifi" escrito en'));
+      expect(inputCalls, ['wifi']);
+    });
+
+    test('@back → globalAction', () async {
+      final r = await dispatcher.runCommand('@back');
+      expect(r, '✅ Botón atrás ejecutado.');
+      expect(methodCalls, contains('globalAction'));
+    });
+
+    test('@desconocido → error legible con lista', () async {
+      final r = await dispatcher.runCommand('@volar');
+      expect(r, contains('❌ Comando desconocido "@volar"'));
+      expect(r, contains('@tap'));
+    });
+
+    test('@tap selector inválido → error de parseo legible', () async {
+      final r = await dispatcher.runCommand('@tap foo=bar');
+      expect(r, contains('❌ Selector inválido "foo=bar"'));
+      expect(tapCalls, isEmpty);
+    });
+
+    test('@@ escapa y devuelve texto literal', () async {
+      final r = await dispatcher.runCommand('@@ esto no es comando');
+      expect(r, '@ esto no es comando');
+    });
+  });
+
+  group('AgentToolProtocol.extractToolCall', () {
+    test('JSON limpio de una línea', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"tap","selector":"text=Bluetooth"}',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'tap');
+      expect(call.selector, 'text=Bluetooth');
+    });
+
+    test('JSON con prosa alrededor (fallo típico de GGUF)', () {
+      final call = AgentToolProtocol.extractToolCall(
+        'Voy a tocar el botón Bluetooth:\n'
+        '{"tool":"tap","selector":"text=Bluetooth"}\n'
+        'Eso debería funcionar.',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'tap');
+      expect(call.selector, 'text=Bluetooth');
+    });
+
+    test('JSON en bloque markdown', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '```json\n{"tool":"screen"}\n```',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'screen');
+    });
+
+    test('write con text y selector', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"write","selector":"editable=true","text":"wifi"}',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'write');
+      expect(call.selector, 'editable=true');
+      expect(call.text, 'wifi');
+    });
+
+    test('respuesta normal de texto → null', () {
+      expect(
+        AgentToolProtocol.extractToolCall('No necesito herramientas.'),
+        isNull,
+      );
+      expect(
+        AgentToolProtocol.extractToolCall('Puedes abrir ajustes a mano.'),
+        isNull,
+      );
+    });
+
+    test('JSON truncado (sin llave final) → parseo por regex', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"back"',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'back');
+    });
+  });
+
+  group('runTool (tool-calling LLM)', () {
+    test('tap → feedback ok y gesto', () async {
+      final r = await dispatcher.runTool(
+        const ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+      );
+      expect(r, '✅ tap en "Bluetooth" @(540,340)');
+      expect(tapCalls, [
+        [540, 340]
+      ]);
+    });
+
+    test('tap sin selector → error legible', () async {
+      final r = await dispatcher.runTool(const ToolCall(tool: 'tap'));
+      expect(r, contains('❌ [tool] tap requiere "selector"'));
+      expect(tapCalls, isEmpty);
+    });
+
+    test('write → ok', () async {
+      focused = true;
+      dumpProvider = ajustesFocused;
+      final r = await dispatcher.runTool(
+        const ToolCall(tool: 'write', selector: 'editable=true', text: 'wifi'),
+      );
+      expect(r, contains('✅ "wifi" escrito en'));
+      expect(inputCalls, ['wifi']);
+    });
+
+    test('screen → resumen', () async {
+      final r = await dispatcher.runTool(const ToolCall(tool: 'screen'));
+      expect(r, contains('✅ Pantalla "com.android.settings"'));
+    });
+
+    test('tool desconocida → error con lista para corregirse', () async {
+      final r = await dispatcher.runTool(const ToolCall(tool: 'teletransport'));
+      expect(r, contains('❌ [tool] Herramienta desconocida'));
+      expect(r, contains('tap'));
+    });
+  });
+}

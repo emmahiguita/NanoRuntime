@@ -719,6 +719,11 @@ class _EmptyChat extends StatelessWidget {
                     onPressed: () =>
                         onSuggestion('Ayúdame a usar el escritorio Linux'),
                   ),
+                  // Herramienta determinista: se ejecuta sin LLM y sin modelo.
+                  ActionChip(
+                    label: const Text('@ Ver pantalla'),
+                    onPressed: () => onSuggestion('@pantalla'),
+                  ),
                 ],
               ),
             ] else ...[

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../agent/agent_tool_dispatcher.dart';
 import '../services/llm_engine_client.dart';
 import '../services/runtime_engine.dart';
 import '../models/chat_models.dart';
@@ -36,15 +37,37 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// (8K-32K tokens). 40 mensajes mantienen el prompt bajo ~4K tokens en uso típico.
   static const int _maxHistoryMessages = 40;
 
+  /// Máximo de rondas de herramienta por mensaje del usuario: evita bucles
+  /// infinitos si el modelo insiste en llamar tools sin concluir.
+  static const int _maxToolRounds = 2;
+
   /// System prompt inyectado al inicio de cada conversación multi-turno.
   /// Define el comportamiento base del asistente para todos los modelos.
+  /// El contrato de herramientas es JSON de una línea (formato que los
+  /// GGUF 1B-7B pueden seguir; el parseo tolera prosa alrededor).
   static const String _systemPrompt =
       'Eres NanoAI, un asistente que corre 100% '
       'en el dispositivo, sin conexión a internet. Responde de forma concisa, '
-      'técnica y útil. Si no sabes algo, dilo con honestidad.';
+      'técnica y útil. Si no sabes algo, dilo con honestidad.\n\n'
+      'Puedes controlar la interfaz del dispositivo. Para usar una '
+      'herramienta responde EXACTAMENTE un JSON en una línea, sin markdown '
+      'ni texto extra:\n'
+      '{"tool":"screen"} — leer la pantalla actual\n'
+      '{"tool":"tap","selector":"<sel>"} — tocar un elemento\n'
+      '{"tool":"write","selector":"<sel>","text":"<texto>"} — escribir en '
+      'un campo\n'
+      '{"tool":"back"} — botón atrás\n'
+      'Selector: text=..., desc=..., id=..., role=..., editable=true, '
+      'separados por ";" (ej: text=Bluetooth, editable=true;near=desc=Usuario). '
+      'Tras la herramienta recibirás el resultado y responderás al usuario '
+      'con base en él.';
 
-  ChatNotifier(this._ref)
-    : super(
+  /// Ejecutor de herramientas del chat (comandos `@` y tool-calling del LLM).
+  final AgentToolDispatcher _tools;
+
+  ChatNotifier(this._ref, {AgentToolDispatcher? toolDispatcher})
+    : _tools = toolDispatcher ?? AgentToolDispatcher(),
+      super(
         ChatState(
           availableModels: [for (final m in NeuralCatalog.models) m.name],
         ),
@@ -55,7 +78,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Test-only: emits a fixed state without IO.
   @visibleForTesting
-  ChatNotifier.fixed(Ref ref, super.initial) : _ref = ref;
+  ChatNotifier.fixed(Ref ref, super.initial, {AgentToolDispatcher? toolDispatcher})
+    : _ref = ref,
+      _tools = toolDispatcher ?? AgentToolDispatcher();
 
   /// Restaura la última selección de modelo para que sobreviva al reinicio.
   Future<void> _restoreModel() async {
@@ -165,6 +190,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
     _persistMessages(); // guardar el user msg inmediatamente
 
+    // Comandos `@`: ejecución determinista sin LLM. Funcionan incluso con
+    // el motor degradado (vivo sin GGUF) — no consumen tokens ni ensureReady.
+    if (AgentToolDispatcher.isToolCommand(t)) {
+      final result = await _tools.runCommand(t);
+      if (!mounted) return;
+      final toolMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: result,
+        timestamp: DateTime.now(),
+        status: MessageStatus.sent,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, toolMsg],
+        generating: false,
+        streamingText: '',
+      );
+      _persistMessages();
+      return;
+    }
+
     final engine = _ref.read(runtimeEngineProvider.notifier);
     final ready = await engine.ensureReady(modelPath: state.activeModelPath);
     if (!mounted) return;
@@ -246,6 +292,25 @@ class ChatNotifier extends StateNotifier<ChatState> {
     return buffer.toString();
   }
 
+  /// Turnos de herramienta para el trace: la llamada JSON como assistant y
+  /// el resultado real como user, listos para que el modelo continúe.
+  String _toolTurnSuffix(String toolCall, String result) {
+    final template = NeuralCatalog.templateOf(state.activeModel);
+    switch (template) {
+      case ChatTemplate.deepseek:
+        const bos = '<｜begin▁of▁sentence｜>';
+        const eos = '<｜end▁of▁sentence｜>';
+        return '$bos\nassistant\n$toolCall\n$eos\n'
+            '$bos\nuser\nResultado de la herramienta:\n$result\n$eos\n'
+            '$bos\nassistant\n';
+      case ChatTemplate.qwen:
+        return '<|im_start|>assistant\n$toolCall<|im_end|>\n'
+            '<|im_start|>user\nResultado de la herramienta:\n'
+            '$result<|im_end|>\n'
+            '<|im_start|>assistant\n';
+    }
+  }
+
   /// Programa el siguiente flush del texto parcial si no hay uno pendiente.
   void _scheduleStreamFlush(StringBuffer buffer) {
     if (_flushTimer != null) return;
@@ -263,14 +328,23 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _flushTimer = null;
   }
 
-  Future<void> _generate(String text) async {
+  Future<void> _generate(String text) => _generateRound(text, const <String>[]);
+
+  /// Una ronda de generación. [toolTrace] contiene pares
+  /// (llamadaJSON, resultado) de herramientas ya ejecutadas en este turno;
+  /// se inyectan al prompt como turnos assistant/user para que el modelo
+  /// continúe informado del resultado real.
+  Future<void> _generateRound(String text, List<String> toolTrace) async {
     _generationCancelled = false;
     // El historial YA incluye el mensaje del usuario recién enviado (en send()).
     // Lo excluimos del historial para evitar duplicarlo.
     final history = state.messages.length > 1
         ? state.messages.sublist(0, state.messages.length - 1)
         : <ChatMessage>[];
-    final prompt = _buildChatPrompt(history, text);
+    var prompt = _buildChatPrompt(history, text);
+    for (var i = 0; i + 1 < toolTrace.length; i += 2) {
+      prompt += _toolTurnSuffix(toolTrace[i], toolTrace[i + 1]);
+    }
 
     // Streaming: cada token actualiza streamingText en tiempo real.
     final settings = _ref.read(settingsProvider);
@@ -324,6 +398,30 @@ class ChatNotifier extends StateNotifier<ChatState> {
         _persistMessages();
         return;
       }
+
+      // Tool-calling: si el modelo respondió una llamada a herramienta,
+      // ejecutarla y re-generar con el resultado en el trace.
+      final toolCall = AgentToolProtocol.extractToolCall(fullText);
+      if (toolCall != null && toolTrace.length ~/ 2 < _maxToolRounds) {
+        final result = await _tools.runTool(toolCall);
+        if (!mounted || _generationCancelled) return;
+        // La llamada queda visible en el chat (trace honesto del agente).
+        final toolMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: fullText,
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, toolMsg],
+          streamingText: '',
+        );
+        _persistMessages();
+        await _generateRound(text, [...toolTrace, fullText, result]);
+        return;
+      }
+
       final aiMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
