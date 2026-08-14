@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 /// Get the default session directory based on the platform.
-/// 
+///
 /// On Linux: ~/.nano-sessions
 /// On Windows: .nano-sessions (current directory)
 pub fn get_default_session_dir() -> PathBuf {
@@ -13,13 +13,13 @@ pub fn get_default_session_dir() -> PathBuf {
             return home.join(".nano-sessions");
         }
     }
-    
+
     // Fallback for Windows or if home dir not found
     PathBuf::from(".nano-sessions")
 }
 
 /// Get the default history file path based on platform.
-/// 
+///
 /// On Linux: ~/.nano-sessions/history.json
 /// On Windows: data/history.json
 #[allow(dead_code)]
@@ -30,13 +30,13 @@ pub fn get_history_path() -> PathBuf {
             return home.join(".nano-sessions").join("history.json");
         }
     }
-    
+
     // Fallback for Windows or if home dir not found
     PathBuf::from("data/history.json")
 }
 
 /// Get the default cache directory.
-/// 
+///
 /// On Linux: ~/.cache/nano-ai
 /// On Windows: .nano-cache
 #[allow(dead_code)]
@@ -47,13 +47,13 @@ pub fn get_cache_dir() -> PathBuf {
             return cache.join("nano-ai");
         }
     }
-    
+
     // Fallback
     PathBuf::from(".nano-cache")
 }
 
 /// Get the default config directory.
-/// 
+///
 /// On Linux: ~/.config/nano-ai
 /// On Windows: .
 #[allow(dead_code)]
@@ -64,7 +64,7 @@ pub fn get_config_dir() -> PathBuf {
             return config.join("nano-ai");
         }
     }
-    
+
     // Fallback
     PathBuf::from(".")
 }
@@ -91,7 +91,7 @@ pub fn is_desktop_environment() -> bool {
     {
         std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok()
     }
-    
+
     #[cfg(not(target_os = "linux"))]
     {
         true // Assume desktop on Windows
@@ -99,7 +99,7 @@ pub fn is_desktop_environment() -> bool {
 }
 
 /// Get default bind address for server.
-/// 
+///
 /// On Linux in headless mode: 0.0.0.0 (accessible from network)
 /// Otherwise: 127.0.0.1 (localhost only)
 pub fn get_default_bind_address() -> &'static str {
@@ -110,7 +110,7 @@ pub fn get_default_bind_address() -> &'static str {
             return "0.0.0.0";
         }
     }
-    
+
     // Desktop or Windows
     "127.0.0.1"
 }
@@ -118,7 +118,10 @@ pub fn get_default_bind_address() -> &'static str {
 /// Validate port number.
 pub fn validate_port(port: u16) -> anyhow::Result<()> {
     if port < 1024 {
-        tracing::warn!("Port {} is below 1024 - may require elevated privileges", port);
+        tracing::warn!(
+            "Port {} is below 1024 - may require elevated privileges",
+            port
+        );
     }
     // port > 65535 is impossible for u16, so no need to check
     Ok(())
@@ -130,7 +133,10 @@ pub fn validate_temperature(temp: f32) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("Temperature must be >= 0.0, got {}", temp));
     }
     if temp > 2.0 {
-        return Err(anyhow::anyhow!("Temperature should be <= 2.0, got {}", temp));
+        return Err(anyhow::anyhow!(
+            "Temperature should be <= 2.0, got {}",
+            temp
+        ));
     }
     Ok(())
 }

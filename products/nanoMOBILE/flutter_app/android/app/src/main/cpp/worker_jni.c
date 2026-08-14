@@ -114,8 +114,18 @@ static void* _reap_detached(void* arg) {
     free(arg);
     int status;
     waitpid(pid, &status, 0);
-    __android_log_print(ANDROID_LOG_DEBUG, "nanoshell-worker",
-        "reaped detached pid=%d status=%d", pid, WEXITSTATUS(status));
+    // H3: un segfault (139) reportaba 0 porque WEXITSTATUS sin chequear
+    // WIFSIGNALED enmascara la señal. Reportar señal real cuando muere
+    // por señal (evidencia device 2026-08-13: tint2 segfault en librsvg
+    // aparecía como "status=0" en el log del worker).
+    if (WIFSIGNALED(status)) {
+        __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
+            "reaped detached pid=%d signal=%d%s", pid, WTERMSIG(status),
+            WCOREDUMP(status) ? " (core)" : "");
+    } else {
+        __android_log_print(ANDROID_LOG_DEBUG, "nanoshell-worker",
+            "reaped detached pid=%d status=%d", pid, WEXITSTATUS(status));
+    }
     return NULL;
 }
 

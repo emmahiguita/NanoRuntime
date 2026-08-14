@@ -72,12 +72,12 @@ class DevOpsPlugin {
           }
           break;
         default:
-          o('docker pull <imagen>      — descargar imagen (ej: alpine)', Ln.info);
-          o('docker run <imagen> [cmd] — ejecutar contenedor via proot', Ln.info);
-          o('docker ps                 — listar contenedores', Ln.info);
-          o('docker images             — listar imagenes', Ln.info);
-          o('docker rm <id>            — eliminar contenedor', Ln.info);
-          o('docker stop <id>          — detener contenedor', Ln.info);
+          o('docker pull <imagen>      ? descargar imagen (ej: alpine)', Ln.info);
+          o('docker run <imagen> [cmd] ? ejecutar contenedor via proot', Ln.info);
+          o('docker ps                 ? listar contenedores', Ln.info);
+          o('docker images             ? listar imagenes', Ln.info);
+          o('docker rm <id>            ? eliminar contenedor', Ln.info);
+          o('docker stop <id>          ? detener contenedor', Ln.info);
       }
     });
 
@@ -101,6 +101,7 @@ class DevOpsPlugin {
               o('[kali] Instalacion completa. Kali Linux ARM64 listo.', Ln.success);
               o('  Usa: kali shell  (bash dentro de Kali)', Ln.info);
               o('  Usa: kali run <cmd> (un comando en Kali)', Ln.info);
+              o('  Usa: kali audit  (inventario de herramientas)', Ln.info);
             } else if (stage == 'error') {
               o('[kali] Fallo la instalacion. Verifica conexion y espacio (~300 MB libres).', Ln.stderr);
             }
@@ -119,14 +120,34 @@ class DevOpsPlugin {
           o('[kali] $cmd ${cmdArgs.join(" ")}', Ln.system);
           k.run(cmd, cmdArgs, onOut: (l) => o(l, Ln.stdout), onErr: (l) => o(l, Ln.stderr));
           break;
+        case 'audit':
+          if (k == null || !k.isInstalled) { o('kali: no instalado.', Ln.stderr); return; }
+          o('[kali] ${k.coverageSummary()}', Ln.header);
+          final audit = k.auditTools();
+          for (final group in KaliManager.auditGroups.entries) {
+            o('  ${group.key}:', Ln.info);
+            for (final tool in group.value) {
+              final ok = audit[tool] == true;
+              o('    ${ok ? "[x]" : "[ ]"} $tool', ok ? Ln.success : Ln.warn);
+            }
+          }
+          final missing = k.missingTools();
+          if (missing.isEmpty) {
+            o('[kali] inventario completo dentro del cat?logo auditado.', Ln.success);
+          } else {
+            o('[kali] faltan ${missing.length} herramientas del cat?logo: ${missing.take(20).join(", ")}${missing.length > 20 ? " ?" : ""}', Ln.warn);
+          }
+          break;
         default:
-          o('kali install  — descargar Kali Linux ARM64 (~200 MB)', Ln.info);
-          o('kali shell    — abrir shell bash dentro de Kali', Ln.info);
-          o('kali run <cmd> — ejecutar un comando en Kali', Ln.info);
+          o('kali install  ? descargar Kali Linux ARM64 (~200 MB)', Ln.info);
+          o('kali shell    ? abrir shell bash dentro de Kali', Ln.info);
+          o('kali run <cmd> ? ejecutar un comando en Kali', Ln.info);
+          o('kali audit    ? listar herramientas auditadas dentro del rootfs', Ln.info);
           if (k != null) {
             o('  Instalado: ${k.isInstalled ? "SI" : "NO"}', k.isInstalled ? Ln.success : Ln.warn);
             o('  Rootfs: ${k.kaliRoot ?? "?"}', Ln.info);
           }
+          break;
       }
     });
 

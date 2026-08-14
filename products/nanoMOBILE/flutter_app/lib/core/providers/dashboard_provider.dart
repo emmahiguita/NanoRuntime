@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/device_metrics.dart';
+import '../services/runtime_engine.dart';
 import 'chat_provider.dart';
 
 // ================================================================
@@ -8,11 +10,19 @@ import 'chat_provider.dart';
 // ================================================================
 
 class DashboardState {
-  final double ramFreeGb, ramTotalGb, ramProgress, tempC, tempProgress, batteryPct, tpsValue, tpsProgress;
+  final double ramFreeGb,
+      ramTotalGb,
+      ramProgress,
+      tempC,
+      tempProgress,
+      batteryPct,
+      tpsValue,
+      tpsProgress;
   final double storageTotalGb, storageFreeGb, storageProgress;
   final bool isCharging;
   final int cpuCores;
   final bool isLive; // true = connected to real device
+  final EnginePhase enginePhase; // fase real del motor nanortime
 
   const DashboardState({
     this.ramFreeGb = 0,
@@ -29,6 +39,7 @@ class DashboardState {
     this.isCharging = false,
     this.cpuCores = 0,
     this.isLive = false,
+    this.enginePhase = EnginePhase.idle,
   });
 
   /// Value equality: prevents StateNotifier from notifying watchers when
@@ -50,25 +61,27 @@ class DashboardState {
           storageProgress == other.storageProgress &&
           isCharging == other.isCharging &&
           cpuCores == other.cpuCores &&
-          isLive == other.isLive;
+          isLive == other.isLive &&
+          enginePhase == other.enginePhase;
 
   @override
   int get hashCode => Object.hash(
-        ramFreeGb,
-        ramTotalGb,
-        ramProgress,
-        tempC,
-        tempProgress,
-        batteryPct,
-        tpsValue,
-        tpsProgress,
-        storageTotalGb,
-        storageFreeGb,
-        storageProgress,
-        isCharging,
-        cpuCores,
-        isLive,
-      );
+    ramFreeGb,
+    ramTotalGb,
+    ramProgress,
+    tempC,
+    tempProgress,
+    batteryPct,
+    tpsValue,
+    tpsProgress,
+    storageTotalGb,
+    storageFreeGb,
+    storageProgress,
+    isCharging,
+    cpuCores,
+    isLive,
+    enginePhase,
+  );
 }
 
 // ================================================================
@@ -83,6 +96,10 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     _startPolling();
   }
 
+  /// Test-only: emits a fixed state without timers or IO.
+  @visibleForTesting
+  DashboardNotifier.fixed(Ref ref, super.initial) : _ref = ref;
+
   void _startPolling() {
     _fetch();
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _fetch());
@@ -93,6 +110,8 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     final d = await DeviceMetrics.fetch();
     // TPS real del motor: lo reporta ChatNotifier tras cada generación.
     final liveTps = _ref.read(chatProvider).liveTps;
+    // Fase real del motor: la posee RuntimeEngineNotifier (único dueño).
+    final enginePhase = _ref.read(runtimeEngineProvider).phase;
     state = DashboardState(
       ramFreeGb: d.ramAvailableGb,
       ramTotalGb: d.ramTotalGb,
@@ -108,6 +127,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       storageProgress: d.storageProgress,
       cpuCores: d.cpuCores,
       isLive: d.ramTotalMb > 0,
+      enginePhase: enginePhase,
     );
   }
 
@@ -118,6 +138,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   }
 }
 
-final dashboardProvider = StateNotifierProvider<DashboardNotifier, DashboardState>(
-  (ref) => DashboardNotifier(ref),
-);
+final dashboardProvider =
+    StateNotifierProvider<DashboardNotifier, DashboardState>(
+      (ref) => DashboardNotifier(ref),
+    );

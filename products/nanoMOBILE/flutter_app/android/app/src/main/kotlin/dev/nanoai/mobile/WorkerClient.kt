@@ -10,10 +10,12 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Cliente del proceso worker `:nanoshell` (NanoshellWorkerService).
@@ -28,6 +30,7 @@ class WorkerClient(private val ctx: Context) {
         const val MSG_SPAWN = 1
         const val MSG_SPAWN_DETACHED = 3
         const val MSG_KILL = 4
+        const val MSG_OPEN_FD = 5
         // El proceso :nanoshell corre en un proceso Android separado (aislado
         // de la GPU/Flutter); bindService() es async y Android puede tardar
         // varios cientos de ms en arrancarlo en frío. Sin esta espera, la
@@ -217,6 +220,59 @@ class WorkerClient(private val ctx: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "sendDetached fallo: $e")
             -1
+        } finally {
+            try {
+                replyThread?.quitSafely()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
+     * Transfiere un fd de modelo (SAF, abierto por el proceso principal) al
+     * worker :nanoshell. El worker lo duplica y lo registra por uri para que
+     * el engine (hijo del worker) lo herede y lea el GGUF vía /proc/self/fd/N
+     * sin copiar el archivo. Devuelve el path fd del worker, o null si falla.
+     */
+    fun openModelFd(uri: String, pfd: ParcelFileDescriptor): String? {
+        if (shuttingDown) return null
+        if (!awaitConnected(CONNECT_TIMEOUT_MS)) {
+            Log.e(TAG, "openModelFd abortado: worker no conectó a tiempo")
+            return null
+        }
+        val m = workerMessenger ?: return null
+        var replyThread: HandlerThread? = null
+        return try {
+            val pathRef = AtomicReference<String?>()
+            val latch = CountDownLatch(1)
+            val taskId = "fd${System.currentTimeMillis()}"
+            replyThread = HandlerThread("nano-openfd").apply { start() }
+
+            val msg = Message.obtain(null, MSG_OPEN_FD)
+            msg.data = Bundle().apply {
+                putString("uri", uri)
+                putParcelable("fd", pfd)
+                putString(NanoshellWorkerService.EXTRA_TASK_ID, taskId)
+            }
+            msg.replyTo = Messenger(object : Handler(replyThread.looper) {
+                override fun handleMessage(reply: Message) {
+                    if (reply.data.getString(NanoshellWorkerService.EXTRA_TASK_ID) == taskId) {
+                        pathRef.set(reply.data.getString("fdPath"))
+                        latch.countDown()
+                    }
+                }
+            })
+            m.send(msg)
+
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                Log.e(TAG, "openModelFd timeout uri=$uri")
+                null
+            } else {
+                pathRef.get()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "openModelFd falló: $e")
+            null
         } finally {
             try {
                 replyThread?.quitSafely()

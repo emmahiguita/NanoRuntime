@@ -274,7 +274,7 @@ class DesktopSessionManager(
         stage = "rfb"
         if (abortIfStopped("before-vnc-wait", onError)) return
 
-        val ready = runBlocking { backend.awaitReady() }
+        val ready = kotlinx.coroutines.runBlocking { backend.awaitReady() }
         if (!ready) {
             Log.e(TAG, "El servidor X no respondió.")
             val msg = backend.lastError
@@ -465,7 +465,7 @@ class DesktopSessionManager(
         // la fuente bitmap con fonts.dir real. En 864px (~144 cols) el HUD y
         // el shell se ven completos sin wrap.
         val bigFont = listOf("-fn", "fixed")
-        val colors = listOf("-bg", "#0f172a", "-fg", "#38bdf8")
+        val colors = listOf("-bg", "#030711", "-fg", "#E9F1FA")
         // Terminal de bienvenida: muestra el HUD (banner nano-sec con info real
         // del sistema vía /proc) y deja el shell interactivo debajo. El
         // watchdog granular re-lanza la terminal con el MISMO argv, así el
@@ -725,14 +725,16 @@ class DesktopSessionManager(
                 Type=Application
             """.trimIndent())
 
-            // Panel móvil: Slate Navy (#1e293b), reloj Sky Blue (#38bdf8),
-            // fuentes DejaVu Sans escaladas. Se reescribe siempre para que los
-            // cambios de UX sobrevivan a booteos previos.
+            // Panel NanoAI (identidad nanoai, sintaxis tint2 17.x):
+            // superior flotante, azul noche translúcido #07192B, borde cyan
+            // #42D9FF, esquinas redondeadas, reloj blanco y tarea activa en
+            // verde #21F2B2. Se reescribe siempre para que los cambios de UX
+            // sobrevivan a booteos previos.
             tint2Rc.writeText("""
                 panel_items = LTSC
-                panel_position = bottom center horizontal
-                panel_size = 100% 52
-                panel_margin = 0 0
+                panel_position = top center horizontal
+                panel_size = 96% 46
+                panel_margin = 0 8
                 panel_background_id = 1
                 panel_dock = 0
                 font_shadow = 0
@@ -758,6 +760,7 @@ class DesktopSessionManager(
                 task_maximum_size = 280 44
                 task_font = DejaVu Sans 12
                 task_font_color = #e2e8f0 100
+                task_active_font_color = #21F2B2 100
                 task_background_id = 1
                 task_active_background_id = 1
 
@@ -766,13 +769,14 @@ class DesktopSessionManager(
 
                 time1_format = %H:%M
                 time1_font = DejaVu Sans 13
-                clock_font_color = #38bdf8 100
+                clock_font_color = #ffffff 100
+                clock_tooltip = 1
 
-                # Background 1: panel/taskbar (Slate Navy)
-                rounded = 0
-                border_width = 0
-                background_color = #1e293b 100
-                border_color = #1e293b 100
+                # Background 1: panel flotante NanoAI translúcido
+                rounded = 12
+                border_width = 1
+                background_color = #07192B 88
+                border_color = #42D9FF 55
             """.trimIndent())
         } catch (e: Exception) {
             Log.w(TAG, "setupTint2Config: ${e.message}")
@@ -822,19 +826,22 @@ class DesktopSessionManager(
         }
     }
 
-    // Configuración rc.xml de openbox (temas de ventana y fuentes)
+    // Configuración rc.xml de openbox + tema NanoAI (themerc en ~/.themes).
+    // Sin compositor (no picom): transparencias y sombras se SIMULAN con
+    // colores semitransparentes y planos — glassmorphism real no existe en
+    // X11 sin compositor y el consumo gráfico subiría en VNC.
     private fun setupOpenboxRc() {
         try {
             val homeDir = File(usrDir.parentFile, "home")
             val obDir = File(homeDir, ".config/openbox").also { it.mkdirs() }
             val rcXml = File(obDir, "rc.xml")
-            // rc.xml para Openbox: Configura el tema Onyx, desactiva animaciones/sombras
-            // innecesarias para mejorar performance en VNC, y setea DejaVu Sans.
+            // rc.xml: tema NanoAI, DejaVu Sans. Animaciones/sombras fuera:
+            // performance primero en VNC.
             rcXml.writeText("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <openbox_config xmlns="http://openbox.org/3.4/rc">
                   <theme>
-                    <name>Onyx</name>
+                    <name>NanoAI</name>
                     <cornerRadius>4</cornerRadius>
                     <font place="ActiveWindow">
                       <name>DejaVu Sans</name>
@@ -867,7 +874,38 @@ class DesktopSessionManager(
                   </keyboard>
                 </openbox_config>
             """.trimIndent())
-            Log.i(TAG, "openbox rc.xml escrito (Tema Onyx + DejaVu Sans)")
+
+            // themerc NanoAI: barra de título azul noche, título activo en
+            // verde #21F2B2, borde cyan #42D9FF, menús oscuros con items
+            // activos en verde. Paleta de la identidad nanoai (#020611 base).
+            val themeDir = File(homeDir, ".themes/NanoAI/openbox-3")
+                .also { it.mkdirs() }
+            File(themeDir, "themerc").writeText("""
+                ! Tema NanoAI — identidad nanoai para openbox 3
+                ! Fondo base de la identidad: #020611 (azul noche casi negro)
+                window.active.title.bg: flat solid
+                window.active.title.bg.color: #07192B
+                window.active.title.fg.color: #21F2B2
+                window.inactive.title.bg: flat solid
+                window.inactive.title.bg.color: #06101E
+                window.inactive.title.fg.color: #7A8BA0
+                window.active.border.color: #42D9FF
+                window.inactive.border.color: #1E3550
+                window.client.color: #020611
+                window.handle.width: 4
+                border.width: 2
+                menu.items.bg: flat solid
+                menu.items.bg.color: #06101E
+                menu.items.text.color: #E9F1FA
+                menu.items.active.bg: flat solid
+                menu.items.active.bg.color: #0B2438
+                menu.items.active.text.color: #21F2B2
+                menu.border.color: #42D9FF
+                menu.title.bg: flat solid
+                menu.title.bg.color: #07192B
+                menu.title.text.color: #21F2B2
+            """.trimIndent())
+            Log.i(TAG, "openbox rc.xml + themerc NanoAI escritos")
         } catch (e: Exception) {
             Log.w(TAG, "setupOpenboxRc: ${e.message}")
         }
@@ -887,6 +925,10 @@ class DesktopSessionManager(
                 gtk-icon-theme-name=Adwaita
                 gtk-font-name=DejaVu Sans 16
                 gtk-application-prefer-dark-theme=1
+                gtk-enable-animations=0
+                gtk-toolbar-style=GTK_TOOLBAR_ICONS
+                gtk-button-images=1
+                gtk-menu-images=1
             """.trimIndent())
             Log.i(TAG, "GTK settings.ini escrito (fuente 14px, tema oscuro)")
         } catch (e: Exception) {
@@ -901,13 +943,15 @@ class DesktopSessionManager(
             val lxConf = File(lxDir, "lxterminal.conf")
             lxConf.writeText("""
                 [general]
-                fontname=DejaVu Sans Mono 13
-                bgcolor=#0f172a
-                fgcolor=#38bdf8
+                fontname=DejaVu Sans Mono 14
+                bgcolor=#030711
+                fgcolor=#E9F1FA
+                scrollback=5000
+                cursorblinks=true
                 disallowbold=true
                 selectbyword=true
             """.trimIndent())
-            Log.i(TAG, "lxterminal.conf escrito (DejaVu Sans Mono 13)")
+            Log.i(TAG, "lxterminal.conf escrito (DejaVu Sans Mono 14, paleta NanoAI)")
         } catch (e: Exception) {
             Log.w(TAG, "setupLxTerminalConfig: ${e.message}")
         }
@@ -956,16 +1000,15 @@ class DesktopSessionManager(
         }
     }
 
-    // Wallpaper: Genera un archivo PPM P6 (32x32 px) con un gradiente visual
-    // profesional desde Slate Navy (#0F172A) a Deep Ocean Teal (#0369A1).
-    // feh --bg-scale lo escala suavemente sin pixelar el framebuffer.
-    // Se genera SIEMPRE: es el fondo activo cuando el PNG no casa con el
-    // aspect del framebuffer (wallpaperForLaunch).
+    // Wallpaper: Genera SIEMPRE un PPM P6 (32x32 px) con el gradiente de la
+    // identidad nanoai: #020611 (azul noche base) hacia #022A2D (verde azulado
+    // profundo). feh --bg-scale lo escala suavemente sin pixelar. Sin
+    // early-return: es un archivo diminuto y así los cambios de diseño
+    // sobreviven a booteos previos.
     private fun setupWallpaper() {
         try {
             val homeDir = File(usrDir.parentFile, "home").also { it.mkdirs() }
             val ppm = File(homeDir, ".nano-wallpaper.ppm")
-            if (ppm.exists() && ppm.length() > 0) return
             val w = 32
             val h = 32
             val header = "P6\n$w $h\n255\n".toByteArray(Charsets.US_ASCII)
@@ -973,10 +1016,10 @@ class DesktopSessionManager(
             var idx = 0
             for (y in 0 until h) {
                 val factor = y.toDouble() / (h - 1)
-                // Gradiente: #0F172A (15, 23, 42) -> #0284C7 (2, 132, 199)
-                val r = (15 + factor * (2 - 15)).toInt().coerceIn(0, 255)
-                val g = (23 + factor * (132 - 23)).toInt().coerceIn(0, 255)
-                val b = (42 + factor * (199 - 42)).toInt().coerceIn(0, 255)
+                // Gradiente: #020611 (2, 6, 17) -> #022A2D (2, 42, 45)
+                val r = (2 + factor * (2 - 2)).toInt().coerceIn(0, 255)
+                val g = (6 + factor * (42 - 6)).toInt().coerceIn(0, 255)
+                val b = (17 + factor * (45 - 17)).toInt().coerceIn(0, 255)
                 for (x in 0 until w) {
                     pixels[idx++] = r.toByte()
                     pixels[idx++] = g.toByte()
@@ -987,7 +1030,7 @@ class DesktopSessionManager(
                 out.write(header)
                 out.write(pixels)
             }
-            Log.i(TAG, "wallpaper PPM gradiente escrito")
+            Log.i(TAG, "wallpaper PPM gradiente NanoAI escrito")
         } catch (e: Exception) {
             Log.w(TAG, "setupWallpaper: ${e.message}")
         }

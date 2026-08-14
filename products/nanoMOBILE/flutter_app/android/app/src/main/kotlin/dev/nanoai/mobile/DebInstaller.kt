@@ -8,23 +8,23 @@ import java.net.URL
 import java.security.MessageDigest
 
 /**
- * Instalador directo de paquetes Termux (.deb) — alternativa a apt binario.
+ * Instalador directo de paquetes Termux (.deb) â€” alternativa a apt binario.
  *
  * apt (stripped, sin "main" exportado) no puede ejecutarse via dlopen, pero
- * sus .deb sí se pueden instalar manualmente — exactamente lo que dpkg hace
+ * sus .deb sÃ­ se pueden instalar manualmente â€” exactamente lo que dpkg hace
  * por dentro:
  *   1. Descargar y parsear el index Packages (UA de apt).
  *   2. Resolver Depends recursivamente (BFS desde el paquete objetivo).
- *   3. Descargar cada .deb con verificación SHA256.
- *   4. Parsear el contenedor ar → extraer data.tar.xz.
+ *   3. Descargar cada .deb con verificaciÃ³n SHA256.
+ *   4. Parsear el contenedor ar â†’ extraer data.tar.xz.
  *   5. Descomprimir xz (XzDecoder, Kotlin puro) y extraer tar (TarExtractor)
  *      inline SIN worker. Elimina dependencia del binario tar del rootfs y
  *      el race condition del spawn async.
  *   6. Registrar en var/lib/dpkg/status (formato dpkg).
- *   7. Bootstrap packages leídos dinámicamente de status (sin hardcode).
- *   8. postinst SÍ se ejecuta — de forma DIFERIDA: tras extraer todo el
+ *   7. Bootstrap packages leÃ­dos dinÃ¡micamente de status (sin hardcode).
+ *   8. postinst SÃ se ejecuta â€” de forma DIFERIDA: tras extraer todo el
  *      batch (deps ya en disco), en orden inverso al BFS (deps primero).
- *      Un postinst con rc != 0 hace fallar la instalación y el paquete
+ *      Un postinst con rc != 0 hace fallar la instalaciÃ³n y el paquete
  *      queda reintentable (se elimina de status dpkg).
  */
 class DebInstaller(
@@ -54,7 +54,7 @@ class DebInstaller(
 
         private val UA = mapOf("User-Agent" to "apt/2.7.14 (arm64) (termux)")
 
-        /** Paquetes mínimos para escritorio VNC funcional. */
+        /** Paquetes mÃ­nimos para escritorio VNC funcional. */
         val DESKTOP_PACKAGES = listOf(
             "tigervnc",       // Xvnc: servidor X11 + VNC integrado
             "openbox",        // window manager ultraligero (~1MB)
@@ -75,27 +75,29 @@ class DebInstaller(
             "libexpat",       // XML parser library (libexpat.so.1) requerido por fontconfig
             "libunistring",   // Unicode string library (libunistring.so) requerido por libidn2
             "libidn2",        // IDN library (libidn2.so)
-            "libandroid-shmem", // POSIX shm de Android — requerido por libcairo (dep de tint2)
-            "xkeyboard-config", // reglas de teclado XKB — Xvnc aborta sin rules/evdev
+            "libandroid-shmem", // POSIX shm de Android â€” requerido por libcairo (dep de tint2)
+            "xkeyboard-config", // reglas de teclado XKB â€” Xvnc aborta sin rules/evdev
             "xorg-xkbcomp",     // compilador de reglas XKB (nombre exacto en repo Termux X11: xorg-xkbcomp)
             "libglvnd",         // libGL/libGLX/libOpenGL requeridas por Xvnc moderno
             "mesa",             // implementación OpenGL que satisface libGL.so.1
-            "aterm",            // terminal gráfica liviana (Termux X11 no publica xterm)
+            "lxterminal",      // terminal GTK real usada por el escritorio NanoAI
+            "aterm",           // fallback liviano si lxterminal no está disponible
             "dbus",             // bus de mensajes: base de at-spi2 y futuro XFCE (dbus-launch ya estaba en disco sin status)
             "pcmanfm",          // gestor de archivos GTK3 (~7 MB; GTK3 ya instalado)
-            "feh",              // visor de imágenes y wallpaper (~1 MB)
-            "mousepad",         // editor gráfico XFCE (~15 MB con gtksourceview4+gspell)
+            "feh",              // visor de imÃ¡genes y wallpaper (~1 MB)
+            "mousepad",         // editor grÃ¡fico XFCE (~15 MB con gtksourceview4+gspell)
             "gvfs",             // VFS de GLib: papelera (trash://) y mounts en pcmanfm
-            "hicolor-icon-theme", // tema de íconos base XDG para GTK3/pcmanfm
-            "librsvg",          // renderizador de íconos vectoriales SVG para aplicaciones GTK
+            "hicolor-icon-theme", // tema de Ã­conos base XDG para GTK3/pcmanfm
+            "adwaita-icon-theme", // tema de Ã­conos premium para GTK3
+            "librsvg",          // renderizador de Ã­conos vectoriales SVG para aplicaciones GTK
             "psmisc",           // utilidades de procesos: pstree, killall, fuser
-            "nano",             // editor de código/texto en terminal
+            "nano",             // editor de cÃ³digo/texto en terminal
             "curl",             // cliente de red y transferencia HTTP
             "wget",             // descargador de archivos por red
             "ttf-dejavu",       // Fuentes vectoriales TrueType DejaVu (Sans, Sans Mono) para Xft/GTK
         )
 
-        /** Convierte bytes a hex string (para verificación SHA256). */
+        /** Convierte bytes a hex string (para verificaciÃ³n SHA256). */
         private fun bytesToHex(bytes: ByteArray): String =
             bytes.joinToString("") { "%02x".format(it) }
     }
@@ -109,7 +111,7 @@ class DebInstaller(
         val repo: Repo,
     )
 
-    /** Parsear el index Packages: líneas clave por bloque. */
+    /** Parsear el index Packages: lÃ­neas clave por bloque. */
     private fun parseIndex(text: String, repo: Repo): Map<String, PkgInfo> {
         val out = mutableMapOf<String, PkgInfo>()
         for (para in text.split("\n\n")) {
@@ -134,14 +136,14 @@ class DebInstaller(
         return out
     }
 
-    /** "a, b | c, d" → ["a", "b|c", "d"] (alternativas sin resolver). */
+    /** "a, b | c, d" â†’ ["a", "b|c", "d"] (alternativas sin resolver). */
     private fun parseDepends(depends: String): List<String> =
         if (depends.isBlank()) emptyList()
         else depends.split(",").map { it.trim().split(" ")[0] }.filter { it.isNotEmpty() }
 
     /**
-     * Paquetes del bootstrap (rootfs inicial) — leídos del status file y validados.
-     * Si la librería esencial no existe en disco, se elimina del set para que se instale.
+     * Paquetes del bootstrap (rootfs inicial) â€” leÃ­dos del status file y validados.
+     * Si la librerÃ­a esencial no existe en disco, se elimina del set para que se instale.
      */
     private val bootstrapPackages: Set<String> by lazy {
         val pkgs = readInstalledStatus().toMutableSet()
@@ -169,22 +171,22 @@ class DebInstaller(
         return bytesToHex(md.digest())
     }
 
-    /** Descarga y mergea índices de todos los repos. Retorna mapa unificado. */
+    /** Descarga y mergea Ã­ndices de todos los repos. Retorna mapa unificado. */
     private fun fetchAllIndexes(forceRefresh: Boolean = false): Map<String, PkgInfo> {
         val merged = mutableMapOf<String, PkgInfo>()
         for (repo in ALL_REPOS) {
             val indexFile = File(baseDir, "packages_${repo.name}")
             if (forceRefresh || !indexFile.exists() || indexFile.length() < 10_000) {
                 if (!download(repo.indexUrl, indexFile)) {
-                    Log.w(TAG, "índice ${repo.name} no disponible, saltando")
+                    Log.w(TAG, "Ã­ndice ${repo.name} no disponible, saltando")
                     if (!forceRefresh) continue
                 }
             }
             if (indexFile.exists()) {
                 val repoIndex = parseIndex(indexFile.readText(), repo)
                 Log.i(TAG, "repo ${repo.name}: ${repoIndex.size} paquetes")
-                // F7: putIfAbsent en vez de putAll — el orden de ALL_REPOS
-                // (main → x11 → root) marca la preferencia: gana el primero.
+                // F7: putIfAbsent en vez de putAll â€” el orden de ALL_REPOS
+                // (main â†’ x11 â†’ root) marca la preferencia: gana el primero.
                 for ((name, info) in repoIndex) merged.putIfAbsent(name, info)
             }
         }
@@ -197,11 +199,11 @@ class DebInstaller(
             onProgress("index", 5)
             var index = fetchAllIndexes(forceRefresh = false)
             if (targets.any { it !in index }) {
-                Log.i(TAG, "Paquete objetivo falta en el índice cacheado -> Forzando descarga fresca de índices")
+                Log.i(TAG, "Paquete objetivo falta en el Ã­ndice cacheado -> Forzando descarga fresca de Ã­ndices")
                 index = fetchAllIndexes(forceRefresh = true)
             }
             onProgress("index", 10)
-            if (index.isEmpty()) { Log.e(TAG, "índices vacíos"); return false }
+            if (index.isEmpty()) { Log.e(TAG, "Ã­ndices vacÃ­os"); return false }
 
             val installed = readInstalledStatus().toMutableSet()
             val binDir = File(usrDir, "bin")
@@ -224,10 +226,10 @@ class DebInstaller(
                 if (!seen.add(pkg)) continue
                 val info = index[pkg]
                 if (info == null) {
-                    // F1: objetivo ausente del índice = fallo duro. Antes se
-                    // saltaba en silencio e install() devolvía true con
-                    // binarios ausentes (éxito falso).
-                    Log.w(TAG, "pkg no encontrado en índices: $pkg")
+                    // F1: objetivo ausente del Ã­ndice = fallo duro. Antes se
+                    // saltaba en silencio e install() devolvÃ­a true con
+                    // binarios ausentes (Ã©xito falso).
+                    Log.w(TAG, "pkg no encontrado en Ã­ndices: $pkg")
                     missing.add(pkg)
                     continue
                 }
@@ -244,14 +246,14 @@ class DebInstaller(
                             queue.addLast(alt)
                         }
                     } else {
-                        // Puede ser paquete virtual (Provides) — no es fallo
+                        // Puede ser paquete virtual (Provides) â€” no es fallo
                         // duro, pero queda registrado.
-                        Log.w(TAG, "dep sin resolver en índices: $dep (de $pkg)")
+                        Log.w(TAG, "dep sin resolver en Ã­ndices: $dep (de $pkg)")
                     }
                 }
             }
             if (missing.isNotEmpty()) {
-                Log.e(TAG, "instalación abortada — objetivos ausentes del índice: $missing")
+                Log.e(TAG, "instalaciÃ³n abortada â€” objetivos ausentes del Ã­ndice: $missing")
                 return false
             }
             Log.i(TAG, "instalar (${toInstall.size}): ${toInstall.take(10)}...")
@@ -264,7 +266,7 @@ class DebInstaller(
             for (pkg in toInstall) {
                 val info = index[pkg]
                 if (info == null) {
-                    Log.e(TAG, "$pkg no está en el índice"); return false
+                    Log.e(TAG, "$pkg no estÃ¡ en el Ã­ndice"); return false
                 }
                 val deb = File(pkgsDir, "$pkg.deb")
                 onProgress("download $pkg", 10 + done * 40 / toInstall.size)
@@ -277,7 +279,7 @@ class DebInstaller(
                     var actual = sha256(deb)
                     if (!actual.equals(info.sha256, ignoreCase = true)) {
                         // F12: reintentar la descarga una vez antes de abortar.
-                        Log.w(TAG, "$pkg SHA256 mismatch — reintentando descarga")
+                        Log.w(TAG, "$pkg SHA256 mismatch â€” reintentando descarga")
                         deb.delete()
                         if (download(info.repo.poolBase + info.filename, deb)) {
                             actual = sha256(deb)
@@ -289,7 +291,7 @@ class DebInstaller(
                 }
                 val control = extractDeb(deb, pkg, info.version)
                 if (control == null) {
-                    Log.e(TAG, "fallo extracción $pkg"); return false
+                    Log.e(TAG, "fallo extracciÃ³n $pkg"); return false
                 }
                 writeStatus(pkg, info.version)
                 installed.add(pkg)
@@ -298,19 +300,19 @@ class DebInstaller(
                 onProgress("install $pkg", 50 + done * 50 / toInstall.size)
             }
 
-            // F1: verificación final — todos los objetivos deben quedar instalados.
+            // F1: verificaciÃ³n final â€” todos los objetivos deben quedar instalados.
             val notInstalled = targets.filter { it !in installed }
             if (notInstalled.isNotEmpty()) {
-                Log.e(TAG, "instalación incompleta — faltan: $notInstalled")
+                Log.e(TAG, "instalaciÃ³n incompleta â€” faltan: $notInstalled")
                 return false
             }
 
             // F2/F3: postinsts diferidos, en orden inverso (deps primero).
-            // rc != 0 → fallo + paquete reintentable (se quita del status).
+            // rc != 0 â†’ fallo + paquete reintentable (se quita del status).
             for ((pkg, control) in postinsts.asReversed()) {
                 onProgress("postinst $pkg", 90)
                 if (!runPostinst(control, pkg)) {
-                    Log.e(TAG, "$pkg postinst falló — paquete marcado reintentable")
+                    Log.e(TAG, "$pkg postinst fallÃ³ â€” paquete marcado reintentable")
                     removeInstalledStatusPackages(listOf(pkg))
                     return false
                 }
@@ -318,12 +320,12 @@ class DebInstaller(
             onProgress("done", 100)
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "install falló: $e")
+            Log.e(TAG, "install fallÃ³: $e")
             return false
         }
     }
 
-    /** Instala el escritorio VNC mínimo (Xvnc + openbox + aterm + libpng + libbrotli + libxcb). */
+    /** Instala el escritorio VNC mÃ­nimo (Xvnc + openbox + aterm + libpng + libbrotli + libxcb). */
     fun installGraphical(onProgress: (String, Int) -> Unit): Boolean {
         val libDir = File(usrDir, "lib")
         val hasExpat = File(libDir, "libexpat.so.1").exists() || File(libDir, "libexpat.so").exists()
@@ -333,17 +335,17 @@ class DebInstaller(
         val hasGl = File(libDir, "libGL.so.1").exists() || File(libDir, "libGL.so").exists()
 
         if (!hasExpat || !hasFontcfg || !hasXcb || !hasXkbcomp || !hasGl) {
-            Log.i(TAG, "Forzando actualización limpia de paquetes gráficos de Termux")
+            Log.i(TAG, "Forzando actualizaciÃ³n limpia de paquetes grÃ¡ficos de Termux")
             removeInstalledStatusPackages(DESKTOP_PACKAGES + "opengl")
         }
-        // Reglas XKB inválidas (stub o ausentes) → forzar reinstall de
+        // Reglas XKB invÃ¡lidas (stub o ausentes) â†’ forzar reinstall de
         // xkeyboard-config. El dpkg status puede decir "instalado" con los
-        // archivos rotos (symlink muerto) — el reinstall re-extrae las
+        // archivos rotos (symlink muerto) â€” el reinstall re-extrae las
         // reglas reales. Sin esto, xkbcomp falla y Xvnc aborta con
         // "Failed to activate virtual core keyboard".
         val evdev = File(usrDir, "share/X11/xkb/rules/evdev")
         if (!evdev.exists() || evdev.length() < 200) {
-            Log.i(TAG, "Reglas XKB inválidas — forzando reinstall de xkeyboard-config")
+            Log.i(TAG, "Reglas XKB invÃ¡lidas â€” forzando reinstall de xkeyboard-config")
             removeInstalledStatusPackages(listOf("xkeyboard-config"))
         }
         val res = install(DESKTOP_PACKAGES, onProgress)
@@ -357,7 +359,7 @@ class DebInstaller(
                             f.copyTo(target)
                             Log.i(TAG, "Symlink/Copy creado: ${f.name} -> $baseName")
                         } catch (e: Exception) {
-                            Log.w(TAG, "SymlinkCopy falló: ${f.name} -> ${e.message}")
+                            Log.w(TAG, "SymlinkCopy fallÃ³: ${f.name} -> ${e.message}")
                         }
                     }
                 }
@@ -390,8 +392,8 @@ class DebInstaller(
             return true
         } catch (e: Exception) {
             Log.e(TAG, "download $url: $e")
-            // F12: si quedó un .deb parcial (>= 1000 bytes se reusaría como
-            // válido en el siguiente intento), borrarlo.
+            // F12: si quedÃ³ un .deb parcial (>= 1000 bytes se reusarÃ­a como
+            // vÃ¡lido en el siguiente intento), borrarlo.
             if (dest.exists()) dest.delete()
             return false
         }
@@ -401,18 +403,18 @@ class DebInstaller(
      * Extrae un .deb: parsea el contenedor ar, descomprime data.tar.xz con
      * el decoder XZ puro (Kotlin) y extrae el tar con TarExtractor puro.
      *
-     * SIN worker: tar/xz del rootfs están stripped (no exportan main → no
+     * SIN worker: tar/xz del rootfs estÃ¡n stripped (no exportan main â†’ no
      * dlopen-ables), y el toybox del sistema no tiene xz. Kotlin puro es la
-     * vía 100% confiable y elimina el race condition del spawn async.
+     * vÃ­a 100% confiable y elimina el race condition del spawn async.
      *
-     * @return null = fallo; ByteArray vacío = éxito sin control.tar.xz;
-     *         otro valor = payload del control.tar.xz (F2: diferido —
+     * @return null = fallo; ByteArray vacÃ­o = Ã©xito sin control.tar.xz;
+     *         otro valor = payload del control.tar.xz (F2: diferido â€”
      *         install() ejecuta los postinsts tras el batch completo).
      */
     private fun extractDeb(deb: File, pkg: String, version: String): ByteArray? {
         val bytes = deb.readBytes()
         if (bytes.size < 8 || String(bytes, 0, 8) != "!<arch>\n") {
-            Log.e(TAG, "$pkg no es un .deb válido")
+            Log.e(TAG, "$pkg no es un .deb vÃ¡lido")
             return null
         }
         // Parsear ar: name(16) mtime(12) uid(6) gid(6) mode(8) size(10) magic(2)
@@ -450,7 +452,7 @@ class DebInstaller(
         // el propio cargador dinamico del sistema. Ese binario SI tiene
         // permiso de ejecucion (vive en /system) y actua como loader generico
         // de ELFs PIE arbitrarios sin pasar por el execve() bloqueado sobre el
-        // archivo extraido — mismo truco ya usado para xkbcomp en
+        // archivo extraido â€” mismo truco ya usado para xkbcomp en
         // boot_orchestrator.dart (linker64 "$PREFIX/xkbcomp.real" "$@").
         var xzSuccess = false
 
@@ -487,13 +489,13 @@ class DebInstaller(
                 if (rc == 0 && tarFile.length() > 0) {
                     val n = TarExtractor.extract(tarFile, baseDir, stripComponents = 5)
                     fixTruncatedNames()
-                    Log.i(TAG, "$pkg extraído vía ProcessBuilder/${xzBin.name} (v$version, $n entradas)")
+                    Log.i(TAG, "$pkg extraÃ­do vÃ­a ProcessBuilder/${xzBin.name} (v$version, $n entradas)")
                     xzSuccess = true
                     break
                 }
                 Log.w(TAG, "$pkg ${xzBin.absolutePath} rc=$rc outSize=${tarFile.length()} err=${errText?.take(400)}")
             } catch (e: Exception) {
-                Log.e(TAG, "$pkg ${xzBin.absolutePath} ProcessBuilder falló: ${e.message}")
+                Log.e(TAG, "$pkg ${xzBin.absolutePath} ProcessBuilder fallÃ³: ${e.message}")
             } finally {
                 xzTemp.delete()
                 tarFile.delete()
@@ -501,30 +503,30 @@ class DebInstaller(
             }
         }
 
-        // -- Vía 2: fallback XzDecoder Kotlin --
+        // -- VÃ­a 2: fallback XzDecoder Kotlin --
         if (!xzSuccess) {
             val tarFile = File.createTempFile("nanoapt_", ".tar", baseDir)
             try {
-                // F18: descompresión y extracción con atribución separada —
-                // antes cualquier excepción de TarExtractor se logueaba como
+                // F18: descompresiÃ³n y extracciÃ³n con atribuciÃ³n separada â€”
+                // antes cualquier excepciÃ³n de TarExtractor se logueaba como
                 // "XzDecoder error".
                 try {
                     java.io.BufferedOutputStream(java.io.FileOutputStream(tarFile)).use { tarOut ->
                         XzDecoder.decompressToStream(dataXz, tarOut)
                     }
                 } catch (e: XzDecoder.XzException) {
-                    Log.w(TAG, "$pkg XzDecoder falló: ${e.message}")
+                    Log.w(TAG, "$pkg XzDecoder fallÃ³: ${e.message}")
                     return null
                 }
                 val n = try {
                     TarExtractor.extract(tarFile, baseDir, stripComponents = 5)
                 } catch (e: Exception) {
-                    Log.w(TAG, "$pkg TarExtractor falló: ${e.message}")
+                    Log.w(TAG, "$pkg TarExtractor fallÃ³: ${e.message}")
                     return null
                 }
                 chmodBinaries()
                 fixTruncatedNames()
-                Log.i(TAG, "$pkg extraído vía XzDecoder (v$version, $n entradas)")
+                Log.i(TAG, "$pkg extraÃ­do vÃ­a XzDecoder (v$version, $n entradas)")
                 xzSuccess = true
             } finally {
                 tarFile.delete()
@@ -532,11 +534,11 @@ class DebInstaller(
         }
 
         if (xzSuccess) return controlXz ?: ByteArray(0)
-        Log.e(TAG, "fallo extracción $pkg: xz y XzDecoder fallaron")
+        Log.e(TAG, "fallo extracciÃ³n $pkg: xz y XzDecoder fallaron")
         return null
     }
 
-    /** Lee var/lib/dpkg/status simplificado → paquetes ya instalados. */
+    /** Lee var/lib/dpkg/status simplificado â†’ paquetes ya instalados. */
     private fun readInstalledStatus(): Set<String> {
         val status = File(usrDir, "var/lib/dpkg/status")
         if (!status.exists()) return emptySet()
@@ -608,9 +610,9 @@ class DebInstaller(
     }
 
     /**
-     * En Android ≤12 con libandroid-support, readdir() devuelve nombres
+     * En Android â‰¤12 con libandroid-support, readdir() devuelve nombres
      * truncados a ~44 chars. Los .so de Python en lib-dynload pierden el
-     * sufijo "id.so" → Python no puede importarlos. Copiamos cada archivo
+     * sufijo "id.so" â†’ Python no puede importarlos. Copiamos cada archivo
      * truncado a su nombre completo con ".so".
      */
     private fun fixTruncatedNames() {
@@ -623,27 +625,27 @@ class DebInstaller(
             val fixed = File(dynload, "${f.name}d.so")
             if (!fixed.exists()) {
                 f.copyTo(fixed)
-                Log.i(TAG, "fixTruncated: ${f.name} → ${fixed.name}")
+                Log.i(TAG, "fixTruncated: ${f.name} â†’ ${fixed.name}")
             }
         }
     }
 
     /**
-     * Ejecuta postinst del control.tar.xz (F2: diferido — install() lo llama
+     * Ejecuta postinst del control.tar.xz (F2: diferido â€” install() lo llama
      * tras instalar el batch completo, deps primero). Devuelve true solo si
-     * el script no existe (no es fallo) o terminó con rc == 0.
+     * el script no existe (no es fallo) o terminÃ³ con rc == 0.
      *
-     * F3: antes el rc se ignoraba y la instalación se daba por exitosa.
-     * F4: intérprete explícito — execve(script) resuelve el shebang del
+     * F3: antes el rc se ignoraba y la instalaciÃ³n se daba por exitosa.
+     * F4: intÃ©rprete explÃ­cito â€” execve(script) resuelve el shebang del
      *     propio script y los shebangs de Termux
      *     (/data/data/com.termux/files/usr/bin/sh) no existen en este
-     *     rootfs; sin intérprete explícito el postinst nunca corría (rc=-1).
+     *     rootfs; sin intÃ©rprete explÃ­cito el postinst nunca corrÃ­a (rc=-1).
      */
     private fun runPostinst(controlXz: ByteArray, pkg: String): Boolean {
-        // F5: misma doble vía que extractDeb — xz real, fallback XzDecoder.
+        // F5: misma doble vÃ­a que extractDeb â€” xz real, fallback XzDecoder.
         var controlTarBytes: ByteArray? = null
 
-        // Vía 1: xz real
+        // VÃ­a 1: xz real
         val xzBin = listOf(File(baseDir, "xz"), File(usrDir, "bin/xz"), File("/system/bin/xz")).firstOrNull { it.exists() }
         if (xzBin != null) {
             try {
@@ -675,11 +677,11 @@ class DebInstaller(
                     errFile.delete()
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "$pkg control xz (binario) falló: ${e.message}")
+                Log.w(TAG, "$pkg control xz (binario) fallÃ³: ${e.message}")
             }
         }
 
-        // Vía 2: fallback XzDecoder
+        // VÃ­a 2: fallback XzDecoder
         if (controlTarBytes == null) {
             try {
                 java.io.ByteArrayOutputStream().use { out ->
@@ -687,7 +689,7 @@ class DebInstaller(
                     controlTarBytes = out.toByteArray()
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "$pkg control XzDecoder falló: ${e.message}")
+                Log.w(TAG, "$pkg control XzDecoder fallÃ³: ${e.message}")
                 return false
             }
         }
@@ -728,17 +730,17 @@ class DebInstaller(
                     "PATH" to "${usrDir.absolutePath}/bin:/system/bin",
                     "LD_LIBRARY_PATH" to "${usrDir.absolutePath}/lib",
                 )
-                // F17: id único — System.currentTimeMillis() podía colisionar
+                // F17: id Ãºnico â€” System.currentTimeMillis() podÃ­a colisionar
                 // entre paquetes del mismo batch.
                 val taskId = "post_${java.util.UUID.randomUUID()}"
                 val filesDir = baseDir.parentFile!!
-                // F4: bin = intérprete explícito. El worker hace
+                // F4: bin = intÃ©rprete explÃ­cito. El worker hace
                 // execve(bin, argv) con argv tal cual; si bin fuera el
-                // script, el kernel resolvería su shebang Termux y fallaría.
+                // script, el kernel resolverÃ­a su shebang Termux y fallarÃ­a.
                 // Preferimos el sh del sistema (sin bloqueo W^X de execve).
                 val sh = listOf(File("/system/bin/sh"), File(usrDir, "bin/sh")).firstOrNull { it.exists() }
                 if (sh == null) {
-                    Log.e(TAG, "$pkg sin intérprete sh disponible")
+                    Log.e(TAG, "$pkg sin intÃ©rprete sh disponible")
                     return false
                 }
                 spawnWorker(sh.absolutePath, listOf(sh.name, scriptFile.absolutePath, "configure"), envMap, taskId)
@@ -796,6 +798,11 @@ class DebInstaller(
         }
     }
 }
+
+
+
+
+
 
 
 

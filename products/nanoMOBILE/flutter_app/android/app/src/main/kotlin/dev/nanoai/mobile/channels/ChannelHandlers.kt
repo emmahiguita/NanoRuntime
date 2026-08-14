@@ -9,4 +9,7 @@ object ChannelNames {
     const val PTY = PtyChannelHandler.CHANNEL_NAME
     const val NAVIGATION = NavigationChannelHandler.CHANNEL_NAME
     const val RUNTIME = RuntimeChannelHandler.CHANNEL_NAME
+    const val AGENT = AgentChannelHandler.CHANNEL_NAME
+    const val ENGINE = EngineChannelHandler.CHANNEL_NAME
+    const val MODEL_STORAGE = ModelStorageChannelHandler.CHANNEL_NAME
 }

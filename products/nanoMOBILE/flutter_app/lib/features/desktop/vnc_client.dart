@@ -48,12 +48,15 @@ class VncClient {
 
   // Estado del parser RFB (declarados arriba: disconnect() los resetea).
   // 0=version, 1=security, 2=challenge (VNC Auth), 3=result, 4=init, 5=ready
-  int _state = 0; // 0=version, 1=security, 2=challenge, 3=result, 4=init, 5=ready
+  int _state =
+      0; // 0=version, 1=security, 2=challenge, 3=result, 4=init, 5=ready
   int _msgType = 0;
   int _msgBytesNeeded = 0;
-  int _colourEntriesLeft = 0; // entradas de color por saltar (SetColourMapEntries)
+  int _colourEntriesLeft =
+      0; // entradas de color por saltar (SetColourMapEntries)
   bool _decodingFrame = false;
   bool _framePending = false;
+  bool _presentScheduled = false;
 
   // FSM incremental del FramebufferUpdate (P1 — parser TCP parcial):
   // el FBU de 3.5 MB llega en chunks TCP; el parser viejo re-leía el FBU
@@ -83,9 +86,11 @@ class VncClient {
 
   // ── Heartbeat / Keepalive ──
   Timer? _heartbeatTimer;
+  Timer? _presentTimer;
   DateTime _lastFrameTime = DateTime.now();
   static const _heartbeatInterval = Duration(seconds: 30);
   static const _frameTimeout = Duration(seconds: 60);
+  static const _presentInterval = Duration(milliseconds: 16);
 
   VncClient({
     required this.host,
@@ -151,11 +156,14 @@ class VncClient {
     _colourEntriesLeft = 0;
     _decodingFrame = false;
     _framePending = false;
+    _presentScheduled = false;
     _rectsTotal = 0;
     _rectsProcessed = 0;
     _rectActive = false;
     _rectDataNeeded = 0;
     _updatePending = false;
+    _presentTimer?.cancel();
+    _presentTimer = null;
   }
 
   // ── Heartbeat / Keepalive ──
@@ -172,7 +180,9 @@ class VncClient {
       // Verificar frame timeout: si no hemos recibido frames en 60s,
       // la conexión está muerta (Xvnc crasheó, WiFi cayó, etc.)
       if (DateTime.now().difference(_lastFrameTime) > _frameTimeout) {
-        _status('Heartbeat timeout — sin frames en ${_frameTimeout.inSeconds}s');
+        _status(
+          'Heartbeat timeout — sin frames en ${_frameTimeout.inSeconds}s',
+        );
         disconnect();
         onDisconnected?.call();
       }
@@ -182,6 +192,17 @@ class VncClient {
   void _stopHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+  }
+
+  void _schedulePresent() {
+    if (!_running || !_initialized || onFrame == null) return;
+    if (_presentScheduled) return;
+    _presentScheduled = true;
+    _presentTimer ??= Timer(_presentInterval, () {
+      _presentTimer = null;
+      _presentScheduled = false;
+      _emitFrame();
+    });
   }
 
   /// Envía un evento de puntero (botón + coordenadas).
@@ -618,7 +639,7 @@ class VncClient {
     _msgBytesNeeded = 0;
     _updatePending = false; // FBU recibido completo: request respondido.
 
-    _lastFrameTime = DateTime.now();  // heartbeat: reset frame timeout
+    _lastFrameTime = DateTime.now(); // heartbeat: reset frame timeout
 
     // P0 — ANR "Input dispatching timed out" (evidencia anr_20300, 15 ANRs
     // en device 2026-08-12): el servidor responde CADA FramebufferUpdateRequest
@@ -638,7 +659,7 @@ class VncClient {
     // cambio o heartbeat), y el input siempre encuentra el event loop libre.
     if (_rectsProcessed == 0) return;
 
-    _emitFrame();
+    _schedulePresent();
     // Incremental=true tras cada frame. Antes pedía NO incremental, y Xvnc
     // reenviaba el framebuffer COMPLETO (3.6 MB por frame) — causa directa
     // del lag en el visor.
@@ -792,7 +813,7 @@ class VncClient {
       _decodingFrame = false;
       if (_framePending && _running) {
         _framePending = false;
-        _emitFrame();
+        _schedulePresent();
       }
     }
   }

@@ -8,6 +8,8 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import android.os.ParcelFileDescriptor
+import android.system.Os
 
 /**
  * Proceso worker `:nanoshell` para ejecuciÃ³n nativa segura.
@@ -30,6 +32,7 @@ companion object {
         const val MSG_RESULT = 2
         const val MSG_SPAWN_DETACHED = 3
         const val MSG_KILL = 4
+        const val MSG_OPEN_FD = 5
         const val EXTRA_OUT = "nanoai.worker.out"
         const val EXTRA_ERR = "nanoai.worker.err"
         const val EXTRA_RC = "nanoai.worker.rc"
@@ -44,10 +47,19 @@ when (msg.what) {
                 MSG_SPAWN -> handleSpawn(msg)
                 MSG_SPAWN_DETACHED -> handleSpawnDetached(msg)
                 MSG_KILL -> handleKill(msg)
+                MSG_OPEN_FD -> handleOpenFd(msg)
                 else -> android.util.Log.w("nanoshell-worker", "msg desconocido ${msg.what}")
             }
         }
     }
+
+    /**
+     * Fds de modelos abiertos por el proceso principal (SAF) y transferidos
+     * acá por Binder. Key = content uri. El engine (hijo de este worker)
+     * hereda el fd y lee el GGUF vía /proc/self/fd/N — sin copiar el archivo.
+     * Reabrir el mismo uri cierra el fd previo: no hay fuga por re-selección.
+     */
+    private val modelFds = mutableMapOf<String, Int>()
 
     override fun onCreate() {
         super.onCreate()
@@ -147,6 +159,47 @@ when (msg.what) {
         try { NanoshellBridge.workerKillGroup() } catch (_: Throwable) {}
         // stopSelf() si el SIGKILL anterior no tumbÃ³ el proceso (fallback).
         this.stopSelf()
+    }
+
+    /**
+     * Registra el fd de un modelo SAF: detachFd lo transfiere a este proceso,
+     * se cierra el fd previo del mismo uri y se responde el path
+     * /proc/self/fd/N que los hijos (nanortime) heredan y abren con mmap.
+     */
+    private fun handleOpenFd(msg: Message) {
+        val b = msg.data
+        val uri = b.getString("uri") ?: return
+        val taskId = b.getString(EXTRA_TASK_ID) ?: "f${System.currentTimeMillis()}"
+        val pfd = b.getParcelable<ParcelFileDescriptor>("fd") ?: run {
+            android.util.Log.w("nanoshell-worker", "openFd sin PFD para $uri")
+            return
+        }
+        // El replyTo se extrae ANTES del Thread (mismo patrón que detached:
+        // el Looper recicla el Message al salir de handleMessage).
+        val replyTo = msg.replyTo
+
+        Thread({
+            var fdPath: String? = null
+            try {
+                val fd = pfd.detachFd()
+                synchronized(modelFds) {
+                    modelFds[uri]?.let { old ->
+                        try { ParcelFileDescriptor.adoptFd(old).close() } catch (_: Throwable) {}
+                    }
+                    modelFds[uri] = fd
+                }
+                fdPath = "/proc/self/fd/$fd"
+                android.util.Log.i("nanoshell-worker", "openFd $uri -> $fdPath")
+            } catch (e: Throwable) {
+                android.util.Log.e("nanoshell-worker", "openFd falló: $e")
+            }
+            val reply = Message.obtain(null, MSG_RESULT)
+            reply.data = Bundle().apply {
+                putString(EXTRA_TASK_ID, taskId)
+                putString("fdPath", fdPath)
+            }
+            try { replyTo?.send(reply) } catch (_: Exception) {}
+        }, "worker-openfd-$taskId").start()
     }
 
     /** Libs versionadas criticas que apt y Xvnc necesitan (System.load las registra

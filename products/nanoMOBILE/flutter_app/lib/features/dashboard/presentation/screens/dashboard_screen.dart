@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +23,7 @@ abstract final class NanoPalette {
 }
 
 /// Vista pura del launcher: recibe datos y callbacks, sin providers.
-class NanoHomeScreen extends StatelessWidget {
+class NanoHomeScreen extends ConsumerWidget {
   const NanoHomeScreen({
     super.key,
     required this.ramFreeGb,
@@ -53,133 +53,243 @@ class NanoHomeScreen extends StatelessWidget {
   final VoidCallback onSettings;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: NanoPalette.background,
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _CrystalBackground()),
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxHeight < 700;
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) {
+        return Transform.translate(
+          offset: Offset(0, 18 * (1 - t)),
+          child: Opacity(opacity: t, child: child),
+        );
+      },
+      child: Scaffold(
+        backgroundColor: NanoPalette.background,
+        body: Stack(
+          children: [
+            const Positioned.fill(child: _CrystalBackground()),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 700;
+                  final narrow = constraints.maxWidth < 700;
+                final cardGap = narrow ? 8.0 : 10.0;
+                final actionHeight = narrow ? 124.0 : (compact ? 156.0 : 180.0);
+                final terminalHeight = narrow ? 186.0 : (compact ? 240.0 : 290.0);
+                final tileAspect = narrow ? 1.95 : 1.72;
 
-                return SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(14, compact ? 10 : 18, 14, 20),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - 30,
+                Widget buildActionCard({
+                  required String title,
+                  required String subtitle,
+                  required IconData icon,
+                  required List<Color> colors,
+                  required Color accent,
+                  required VoidCallback onTap,
+                  required int index,
+                }) {
+                  return TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.96, end: 1),
+                    duration: Duration(milliseconds: 420 + (index * 80)),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, scale, child) {
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: GlassActionCard(
+                      title: title,
+                      subtitle: subtitle,
+                      icon: icon,
+                      colors: colors,
+                      accent: accent,
+                      height: actionHeight,
+                      onTap: onTap,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  );
+                }
+
+                Widget buildActionGrid() {
+                  if (narrow) {
+                    return Column(
                       children: [
-                        _NanoHeader(compact: compact),
-                        SizedBox(height: compact ? 10 : 16),
-                        _MetricsStrip(
-                          ramFreeGb: ramFreeGb,
-                          cpuCores: cpuCores,
-                          temperatureC: temperatureC,
-                          storageFreeGb: storageFreeGb,
-                          batteryPercent: batteryPercent,
+                        buildActionCard(
+                          title: 'Chat',
+                          subtitle: 'Habla con NanoAI',
+                          icon: Icons.chat_bubble_outline_rounded,
+                          colors: const [Color(0x99005270), Color(0x77004485)],
+                          accent: NanoPalette.cyan,
+                          onTap: onChat,
+                          index: 0,
                         ),
-                        SizedBox(height: compact ? 10 : 14),
-                        GlassActionCard(
-                          title: 'Terminal',
-                          subtitle: linuxReady
-                              ? 'Linux listo'
-                              : 'Preparando Linux',
-                          icon: Icons.terminal_rounded,
-                          colors: const [Color(0xAA006B51), Color(0x77005A70)],
+                        SizedBox(height: cardGap),
+                        buildActionCard(
+                          title: 'Modelos',
+                          subtitle: 'Gestionar modelos',
+                          icon: Icons.view_in_ar_rounded,
+                          colors: const [Color(0x88003977), Color(0x88092160)],
+                          accent: NanoPalette.blue,
+                          onTap: onModels,
+                          index: 1,
+                        ),
+                        SizedBox(height: cardGap),
+                        buildActionCard(
+                          title: 'Escritorio',
+                          subtitle: 'Linux completo',
+                          icon: Icons.desktop_windows_rounded,
+                          colors: const [Color(0x8800496B), Color(0x77002B4D)],
                           accent: NanoPalette.emerald,
-                          height: compact ? 260 : 330,
-                          onTap: onTerminal,
+                          onTap: onDesktop,
+                          index: 2,
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: GlassActionCard(
-                                title: 'Chat',
-                                subtitle: 'Habla con NanoAI',
-                                icon: Icons.chat_bubble_outline_rounded,
-                                colors: const [
-                                  Color(0x99005270),
-                                  Color(0x77004485),
-                                ],
-                                accent: NanoPalette.cyan,
-                                height: compact ? 190 : 220,
-                                onTap: onChat,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: GlassActionCard(
-                                title: 'Modelos',
-                                subtitle: 'Gestionar modelos',
-                                icon: Icons.view_in_ar_rounded,
-                                colors: const [
-                                  Color(0x88003977),
-                                  Color(0x88092160),
-                                ],
-                                accent: NanoPalette.blue,
-                                height: compact ? 190 : 220,
-                                onTap: onModels,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: GlassActionCard(
-                                title: 'Escritorio',
-                                subtitle: 'Linux completo',
-                                icon: Icons.desktop_windows_rounded,
-                                colors: const [
-                                  Color(0x8800496B),
-                                  Color(0x77002B4D),
-                                ],
-                                accent: NanoPalette.emerald,
-                                height: compact ? 170 : 160,
-                                onTap: onDesktop,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: GlassActionCard(
-                                title: 'Ajustes',
-                                subtitle: 'Configuración',
-                                icon: Icons.settings_rounded,
-                                colors: const [
-                                  Color(0x88001A30),
-                                  Color(0x77000F24),
-                                ],
-                                accent: NanoPalette.slate,
-                                height: compact ? 170 : 160,
-                                onTap: onSettings,
-                              ),
-                            ),
-                          ],
+                        SizedBox(height: cardGap),
+                        buildActionCard(
+                          title: 'Ajustes',
+                          subtitle: 'Configuraci?n',
+                          icon: Icons.settings_rounded,
+                          colors: const [Color(0x88001A30), Color(0x77000F24)],
+                          accent: NanoPalette.slate,
+                          onTap: onSettings,
+                          index: 3,
                         ),
                       ],
+                    );
+                  }
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: constraints.maxWidth < 1000 ? 2 : 3,
+                    childAspectRatio: tileAspect,
+                    crossAxisSpacing: cardGap,
+                    mainAxisSpacing: cardGap,
+                    children: [
+                      buildActionCard(
+                        title: 'Chat',
+                        subtitle: 'Habla con NanoAI',
+                        icon: Icons.chat_bubble_outline_rounded,
+                        colors: const [Color(0x99005270), Color(0x77004485)],
+                        accent: NanoPalette.cyan,
+                        onTap: onChat,
+                        index: 0,
+                      ),
+                      buildActionCard(
+                        title: 'Modelos',
+                        subtitle: 'Gestionar modelos',
+                        icon: Icons.view_in_ar_rounded,
+                        colors: const [Color(0x88003977), Color(0x88092160)],
+                        accent: NanoPalette.blue,
+                        onTap: onModels,
+                        index: 1,
+                      ),
+                      buildActionCard(
+                        title: 'Escritorio',
+                        subtitle: 'Linux completo',
+                        icon: Icons.desktop_windows_rounded,
+                        colors: const [Color(0x8800496B), Color(0x77002B4D)],
+                        accent: NanoPalette.emerald,
+                        onTap: onDesktop,
+                        index: 2,
+                      ),
+                      buildActionCard(
+                        title: 'Ajustes',
+                        subtitle: 'Configuraci?n',
+                        icon: Icons.settings_rounded,
+                        colors: const [Color(0x88001A30), Color(0x77000F24)],
+                        accent: NanoPalette.slate,
+                        onTap: onSettings,
+                        index: 3,
+                      ),
+                    ],
+                  );
+                }
+
+                return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(14, compact ? 10 : 18, 14, 20),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 30,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _NanoHeader(compact: compact),
+                          SizedBox(height: compact ? 10 : 14),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.94, end: 1),
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeOutBack,
+                            builder: (context, scale, child) {
+                              return Transform.scale(scale: scale, child: child);
+                            },
+                            child: _MetricsStrip(
+                              ramFreeGb: ramFreeGb,
+                              cpuCores: cpuCores,
+                              temperatureC: temperatureC,
+                              storageFreeGb: storageFreeGb,
+                              batteryPercent: batteryPercent,
+                            ),
+                          ),
+                          SizedBox(height: compact ? 10 : 12),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.95, end: 1),
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, scale, child) {
+                              return Transform.scale(scale: scale, child: child);
+                            },
+                            child: GlassActionCard(
+                              title: 'Terminal',
+                              subtitle: linuxReady ? 'Linux listo' : 'Preparando Linux',
+                              icon: Icons.terminal_rounded,
+                              colors: const [Color(0xAA006B51), Color(0x77005A70)],
+                              accent: NanoPalette.emerald,
+                              height: terminalHeight,
+                              onTap: onTerminal,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Builder(
+                            builder: (context) {
+                              final kali = ref.watch(kaliProvider);
+                              final auditSummary = kali?.coverageSummary() ?? 'Kali no inicializado';
+                              final ready = kali?.isInstalled == true;
+                              final missingCount = kali == null ? null : kali.missingTools().length;
+                              return TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.95, end: 1),
+                                duration: const Duration(milliseconds: 540),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, scale, child) {
+                                  return Transform.scale(scale: scale, child: child);
+                                },
+                                child: GlassActionCard(
+                                  title: 'Kali',
+                                  subtitle: ready
+                                      ? (missingCount == 0
+                                          ? 'Rootfs completo en cat?logo auditado'
+                                          : auditSummary)
+                                      : 'Rootfs Kali ARM64 no instalado',
+                                  icon: Icons.security_rounded,
+                                  colors: const [Color(0xAA003A57), Color(0x77001325)],
+                                  accent: ready ? NanoPalette.cyan : NanoPalette.slate,
+                                  height: narrow ? 106 : (compact ? 120 : 132),
+                                  onTap: onTerminal,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          buildActionGrid(),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-
-// ════════════════════════════════════════════════════════════════════
-// Encabezado NanoAI
-// ════════════════════════════════════════════════════════════════════
 
 class _NanoHeader extends StatelessWidget {
   const _NanoHeader({required this.compact});
@@ -599,7 +709,7 @@ class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final dashboard = ref.watch(dashboardProvider);
     final rootfs = ref.watch(rootfsProvider);
 

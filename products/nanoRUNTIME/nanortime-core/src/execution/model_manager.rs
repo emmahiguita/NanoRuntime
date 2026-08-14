@@ -3,6 +3,7 @@
 //! Crea contexto fresco por cada generación para evitar contaminación del KV cache.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
@@ -41,7 +42,9 @@ struct ModelState {
 
 pub struct ModelManager {
     config: Config,
-    state: RwLock<Option<ModelState>>,
+    // Arc so blocking generation threads can restore the model into state via
+    // blocking_write() once inference finishes (tokio-sanctioned pattern).
+    state: Arc<RwLock<Option<ModelState>>>,
     pub memory_engine: std::sync::Mutex<crate::memory_engine::NanoMemoryEngine>,
 }
 
@@ -50,7 +53,7 @@ impl ModelManager {
         let engine = crate::memory_engine::NanoMemoryEngine::new(32);
         Ok(Self {
             config,
-            state: RwLock::new(None),
+            state: Arc::new(RwLock::new(None)),
             memory_engine: std::sync::Mutex::new(engine),
         })
     }
@@ -495,15 +498,51 @@ impl ModelManager {
 
         #[cfg(not(feature = "simulated"))]
         {
-            let g = self.state.read().await;
-            let s = g.as_ref().ok_or_else(|| NanoError::Internal {
-                message: "No model loaded".to_string(),
+            // Take the model out of state while llama.cpp runs on a blocking
+            // thread — running it synchronously inside this poll would freeze
+            // the executor for seconds (embeddings are full forward passes),
+            // making concurrent work (cancellation, health checks) impossible.
+            let (model, gen) = {
+                let mut g = self.state.write().await;
+                let s = g.as_mut().ok_or_else(|| NanoError::Internal {
+                    message: "No model loaded".to_string(),
+                })?;
+                let gen = s.generation;
+                let m = s.model.take().ok_or_else(|| NanoError::Internal {
+                    message: "No model loaded".to_string(),
+                })?;
+                (m, gen)
+            };
+
+            let text_owned = text.to_string();
+            let (result, returned_model) = tokio::task::spawn_blocking(move || {
+                let r = LlamaCppBackend::embed_text(&model, &text_owned);
+                (r, model)
+            })
+            .await
+            .map_err(|e| NanoError::Internal {
+                message: format!("Embedding thread panicked: {:?}", e),
             })?;
-            let model = s.model.as_ref().ok_or_else(|| NanoError::Internal {
-                message: "No model loaded".to_string(),
-            })?;
-            LlamaCppBackend::embed_text(model, text)
-                .map_err(|e| NanoError::InferenceError { reason: e })
+
+            // Restore the model BEFORE propagating errors — same pattern as
+            // generate_with_confidence; otherwise a failed embedding would
+            // leave ModelState permanently without a model.
+            {
+                let mut g = self.state.write().await;
+                if let Some(ref mut s) = g.as_mut() {
+                    if s.generation == gen {
+                        s.model = Some(returned_model);
+                    } else {
+                        tracing::info!(
+                            "Model changed during embedding (gen {} → {}) — discarding old model",
+                            gen,
+                            s.generation
+                        );
+                    }
+                }
+            }
+
+            result.map_err(|e| NanoError::InferenceError { reason: e })
         }
     }
 
@@ -516,17 +555,25 @@ impl ModelManager {
 
     /// Genera tokens de forma streaming, emitiendo cada token por un canal.
     ///
-    /// La generación corre en un hilo separado (spawn_blocking) para que
-    /// los tokens lleguen al receiver en tiempo real, token por token.
+    /// La generación corre en un hilo separado (spawn_blocking) y el receiver
+    /// de tokens se devuelve INMEDIATAMENTE — los tokens llegan en tiempo
+    /// real, token por token, sin esperar a que la generación termine.
     ///
-    /// Retorna (texto_completo, probabilidades, receiver_de_tokens).
-    /// El receiver emite (token_text, probability) por cada token generado.
+    /// Retorna (resultado_final, receiver_de_tokens). El resultado final
+    /// (texto completo + probabilidades) se resuelve en el oneshot cuando la
+    /// generación termina o se aborta. El receiver emite (token_text,
+    /// probability) por cada token generado; si el receiver se dropea, la
+    /// generación se aborta y el modelo vuelve al estado.
     pub async fn generate_streaming(
         &self,
         prompt: &str,
         max_tokens: usize,
-    ) -> Result<(String, Vec<f32>, TokenReceiver)> {
+    ) -> Result<(
+        tokio::sync::oneshot::Receiver<Result<(String, Vec<f32>)>>,
+        TokenReceiver,
+    )> {
         let (tokio_tx, tokio_rx) = tokio::sync::mpsc::channel(max_tokens.max(4096));
+        let (res_tx, res_rx) = tokio::sync::oneshot::channel();
 
         #[cfg(feature = "simulated")]
         {
@@ -547,7 +594,8 @@ impl ModelManager {
                     tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
                 }
             });
-            Ok((full_text, probs, tokio_rx))
+            let _ = res_tx.send(Ok((full_text, probs)));
+            Ok((res_rx, tokio_rx))
         }
 
         #[cfg(not(feature = "simulated"))]
@@ -574,57 +622,77 @@ impl ModelManager {
                 (m, lp, gen)
             };
 
-            let (returned_model, result_data, gen_result) = tokio::task::spawn_blocking(move || {
+            // Fire the generation on a blocking thread and return the token
+            // receiver RIGHT AWAY. The blocking thread restores the model into
+            // state via blocking_write() — the tokio-sanctioned pattern for
+            // RwLock access from spawn_blocking threads — and reports the
+            // final result through the oneshot channel. A dropped token
+            // receiver aborts generation early through the callback's false
+            // return, so a cancelled stream stops burning CPU.
+            let state = Arc::clone(&self.state);
+            tokio::task::spawn_blocking(move || {
                 let mut ctx = match LlamaCppBackend::create_context(&model, &load_params) {
                     Ok(c) => c,
-                    Err(e) => return (model, None, Err(e)),
+                    Err(e) => {
+                        restore_model(&state, model, gen);
+                        let _ = res_tx.send(Err(NanoError::InferenceError { reason: e }));
+                        return;
+                    }
                 };
 
                 let mut tokens_generated = 0;
                 let result = LlamaCppBackend::generate_streaming(
-                    &mut ctx, &model, &prompt_owned, &gp, None,
+                    &mut ctx,
+                    &model,
+                    &prompt_owned,
+                    &gp,
+                    None,
                     &mut move |text, prob, _is_stop| {
                         tokens_generated += 1;
                         if prob > 0.95 && tokens_generated > 8 {
                             tracing::debug!("[EarlyExitController] High confidence ({:.2}) - early exit triggered for token", prob);
                         }
-                        let _ = tokio_tx.blocking_send((text.to_string(), prob));
+                        // Returning false when the receiver is gone aborts the
+                        // llama.cpp loop instead of generating into the void.
+                        tokio_tx.blocking_send((text.to_string(), prob)).is_ok()
                     },
                 );
-                match result {
-                    Ok(r) => (model, Some((r.text, r.token_probabilities)), Ok(())),
-                    Err(e) => return (model, None, Err(e)),
-                }
-            })
-            .await
-            .map_err(|e| NanoError::Internal {
-                message: format!("Generation thread panicked: {:?}", e),
-            })?;
 
-            // Put the model back into state — only if no new model was loaded
-            // during generation (checked via monotonic generation counter).
-            {
-                let mut g = self.state.write().await;
-                if let Some(ref mut s) = g.as_mut() {
-                    if s.generation == gen {
-                        s.model = Some(returned_model);
-                    } else {
-                        tracing::info!(
-                            "Model changed during generation (gen {} → {}) — discarding old model",
-                            gen,
-                            s.generation
-                        );
-                        // returned_model is dropped here, freeing old model memory
+                restore_model(&state, model, gen);
+
+                match result {
+                    Ok(r) => {
+                        let _ = res_tx.send(Ok((r.text, r.token_probabilities)));
+                    }
+                    Err(e) => {
+                        let _ = res_tx.send(Err(NanoError::InferenceError { reason: e }));
                     }
                 }
-            }
+            });
 
-            match result_data {
-                Some((text, probs)) => Ok((text, probs, tokio_rx)),
-                None => Err(NanoError::InferenceError {
-                    reason: gen_result.unwrap_err(),
-                }),
-            }
+            Ok((res_rx, tokio_rx))
+        }
+    }
+}
+
+/// Restaura el modelo al estado compartido desde un hilo bloqueante.
+///
+/// Solo si no se cargó un modelo nuevo durante la inferencia (verificado
+/// con el contador monotónico de generación). Si cambió, el modelo viejo
+/// se descarta aquí, liberando su memoria.
+#[cfg(not(feature = "simulated"))]
+fn restore_model(state: &Arc<RwLock<Option<ModelState>>>, model: NanoModel, gen: u64) {
+    let mut g = state.blocking_write();
+    if let Some(ref mut s) = g.as_mut() {
+        if s.generation == gen {
+            s.model = Some(model);
+        } else {
+            tracing::info!(
+                "Model changed during generation (gen {} → {}) — discarding old model",
+                gen,
+                s.generation
+            );
+            // model is dropped here, freeing old model memory
         }
     }
 }

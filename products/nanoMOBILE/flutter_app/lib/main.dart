@@ -42,6 +42,10 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
   @override
   void initState() {
     super.initState();
+    // Cargar settings persistidos (tema, password VNC, límites del motor)
+    // ANTES del primer frame. Sin esto, un arranque en frío ignora el
+    // password VNC guardado y el visor/launcher arrancan Xvnc sin auth.
+    unawaited(ref.read(settingsProvider.notifier).init());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(BootOrchestrator().run());
     });

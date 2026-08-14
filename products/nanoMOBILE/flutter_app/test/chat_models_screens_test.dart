@@ -553,11 +553,13 @@ void main() {
 
       expect(tester.takeException(), isNull, reason: 'sin overflow a 320x568');
       expect(find.text('ACTIVO'), findsOneWidget);
-      expect(find.text('DESCARGANDO'), findsOneWidget);
 
-      // La tercera card queda fuera del viewport en 320x568: hacer scroll.
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      // La barra de escaneo del storage ocupa espacio: la segunda y tercera
+      // card quedan fuera del viewport en 320x568. Hacer scroll (mismo
+      // patrón que ya usaba para la tercera card).
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pump();
+      expect(find.text('DESCARGANDO'), findsOneWidget);
       expect(find.text('ERROR'), findsOneWidget);
     });
 

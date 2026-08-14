@@ -53,6 +53,13 @@ class NativeRuntimeSupervisor(
         }
     }
 
+    /**
+     * Acceso al cliente del proceso :nanoshell para otros propietarios de
+     * daemons (EngineSupervisor spawnea el PIE nanortime por la misma vía).
+     * El supervisor sigue siendo el único dueño del ciclo de vida del worker.
+     */
+    fun workerClient(): WorkerClient? = workerClient
+
     fun installPackages(packages: List<String>, onProgress: (String, Int) -> Unit): Boolean {
         ensureRunning()
         return packageInstallController.installPackages(packages, onProgress)

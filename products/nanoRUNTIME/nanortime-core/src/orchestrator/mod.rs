@@ -980,12 +980,17 @@ impl Orchestrator {
 
     /// Procesa una petición con streaming de tokens.
     ///
-    /// Retorna un receiver que emite (token_text, probability) por cada token.
-    /// El primer mensaje es la respuesta completa al final.
+    /// Retorna (respuesta_final, receiver) donde el receiver emite
+    /// (token_text, probability) por cada token en tiempo real, y la
+    /// respuesta completa (texto + confianza + fuentes RAG) se resuelve en
+    /// el oneshot cuando la generación termina o se aborta.
     pub async fn process_request_streaming(
         &self,
         request: UserRequest,
-    ) -> Result<(Response, tokio::sync::mpsc::Receiver<(String, f32)>)> {
+    ) -> Result<(
+        tokio::sync::oneshot::Receiver<Response>,
+        tokio::sync::mpsc::Receiver<(String, f32)>,
+    )> {
         let prompt = &request.prompt;
 
         // Privacy check
@@ -1023,8 +1028,10 @@ impl Orchestrator {
             .build_augmented_prompt(prompt, &rag_docs, &request)
             .await;
 
-        // Generate with streaming
-        let (text, confidence_scores, token_rx) = self
+        // Generate with streaming — returns the token receiver immediately;
+        // the final result (text + per-token probabilities) resolves in the
+        // oneshot when generation finishes or is aborted.
+        let (result_rx, token_rx) = self
             .model_manager
             .generate_streaming(&augmented_prompt, self.config.generation.max_tokens)
             .await?;
@@ -1051,26 +1058,45 @@ impl Orchestrator {
             }
         });
 
-        let avg_confidence = token_confidence(&confidence_scores);
+        // Final response assembled once generation completes (or aborts).
+        // If the generation task died without reporting, fall back to an
+        // empty response with a warning — never fabricate metrics.
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let (text, confidence_scores) = match result_rx.await {
+                Ok(Ok((t, s))) => (t, s),
+                Ok(Err(e)) => {
+                    tracing::warn!("Streaming generation failed: {}", e);
+                    (String::new(), Vec::new())
+                }
+                Err(_) => {
+                    tracing::warn!("Streaming generation task died before reporting a result");
+                    (String::new(), Vec::new())
+                }
+            };
 
-        let response = Response {
-            text,
-            tier_used: "local".to_string(),
-            confidence: avg_confidence,
-            tool_calls: vec![],
-            sources: rag_docs
-                .into_iter()
-                .map(|d| crate::SourceDocument {
-                    content: d.content,
-                    metadata: d.metadata,
-                    similarity: d.similarity,
-                })
-                .collect(),
-            tokens_generated: 0,
-            model_memory_mb: 0, // Populated from MemoryManager when model is loaded
-        };
+            let avg_confidence = token_confidence(&confidence_scores);
 
-        Ok((response, out_rx))
+            let response = Response {
+                text,
+                tier_used: "local".to_string(),
+                confidence: avg_confidence,
+                tool_calls: vec![],
+                sources: rag_docs
+                    .into_iter()
+                    .map(|d| crate::SourceDocument {
+                        content: d.content,
+                        metadata: d.metadata,
+                        similarity: d.similarity,
+                    })
+                    .collect(),
+                tokens_generated: 0,
+                model_memory_mb: 0, // Populated from MemoryManager when model is loaded
+            };
+            let _ = response_tx.send(response);
+        });
+
+        Ok((response_rx, out_rx))
     }
     ///
     /// Almacena la corrección en el VectorEngine para que el modelo

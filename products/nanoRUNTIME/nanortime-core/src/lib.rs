@@ -224,11 +224,19 @@ impl NanoRuntime {
 
     /// Procesa una petición con streaming de tokens.
     ///
-    /// Retorna (respuesta, receiver) donde receiver emite (token, probability).
+    /// Retorna (respuesta_final, receiver) donde el receiver emite (token,
+    /// probability) en tiempo real y la respuesta completa se resuelve en
+    /// el oneshot cuando la generación termina o se aborta.
     pub async fn process_request_streaming(
         &self,
         request: UserRequest,
-    ) -> Result<(Response, tokio::sync::mpsc::Receiver<(String, f32)>), NanoError> {
+    ) -> Result<
+        (
+            tokio::sync::oneshot::Receiver<Response>,
+            tokio::sync::mpsc::Receiver<(String, f32)>,
+        ),
+        NanoError,
+    > {
         self.orchestrator.process_request_streaming(request).await
     }
 

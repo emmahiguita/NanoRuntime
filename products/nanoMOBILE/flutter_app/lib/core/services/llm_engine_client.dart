@@ -41,6 +41,21 @@ class LLMEngineClient {
     return false;
   }
 
+  /// GET /api/status → true si el runtime tiene un modelo cargado.
+  ///
+  /// 503 runtime_unavailable = server model-free (--no-model): el motor
+  /// está vivo pero sin GGUF instalado — la UI muestra el estado degraded.
+  Future<bool> hasModel() async {
+    try {
+      final r = await _client
+          .get(Uri.parse('$baseUrl/api/status'))
+          .timeout(const Duration(seconds: 3));
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Genera una respuesta contra /completion (modo no-stream).
   ///
   /// Devuelve el texto y, si el motor lo reporta, el tps real.
@@ -101,7 +116,9 @@ class LLMEngineClient {
         await Future<void>.delayed(Duration(milliseconds: 500 * (attempt + 1)));
       } on http.ClientException catch (e) {
         if (attempt == maxAttempts - 1) {
-          throw LLMEngineException('No se pudo contactar al motor: ${e.message}');
+          throw LLMEngineException(
+            'No se pudo contactar al motor: ${e.message}',
+          );
         }
         await Future<void>.delayed(Duration(milliseconds: 500 * (attempt + 1)));
       }
@@ -167,7 +184,9 @@ class LLMEngineClient {
 
       if (streamedResponse.statusCode != 200) {
         final body = await streamedResponse.stream.bytesToString();
-        controller.addError(LLMEngineException('HTTP ${streamedResponse.statusCode}: $body'));
+        controller.addError(
+          LLMEngineException('HTTP ${streamedResponse.statusCode}: $body'),
+        );
         await controller.close();
         client.close();
         return;
@@ -200,18 +219,24 @@ class LLMEngineClient {
               }
             }
           }
-          controller.add(LLMStreamToken(content: content, stop: stop, tps: tps));
+          controller.add(
+            LLMStreamToken(content: content, stop: stop, tps: tps),
+          );
           if (stop) break;
         } on FormatException {
           // línea SSE malformada: ignorar, continuar con la siguiente.
         }
       }
     } on TimeoutException {
-      controller.addError(LLMEngineException('Timeout al generar la respuesta'));
+      controller.addError(
+        LLMEngineException('Timeout al generar la respuesta'),
+      );
     } on http.ClientException catch (e) {
       // Si el client se cerró externamente (cancelación), no reportamos error.
       if (!controller.isClosed) {
-        controller.addError(LLMEngineException('No se pudo contactar al motor: ${e.message}'));
+        controller.addError(
+          LLMEngineException('No se pudo contactar al motor: ${e.message}'),
+        );
       }
     } catch (e) {
       if (!controller.isClosed) {

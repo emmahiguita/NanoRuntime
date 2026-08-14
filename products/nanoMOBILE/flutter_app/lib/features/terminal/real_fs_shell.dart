@@ -57,10 +57,10 @@ class RealFsShell {
   bool get hasRealShell => hostSh != null;
 
   Map<String, String> get _env => {
-        'TERM': 'dumb',
-        'PWD': cwd,
-        ...Platform.environment,
-      };
+    'TERM': 'dumb',
+    'PWD': cwd,
+    ...Platform.environment,
+  };
 
   /// Subconjunto de comandos con implementación dart:io real.
   static const supported = {
@@ -164,7 +164,7 @@ class RealFsShell {
         case 'diff':
           _diff(args, o, e);
         case 'source':
-          _source(args, o, e);
+          await _source(args, o, e);
         case 'id':
           e('id: identidad del dispositivo no disponible');
         case 'chmod':
@@ -217,8 +217,7 @@ class RealFsShell {
     if (cached == true) return name;
     if (cached == false) return await _resolveBusybox();
     try {
-      final r =
-          await Process.run(sh, ['-c', r'command -v "$1"', 'sh', name]);
+      final r = await Process.run(sh, ['-c', r'command -v "$1"', 'sh', name]);
       final ok = r.exitCode == 0 && (r.stdout as String).trim().isNotEmpty;
       _binCache[name] = ok;
       if (ok) return name;
@@ -323,7 +322,11 @@ class RealFsShell {
 
   // ── comandos FS ──
 
-  void _mkdir(List<String> args, void Function(String) o, void Function(String) e) {
+  void _mkdir(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.isEmpty) {
       e('mkdir: falta operando');
       return;
@@ -333,7 +336,11 @@ class RealFsShell {
     }
   }
 
-  void _touch(List<String> args, void Function(String) o, void Function(String) e) {
+  void _touch(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.isEmpty) {
       e('touch: falta operando');
       return;
@@ -343,23 +350,29 @@ class RealFsShell {
     }
   }
 
-  void _ls(List<String> args, void Function(String) o, void Function(String) e) {
+  void _ls(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     final target = args.isEmpty ? cwd : args.first;
     final d = Directory(resolve(target));
     if (!d.existsSync()) {
       e('ls: $target: No such file or directory');
       return;
     }
-    final entries = d.listSync()
-        .map((x) => x.uri.pathSegments.last)
-        .toList()
+    final entries = d.listSync().map((x) => x.uri.pathSegments.last).toList()
       ..sort();
     for (final n in entries) {
       o(n);
     }
   }
 
-  void _cat(List<String> args, void Function(String) o, void Function(String) e) {
+  void _cat(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.isEmpty) {
       e('cat: falta operando');
       return;
@@ -377,7 +390,11 @@ class RealFsShell {
     }
   }
 
-  void _wc(List<String> args, void Function(String) o, void Function(String) e) {
+  void _wc(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.isEmpty) {
       e('wc: falta operando');
       return;
@@ -391,7 +408,11 @@ class RealFsShell {
     o('$lines ${args.last}');
   }
 
-  void _grep(List<String> args, void Function(String) o, void Function(String) e) {
+  void _grep(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.length < 2) {
       e('usage: grep [-i] PATRON ARCHIVO');
       return;
@@ -414,7 +435,11 @@ class RealFsShell {
     }
   }
 
-  void _find(List<String> args, void Function(String) o, void Function(String) e) {
+  void _find(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     final target = args.isEmpty ? cwd : args.first;
     final d = Directory(resolve(target));
     if (!d.existsSync()) {
@@ -463,13 +488,19 @@ class RealFsShell {
     }
     final lines = f.readAsStringSync().split('\n');
     if (lines.isNotEmpty && lines.last.isEmpty) lines.removeLast();
-    final pick = head ? lines.take(n) : lines.skip(lines.length - n < 0 ? 0 : lines.length - n);
+    final pick = head
+        ? lines.take(n)
+        : lines.skip(lines.length - n < 0 ? 0 : lines.length - n);
     for (final l in pick) {
       o(l);
     }
   }
 
-  void _cp(List<String> args, void Function(String) o, void Function(String) e) {
+  void _cp(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.length < 2) {
       e('cp: faltan operandos');
       return;
@@ -484,9 +515,7 @@ class RealFsShell {
     if (s == FileSystemEntityType.directory) {
       Directory(resolve(dst)).createSync(recursive: true);
       for (final x in Directory(resolve(src)).listSync(recursive: true)) {
-        final rel = x.path
-            .substring(resolve(src).length)
-            .replaceAll('\\', '/');
+        final rel = x.path.substring(resolve(src).length).replaceAll('\\', '/');
         final dest = '${resolve(dst)}$rel';
         if (x is File) {
           File(dest).parent.createSync(recursive: true);
@@ -501,19 +530,42 @@ class RealFsShell {
     }
   }
 
-  void _mv(List<String> args, void Function(String) o, void Function(String) e) {
+  void _mv(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.length < 2) {
       e('mv: faltan operandos');
       return;
     }
     final src = resolve(args[0]);
     final dst = resolve(args[1]);
-    if (!FileSystemEntity.typeSync(src, followLinks: true).toString().contains('notFound')) {
-      File(src).renameSync(dst);
+    final type = FileSystemEntity.typeSync(src, followLinks: true);
+    if (type == FileSystemEntityType.notFound) {
+      e('mv: ${args[0]}: No such file or directory');
+      return;
+    }
+    // Basename lógico (el sandbox usa rutas Unix): `a/b/c` → `c`.
+    final segs = args[0].split('/').where((s) => s.isNotEmpty).toList();
+    final base = segs.isEmpty ? '' : segs.last;
+    // Si el destino es un directorio, mover dentro de él conservando el nombre.
+    final dstType = FileSystemEntity.typeSync(dst, followLinks: false);
+    final dest = dstType == FileSystemEntityType.directory ? '$dst/$base' : dst;
+    // File.renameSync falla con directorios; se resuelve por tipo real, no por
+    // toString().contains('notFound') (frágil, dependía del texto del enum).
+    if (type == FileSystemEntityType.directory) {
+      Directory(src).renameSync(dest);
+    } else {
+      File(src).renameSync(dest);
     }
   }
 
-  void _rm(List<String> args, void Function(String) o, void Function(String) e) {
+  void _rm(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.isEmpty) {
       e('rm: falta operando');
       return;
@@ -543,7 +595,11 @@ class RealFsShell {
     }
   }
 
-  void _cd(List<String> args, void Function(String) o, void Function(String) e) {
+  void _cd(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     final target = args.isEmpty ? '/' : args.first;
     final real = resolve(target);
     if (!Directory(real).existsSync()) {
@@ -561,7 +617,11 @@ class RealFsShell {
 
   // ── comandos de lógica ──
 
-  void _expr(List<String> args, void Function(String) o, void Function(String) e) {
+  void _expr(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.length != 3) {
       e('usage: expr A OP B');
       return;
@@ -586,7 +646,11 @@ class RealFsShell {
     }
   }
 
-  void _seq(List<String> args, void Function(String) o, void Function(String) e) {
+  void _seq(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     int? first, last, step = 1;
     if (args.length == 1) {
       last = int.tryParse(args[0]);
@@ -621,16 +685,28 @@ class RealFsShell {
       o(parts.isEmpty ? '/' : parts.last);
     } else {
       if (p.startsWith('/')) {
-        o(parts.length <= 1 ? '/' : '/${parts.sublist(0, parts.length - 1).join("/")}');
+        o(
+          parts.length <= 1
+              ? '/'
+              : '/${parts.sublist(0, parts.length - 1).join("/")}',
+        );
       } else {
-        o(parts.length <= 1 ? '.' : parts.sublist(0, parts.length - 1).join('/'));
+        o(
+          parts.length <= 1
+              ? '.'
+              : parts.sublist(0, parts.length - 1).join('/'),
+        );
       }
     }
   }
 
   // ── tree / diff / source ──
 
-  void _tree(List<String> args, void Function(String) o, void Function(String) e) {
+  void _tree(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     final target = args.isEmpty ? cwd : args.first;
     final d = Directory(resolve(target));
     if (!d.existsSync()) {
@@ -665,7 +741,11 @@ class RealFsShell {
   }
 
   /// Diff línea a línea con LCS básico. Marca `-` quitadas y `+` añadidas.
-  void _diff(List<String> args, void Function(String) o, void Function(String) e) {
+  void _diff(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) {
     if (args.length < 2) {
       e('usage: diff ARCHIVO1 ARCHIVO2');
       return;
@@ -688,7 +768,9 @@ class RealFsShell {
     );
     for (var i = a.length - 1; i >= 0; i--) {
       for (var j = b.length - 1; j >= 0; j--) {
-        lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : (lcs[i + 1][j] > lcs[i][j + 1] ? lcs[i + 1][j] : lcs[i][j + 1]);
+        lcs[i][j] = a[i] == b[j]
+            ? lcs[i + 1][j + 1] + 1
+            : (lcs[i + 1][j] > lcs[i][j + 1] ? lcs[i + 1][j] : lcs[i][j + 1]);
       }
     }
     o('--- ${args[0]}');
@@ -719,7 +801,11 @@ class RealFsShell {
 
   /// Ejecuta cada línea no vacía y no comentada del archivo como comando
   /// soportado por este fallback (recursivo).
-  void _source(List<String> args, void Function(String) o, void Function(String) e) {
+  Future<void> _source(
+    List<String> args,
+    void Function(String) o,
+    void Function(String) e,
+  ) async {
     if (args.isEmpty) {
       e('source: falta archivo');
       return;
@@ -739,13 +825,20 @@ class RealFsShell {
         e('source: $name: no disponible');
         continue;
       }
-      run(name, rest, out: (t, ty) {
-        if (ty == Ln.stdout) {
-          o(t);
-        } else {
-          e(t);
-        }
-      });
+      // await: sin él las líneas se lanzan concurrentes y el orden de
+      // salida (y cualquier `cd`) se intercala — un script source debe
+      // ejecutarse secuencialmente.
+      await run(
+        name,
+        rest,
+        out: (t, ty) {
+          if (ty == Ln.stdout) {
+            o(t);
+          } else {
+            e(t);
+          }
+        },
+      );
     }
   }
 
@@ -770,9 +863,10 @@ class RealFsShell {
         return;
       }
       final used = total - (avail ?? free ?? 0);
-      String fmt(int kb) =>
-          '${(kb / 1024).toStringAsFixed(0)} MB';
-      o('Mem: total ${fmt(total)}, usada ${fmt(used)}, libre ${fmt(avail ?? free ?? 0)}');
+      String fmt(int kb) => '${(kb / 1024).toStringAsFixed(0)} MB';
+      o(
+        'Mem: total ${fmt(total)}, usada ${fmt(used)}, libre ${fmt(avail ?? free ?? 0)}',
+      );
     } catch (_) {
       e('free: memoria no disponible');
     }

@@ -20,10 +20,6 @@ class SettingsRepository {
 
   Future<SettingsState> load() async {
     if (!_ready) {
-      // Lazy-init: si la app nunca llamó init() (p. ej. se abre directo el
-      // visor VNC sin pasar por Ajustes), cargar igual — antes devolvía
-      // defaults y la persistencia (tema, password VNC) se perdía en cada
-      // arranque en frío.
       await init();
     }
     final json = _prefs.getString(_k);
@@ -40,6 +36,7 @@ class SettingsRepository {
         batteryMode: m['batteryMode'] as String? ?? 'Balanced',
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
         vncPassword: m['vncPassword'] as String? ?? '',
+        desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
       );
     } catch (_) {
       return const SettingsState();
@@ -48,25 +45,27 @@ class SettingsRepository {
 
   Future<void> save(SettingsState s) async {
     if (!_ready) await init();
-    await _prefs.setString(_k, jsonEncode({
-      'themeMode': s.themeMode,
-      'temperature': s.temperature,
-      'topP': s.topP,
-      'madvise': s.madvise,
-      'oomGuard': s.oomGuard,
-      'thermalLimit': s.thermalLimit,
-      'batteryMode': s.batteryMode,
-      'maxTokens': s.maxTokens,
-      'vncPassword': s.vncPassword,
-    }));
+    await _prefs.setString(
+      _k,
+      jsonEncode({
+        'themeMode': s.themeMode,
+        'temperature': s.temperature,
+        'topP': s.topP,
+        'madvise': s.madvise,
+        'oomGuard': s.oomGuard,
+        'thermalLimit': s.thermalLimit,
+        'batteryMode': s.batteryMode,
+        'maxTokens': s.maxTokens,
+        'vncPassword': s.vncPassword,
+        'desktopMobileMode': s.desktopMobileMode,
+      }),
+    );
   }
 }
 
-final settingsRepoProvider = Provider<SettingsRepository>((ref) => SettingsRepository());
-
-// ================================================================
-// Settings State (identical to before but with persistence)
-// ================================================================
+final settingsRepoProvider = Provider<SettingsRepository>(
+  (ref) => SettingsRepository(),
+);
 
 class SettingsState {
   final String themeMode;
@@ -74,11 +73,9 @@ class SettingsState {
   final bool madvise, oomGuard;
   final double thermalLimit;
   final String batteryMode;
-  /// Tokens máximos que el motor generará por respuesta. 512 por defecto.
   final int maxTokens;
-  /// Contraseña de protección VNC del escritorio Linux (vacío = desactivada).
-  /// Máximo 8 bytes efectivos (límite del protocolo VNC).
   final String vncPassword;
+  final bool desktopMobileMode;
 
   const SettingsState({
     this.themeMode = 'Sistema',
@@ -90,6 +87,7 @@ class SettingsState {
     this.batteryMode = 'Balanced',
     this.maxTokens = 512,
     this.vncPassword = '',
+    this.desktopMobileMode = false,
   });
 
   SettingsState copyWith({
@@ -102,18 +100,19 @@ class SettingsState {
     String? batteryMode,
     int? maxTokens,
     String? vncPassword,
-  }) =>
-      SettingsState(
-        themeMode: themeMode ?? this.themeMode,
-        temperature: temperature ?? this.temperature,
-        topP: topP ?? this.topP,
-        madvise: madvise ?? this.madvise,
-        oomGuard: oomGuard ?? this.oomGuard,
-        thermalLimit: thermalLimit ?? this.thermalLimit,
-        batteryMode: batteryMode ?? this.batteryMode,
-        maxTokens: maxTokens ?? this.maxTokens,
-        vncPassword: vncPassword ?? this.vncPassword,
-      );
+    bool? desktopMobileMode,
+  }) => SettingsState(
+    themeMode: themeMode ?? this.themeMode,
+    temperature: temperature ?? this.temperature,
+    topP: topP ?? this.topP,
+    madvise: madvise ?? this.madvise,
+    oomGuard: oomGuard ?? this.oomGuard,
+    thermalLimit: thermalLimit ?? this.thermalLimit,
+    batteryMode: batteryMode ?? this.batteryMode,
+    maxTokens: maxTokens ?? this.maxTokens,
+    vncPassword: vncPassword ?? this.vncPassword,
+    desktopMobileMode: desktopMobileMode ?? this.desktopMobileMode,
+  );
 }
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
@@ -125,22 +124,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   Future<void> init() async {
     await _repo.init();
     state = await _repo.load();
-    // Sync theme to themeModeProvider
     _ref.read(themeModeProvider.notifier).state = state.themeMode == 'Oscuro'
         ? ThemeMode.dark
         : state.themeMode == 'Claro'
-            ? ThemeMode.light
-            : ThemeMode.system;
+        ? ThemeMode.light
+        : ThemeMode.system;
   }
 
   Future<void> _lastWrite = Future<void>.value();
 
-  /// P2: antes cada setter lanzaba un save() en paralelo — una ráfaga de
-  /// sliders (temperatura, thermalLimit) intercalaba writes y podía persistir
-  /// un estado viejo como último. Cola FIFO: cada write espera al anterior.
-  /// El try/catch es deliberado: persistencia es best-effort, el estado en
-  /// memoria ya es la fuente de verdad de la sesión y un fallo de disco no
-  /// debe romper la cadena de writes ni crashear la UI.
   Future<void> _persist(SettingsState s) {
     state = s;
     final write = _lastWrite.then((_) async {
@@ -157,8 +149,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     _ref.read(themeModeProvider.notifier).state = m == 'Oscuro'
         ? ThemeMode.dark
         : m == 'Claro'
-            ? ThemeMode.light
-            : ThemeMode.system;
+        ? ThemeMode.light
+        : ThemeMode.system;
   }
 
   void setTemperature(double v) => _persist(state.copyWith(temperature: v));
@@ -168,9 +160,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setThermalLimit(double v) => _persist(state.copyWith(thermalLimit: v));
   void setBatteryMode(String v) => _persist(state.copyWith(batteryMode: v));
   void setMaxTokens(int v) => _persist(state.copyWith(maxTokens: v));
-
-  /// Activa/desactiva la protección VNC del escritorio. Vacío = sin auth.
   void setVncPassword(String v) => _persist(state.copyWith(vncPassword: v));
+  void setDesktopMobileMode(bool v) =>
+      _persist(state.copyWith(desktopMobileMode: v));
 }
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);

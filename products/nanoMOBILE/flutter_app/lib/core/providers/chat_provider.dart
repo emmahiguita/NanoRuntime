@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/llm_engine_client.dart';
+import '../services/runtime_engine.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
@@ -15,8 +16,10 @@ import 'settings_provider.dart';
 
 class ChatNotifier extends StateNotifier<ChatState> {
   final Ref _ref;
-  // Motor llama.cpp real desplegado en el dispositivo (loopback 127.0.0.1:8080).
-  final LLMEngineClient _engine = LLMEngineClient();
+  // Interfaz de inferencia del motor: propiedad de RuntimeEngineNotifier
+  // (único dueño del ciclo de vida). Nadie crea LLMEngineClient directo.
+  LLMEngineClient get _engine =>
+      _ref.read(runtimeEngineProvider.notifier).client;
   // Cliente HTTP de la generación streaming en curso. Se cierra para cancelar.
   http.Client? _streamClient;
   // Cancelación cooperativa: STOP o un segundo envío anulan la generación en curso.
@@ -35,14 +38,24 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// System prompt inyectado al inicio de cada conversación multi-turno.
   /// Define el comportamiento base del asistente para todos los modelos.
-  static const String _systemPrompt = 'Eres NanoAI, un asistente que corre 100% '
+  static const String _systemPrompt =
+      'Eres NanoAI, un asistente que corre 100% '
       'en el dispositivo, sin conexión a internet. Responde de forma concisa, '
       'técnica y útil. Si no sabes algo, dilo con honestidad.';
 
-  ChatNotifier(this._ref) : super(ChatState(availableModels: [for (final m in NeuralCatalog.models) m.name])) {
+  ChatNotifier(this._ref)
+    : super(
+        ChatState(
+          availableModels: [for (final m in NeuralCatalog.models) m.name],
+        ),
+      ) {
     _restoreModel();
     _restoreMessages();
   }
+
+  /// Test-only: emits a fixed state without IO.
+  @visibleForTesting
+  ChatNotifier.fixed(Ref ref, super.initial) : _ref = ref;
 
   /// Restaura la última selección de modelo para que sobreviva al reinicio.
   Future<void> _restoreModel() async {
@@ -50,11 +63,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString('nanoai_active_model');
       if (saved == null || saved.isEmpty) return;
+      // El catálogo es la fuente de verdad: nombres de versiones viejas
+      // (p. ej. "Qwen2.5-1.1B-Instruct") se descartan en silencio y se
+      // vuelve al default en lugar de suponer un modelo inexistente.
+      if (!NeuralCatalog.models.any((m) => m.name == saved)) return;
       if (!mounted) return;
-      state = state.copyWith(activeModel: saved, connection: ModelConnectionState.loadingModel);
+      state = state.copyWith(
+        activeModel: saved,
+        connection: ModelConnectionState.loadingModel,
+      );
       await _checkEngine(saved);
     } catch (e) {
-      debugPrint('[chat_provider] Persistencia no disponible, usando default: $e');
+      debugPrint(
+        '[chat_provider] Persistencia no disponible, usando default: $e',
+      );
     }
   }
 
@@ -90,15 +112,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  /// Consulta /health y transiciona a ready/error según el motor real.
+  /// Consulta el estado real del motor (canal + /health + /api/status) y
+  /// transiciona a ready/noModel/error según la evidencia. Degraded (motor
+  /// vivo sin GGUF) se muestra honestamente como noModel.
   Future<void> _checkEngine([String? model]) async {
-    final online = await _engine.isOnline();
+    final engine = _ref.read(runtimeEngineProvider.notifier);
+    await engine.refresh();
     if (!mounted) return;
     final name = model ?? state.activeModel;
     state = state.copyWith(
       activeModel: name,
-      connection: online ? ModelConnectionState.ready : ModelConnectionState.error,
-      engineOnline: online,
+      connection: switch (engine.phase) {
+        EnginePhase.ready => ModelConnectionState.ready,
+        EnginePhase.degraded => ModelConnectionState.noModel,
+        _ => ModelConnectionState.error,
+      },
+      engineOnline: engine.isLive,
     );
   }
 
@@ -106,24 +135,67 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Re-comprueba la conectividad real con el motor llama.cpp.
   Future<void> refreshEngine() async {
-    final online = await _engine.isOnline();
+    final engine = _ref.read(runtimeEngineProvider.notifier);
+    await engine.refresh();
     if (!mounted) return;
-    state = state.copyWith(engineOnline: online);
+    state = state.copyWith(engineOnline: engine.isLive);
   }
 
   /// Envía [text] al motor como mensaje del usuario.
   /// [setInput] es innecesario: `send` recibe el texto directamente.
-  void send(String text) {
+  ///
+  /// El motor es responsabilidad de RuntimeEngineNotifier: si no está listo
+  /// (idle/failed), se arranca aquí con ensureReady() antes de generar. Si
+  /// queda degraded (motor vivo sin GGUF), se inserta un error honesto en
+  /// el chat en lugar de una generación que siempre fallaría con 503.
+  Future<void> send(String text) async {
     final t = text.trim();
-    if (t.isEmpty || state.generating || state.connection != ModelConnectionState.ready) return;
+    if (t.isEmpty || state.generating) return;
     final userMsg = ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       sender: MessageSender.user,
       text: t,
       timestamp: DateTime.now(),
     );
-    state = state.copyWith(messages: [...state.messages, userMsg], input: '', generating: true, streamingText: '');
+    state = state.copyWith(
+      messages: [...state.messages, userMsg],
+      input: '',
+      generating: true,
+      streamingText: '',
+    );
     _persistMessages(); // guardar el user msg inmediatamente
+
+    final engine = _ref.read(runtimeEngineProvider.notifier);
+    final ready = await engine.ensureReady(modelPath: state.activeModelPath);
+    if (!mounted) return;
+    if (!ready) {
+      final degraded = engine.phase == EnginePhase.degraded;
+      final errMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: degraded
+            ? '⚠️ El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos.'
+            : '⚠️ El motor no pudo arrancar: ${engine.reason ?? "fallo desconocido"}.',
+        timestamp: DateTime.now(),
+        status: MessageStatus.error,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, errMsg],
+        generating: false,
+        streamingText: '',
+        connection: degraded
+            ? ModelConnectionState.noModel
+            : ModelConnectionState.error,
+        engineOnline: engine.isLive,
+      );
+      _persistMessages();
+      return;
+    }
+    if (!mounted) return;
+    state = state.copyWith(
+      connection: ModelConnectionState.ready,
+      engineOnline: true,
+    );
     _generate(t);
   }
 
@@ -271,10 +343,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _persistMessages();
     } on LLMEngineException catch (_) {
       if (!mounted || _generationCancelled) return;
+      // Distinguir 503 runtime_unavailable (motor vivo sin GGUF) del resto:
+      // el mensaje honesto cambia y connection pasa a noModel, no a error.
+      final engine = _ref.read(runtimeEngineProvider.notifier);
+      final degraded = engine.phase == EnginePhase.degraded;
       final aiMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
-        text: '⚠️ El motor llama.cpp no respondió. Confirma que esté levantado en el dispositivo y vuelve a intentarlo. (${state.activeModel})',
+        text: degraded
+            ? '⚠️ El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos. (${state.activeModel})'
+            : '⚠️ El motor llama.cpp no respondió. Confirma que esté levantado en el dispositivo y vuelve a intentarlo. (${state.activeModel})',
         timestamp: DateTime.now(),
         status: MessageStatus.error,
       );
@@ -282,7 +360,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
         messages: [...state.messages, aiMsg],
         generating: false,
         streamingText: '',
-        engineOnline: false,
+        connection: degraded
+            ? ModelConnectionState.noModel
+            : ModelConnectionState.error,
+        engineOnline: engine.isLive,
       );
       _persistMessages();
     } finally {
@@ -313,7 +394,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   void delete(String id) {
-    state = state.copyWith(messages: state.messages.where((m) => m.id != id).toList());
+    state = state.copyWith(
+      messages: state.messages.where((m) => m.id != id).toList(),
+    );
     _persistMessages();
   }
 
@@ -326,18 +409,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final userMsg = msgs[errIdx - 1];
     if (userMsg.sender != MessageSender.user) return;
     // Eliminar AMBOS: el error y el mensaje del usuario
-    final newMsgs = msgs.where((m) => m.id != errorMessageId && m.id != userMsg.id).toList();
+    final newMsgs = msgs
+        .where((m) => m.id != errorMessageId && m.id != userMsg.id)
+        .toList();
     state = state.copyWith(messages: newMsgs);
     _persistMessages();
-    send(userMsg.text);
+    unawaited(send(userMsg.text));
   }
 
-  void toggleSelector() => state = state.copyWith(showModelSelector: !state.showModelSelector);
+  void toggleSelector() =>
+      state = state.copyWith(showModelSelector: !state.showModelSelector);
 
-  void selectModel(String name) {
+  void selectModel(String name, {String? path}) {
     // SELinux impide que la app rearranque el motor per-selección.
     state = state.copyWith(
       activeModel: name,
+      activeModelPath: path ?? state.activeModelPath,
       connection: ModelConnectionState.loadingModel,
       showModelSelector: false,
     );
@@ -359,9 +446,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _cancelStreamFlush();
     _streamClient?.close();
     _loadTimer?.cancel();
-    _engine.dispose();
+    // El client es propiedad de RuntimeEngineNotifier: él lo dispone.
     super.dispose();
   }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>((ref) => ChatNotifier(ref));
+final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
+  (ref) => ChatNotifier(ref),
+);

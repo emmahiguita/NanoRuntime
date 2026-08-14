@@ -414,6 +414,22 @@ Force-stop del usuario ≠ cached kill: force-stop deshabilita los bindings y el
 
 **Verificación**: `flutter analyze` 0 issues; `gradlew assembleDebug` BUILD SUCCESSFUL; ciclo completo verificado en device (VGL7MVFMDYQG8T55) con SIGKILL simulado: resurrección (log arriba), banner (texto exacto en uiautomator dump), re-arranque automático del runtime (Xvnc 864x1920 + openbox + lxterminal vivos), apagado limpio (alive.timestamp borrado, Xvnc detenido). Nota: `am kill` no sirve para la prueba — el binding de accessibility eleva la importancia del proceso y el reaper lo ignora (efecto colateral esperado del vector).
 
+### FASE 3f — Diagnóstico release vs debug (2026-08-13, tarde)
+
+Contexto: el APK release no arrancaba el escritorio completo (tint2/Xvnc morían) mientras debug sí. Diagnóstico del día con hallazgos verificados — NO es un problema de build type puro, el bug afecta ambos builds.
+
+**H1 — tint2 segfault en el SVG `image-x-generic.svg` CON nanoroot activa (reproducido aislado).** Repro sin app: `timeout 6 env LD_PRELOAD=<app>/libnanoroot.so /system/bin/linker64 $U/bin/tint2` con `NANO_ROOTFS` seteado → EXIT=139 (`Segmentation fault`) al procesar el icono SVG vía librsvg (gdk-pixbuf loader dinámico). Sin `NANO_ROOTFS`: EXIT=124 (vivo hasta el timeout) con BadDrawable benignos — el SVG ni se procesa porque `/usr/share/icons` no está redirigido (ENOENT real) y tint2 sobrevive. Conclusión: el redirect de rutas de nanoroot (`/usr` → `{prefix}/usr`) hace que tint2 SÍ encuentre el icono SVG, y el procesamiento librsvg bajo nanoroot segfault. El debug "funcionaba" porque el watchdog re-lanza y Xvnc/openbox/lxterminal no tocan librsvg — tint2 moría igual en debug. Falta backtrace exacto (tombstone de la repro aislada no capturado) antes de tocar el fix; candidatos: intercepts que afecten malloc/threads de librsvg, o pango/cairo vía shm (ver FASE shmget).
+
+**H2 — `feh --bg-scale` exit 0 es NORMAL.** feh aplica el wallpaper y sale — no es fallo ni kill. Descartado como causa del release roto.
+
+**H3 — El reaper del worker enmascara señales.** `NanoushellWorkerService` reporta `reaped status=0` calculando `WEXITSTATUS` sin chequear `WIFSIGNALED` — un segfault (139) reporta 0. Por eso tint2/Xvnc aparecían "status=0" en logs. Fix menor pendiente: reportar señal real cuando `WIFSIGNALED`.
+
+**H4 — Release Xvnc muere ~2ms tras spawn SIN imprimir el constructor de nanoroot (hipótesis sin confirmar).** El release Xvnc cae antes de que nanoroot imprima `nanoroot: prefix=...` — sugiere `NANO_ROOTFS` ausente en el env del spawn release (constructor retorna silencioso, luego Xvnc falla por rutas no redirigidas). Ambas APKs empaquetan `libnanoroot.so` (arm64+v7+x86_64, verificado con diff de contenidos). Pendiente: reinstalar release y capturar la línea clave del child (`nanoroot loaded for detached daemon` / `dlopen nanoroot failed` en `<logpath>_err.txt`).
+
+**H5 — Crashloop 16:35-16:37 (31 tombstones, imlib2_grab pc 0x1148) = pre-fix shmget.** El seccomp de ColorOS mataba `shmget` (syscall 194) con SIGSYS; el intercept `shmget→ENOSYS` (commit 08d40ff, 16:42) lo curó. Los 31 tombstones son de ANTES del fix — no reaparición.
+
+**Estado**: desktop debug funcionando en device (Xvnc 29321, openbox 29331, lxterminal 29346; tint2 en bucle segfault/watchdog hasta resolver H1). Release pendiente de la confirmación H4.
+
 ### FASE 3d — Integración motor nanoAI, sprints B1-B6 ✅/⏳ (plan `docs/plan/2026-08-13-plan-integracion-nanoai-android.md`)
 
 Objetivo: motor llama.cpp (nanortime-cli, Rust) embebido como PIE en el APK, gestionado desde Android, consumido por el chat Flutter con estados honestos.

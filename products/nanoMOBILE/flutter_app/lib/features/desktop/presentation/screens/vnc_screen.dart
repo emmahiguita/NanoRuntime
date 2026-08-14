@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -150,7 +150,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         _busy = false;
         _connected = false;
         _status = 'ConexiÃ³n perdida';
-        _detail = 'Agotados $_maxReconnectAttempts intentos. '
+        _detail =
+            'Agotados $_maxReconnectAttempts intentos. '
             'Verifica que el escritorio estÃ© iniciado y toca Reconectar.';
       });
       return;
@@ -163,7 +164,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         _connState = _ConnState.reconnecting;
         _busy = true;
         _status = 'Reconectando en ${seconds}s';
-        _detail = 'Intento $_reconnectAttempts/$_maxReconnectAttempts. '
+        _detail =
+            'Intento $_reconnectAttempts/$_maxReconnectAttempts. '
             'Esperando ${seconds}s antes de reintentar...';
       });
     }
@@ -406,7 +408,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     if (!started) {
       setState(() {
         _status = 'Xvnc no arrancÃ³';
-        _detail = 'El servicio VNC devolviÃ³ error. Revisa logcat: vnc-service.';
+        _detail =
+            'El servicio VNC devolviÃ³ error. Revisa logcat: vnc-service.';
       });
       return false;
     }
@@ -430,7 +433,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
 
     final scale = fit * _zoom;
     final baseX = (widgetSize.width - _fbWidth * scale) / 2 + _panFb.dx * scale;
-    final baseY = (widgetSize.height - _fbHeight * scale) / 2 + _panFb.dy * scale;
+    final baseY =
+        (widgetSize.height - _fbHeight * scale) / 2 + _panFb.dy * scale;
 
     final fbX = (local.dx - baseX) / scale;
     final fbY = (local.dy - baseY) / scale;
@@ -447,10 +451,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     if (_zoom <= 1.0) return Offset.zero;
     final maxX = (_fbWidth * _zoom - _fbWidth) / 2;
     final maxY = (_fbHeight * _zoom - _fbHeight) / 2;
-    return Offset(
-      p.dx.clamp(-maxX, maxX),
-      p.dy.clamp(-maxY, maxY),
-    );
+    return Offset(p.dx.clamp(-maxX, maxX), p.dy.clamp(-maxY, maxY));
   }
 
   /// Pan (en fb units) para que el punto [localFocal] siga apuntando al
@@ -471,8 +472,16 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final fbX = (localFocal.dx - baseX) / oldScale;
     final fbY = (localFocal.dy - baseY) / oldScale;
     final newScale = fit * newZoom;
-    final panX = (localFocal.dx - (ws.width - _fbWidth * newScale) / 2 - fbX * newScale) / newScale;
-    final panY = (localFocal.dy - (ws.height - _fbHeight * newScale) / 2 - fbY * newScale) / newScale;
+    final panX =
+        (localFocal.dx -
+            (ws.width - _fbWidth * newScale) / 2 -
+            fbX * newScale) /
+        newScale;
+    final panY =
+        (localFocal.dy -
+            (ws.height - _fbHeight * newScale) / 2 -
+            fbY * newScale) /
+        newScale;
     return Offset(panX, panY);
   }
 
@@ -640,8 +649,16 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       case _GestureMode.touchpad:
         // Tap corto en el touchpad = clic izquierdo en la posiciÃ³n del cursor.
         if (_dragTotal.distance < 8) {
-          _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 1);
-          _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 0);
+          _client?.sendPointerEvent(
+            _cursorFb.dx.round(),
+            _cursorFb.dy.round(),
+            1,
+          );
+          _client?.sendPointerEvent(
+            _cursorFb.dx.round(),
+            _cursorFb.dy.round(),
+            0,
+          );
         }
         break;
 
@@ -754,8 +771,9 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       _helpDismissed = true;
       _helpSeen = true;
     });
-    SharedPreferences.getInstance()
-        .then((prefs) => prefs.setBool(_helpSeenKey, true));
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setBool(_helpSeenKey, true),
+    );
   }
 
   void _toggleKeyboard() {
@@ -792,12 +810,17 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   /// Controles y el resto del BMP necesitan tabla o el prefijo Unicode.
   int _x11Keysym(int codeUnit) {
     switch (codeUnit) {
-      case 0x08: return 0xFF08; // XK_BackSpace
-      case 0x09: return 0xFF09; // XK_Tab
+      case 0x08:
+        return 0xFF08; // XK_BackSpace
+      case 0x09:
+        return 0xFF09; // XK_Tab
       case 0x0A: // LF â€” mismo comportamiento que CR (Return)
-      case 0x0D: return 0xFF0D; // XK_Return
-      case 0x1B: return 0xFF1B; // XK_Escape
-      case 0x7F: return 0xFFFF; // XK_Delete
+      case 0x0D:
+        return 0xFF0D; // XK_Return
+      case 0x1B:
+        return 0xFF1B; // XK_Escape
+      case 0x7F:
+        return 0xFFFF; // XK_Delete
     }
     if (codeUnit >= 0x20 && codeUnit <= 0x7E) return codeUnit; // ASCII
     if (codeUnit >= 0xA0 && codeUnit <= 0xFF) return codeUnit; // Latin-1
@@ -963,13 +986,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
 
             // Overlay de ayuda de gestos (primera vez o manual desde panel)
             if (_showHelp ||
-                (_connected &&
-                    _frame != null &&
-                    !_helpSeen &&
-                    !_helpDismissed))
-              Positioned.fill(
-                child: _HelpOverlay(onDismiss: _dismissHelp),
-              ),
+                (_connected && _frame != null && !_helpSeen && !_helpDismissed))
+              Positioned.fill(child: _HelpOverlay(onDismiss: _dismissHelp)),
 
             // TextField oculto para capturar el teclado nativo del mÃ³vil
             Positioned(
@@ -1003,9 +1021,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     // tÃ­tulo + detalle): 1) conectando/reconectando (_busy) y 2) conectado
     // pero aguardando el primer frame â€” antes el spinner saltaba al UI de
     // "Reintentar" durante los milisegundos que tarda en decodificarse.
-    final waitingFirstFrame = _initialized &&
-        _connState == _ConnState.connected &&
-        _frame == null;
+    final waitingFirstFrame =
+        _initialized && _connState == _ConnState.connected && _frame == null;
     if ((_busy || waitingFirstFrame) && _frame == null) {
       return Center(
         child: Column(
@@ -1114,8 +1131,10 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final scale = fit * _zoom;
     final fbW = (_fbWidth * scale).roundToDouble();
     final fbH = (_fbHeight * scale).roundToDouble();
-    final left = ((widgetSize.width - fbW) / 2 + _panFb.dx * scale).roundToDouble();
-    final top = ((widgetSize.height - fbH) / 2 + _panFb.dy * scale).roundToDouble();
+    final left = ((widgetSize.width - fbW) / 2 + _panFb.dx * scale)
+        .roundToDouble();
+    final top = ((widgetSize.height - fbH) / 2 + _panFb.dy * scale)
+        .roundToDouble();
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1123,9 +1142,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       onScaleUpdate: (d) => _onScaleUpdate(d, widgetSize),
       onScaleEnd: (d) => _onScaleEnd(d, widgetSize),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F172A),
-        ),
+        decoration: const BoxDecoration(color: Color(0xFF0F172A)),
         child: Stack(
           clipBehavior: Clip.hardEdge,
           children: [
@@ -1160,7 +1177,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
               left: 0,
               right: 0,
               bottom: 0,
-              height: (widgetSize.height * _touchpadZoneFraction).roundToDouble(),
+              height: (widgetSize.height * _touchpadZoneFraction)
+                  .roundToDouble(),
               child: IgnorePointer(
                 child: Container(
                   decoration: BoxDecoration(
@@ -1182,13 +1200,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                       child: _barExpanded
                           ? const SizedBox.shrink()
                           : Text(
-                        'Touchpad: arrastra para mover Â· tap = clic',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.35),
-                        ),
-                      ),
+                              'Touchpad: arrastra para mover Â· tap = clic',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.35),
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -1271,7 +1289,11 @@ class _MouseControlBar extends StatelessWidget {
               _barButton(Icons.ads_click_rounded, 'Clic derecho', onRightClick),
               _separator(),
               _barButton(Icons.arrow_upward_rounded, 'Rueda arriba', onWheelUp),
-              _barButton(Icons.arrow_downward_rounded, 'Rueda abajo', onWheelDown),
+              _barButton(
+                Icons.arrow_downward_rounded,
+                'Rueda abajo',
+                onWheelDown,
+              ),
               _separator(),
               _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
               _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
@@ -1314,11 +1336,11 @@ class _MouseControlBar extends StatelessWidget {
   }
 
   Widget _separator() => Container(
-        width: 1,
-        height: 28,
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        color: Colors.white.withValues(alpha: 0.14),
-      );
+    width: 1,
+    height: 28,
+    margin: const EdgeInsets.symmetric(horizontal: 1),
+    color: Colors.white.withValues(alpha: 0.14),
+  );
 
   Widget _barButton(
     IconData icon,
@@ -1334,8 +1356,8 @@ class _MouseControlBar extends StatelessWidget {
         color: highlighted
             ? const Color(0xFF2DD4BF)
             : enabled
-                ? Colors.white70
-                : Colors.white24,
+            ? Colors.white70
+            : Colors.white24,
         size: 24,
       ),
       tooltip: tooltip,
@@ -1427,7 +1449,11 @@ class _ControlPanel extends StatelessWidget {
           right: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(4, 0)),
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 18,
+            offset: Offset(4, 0),
+          ),
         ],
       ),
       child: Column(
@@ -1438,8 +1464,11 @@ class _ControlPanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
             child: Row(
               children: [
-                const Icon(Icons.dashboard_rounded,
-                    color: Color(0xFF10B981), size: 22),
+                const Icon(
+                  Icons.dashboard_rounded,
+                  color: Color(0xFF10B981),
+                  size: 22,
+                ),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -1454,11 +1483,16 @@ class _ControlPanel extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onClose,
-                  icon: const Icon(Icons.close_rounded,
-                      color: Colors.white70, size: 20),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
                   tooltip: 'Cerrar panel',
-                  constraints:
-                      const BoxConstraints(minWidth: 40, minHeight: 40),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                   padding: EdgeInsets.zero,
                 ),
               ],
@@ -1623,8 +1657,11 @@ class _ControlPanel extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.open_in_new_rounded,
-                size: 15, color: Colors.white.withValues(alpha: 0.35)),
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 15,
+              color: Colors.white.withValues(alpha: 0.35),
+            ),
           ],
         ),
       ),
@@ -1634,8 +1671,11 @@ class _ControlPanel extends StatelessWidget {
   Widget _zoomBtn(IconData icon, String tooltip, VoidCallback? onTap) {
     return IconButton(
       onPressed: onTap,
-      icon: Icon(icon,
-          color: onTap != null ? Colors.white70 : Colors.white24, size: 22),
+      icon: Icon(
+        icon,
+        color: onTap != null ? Colors.white70 : Colors.white24,
+        size: 22,
+      ),
       tooltip: tooltip,
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       padding: EdgeInsets.zero,
@@ -1687,9 +1727,7 @@ class _HelpOverlay extends StatelessWidget {
             color: const Color(0xFF161B22),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            boxShadow: const [
-              BoxShadow(color: Colors.black54, blurRadius: 24),
-            ],
+            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 24)],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1697,7 +1735,11 @@ class _HelpOverlay extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.gesture_rounded, color: Color(0xFF10B981), size: 22),
+                  Icon(
+                    Icons.gesture_rounded,
+                    color: Color(0xFF10B981),
+                    size: 22,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Gestos del escritorio',
@@ -1711,16 +1753,31 @@ class _HelpOverlay extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              _helpRow(Icons.touch_app_rounded, 'Zona superior:',
-                  'tap = clic Â· arrastrar = mover'),
-              _helpRow(Icons.linear_scale_rounded, 'Zona inferior (touchpad):',
-                  'arrastra = cursor sin clic Â· tap = clic'),
-              _helpRow(Icons.pinch_rounded, 'Pellizco 2 dedos:',
-                  'zoom hasta 400%'),
-              _helpRow(Icons.swipe_rounded, '2 dedos con zoom:',
-                  'desplazar la vista (pan)'),
-              _helpRow(Icons.mouse_rounded, 'Barra inferior:',
-                  'clics, rueda de scroll y zoom'),
+              _helpRow(
+                Icons.touch_app_rounded,
+                'Zona superior:',
+                'tap = clic Â· arrastrar = mover',
+              ),
+              _helpRow(
+                Icons.linear_scale_rounded,
+                'Zona inferior (touchpad):',
+                'arrastra = cursor sin clic Â· tap = clic',
+              ),
+              _helpRow(
+                Icons.pinch_rounded,
+                'Pellizco 2 dedos:',
+                'zoom hasta 400%',
+              ),
+              _helpRow(
+                Icons.swipe_rounded,
+                '2 dedos con zoom:',
+                'desplazar la vista (pan)',
+              ),
+              _helpRow(
+                Icons.mouse_rounded,
+                'Barra inferior:',
+                'clics, rueda de scroll y zoom',
+              ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -1851,8 +1908,8 @@ class _FloatingControlBar extends StatelessWidget {
               color: connected
                   ? const Color(0xFF10B981)
                   : busy
-                      ? const Color(0xFF3B82F6)
-                      : Colors.amber,
+                  ? const Color(0xFF3B82F6)
+                  : Colors.amber,
               shape: BoxShape.circle,
             ),
           ),
@@ -1905,8 +1962,3 @@ class _FloatingControlBar extends StatelessWidget {
     );
   }
 }
-
-
-
-
-

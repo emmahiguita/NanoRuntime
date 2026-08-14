@@ -20,6 +20,41 @@ class BootOrchestrator {
 
   static const _essentialPackages = ['python', 'htop', 'git'];
 
+  /// Librerías de runtime "completas" para que casi cualquier programa Linux
+  /// funcione (multimedia, formatos, red, X11 extra, terminal, compresión,
+  /// XML/DB). El DebInstaller resuelve las dependencias recursivamente, así
+  /// que aquí van solo los paquetes top-level representativos.
+  static const _runtimePackages = [
+    // Multimedia / codecs
+    'ffmpeg', 'gstreamer', 'gst-plugins-base', 'gst-plugins-good',
+    'libvorbis', 'libogg', 'flac', 'opus-tools', 'libopus',
+    'libx264', 'libx265', 'libvpx',
+    // Formatos de imagen
+    'libjpeg-turbo', 'libwebp', 'libtiff', 'librsvg',
+    // Red / cripto
+    'openssl', 'openssh', 'libgnutls', 'curl', 'wget', 'rsync',
+    'netcat-openbsd', 'socat', 'nmap', 'tcpdump',
+    // X11 extra (input, randr, composite, etc.)
+    'libxcursor', 'libxrandr', 'libxinerama', 'libxfixes', 'libxcomposite',
+    'libxi', 'libxtst', 'libxdamage',
+    'xorg-xrandr', 'xorg-xdpyinfo', 'xdotool',
+    // Terminal / texto
+    'ncurses', 'readline', 'pcre', 'pcre2', 'libedit', 'less', 'man-db',
+    'tmux', 'screen', 'tree', 'procps', 'util-linux', 'file', 'grep', 'sed',
+    'gawk', 'findutils', 'diffutils', 'patch',
+    // Compresión / archivado
+    'zstd', 'xz-utils', 'p7zip', 'unzip', 'zip', 'bzip2', 'tar',
+    // XML / DB
+    'sqlite', 'libxml2', 'libxslt',
+    // Dev / scripting
+    'python', 'python3', 'perl', 'ruby', 'nodejs', 'npm', 'git', 'make',
+    'gcc', 'g++', 'pkg-config',
+    // Crypto / audit
+    'gpg', 'gnupg',
+    // Desktop integration
+    'xdg-utils', 'xdg-user-dirs',
+  ];
+
   final RootfsManager _rootfs;
   final PackageService _packageService;
 
@@ -36,6 +71,8 @@ class BootOrchestrator {
       _setupBashrc();
       await _ensureEssentialPackages();
       await _ensureDesktopEnvironment();
+      await _ensureRuntimeLibraries();
+      await _deployDesktopEyeCandy();
     } catch (e, st) {
       debugPrint('[boot] startup failed: $e');
       debugPrint('$st');
@@ -133,6 +170,25 @@ class BootOrchestrator {
 
   bool _existsAny(List<String> paths) =>
       paths.any((path) => File(path).existsSync());
+
+  /// Instala las librerías de runtime "completas" (multimedia, formatos, red,
+  /// X11 extra, terminal, compresión). Idempotente: usa el binario ffmpeg como
+  /// marcador (si ya está, el conjunto se instaló en un boot previo).
+  Future<void> _ensureRuntimeLibraries() async {
+    final usr = _rootfs.usrDir;
+    if (usr == null) return;
+
+    if (File('$usr/bin/ffmpeg').existsSync()) {
+      debugPrint('[boot] runtime libraries already installed');
+      return;
+    }
+
+    debugPrint(
+      '[boot] installing runtime libraries (${_runtimePackages.length} packages)...',
+    );
+    final ok = await _packageService.installPackages(_runtimePackages);
+    debugPrint('[boot] runtime libraries install: ${ok ? "OK" : "FAILED"}');
+  }
 
   Future<void> _prepareVncEnvironment() async {
     final usr = _rootfs.usrDir;
@@ -282,6 +338,40 @@ exit $RC
       );
     } catch (e) {
       debugPrint('[boot] libandroid-shmem asset error: $e');
+    }
+  }
+
+  /// Despliega los assets de "eye candy" del escritorio al home del rootfs:
+  /// wallpaper nano-cyber (PNG 1280x720) y el HUD de bienvenida (hud.py).
+  /// Idempotente y no destructivo: escribe solo si faltan o cambió el tamaño.
+  /// Los consume el DesktopSessionManager nativo (feh --bg-fill + aterm -e).
+  Future<void> _deployDesktopEyeCandy() async {
+    final usr = _rootfs.usrDir;
+    if (usr == null) return;
+
+    final homeDir = Directory('${File(usr).parent.path}/home');
+    if (!homeDir.existsSync()) return;
+
+    for (final entry in const [
+      ('assets/exe/nano-wallpaper.png', '.nano-wallpaper.png'),
+      ('assets/exe/hud.py', '.hud.py'),
+    ]) {
+      try {
+        final data = await rootBundle.load(entry.$1);
+        final bytes = data.buffer.asUint8List();
+        if (bytes.length < 500) continue;
+        final target = File('${homeDir.path}/${entry.$2}');
+        if (target.existsSync() && target.lengthSync() == bytes.length) {
+          continue;
+        }
+        target.writeAsBytesSync(bytes);
+        debugPrint(
+          '[boot] eye candy desplegado: ${entry.$2} '
+          '(${bytes.length} bytes)',
+        );
+      } catch (e) {
+        debugPrint('[boot] eye candy ${entry.$2}: $e');
+      }
     }
   }
 

@@ -34,7 +34,8 @@ pub struct BackendGenerateResult {
 }
 
 /// Streaming token callback: (token_text, probability, is_stop).
-pub type TokenCallback = dyn FnMut(&str, f32, bool) + Send;
+/// Returning `false` aborts generation early (result is the partial text).
+pub type TokenCallback = dyn FnMut(&str, f32, bool) -> bool + Send;
 
 /// Abstraction over model inference backends (llama.cpp, ONNX, ExecuTorch, etc.).
 ///
@@ -175,7 +176,7 @@ impl InferenceBackend for LlamaCppBackend {
             stop_sequences: params.stop_sequences.clone(),
         };
         let r = ctx.generate_streaming(model, prompt, &gp, lora, |text, prob, stop| {
-            on_token(text, prob, stop);
+            on_token(text, prob, stop)
         })?;
         Ok(BackendGenerateResult {
             text: r.text,

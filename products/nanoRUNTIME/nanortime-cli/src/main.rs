@@ -12,13 +12,13 @@
 //! nanortime --config mi_config.json      # Con archivo de configuración
 //! ```
 
-mod server;
 mod platform;
+mod server;
 
 use std::io::{self, Write};
-use std::time::Instant;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use clap::Parser;
 use nanortime_core::{Config, NanoRuntime, UserRequest};
@@ -122,6 +122,13 @@ struct Cli {
     /// Vincular a dirección específica (default: 127.0.0.1 en Linux, 127.0.0.1 en Windows)
     #[arg(long)]
     bind: Option<String>,
+
+    /// Arrancar el server SIN cargar el modelo (model-free).
+    /// /health y /cancel responden OK; /completion y /api/status
+    /// devuelven 503 runtime_unavailable hasta que un modelo se instale.
+    /// Útil para arrancar el motor en Android antes de descargar el GGUF.
+    #[arg(long)]
+    no_model: bool,
 }
 
 #[tokio::main]
@@ -134,6 +141,9 @@ async fn main() -> anyhow::Result<()> {
     if cli.max_tokens == 0 {
         anyhow::bail!("--max-tokens must be greater than 0");
     }
+    if cli.no_model && !cli.server {
+        anyhow::bail!("--no-model solo es válido junto a --server");
+    }
 
     // ── Resolver paths multiplataforma ─────────────────────────────
     let session_dir = if let Some(ref dir) = cli.session_dir {
@@ -141,8 +151,10 @@ async fn main() -> anyhow::Result<()> {
     } else {
         platform::get_default_session_dir()
     };
-    
-    let bind_addr = cli.bind.as_ref()
+
+    let bind_addr = cli
+        .bind
+        .as_ref()
         .map(|s| s.as_str())
         .unwrap_or_else(|| platform::get_default_bind_address());
 
@@ -215,15 +227,19 @@ async fn main() -> anyhow::Result<()> {
         let profile = hardware_hal::profile_device();
         tracing::info!(
             "Hardware: {}MB RAM, {} cores, {}MB/s I/O, tier={}",
-            profile.ram_total_mb, profile.cpu_cores,
-            profile.storage_read_mbps, profile.tier
+            profile.ram_total_mb,
+            profile.cpu_cores,
+            profile.storage_read_mbps,
+            profile.tier
         );
         // Dynamic token budget: 30% of available RAM for KV cache
         let kv_budget_tokens = (profile.ram_available_mb as f64 * 0.30 / 0.03) as usize;
         let safe = cli.max_tokens.min(kv_budget_tokens.max(1));
         tracing::info!(
             "Dynamic token budget: {} tokens (requested={}, safe={})",
-            safe, cli.max_tokens, kv_budget_tokens
+            safe,
+            cli.max_tokens,
+            kv_budget_tokens
         );
         safe
     };
@@ -272,7 +288,8 @@ async fn main() -> anyhow::Result<()> {
                 let mb = total as f64 / (1024.0 * 1024.0);
                 tracing::info!(
                     "Page cache precargado: {:.0} MB en {:.1}s ({:.0} MB/s)",
-                    mb, elapsed,
+                    mb,
+                    elapsed,
                     mb / elapsed.max(0.001)
                 );
             }
@@ -281,32 +298,44 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // Initialize runtime
-    tracing::info!("Initializing runtime...");
-    let runtime = match NanoRuntime::new(config).await {
-        Ok(rt) => {
-            tracing::info!("Runtime initialized successfully");
-            Arc::new(rt)
-        }
-        Err(e) => {
-            tracing::error!("Failed to initialize runtime: {}", e);
-            eprintln!("Error: Failed to initialize NanoAI Runtime.");
-            eprintln!("Cause: {}", e);
-            eprintln!();
-            eprintln!("Troubleshooting:");
-            eprintln!("  1. Verify the config file exists and is valid JSON");
-            eprintln!("  2. Check that the model path is correct");
-            eprintln!("  3. Ensure you have enough RAM for the model");
-            return Err(e.into());
+    // Initialize runtime — salvo --no-model, donde el server arranca
+    // model-free: /health y /cancel responden, /completion devuelve
+    // 503 runtime_unavailable hasta que un GGUF esté instalado (B5).
+    let runtime: Option<Arc<NanoRuntime>> = if cli.no_model {
+        tracing::warn!(
+            "--no-model: server model-free — /completion responderá 503 hasta instalar un modelo"
+        );
+        None
+    } else {
+        tracing::info!("Initializing runtime...");
+        match NanoRuntime::new(config).await {
+            Ok(rt) => {
+                tracing::info!("Runtime initialized successfully");
+                Some(Arc::new(rt))
+            }
+            Err(e) => {
+                tracing::error!("Failed to initialize runtime: {}", e);
+                eprintln!("Error: Failed to initialize NanoAI Runtime.");
+                eprintln!("Cause: {}", e);
+                eprintln!();
+                eprintln!("Troubleshooting:");
+                eprintln!("  1. Verify the config file exists and is valid JSON");
+                eprintln!("  2. Check that the model path is correct");
+                eprintln!("  3. Ensure you have enough RAM for the model");
+                return Err(e.into());
+            }
         }
     };
 
     // ── Server mode: HTTP+SSE for Flutter, Web UIs ─────────────────
     if cli.server {
         tracing::info!("Starting HTTP+SSE server on {}:{}", bind_addr, cli.port);
-        server::run_server(&runtime, bind_addr, cli.port);
+        server::run_server(runtime.clone(), bind_addr, cli.port);
         // run_server never returns — if it does, it panicked
     }
+
+    // Validado al inicio: --no-model sin --server aborta con bail!.
+    let runtime = runtime.expect("--no-model sin --server fue rechazado arriba");
 
     // Process input
     if let Some(prompt) = cli.prompt {
@@ -316,7 +345,10 @@ async fn main() -> anyhow::Result<()> {
             platform::ensure_dir(&session_dir).ok();
             tracing::info!("Restaurando sesión desde {}", session_path.display());
             let model_manager = runtime.model_manager();
-            match model_manager.restore_session_state(&session_path.to_string_lossy()).await {
+            match model_manager
+                .restore_session_state(&session_path.to_string_lossy())
+                .await
+            {
                 Ok(_) => tracing::info!("Sesión restaurada — salta prefill"),
                 Err(e) => tracing::warn!("No se pudo restaurar sesión: {}", e),
             }
@@ -324,11 +356,7 @@ async fn main() -> anyhow::Result<()> {
 
         // ── Hybrid Router: recomendar modelo según complejidad ─────
         if cli.hybrid {
-            let tier = nanortime_core::hybrid_router::route_prompt(
-                &prompt,
-                2048,
-                true,
-            );
+            let tier = nanortime_core::hybrid_router::route_prompt(&prompt, 2048, true);
             tracing::info!(
                 "HybridRouter: prompt complexity → {:?} tier (model: {})",
                 tier,
@@ -343,12 +371,19 @@ async fn main() -> anyhow::Result<()> {
                 if std::path::Path::new(expert_path).exists() {
                     tracing::info!("Hybrid router: switching to expert model {}", expert_path);
                     match runtime.switch_model(expert_path).await {
-                        Ok(_) => eprintln!("Modo experto (7B). La respuesta puede tomar ~3 minutos."),
+                        Ok(_) => {
+                            eprintln!("Modo experto (7B). La respuesta puede tomar ~3 minutos.")
+                        }
                         Err(e) => tracing::warn!("Failed to switch model: {}", e),
                     }
                 } else {
-                    tracing::info!("Expert model not found at {} — using current model", expert_path);
-                    eprintln!("Modo experto recomendado pero 7B no encontrado. Usando modelo actual.");
+                    tracing::info!(
+                        "Expert model not found at {} — using current model",
+                        expert_path
+                    );
+                    eprintln!(
+                        "Modo experto recomendado pero 7B no encontrado. Usando modelo actual."
+                    );
                 }
             }
         }
@@ -361,7 +396,10 @@ async fn main() -> anyhow::Result<()> {
             platform::ensure_dir(&session_dir).ok();
             tracing::info!("Guardando sesión en {}", session_path.display());
             let model_manager = runtime.model_manager();
-            match model_manager.save_session_state(&session_path.to_string_lossy()).await {
+            match model_manager
+                .save_session_state(&session_path.to_string_lossy())
+                .await
+            {
                 Ok(_) => tracing::info!("Sesión guardada — próxima carga será ~0.5s"),
                 Err(e) => tracing::warn!("No se pudo guardar sesión: {}", e),
             }
@@ -396,12 +434,12 @@ async fn process_single_prompt(
     let mut generated_text = String::with_capacity(4096);
 
     match runtime.process_request_streaming(request).await {
-        Ok((response, mut rx)) => {
+        Ok((response_rx, mut rx)) => {
             // Stream tokens to stdout. Apply natural stop detection.
             let mut token_count: usize = 0;
             let mut buffer = String::with_capacity(4096);
             const STOP_SEQUENCES: &[&str] = &["\n\n\n", "\n###", "\nUSER:", "<|im_end|>"];
-            
+
             // Track low-confidence streak for hallucination detection
             let mut low_conf_streak: u32 = 0;
             // Accumulate per-token confidence for final average
@@ -417,7 +455,7 @@ async fn process_single_prompt(
                     tracing::info!("CLI max token limit reached: {}", max_tokens);
                     break;
                 }
-                
+
                 // ── Token-Level Quality Guards ─────────────────────
                 let confidence = prob;
                 // Smart early exit: only stop when the model has generated
@@ -433,7 +471,9 @@ async fn process_single_prompt(
                     if ends_complete || token_count > 32 {
                         tracing::info!(
                             "Early exit: high confidence ({:.3}) at token {} (complete={})",
-                            confidence, token_count, ends_complete
+                            confidence,
+                            token_count,
+                            ends_complete
                         );
                         break;
                     }
@@ -452,7 +492,7 @@ async fn process_single_prompt(
                     low_conf_streak = 0;
                 }
                 // ── End Quality Guards ──────────────────────────────
-                
+
                 // Natural stop detection: check if buffer ends with a stop sequence
                 if natural_stops {
                     buffer.push_str(&token);
@@ -467,6 +507,19 @@ async fn process_single_prompt(
                 }
             }
             println!(); // final newline on stdout
+
+            // The response oneshot resolves once generation completes or is
+            // aborted. Dropping rx here makes early exits (quality guards,
+            // natural stops) abort llama.cpp at once instead of generating
+            // into the void.
+            drop(rx);
+            let response = match response_rx.await {
+                Ok(r) => r,
+                Err(_) => {
+                    tracing::warn!("Generation task died before reporting a result");
+                    return Ok(generated_text);
+                }
+            };
 
             // ── Compute confidence from actual streamed tokens ──────
             // token_confidence() in orchestrator treats per-token probabilities
@@ -497,7 +550,7 @@ async fn process_single_prompt(
                     context: None,
                     history: None,
                 };
-                if let Ok((retry_response, mut retry_rx)) =
+                if let Ok((retry_response_rx, mut retry_rx)) =
                     runtime.process_request_streaming(retry_request).await
                 {
                     let mut retry_tokens: usize = 0;
@@ -514,6 +567,15 @@ async fn process_single_prompt(
                         }
                     }
                     println!();
+                    // Abort any remaining generation and collect the result.
+                    drop(retry_rx);
+                    let retry_response = match retry_response_rx.await {
+                        Ok(r) => r,
+                        Err(_) => {
+                            tracing::warn!("Retry generation task died before reporting a result");
+                            return Ok(generated_text);
+                        }
+                    };
                     // Compute confidence from actual streamed tokens (same formula as first pass)
                     let retry_conf = if retry_tokens > 0 {
                         retry_conf_sum / retry_tokens as f32
@@ -540,16 +602,14 @@ async fn process_single_prompt(
 
             eprintln!(
                 "[METRICS] tokens={} elapsed_ms={:.0} tok_s={:.2} tier={} confidence={:.3}",
-                token_count,
-                elapsed_ms,
-                tok_s,
-                response.tier_used,
-                conf,
+                token_count, elapsed_ms, tok_s, response.tier_used, conf,
             );
         }
         Err(e) => {
             tracing::error!("Inference failed: {}. Falling back gracefully.", e);
-            let fallback = "[Error: inference failed. Please try again with a simpler model or prompt.]".to_string();
+            let fallback =
+                "[Error: inference failed. Please try again with a simpler model or prompt.]"
+                    .to_string();
             generated_text.push_str(&fallback);
             println!("{}", fallback);
             eprintln!(
@@ -583,7 +643,7 @@ async fn interactive_chat(
 
     let history_path = session_dir.join("history.json");
     platform::ensure_dir(session_dir).ok();
-    
+
     let mut history: Vec<nanortime_core::ChatMessage> = if history_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&history_path) {
             serde_json::from_str(&content).unwrap_or_default()
@@ -653,12 +713,12 @@ async fn interactive_chat(
 
         // Process with streaming
         match runtime.process_request_streaming(request).await {
-            Ok((response, mut rx)) => {
+            Ok((response_rx, mut rx)) => {
                 // Stream tokens as they arrive
                 let mut full_text = String::new();
                 let mut first_token = true;
                 let mut token_count: usize = 0;
-                
+
                 loop {
                     tokio::select! {
                         opt_token = rx.recv() => {
@@ -693,6 +753,22 @@ async fn interactive_chat(
                 }
                 println!();
                 println!();
+
+                // Abort any remaining generation (e.g. after Ctrl+C) and
+                // collect the final result from the oneshot.
+                drop(rx);
+                let response = response_rx.await.unwrap_or_else(|_| {
+                    eprintln!("[Generation task ended unexpectedly]");
+                    nanortime_core::Response {
+                        text: String::new(),
+                        tier_used: "local".to_string(),
+                        confidence: None,
+                        tool_calls: vec![],
+                        sources: vec![],
+                        tokens_generated: 0,
+                        model_memory_mb: 0,
+                    }
+                });
 
                 // Show metadata
                 if let Some(conf) = response.confidence {
@@ -732,7 +808,10 @@ async fn interactive_chat(
     if let Ok(json) = serde_json::to_string_pretty(&history) {
         match std::fs::write(&history_path, &json) {
             Ok(()) => println!("[History saved to {}]", history_path.display()),
-            Err(e) => eprintln!("Warning: Failed to save history to {:?}: {}", history_path, e),
+            Err(e) => eprintln!(
+                "Warning: Failed to save history to {:?}: {}",
+                history_path, e
+            ),
         }
     }
 
@@ -788,11 +867,12 @@ async fn handle_command(input: &str, runtime: &NanoRuntime) -> CommandResult {
             println!();
             CommandResult::Handled
         }
-        "/clear" => {
-            CommandResult::ClearHistory
-        }
+        "/clear" => CommandResult::ClearHistory,
         _ => {
-            println!("Unknown command: {}. Type /help for available commands.", input);
+            println!(
+                "Unknown command: {}. Type /help for available commands.",
+                input
+            );
             println!();
             CommandResult::Handled
         }
@@ -800,8 +880,7 @@ async fn handle_command(input: &str, runtime: &NanoRuntime) -> CommandResult {
 }
 
 fn setup_logging(level: &str) {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(level));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
 
     // Disable ANSI colors when stderr is not a TTY (e.g., running from a subprocess or benchmark script).
     // This prevents U+001B escape sequences from polluting captured output.
@@ -820,4 +899,3 @@ fn setup_logging(level: &str) {
         .with(subscriber)
         .init();
 }
-

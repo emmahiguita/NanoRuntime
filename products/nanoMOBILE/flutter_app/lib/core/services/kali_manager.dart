@@ -14,6 +14,14 @@ import '../../features/terminal/i_bin_executor.dart';
 ///   3. kali shell → lanza bash dentro de Kali vía proot
 ///   4. kali run <cmd> → ejecuta un comando dentro de Kali
 class KaliManager {
+  static const Map<String, List<String>> auditGroups = {
+    'Base': ['bash', 'coreutils', 'util-linux', 'procps', 'psmisc', 'file'],
+    'Shell': ['vim', 'nano', 'less', 'more', 'man-db', 'tmux', 'screen'],
+    'Net': ['openssh', 'curl', 'wget', 'rsync', 'netcat-openbsd', 'socat'],
+    'Audit': ['nmap', 'tcpdump', 'sqlite', 'openssl', 'gpg', 'gnupg'],
+    'Dev': ['git', 'python3', 'perl', 'ruby', 'nodejs', 'npm', 'cargo', 'gcc', 'make'],
+    'Web': ['lynx', 'w3m'],
+  };
   /// Kali ARM64 minimal rootfs (basado en Debian, ~200MB).
   /// URL del build oficial de Kali NetHunter para ARM64.
   ///
@@ -172,6 +180,39 @@ class KaliManager {
     void Function(String line)? onErr,
   }) async {
     return run('/bin/bash', ['-c', 'exec bash --norc'], onOut: onOut, onErr: onErr);
+  }
+
+  Map<String, bool> auditTools() {
+    final root = _kaliRoot;
+    if (root == null) return const {};
+    final out = <String, bool>{};
+    for (final group in auditGroups.entries) {
+      for (final tool in group.value) {
+        final candidates = [
+          File('$root/bin/$tool'),
+          File('$root/usr/bin/$tool'),
+          File('$root/usr/sbin/$tool'),
+          File('$root/sbin/$tool'),
+        ];
+        out[tool] = candidates.any((f) => f.existsSync());
+      }
+    }
+    return out;
+  }
+
+  List<String> missingTools() {
+    final audit = auditTools();
+    final missing = audit.entries.where((entry) => !entry.value).map((entry) => entry.key).toList();
+    missing.sort();
+    return missing;
+  }
+
+  String coverageSummary() {
+    final audit = auditTools();
+    if (audit.isEmpty) return 'kali audit: rootfs no disponible';
+    final total = audit.length;
+    final installed = audit.values.where((value) => value).length;
+    return 'kali audit: $installed/$total herramientas detectadas';
   }
 
   void log(String msg) => onLog?.call(msg);

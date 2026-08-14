@@ -544,6 +544,43 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    // El campo crece con suavidad al añadir líneas (AnimatedSize anima el
+    // cambio de altura del TextField multi-línea).
+    final inputField = TextField(
+      controller: controller,
+      enabled: enabled,
+      minLines: 1,
+      maxLines: 5,
+      textInputAction: TextInputAction.newline,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: listening
+            ? 'Escuchando…'
+            : enabled
+            ? 'Escribe un mensaje'
+            : 'Motor local no disponible',
+        hintStyle: TextStyle(
+          color: listening
+              ? const Color(0xFF21F2B2)
+              : Colors.white.withValues(alpha: 0.42),
+        ),
+        border: InputBorder.none,
+      ),
+    );
+
+    final sendButton = IconButton.filled(
+      tooltip: generating ? 'Detener' : 'Enviar',
+      onPressed: generating ? onStop : (enabled ? onSend : null),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        backgroundColor: const Color(0xFF21D991),
+        foregroundColor: Colors.white,
+      ),
+      icon: Icon(generating ? Icons.stop_rounded : Icons.arrow_upward_rounded),
+    );
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -574,27 +611,14 @@ class _Composer extends StatelessWidget {
                   icon: const Icon(Icons.attach_file_rounded),
                 ),
                 Expanded(
-                  child: TextField(
-                    controller: controller,
-                    enabled: enabled,
-                    minLines: 1,
-                    maxLines: 5,
-                    textInputAction: TextInputAction.newline,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: listening
-                          ? 'Escuchando…'
-                          : enabled
-                          ? 'Escribe un mensaje'
-                          : 'Motor local no disponible',
-                      hintStyle: TextStyle(
-                        color: listening
-                            ? const Color(0xFF21F2B2)
-                            : Colors.white.withValues(alpha: 0.42),
-                      ),
-                      border: InputBorder.none,
-                    ),
-                  ),
+                  child: reduceMotion
+                      ? inputField
+                      : AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          alignment: Alignment.bottomCenter,
+                          child: inputField,
+                        ),
                 ),
                 IconButton(
                   tooltip: listening ? 'Detener dictado' : 'Dictar por voz',
@@ -605,23 +629,29 @@ class _Composer extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 3),
-                IconButton.filled(
-                  tooltip: generating ? 'Detener' : 'Enviar',
-                  onPressed: generating
-                      ? onStop
-                      : enabled
-                      ? onSend
-                      : null,
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    backgroundColor: const Color(0xFF21D991),
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: Icon(
-                    generating
-                        ? Icons.stop_rounded
-                        : Icons.arrow_upward_rounded,
-                  ),
+                PressableScale(
+                  child: reduceMotion
+                      ? sendButton
+                      : AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: generating
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF21F2B2,
+                                      ).withValues(alpha: 0.42),
+                                      blurRadius: 14,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: sendButton,
+                        ),
                 ),
               ],
             ),

@@ -31,6 +31,8 @@ class RuntimeChannelHandler : MethodChannel.MethodCallHandler {
             "packages", // installPackages / installGraphical
             "desktop",  // startDesktop / stopDesktop / getDesktopStatus
             "pty",      // ptySpawn / ptyWrite / ptyRead / ptyResize / ptyKill / ptyClose
+            "agent",    // AgentAccessibilityService: dumpScreen / findText / tap / swipe / inputText
+            "engine",   // EngineSupervisor: start / state / health / stop / ensureExtracted
         )
     }
 

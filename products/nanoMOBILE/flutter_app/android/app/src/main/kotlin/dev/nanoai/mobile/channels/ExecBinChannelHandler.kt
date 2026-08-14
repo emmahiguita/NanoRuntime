@@ -33,6 +33,9 @@ class ExecBinChannelHandler(
 ) : MethodChannel.MethodCallHandler {
 
     companion object {
+        private const val PROBE_TIMEOUT_SECONDS = 30L
+        private const val PROBE_TIMEOUT_RC = 124
+        private const val MAX_PROBE_OUTPUT_BYTES = 64 * 1024
         private const val TAG = "ExecBinChannel"
         const val CHANNEL_NAME = "com.nanoai/exec_bin"
     }
@@ -104,40 +107,67 @@ class ExecBinChannelHandler(
                     args.forEach { add(it.toString()) }
                 }
 
-                val p = ProcessBuilder(cmd).redirectErrorStream(false).start()
+                val process = ProcessBuilder(cmd)
+                    .redirectErrorStream(false)
+                    .start()
 
-                // Leer stdout y stderr CONCURRENTEMENTE para evitar deadlock
-                // cuando el proceso llena ambos pipe buffers (>64KB).
-                val outDef = ioScope.async(Dispatchers.IO) { p.inputStream.readBytes().toString(Charsets.UTF_8) }
-                val errDef = ioScope.async(Dispatchers.IO) { p.errorStream.readBytes().toString(Charsets.UTF_8) }
-                val out = outDef.await()
-                val err = errDef.await()
-                // Timeout: un binario colgado (p.ej. esperando stdin) no debe
-                // colgar el Future de Dart para siempre ni retener el hilo IO.
-                val finished = withContext(Dispatchers.IO) { p.waitFor(30, TimeUnit.SECONDS) }
-                val rc = if (finished) {
-                    p.exitValue()
-                } else {
-                    Log.w(TAG, "probeExec timeout 30s path=$path — matando proceso")
-                    withContext(Dispatchers.IO) { p.destroyForcibly() }
-                    -1
+                val stdoutDeferred = ioScope.async(Dispatchers.IO) {
+                    readLimited(process.inputStream, MAX_PROBE_OUTPUT_BYTES)
+                }
+                val stderrDeferred = ioScope.async(Dispatchers.IO) {
+                    readLimited(process.errorStream, MAX_PROBE_OUTPUT_BYTES)
                 }
 
-                // Retornar resultado al main thread
-                mainHandler.post {
-                    result.success(mapOf("rc" to rc, "out" to out, "err" to err))
+                val finished = withContext(Dispatchers.IO) {
+                    process.waitFor(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 }
+
+                var rc = if (finished) process.exitValue() else PROBE_TIMEOUT_RC
+                if (!finished) {
+                    Log.w(TAG, "probeExec timeout ${PROBE_TIMEOUT_SECONDS}s path=$path ? terminando proceso")
+                    process.destroy()
+                    if (!withContext(Dispatchers.IO) { process.waitFor(2, TimeUnit.SECONDS) }) {
+                        process.destroyForcibly()
+                        withContext(Dispatchers.IO) { process.waitFor() }
+                    }
+                    rc = PROBE_TIMEOUT_RC
+                }
+
+                val out = stdoutDeferred.await()
+                val err = stderrDeferred.await()
+                postResult(result) { it.success(mapOf("rc" to rc, "out" to out, "err" to err)) }
             } catch (e: IllegalArgumentException) {
-                mainHandler.post {
-                    result.error("bad_path", e.message, null)
-                }
+                postResult(result) { it.error("bad_path", e.message, null) }
             } catch (e: Exception) {
                 Log.w(TAG, "probeExec FAIL path=$path ex=$e")
-                mainHandler.post {
-                    result.success(mapOf("error" to "${e.javaClass.simpleName}: ${e.message}"))
-                }
+                postResult(result) { it.success(mapOf("error" to "${e.javaClass.simpleName}: ${e.message}")) }
             }
         }
+    }
+
+    private fun readLimited(input: java.io.InputStream, limitBytes: Int): String {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        var total = 0
+        while (true) {
+            val remaining = limitBytes - total
+            if (remaining <= 0) break
+            val read = input.read(buffer, 0, minOf(buffer.size, remaining))
+            if (read < 0) break
+            output.write(buffer, 0, read)
+            total += read
+        }
+        if (input.read() >= 0) {
+            output.write("\n[truncated]".toByteArray(Charsets.UTF_8))
+        }
+        return output.toString(Charsets.UTF_8)
+    }
+
+    private inline fun postResult(
+        result: MethodChannel.Result,
+        crossinline block: (MethodChannel.Result) -> Unit,
+    ) {
+        mainHandler.post { block(result) }
     }
 
     private fun handleWorkerSpawn(call: MethodCall, result: MethodChannel.Result) {

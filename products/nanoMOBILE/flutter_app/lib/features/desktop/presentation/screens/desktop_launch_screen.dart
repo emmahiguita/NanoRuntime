@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,7 +119,8 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
       // Etapa real del backend en fallo â€” el error viene de Xvnc/watchdog,
       // no de un timeout inventado.
       _status = 'Fallo al arrancar el escritorio';
-      _detail = desktopStatus.lastError ??
+      _detail =
+          desktopStatus.lastError ??
           'El backend grÃ¡fico reportÃ³ un error. Revisa el log.';
       _stageLabel = 'Error';
       _progress = 0.0;
@@ -239,8 +240,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
           _progress = 0.60;
           _stageLabel = 'Entorno GrÃ¡fico';
           _status = 'Instalando Paquetes X11';
-          _detail =
-              'Descargando Xvnc, Openbox, tint2 y dependencias...';
+          _detail = 'Descargando Xvnc, Openbox, tint2 y dependencias...';
         });
         final installed = await _pkg.installGraphical();
         if (!installed) {
@@ -340,56 +340,69 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen> {
     final colors = NanoThemeExtension.of(context).colors;
     final bg = colors.background;
     final mobileMode = ref.watch(settingsProvider).desktopMobileMode;
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
-            _TopBar(colors: colors, onBack: () => context.pop()),
-            const SizedBox(height: 16),
-            _HeroCard(
-              colors: colors,
-              busy: _busy,
-              vncReady: _desktopReady,
-              status: _status,
-              detail: _detail,
-              stageLabel: _stageLabel,
-              progress: _progress,
-              formattedTime: _formattedTime,
-              onEnter: _prepareStartAndEnter,
-              onDirectVisor: _openVisor,
-            ),
-            const SizedBox(height: 16),
-            if (_killedByOs) ...[
-              _KillRestoreBanner(colors: colors),
-              const SizedBox(height: 16),
-            ],
-            if (!mobileMode) _StatusBadges(
-              colors: colors,
-              rootfsReady: _rootfsReady,
-              vncReady: _desktopReady,
-              port: _port,
-              formattedTime: _formattedTime,
-              busy: _busy,
-            ),
-            const SizedBox(height: 16),
-            if (!mobileMode) _ActionGrid(
-              colors: colors,
-              busy: _busy,
-              vncReady: _desktopReady,
-              onEnter: _prepareStartAndEnter,
-              onDirectVisor: _openVisor,
-              onStop: _stop,
-              onTerminal: () => context.go('/terminal'),
-            ),
-            const SizedBox(height: 20),
-            _InfoSection(colors: colors),
-            if (mobileMode) ...[
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) {
+        return Transform.translate(
+          offset: Offset(0, 12 * (1 - t)),
+          child: Opacity(opacity: t, child: child),
+        );
+      },
+      child: Scaffold(
+        backgroundColor: bg,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+            children: [
+              _TopBar(colors: colors, onBack: () => context.pop()),
               const SizedBox(height: 12),
-              _CompactMobileHint(colors: colors),
+              _HeroCard(
+                colors: colors,
+                busy: _busy,
+                vncReady: _desktopReady,
+                status: _status,
+                detail: _detail,
+                stageLabel: _stageLabel,
+                progress: _progress,
+                formattedTime: _formattedTime,
+                onEnter: _prepareStartAndEnter,
+                onDirectVisor: _openVisor,
+              ),
+              const SizedBox(height: 12),
+              if (_killedByOs) ...[
+                _KillRestoreBanner(colors: colors),
+                const SizedBox(height: 12),
+              ],
+              if (!mobileMode)
+                _StatusBadges(
+                  colors: colors,
+                  rootfsReady: _rootfsReady,
+                  vncReady: _desktopReady,
+                  port: _port,
+                  formattedTime: _formattedTime,
+                  busy: _busy,
+                ),
+              const SizedBox(height: 12),
+              if (!mobileMode)
+                _ActionGrid(
+                  colors: colors,
+                  busy: _busy,
+                  vncReady: _desktopReady,
+                  onEnter: _prepareStartAndEnter,
+                  onDirectVisor: _openVisor,
+                  onStop: _stop,
+                  onTerminal: () => context.go('/terminal'),
+                ),
+              const SizedBox(height: 12),
+              _InfoSection(colors: colors),
+              if (mobileMode) ...[
+                const SizedBox(height: 12),
+                _CompactMobileHint(colors: colors),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -937,6 +950,7 @@ class _CompactMobileHint extends StatelessWidget {
     );
   }
 }
+
 class _InfoSection extends StatelessWidget {
   final NanoColors colors;
 
@@ -976,10 +990,3 @@ class _InfoSection extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-

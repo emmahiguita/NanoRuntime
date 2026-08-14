@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # NanoAI desktop HUD - banner de bienvenida (neofetch-style, python puro).
 # Leido por aterm -e en el arranque del desktop y disponible como launcher.
+# v3: identidad nanoai — borde verde, openbox NanoAI, panel superior.
 import os, sys, time, socket
 
-C = "\x1b[36m"; B = "\x1b[34m"; W = "\x1b[37m"; D = "\x1b[90m"
+C = "\x1b[36m"; B = "\x1b[32m"; W = "\x1b[37m"; D = "\x1b[90m"
 R = "\x1b[0m"; BLD = "\x1b[1m"; DIM = "\x1b[2m"
 
 LOGO = [
@@ -88,7 +89,7 @@ right = [
     BLD + W + "@" + C + BLD + "nano" + R + " " + DIM + W + "linux" + R,
     "\u2500" * 28,
     BLD + C + "OS" + R + D + ":" + R + W + " NanoAI Linux Desktop" + R,
-    BLD + C + "WM" + R + D + ":" + R + W + " Openbox (Onyx) + tint2" + R,
+    BLD + C + "WM" + R + D + ":" + R + W + " Openbox (NanoAI)" + R,
     BLD + C + "KERNEL" + R + D + ":" + R + W + " %s" % kernel + R,
     BLD + C + "UPTIME" + R + D + ":" + R + W + " %s" % uptime() + R,
     BLD + C + "MEM" + R + D + ":" + R + W + " %d / %d MiB %s%s  %d%%" % (used, total, D, mem_bar(pct), pct) + R,
@@ -110,7 +111,7 @@ for line in lines:
     out += " " + line + "\n"
 out += B + BLD + "\u255a" + "\u2550" * 78 + "\u255d" + R + "\n"
 out += D + "\n  \u26a1 Entorno aislado: rootfs Termux \u00b7 Xvnc :1 \u00b7 RFB 5901 \u00b7 " + BLD + C + "nano-sec" + R + D + " activo" + R + "\n"
-out += D + "  Men\u00fa del escritorio (clic derecho) o panel inferior para lanzar apps.\n"
+out += D + "  Men\u00fa del escritorio (clic derecho) o panel superior para lanzar apps.\n"
 out += D + "  \u00bfComandos? aterm -e con un shell detr\u00e1s: " + R + W + "python3 %s" % HUD + R + "\n"
 sys.stdout.write(out)
 sys.stdout.flush()

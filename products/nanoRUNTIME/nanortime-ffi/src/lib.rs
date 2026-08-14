@@ -569,15 +569,16 @@ impl NanoContext {
 
     /// Genera tokens de forma streaming, llamando al callback por cada token.
     ///
-    /// El callback recibe (token_text, probability, is_stop).
-    /// Retorna el texto completo generado.
+    /// El callback recibe (token_text, probability, is_stop) y retorna `false`
+    /// para abortar la generación de inmediato (el resultado parcial se
+    /// devuelve con el texto acumulado hasta ese punto).
     pub fn generate_streaming(
         &mut self,
         model: &NanoModel,
         prompt: &str,
         params: &GenerateParams,
         mut lora: Option<&mut NanoLoraAdapter>,
-        mut on_token: impl FnMut(&str, f32, bool),
+        mut on_token: impl FnMut(&str, f32, bool) -> bool,
     ) -> Result<GenerateResult, String> {
         let start = std::time::Instant::now();
 
@@ -650,18 +651,24 @@ impl NanoContext {
         };
         token_probs.push(first_prob);
 
+        let mut aborted = false;
+
         if first_token != eos {
             let piece = model.token_to_text(first_token)?;
             let should_stop = params.stop_sequences.iter().any(|s| piece.contains(s));
             if !should_stop {
                 output.push_str(&piece);
-                on_token(&piece, first_prob, false);
+                // Callback returns false when the token receiver is gone:
+                // abort instead of burning CPU with no listener.
+                if !on_token(&piece, first_prob, false) {
+                    aborted = true;
+                }
             }
         }
 
         // Generate remaining tokens
         for _ in 1..params.max_tokens {
-            if last_token == eos {
+            if aborted || last_token == eos {
                 break;
             }
             if n_past as u32 >= self.context_size {
@@ -710,7 +717,9 @@ impl NanoContext {
             }
 
             output.push_str(&piece);
-            on_token(&piece, token_prob, false);
+            if !on_token(&piece, token_prob, false) {
+                break;
+            }
         }
 
         let elapsed = start.elapsed().as_secs_f64();

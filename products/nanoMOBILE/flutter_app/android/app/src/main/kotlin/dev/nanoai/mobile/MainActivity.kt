@@ -3,14 +3,19 @@ package dev.nanoai.mobile
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import dev.nanoai.mobile.channels.AgentChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
+import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
+import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import io.flutter.embedding.android.FlutterActivity
@@ -28,8 +33,16 @@ class MainActivity : FlutterActivity() {
         NativeRuntimeSupervisor(this, filesDir, pathPolicy)
     }
 
+    /** Motor de inferencia nanortime (PIE) — usa el worker del supervisor. */
+    private val engineSupervisor: EngineSupervisor by lazy {
+        EngineSupervisor(this, filesDir, pathPolicy) { nativeSupervisor.workerClient() }
+    }
+
     /** Canal hacia Dart para navegación forzada desde el sistema. */
     private var navigationChannel: MethodChannel? = null
+
+    /** Handler del canal model_storage: recibe onActivityResult del picker. */
+    private var modelStorageHandler: ModelStorageChannelHandler? = null
 
     /** Result pendiente de requestStoragePermission — resuelto por
      *  onRequestPermissionsResult cuando el usuario contesta el diálogo. */
@@ -43,6 +56,15 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Barras del sistema oscuras + edge-to-edge: el dashboard dibuja
+        // bajo la barra de estado (SafeArea en Flutter evita superposición).
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.parseColor("#020611")
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         // Starting the worker binds a native service and may touch disk. Do it
         // after initial UI work so cold start can render before runtime warmup.
         mainHandler.postDelayed({
@@ -76,6 +98,8 @@ class MainActivity : FlutterActivity() {
             "activity_destroyed", "Activity destruida antes de contestar permisos", null,
         )
         pendingStorageResult = null
+        // Orden importa: el engine corre en el worker — matar motor primero.
+        engineSupervisor.shutdown()
         nativeSupervisor.shutdown()
         super.onDestroy()
     }
@@ -161,6 +185,31 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(messenger, ChannelNames.AGENT)
             .setMethodCallHandler(AgentChannelHandler())
+
+        MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->
+            EngineChannelHandler(engineSupervisor, ioScope, mainHandler)
+                .also { handler ->
+                    handler.attach(engineChannel)
+                    engineChannel.setMethodCallHandler(handler)
+                }
+        }
+
+        MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
+            .setMethodCallHandler(
+                ModelStorageChannelHandler(
+                    activity = this,
+                    ioScope = ioScope,
+                    mainHandler = mainHandler,
+                    openFdInWorker = { uri, pfd ->
+                        nativeSupervisor.workerClient()?.openModelFd(uri, pfd)
+                    },
+                ).also { modelStorageHandler = it },
+            )
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        modelStorageHandler?.onActivityResult(requestCode, resultCode, data)
     }
 
     private companion object {

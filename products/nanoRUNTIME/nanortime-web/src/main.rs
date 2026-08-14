@@ -15,10 +15,10 @@
 //! Para usar desde el móvil: http://IP_DEL_PC:8080 (misma red WiFi).
 
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 // ── Estado compartido del runtime ────────────────────────────────────
 
@@ -30,7 +30,9 @@ struct ChatRequest {
     max_tokens: usize,
 }
 
-fn default_max_tokens() -> usize { 150 }
+fn default_max_tokens() -> usize {
+    150
+}
 
 /// Respuesta del chat.
 #[derive(serde::Serialize)]
@@ -141,7 +143,8 @@ fn serve_html(stream: TcpStream) {
     // Cargar la interfaz desde docs/nanortime_terminal.html
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../docs/nanortime_terminal.html");
     let html = std::fs::read_to_string(&path).unwrap_or_else(|_| {
-        "<html><body><h1>NanoRuntime Web</h1><p>Interfaz no encontrada</p></body></html>".to_string()
+        "<html><body><h1>NanoRuntime Web</h1><p>Interfaz no encontrada</p></body></html>"
+            .to_string()
     });
     send_response(stream, "200 OK", &html, "text/html");
 }
@@ -202,39 +205,53 @@ fn handle_connection(mut stream: TcpStream, state: &Arc<ServerState>) {
             // razonable nunca excede 4 KB (~1000 tokens).
             const MAX_BODY: usize = 4096;
             if content_length > MAX_BODY {
-                send_json(stream, "413 Payload Too Large", &ChatResponse {
-                    response: "Prompt demasiado largo (máx 4 KB)".to_string(),
-                    tok_s: 0.0,
-                    confidence: 0.0,
-                });
+                send_json(
+                    stream,
+                    "413 Payload Too Large",
+                    &ChatResponse {
+                        response: "Prompt demasiado largo (máx 4 KB)".to_string(),
+                        tok_s: 0.0,
+                        confidence: 0.0,
+                    },
+                );
                 return;
             }
 
             let mut body = vec![0u8; content_length];
             if content_length > 0 {
                 if let Err(e) = reader.read_exact(&mut body) {
-                    eprintln!("[nanortime-web] Failed to read request body ({} bytes): {}", content_length, e);
-                    send_json(stream, "400 Bad Request", &ChatResponse {
-                        response: format!("Error leyendo cuerpo de la petición: {}", e),
-                        tok_s: 0.0,
-                        confidence: 0.0,
-                    });
+                    eprintln!(
+                        "[nanortime-web] Failed to read request body ({} bytes): {}",
+                        content_length, e
+                    );
+                    send_json(
+                        stream,
+                        "400 Bad Request",
+                        &ChatResponse {
+                            response: format!("Error leyendo cuerpo de la petición: {}", e),
+                            tok_s: 0.0,
+                            confidence: 0.0,
+                        },
+                    );
                     return;
                 }
             }
 
-            let chat_req: ChatRequest = serde_json::from_slice(&body)
-                .unwrap_or(ChatRequest {
-                    prompt: String::new(),
-                    max_tokens: default_max_tokens(),
-                });
+            let chat_req: ChatRequest = serde_json::from_slice(&body).unwrap_or(ChatRequest {
+                prompt: String::new(),
+                max_tokens: default_max_tokens(),
+            });
 
             if chat_req.prompt.trim().is_empty() {
-                send_json(stream, "400 Bad Request", &ChatResponse {
-                    response: "Prompt vacío".to_string(),
-                    tok_s: 0.0,
-                    confidence: 0.0,
-                });
+                send_json(
+                    stream,
+                    "400 Bad Request",
+                    &ChatResponse {
+                        response: "Prompt vacío".to_string(),
+                        tok_s: 0.0,
+                        confidence: 0.0,
+                    },
+                );
                 return;
             }
 
@@ -273,10 +290,16 @@ fn main() {
     while i < args.len() {
         match args[i].as_str() {
             "--model" | "-m" => {
-                if i + 1 < args.len() { model = args[i + 1].clone(); i += 1; }
+                if i + 1 < args.len() {
+                    model = args[i + 1].clone();
+                    i += 1;
+                }
             }
             "--port" | "-p" => {
-                if i + 1 < args.len() { port = args[i + 1].parse().unwrap_or(8080); i += 1; }
+                if i + 1 < args.len() {
+                    port = args[i + 1].parse().unwrap_or(8080);
+                    i += 1;
+                }
             }
             _ => {}
         }

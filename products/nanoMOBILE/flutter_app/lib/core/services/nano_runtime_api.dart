@@ -11,6 +11,9 @@ abstract final class NanoRuntimeChannels {
   static const pty = 'com.nanoai/pty';
   static const deviceMetrics = 'com.nanoai/device_metrics';
   static const navigation = 'com.nanoai/navigation';
+  static const agent = 'com.nanoai/agent';
+  static const engine = 'com.nanoai/engine';
+  static const modelStorage = 'com.nanoai/model_storage';
 }
 
 /// Resultado del handshake de runtime.
@@ -64,6 +67,8 @@ class NanoRuntimeApi {
   static const _exec = MethodChannel(NanoRuntimeChannels.execBin);
   static const _pty = MethodChannel(NanoRuntimeChannels.pty);
   static const _metrics = MethodChannel(NanoRuntimeChannels.deviceMetrics);
+  static const _agent = MethodChannel(NanoRuntimeChannels.agent);
+  static const _engine = MethodChannel(NanoRuntimeChannels.engine);
 
   Future<RuntimeInfo>? _handshake;
 
@@ -160,9 +165,10 @@ class NanoRuntimeApi {
   Future<bool> downloadFile(String url, String destPath) async {
     try {
       return await _exec.invokeMethod<bool>('downloadFile', {
-        'url': url,
-        'destPath': destPath,
-      }) == true;
+            'url': url,
+            'destPath': destPath,
+          }) ==
+          true;
     } catch (e) {
       debugPrint('[runtime] downloadFile error: $e');
       return false;
@@ -206,15 +212,13 @@ class NanoRuntimeApi {
     String? ldPreload,
   }) async {
     try {
-      final resp = await _exec.invokeMethod<Map<dynamic, dynamic>>(
-        'workerSpawn',
-        {
-          'binaryPath': binaryPath,
-          'argv': argv,
-          'envp': envp ?? const {},
-          'ldPreload': ldPreload,
-        },
-      );
+      final resp = await _exec
+          .invokeMethod<Map<dynamic, dynamic>>('workerSpawn', {
+            'binaryPath': binaryPath,
+            'argv': argv,
+            'envp': envp ?? const {},
+            'ldPreload': ldPreload,
+          });
       return resp?['taskId'] as String?;
     } catch (e) {
       debugPrint('[runtime] workerSpawn error: $e');
@@ -273,10 +277,11 @@ class NanoRuntimeApi {
       // El framebuffer de Xvnc nace con el aspect del device (cap 1920),
       // no con el 1280x720 landscape fijo que dejaba franjas en portrait.
       return await _exec.invokeMethod<bool>('startDesktop', {
-        'vncPassword': vncPassword,
-        if (width != null) 'width': width,
-        if (height != null) 'height': height,
-      }) == true;
+            'vncPassword': vncPassword,
+            if (width != null) 'width': width,
+            if (height != null) 'height': height,
+          }) ==
+          true;
     } catch (e) {
       debugPrint('[runtime] startDesktop error: $e');
       return false;
@@ -351,9 +356,10 @@ class NanoRuntimeApi {
   Future<int> ptyWrite(int id, Uint8List data) async {
     try {
       return await _pty.invokeMethod<int>('ptyWrite', {
-        'id': id,
-        'data': data,
-      }) ?? 0;
+            'id': id,
+            'data': data,
+          }) ??
+          0;
     } catch (e) {
       debugPrint('[runtime] ptyWrite error: $e');
       return 0;
@@ -374,7 +380,11 @@ class NanoRuntimeApi {
 
   Future<void> ptyResize(int id, int rows, int cols) async {
     try {
-      await _pty.invokeMethod('ptyResize', {'id': id, 'rows': rows, 'cols': cols});
+      await _pty.invokeMethod('ptyResize', {
+        'id': id,
+        'rows': rows,
+        'cols': cols,
+      });
     } catch (e) {
       debugPrint('[runtime] ptyResize error: $e');
     }
@@ -434,6 +444,217 @@ class NanoRuntimeApi {
       );
     } catch (e) {
       debugPrint('[runtime] getDeviceIdentity error: $e');
+      return null;
+    }
+  }
+
+  // ── agente (AccessibilityService) ──
+
+  /// true si el AgentAccessibilityService está conectado (activado en
+  /// Ajustes → Accesibilidad). false cuando no, o canal ausente.
+  Future<Map<dynamic, dynamic>?> agentStatus() async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>('getStatus');
+    } catch (e) {
+      debugPrint('[runtime] agentStatus error: $e');
+      return null;
+    }
+  }
+
+  /// Árbol de accesibilidad de la ventana activa como JSON (list de nodos con
+  /// id/type/text/desc/bounds/clickable/...). Empty list si nada activo.
+  Future<List<dynamic>> agentDumpScreen() async {
+    try {
+      return await _agent.invokeListMethod<dynamic>('dumpScreen') ?? const [];
+    } catch (e) {
+      debugPrint('[runtime] agentDumpScreen error: $e');
+      return const [];
+    }
+  }
+
+  /// Nodos cuyo texto/desc contiene [query]. maxResults limita el volcado
+  /// (default 10) — el agente LLM solo necesita los mejores candidatos.
+  Future<List<dynamic>> agentFindText(
+    String query, {
+    int maxResults = 10,
+  }) async {
+    try {
+      return await _agent.invokeListMethod<dynamic>('findText', {
+            'query': query,
+            'maxResults': maxResults,
+          }) ??
+          const [];
+    } catch (e) {
+      debugPrint('[runtime] agentFindText error: $e');
+      return const [];
+    }
+  }
+
+  /// Tap sobre el nodo cuyo texto/desc contiene [text] (bounds reales del
+  /// nodo, no coordenadas adivinadas).
+  Future<bool> agentTapOnText(String text) async {
+    try {
+      return await _agent.invokeMethod<bool>('tapOnText', {'text': text}) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentTapOnText error: $e');
+      return false;
+    }
+  }
+
+  /// Tap en coordenadas absolutas de pantalla.
+  Future<bool> agentTapAt(int x, int y) async {
+    try {
+      return await _agent.invokeMethod<bool>('tapAt', {'x': x, 'y': y}) == true;
+    } catch (e) {
+      debugPrint('[runtime] agentTapAt error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> agentLongPressAt(int x, int y, {int durationMs = 600}) async {
+    try {
+      return await _agent.invokeMethod<bool>('longPressAt', {
+            'x': x,
+            'y': y,
+            'durationMs': durationMs,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentLongPressAt error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> agentSwipe(
+    int x1,
+    int y1,
+    int x2,
+    int y2, {
+    int durationMs = 300,
+  }) async {
+    try {
+      return await _agent.invokeMethod<bool>('swipe', {
+            'x1': x1,
+            'y1': y1,
+            'x2': x2,
+            'y2': y2,
+            'durationMs': durationMs,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentSwipe error: $e');
+      return false;
+    }
+  }
+
+  /// Escribe [text] en el campo enfocado (ACTION_SET_TEXT del nodo editable).
+  Future<bool> agentInputText(String text) async {
+    try {
+      return await _agent.invokeMethod<bool>('inputText', {'text': text}) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentInputText error: $e');
+      return false;
+    }
+  }
+
+  /// back | home | recents | notifications | quick_settings.
+  Future<bool> agentGlobalAction(String action) async {
+    try {
+      return await _agent.invokeMethod<bool>('globalAction', {
+            'action': action,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentGlobalAction error: $e');
+      return false;
+    }
+  }
+
+  /// Lanza una app por packageName.
+  Future<bool> agentLaunchPackage(String packageName) async {
+    try {
+      return await _agent.invokeMethod<bool>('launchPackage', {
+            'packageName': packageName,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentLaunchPackage error: $e');
+      return false;
+    }
+  }
+
+  // ── motor nanortime (EngineSupervisor Kotlin) ──
+
+  /// Suscribe al push de estados del motor (evento `engineState` del canal).
+  /// Un solo listener — RuntimeEngineNotifier es el dueño.
+  void setEngineStateListener(
+    void Function(Map<dynamic, dynamic> state) handler,
+  ) {
+    _engine.setMethodCallHandler((call) async {
+      if (call.method == 'engineState') {
+        handler(call.arguments as Map<dynamic, dynamic>? ?? const {});
+      }
+    });
+  }
+
+  void clearEngineStateListener() => _engine.setMethodCallHandler(null);
+
+  /// Arranca el motor (spawn + health poll en el supervisor Kotlin).
+  /// Devuelve accepted=true si el supervisor aceptó el arranque; los estados
+  /// reales llegan por evento engineState y por engineGetState().
+  Future<bool> engineStart({int port = 8080, String? modelPath}) async {
+    try {
+      final r = await _engine.invokeMethod<Map<dynamic, dynamic>>('start', {
+        'port': port,
+        if (modelPath != null) 'modelPath': modelPath,
+      });
+      return r?['accepted'] == true;
+    } catch (e) {
+      debugPrint('[runtime] engineStart error: $e');
+      return false;
+    }
+  }
+
+  /// Snapshot del estado actual del supervisor (sin IO de red).
+  Future<Map<dynamic, dynamic>?> engineGetState() async {
+    try {
+      return await _engine.invokeMethod<Map<dynamic, dynamic>>('state');
+    } catch (e) {
+      debugPrint('[runtime] engineGetState error: $e');
+      return null;
+    }
+  }
+
+  /// Probe real GET /health desde el lado Kotlin.
+  Future<Map<dynamic, dynamic>?> engineHealth() async {
+    try {
+      return await _engine.invokeMethod<Map<dynamic, dynamic>>('health');
+    } catch (e) {
+      debugPrint('[runtime] engineHealth error: $e');
+      return null;
+    }
+  }
+
+  /// Kill limpio del motor (SIGTERM → gracia → SIGKILL).
+  Future<bool> engineStop() async {
+    try {
+      return await _engine.invokeMethod<bool>('stop') == true;
+    } catch (e) {
+      debugPrint('[runtime] engineStop error: $e');
+      return false;
+    }
+  }
+
+  /// Extrae el PIE del APK a files/nano/engine/nanortime (idempotente).
+  Future<Map<dynamic, dynamic>?> engineEnsureExtracted() async {
+    try {
+      return await _engine.invokeMethod<Map<dynamic, dynamic>>(
+        'ensureExtracted',
+      );
+    } catch (e) {
+      debugPrint('[runtime] engineEnsureExtracted error: $e');
       return null;
     }
   }
