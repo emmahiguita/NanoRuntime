@@ -1,0 +1,56 @@
+{
+  "version": 7,
+  "verified_patterns": {
+    "coloros-seccomp-shmget-sigsys": 1,
+    "nanoroot-dlopen-intercept": 1,
+    "nanoroot-execve-lazy-fix": 1,
+    "tigervnc-anti-brute-force": 1,
+    "coloros-kill-resurreccion": 1,
+    "desktop-env-gtk": 1
+  },
+  "false_positives": {},
+  "fix_outcomes": [
+    {
+      "fingerprint": "coloros-seccomp-shmget-sigsys",
+      "outcome": "CONFIRMED",
+      "root_cause": "seccomp de ColorOS mata syscall 194 (shmget) con SIGSYS: gtk3/cairo/GLX mueren en crash-loop al iniciar el escritorio Linux",
+      "fix": "Intercept de shmget→ENOSYS en nanoroot (LD_PRELOAD), devolviendo fallo controlado en lugar de señal",
+      "evidence": "Verificado en OPPO A79 ColorOS: crash-loop de gtk3 reproducido, fix validado con escritorio arrancando. Fix committeado en repo nanoMOBILE."
+    },
+    {
+      "fingerprint": "nanoroot-dlopen-intercept",
+      "outcome": "CONFIRMED",
+      "root_cause": "El linker de Android resuelve dlopen usando open internos: sin interceptar dlopen, nanoroot no redirige bibliotecas cargadas dinámicamente (feh/imlib2 fallaban)",
+      "fix": "Intercept de dlopen en nanoroot además de open (fix 5d897b6)",
+      "evidence": "feh con imlib2 cargando bibliotecas del rootfs Termux sin error; commit 5d897b6"
+    },
+    {
+      "fingerprint": "nanoroot-execve-lazy-fix",
+      "outcome": "CONFIRMED",
+      "root_cause": "real_execve NULL en hijos linker64 causaba SIGSEGV pc=0 en aterm: el símbolo no se resolvía a tiempo en el hijo",
+      "fix": "Resolución dlsym lazy de real_execve en nanoroot",
+      "evidence": "aterm arrancando sin SIGSEGV tras el fix; verificado en dispositivo"
+    },
+    {
+      "fingerprint": "tigervnc-anti-brute-force",
+      "outcome": "CONFIRMED",
+      "root_cause": "Probes TCP desnudos al puerto 5901 saturan el contador anti-brute-force de TigerVNC y bloquean conexiones legítimas",
+      "fix": "Checks de salud del VNC por /proc/<pid>/stat en lugar de conexión TCP",
+      "evidence": "Conexiones legítimas dejan de bloquearse; verificado con el cliente VNC de la app"
+    },
+    {
+      "fingerprint": "coloros-kill-resurreccion",
+      "outcome": "CONFIRMED",
+      "root_cause": "cached-kill de ColorOS mata el proceso de la app en background; el servicio de accesibilidad no se recupera solo de inmediato",
+      "fix": "Resurrección vía rebind de accessibility + heartbeat honesto que detecta el kill (commit 1dad785, U-10)",
+      "evidence": "Banner honesto de kill visible tras cached-kill; app revive sola en OPPO A79"
+    },
+    {
+      "fingerprint": "desktop-env-gtk",
+      "outcome": "CONFIRMED",
+      "root_cause": "GIO busca módulos en el path compilado de Termux: sin GIO_EXTRA_MODULES, GSETTINGS_SCHEMA_DIR y XDG_DATA_DIRS apuntando al rootfs, las apps GTK no arrancan",
+      "fix": "Inyectar GSETTINGS_SCHEMA_DIR + GIO_EXTRA_MODULES + XDG_DATA_DIRS al lanzar el entorno de escritorio",
+      "evidence": "Apps GTK (pcmanfm, feh) arrancando en el escritorio Linux con el entorno inyectado"
+    }
+  ]
+}
