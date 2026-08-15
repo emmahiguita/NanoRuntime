@@ -365,7 +365,9 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// `--model <path>`. Cero copias de archivos pesados. Si vino del árbol
   /// SAF (sin path), se abre el fd en el worker (`/proc/self/fd/N`).
   Future<void> useDetected(DetectedModel model) async {
-    if (!model.usable) return;
+    // Permitimos intentar modelos aun cuando el scanner marque incompatibilidad
+    // (ej. formato no GGUF o magic no válido). Se expone un aviso honesto en
+    // scanError pero se deja al usuario probar el modelo. Evita bloquear la UI.
     if (state.loadingDetectedUri != null) return; // una apertura a la vez
     final directPath = model.path;
     state = state.copyWith(
@@ -375,6 +377,12 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     if (directPath != null) {
       if (!mounted) return;
       state = state.copyWith(loadingDetectedUri: null);
+      if (!model.usable) {
+        // Aviso honesto: modelo detectado no compatible, intentando de todos modos.
+        state = state.copyWith(
+          scanError: 'Modelo detectado no totalmente compatible: ${model.name}. Intentando cargar de todos modos.',
+        );
+      }
       _ref
           .read(chatProvider.notifier)
           .selectModel(model.name, path: directPath);
