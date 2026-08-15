@@ -118,8 +118,7 @@ void main() {
 
       expect(find.text('Hola NanoAI'), findsOneWidget);
       expect(find.text('Hola, ¿en qué te ayudo?'), findsOneWidget);
-      // Etiqueta del modelo: 'Sin modelo' se presenta como 'modelo local'.
-      expect(find.textContaining('modelo local'), findsWidgets);
+      expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
     });
 
     testWidgets('motor detenido: badge DETENIDO y compositor desactivado', (
@@ -137,10 +136,10 @@ void main() {
       );
 
       expect(find.text('DETENIDO'), findsOneWidget);
-      expect(find.text('El motor local está detenido'), findsOneWidget);
+      expect(find.text('Motor local detenido'), findsOneWidget);
       // Botón de enviar desactivado sin motor.
       final sendButton = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.arrow_upward_rounded),
+        find.widgetWithIcon(IconButton, Icons.send_rounded),
       );
       expect(sendButton.onPressed, isNull);
     });
@@ -160,9 +159,9 @@ void main() {
       );
 
       expect(find.text('LOCAL'), findsOneWidget);
-      expect(find.text('¿En qué puedo ayudarte?'), findsOneWidget);
+      expect(find.text('Chat local'), findsOneWidget);
       final sendButton = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.arrow_upward_rounded),
+        find.widgetWithIcon(IconButton, Icons.send_rounded),
       );
       expect(sendButton.onPressed, isNotNull);
     });
@@ -187,7 +186,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'Cuéntame algo');
       await tester.tap(
-        find.widgetWithIcon(IconButton, Icons.arrow_upward_rounded),
+        find.widgetWithIcon(IconButton, Icons.send_rounded),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
@@ -261,7 +260,7 @@ void main() {
 
       // Sin burbujas: el texto de sugerencia existe, pero ningún mensaje.
       expect(find.text('Hola'), findsNothing);
-      expect(find.textContaining('¿En qué puedo ayudarte?'), findsOneWidget);
+      expect(find.textContaining('Escribe un mensaje para comenzar'), findsOneWidget);
     });
 
     testWidgets('sin barra de navegación inferior', (tester) async {
@@ -291,8 +290,10 @@ void main() {
         (call) async => false,
       );
       addTearDown(
-        () => tester.binding.defaultBinaryMessenger
-            .setMockMethodCallHandler(micChannel, null),
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          micChannel,
+          null,
+        ),
       );
 
       await pumpScreen(
@@ -333,8 +334,10 @@ void main() {
         (call) async => throw PlatformException(code: 'SAF_DENIED'),
       );
       addTearDown(
-        () => tester.binding.defaultBinaryMessenger
-            .setMockMethodCallHandler(pickerChannel, null),
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          pickerChannel,
+          null,
+        ),
       );
 
       await pumpScreen(
@@ -384,7 +387,7 @@ void main() {
 
       expect(find.text('ACTIVO'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
-      expect(find.text('1 instalados · 1.2 GB'), findsOneWidget);
+      expect(find.text('1 instalado · 1.2 GB'), findsOneWidget);
     });
 
     testWidgets('modelo instalado muestra INSTALADO y botón Usar', (
@@ -436,7 +439,7 @@ void main() {
       expect(find.text('DISPONIBLE'), findsOneWidget);
       expect(find.text('Descargar'), findsOneWidget);
       // Sin modelos instalados: resumen sin dato inventado.
-      expect(find.text('0 instalados · —'), findsOneWidget);
+      expect(find.text('0 instalados · 0 GB'), findsOneWidget);
     });
 
     testWidgets('descarga en curso muestra progreso y cancelación', (
@@ -508,10 +511,9 @@ void main() {
         ],
       );
 
-      expect(find.text('0 instalados · —'), findsOneWidget);
+      expect(find.text('0 instalados · 0 GB'), findsOneWidget);
       expect(find.text('Descargar'), findsNothing);
       expect(find.text('Usar'), findsNothing);
-      expect(find.text('Espacio usado por modelos: —'), findsOneWidget);
     });
 
     testWidgets('320x568 sin overflow con varios modelos', (tester) async {
@@ -554,11 +556,8 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'sin overflow a 320x568');
       expect(find.text('ACTIVO'), findsOneWidget);
 
-      // La barra de escaneo del storage ocupa espacio: la segunda y tercera
-      // card quedan fuera del viewport en 320x568. Hacer scroll (mismo
-      // patrón que ya usaba para la tercera card).
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
-      await tester.pump();
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
       expect(find.text('DESCARGANDO'), findsOneWidget);
       expect(find.text('ERROR'), findsOneWidget);
     });
@@ -568,7 +567,7 @@ void main() {
     ) async {
       final state = ModelsState(
         models: [
-          // Requiere 7 GB de RAM, el device reporta 3.9 GB libres: NO COMPATIBLE.
+          // Requiere 7 GB de RAM, el device reporta 3.9 GB libres: INCOMPATIBLE.
           model(
             id: 'big-7b',
             name: 'Big Model 7B',
@@ -601,11 +600,10 @@ void main() {
         ],
       );
 
-      expect(find.text('NO COMPATIBLE'), findsOneWidget);
+      expect(find.text('INCOMPATIBLE'), findsOneWidget);
       expect(find.text('INSTALADO'), findsOneWidget);
-      // El requisito y la RAM libre real del dashboard, sin datos inventados.
       expect(
-        find.textContaining('Requiere 7 GB de RAM libre (hay 3.9)'),
+        find.textContaining('Requiere 7 GB de RAM (disponible: 3.9 GB)'),
         findsOneWidget,
       );
       expect(find.byIcon(Icons.block_rounded), findsOneWidget);
@@ -638,7 +636,7 @@ void main() {
 
       // ramTotalGb == 0: sin medición real, sin juicio — se queda DISPONIBLE.
       expect(find.text('DISPONIBLE'), findsOneWidget);
-      expect(find.text('NO COMPATIBLE'), findsNothing);
+      expect(find.text('INCOMPATIBLE'), findsNothing);
       expect(find.text('Descargar'), findsOneWidget);
     });
 
@@ -665,9 +663,8 @@ void main() {
         ],
       );
 
-      expect(find.textContaining('1.2 GB usados por modelos'), findsOneWidget);
-      expect(find.textContaining('209 GB libres'), findsOneWidget);
-      // La barra usa la proporción real usado/(usado+libre).
+      expect(find.textContaining('1.2 GB de 256.0 GB'), findsOneWidget);
+      expect(find.textContaining('209.0 GB libres'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
     });
 
@@ -706,6 +703,7 @@ class _FakeEngineClient extends LLMEngineClient {
     double temperature = 0.7,
     double topP = 0.9,
     int maxTokens = 256,
+    String? sessionId,
   }) {
     return (stream: _controller.stream, client: http.Client());
   }

@@ -29,41 +29,41 @@ void main() {
     // ejecutan sin Android real (patrón de test/agent/chat_tool_loop_test.dart).
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(agentChannel, (call) async {
-      switch (call.method) {
-        case 'dumpSnapshot':
-          // Snapshot NO vacío: con nodes vacíos el executor reintenta con
-          // delays reales que la zona FakeAsync de los tests nunca avanza.
-          return {
-            'package': 'com.android.settings',
-            'nodes': [
-              {
-                'id': 'android:id/content',
-                'type': 'android.widget.FrameLayout',
-                'text': '',
-                'desc': '',
-                'clickable': false,
-                'editable': false,
-                'scrollable': false,
-                'checked': false,
-                'focusable': false,
-                'focused': false,
-                'visible': true,
-                'enabled': true,
-                'bounds': [0, 0, 1080, 2400],
-                'depth': 0,
-              },
-            ],
-          };
-        case 'tapAt':
-          return true;
-        case 'inputText':
-          return true;
-        case 'globalAction':
-          return true;
-        default:
-          return null;
-      }
-    });
+          switch (call.method) {
+            case 'dumpSnapshot':
+              // Snapshot NO vacío: con nodes vacíos el executor reintenta con
+              // delays reales que la zona FakeAsync de los tests nunca avanza.
+              return {
+                'package': 'com.android.settings',
+                'nodes': [
+                  {
+                    'id': 'android:id/content',
+                    'type': 'android.widget.FrameLayout',
+                    'text': '',
+                    'desc': '',
+                    'clickable': false,
+                    'editable': false,
+                    'scrollable': false,
+                    'checked': false,
+                    'focusable': false,
+                    'focused': false,
+                    'visible': true,
+                    'enabled': true,
+                    'bounds': [0, 0, 1080, 2400],
+                    'depth': 0,
+                  },
+                ],
+              };
+            case 'tapAt':
+              return true;
+            case 'inputText':
+              return true;
+            case 'globalAction':
+              return true;
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -150,8 +150,9 @@ void main() {
       );
 
       expect(notifier.state.attachments, hasLength(2));
-      final notas = notifier.state.attachments
-          .singleWhere((a) => a.name == 'notas.md');
+      final notas = notifier.state.attachments.singleWhere(
+        (a) => a.name == 'notas.md',
+      );
       expect(notas.content, 'hola v2');
     });
 
@@ -170,33 +171,37 @@ void main() {
     test('removeAttachment quita por nombre', () {
       final notifier = pumpNotifier(_FakeEngineClient(script: const []));
 
-      notifier.addAttachment(
-        const ChatAttachment(name: 'a.txt', content: '1'),
-      );
+      notifier.addAttachment(const ChatAttachment(name: 'a.txt', content: '1'));
       notifier.removeAttachment('a.txt');
 
       expect(notifier.state.attachments, isEmpty);
     });
 
-    test('send inyecta contenido real al prompt y consume los adjuntos',
-        () async {
-      final fake = _FakeEngineClient(script: const [['Resumen listo.']]);
-      final notifier = pumpNotifier(fake);
+    test(
+      'send inyecta contenido real al prompt y consume los adjuntos',
+      () async {
+        final fake = _FakeEngineClient(
+          script: const [
+            ['Resumen listo.'],
+          ],
+        );
+        final notifier = pumpNotifier(fake);
 
-      notifier.addAttachment(
-        const ChatAttachment(name: 'notas.md', content: 'Datos reales 123'),
-      );
-      await notifier.send('resume esto');
-      await waitDone(notifier);
+        notifier.addAttachment(
+          const ChatAttachment(name: 'notas.md', content: 'Datos reales 123'),
+        );
+        await notifier.send('resume esto');
+        await waitDone(notifier);
 
-      // El motor recibió el contenido REAL del adjunto en el prompt.
-      expect(fake.prompts.single, contains('[Adjunto: notas.md]'));
-      expect(fake.prompts.single, contains('Datos reales 123'));
-      expect(fake.prompts.single, contains('[Fin de adjunto]'));
-      expect(fake.prompts.single, contains('resume esto'));
-      // Los adjuntos se consumen: no se reenvían en el siguiente mensaje.
-      expect(notifier.state.attachments, isEmpty);
-    });
+        // El motor recibió el contenido REAL del adjunto en el prompt.
+        expect(fake.prompts.single, contains('[Adjunto: notas.md]'));
+        expect(fake.prompts.single, contains('Datos reales 123'));
+        expect(fake.prompts.single, contains('[Fin de adjunto]'));
+        expect(fake.prompts.single, contains('resume esto'));
+        // Los adjuntos se consumen: no se reenvían en el siguiente mensaje.
+        expect(notifier.state.attachments, isEmpty);
+      },
+    );
 
     test('adjunto no se repite en rondas de herramienta', () async {
       final fake = _FakeEngineClient(
@@ -219,7 +224,11 @@ void main() {
     });
 
     test('mensaje user persiste attachmentNames sin contenido', () async {
-      final fake = _FakeEngineClient(script: const [['ok']]);
+      final fake = _FakeEngineClient(
+        script: const [
+          ['ok'],
+        ],
+      );
       final notifier = pumpNotifier(fake);
 
       notifier.addAttachment(
@@ -271,8 +280,9 @@ void main() {
   });
 
   group('ChatScreen — chips y composer', () {
-    testWidgets('composer habilitado con modelo instalado y motor apagado',
-        (tester) async {
+    testWidgets('composer habilitado con modelo instalado y motor apagado', (
+      tester,
+    ) async {
       const state = ChatState(
         engineOnline: false,
         activeModel: 'Qwen 2.5 1.5B',
@@ -289,8 +299,7 @@ void main() {
 
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.enabled, isTrue);
-      // Hint honesto: motor apagado pero se puede escribir (arranca solo).
-      expect(find.text('Escribe un mensaje'), findsOneWidget);
+      expect(find.textContaining('Escribe un mensaje'), findsOneWidget);
     });
 
     testWidgets('composer bloqueado sin modelo y sin motor', (tester) async {
@@ -308,8 +317,9 @@ void main() {
       expect(field.enabled, isFalse);
     });
 
-    testWidgets('chips de adjunto visibles y quitar los elimina',
-        (tester) async {
+    testWidgets('chips de adjunto visibles y quitar los elimina', (
+      tester,
+    ) async {
       const state = ChatState(
         engineOnline: true,
         attachments: [
@@ -329,15 +339,16 @@ void main() {
       expect(find.text('notas.md'), findsOneWidget);
       expect(find.text('log.txt'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Quitar adjunto: notas.md'));
+      await tester.tap(find.byIcon(Icons.close_rounded).first);
       await tester.pump();
 
       expect(find.text('notas.md'), findsNothing);
       expect(find.text('log.txt'), findsOneWidget);
     });
 
-    testWidgets('mensaje user con adjuntos muestra los nombres en la burbuja',
-        (tester) async {
+    testWidgets('mensaje user con adjuntos muestra los nombres en la burbuja', (
+      tester,
+    ) async {
       final state = ChatState(
         engineOnline: true,
         messages: [
@@ -364,9 +375,14 @@ void main() {
       expect(find.text('📎 log.txt'), findsOneWidget);
     });
 
-    testWidgets('adjuntar → enviar llega al motor con el contenido real',
-        (tester) async {
-      final fake = _FakeEngineClient(script: const [['listo']]);
+    testWidgets('adjuntar → enviar llega al motor con el contenido real', (
+      tester,
+    ) async {
+      final fake = _FakeEngineClient(
+        script: const [
+          ['listo'],
+        ],
+      );
       final engine = _FakeEngineNotifier(fake);
       const state = ChatState(
         engineOnline: true,
@@ -413,6 +429,7 @@ class _FakeEngineClient extends LLMEngineClient {
     double temperature = 0.7,
     double topP = 0.9,
     int maxTokens = 256,
+    String? sessionId,
   }) {
     prompts.add(prompt);
     final chunks = script[rounds < script.length ? rounds : script.length - 1];

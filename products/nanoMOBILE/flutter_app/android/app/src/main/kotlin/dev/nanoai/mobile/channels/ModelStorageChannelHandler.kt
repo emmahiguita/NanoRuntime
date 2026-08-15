@@ -113,10 +113,74 @@ class ModelStorageChannelHandler(
     }
 
     private fun handleScanAll(result: MethodChannel.Result) {
+        if (!hasAllFilesAccess()) {
+            result.success(null)
+            return
+        }
         ioScope.launch {
-            val found = walkFileTree(Environment.getExternalStorageDirectory())
+            val found = walkAllReadableRoots()
             mainHandler.post { result.success(found) }
         }
+    }
+
+    /** Escanea todas las raices legibles relevantes, no solo Download.
+     *
+     * Cubre almacenamiento compartido primario, aliases de Android
+     * (/sdcard, /storage/self/primary) y carpetas externas propias de la app.
+     * Deduplica por canonicalPath para no reportar el mismo GGUF dos veces por
+     * symlinks/aliases.
+     */
+    private fun walkAllReadableRoots(): List<Map<String, Any?>> {
+        val seen = LinkedHashSet<String>()
+        val out = ArrayList<Map<String, Any?>>()
+        for (root in scanRoots()) {
+            val canonical = try {
+                root.canonicalPath
+            } catch (_: Exception) {
+                root.absolutePath
+            }
+            if (!seen.add(canonical)) continue
+            out.addAll(walkFileTree(root, seen))
+        }
+        return out
+    }
+
+    private fun scanRoots(): List<File> {
+        val roots = ArrayList<File>()
+        // Common primary aliases
+        roots.add(Environment.getExternalStorageDirectory())
+        roots.add(File("/sdcard"))
+        roots.add(File("/storage/self/primary"))
+        roots.add(File("/storage/emulated/0"))
+
+        // Add app-specific external and media dirs
+        activity.getExternalFilesDirs(null).filterNotNull().forEach { roots.add(it) }
+        activity.getExternalMediaDirs().filterNotNull().forEach { roots.add(it) }
+
+        // Include all mount points under /storage (covers removable SD cards
+        // and vendor-specific mount points like /storage/XXXX-XXXX). Also
+        // include /mnt for older devices/emulators.
+        try {
+            val storageRoot = File("/storage")
+            val storageChildren = storageRoot.listFiles()
+            if (storageChildren != null) {
+                storageChildren.filter { it.exists() && it.canRead() }.forEach { roots.add(it) }
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val mntRoot = File("/mnt")
+            val mntChildren = mntRoot.listFiles()
+            if (mntChildren != null) {
+                mntChildren.filter { it.exists() && it.canRead() }.forEach { roots.add(it) }
+            }
+        } catch (_: Exception) {}
+
+        // Deduplicate and return only readable roots
+        return roots.filter { it.exists() && it.canRead() }
+            .distinctBy {
+                try { it.canonicalPath } catch (_: Exception) { it.absolutePath }
+            }
     }
 
     /**
@@ -125,7 +189,10 @@ class ModelStorageChannelHandler(
      * MANAGE_EXTERNAL_STORAGE listFiles devuelve null en Android 11+ y el
      * resultado queda vacío (honesto: no hay nada legible).
      */
-    private fun walkFileTree(root: File): List<Map<String, Any?>> {
+    private fun walkFileTree(
+        root: File,
+        seenPaths: MutableSet<String> = LinkedHashSet(),
+    ): List<Map<String, Any?>> {
         val out = ArrayList<Map<String, Any?>>()
         val queue = ArrayDeque<File>().apply { add(root) }
         val deadline = System.currentTimeMillis() + SCAN_TIMEOUT_MS
@@ -149,6 +216,13 @@ class ModelStorageChannelHandler(
                     queue.addLast(child)
                     continue
                 }
+                val pathKey = try {
+                    child.canonicalPath
+                } catch (_: Exception) {
+                    child.absolutePath
+                }
+                if (!seenPaths.add(pathKey)) continue
+
                 val name = child.name
                 val ext = name.substringAfterLast('.', "").lowercase()
                 if (ext !in MODEL_EXTENSIONS) continue

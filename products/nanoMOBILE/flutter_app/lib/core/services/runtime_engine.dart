@@ -4,15 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'nano_runtime_api.dart';
 import 'llm_engine_client.dart';
 
-/// Fase del motor nanortime según la evidencia real (canal + HTTP).
+/// Fase del motor nanortime segÃºn la evidencia real (canal + HTTP).
 ///
 /// - [EnginePhase.idle]: no arrancado.
 /// - [EnginePhase.starting]: spawn aceptado por el supervisor Kotlin,
 ///   health poll en curso.
 /// - [EnginePhase.ready]: /health OK y /api/status 200 (modelo cargado).
 /// - [EnginePhase.degraded]: /health OK pero /api/status 503
-///   runtime_unavailable — motor vivo sin GGUF instalado (B5).
-/// - [EnginePhase.failed]: el supervisor reportó fallo (spawn, health
+///   runtime_unavailable â€” motor vivo sin GGUF instalado (B5).
+/// - [EnginePhase.failed]: el supervisor reportÃ³ fallo (spawn, health
 ///   timeout, proceso muerto).
 enum EnginePhase { idle, starting, ready, degraded, failed }
 
@@ -23,7 +23,7 @@ class EngineStatus {
   final int port;
   final String? reason;
 
-  /// Ruta del GGUF con el que arrancó el motor (null = --no-model).
+  /// Ruta del GGUF con el que arrancÃ³ el motor (null = --no-model).
   /// Permite detectar cambio de modelo y reiniciar honestamente.
   final String? modelPath;
 
@@ -68,17 +68,17 @@ class EngineStatus {
   int get hashCode => Object.hash(phase, pid, port, reason, modelPath);
 }
 
-/// Dueño Dart del motor nanortime: arranca/detiene vía canal `com.nanoai/engine`,
+/// DueÃ±o Dart del motor nanortime: arranca/detiene vÃ­a canal `com.nanoai/engine`,
 /// escucha los estados push del supervisor Kotlin y verifica el estado real
-/// por HTTP (probe honesto — nunca un estado supuesto).
+/// por HTTP (probe honesto â€” nunca un estado supuesto).
 ///
 /// El [client] es la interfaz de inferencia (SSE /completion) que consumen
-/// ChatNotifier y demás: nadie crea LLMEngineClient directo.
+/// ChatNotifier y demÃ¡s: nadie crea LLMEngineClient directo.
 class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
   final NanoRuntimeApi _api;
   final LLMEngineClient _client;
 
-  /// Espera máxima por el estado `ready` tras arrancar (poll 250ms).
+  /// Espera mÃ¡xima por el estado `ready` tras arrancar (poll 250ms).
   static const Duration startTimeout = Duration(seconds: 45);
 
   RuntimeEngineNotifier(this._api, {int port = 8080})
@@ -87,20 +87,21 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     _api.setEngineStateListener(_onEngineStateEvent);
   }
 
-  /// Cliente HTTP de inferencia contra el motor. Único punto de acceso.
+  /// Cliente HTTP de inferencia contra el motor. Ãšnico punto de acceso.
   LLMEngineClient get client => _client;
 
-  /// Accesos rápidos al estado actual (evitan `state.phase` en call sites).
+  /// Accesos rÃ¡pidos al estado actual (evitan `state.phase` en call sites).
   EnginePhase get phase => state.phase;
   bool get isLive => state.isLive;
   String? get reason => state.reason;
 
-  /// Arranca el motor (spawn vía supervisor Kotlin) y espera hasta
+  /// Arranca el motor (spawn vÃ­a supervisor Kotlin) y espera hasta
   /// [EnginePhase.ready]/[EnginePhase.degraded]/[EnginePhase.failed].
   Future<EngineStatus> start({String? modelPath}) async {
     if (state.phase == EnginePhase.ready ||
         state.phase == EnginePhase.degraded) {
-      return state;
+      if (modelPath == null || state.modelPath == modelPath) return state;
+      await stop();
     }
     debugPrint('[engine] start() fase=${state.phase.name} model=$modelPath');
     state = state.copyWith(
@@ -117,17 +118,21 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     if (!accepted) {
       state = state.copyWith(
         phase: EnginePhase.failed,
-        reason: 'canal engine rechazó el start',
+        reason: 'canal engine rechazÃ³ el start',
       );
       return state;
     }
 
-    // Los estados llegan por evento engineState; además se hace poll del
-    // snapshot por si el evento se perdió (p. ej. canal sin listener listo).
+    // Los estados llegan por evento engineState; ademÃ¡s se hace poll del
+    // snapshot por si el evento se perdiÃ³ (p. ej. canal sin listener listo).
     final deadline = DateTime.now().add(startTimeout);
     while (DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       if (state.phase != EnginePhase.starting) {
+        if (state.isLive) {
+          debugPrint('[engine] poll verifica fase=${state.phase.name}');
+          return refresh();
+        }
         debugPrint('[engine] poll terminado por fase=${state.phase.name}');
         return state;
       }
@@ -139,8 +144,12 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
         // del supervisor devuelve Idle hasta que el handle queda registrado
         // (extractEngineBlocking + spawn en curso, puede tardar segundos).
         // Solo 'ready' (handle vivo) termina el poll; failed llega por evento.
-        if (st == 'ready' || st == 'failed') {
-          _applyStateMap(snapshot);
+        if (st == 'ready') {
+          _applyStateMap(snapshot, scheduleRefresh: false);
+          return refresh();
+        }
+        if (st == 'failed') {
+          _applyStateMap(snapshot, scheduleRefresh: false);
           return state;
         }
       }
@@ -154,7 +163,7 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     return state;
   }
 
-  /// Detiene el motor (kill limpio SIGTERM→SIGKILL en el supervisor).
+  /// Detiene el motor (kill limpio SIGTERMâ†’SIGKILL en el supervisor).
   Future<bool> stop() async {
     final ok = await _api.engineStop();
     if (ok) state = EngineStatus(port: state.port);
@@ -165,11 +174,11 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
   /// Decide entre ready (con modelo) y degraded (sin modelo) por /api/status.
   Future<EngineStatus> refresh() async {
     final snapshot = await _api.engineGetState();
-    if (snapshot != null) _applyStateMap(snapshot);
+    if (snapshot != null) _applyStateMap(snapshot, scheduleRefresh: false);
     final s = state;
     if (!s.isLive) return s;
 
-    final online = await _client.isOnline();
+    final online = await _isOnlineWithNativeFallback();
     if (!online) {
       state = s.copyWith(
         phase: EnginePhase.idle,
@@ -185,10 +194,24 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     return state;
   }
 
-  /// Espera a que el motor esté listo para inferir. Si está idle arranca;
+  Future<bool> _isOnlineWithNativeFallback() async {
+    for (var attempt = 0; attempt < 8; attempt++) {
+      if (await _client.isOnline()) return true;
+      final health = await _api.engineHealth();
+      final nativeOk = health?['status'] == 'ok';
+      if (nativeOk) {
+        debugPrint('[engine] /health Dart fall?; canal nativo confirma ok');
+        return true;
+      }
+      await Future<void>.delayed(Duration(milliseconds: 350 * (attempt + 1)));
+    }
+    return false;
+  }
+
+  /// Espera a que el motor estÃ© listo para inferir. Si estÃ¡ idle arranca;
   /// si acaba degraded, devuelve false con [reason] informativo.
   ///
-  /// Cambio de modelo honesto: si el motor está vivo pero con un GGUF
+  /// Cambio de modelo honesto: si el motor estÃ¡ vivo pero con un GGUF
   /// distinto del pedido, se detiene y rearranca con el nuevo --model.
   Future<bool> ensureReady({String? modelPath}) async {
     var s = state;
@@ -209,10 +232,13 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
 
   void _onEngineStateEvent(Map<dynamic, dynamic> map) {
     if (!mounted) return;
-    _applyStateMap(map);
+    _applyStateMap(map, scheduleRefresh: false);
   }
 
-  void _applyStateMap(Map<dynamic, dynamic> map) {
+  void _applyStateMap(
+    Map<dynamic, dynamic> map, {
+    bool scheduleRefresh = true,
+  }) {
     final raw = map['state'];
     if (raw is! String) return;
     final pid = map['pid'];
@@ -223,14 +249,14 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
       case 'starting':
         state = state.copyWith(phase: EnginePhase.starting, clearReason: true);
       case 'ready':
-        // El supervisor confirma proceso sano; la distinción ready/degraded
-        // (¿hay modelo?) se resuelve en refresh() vía /api/status.
+        // El supervisor confirma proceso sano; la distinciÃ³n ready/degraded
+        // (Â¿hay modelo?) se resuelve en refresh() vÃ­a /api/status.
         state = state.copyWith(
           phase: EnginePhase.ready,
           pid: pid is int ? pid : state.pid,
           clearReason: true,
         );
-        unawaited(refresh());
+        if (scheduleRefresh) unawaited(refresh());
       case 'failed':
         state = state.copyWith(
           phase: EnginePhase.failed,

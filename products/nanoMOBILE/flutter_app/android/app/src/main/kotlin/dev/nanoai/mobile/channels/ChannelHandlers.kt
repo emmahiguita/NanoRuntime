@@ -12,4 +12,5 @@ object ChannelNames {
     const val AGENT = AgentChannelHandler.CHANNEL_NAME
     const val ENGINE = EngineChannelHandler.CHANNEL_NAME
     const val MODEL_STORAGE = ModelStorageChannelHandler.CHANNEL_NAME
+    const val SHARE = ShareChannelHandler.CHANNEL_NAME
 }

@@ -28,6 +28,7 @@ class ModelDownloader {
     required String destPath,
     required String expectedSha256,
     void Function(double progress)? onProgress,
+    void Function()? onVerifying,
     Future<bool> Function()? cancelToken,
   }) async {
     final dest = File(destPath);
@@ -50,15 +51,22 @@ class ModelDownloader {
         part.openWrite(mode: FileMode.write),
         offset: 0,
         expectedLength: response.contentLength,
+        progressTotalLength: response.contentLength,
         onProgress: onProgress,
         cancelToken: cancelToken,
       );
     } else if (status == 206 && resumeFrom > 0) {
+      final totalLength =
+          _contentRangeTotal(response) ??
+          (response.contentLength == null
+              ? null
+              : resumeFrom + response.contentLength!);
       await _pump(
         response,
         part.openWrite(mode: FileMode.writeOnlyAppend),
         offset: resumeFrom,
         expectedLength: response.contentLength,
+        progressTotalLength: totalLength,
         onProgress: onProgress,
         cancelToken: cancelToken,
       );
@@ -93,6 +101,7 @@ class ModelDownloader {
     IOSink sink, {
     required int offset,
     required int? expectedLength,
+    required int? progressTotalLength,
     required void Function(double)? onProgress,
     required Future<bool> Function()? cancelToken,
   }) async {
@@ -105,9 +114,11 @@ class ModelDownloader {
         sink.add(chunk);
         written += chunk.length;
         if (onProgress != null &&
-            expectedLength != null &&
-            expectedLength > 0) {
-          onProgress(((offset + written) / expectedLength).clamp(0.0, 1.0));
+            progressTotalLength != null &&
+            progressTotalLength > 0) {
+          onProgress(
+            ((offset + written) / progressTotalLength).clamp(0.0, 1.0),
+          );
         }
       }
       if (expectedLength != null && written != expectedLength) {
@@ -123,6 +134,14 @@ class ModelDownloader {
   Future<String> _sha256Of(File f) async {
     final digest = await crypto.sha256.bind(f.openRead()).first;
     return digest.toString();
+  }
+
+  int? _contentRangeTotal(http.StreamedResponse response) {
+    final value = response.headers[HttpHeaders.contentRangeHeader];
+    if (value == null) return null;
+    final slash = value.lastIndexOf('/');
+    if (slash < 0 || slash == value.length - 1) return null;
+    return int.tryParse(value.substring(slash + 1));
   }
 
   void dispose() => _client.close();

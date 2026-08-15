@@ -117,6 +117,14 @@ class NanoHomeScreen extends ConsumerWidget {
                     onTap: onDesktop,
                   ),
                   _ActionSpec(
+                    title: 'Linux',
+                    subtitle: 'Multi-distro',
+                    icon: Icons.computer_rounded,
+                    colors: const [Color(0x8800496B), Color(0x77002B4D)],
+                    accent: NanoPalette.emerald,
+                    onTap: () => context.push('/linux'),
+                  ),
+                  _ActionSpec(
                     title: 'Ajustes',
                     subtitle: 'Configuración',
                     icon: Icons.settings_rounded,

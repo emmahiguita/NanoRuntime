@@ -42,22 +42,22 @@ void main() {
     inputCalls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      switch (call.method) {
-        case 'dumpSnapshot':
-          return snapshotAjustes();
-        case 'tapAt':
-          final args = call.arguments as Map;
-          tapCalls.add([args['x'] as int, args['y'] as int]);
-          return true;
-        case 'inputText':
-          inputCalls.add((call.arguments as Map)['text'] as String);
-          return true;
-        case 'globalAction':
-          return true;
-        default:
-          return null;
-      }
-    });
+          switch (call.method) {
+            case 'dumpSnapshot':
+              return snapshotAjustes();
+            case 'tapAt':
+              final args = call.arguments as Map;
+              tapCalls.add([args['x'] as int, args['y'] as int]);
+              return true;
+            case 'inputText':
+              inputCalls.add((call.arguments as Map)['text'] as String);
+              return true;
+            case 'globalAction':
+              return true;
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -106,34 +106,39 @@ void main() {
     expect(notifier.state.messages.first.text, '@pantalla');
   });
 
-  test('tool-calling: modelo llama tap → se ejecuta y re-genera con el '
-      'resultado', () async {
-    final fake = _LoopEngineClient(
-      script: const [
-        ['{"tool":"tap","selector":"text=Bluetooth"}'],
-        ['Listo, lo toqué.'],
-      ],
-    );
-    final notifier = pumpNotifier(fake);
+  test(
+    'tool-calling: modelo llama tap pide confirmacion y re-genera',
+    () async {
+      final fake = _LoopEngineClient(
+        script: const [
+          ['{"tool":"tap","selector":"text=Bluetooth"}'],
+          ['Listo, lo toque.'],
+        ],
+      );
+      final notifier = pumpNotifier(fake);
 
-    await notifier.send('abre bluetooth');
-    await waitDone(notifier);
+      await notifier.send('abre bluetooth');
+      await waitDone(notifier);
 
-    // El gesto se ejecutó de verdad por el canal.
-    expect(tapCalls, [
-      [540, 340]
-    ]);
-    // Mensajes: user, llamada JSON visible (trace), respuesta final.
-    final texts = notifier.state.messages.map((m) => m.text).toList();
-    expect(texts, [
-      'abre bluetooth',
-      '{"tool":"tap","selector":"text=Bluetooth"}',
-      'Listo, lo toqué.',
-    ]);
-    // El prompt de la ronda 2 incluye el resultado real de la herramienta.
-    expect(fake.prompts[1], contains('Resultado de la herramienta'));
-    expect(fake.prompts[1], contains('✅ tap en "Bluetooth" @(540,340)'));
-  });
+      expect(notifier.state.pendingTool, 'tap');
+      expect(tapCalls, isEmpty);
+
+      await notifier.approvePendingTool();
+      await waitDone(notifier);
+
+      expect(tapCalls, [
+        [540, 340],
+      ]);
+      final texts = notifier.state.messages.map((m) => m.text).toList();
+      expect(texts, [
+        'abre bluetooth',
+        '{"tool":"tap","selector":"text=Bluetooth"}',
+        'Listo, lo toque.',
+      ]);
+      expect(fake.prompts[1], contains('Resultado de la herramienta'));
+      expect(fake.prompts[1], contains('tap en "Bluetooth" @(540,340)'));
+    },
+  );
 
   test('prompt inicial anuncia las herramientas disponibles', () async {
     final fake = _LoopEngineClient(
@@ -152,23 +157,25 @@ void main() {
     expect(fake.prompts.first, contains('{"tool":"back"}'));
   });
 
-  test('respuesta normal sin herramienta → una sola ronda, sin gestos',
-      () async {
-    final fake = _LoopEngineClient(
-      script: const [
-        ['Solo respondo texto.'],
-      ],
-    );
-    final notifier = pumpNotifier(fake);
+  test(
+    'respuesta normal sin herramienta → una sola ronda, sin gestos',
+    () async {
+      final fake = _LoopEngineClient(
+        script: const [
+          ['Solo respondo texto.'],
+        ],
+      );
+      final notifier = pumpNotifier(fake);
 
-    await notifier.send('¿qué hora es?');
-    await waitDone(notifier);
+      await notifier.send('¿qué hora es?');
+      await waitDone(notifier);
 
-    expect(fake.rounds, 1);
-    expect(tapCalls, isEmpty);
-    expect(notifier.state.messages.last.text, 'Solo respondo texto.');
-    expect(notifier.state.messages.length, 2); // user + ai
-  });
+      expect(fake.rounds, 1);
+      expect(tapCalls, isEmpty);
+      expect(notifier.state.messages.last.text, 'Solo respondo texto.');
+      expect(notifier.state.messages.length, 2); // user + ai
+    },
+  );
 
   test('herramienta desconocida → error legible llega al prompt de la '
       'siguiente ronda', () async {
@@ -187,46 +194,53 @@ void main() {
     expect(notifier.state.messages.last.text, 'No puedo volar.');
   });
 
-  test('selector inválido en tool → no rompe el loop, modelo se corrige',
-      () async {
-    final fake = _LoopEngineClient(
-      script: const [
-        ['{"tool":"tap","selector":"foo=bar"}'],
-        ['Disculpa, no encontré el selector.'],
-      ],
-    );
-    final notifier = pumpNotifier(fake);
+  test(
+    'selector inválido en tool → no rompe el loop, modelo se corrige',
+    () async {
+      final fake = _LoopEngineClient(
+        script: const [
+          ['{"tool":"tap","selector":"foo=bar"}'],
+          ['Disculpa, no encontré el selector.'],
+        ],
+      );
+      final notifier = pumpNotifier(fake);
 
-    await notifier.send('toca algo');
-    await waitDone(notifier);
+      await notifier.send('toca algo');
+      await waitDone(notifier);
+      expect(notifier.state.pendingTool, 'tap');
 
-    expect(fake.prompts[1], contains('Selector inválido "foo=bar"'));
-    expect(tapCalls, isEmpty);
-    expect(notifier.state.messages.last.text, 'Disculpa, no encontré el selector.');
-  });
+      await notifier.approvePendingTool();
+      await waitDone(notifier);
 
-  test('máximo 2 rondas de herramientas: la tercera llamada se muestra tal '
-      'cual, sin ejecutar', () async {
-    final fake = _LoopEngineClient(
-      script: const [
-        ['{"tool":"tap","selector":"text=Bluetooth"}'],
-        ['{"tool":"tap","selector":"text=Bluetooth"}'],
-        ['{"tool":"tap","selector":"text=Bluetooth"}'],
-      ],
-    );
-    final notifier = pumpNotifier(fake);
+      expect(fake.prompts[1], contains('Selector inv'));
+      expect(tapCalls, isEmpty);
+      expect(
+        notifier.state.messages.last.text,
+        contains('Disculpa, no encontr'),
+      );
+    },
+  );
 
-    await notifier.send('toca tres veces');
-    await waitDone(notifier);
+  test(
+    'maximo 2 rondas de herramientas read: la tercera queda visible',
+    () async {
+      final fake = _LoopEngineClient(
+        script: const [
+          ['{"tool":"screen"}'],
+          ['{"tool":"screen"}'],
+          ['{"tool":"screen"}'],
+        ],
+      );
+      final notifier = pumpNotifier(fake);
 
-    // 3 generaciones (2 tools + 1 final sin ejecutar) y solo 2 gestos.
-    expect(fake.rounds, 3);
-    expect(tapCalls.length, 2);
-    expect(
-      notifier.state.messages.last.text,
-      '{"tool":"tap","selector":"text=Bluetooth"}',
-    );
-  });
+      await notifier.send('lee pantalla tres veces');
+      await waitDone(notifier);
+
+      expect(fake.rounds, 3);
+      expect(tapCalls, isEmpty);
+      expect(notifier.state.messages.last.text, '{"tool":"screen"}');
+    },
+  );
 }
 
 /// Cliente fake: cada llamada a generateStream consume el siguiente script
@@ -249,6 +263,7 @@ class _LoopEngineClient extends LLMEngineClient {
     double temperature = 0.7,
     double topP = 0.9,
     int maxTokens = 256,
+    String? sessionId,
   }) {
     prompts.add(prompt);
     final chunks = script[rounds < script.length ? rounds : script.length - 1];

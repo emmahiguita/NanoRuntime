@@ -4,6 +4,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum AgentAutomationMode {
+  manual,
+  assisted,
+  autonomous;
+
+  static AgentAutomationMode fromName(String? name) {
+    for (final mode in AgentAutomationMode.values) {
+      if (mode.name == name) return mode;
+    }
+    return AgentAutomationMode.assisted;
+  }
+
+  String get label => switch (this) {
+    AgentAutomationMode.manual => 'Manual',
+    AgentAutomationMode.assisted => 'Asistido',
+    AgentAutomationMode.autonomous => 'Autónomo',
+  };
+
+  String get description => switch (this) {
+    AgentAutomationMode.manual => 'Toda acción del LLM pide confirmación.',
+    AgentAutomationMode.assisted =>
+      'Lectura automática; tocar, atrás y escribir piden confirmación.',
+    AgentAutomationMode.autonomous =>
+      'Lectura, tocar y atrás automáticos; escribir siempre pide confirmación.',
+  };
+}
+
 // ================================================================
 // Settings Repository (real persistence)
 // ================================================================
@@ -37,6 +64,9 @@ class SettingsRepository {
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
         vncPassword: m['vncPassword'] as String? ?? '',
         desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
+        agentAutomationMode: AgentAutomationMode.fromName(
+          m['agentAutomationMode'] as String?,
+        ),
       );
     } catch (_) {
       return const SettingsState();
@@ -58,6 +88,7 @@ class SettingsRepository {
         'maxTokens': s.maxTokens,
         'vncPassword': s.vncPassword,
         'desktopMobileMode': s.desktopMobileMode,
+        'agentAutomationMode': s.agentAutomationMode.name,
       }),
     );
   }
@@ -76,6 +107,7 @@ class SettingsState {
   final int maxTokens;
   final String vncPassword;
   final bool desktopMobileMode;
+  final AgentAutomationMode agentAutomationMode;
 
   const SettingsState({
     this.themeMode = 'Sistema',
@@ -88,6 +120,7 @@ class SettingsState {
     this.maxTokens = 512,
     this.vncPassword = '',
     this.desktopMobileMode = false,
+    this.agentAutomationMode = AgentAutomationMode.assisted,
   });
 
   SettingsState copyWith({
@@ -101,6 +134,7 @@ class SettingsState {
     int? maxTokens,
     String? vncPassword,
     bool? desktopMobileMode,
+    AgentAutomationMode? agentAutomationMode,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -112,6 +146,7 @@ class SettingsState {
     maxTokens: maxTokens ?? this.maxTokens,
     vncPassword: vncPassword ?? this.vncPassword,
     desktopMobileMode: desktopMobileMode ?? this.desktopMobileMode,
+    agentAutomationMode: agentAutomationMode ?? this.agentAutomationMode,
   );
 }
 
@@ -163,6 +198,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setVncPassword(String v) => _persist(state.copyWith(vncPassword: v));
   void setDesktopMobileMode(bool v) =>
       _persist(state.copyWith(desktopMobileMode: v));
+  void setAgentAutomationMode(AgentAutomationMode v) =>
+      _persist(state.copyWith(agentAutomationMode: v));
 }
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);

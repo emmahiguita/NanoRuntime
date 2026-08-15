@@ -55,9 +55,12 @@ class RuntimeInfo {
 /// Contrato del canal en Kotlin:
 /// `android/.../channels/RuntimeChannelHandler.kt` (RUNTIME_VERSION).
 class NanoRuntimeApi {
-  NanoRuntimeApi._();
+  /// Público SOLO para fakes de test (override de los métodos del canal).
+  /// Producción usa [instance] — jamás crear instancias nuevas.
+  @visibleForTesting
+  NanoRuntimeApi();
 
-  static final NanoRuntimeApi instance = NanoRuntimeApi._();
+  static final NanoRuntimeApi instance = NanoRuntimeApi();
 
   /// Versión de contrato que este Dart conoce. Debe coincidir con
   /// `RuntimeChannelHandler.RUNTIME_VERSION` en Kotlin.

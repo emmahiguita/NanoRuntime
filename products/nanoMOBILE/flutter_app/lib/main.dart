@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/linux/linux_init.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/services/boot_orchestrator.dart';
@@ -17,6 +18,9 @@ void main() {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
+
+  // Inicializar registry de distribuciones Linux
+  initializeLinuxDistributions();
 
   runApp(const ProviderScope(child: NanoPlatformApp()));
   _listenSystemNavigation();

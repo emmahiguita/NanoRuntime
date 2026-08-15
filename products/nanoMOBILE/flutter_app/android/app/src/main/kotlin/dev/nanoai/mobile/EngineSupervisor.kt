@@ -135,8 +135,20 @@ class EngineSupervisor(
         return null
     }
 
-    /** PID vivo según procfs — sin dependencias externas, honesto. */
-    fun isPidAlive(pid: Int): Boolean = pid > 0 && File("/proc/$pid").exists()
+    /** PID vivo del daemon creado por el worker.
+     *
+     * El motor `nanortime` no es hijo del proceso Flutter: nace dentro del
+     * proceso `:nanoshell`. En Android algunos devices restringen `/proc` al
+     * proceso padre real, asi que el proceso principal puede ver falsos
+     * negativos. La fuente primaria debe ser el worker; `/proc` queda solo
+     * como fallback para tests o runtime sin worker.
+     */
+    fun isPidAlive(pid: Int): Boolean {
+        if (pid <= 0) return false
+        val workerAlive = workerClientProvider()?.isPidAlive(pid)
+        if (workerAlive != null) return workerAlive
+        return File("/proc/$pid").exists()
+    }
 
     /** Snapshot sin IO de red — útil para la UI entre polls. */
     fun currentState(): EngineState {
@@ -191,11 +203,21 @@ class EngineSupervisor(
                     }
                     add("--quiet")
                 }
+                val nativeLibDir = context.applicationInfo.nativeLibraryDir
+                val nanoUsr = File(appFilesDir, "nano/usr").absolutePath
+                val nanoUsrLib = File(nanoUsr, "lib").absolutePath
+                val envp = listOf(
+                    "LD_LIBRARY_PATH=$nativeLibDir:$nanoUsrLib:/system/lib64",
+                    "NANO_NATIVE_LIB_DIR=$nativeLibDir",
+                    "HOME=${File(appFilesDir, "nano/home").absolutePath}",
+                    "TMPDIR=${File(appFilesDir, "nano/usr/tmp").absolutePath}",
+                    "NANO_ROOTFS=$nanoUsr",
+                )
                 val taskId = "engine-$gen-${System.currentTimeMillis()}"
                 val pid = withContext(Dispatchers.IO) {
                     // spawnDetached espera hasta 20s el latch del worker
                     // (awaitConnected + replyTo) — bloqueante por diseño.
-                    worker.spawnDetached(binary.absolutePath, argv, emptyList(), taskId)
+                    worker.spawnDetached(binary.absolutePath, argv, envp, taskId)
                 }
                 if (pid <= 0) {
                     failIfCurrent(gen, onState, "spawnDetached falló (pid=$pid, worker no disponible o fork error)")

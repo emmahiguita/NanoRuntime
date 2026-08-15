@@ -80,96 +80,157 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
     return NanoScreenShell(
       title: 'Modelos',
-      body: Column(
-        children: [
-          _ModelsSummary(
-            installedCount: installedModels.length,
-            usedGb: usedGb,
-          ),
-          const SizedBox(height: 12),
-          _ScanBar(
-            scanning: state.scanning,
-            allFilesGranted: state.allFilesGranted,
-            detectedCount: detected.length,
-            error: state.scanError,
-            onGrant: notifier.requestAllFilesAccess,
-            onPickTree: notifier.pickTreeAndScan,
-            onRescan: notifier.scanStorageAll,
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-              itemCount: state.models.length + detected.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (index >= state.models.length) {
-                  // Modelo detectado en storage SAF: se usa directo desde su
-                  // ubicación original (fd por Binder, cero copias).
-                  final detectedModel = detected[index - state.models.length];
-                  return _DetectedCard(
-                    model: detectedModel,
-                    loading: state.loadingDetectedUri ==
-                        (detectedModel.path ?? detectedModel.uri),
-                    onUse: () => notifier.useDetected(detectedModel),
-                  );
-                }
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isLandscape = constraints.maxWidth >= 640;
+          final totalCount = state.models.length + detected.length;
 
-                final model = state.models[index];
-                final status = _statusOf(model, dashboard);
+          Widget buildCardAt(int index) {
+            if (index >= state.models.length) {
+              // Modelo detectado en storage SAF: se usa directo desde su
+              // ubicación original (fd por Binder, cero copias).
+              final detectedModel = detected[index - state.models.length];
+              return _DetectedCard(
+                model: detectedModel,
+                loading:
+                    state.loadingDetectedUri ==
+                    (detectedModel.path ?? detectedModel.uri),
+                onUse: () => notifier.useDetected(detectedModel),
+              );
+            }
 
-                final card = _ModelCard(
-                  name: model.name,
-                  quantization: model.quant,
-                  sizeGb: model.sizeGb,
-                  description: model.description,
-                  error: model.error,
-                  status: status,
-                  ramNote: status == ModelUiStatus.incompatible
-                      ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de '
-                            'RAM libre (hay '
-                            '${dashboard.ramFreeGb.toStringAsFixed(1)})'
-                      : null,
-                  progress: model.progress,
-                  onUse: () => notifier.loadModel(model.id),
-                  onDownload: () => notifier.downloadModel(model.id),
-                  onCancel: notifier.cancelDownload,
-                );
+            final model = state.models[index];
+            final status = _statusOf(model, dashboard);
 
-                if (MediaQuery.disableAnimationsOf(context)) return card;
+            final card = _ModelCard(
+              name: model.name,
+              quantization: model.quant,
+              sizeGb: model.sizeGb,
+              description: model.description,
+              error: model.error,
+              status: status,
+              ramNote: status == ModelUiStatus.incompatible
+                  ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (disponible: ${dashboard.ramFreeGb.toStringAsFixed(1)} GB)'
+                  : null,
+              progress: model.progress,
+              onUse: () => notifier.loadModel(model.id),
+              onDownload: () => notifier.downloadModel(model.id),
+              onCancel: notifier.cancelDownload,
+            );
 
-                // Tramo propio del controller compartido: entrada escalonada
-                // fade + slide sin crear ningún controller por tarjeta.
-                final start = (index * 0.08).clamp(0.0, 0.75);
-                final end = (start + 0.22).clamp(0.0, 1.0);
-                final entry = CurvedAnimation(
-                  parent: _entryController,
-                  curve: Interval(start, end, curve: Curves.easeOutCubic),
-                );
+            if (MediaQuery.disableAnimationsOf(context)) return card;
 
-                return AnimatedBuilder(
-                  animation: _entryController,
-                  builder: (_, child) {
-                    final value = entry.value;
-                    return Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, 14 * (1 - value)),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: card,
+            // Tramo propio del controller compartido: entrada escalonada
+            // fade + slide sin crear ningún controller por tarjeta.
+            final start = (index * 0.08).clamp(0.0, 0.75);
+            final end = (start + 0.22).clamp(0.0, 1.0);
+            final entry = CurvedAnimation(
+              parent: _entryController,
+              curve: Interval(start, end, curve: Curves.easeOutCubic),
+            );
+
+            return AnimatedBuilder(
+              animation: _entryController,
+              builder: (_, child) {
+                final value = entry.value;
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 14 * (1 - value)),
+                    child: child,
+                  ),
                 );
               },
-            ),
-          ),
-          _StorageUsage(
-            usedGb: usedGb,
-            storageTotalGb: dashboard.storageTotalGb,
-            storageFreeGb: dashboard.storageFreeGb,
-          ),
-        ],
+              child: card,
+            );
+          }
+
+          if (isLandscape) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ModelsSummary(
+                          installedCount: installedModels.length,
+                          usedGb: usedGb,
+                          margin: EdgeInsets.zero,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _ScanBar(
+                          scanning: state.scanning,
+                          allFilesGranted: state.allFilesGranted,
+                          detectedCount: detected.length,
+                          error: state.scanError,
+                          margin: EdgeInsets.zero,
+                          onGrant: notifier.requestAllFilesAccess,
+                          onPickTree: notifier.pickTreeAndScan,
+                          onRescan: notifier.scanStorageAll,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      mainAxisExtent: 185,
+                    ),
+                    itemCount: totalCount,
+                    itemBuilder: (context, index) => buildCardAt(index),
+                  ),
+                ),
+                _StorageUsage(
+                  usedGb: usedGb,
+                  storageTotalGb: dashboard.storageTotalGb,
+                  storageFreeGb: dashboard.storageFreeGb,
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            children: [
+              _ModelsSummary(
+                installedCount: installedModels.length,
+                usedGb: usedGb,
+              ),
+              const SizedBox(height: 12),
+              _ScanBar(
+                scanning: state.scanning,
+                allFilesGranted: state.allFilesGranted,
+                detectedCount: detected.length,
+                error: state.scanError,
+                onGrant: notifier.requestAllFilesAccess,
+                onPickTree: notifier.pickTreeAndScan,
+                onRescan: notifier.scanStorageAll,
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                  itemCount: totalCount,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) => buildCardAt(index),
+                ),
+              ),
+              _StorageUsage(
+                usedGb: usedGb,
+                storageTotalGb: dashboard.storageTotalGb,
+                storageFreeGb: dashboard.storageFreeGb,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -206,15 +267,20 @@ enum ModelUiStatus {
 }
 
 class _ModelsSummary extends StatelessWidget {
-  const _ModelsSummary({required this.installedCount, required this.usedGb});
+  const _ModelsSummary({
+    required this.installedCount,
+    required this.usedGb,
+    this.margin,
+  });
 
   final int installedCount;
   final double usedGb;
+  final EdgeInsetsGeometry? margin;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 4, 18, 0),
+      margin: margin ?? const EdgeInsets.fromLTRB(18, 4, 18, 0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
         color: const Color(0xFF07192B).withValues(alpha: 0.72),
@@ -229,10 +295,9 @@ class _ModelsSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              installedCount == 0 || usedGb <= 0
-                  ? '$installedCount instalados · —'
-                  : '$installedCount instalados · '
-                        '${formatGb(usedGb)}',
+              installedCount == 1
+                  ? '1 instalado · ${usedGb <= 0 ? '0 GB' : formatGb(usedGb)}'
+                  : '$installedCount instalados · ${usedGb <= 0 ? '0 GB' : formatGb(usedGb)}',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
@@ -279,7 +344,7 @@ class _ModelCard extends StatelessWidget {
     // El icono del modelo activo flota ±2px (FloatingModelIcon).
     final icon = FloatingModelIcon(
       active: status == ModelUiStatus.active,
-      child: const _ModelIcon(),
+      child: _ModelIcon(name: name),
     );
 
     return Semantics(
@@ -376,10 +441,31 @@ class _ModelCard extends StatelessWidget {
 }
 
 class _ModelIcon extends StatelessWidget {
-  const _ModelIcon();
+  const _ModelIcon({required this.name});
+  final String name;
 
   @override
   Widget build(BuildContext context) {
+    final lowerName = name.toLowerCase();
+    final IconData iconData;
+    if (lowerName.contains('deepseek') || lowerName.contains('r1')) {
+      iconData = Icons.psychology_rounded;
+    } else if (lowerName.contains('coder') || lowerName.contains('code')) {
+      iconData = Icons.code_rounded;
+    } else if (lowerName.contains('gemma')) {
+      iconData = Icons.diamond_rounded;
+    } else if (lowerName.contains('llama')) {
+      iconData = Icons.smart_toy_rounded;
+    } else if (lowerName.contains('phi')) {
+      iconData = Icons.auto_awesome_rounded;
+    } else if (lowerName.contains('27b') || lowerName.contains('32b')) {
+      iconData = Icons.bolt_rounded;
+    } else if (lowerName.contains('qwen')) {
+      iconData = Icons.hub_rounded;
+    } else {
+      iconData = Icons.memory_rounded;
+    }
+
     return Container(
       width: 66,
       height: 66,
@@ -388,10 +474,10 @@ class _ModelIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
-      child: const Icon(
-        Icons.view_in_ar_rounded,
+      child: Icon(
+        iconData,
         color: Colors.white,
-        size: 38,
+        size: 36,
       ),
     );
   }
@@ -613,16 +699,15 @@ class _ModelAction extends StatelessWidget {
 }
 
 /// Barra del scanner automático del storage. Estados honestos:
-/// escaneando (spinner), sin permiso MANAGE (botón "Conceder acceso" que
-/// abre Ajustes del sistema; el SAF queda como fallback discreto debajo) o
-/// concedido (N detectados + re-escanear). El error del último escaneo se
-/// muestra debajo.
+/// scanning=true (ocupado), detectedCount>0 (resultados), error!=null
+/// (fallo SAF), allFilesGranted=false (falta permiso).
 class _ScanBar extends StatelessWidget {
   const _ScanBar({
     required this.scanning,
     required this.allFilesGranted,
     required this.detectedCount,
     required this.error,
+    this.margin,
     required this.onGrant,
     required this.onPickTree,
     required this.onRescan,
@@ -632,162 +717,86 @@ class _ScanBar extends StatelessWidget {
   final bool allFilesGranted;
   final int detectedCount;
   final String? error;
+  final EdgeInsetsGeometry? margin;
   final VoidCallback onGrant;
   final VoidCallback onPickTree;
   final VoidCallback onRescan;
 
   @override
   Widget build(BuildContext context) {
-    final Widget content;
-    if (scanning) {
-      content = const Row(
-        children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Color(0xFF42D9FF),
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Escaneando storage...',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
-        ],
-      );
-    } else if (!allFilesGranted) {
-      content = LayoutBuilder(
-        builder: (context, constraints) {
-          const label = Row(
-            children: [
-              Icon(Icons.folder_open_rounded, color: Color(0xFF42D9FF)),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Encuentra tus GGUF en todo el storage',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            ],
-          );
-          // Fallback SAF discreto: icono de carpeta con tooltip, misma fila
-          // (sin fila extra para no empujar las cards en pantallas bajas).
-          final actions = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PressableScale(
-                child: OutlinedButton(
-                  onPressed: onGrant,
-                  child: const Text('Conceder acceso'),
-                ),
-              ),
-              const SizedBox(width: 2),
-              IconButton(
-                tooltip: 'Elegir carpeta específica (SAF)',
-                onPressed: onPickTree,
-                icon: const Icon(
-                  Icons.folder_outlined,
-                  color: Color(0xFF42D9FF),
-                ),
-              ),
-            ],
-          );
-
-          // En pantallas angostas los botones no caben junto al texto:
-          // bajan a su propia fila, con el botón flexible (Expanded) para
-          // que el texto se elipsice en vez de desbordar.
-          if (constraints.maxWidth < 330) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                label,
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: PressableScale(
-                        child: OutlinedButton(
-                          onPressed: onGrant,
-                          child: const Text('Conceder acceso'),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    IconButton(
-                      tooltip: 'Elegir carpeta específica (SAF)',
-                      onPressed: onPickTree,
-                      icon: const Icon(
-                        Icons.folder_outlined,
-                        color: Color(0xFF42D9FF),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          }
-          return Row(children: [label, actions]);
-        },
-      );
-    } else {
-      content = Row(
-        children: [
-          const Icon(Icons.sd_storage_rounded, color: Color(0xFF42D9FF)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              detectedCount == 0
-                  ? 'Ningún GGUF/safetensors/onnx detectado'
-                  : '$detectedCount detectados en storage',
-              style: const TextStyle(color: Colors.white70),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Re-escanear',
-            onPressed: onRescan,
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF42D9FF)),
-          ),
-        ],
-      );
-    }
-
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF07192B).withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF9B8AFF).withValues(alpha: 0.3),
+          color: error != null
+              ? const Color(0xFFFF5C6C).withValues(alpha: 0.45)
+              : Colors.white.withValues(alpha: 0.12),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          content,
-          if (error != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              error!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFFFF5C6C), fontSize: 12),
+          Icon(
+            scanning
+                ? Icons.refresh_rounded
+                : detectedCount > 0
+                    ? Icons.folder_open_rounded
+                    : Icons.folder_off_rounded,
+            size: 20,
+            color: error != null
+                ? const Color(0xFFFF5C6C)
+                : Colors.white.withValues(alpha: 0.72),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              error ??
+                  (scanning
+                      ? 'Buscando modelos en el dispositivo...'
+                      : detectedCount > 0
+                          ? (detectedCount == 1
+                              ? '1 modelo local detectado'
+                              : '$detectedCount modelos locales detectados')
+                          : 'No se encontraron modelos locales'),
+              style: TextStyle(
+                color: error != null
+                    ? const Color(0xFFFF5C6C)
+                    : Colors.white.withValues(alpha: 0.72),
+                fontSize: 13,
+              ),
             ),
-          ],
+          ),
+          if (!allFilesGranted)
+            PressableScale(
+              child: TextButton(
+                onPressed: onGrant,
+                child: const Text('Dar permiso'),
+              ),
+            )
+          else if (error != null)
+            PressableScale(
+              child: TextButton(
+                onPressed: onPickTree,
+                child: const Text('Elegir carpeta'),
+              ),
+            )
+          else if (!scanning)
+            PressableScale(
+              child: TextButton(
+                onPressed: onRescan,
+                child: const Text('Reescanear'),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-/// Card de un modelo detectado en el storage SAF. "Usar directo" abre el fd
-/// en el worker y arranca el engine desde la ubicación original; si el
-/// archivo no pasó la verificación (magic GGUF o formato no engine), se
-/// muestra NO USABLE — honesto, sin botones muertos.
+/// Card de modelo detectado por SAF (sin instalación: uso directo desde su
+/// ubicación original). Botón CARGAR invoca `useDetected`.
 class _DetectedCard extends StatelessWidget {
   const _DetectedCard({
     required this.model,
@@ -801,116 +810,80 @@ class _DetectedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = model.usable
-        ? const Color(0xFF21F2B2)
-        : const Color(0xFFFFA726);
-
-    final sizeLabel = model.sizeBytes > 0
-        ? formatGb(model.sizeBytes / 1e9)
-        : 'tamaño desconocido';
-
-    return Semantics(
-      label: '${model.name}, detectado en storage',
-      child: RepaintBoundary(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF07192B).withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: accent.withValues(alpha: 0.55)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 66,
-                    height: 66,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.folder_rounded,
-                      color: Colors.white,
-                      size: 38,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          model.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 6,
-                          children: [
-                            _StatusChip(
-                              label: model.usable ? 'DETECTADO' : 'NO USABLE',
-                              color: accent,
-                            ),
-                            _StatusChip(
-                              label: model.format.name.toUpperCase(),
-                              color: const Color(0xFF9B8AFF),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          sizeLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.62),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  if (model.usable)
-                    loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFF21F2B2),
-                            ),
-                          )
-                        : PressableScale(
-                            child: OutlinedButton(
-                              onPressed: onUse,
-                              child: const Text('Usar directo'),
-                            ),
-                          ),
-                ],
-              ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF07192B).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.description_rounded,
+              color: Colors.white,
+              size: 28,
             ),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  model.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  model.sizeBytes > 0
+                      ? formatBytes(model.sizeBytes)
+                      : 'Tamaño desconocido',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (loading)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF42D9FF),
+              ),
+            )
+          else
+            PressableScale(
+              child: OutlinedButton(
+                onPressed: onUse,
+                child: const Text('Cargar'),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
+/// Pie de la pantalla con uso de almacenamiento real del device.
 class _StorageUsage extends StatelessWidget {
   const _StorageUsage({
     required this.usedGb,
@@ -924,96 +897,121 @@ class _StorageUsage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pie con datos REALES del device: GB usados por los modelos instalados
-    // y GB libres reportados por el dashboard. La barra es esa proporción.
-    final hasFreeData = storageTotalGb > 0;
-    final totalGb = usedGb + storageFreeGb;
-    final fraction = hasFreeData && totalGb > 0
-        ? (usedGb / totalGb).clamp(0.0, 1.0)
-        : null;
+    final usedPct = storageTotalGb > 0 ? usedGb / storageTotalGb : 0.0;
 
-    final text = hasFreeData
-        ? '${formatGb(usedGb)} usados por modelos · '
-              '${_formatFreeGb(storageFreeGb)} libres'
-        : usedGb > 0
-        ? 'Espacio usado por modelos: ${formatGb(usedGb)}'
-        : 'Espacio usado por modelos: —';
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(18, 8, 18, 16),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF07192B).withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF6592FF).withValues(alpha: 0.35),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.storage_rounded, color: Color(0xFF42D9FF)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: const TextStyle(color: Colors.white),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF07192B).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  'Almacenamiento',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-            if (fraction != null) ...[
-              const SizedBox(height: 10),
-              LinearProgressIndicator(
-                value: fraction,
-                minHeight: 4,
-                color: const Color(0xFF42D9FF),
-                backgroundColor: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(99),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  '${formatGb(usedGb)} de ${formatGb(storageTotalGb)}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                ),
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: usedPct.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                usedPct > 0.9
+                    ? const Color(0xFFFF5C6C)
+                    : usedPct > 0.7
+                        ? const Color(0xFFFFA726)
+                        : const Color(0xFF21F2B2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${formatGb(storageFreeGb)} libres',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.48),
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-String _formatFreeGb(double gb) {
-  if (gb <= 0) return '—';
-  if (gb >= 10) return '${gb.toStringAsFixed(0)} GB';
+String formatGb(double gb) {
+  if (gb < 1.0) {
+    return '${(gb * 1024).toStringAsFixed(0)} MB';
+  }
   return '${gb.toStringAsFixed(1)} GB';
 }
 
-String _statusLabel(ModelUiStatus status) {
-  return switch (status) {
-    ModelUiStatus.active => 'ACTIVO',
-    ModelUiStatus.installed => 'INSTALADO',
-    ModelUiStatus.available => 'DISPONIBLE',
-    ModelUiStatus.downloading => 'DESCARGANDO',
-    ModelUiStatus.error => 'ERROR',
-    ModelUiStatus.incompatible => 'NO COMPATIBLE',
-  };
+String formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
 Color _statusColor(ModelUiStatus status) {
-  return switch (status) {
-    ModelUiStatus.active => const Color(0xFF21F2B2),
-    ModelUiStatus.installed => const Color(0xFF42D9FF),
-    ModelUiStatus.available => const Color(0xFF9B8AFF),
-    ModelUiStatus.downloading => const Color(0xFF6592FF),
-    ModelUiStatus.error => const Color(0xFFFF5C6C),
-    ModelUiStatus.incompatible => const Color(0xFFFFA726),
-  };
+  switch (status) {
+    case ModelUiStatus.active:
+      return const Color(0xFF21F2B2);
+    case ModelUiStatus.installed:
+      return const Color(0xFF42D9FF);
+    case ModelUiStatus.available:
+      return const Color(0xFFA78BFA);
+    case ModelUiStatus.downloading:
+      return const Color(0xFFFFA726);
+    case ModelUiStatus.error:
+      return const Color(0xFFFF5C6C);
+    case ModelUiStatus.incompatible:
+      return const Color(0xFFFFA726);
+  }
 }
 
-/// Formato de tamaño real (GB con 1 decimal; MB sin decimales si < 1 GB).
-String formatGb(double gb) {
-  if (gb <= 0) return '—';
-  if (gb >= 1) return '${gb.toStringAsFixed(1)} GB';
-  return '${(gb * 1024).toStringAsFixed(0)} MB';
+String _statusLabel(ModelUiStatus status) {
+  switch (status) {
+    case ModelUiStatus.active:
+      return 'ACTIVO';
+    case ModelUiStatus.installed:
+      return 'INSTALADO';
+    case ModelUiStatus.available:
+      return 'DISPONIBLE';
+    case ModelUiStatus.downloading:
+      return 'DESCARGANDO';
+    case ModelUiStatus.error:
+      return 'ERROR';
+    case ModelUiStatus.incompatible:
+      return 'INCOMPATIBLE';
+  }
 }

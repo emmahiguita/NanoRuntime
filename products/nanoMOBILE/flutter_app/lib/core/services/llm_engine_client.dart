@@ -69,6 +69,14 @@ class LLMEngineClient {
       'prompt': prompt,
       'n_predict': maxTokens,
       'temperature': temperature,
+      'repeat_penalty': 1.1,
+      'stop': [
+        '<|im_end|>',
+        '<|endoftext|>',
+        '<|im_start|>',
+        '<｜end of sentence｜>',
+        '<｜end▁of▁sentence｜>',
+      ],
       'stream': false,
     });
     // Un solo reintento ante fallos transitorios (timeout/conexión).
@@ -143,6 +151,7 @@ class LLMEngineClient {
     double temperature = 0.7,
     double topP = 0.9,
     int maxTokens = 256,
+    String? sessionId,
   }) {
     final client = http.Client();
     final controller = StreamController<LLMStreamToken>();
@@ -156,6 +165,7 @@ class LLMEngineClient {
       temperature: temperature,
       topP: topP,
       maxTokens: maxTokens,
+      sessionId: sessionId,
     );
 
     return (stream: controller.stream, client: client);
@@ -168,6 +178,7 @@ class LLMEngineClient {
     required double temperature,
     required double topP,
     required int maxTokens,
+    String? sessionId,
   }) async {
     try {
       final request = http.Request('POST', Uri.parse('$baseUrl/completion'));
@@ -177,7 +188,16 @@ class LLMEngineClient {
         'n_predict': maxTokens,
         'temperature': temperature,
         'top_p': topP,
+        'repeat_penalty': 1.1,
+        'stop': [
+          '<|im_end|>',
+          '<|endoftext|>',
+          '<|im_start|>',
+          '<｜end of sentence｜>',
+          '<｜end▁of▁sentence｜>',
+        ],
         'stream': true,
+        if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
       });
 
       final streamedResponse = await client.send(request).timeout(timeout);

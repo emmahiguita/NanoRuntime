@@ -10,11 +10,19 @@ import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
 import 'package:nanoai/features/models/domain/model_storage_repository.dart';
 
+class _CatalogReconciliation {
+  const _CatalogReconciliation(this.models, this.detected);
+
+  final List<LocalModel> models;
+  final List<DetectedModel> detected;
+}
+
 class ModelsNotifier extends StateNotifier<ModelsState> {
   final Ref _ref;
   final LocalModelRepository _repository;
   final ModelDownloader _downloader;
   final ModelStorageRepository _storage;
+  final Future<String?> Function() _modelsDir;
 
   // Una descarga a la vez (GGUF de varios GB): la activa posee el token.
   String? _downloadingId;
@@ -27,19 +35,26 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     this._repository, {
     ModelDownloader? downloader,
     ModelStorageRepository? storage,
+    Future<String?> Function()? modelsDir,
   }) : _downloader = downloader ?? ModelDownloader(),
        _storage = storage ?? const ChannelModelStorageRepository(),
+       _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir,
        super(const ModelsState()) {
     _load();
   }
 
   /// Test-only: emits a fixed state without IO.
   @visibleForTesting
-  ModelsNotifier.fixed(Ref ref, super.initial, {ModelStorageRepository? storage})
-    : _ref = ref,
-      _repository = const CatalogLocalModelRepository(),
-      _downloader = ModelDownloader(),
-      _storage = storage ?? const ChannelModelStorageRepository();
+  ModelsNotifier.fixed(
+    Ref ref,
+    super.initial, {
+    ModelStorageRepository? storage,
+    Future<String?> Function()? modelsDir,
+  }) : _ref = ref,
+       _repository = const CatalogLocalModelRepository(),
+       _downloader = ModelDownloader(),
+       _storage = storage ?? const ChannelModelStorageRepository(),
+       _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir;
 
   Future<void> _load() async {
     try {
@@ -69,7 +84,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     );
 
     try {
-      final dir = await CatalogLocalModelRepository.modelsDir();
+      final dir = await _modelsDir();
       if (dir == null) {
         throw DownloadException(
           'getFilesDir no disponible — no se puede descargar',
@@ -83,6 +98,15 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         expectedSha256: item.sha256,
         onProgress: (p) {
           if (mounted && _downloadingId == id) _update(id, progress: p);
+        },
+        onVerifying: () {
+          if (mounted && _downloadingId == id) {
+            _update(
+              id,
+              downloadState: ModelDownloadState.verifying,
+              progress: 1,
+            );
+          }
         },
         cancelToken: () async => _downloadingId != id,
       );
@@ -113,8 +137,15 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
 
   /// Cancela la descarga en curso (token de cancelación cierra el stream).
   void cancelDownload() {
-    if (_downloadingId == null) return;
+    final id = _downloadingId;
+    if (id == null) return;
     _downloadingId = null;
+    _update(
+      id,
+      downloadState: ModelDownloadState.failed,
+      progress: 0,
+      error: 'descarga cancelada',
+    );
   }
 
   void _update(
@@ -239,9 +270,11 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
       final detected = await _storage.scanAll();
       if (!mounted) return;
       _lastScanAt = DateTime.now();
+      final reconciled = _reconcileDetectedWithCatalog(detected);
       state = state.copyWith(
         scanning: false,
-        detected: _deduped(detected),
+        models: reconciled.models,
+        detected: reconciled.detected,
         scanError: null,
       );
     } on StateError {
@@ -264,9 +297,11 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
       final detected = await _storage.scan();
       if (!mounted) return;
       _lastScanAt = DateTime.now();
+      final reconciled = _reconcileDetectedWithCatalog(detected);
       state = state.copyWith(
         scanning: false,
-        detected: _deduped(detected),
+        models: reconciled.models,
+        detected: reconciled.detected,
         scanError: null,
       );
     } catch (e) {
@@ -274,16 +309,42 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     }
   }
 
-  /// Quita de la lista los detectados que ya están en el catálogo
-  /// (mismo nombre de archivo): el catálogo ya sabe instalarlos.
-  List<DetectedModel> _deduped(List<DetectedModel> detected) {
-    final catalogNames = {
-      for (final model in state.models) model.fileName.toLowerCase(),
+  /// Reconciles external storage findings with the downloadable catalog.
+  ///
+  /// A catalog model is considered installed when the exact catalog file is
+  /// found with a direct readable path from MANAGE_EXTERNAL_STORAGE. SAF-only
+  /// matches remain visible as detected cards because they need fd opening.
+  _CatalogReconciliation _reconcileDetectedWithCatalog(
+    List<DetectedModel> detected,
+  ) {
+    final detectedByName = {
+      for (final model in detected)
+        if (model.usable && model.path != null) model.name.toLowerCase(): model,
     };
-    return [
+
+    final reconciledModels = [
+      for (final model in state.models)
+        if (detectedByName[model.fileName.toLowerCase()] case final found?)
+          model.copyWith(
+            downloadState: ModelDownloadState.installed,
+            progress: 1,
+            localPath: found.path,
+            clearError: true,
+          )
+        else
+          model,
+    ];
+
+    final catalogNames = {
+      for (final model in reconciledModels)
+        if (model.installed) model.fileName.toLowerCase(),
+    };
+    final visibleDetected = [
       for (final model in detected)
         if (!catalogNames.contains(model.name.toLowerCase())) model,
     ];
+
+    return _CatalogReconciliation(reconciledModels, visibleDetected);
   }
 
   void _scanFailed(Object e) {
@@ -330,9 +391,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         return;
       }
       state = state.copyWith(loadingDetectedUri: null);
-      _ref
-          .read(chatProvider.notifier)
-          .selectModel(model.name, path: fdPath);
+      _ref.read(chatProvider.notifier).selectModel(model.name, path: fdPath);
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(

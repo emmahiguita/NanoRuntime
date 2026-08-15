@@ -18,6 +18,7 @@ import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
+import dev.nanoai.mobile.channels.ShareChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -193,6 +194,9 @@ class MainActivity : FlutterActivity() {
                     engineChannel.setMethodCallHandler(handler)
                 }
         }
+
+        MethodChannel(messenger, ChannelNames.SHARE)
+            .setMethodCallHandler(ShareChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
             .setMethodCallHandler(

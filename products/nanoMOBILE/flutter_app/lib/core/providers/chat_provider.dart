@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../agent/agent_tool_dispatcher.dart';
+import '../services/device_info.dart';
 import '../services/llm_engine_client.dart';
 import '../services/runtime_engine.dart';
 import '../models/chat_models.dart';
@@ -31,39 +32,111 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // Flush periódico del texto streaming: agrupa tokens (~32ms) para evitar
   // un rebuild de la lista de mensajes por cada token del motor.
   Timer? _flushTimer;
+  String _sessionId = _newSessionId();
 
-  /// Número máximo de mensajes enviados al motor como historial (40 = ~20 turnos).
-  /// Los modelos GGUF pequeños (1B-7B) tienen ventanas de contexto limitadas
-  /// (8K-32K tokens). 40 mensajes mantienen el prompt bajo ~4K tokens en uso típico.
-  static const int _maxHistoryMessages = 40;
+  static String _newSessionId() =>
+      'chat-${DateTime.now().microsecondsSinceEpoch}';
+
+  /// Tiempo maximo sin tokens antes de abortar el stream como fallo real.
+  static const Duration _streamIdleTimeout = Duration(seconds: 45);
+
+  /// Ventana de historial conversacional inteligente multi-turno.
+  static const int _maxHistoryMessages = 10;
+  static const int _maxHistoryChars = 1200;
+  static const int _maxUserChars = 2000;
+  static const int _maxAttachmentChars = 1500;
+  static const int _maxToolTraceChars = 900;
 
   /// Máximo de rondas de herramienta por mensaje del usuario: evita bucles
   /// infinitos si el modelo insiste en llamar tools sin concluir.
   static const int _maxToolRounds = 2;
 
-  /// System prompt inyectado al inicio de cada conversación multi-turno.
-  /// Define el comportamiento base del asistente para todos los modelos.
-  /// El contrato de herramientas es JSON de una línea (formato que los
-  /// GGUF 1B-7B pueden seguir; el parseo tolera prosa alrededor).
-  static const String _systemPrompt =
-      'Eres NanoAI, un asistente que corre 100% '
-      'en el dispositivo, sin conexión a internet. Responde de forma concisa, '
-      'técnica y útil. Si no sabes algo, dilo con honestidad.\n\n'
-      'Puedes controlar la interfaz del dispositivo. Para usar una '
-      'herramienta responde EXACTAMENTE un JSON en una línea, sin markdown '
-      'ni texto extra:\n'
-      '{"tool":"screen"} — leer la pantalla actual\n'
-      '{"tool":"tap","selector":"<sel>"} — tocar un elemento\n'
-      '{"tool":"write","selector":"<sel>","text":"<texto>"} — escribir en '
-      'un campo\n'
-      '{"tool":"back"} — botón atrás\n'
-      'Selector: text=..., desc=..., id=..., role=..., editable=true, '
-      'separados por ";" (ej: text=Bluetooth, editable=true;near=desc=Usuario). '
-      'Tras la herramienta recibirás el resultado y responderás al usuario '
-      'con base en él.';
+  /// Genera un system prompt dinámico con contexto en tiempo real
+  /// y telemetría 100% real del hardware (sin simulación).
+  String _buildSystemPrompt() {
+    final now = DateTime.now();
+    const weekdays = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    const months = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ];
+    final dayName = weekdays[(now.weekday - 1).clamp(0, 6)];
+    final monthName = months[(now.month - 1).clamp(0, 11)];
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    final dateStr = '$dayName, ${now.day} de $monthName de ${now.year}';
+    final modelName = state.activeModel;
+
+    final info = DeviceInfo.read();
+    final buffer = StringBuffer();
+    buffer.writeln('Eres NanoAI, un asistente de inteligencia artificial avanzado y soberano ');
+    buffer.writeln('que se ejecuta localmente en el dispositivo móvil del usuario mediante el motor nanortime (llama.cpp). ');
+    buffer.writeln('Modelo activo actual: "$modelName". ');
+    buffer.writeln('Responde siempre en español (o en el idioma en que el usuario te hable) ');
+    buffer.writeln('de forma natural, completa, estructurada y útil como cualquier asistente conversacional. ');
+    buffer.writeln('Puedes organizar información con formato Markdown rico, tablas claras, listas y diagramas (en bloques de código ```mermaid o esquemas ASCII). ');
+    buffer.writeln('Tus respuestas pueden ser exportadas directamente a informes PDF profesionales por el usuario. ');
+    buffer.writeln('Si necesitas una herramienta del sistema, responde solo JSON: ');
+    buffer.writeln('{"tool":"screen"}, {"tool":"tap","selector":"<sel>"}, ');
+    buffer.writeln('{"tool":"write","selector":"<sel>","text":"..."}, {"tool":"back"}. ');
+    buffer.writeln('Si no usas herramienta, responde normal con texto.');
+    
+    buffer.writeln('<realtime_context>');
+    buffer.writeln('  <datetime>$dateStr, $timeStr</datetime>');
+    if (info.cpuHardware != null && info.cpuHardware!.isNotEmpty) {
+      buffer.writeln('  <cpu>${info.cpuHardware} (${info.cpuCores ?? 8} núcleos, ${info.unameMachine ?? "arm64"})</cpu>');
+    }
+    if (info.memTotalKb != null && info.memAvailKb != null && info.memTotalKb! > 0) {
+      final totalGb = (info.memTotalKb! / (1024 * 1024)).toStringAsFixed(1);
+      final freeGb = (info.memAvailKb! / (1024 * 1024)).toStringAsFixed(1);
+      buffer.writeln('  <ram>libres: $freeGb GB, total: $totalGb GB</ram>');
+    }
+    if (info.cpuTempC != null && info.cpuTempC! > 0) {
+      buffer.writeln('  <temperature>${info.cpuTempC!.toStringAsFixed(1)}°C</temperature>');
+    }
+    if (info.uptimeSec != null && info.uptimeSec! > 0) {
+      final hours = (info.uptimeSec! / 3600).floor();
+      final mins = ((info.uptimeSec! % 3600) / 60).floor();
+      buffer.writeln('  <uptime>${hours}h ${mins}m</uptime>');
+    }
+    buffer.writeln('</realtime_context>');
+
+    return buffer.toString().trim();
+  }
 
   /// Ejecutor de herramientas del chat (comandos `@` y tool-calling del LLM).
   final AgentToolDispatcher _tools;
+
+  // ── Confirmación de herramienta (política externalWrite) ──
+  // Cuando el tool-calling del LLM pide una escritura externa, la política
+  // pausa el turno: se guarda la llamada + contexto de reanudación y la UI
+  // muestra el diálogo. approve/reject reanudan la ronda con el resultado.
+
+  /// Llamada pendiente de confirmación (null = nada pendiente).
+  ToolCall? _pendingCall;
+
+  /// Contexto para reanudar la ronda tras la decisión del usuario.
+  String _pendingUserText = '';
+  List<String> _pendingTrace = const [];
+  String _pendingCallText = '';
 
   ChatNotifier(this._ref, {AgentToolDispatcher? toolDispatcher})
     : _tools = toolDispatcher ?? AgentToolDispatcher(),
@@ -78,15 +151,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Test-only: emits a fixed state without IO.
   @visibleForTesting
-  ChatNotifier.fixed(Ref ref, super.initial, {AgentToolDispatcher? toolDispatcher})
-    : _ref = ref,
-      _tools = toolDispatcher ?? AgentToolDispatcher();
+  ChatNotifier.fixed(
+    Ref ref,
+    super.initial, {
+    AgentToolDispatcher? toolDispatcher,
+  }) : _ref = ref,
+       _tools = toolDispatcher ?? AgentToolDispatcher();
 
   /// Restaura la última selección de modelo para que sobreviva al reinicio.
   Future<void> _restoreModel() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString('nanoai_active_model');
+      final savedPath = prefs.getString('nanoai_active_model_path');
       if (saved == null || saved.isEmpty) return;
       // El catálogo es la fuente de verdad: nombres de versiones viejas
       // (p. ej. "Qwen2.5-1.1B-Instruct") se descartan en silencio y se
@@ -95,6 +172,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       if (!mounted) return;
       state = state.copyWith(
         activeModel: saved,
+        activeModelPath: savedPath,
         connection: ModelConnectionState.loadingModel,
       );
       await _checkEngine(saved);
@@ -156,8 +234,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
   }
 
-  void setInput(String v) => state = state.copyWith(input: v);
-
   /// Máximo de adjuntos simultáneos en el composer. El cuarto desplaza al
   /// más antiguo (FIFO) — nunca se bloquea el gesto de adjuntar.
   static const int _maxAttachments = 3;
@@ -202,6 +278,52 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(engineOnline: engine.isLive);
   }
 
+  // ── Confirmación de herramienta (política §12) ────────────────────────────
+
+  /// El usuario aprobó la herramienta pendiente: se ejecuta con
+  /// `confirmed: true` y la ronda continúa con el resultado en el trace.
+  Future<void> approvePendingTool() async {
+    final call = _pendingCall;
+    if (call == null || state.pendingTool == null) return;
+    final userText = _pendingUserText;
+    final trace = _pendingTrace;
+    final callText = _pendingCallText;
+    _pendingCall = null;
+    state = state.copyWith(
+      generating: true,
+      pendingTool: null,
+      pendingToolDescription: null,
+    );
+    final outcome = await _tools.runToolGuarded(call, confirmed: true);
+    if (!mounted || _generationCancelled) return;
+    await _generateRound(userText, [
+      ...trace,
+      callText,
+      outcome.feedback,
+    ], const []);
+  }
+
+  /// El usuario rechazó la herramienta pendiente: nada se ejecuta y la ronda
+  /// continúa con el rechazo en el trace (el modelo ve el motivo y cierra).
+  Future<void> rejectPendingTool() async {
+    final call = _pendingCall;
+    if (call == null || state.pendingTool == null) return;
+    final userText = _pendingUserText;
+    final trace = _pendingTrace;
+    final callText = _pendingCallText;
+    _pendingCall = null;
+    state = state.copyWith(
+      generating: true,
+      pendingTool: null,
+      pendingToolDescription: null,
+    );
+    await _generateRound(userText, [
+      ...trace,
+      callText,
+      '🚫 [policy] ${call.tool} cancelada por el usuario (sin confirmación).',
+    ], const []);
+  }
+
   /// Envía [text] al motor como mensaje del usuario.
   /// [setInput] es innecesario: `send` recibe el texto directamente.
   ///
@@ -212,6 +334,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> send(String text) async {
     final t = text.trim();
     if (t.isEmpty || state.generating) return;
+
+    if (!state.engineOnline && state.activeModelPath == null) {
+      final errorMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text:
+            'No hay un modelo seleccionado. Por favor, ve a la pestaña Modelos y selecciona uno para poder chatear.',
+        timestamp: DateTime.now(),
+        status: MessageStatus.error,
+      );
+      state = state.copyWith(messages: [...state.messages, errorMsg]);
+      return;
+    }
+
+    // Nuevo turno del usuario: resetea el presupuesto de pasos de la
+    // política y descarta cualquier confirmación pendiente vieja.
+    _tools.resetTurn();
+    _pendingCall = null;
+    if (state.pendingTool != null) {
+      state = state.copyWith(pendingTool: null, pendingToolDescription: null);
+    }
     // Captura y consume los adjuntos pendientes: viajan SOLO con este
     // mensaje y se inyectan al prompt real de la generación.
     final attachments = state.attachments;
@@ -261,8 +404,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
         text: degraded
-            ? '⚠️ El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos.'
-            : '⚠️ El motor no pudo arrancar: ${engine.reason ?? "fallo desconocido"}.',
+            ? 'El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos.'
+                        : 'El motor no pudo arrancar: ${engine.reason ?? "fallo desconocido"}.',
         timestamp: DateTime.now(),
         status: MessageStatus.error,
       );
@@ -291,15 +434,46 @@ class ChatNotifier extends StateNotifier<ChatState> {
   String _buildChatPrompt(
     List<ChatMessage> history,
     String newUserText,
-    List<ChatAttachment> attachments,
-  ) {
+    List<ChatAttachment> attachments, {
+    bool openAssistantTurn = true,
+  }) {
     final template = NeuralCatalog.templateOf(state.activeModel);
     switch (template) {
       case ChatTemplate.deepseek:
-        return _buildDeepSeekPrompt(history, newUserText, attachments);
+        return _buildDeepSeekPrompt(
+          history,
+          newUserText,
+          attachments,
+          openAssistantTurn: openAssistantTurn,
+        );
       case ChatTemplate.qwen:
-        return _buildQwenPrompt(history, newUserText, attachments);
+        return _buildQwenPrompt(
+          history,
+          newUserText,
+          attachments,
+          openAssistantTurn: openAssistantTurn,
+        );
     }
+  }
+
+  /// Neutraliza tokens especiales que podrían cerrar/abrir roles del modelo
+  /// cuando provienen de usuario, historial, adjuntos o resultados de tools.
+  String _promptSafe(String value) => value
+      .replaceAll('<|im_start|>', '< |im_start| >')
+      .replaceAll('<|im_end|>', '< |im_end| >')
+      .replaceAll(
+        '<\uFF5Cbegin\u2581of\u2581sentence\uFF5C>',
+        '< |begin_of_sentence| >',
+      )
+      .replaceAll(
+        '<\uFF5Cend\u2581of\u2581sentence\uFF5C>',
+        '< |end_of_sentence| >',
+      );
+
+  String _promptClip(String value, int maxChars) {
+    final safe = _promptSafe(value);
+    if (safe.length <= maxChars) return safe;
+    return '${safe.substring(0, maxChars)}\n[recortado]';
   }
 
   /// Bloque de adjuntos que se inyecta al turno user del prompt: contenido
@@ -309,8 +483,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final buffer = StringBuffer();
     for (final a in attachments) {
       buffer
-        ..writeln('[Adjunto: ${a.name}]')
-        ..writeln(a.content)
+        ..writeln('[Adjunto: ${_promptClip(a.name, 160)}]')
+        ..writeln(_promptClip(a.content, _maxAttachmentChars))
         ..writeln('[Fin de adjunto]');
     }
     return buffer.toString();
@@ -320,22 +494,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
   String _buildQwenPrompt(
     List<ChatMessage> history,
     String newUserText,
-    List<ChatAttachment> attachments,
-  ) {
+    List<ChatAttachment> attachments, {
+    bool openAssistantTurn = true,
+  }) {
     final buffer = StringBuffer();
-    buffer.write('<|im_start|>system\n$_systemPrompt<|im_end|>\n');
+    buffer.write('<|im_start|>system\n${_buildSystemPrompt()}<|im_end|>\n');
     final window = history.length > _maxHistoryMessages
         ? history.sublist(history.length - _maxHistoryMessages)
         : history;
     for (final msg in window) {
       final role = msg.sender == MessageSender.user ? 'user' : 'assistant';
-      buffer.write('<|im_start|>$role\n${msg.text}<|im_end|>\n');
+      buffer.write(
+        '<|im_start|>$role\n${_promptClip(msg.text, _maxHistoryChars)}<|im_end|>\n',
+      );
     }
     buffer.write(
-      '<|im_start|>user\n${_attachmentsBlock(attachments)}$newUserText'
-      '<|im_end|>\n',
+      '<|im_start|>user\n${_attachmentsBlock(attachments)}'
+      '${_promptClip(newUserText, _maxUserChars)}<|im_end|>\n',
     );
-    buffer.write('<|im_start|>assistant\n');
+    if (openAssistantTurn) {
+      buffer.write('<|im_start|>assistant\n');
+    }
     return buffer.toString();
   }
 
@@ -343,24 +522,28 @@ class ChatNotifier extends StateNotifier<ChatState> {
   String _buildDeepSeekPrompt(
     List<ChatMessage> history,
     String newUserText,
-    List<ChatAttachment> attachments,
-  ) {
+    List<ChatAttachment> attachments, {
+    bool openAssistantTurn = true,
+  }) {
     // Tokens especiales native de DeepSeek-R1.
     const bos = '<｜begin▁of▁sentence｜>';
     const eos = '<｜end▁of▁sentence｜>';
     final buffer = StringBuffer();
-    buffer.write('$bos\nsystem\n$_systemPrompt\n$eos\n');
+    buffer.write('$bos\nsystem\n${_buildSystemPrompt()}\n$eos\n');
     final window = history.length > _maxHistoryMessages
         ? history.sublist(history.length - _maxHistoryMessages)
         : history;
     for (final msg in window) {
       final role = msg.sender == MessageSender.user ? 'user' : 'assistant';
-      buffer.write('$bos$role\n${msg.text}\n$eos\n');
+      buffer.write('$bos$role\n${_promptSafe(msg.text)}\n$eos\n');
     }
     buffer.write(
-      '$bos\nuser\n${_attachmentsBlock(attachments)}$newUserText\n$eos\n',
+      '$bos\nuser\n${_attachmentsBlock(attachments)}'
+      '${_promptSafe(newUserText)}\n$eos\n',
     );
-    buffer.write('$bos\nassistant\n');
+    if (openAssistantTurn) {
+      buffer.write('$bos\nassistant\n');
+    }
     return buffer.toString();
   }
 
@@ -372,13 +555,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
       case ChatTemplate.deepseek:
         const bos = '<｜begin▁of▁sentence｜>';
         const eos = '<｜end▁of▁sentence｜>';
-        return '$bos\nassistant\n$toolCall\n$eos\n'
-            '$bos\nuser\nResultado de la herramienta:\n$result\n$eos\n'
+        return '$bos\nassistant\n${_promptSafe(toolCall)}\n$eos\n'
+            '$bos\nuser\nResultado de la herramienta:\n'
+            '${_promptSafe(result)}\n$eos\n'
             '$bos\nassistant\n';
       case ChatTemplate.qwen:
-        return '<|im_start|>assistant\n$toolCall<|im_end|>\n'
+        return '<|im_start|>assistant\n'
+            '${_promptClip(toolCall, _maxToolTraceChars)}<|im_end|>\n'
             '<|im_start|>user\nResultado de la herramienta:\n'
-            '$result<|im_end|>\n'
+            '${_promptClip(result, _maxToolTraceChars)}<|im_end|>\n'
             '<|im_start|>assistant\n';
     }
   }
@@ -400,10 +585,37 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _flushTimer = null;
   }
 
-  Future<void> _generate(
-    String text,
-    List<ChatAttachment> attachments,
-  ) => _generateRound(text, const <String>[], attachments);
+  bool _requiresAutonomousToolConfirmation(ToolCall call) {
+    final mode = _ref.read(settingsProvider).agentAutomationMode;
+    return switch (mode) {
+      AgentAutomationMode.manual =>
+        call.tool != 'screen' && call.tool != 'resolve',
+      AgentAutomationMode.assisted =>
+        call.tool == 'tap' || call.tool == 'back' || call.tool == 'write',
+      AgentAutomationMode.autonomous => call.tool == 'write',
+    };
+  }
+
+  String _toolConfirmationDescription(ToolCall call) {
+    final mode = _ref.read(settingsProvider).agentAutomationMode;
+    return '[policy] "${call.tool}" requiere confirmación en modo ${mode.label} antes de actuar sobre el dispositivo.';
+  }
+
+  Future<void> _generate(String text, List<ChatAttachment> attachments) =>
+      _generateRound(text, const <String>[], attachments);
+
+  /// Devuelve el historial anterior al turno user actual. En rondas con tools,
+  /// el estado ya contiene mensajes assistant con llamadas JSON visibles;
+  /// esos mensajes pertenecen al turno en curso y se reinyectan vía toolTrace.
+  List<ChatMessage> _historyBeforeCurrentUser(String text) {
+    for (var i = state.messages.length - 1; i >= 0; i--) {
+      final msg = state.messages[i];
+      if (msg.sender == MessageSender.user && msg.text == text) {
+        return state.messages.sublist(0, i);
+      }
+    }
+    return state.messages;
+  }
 
   /// Una ronda de generación. [toolTrace] contiene pares
   /// (llamadaJSON, resultado) de herramientas ya ejecutadas en este turno;
@@ -418,15 +630,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
     List<ChatAttachment> attachments,
   ) async {
     _generationCancelled = false;
-    // El historial YA incluye el mensaje del usuario recién enviado (en send()).
-    // Lo excluimos del historial para evitar duplicarlo.
-    final history = state.messages.length > 1
-        ? state.messages.sublist(0, state.messages.length - 1)
-        : <ChatMessage>[];
+    // El historial YA incluye el turno actual y, si hubo tools, sus trazas
+    // visibles. Se excluye todo eso para que el prompt no duplique turnos.
+    final history = _historyBeforeCurrentUser(text);
     var prompt = _buildChatPrompt(
       history,
       text,
       toolTrace.isEmpty ? attachments : const <ChatAttachment>[],
+      openAssistantTurn: toolTrace.isEmpty,
     );
     for (var i = 0; i + 1 < toolTrace.length; i += 2) {
       prompt += _toolTurnSuffix(toolTrace[i], toolTrace[i + 1]);
@@ -438,14 +649,25 @@ class ChatNotifier extends StateNotifier<ChatState> {
       prompt: prompt,
       temperature: settings.temperature,
       topP: settings.topP,
-      maxTokens: settings.maxTokens,
+      maxTokens: settings.maxTokens.clamp(32, 2048),
+      sessionId: _sessionId,
     );
     _streamClient = client;
 
     try {
       final buffer = StringBuffer();
       double? finalTps;
-      await for (final token in stream) {
+      await for (final token in stream.timeout(
+        _streamIdleTimeout,
+        onTimeout: (sink) {
+          sink.addError(
+            LLMEngineException(
+              'Timeout: el motor no emitió tokens durante '
+              '${_streamIdleTimeout.inSeconds}s',
+            ),
+          );
+        },
+      )) {
         if (_generationCancelled || !mounted) {
           _streamClient?.close();
           _streamClient = null;
@@ -470,15 +692,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
         final emptyMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: '(sin respuesta)',
+          text:
+              'El motor terminó sin emitir texto. Esto suele indicar '
+              'modelo no cargado, prompt rechazado por el runtime o falta de '
+              'memoria durante la inferencia.',
           timestamp: DateTime.now(),
-          status: MessageStatus.sent,
+          status: MessageStatus.error,
         );
         state = state.copyWith(
           messages: [...state.messages, emptyMsg],
           generating: false,
           streamingText: '',
-          connection: ModelConnectionState.ready,
+          connection: ModelConnectionState.error,
           engineOnline: true,
         );
         _persistMessages();
@@ -486,11 +711,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
 
       // Tool-calling: si el modelo respondió una llamada a herramienta,
-      // ejecutarla y re-generar con el resultado en el trace.
+      // ejecutarla (bajo política §12) y re-generar con el resultado en el
+      // trace. Una escritura externa pausa el turno a la espera de
+      // confirmación del usuario (approvePendingTool/rejectPendingTool).
       final toolCall = AgentToolProtocol.extractToolCall(fullText);
       if (toolCall != null && toolTrace.length ~/ 2 < _maxToolRounds) {
-        final result = await _tools.runTool(toolCall);
-        if (!mounted || _generationCancelled) return;
         // La llamada queda visible en el chat (trace honesto del agente).
         final toolMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -504,14 +729,55 @@ class ChatNotifier extends StateNotifier<ChatState> {
           streamingText: '',
         );
         _persistMessages();
-        await _generateRound(text, [...toolTrace, fullText, result], const []);
+
+        if (_requiresAutonomousToolConfirmation(toolCall)) {
+          _pendingCall = toolCall;
+          _pendingUserText = text;
+          _pendingTrace = toolTrace;
+          _pendingCallText = fullText;
+          state = state.copyWith(
+            generating: false,
+            pendingTool: toolCall.tool,
+            pendingToolDescription: _toolConfirmationDescription(toolCall),
+          );
+          return;
+        }
+
+        final outcome = await _tools.runToolGuarded(toolCall);
+        if (!mounted || _generationCancelled) return;
+        if (outcome.needsConfirmation) {
+          // Pausa: guardar contexto de reanudación y exponer el diálogo.
+          _pendingCall = toolCall;
+          _pendingUserText = text;
+          _pendingTrace = toolTrace;
+          _pendingCallText = fullText;
+          state = state.copyWith(
+            generating: false,
+            pendingTool: toolCall.tool,
+            pendingToolDescription: outcome.feedback,
+          );
+          return;
+        }
+        await _generateRound(text, [
+          ...toolTrace,
+          fullText,
+          outcome.feedback,
+        ], const []);
         return;
       }
+
+      final sanitizedText = fullText
+          .replaceAll('<|im_end|>', '')
+          .replaceAll('<|im_start|>', '')
+          .replaceAll('<|endoftext|>', '')
+          .replaceAll('<\uFF5Cend\u2581of\u2581sentence\uFF5C>', '')
+          .replaceAll('<\uFF5Cbegin\u2581of\u2581sentence\uFF5C>', '')
+          .trim();
 
       final aiMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
-        text: fullText,
+        text: sanitizedText.isEmpty ? fullText : sanitizedText,
         timestamp: DateTime.now(),
         tps: finalTps,
         status: MessageStatus.sent,
@@ -525,7 +791,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         liveTps: finalTps ?? state.liveTps,
       );
       _persistMessages();
-    } on LLMEngineException catch (_) {
+    } on LLMEngineException catch (e) {
       if (!mounted || _generationCancelled) return;
       // Distinguir 503 runtime_unavailable (motor vivo sin GGUF) del resto:
       // el mensaje honesto cambia y connection pasa a noModel, no a error.
@@ -535,8 +801,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
         text: degraded
-            ? '⚠️ El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos. (${state.activeModel})'
-            : '⚠️ El motor llama.cpp no respondió. Confirma que esté levantado en el dispositivo y vuelve a intentarlo. (${state.activeModel})',
+            ? 'El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos. (${state.activeModel})'
+                        : 'El motor llama.cpp no respondió: ${e.message}. (${state.activeModel})',
         timestamp: DateTime.now(),
         status: MessageStatus.error,
       );
@@ -559,16 +825,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // STOP cancela la respuesta PENDIENTE
   void stop() {
     _generationCancelled = true;
+    // Cancelar el flush pendiente ANTES de cerrar el cliente: evita que un
+    // timer de 32ms escriba streamingText residual con generating=false.
+    _cancelStreamFlush();
     _streamClient?.close();
     _streamClient = null;
     state = state.copyWith(generating: false, streamingText: '');
     _persistMessages();
   }
 
-  void clear() async {
-    // Vaciar mensajes ANTES de cancelar la generación
-    state = state.copyWith(messages: [], input: '');
+  Future<void> clear() async {
     if (state.generating) stop();
+    _sessionId = _newSessionId();
+    state = state.copyWith(messages: [], input: '', streamingText: '');
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_historyKey);
@@ -590,19 +859,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final msgs = state.messages;
     final errIdx = msgs.indexWhere((m) => m.id == errorMessageId);
     if (errIdx < 1) return;
-    final userMsg = msgs[errIdx - 1];
-    if (userMsg.sender != MessageSender.user) return;
+    
+    // Buscar el último mensaje del usuario antes del mensaje de error
+    ChatMessage? userMsg;
+    for (var i = errIdx - 1; i >= 0; i--) {
+      if (msgs[i].sender == MessageSender.user) {
+        userMsg = msgs[i];
+        break;
+      }
+    }
+    if (userMsg == null) return;
+
     // Eliminar AMBOS: el error y el mensaje del usuario
     final newMsgs = msgs
-        .where((m) => m.id != errorMessageId && m.id != userMsg.id)
+        .where((m) => m.id != errorMessageId && m.id != userMsg!.id)
         .toList();
     state = state.copyWith(messages: newMsgs);
     _persistMessages();
-    unawaited(send(userMsg.text));
+    // catchError evita que un fallo en send() quede huérfano en un Future
+    // sin listener (unawaited + throw → análisis de errores lo pierde).
+    unawaited(
+      send(userMsg.text).catchError(
+        (Object e) => debugPrint('[chat_provider] retry send error: $e'),
+      ),
+    );
   }
-
-  void toggleSelector() =>
-      state = state.copyWith(showModelSelector: !state.showModelSelector);
 
   void selectModel(String name, {String? path}) {
     // SELinux impide que la app rearranque el motor per-selección.
@@ -616,9 +897,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _loadTimer = Timer(const Duration(milliseconds: 600), () async {
       _loadTimer = null;
       await _checkEngine(name);
+      if (!mounted) return;
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('nanoai_active_model', name);
+        if (path != null) {
+          await prefs.setString('nanoai_active_model_path', path);
+        }
       } catch (e) {
         debugPrint('[chat_provider] Error en persistencia: $e');
       }

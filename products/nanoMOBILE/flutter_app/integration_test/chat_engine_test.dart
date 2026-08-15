@@ -5,7 +5,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:nanoai/main.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
-import 'package:nanoai/features/chat/chat_screen.dart';
+import 'package:nanoai/features/chat/presentation/screens/chat_screen.dart';
 
 // Prueba funcional end-to-end CORRIDA EN DISPOSITIVO:
 // la app se conecta al motor llama.cpp REAL (127.0.0.1:8080) y verifica

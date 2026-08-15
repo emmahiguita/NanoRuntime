@@ -63,7 +63,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
     'Qwen2.5-3B-Instruct' =>
       'Mejor calidad de 3B: tarda más pero responde mejor.',
     'Qwen3.5-4B' =>
-      'Generación 2026 (linear attention). Recomendado para devices de 4GB RAM.',
+      'Generación 2026 (linear attention). Recomendado para dispositivos con 4GB de RAM.',
     'Qwen3.5-4B-Q4_K_M' =>
       'Variante Q4_K_M: máxima calidad de la clase 4B.',
     'DeepSeek-R1-Distill-Qwen-7B' =>

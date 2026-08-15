@@ -26,6 +26,11 @@ class ScaffoldShell extends ConsumerWidget {
       label: 'Terminal',
     ),
     (
+      icon: Icons.computer_outlined,
+      sel: Icons.computer_rounded,
+      label: 'Linux',
+    ),
+    (
       icon: Icons.settings_outlined,
       sel: Icons.settings_rounded,
       label: 'Ajustes',

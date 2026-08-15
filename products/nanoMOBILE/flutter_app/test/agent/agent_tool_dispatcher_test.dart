@@ -42,23 +42,23 @@ void main() {
     focused = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      methodCalls.add(call.method);
-      switch (call.method) {
-        case 'dumpSnapshot':
-          return dumpProvider();
-        case 'tapAt':
-          final args = call.arguments as Map;
-          tapCalls.add([args['x'] as int, args['y'] as int]);
-          return true;
-        case 'inputText':
-          inputCalls.add((call.arguments as Map)['text'] as String);
-          return true;
-        case 'globalAction':
-          return true;
-        default:
-          return null;
-      }
-    });
+          methodCalls.add(call.method);
+          switch (call.method) {
+            case 'dumpSnapshot':
+              return dumpProvider();
+            case 'tapAt':
+              final args = call.arguments as Map;
+              tapCalls.add([args['x'] as int, args['y'] as int]);
+              return true;
+            case 'inputText':
+              inputCalls.add((call.arguments as Map)['text'] as String);
+              return true;
+            case 'globalAction':
+              return true;
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -94,7 +94,7 @@ void main() {
       final r = await dispatcher.runCommand('@tap text=Bluetooth');
       expect(r, '✅ tap en "Bluetooth" @(540,340)');
       expect(tapCalls, [
-        [540, 340]
+        [540, 340],
       ]);
       expect(methodCalls, isNot(contains('tapOnText')));
     });
@@ -189,50 +189,55 @@ void main() {
     });
 
     test('JSON truncado (sin llave final) → parseo por regex', () {
-      final call = AgentToolProtocol.extractToolCall(
-        '{"tool":"back"',
-      );
+      final call = AgentToolProtocol.extractToolCall('{"tool":"back"');
       expect(call, isNotNull);
       expect(call!.tool, 'back');
     });
   });
 
   group('runTool (tool-calling LLM)', () {
-    test('tap → feedback ok y gesto', () async {
+    test('tap autonomo sin confirmacion queda frenado por politica', () async {
       final r = await dispatcher.runTool(
         const ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
       );
-      expect(r, '✅ tap en "Bluetooth" @(540,340)');
-      expect(tapCalls, [
-        [540, 340]
-      ]);
-    });
-
-    test('tap sin selector → error legible', () async {
-      final r = await dispatcher.runTool(const ToolCall(tool: 'tap'));
-      expect(r, contains('❌ [tool] tap requiere "selector"'));
+      expect(r, contains('[policy]'));
+      expect(r, contains('confirm'));
       expect(tapCalls, isEmpty);
     });
 
-    test('write → ok', () async {
-      focused = true;
-      dumpProvider = ajustesFocused;
-      final r = await dispatcher.runTool(
-        const ToolCall(tool: 'write', selector: 'editable=true', text: 'wifi'),
-      );
-      expect(r, contains('✅ "wifi" escrito en'));
-      expect(inputCalls, ['wifi']);
+    test('tap sin selector autonomo queda frenado antes de ejecutar', () async {
+      final r = await dispatcher.runTool(const ToolCall(tool: 'tap'));
+      expect(r, contains('[policy]'));
+      expect(tapCalls, isEmpty);
     });
+
+    test(
+      'write sin confirmación → política la frena (texto, sin input)',
+      () async {
+        focused = true;
+        dumpProvider = ajustesFocused;
+        final r = await dispatcher.runTool(
+          const ToolCall(
+            tool: 'write',
+            selector: 'editable=true',
+            text: 'wifi',
+          ),
+        );
+        expect(r, contains('[policy]'));
+        expect(r, contains('confirmación'));
+        expect(inputCalls, isEmpty);
+      },
+    );
 
     test('screen → resumen', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'screen'));
       expect(r, contains('✅ Pantalla "com.android.settings"'));
     });
 
-    test('tool desconocida → error con lista para corregirse', () async {
+    test('tool desconocida → denied con lista para corregirse', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'teletransport'));
-      expect(r, contains('❌ [tool] Herramienta desconocida'));
-      expect(r, contains('tap'));
+      expect(r, contains('❌ [policy] Herramienta desconocida "teletransport"'));
+      expect(r, contains('Disponibles: screen, resolve, tap, back, write'));
     });
   });
 }

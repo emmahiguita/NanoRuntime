@@ -64,10 +64,13 @@ class ChatMessage {
     timestamp: DateTime.parse(json['timestamp'] as String),
     tps: (json['tps'] as num?)?.toDouble(),
     status: MessageStatus.values.byName(json['status'] as String),
-    attachmentNames: (json['attachmentNames'] as List?)?.cast<String>() ??
-        const [],
+    attachmentNames:
+        (json['attachmentNames'] as List?)?.cast<String>() ?? const [],
   );
 }
+
+/// Sentinel para distinguir "no pasado" de "null explícito" en [copyWith].
+const Object _sentinel = Object();
 
 class ChatState {
   final List<ChatMessage> messages;
@@ -92,6 +95,14 @@ class ChatState {
   /// siguiente generación y se consumen; no se persisten.
   final List<ChatAttachment> attachments;
 
+  /// Tool-calling: nombre de la herramienta que espera confirmación del
+  /// usuario (política externalWrite). Null = nada pendiente. La UI muestra
+  /// el diálogo y llama a approvePendingTool/rejectPendingTool.
+  final String? pendingTool;
+
+  /// Descripción legible de la herramienta pendiente (para el diálogo).
+  final String? pendingToolDescription;
+
   const ChatState({
     this.messages = const [],
     this.input = '',
@@ -105,38 +116,54 @@ class ChatState {
     this.liveTps,
     this.streamingText = '',
     this.attachments = const [],
+    this.pendingTool,
+    this.pendingToolDescription,
   });
 
+  /// [copyWith] con soporte para limpiar campos nullable a `null`.
+  ///
+  /// Campos nullable usan `Object?` + sentinel: pasar `null` explícito
+  /// LIMPIA el campo; no pasar nada lo preserva. Esto corrige el bug donde
+  /// `copyWith(pendingTool: null)` no tenía efecto.
   ChatState copyWith({
     List<ChatMessage>? messages,
     String? input,
     bool? generating,
     String? activeModel,
-    String? activeModelPath,
+    Object? activeModelPath = _sentinel,
     ModelConnectionState? connection,
     List<String>? availableModels,
     bool? showModelSelector,
     bool? engineOnline,
-    double? liveTps,
+    Object? liveTps = _sentinel,
     String? streamingText,
     List<ChatAttachment>? attachments,
+    Object? pendingTool = _sentinel,
+    Object? pendingToolDescription = _sentinel,
   }) => ChatState(
     messages: messages ?? this.messages,
     input: input ?? this.input,
     generating: generating ?? this.generating,
     activeModel: activeModel ?? this.activeModel,
-    activeModelPath: activeModelPath ?? this.activeModelPath,
+    activeModelPath: activeModelPath == _sentinel
+        ? this.activeModelPath
+        : activeModelPath as String?,
     connection: connection ?? this.connection,
     availableModels: availableModels ?? this.availableModels,
     showModelSelector: showModelSelector ?? this.showModelSelector,
     engineOnline: engineOnline ?? this.engineOnline,
-    liveTps: liveTps ?? this.liveTps,
+    liveTps: liveTps == _sentinel ? this.liveTps : liveTps as double?,
     streamingText: streamingText ?? this.streamingText,
     attachments: attachments ?? this.attachments,
+    pendingTool: pendingTool == _sentinel
+        ? this.pendingTool
+        : pendingTool as String?,
+    pendingToolDescription: pendingToolDescription == _sentinel
+        ? this.pendingToolDescription
+        : pendingToolDescription as String?,
   );
 
-  /// Regla de habilitación del composer: con GGUF instalado se puede
-  /// escribir y enviar aunque el motor esté apagado — el primer envío lo
-  /// arranca. Sin modelo y sin motor, bloqueado (deadlock roto en S1).
+  /// Regla de habilitación del composer: siempre habilitado para mejor UX.
+  /// El bloqueo ocurre al intentar enviar si no hay motor/modelo.
   bool get canSend => engineOnline || activeModelPath != null;
 }

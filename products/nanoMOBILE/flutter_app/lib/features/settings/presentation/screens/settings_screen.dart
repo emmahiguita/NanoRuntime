@@ -37,7 +37,10 @@ class SettingsScreen extends ConsumerWidget {
         );
       },
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: NanoSpacing.md, vertical: NanoSpacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: NanoSpacing.md,
+          vertical: NanoSpacing.md,
+        ),
         children: [
           SectionHeader('General', Icons.tune, colors: colors),
           SettingsCard(
@@ -148,9 +151,51 @@ class SettingsScreen extends ConsumerWidget {
                   label: 'Tokens máximos',
                   value: state.maxTokens.toDouble(),
                   min: 64,
-                  max: 2048,
+                  max: 512,
                   onChanged: (v) => notifier.setMaxTokens(v.round()),
                   colors: colors,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: NanoSpacing.md),
+          SectionHeader('Agente de Chat', Icons.smart_toy, colors: colors),
+          SettingsCard(
+            shadow: shadow,
+            colors: colors,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Automatización de tools JSON',
+                  style: NanoType.body(colors.onSurface),
+                ),
+                const SizedBox(height: NanoSpacing.xs),
+                Text(
+                  state.agentAutomationMode.description,
+                  style: NanoType.caption(colors.onSurfaceVariant),
+                ),
+                const SizedBox(height: NanoSpacing.md),
+                Wrap(
+                  spacing: NanoSpacing.sm,
+                  runSpacing: NanoSpacing.sm,
+                  children: [
+                    for (final mode in AgentAutomationMode.values)
+                      ChoiceChip(
+                        label: Text(
+                          mode.label,
+                          style: NanoType.caption(colors.onSurface),
+                        ),
+                        selected: state.agentAutomationMode == mode,
+                        onSelected: (_) =>
+                            notifier.setAgentAutomationMode(mode),
+                        selectedColor: colors.primaryContainer,
+                        side: BorderSide.none,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: NanoShapes.full,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -166,10 +211,7 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 for (final o in _batteryModes)
                   ChoiceChip(
-                    label: Text(
-                      o,
-                      style: NanoType.caption(colors.onSurface),
-                    ),
+                    label: Text(o, style: NanoType.caption(colors.onSurface)),
                     selected: state.batteryMode == o,
                     onSelected: (_) => notifier.setBatteryMode(o),
                     selectedColor: colors.primaryContainer,

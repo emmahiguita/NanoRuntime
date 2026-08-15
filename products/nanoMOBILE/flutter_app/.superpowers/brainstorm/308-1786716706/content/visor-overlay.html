@@ -1,0 +1,150 @@
+<h2>Visor VNC rediseñado — overlay flotante + FAB radial</h2>
+<p class="subtitle">Mockup del escritorio Linux proyectado a pantalla completa con paneles arrastrables. Los bloques de código muestran el diseño Flutter/Kotlin real.</p>
+
+<div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+
+<!-- ============ PHONE MOCKUP ============ -->
+<div style="width:330px;flex-shrink:0">
+<div class="mockup">
+<div class="mockup-header">Vista del visor (portrait 330×640 aprox.)</div>
+<div class="mockup-body" style="padding:0;background:#0A0D14">
+<div style="position:relative;width:300px;height:600px;margin:10px auto;border-radius:18px;overflow:hidden;background:#0F172A;border:1px solid #1e293b">
+
+  <!-- Framebuffer (escritorio Linux real proyectado) -->
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,#020611 0%,#022A2D 100%)">
+    <!-- Ventana lxterminal dentro del escritorio X11 -->
+    <div style="position:absolute;left:18px;top:120px;right:18px;border:2px solid #42D9FF;border-radius:4px;background:#030711;box-shadow:0 8px 24px rgba(0,0,0,.6)">
+      <div style="background:#07192B;padding:4px 8px;font:700 9px monospace;color:#21F2B2">lxterminal — bash</div>
+      <div style="padding:8px;font:10px/1.5 monospace;color:#E9F1FA">nano@android:~$ ls<br>docs &nbsp;home &nbsp;usr<br>nano@android:~$ <span style="color:#21F2B2">▊</span></div>
+    </div>
+    <!-- Ventana pcmanfm -->
+    <div style="position:absolute;left:70px;top:230px;width:150px;border:2px solid #1E3550;border-radius:4px;background:#06101E">
+      <div style="background:#06101E;padding:3px 7px;font:600 8px monospace;color:#7A8BA0">pcmanfm</div>
+      <div style="padding:6px;font:9px monospace;color:#7A8BA0">📁 home/&nbsp;&nbsp;📁 usr/</div>
+    </div>
+  </div>
+
+  <!-- Panel superior flotante (arrastrable) -->
+  <div style="position:absolute;top:8px;left:8px;right:8px;background:rgba(22,27,34,.88);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:6px 10px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.4)">
+    <span style="cursor:grab;color:#64748b;font-size:14px">⠿</span>
+    <span style="color:#9ca3af">←</span>
+    <span style="width:7px;height:7px;border-radius:50%;background:#10B981"></span>
+    <span style="font:600 10px Inter,sans-serif;color:#fff;flex:1;white-space:nowrap;overflow:hidden">Escritorio Linux Activo</span>
+    <span style="color:#9ca3af;font-size:11px">⌨</span>
+    <span style="color:#9ca3af;font-size:11px">↻</span>
+    <span style="color:#2DD4BF;font-size:11px;border:1px solid rgba(45,212,191,.4);border-radius:6px;padding:0 5px">?</span>
+  </div>
+
+  <!-- Panel Ventanas Linux flotante (arrastrable) -->
+  <div style="position:absolute;top:96px;right:8px;width:150px;background:rgba(22,27,34,.94);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px;box-shadow:0 6px 18px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+      <span style="cursor:grab;color:#64748b;font-size:11px">⠿</span>
+      <span style="font:700 9px Inter,sans-serif;color:#fff">Ventanas Linux</span>
+    </div>
+    <div style="font:9px Inter,sans-serif;color:#E9F1FA;background:rgba(16,185,129,.12);border-radius:7px;padding:5px 7px;margin-bottom:4px">lxterminal <span style="color:#64748b">0x400002</span></div>
+    <div style="font:9px Inter,sans-serif;color:#9ca3af;border-radius:7px;padding:5px 7px;margin-bottom:4px">pcmanfm <span style="color:#64748b">0x400008</span></div>
+    <div style="font:9px Inter,sans-serif;color:#9ca3af;border-radius:7px;padding:5px 7px">feh (wallpaper)</div>
+  </div>
+
+  <!-- Barra mouse flotante (arrastrable) -->
+  <div style="position:absolute;bottom:10px;left:12px;right:12px;background:rgba(22,27,34,.92);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:5px 6px;display:flex;align-items:center;gap:2px;box-shadow:0 4px 12px rgba(0,0,0,.4)">
+    <span style="cursor:grab;color:#64748b;font-size:12px">⠿</span>
+    <span style="color:#cbd5e1;font-size:11px">🖱</span>
+    <span style="color:#cbd5e1;font-size:11px">👆</span>
+    <span style="color:#334155">│</span>
+    <span style="color:#cbd5e1;font-size:11px">▲</span>
+    <span style="color:#cbd5e1;font-size:11px">▼</span>
+    <span style="color:#334155">│</span>
+    <span style="color:#cbd5e1;font-size:11px">−</span>
+    <span style="color:#cbd5e1;font-size:11px">＋</span>
+    <span style="color:#334155">│</span>
+    <span style="color:#2DD4BF;font-size:11px">⌨</span>
+  </div>
+
+  <!-- FAB radial abierto -->
+  <div style="position:absolute;bottom:54px;right:14px;width:140px;height:150px">
+    <div style="position:absolute;bottom:22px;left:0;font:8px Inter,sans-serif;color:#fff;background:#10B981;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center">🖥</div>
+    <div style="position:absolute;bottom:56px;left:22px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">📁</div>
+    <div style="position:absolute;bottom:64px;right:12px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">✎</div>
+    <div style="position:absolute;bottom:96px;left:4px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">🖼</div>
+    <div style="position:absolute;bottom:104px;right:6px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">📄</div>
+    <div style="position:absolute;bottom:128px;left:34px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">🗜</div>
+    <div style="position:absolute;bottom:120px;right:44px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">🪟</div>
+    <div style="position:absolute;bottom:134px;right:72px;font:8px Inter,sans-serif;color:#fff;background:#0B2438;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #1E3550">📈</div>
+    <!-- FAB principal -->
+    <div style="position:absolute;bottom:0;right:0;width:46px;height:46px;border-radius:50%;background:#10B981;display:flex;align-items:center;justify-content:center;font-size:17px;transform:rotate(45deg);box-shadow:0 6px 16px rgba(16,185,129,.4)">✕</div>
+  </div>
+
+  <!-- Tap fuera = cerrar radial -->
+  <div style="position:absolute;inset:0;background:rgba(2,6,17,.35)"></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ============ CÓDIGO ============ -->
+<div style="flex:1;min-width:340px">
+
+<h3>Flutter — panel arrastrable genérico</h3>
+<pre style="background:#0d1420;color:#c9d6e8;border-radius:10px;padding:14px;font-size:11.5px;line-height:1.5;overflow:auto"><code>class _DraggablePanel extends StatefulWidget {
+  final String panelId;         // 'top' | 'mouse' | 'windows'
+  final Offset initialOffset;   // posición base por sesión
+  final Widget child;
+  ...
+}
+
+class _DraggablePanelState extends State&lt;_DraggablePanel&gt; {
+  Offset _off = Offset.zero;
+
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: widget.initialOffset.dx + _off.dx,
+      top:  widget.initialOffset.dy + _off.dy,
+      child: GestureDetector(
+        // SOLO la manija arrastra — el resto del panel
+        // conserva sus taps (botones, teclas) intactos.
+        onPanUpdate: (d) => setState(() {
+          _off = _clamp(_off + d.delta, screenSize, panelSize);
+        }),
+        child: Column(children: [
+          _DragHandle(),   // ⠿ icono, cursor grab
+          widget.child,    // contenido 1:1 del panel actual
+        ]),
+      ),
+    );
+  }
+}</code></pre>
+
+<h3>Flutter — FAB radial (animación propia, sin deps)</h3>
+<pre style="background:#0d1420;color:#c9d6e8;border-radius:10px;padding:14px;font-size:11.5px;line-height:1.5;overflow:auto"><code>// 8 items en arco de 180°, stagger 20ms, escala + fade.
+for (var i = 0; i &lt; items.length; i++) {
+  final angle = -math.pi + (math.pi * i / (items.length - 1));
+  final dx = math.cos(angle) * radius;
+  final dy = math.sin(angle) * radius - radius;
+  final anim = CurvedAnimation(
+    parent: _controller,
+    curve: Interval(0.10 * i, 1.0, curve: Curves.easeOutBack));
+  ... // ScaleTransition + FadeTransition + Positioned(dx, dy)
+}</code></pre>
+
+<h3>Kotlin — lista REAL de ventanas X11 (worker + xdotool)</h3>
+<pre style="background:#0d1420;color:#c9d6e8;border-radius:10px;padding:14px;font-size:11.5px;line-height:1.5;overflow:auto"><code>// DesktopController: canal nuevo "listWindows"
+fun listWindows(): List&lt;X11Window&gt; {
+    val session = synchronized(lock) { activeSession } ?: return emptyList()
+    return session.listWindows()  // spawn xdotool con wmEnv real
+}
+
+// DesktopSessionManager (allowlist binaria: xdotool, sin comandos libres)
+fun listWindows(): List&lt;X11Window&gt; {
+    val out = spawnCaptured(  // worker MSG_SPAWN → archivo tmp
+        binary = File(usrDir, "bin/xdotool"),
+        argv   = listOf("search", "--onlyvisible", "--name", ".*",
+                        "getwindowname", "getwindowgeometry", "getwindowpid"),
+        envp   = lastWmEnv,   // MISMO env del WM: DISPLAY, LD_LIBRARY_PATH
+    )
+    return parseXdotool(out)  // id + título + geometría + pid
+}</code></pre>
+
+<p style="font-size:12px;color:#8b9bb4">Diseño visual idéntico al actual: paneles #161B22 α0.9, bordes white12, acentos #10B981/#2DD4BF, targets ≥40px. Solo cambia franja fija → flotante arrastrable.</p>
+</div>
+</div>

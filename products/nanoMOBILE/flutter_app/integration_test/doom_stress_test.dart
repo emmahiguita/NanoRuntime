@@ -5,7 +5,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:nanoai/main.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
-import 'package:nanoai/features/chat/chat_screen.dart';
+import 'package:nanoai/features/chat/presentation/screens/chat_screen.dart';
 
 /// PRUEBA DE ESTRÉS DOOM — carga máxima contra el chat real (motor llama.cpp):
 ///   1. Ráfaga de envíos rápidos (el guard `generating` debe absorberlos)

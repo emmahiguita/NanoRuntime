@@ -765,8 +765,23 @@ int nanoshell_worker_spawn_detached(
     const char* const argv[],
     const char* const envp[])
 {
+    if (!binary_path || !binary_path[0]) {
+        __android_log_print(ANDROID_LOG_ERROR, "nanoshell-detached",
+            "spawn rejected: empty binary_path");
+        return -1;
+    }
+
+    const char* base_name = strrchr(binary_path, '/');
+    base_name = base_name ? base_name + 1 : binary_path;
+    const char* fallback_argv[] = { base_name, NULL };
+    const char* const* safe_argv = (argv && argv[0]) ? argv : fallback_argv;
+
     pid_t pid = fork();
-    if (pid < 0) return -1;
+    if (pid < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "nanoshell-detached",
+            "fork failed for %s: %s", binary_path, strerror(errno));
+        return -1;
+    }
 
     if (pid == 0) {
         // Child path for graphical daemons. Keep inherited FDs because Xvnc
@@ -849,14 +864,14 @@ int nanoshell_worker_spawn_detached(
                 logpath, strerror(errno));
         }
 
-        int argc = count_argv(argv);
+        int argc = count_argv(safe_argv);
         extern char** environ;
 
         // 1. execve directo del binario. En ColorOS falla con EACCES sobre
         // binarios del sandbox; en otros dispositivos es el camino bueno.
         __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
             "execve(%s) argc=%d", binary_path ? binary_path : "<null>", argc);
-        execve(binary_path, (char* const*)argv, environ);
+        execve(binary_path, (char* const*)safe_argv, environ);
         __android_log_print(ANDROID_LOG_WARN, "nanoshell-detached",
             "execve(%s) failed: %s — trying linker64",
             binary_path ? binary_path : "<null>", strerror(errno));
@@ -877,10 +892,8 @@ int nanoshell_worker_spawn_detached(
         //    line argument 'openbox'". Se dropea ese duplicado del nombre.
         //    (argv[0] = ":1" de Xvnc no es duplicado → no se dropea nada.)
         {
-            const char* base_name = strrchr(binary_path, '/');
-            base_name = base_name ? base_name + 1 : binary_path;
             int args_start = 0;
-            if (argc > 0 && argv[0] && strcmp(argv[0], base_name) == 0) {
+            if (argc > 0 && safe_argv[0] && strcmp(safe_argv[0], base_name) == 0) {
                 args_start = 1;
             }
             int n_args = argc - args_start;
@@ -889,7 +902,7 @@ int nanoshell_worker_spawn_detached(
                 linker_argv[0] = "/system/bin/linker64";
                 linker_argv[1] = (char*)binary_path;
                 for (int i = 0; i < n_args; i++) {
-                    linker_argv[i + 2] = (char*)argv[args_start + i];
+                    linker_argv[i + 2] = (char*)safe_argv[args_start + i];
                 }
                 linker_argv[n_args + 2] = NULL;
                 __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
@@ -969,7 +982,7 @@ int nanoshell_worker_spawn_detached(
             if (entry) {
                 __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
                     "found main symbol, calling directly");
-                int rc = entry(argc, (char**)argv, environ);
+                int rc = entry(argc, (char**)safe_argv, environ);
                 fprintf(stderr, "nanoshell-detached: entry returned rc=%d\n", rc);
                 dlclose(handle);
                 _exit(rc);
@@ -1019,7 +1032,7 @@ int nanoshell_worker_spawn_detached(
             if (elf_entry) {
                 __android_log_print(ANDROID_LOG_INFO, "nanoshell-detached",
                     "calling ELF entry %p for %s", elf_entry, binary_path);
-                int rc = _call_stack_entry(elf_entry, argc, (char**)argv);
+                int rc = _call_stack_entry(elf_entry, argc, (char**)safe_argv);
                 fprintf(stderr, "nanoshell-detached: entry returned rc=%d\n", rc);
                 _exit(rc);
             }

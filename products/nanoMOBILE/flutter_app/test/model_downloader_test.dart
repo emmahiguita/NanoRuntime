@@ -21,8 +21,8 @@ void main() {
     tmp = await Directory.systemTemp.createTemp('model_dl_test_');
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     baseUrl = 'http://127.0.0.1:${server.port}';
-    payloadSha =
-        (await crypto.sha256.bind(Stream.value(payload)).first).toString();
+    payloadSha = (await crypto.sha256.bind(Stream.value(payload)).first)
+        .toString();
     server.listen((req) async {
       if (req.uri.path == '/missing') {
         req.response.statusCode = HttpStatus.notFound;
@@ -36,8 +36,9 @@ void main() {
         start = int.parse(range.substring(6).split('-').first);
       }
       final bytes = payload.sublist(start);
-      req.response.statusCode =
-          start > 0 ? HttpStatus.partialContent : HttpStatus.ok;
+      req.response.statusCode = start > 0
+          ? HttpStatus.partialContent
+          : HttpStatus.ok;
       if (start > 0) {
         req.response.headers.set(
           HttpHeaders.contentRangeHeader,
@@ -55,50 +56,58 @@ void main() {
     await tmp.delete(recursive: true);
   });
 
-  test('descarga completa + SHA256 correcto = archivo instalado, sin .part',
-      () async {
-    final dl = ModelDownloader();
-    final dest = '${tmp.path}/model.gguf';
-    final progress = <double>[];
-    final file = await dl.download(
-      url: '$baseUrl/model.gguf',
-      destPath: dest,
-      expectedSha256: payloadSha,
-      onProgress: progress.add,
-    );
-    expect(file.path, dest);
-    expect(await file.readAsBytes(), payload);
-    expect(File('$dest.part').existsSync(), isFalse);
-    expect(progress, isNotEmpty);
-    expect(progress.last, closeTo(1.0, 0.001));
-    dl.dispose();
-  });
-
-  test('SHA256 incorrecto = DownloadException.hashMismatch y .part borrado',
-      () async {
-    final dl = ModelDownloader();
-    final dest = '${tmp.path}/model.gguf';
-    await expectLater(
-      dl.download(
+  test(
+    'descarga completa + SHA256 correcto = archivo instalado, sin .part',
+    () async {
+      final dl = ModelDownloader();
+      final dest = '${tmp.path}/model.gguf';
+      final progress = <double>[];
+      final file = await dl.download(
         url: '$baseUrl/model.gguf',
         destPath: dest,
-        expectedSha256: 'f' * 64,
-      ),
-      throwsA(isA<DownloadException>().having(
-        (e) => e.message,
-        'message',
-        contains('SHA256 no coincide'),
-      )),
-    );
-    expect(File(dest).existsSync(), isFalse);
-    expect(File('$dest.part').existsSync(), isFalse);
-    dl.dispose();
-  });
+        expectedSha256: payloadSha,
+        onProgress: progress.add,
+      );
+      expect(file.path, dest);
+      expect(await file.readAsBytes(), payload);
+      expect(File('$dest.part').existsSync(), isFalse);
+      expect(progress, isNotEmpty);
+      expect(progress.last, closeTo(1.0, 0.001));
+      dl.dispose();
+    },
+  );
+
+  test(
+    'SHA256 incorrecto = DownloadException.hashMismatch y .part borrado',
+    () async {
+      final dl = ModelDownloader();
+      final dest = '${tmp.path}/model.gguf';
+      await expectLater(
+        dl.download(
+          url: '$baseUrl/model.gguf',
+          destPath: dest,
+          expectedSha256: 'f' * 64,
+        ),
+        throwsA(
+          isA<DownloadException>().having(
+            (e) => e.message,
+            'message',
+            contains('SHA256 no coincide'),
+          ),
+        ),
+      );
+      expect(File(dest).existsSync(), isFalse);
+      expect(File('$dest.part').existsSync(), isFalse);
+      dl.dispose();
+    },
+  );
 
   test('reanuda con Range si existe .part', () async {
     // Primera mitad escrita simulando una descarga interrumpida.
     final dest = '${tmp.path}/model.gguf';
-    await File('$dest.part').writeAsBytes(payload.sublist(0, payload.length ~/ 2));
+    await File(
+      '$dest.part',
+    ).writeAsBytes(payload.sublist(0, payload.length ~/ 2));
 
     final dl = ModelDownloader();
     final file = await dl.download(
@@ -110,6 +119,35 @@ void main() {
     expect(File('$dest.part').existsSync(), isFalse);
     dl.dispose();
   });
+
+  test(
+    'reanuda con progreso basado en tamano total, no en bytes restantes',
+    () async {
+      final dest = '${tmp.path}/model.gguf';
+      final half = payload.length ~/ 2;
+      await File('$dest.part').writeAsBytes(payload.sublist(0, half));
+
+      final dl = ModelDownloader();
+      final progress = <double>[];
+      final file = await dl.download(
+        url: '$baseUrl/model.gguf',
+        destPath: dest,
+        expectedSha256: payloadSha,
+        onProgress: progress.add,
+      );
+
+      expect(await file.readAsBytes(), payload);
+      expect(progress, isNotEmpty);
+      expect(progress.first, greaterThanOrEqualTo(0.5));
+      expect(progress.last, closeTo(1.0, 0.001));
+      expect(
+        progress.where((value) => value == 1.0).length,
+        1,
+        reason: 'no debe marcar 100% antes de terminar el resto del Range',
+      );
+      dl.dispose();
+    },
+  );
 
   test('cancelación cooperativa lanza DownloadException.cancelled', () async {
     final dl = ModelDownloader();
@@ -124,34 +162,40 @@ void main() {
         cancelToken: () async => cancel,
         onProgress: (_) => cancel = true,
       ),
-      throwsA(isA<DownloadException>().having(
-        (e) => e.message,
-        'message',
-        contains('cancelada'),
-      )),
+      throwsA(
+        isA<DownloadException>().having(
+          (e) => e.message,
+          'message',
+          contains('cancelada'),
+        ),
+      ),
     );
     expect(File(dest).existsSync(), isFalse);
     dl.dispose();
   });
 
-  test('HTTP 404 = DownloadException honesta, sin archivos parciales',
-      () async {
-    final dl = ModelDownloader();
-    final dest = '${tmp.path}/missing.gguf';
-    await expectLater(
-      dl.download(
-        url: '$baseUrl/missing',
-        destPath: dest,
-        expectedSha256: payloadSha,
-      ),
-      throwsA(isA<DownloadException>().having(
-        (e) => e.message,
-        'message',
-        contains('HTTP 404'),
-      )),
-    );
-    expect(File(dest).existsSync(), isFalse);
-    expect(File('$dest.part').existsSync(), isFalse);
-    dl.dispose();
-  });
+  test(
+    'HTTP 404 = DownloadException honesta, sin archivos parciales',
+    () async {
+      final dl = ModelDownloader();
+      final dest = '${tmp.path}/missing.gguf';
+      await expectLater(
+        dl.download(
+          url: '$baseUrl/missing',
+          destPath: dest,
+          expectedSha256: payloadSha,
+        ),
+        throwsA(
+          isA<DownloadException>().having(
+            (e) => e.message,
+            'message',
+            contains('HTTP 404'),
+          ),
+        ),
+      );
+      expect(File(dest).existsSync(), isFalse);
+      expect(File('$dest.part').existsSync(), isFalse);
+      dl.dispose();
+    },
+  );
 }

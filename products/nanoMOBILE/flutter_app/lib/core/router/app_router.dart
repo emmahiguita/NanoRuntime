@@ -5,6 +5,7 @@ import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/models/presentation/screens/models_screen.dart';
 import '../../features/terminal/presentation/screens/terminal_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/linux/presentation/screens/mobile_linux_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_launch_screen.dart';
 import '../../features/desktop/presentation/screens/vnc_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
@@ -67,6 +68,14 @@ class AppRouter {
               GoRoute(
                 path: '/settings',
                 pageBuilder: (_, __) => _fadeSlide(const SettingsScreen()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/linux',
+                pageBuilder: (_, __) => _fadeSlide(const MobileLinuxScreen()),
               ),
             ],
           ),

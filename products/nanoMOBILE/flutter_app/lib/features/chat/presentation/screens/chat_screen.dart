@@ -1,15 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
+import 'package:nanoai/core/services/pdf_report_service.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
@@ -169,7 +172,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
+      // Guard: el widget puede desmontarse antes de que se ejecute el callback.
+      if (!mounted || !_scrollController.hasClients) return;
       final target = _scrollController.position.maxScrollExtent;
       if (MediaQuery.disableAnimationsOf(context)) {
         _scrollController.jumpTo(target);
@@ -195,74 +199,250 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen(chatProvider.select((s) => s.generating), (_, __) {
       _scrollToBottom();
     });
+    // Política §12: el tool-calling pidió una escritura externa — diálogo de
+    // confirmación obligatorio (sin dismiss lateral: decisión del humano).
+    ref.listen(chatProvider.select((s) => s.pendingTool), (prev, next) {
+      if (next != null && prev != next) {
+        _showToolConfirmDialog(next);
+      }
+    });
 
     return NanoScreenShell(
       title: 'Chat',
-      trailing: _EngineBadge(online: state.engineOnline),
-      body: Column(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: state.messages.isEmpty
-                ? _EmptyChat(
-                    engineOnline: state.engineOnline,
-                    hasModel: state.activeModelPath != null,
-                    onSuggestion: (text) {
-                      _inputController.text = text;
-                    },
-                    onRetry: () => notifier.refreshEngine(),
-                    onGoModels: () => context.go('/models'),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-                    itemCount:
-                        state.messages.length + (state.generating ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == state.messages.length) {
-                        return _StreamingBubble(
-                          text: state.streamingText,
-                          model: state.activeModel,
-                        );
-                      }
+          if (state.messages.isNotEmpty)
+            IconButton(
+              tooltip: 'Limpiar conversación',
+              onPressed: state.generating
+                  ? null
+                  : () => _showClearDialog(notifier),
+              icon: Icon(
+                Icons.delete_sweep_rounded,
+                color: Colors.white.withValues(alpha: 0.72),
+                size: 22,
+              ),
+            ),
+          const SizedBox(width: 4),
+          _EngineBadge(online: state.engineOnline),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 920),
+          child: Column(
+            children: [
+              Expanded(
+                child: state.messages.isEmpty
+                    ? _EmptyChat(
+                        engineOnline: state.engineOnline,
+                        hasModel: state.activeModelPath != null,
+                        onSuggestion: (text) {
+                          notifier.send(text);
+                        },
+                        onRetry: () => notifier.refreshEngine(),
+                        onGoModels: () => context.go('/models'),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                        itemCount:
+                            state.messages.length + (state.generating ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == state.messages.length) {
+                            return _StreamingBubble(
+                              text: state.streamingText,
+                              model: state.activeModel,
+                            );
+                          }
 
-                      final message = state.messages[index];
+                          final message = state.messages[index];
+                          final isUser = message.sender == MessageSender.user;
+                          final isError = message.status == MessageStatus.error;
 
-                      return AnimatedMessageEntry(
-                        key: ValueKey(message.id),
-                        isUser: message.sender == MessageSender.user,
-                        child: _MessageBubble(
-                          text: message.text,
-                          isUser: message.sender == MessageSender.user,
-                          model: state.activeModel,
-                          timestamp: message.timestamp,
-                          isError: message.status == MessageStatus.error,
-                          attachmentNames: message.attachmentNames,
-                        ),
-                      );
-                    },
-                  ),
+                          return AnimatedMessageEntry(
+                            key: ValueKey(message.id),
+                            isUser: isUser,
+                            child: GestureDetector(
+                              onLongPress: state.generating
+                                  ? null
+                                  : () => _showDeleteDialog(notifier, message),
+                              child: _MessageBubble(
+                                text: message.text,
+                                isUser: isUser,
+                                model: state.activeModel,
+                                timestamp: message.timestamp,
+                                isError: isError,
+                                attachmentNames: message.attachmentNames,
+                                tps: message.tps,
+                                onRetry: isError && !state.generating
+                                    ? () => notifier.retry(message.id)
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              _Composer(
+                controller: _inputController,
+                enabled: state.canSend && !state.generating,
+                generating: state.generating,
+                listening: _listening,
+                attachments: state.attachments,
+                onRemoveAttachment: notifier.removeAttachment,
+                onAttach: _attachFile,
+                onMic: _toggleMic,
+                onSend: () {
+                  final text = _inputController.text.trim();
+                  if (text.isEmpty) return;
+
+                  notifier.send(text);
+                  _inputController.clear();
+                },
+                onStop: notifier.stop,
+              ),
+            ],
           ),
-          _Composer(
-            controller: _inputController,
-            enabled: state.canSend && !state.generating,
-            generating: state.generating,
-            listening: _listening,
-            attachments: state.attachments,
-            onRemoveAttachment: notifier.removeAttachment,
-            onAttach: _attachFile,
-            onMic: _toggleMic,
-            onSend: () {
-              final text = _inputController.text.trim();
-              if (text.isEmpty) return;
+        ),
+      ),
+    );
+  }
 
-              notifier.send(text);
-              _inputController.clear();
-            },
-            onStop: notifier.stop,
+  /// Diálogo de confirmación para limpiar todo el historial.
+  Future<void> _showClearDialog(ChatNotifier notifier) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0A1929),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: const Color(0xFF42D9FF).withValues(alpha: 0.3),
+          ),
+        ),
+        title: const Text(
+          '¿Limpiar conversación?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Se eliminarán todos los mensajes. Esta acción no se puede deshacer.',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5C6C),
+            ),
+            child: const Text('Limpiar'),
           ),
         ],
       ),
     );
+    if (confirmed == true && mounted) {
+      await notifier.clear();
+    }
+  }
+
+  /// Diálogo de confirmación para eliminar un mensaje individual.
+  Future<void> _showDeleteDialog(
+    ChatNotifier notifier,
+    ChatMessage message,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0A1929),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: const Color(0xFF42D9FF).withValues(alpha: 0.3),
+          ),
+        ),
+        title: const Text(
+          '¿Eliminar mensaje?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          message.text.length > 80
+              ? '"${message.text.substring(0, 80)}…"'
+              : '"${message.text}"',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5C6C),
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      notifier.delete(message.id);
+    }
+  }
+
+  /// Diálogo de confirmación de herramienta. Decisión obligatoria del
+  /// humano: aprobar ejecuta la acción (confirmed), rechazar la cancela con
+  /// evidencia en el trace. Si la pantalla se desmonta sin decisión, el
+  /// pendiente queda descartado por el siguiente send().
+  Future<void> _showToolConfirmDialog(String tool) async {
+    final description = ref.read(chatProvider).pendingToolDescription ?? '';
+    final approved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0A1929),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: const Color(0xFF42D9FF).withValues(alpha: 0.3),
+          ),
+        ),
+        title: Text(
+          'Confirmar acción "$tool"',
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          description.isEmpty
+              ? 'El agente quiere ejecutar "$tool" en el dispositivo.'
+              : description,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Permitir'),
+          ),
+        ],
+      ),
+    );
+    if (approved == null || !mounted) return;
+    final notifier = ref.read(chatProvider.notifier);
+    if (approved) {
+      await notifier.approvePendingTool();
+    } else {
+      await notifier.rejectPendingTool();
+    }
   }
 }
 
@@ -377,6 +557,91 @@ class _EngineBadgeState extends State<_EngineBadge>
   }
 }
 
+MarkdownStyleSheet _buildChatMarkdownStyleSheet(
+  BuildContext context, {
+  required bool isUser,
+}) {
+  return MarkdownStyleSheet(
+    p: TextStyle(
+      color: isUser ? Colors.white : Colors.white.withValues(alpha: 0.95),
+      fontSize: 15,
+      height: 1.55,
+      letterSpacing: 0.15,
+    ),
+    h1: const TextStyle(
+      color: Color(0xFF42D9FF),
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+      height: 1.4,
+    ),
+    h2: const TextStyle(
+      color: Color(0xFF42D9FF),
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1.4,
+    ),
+    h3: const TextStyle(
+      color: Color(0xFF21F2B2),
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      height: 1.35,
+    ),
+    strong: const TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+    ),
+    em: TextStyle(
+      color: Colors.white.withValues(alpha: 0.9),
+      fontStyle: FontStyle.italic,
+    ),
+    listBullet: const TextStyle(
+      color: Color(0xFF42D9FF),
+      fontSize: 15,
+    ),
+    code: const TextStyle(
+      backgroundColor: Color(0x2021F2B2),
+      color: Color(0xFF21F2B2),
+      fontFamily: 'monospace',
+      fontSize: 13.5,
+    ),
+    codeblockPadding: const EdgeInsets.all(12),
+    codeblockDecoration: BoxDecoration(
+      color: const Color(0xFF040E1A),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(
+        color: const Color(0xFF42D9FF).withValues(alpha: 0.25),
+      ),
+    ),
+    blockquote: TextStyle(
+      color: Colors.white.withValues(alpha: 0.8),
+      fontSize: 14.5,
+      fontStyle: FontStyle.italic,
+    ),
+    blockquoteDecoration: BoxDecoration(
+      color: const Color(0xFF003040).withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(8),
+      border: const Border(
+        left: BorderSide(color: Color(0xFF42D9FF), width: 3),
+      ),
+    ),
+    tableBorder: TableBorder.all(
+      color: Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    tableHead: const TextStyle(
+      color: Color(0xFF42D9FF),
+      fontWeight: FontWeight.w700,
+    ),
+    tableBody: TextStyle(
+      color: Colors.white.withValues(alpha: 0.9),
+    ),
+    tableCellsPadding: const EdgeInsets.symmetric(
+      horizontal: 10,
+      vertical: 6,
+    ),
+  );
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.text,
@@ -384,8 +649,9 @@ class _MessageBubble extends StatelessWidget {
     required this.model,
     required this.timestamp,
     this.isError = false,
-    this.trailing,
     this.attachmentNames = const [],
+    this.tps,
+    this.onRetry,
   });
 
   final String text;
@@ -394,12 +660,15 @@ class _MessageBubble extends StatelessWidget {
   final DateTime timestamp;
   final bool isError;
 
+  /// Tokens por segundo de la generación (solo respuestas AI completadas).
+  final double? tps;
+
+  /// Callback para reintentar el envío tras un error.
+  final VoidCallback? onRetry;
+
   /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
   /// el contenido se inyectó al prompt y no se persiste).
   final List<String> attachmentNames;
-
-  /// Widget inline tras el texto (cursor de streaming).
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -407,147 +676,767 @@ class _MessageBubble extends StatelessWidget {
         '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}';
 
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Semantics(
-        label: isUser ? 'Mensaje del usuario' : 'Respuesta de NanoAI',
-        child: RepaintBoundary(
-          child: Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.82,
-            ),
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: isUser
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                if (!isUser) ...[
-                  Text(
-                    'NanoAI · ${model.isEmpty || model == 'Sin modelo' ? 'modelo local' : model}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.58),
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                ],
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(15, 12, 15, 9),
-                      decoration: BoxDecoration(
-                        color: isUser
-                            ? const Color(0xFF005D72).withValues(alpha: 0.62)
-                            : const Color(0xFF072238).withValues(alpha: 0.66),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isError
-                              ? const Color(0xFFFF5C6C).withValues(alpha: 0.55)
-                              : isUser
-                              ? const Color(0xFF42D9FF).withValues(alpha: 0.42)
-                              : const Color(0xFF21F2B2).withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          if (attachmentNames.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
-                              children: [
-                                for (final name in attachmentNames)
-                                  Text(
-                                    '📎 $name',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.78,
-                                      ),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                          if (trailing == null)
-                            Text(
-                              text,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                height: 1.42,
-                              ),
-                            )
-                          else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    text,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      height: 1.42,
-                                    ),
-                                  ),
-                                ),
-                                trailing!,
-                              ],
-                            ),
-                          const SizedBox(height: 5),
-                          Text(
-                            time,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.48),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    // Pie del mensaje: hora + TPS (si hay)
+    final footerParts = <Widget>[
+      Text(
+        time,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.48),
+          fontSize: 10,
+        ),
+      ),
+    ];
+
+    if (tps != null && !isUser) {
+      footerParts.addAll([
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: const Color(0xFF21F2B2).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: const Color(0xFF21F2B2).withValues(alpha: 0.30),
             ),
           ),
+          child: Text(
+            '${tps!.toStringAsFixed(1)} tok/s',
+            style: const TextStyle(
+              color: Color(0xFF21F2B2),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ]);
+    }
+
+    final bubbleColor = isUser
+        ? const Color(0xFF42D9FF).withValues(alpha: 0.15)
+        : const Color(0xFF0A1929).withValues(alpha: 0.72);
+
+    final borderColor = isUser
+        ? const Color(0xFF42D9FF).withValues(alpha: 0.3)
+        : Colors.white.withValues(alpha: 0.12);
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: isUser ? 680 : double.infinity,
+        ),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: bubbleColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+          boxShadow: isUser
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (attachmentNames.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: attachmentNames
+                    .map((name) => Chip(
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.attach_file_rounded,
+                                                size: 14,
+                                                color: Colors.white.withValues(alpha: 0.72),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                name,
+                                                style: TextStyle(
+                                                  color: Colors.white.withValues(alpha: 0.72),
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                          visualDensity: VisualDensity.compact,
+                                        ))
+                                    .toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (isUser)
+              MarkdownBody(
+                data: text,
+                selectable: true,
+                styleSheet: _buildChatMarkdownStyleSheet(context, isUser: isUser),
+              )
+            else
+              _buildAiBody(context, text),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: footerParts),
+                if (!isUser && !isError)
+                  _MessageActions(
+                    text: text,
+                    model: model,
+                    timestamp: timestamp,
+                  ),
+                if (onRetry != null)
+                  GestureDetector(
+                    onTap: onRetry,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.refresh_rounded,
+                          size: 14,
+                          color: const Color(0xFF42D9FF),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Reintentar',
+                          style: TextStyle(
+                            color: const Color(0xFF42D9FF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+// ================================================================
+// Helpers de cuerpo de mensaje AI
+// ================================================================
+
+/// Construye el cuerpo de un mensaje AI: separa el bloque de razonamiento
+/// (<thought>) del texto de respuesta principal, sin usar IIFE.
+Widget _buildAiBody(BuildContext context, String text) {
+  final parsed = parseThought(text);
+  final thought = parsed.thought;
+  final response = parsed.response;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (thought != null && thought.trim().isNotEmpty)
+        ModelReasoningBlock(thought: thought),
+      if (response.trim().isNotEmpty)
+        MarkdownBody(
+          data: response,
+          selectable: true,
+          styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
+        )
+      else if (thought == null || thought.trim().isEmpty)
+        MarkdownBody(
+          data: text,
+          selectable: true,
+          styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
+        ),
+    ],
+  );
+}
+
+// ================================================================
+// Menú de acciones de mensaje (3 puntos)
+// ================================================================
+
+/// Menú profesional de 3 puntos para cada burbuja AI completada.
+/// Organizado en 3 acciones: Copiar · Compartir · Exportar (PDF | Markdown).
+class _MessageActions extends StatelessWidget {
+  const _MessageActions({
+    required this.text,
+    required this.model,
+    required this.timestamp,
+  });
+
+  final String text;
+  final String model;
+  final DateTime timestamp;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: Icon(
+        Icons.more_horiz_rounded,
+        size: 18,
+        color: Colors.white.withValues(alpha: 0.48),
+      ),
+      tooltip: 'Acciones',
+      color: const Color(0xFF0A1929),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: const Color(0xFF42D9FF).withValues(alpha: 0.25),
+        ),
+      ),
+      elevation: 8,
+      position: PopupMenuPosition.under,
+      onSelected: (value) async {
+        switch (value) {
+          case 'copy':
+            await Clipboard.setData(ClipboardData(text: text));
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Texto copiado al portapapeles'),
+                  duration: Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            break;
+
+          case 'share':
+            await SharePlus.instance.share(
+              ShareParams(text: text, subject: 'Respuesta NanoAI — $model'),
+            );
+            break;
+
+          case 'export_pdf':
+            await PdfReportService.exportReport(
+              title: 'Informe de Análisis NanoAI',
+              content: text,
+              modelName: model,
+              timestamp: timestamp,
+            );
+            break;
+
+          case 'export_md':
+            await PdfReportService.exportMarkdown(
+              title: 'Informe de Análisis NanoAI',
+              content: text,
+              modelName: model,
+              timestamp: timestamp,
+            );
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        // ── 1. Copiar ──────────────────────────────────────────
+        PopupMenuItem<String>(
+          value: 'copy',
+          child: Row(
+            children: [
+              Icon(
+                Icons.copy_rounded,
+                size: 18,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Copiar',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── 2. Compartir ───────────────────────────────────────
+        PopupMenuItem<String>(
+          value: 'share',
+          child: Row(
+            children: [
+              Icon(
+                Icons.share_rounded,
+                size: 18,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Compartir',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── Divisor ────────────────────────────────────────────
+        const PopupMenuDivider(
+          height: 1,
+        ),
+        // ── 3a. Exportar → PDF ─────────────────────────────────
+        PopupMenuItem<String>(
+          value: 'export_pdf',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.picture_as_pdf_rounded,
+                size: 18,
+                color: Color(0xFF42D9FF),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Exportar como PDF',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    'Informe técnico estructurado',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // ── 3b. Exportar → Markdown ────────────────────────────
+        PopupMenuItem<String>(
+          value: 'export_md',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.description_rounded,
+                size: 18,
+                color: Color(0xFF21F2B2),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Exportar como Markdown',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    'Archivo .md para Obsidian, Notion…',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _StreamingBubble extends StatelessWidget {
-  const _StreamingBubble({required this.text, required this.model});
+  const _StreamingBubble({
+    required this.text,
+    required this.model,
+  });
 
   final String text;
   final String model;
 
   @override
   Widget build(BuildContext context) {
-    // Generando sin tokens todavía: onda de tres puntos. Con texto: burbuja
-    // real + cursor respirando inline.
-    if (text.isEmpty) {
-      return const Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 16),
-          child: ThinkingIndicator(),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A1929).withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-      );
-    }
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            () {
+              final parsed = parseThought(text);
+              final thought = parsed.thought;
+              final response = parsed.response;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (thought != null && thought.trim().isNotEmpty)
+                    ModelReasoningBlock(thought: thought, initiallyExpanded: true),
+                  if (response.trim().isNotEmpty)
+                    MarkdownBody(
+                      data: response,
+                      styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
+                    )
+                  else if (text.isEmpty || (thought != null && response.isEmpty))
+                    // Si el pensamiento está activo pero la respuesta principal está vacía, no mostrar body vacío
+                    const SizedBox.shrink()
+                  else
+                    MarkdownBody(
+                      data: text.isEmpty ? '...' : text,
+                      styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
+                    ),
+                ],
+              );
+            }(),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF21F2B2),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Generando con $model...',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.48),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    return _MessageBubble(
-      text: text,
-      isUser: false,
-      model: model,
-      timestamp: DateTime.now(),
-      trailing: const StreamingCursor(),
+class _EmptyChat extends StatelessWidget {
+  const _EmptyChat({
+    required this.engineOnline,
+    required this.hasModel,
+    required this.onSuggestion,
+    required this.onRetry,
+    required this.onGoModels,
+  });
+
+  final bool engineOnline;
+  final bool hasModel;
+  final void Function(String) onSuggestion;
+  final VoidCallback onRetry;
+  final VoidCallback onGoModels;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+          Icon(
+            Icons.chat_bubble_outline_rounded,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Chat local',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (!engineOnline)
+            Column(
+              children: [
+                Text(
+                  'Motor local detenido',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.48),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Reintentar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF42D9FF),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            )
+          else if (!hasModel)
+            Column(
+              children: [
+                Text(
+                  'No hay modelos cargados',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.48),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: onGoModels,
+                  icon: const Icon(Icons.extension_rounded, size: 18),
+                  label: const Text('Ir a Modelos'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF42D9FF),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                Text(
+                  'Escribe un mensaje para comenzar',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.48),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _SuggestionChip(
+                      label: 'Prueba de estrés y rendimiento',
+                      onTap: () => onSuggestion(
+                        'Realiza una prueba de estrés y análisis de rendimiento de inferencia en este dispositivo. '
+                        'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con métricas de RAM, CPU y TPS estimado.',
+                      ),
+                    ),
+                    _SuggestionChip(
+                      label: 'Informe técnico del sistema',
+                      onTap: () => onSuggestion(
+                        'Genera un informe técnico completo y estructurado sobre el estado actual del dispositivo, '
+                        'con tablas detalladas de hardware, arquitectura y almacenamiento, listo para exportar a PDF.',
+                      ),
+                    ),
+                    _SuggestionChip(
+                      label: 'Diagrama de arquitectura',
+                      onTap: () => onSuggestion(
+                        'Explica la arquitectura del runtime de NanoAI (Flutter, Binder/SAF, nanortime, llama.cpp) '
+                        'e incluye un diagrama en bloque de código ```mermaid.',
+                      ),
+                    ),
+                    _SuggestionChip(
+                      label: 'Resumen ejecutivo',
+                      onTap: () => onSuggestion(
+                        'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanía de datos '
+                        'y directivas de seguridad.',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+}
+
+// ================================================================
+// Soporte de Razonamiento (DeepSeek <thought>)
+// ================================================================
+
+class ParsedThoughtText {
+  final String? thought;
+  final String response;
+  const ParsedThoughtText({this.thought, required this.response});
+}
+
+ParsedThoughtText parseThought(String text) {
+  final thoughtStart = text.indexOf('<thought>');
+  if (thoughtStart == -1) {
+    return ParsedThoughtText(response: text);
+  }
+  
+  final thoughtEnd = text.indexOf('</thought>', thoughtStart);
+  if (thoughtEnd == -1) {
+    final thought = text.substring(thoughtStart + 9);
+    return ParsedThoughtText(thought: thought, response: '');
+  }
+  
+  final thought = text.substring(thoughtStart + 9, thoughtEnd);
+  final response = text.substring(thoughtEnd + 10).trim();
+  return ParsedThoughtText(thought: thought, response: response);
+}
+
+class ModelReasoningBlock extends StatefulWidget {
+  const ModelReasoningBlock({
+    super.key,
+    required this.thought,
+    this.initiallyExpanded = false,
+  });
+
+  final String thought;
+  final bool initiallyExpanded;
+
+  @override
+  State<ModelReasoningBlock> createState() => _ModelReasoningBlockState();
+}
+
+class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  @override
+  void didUpdateWidget(covariant ModelReasoningBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Si cambia el estado de inicialmente expandido (por ejemplo, en streaming)
+    if (oldWidget.initiallyExpanded != widget.initiallyExpanded) {
+      _expanded = widget.initiallyExpanded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.thought.trim().isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF040E1A).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF21F2B2).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.psychology_outlined,
+                    size: 16,
+                    color: const Color(0xFF21F2B2).withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Razonamiento del modelo',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF21F2B2).withValues(alpha: 0.8),
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: Colors.white.withValues(alpha: 0.48),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF020611).withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  widget.thought.trim(),
+                  style: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 12,
+                    height: 1.5,
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuggestionChip extends StatelessWidget {
+  const _SuggestionChip({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      label: Text(label),
+      onPressed: onTap,
+      backgroundColor: Colors.white.withValues(alpha: 0.08),
+      labelStyle: TextStyle(
+        color: Colors.white.withValues(alpha: 0.72),
+        fontSize: 13,
+      ),
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
     );
   }
 }
@@ -571,7 +1460,7 @@ class _Composer extends StatelessWidget {
   final bool generating;
   final bool listening;
   final List<ChatAttachment> attachments;
-  final ValueChanged<String> onRemoveAttachment;
+  final void Function(String) onRemoveAttachment;
   final VoidCallback onAttach;
   final VoidCallback onMic;
   final VoidCallback onSend;
@@ -579,300 +1468,107 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-
-    // El campo crece con suavidad al añadir líneas (AnimatedSize anima el
-    // cambio de altura del TextField multi-línea).
-    final inputField = TextField(
-      controller: controller,
-      enabled: enabled,
-      minLines: 1,
-      maxLines: 5,
-      textInputAction: TextInputAction.newline,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: listening
-            ? 'Escuchando…'
-            : enabled
-            ? 'Escribe un mensaje'
-            : 'Motor local no disponible',
-        hintStyle: TextStyle(
-          color: listening
-              ? const Color(0xFF21F2B2)
-              : Colors.white.withValues(alpha: 0.42),
-        ),
-        border: InputBorder.none,
-      ),
-    );
-
-    final sendButton = IconButton.filled(
-      tooltip: generating ? 'Detener' : 'Enviar',
-      onPressed: generating ? onStop : (enabled ? onSend : null),
-      style: IconButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        backgroundColor: const Color(0xFF21D991),
-        foregroundColor: Colors.white,
-      ),
-      icon: Icon(generating ? Icons.stop_rounded : Icons.arrow_upward_rounded),
-    );
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        14 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 62),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF07192B).withValues(alpha: 0.74),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF42D9FF).withValues(alpha: 0.32),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (attachments.isNotEmpty) ...[
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                      child: Row(
-                        children: [
-                          for (final a in attachments)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: _AttachmentChip(
-                                name: a.name,
-                                onRemove: () => onRemoveAttachment(a.name),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      tooltip: 'Adjuntar archivo',
-                      onPressed: enabled ? onAttach : null,
-                      icon: const Icon(Icons.attach_file_rounded),
-                    ),
-                Expanded(
-                  child: reduceMotion
-                      ? inputField
-                      : AnimatedSize(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          alignment: Alignment.bottomCenter,
-                          child: inputField,
-                        ),
-                ),
-                IconButton(
-                  tooltip: listening ? 'Detener dictado' : 'Dictar por voz',
-                  onPressed: enabled ? onMic : null,
-                  icon: Icon(
-                    listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                    color: listening ? const Color(0xFF21F2B2) : null,
-                  ),
-                ),
-                const SizedBox(width: 3),
-                PressableScale(
-                  child: reduceMotion
-                      ? sendButton
-                      : AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: generating
-                                ? [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF21F2B2,
-                                      ).withValues(alpha: 0.42),
-                                      blurRadius: 14,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: sendButton,
-                        ),
-                ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Chip de adjunto en el composer: nombre del archivo + X para quitarlo.
-/// El contenido real ya vive en el estado; el chip solo lo representa.
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({required this.name, required this.onRemove});
-
-  final String name;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: 10, right: 2, top: 4, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF005D72).withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFF42D9FF).withValues(alpha: 0.35),
+        color: const Color(0xFF0A1929).withValues(alpha: 0.96),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            name,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-          const SizedBox(width: 2),
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onRemove,
-            child: Tooltip(
-              message: 'Quitar adjunto: $name',
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(Icons.close_rounded, size: 14, color: Colors.white54),
+          if (attachments.isNotEmpty)
+            Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: attachments.length,
+                itemBuilder: (context, index) {
+                  final attachment = attachments[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Chip(
+                      label: Text(
+                        attachment.name,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 12,
+                        ),
+                      ),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      deleteIcon: Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.white.withValues(alpha: 0.48),
+                      ),
+                      onDeleted: () => onRemoveAttachment(attachment.name),
+                    ),
+                  );
+                },
               ),
             ),
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                  color: listening
+                      ? const Color(0xFF21F2B2)
+                      : Colors.white.withValues(alpha: 0.48),
+                ),
+                onPressed: onMic,
+                tooltip: 'Dictado por voz',
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.attach_file_rounded,
+                  color: Colors.white.withValues(alpha: 0.48),
+                ),
+                onPressed: onAttach,
+                tooltip: 'Adjuntar archivo',
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  maxLines: 4,
+                  minLines: 1,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 15,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Escribe un mensaje...',
+                    hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (generating)
+                IconButton(
+                  icon: const Icon(Icons.stop_rounded),
+                  color: const Color(0xFFFF5C6C),
+                  onPressed: onStop,
+                  tooltip: 'Detener generación',
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.send_rounded),
+                  color: enabled
+                      ? const Color(0xFF42D9FF)
+                      : Colors.white.withValues(alpha: 0.24),
+                  onPressed: enabled ? onSend : null,
+                  tooltip: 'Enviar',
+                ),
+            ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _EmptyChat extends StatelessWidget {
-  const _EmptyChat({
-    required this.engineOnline,
-    required this.hasModel,
-    required this.onSuggestion,
-    required this.onRetry,
-    required this.onGoModels,
-  });
-
-  final bool engineOnline;
-  final bool hasModel;
-  final ValueChanged<String> onSuggestion;
-  final VoidCallback onRetry;
-  final VoidCallback onGoModels;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              engineOnline
-                  ? Icons.auto_awesome_rounded
-                  : Icons.cloud_off_rounded,
-              color: engineOnline
-                  ? const Color(0xFF21F2B2)
-                  : const Color(0xFFFFA726),
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              engineOnline
-                  ? '¿En qué puedo ayudarte?'
-                  : 'El motor local está detenido',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (engineOnline) ...[
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  ActionChip(
-                    label: const Text('Explica esta pantalla'),
-                    onPressed: () =>
-                        onSuggestion('Explica lo que aparece en pantalla'),
-                  ),
-                  ActionChip(
-                    label: const Text('Abrir Linux'),
-                    onPressed: () =>
-                        onSuggestion('Ayúdame a usar el escritorio Linux'),
-                  ),
-                  // Herramienta determinista: se ejecuta sin LLM y sin modelo.
-                  ActionChip(
-                    label: const Text('@ Ver pantalla'),
-                    onPressed: () => onSuggestion('@pantalla'),
-                  ),
-                ],
-              ),
-            ] else if (hasModel) ...[
-              const SizedBox(height: 8),
-              Text(
-                'El modelo está instalado pero el motor está apagado. '
-                'Arrancará solo con tu primer mensaje.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.58),
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-              Text(
-                'Descarga un modelo GGUF en la pantalla Modelos y el '
-                'motor correrá 100% en el dispositivo.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.58),
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: onGoModels,
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text('Ir a Modelos'),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

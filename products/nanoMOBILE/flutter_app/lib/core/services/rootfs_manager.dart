@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import 'nano_runtime_api.dart';
 
@@ -7,7 +11,7 @@ import 'nano_runtime_api.dart';
 ///
 /// Flujo de vida:
 ///   1. isInstalled() → verifica si files/nano/usr/bin/bash existe y es ejecutable.
-///   2. Si no está instalado, install() → descarga el zip (~30 MB) y lo extrae.
+///   2. Si no está instalado, install() → descarga SHA256SUMS, verifica hash, descarga el zip (~30 MB) y lo extrae.
 ///   3. installStatus stream → reporta progreso (descarga, extracción, listo).
 ///
 /// Después de instalar, ShellExecutor redirige sus paths a files/nano/usr/bin/
@@ -23,6 +27,10 @@ class RootfsManager {
   /// Redirect de GitHub releases — apunta a la última versión disponible.
   static const bootstrapUrl =
       'https://github.com/termux/termux-packages/releases/latest/download/bootstrap-aarch64.zip';
+
+  /// SHA256SUMS oficial del release termux-packages.
+  static const sha256SumsUrl =
+      'https://github.com/termux/termux-packages/releases/latest/download/SHA256SUMS';
 
   String? _usrDir;
   bool _installed = false;
@@ -91,26 +99,56 @@ class RootfsManager {
     onProgress?.call('download', 0);
 
     try {
-      // 1. Descargar bootstrap-aarch64.zip a files/nano/
+      // 1. Descargar SHA256SUMS oficial
+      onProgress?.call('verify', 0);
+      final expectedHash = await _downloadSha256Sums();
+      if (expectedHash == null) {
+        onProgress?.call('error', 0);
+        debugPrint('[rootfs] No se pudo descargar SHA256SUMS oficial. Instalación abortada por seguridad.');
+        return false;
+      }
+      debugPrint('[rootfs] SHA256 esperado para bootstrap-aarch64.zip: $expectedHash');
+      onProgress?.call('verify', 50);
+
+      // 2. Descargar bootstrap-aarch64.zip a files/nano/
+      onProgress?.call('download', 0);
       await NanoRuntimeApi.instance.downloadBootstrap(bootstrapUrl);
       onProgress?.call('download', 100);
 
-      // 2. Extraer en files/nano/usr/ → crea usr/bin/, usr/lib/, etc.
+      // 3. Verificar SHA256 del zip descargado
+      onProgress?.call('verify', 50);
+      final usr = _usrDir!; // files/nano/usr
+      final zipPath = '${usr.substring(0, usr.length - 4)}/bootstrap-aarch64.zip';
+      final actualHash = await _computeSha256(zipPath);
+      if (actualHash != expectedHash) {
+        debugPrint('[rootfs] SHA256 mismatch del bootstrap!');
+        debugPrint('  Esperado: $expectedHash');
+        debugPrint('  Recibido: $actualHash');
+        onProgress?.call('error', 0);
+        // Eliminar zip corrupto
+        try { File(zipPath).deleteSync(); } catch (_) {}
+        return false;
+      }
+      debugPrint('[rootfs] SHA256 verificado correctamente');
+      onProgress?.call('verify', 100);
+
+      // 4. Extraer en files/nano/usr/ → crea usr/bin/, usr/lib/, etc.
       // IMPORTANTE: el bootstrap es PREFIX-relative (bin/, etc/, lib/...).
       // El PREFIX Termux es "usr", así que el zip DEBE extraerse en
       // files/nano/usr/ (NO en files/nano/). Extraer en files/nano/ dejaba
       // bin/bash en files/nano/bin/bash y usr/bin/bash nunca existía.
       onProgress?.call('extract', 0);
-      final usr = _usrDir!; // files/nano/usr
-      final zipPath = '${usr.substring(0, usr.length - 4)}/bootstrap-aarch64.zip';
       final count = extractor != null
           ? await extractor(zipPath, usr)
           : await _extractKotlin(zipPath, usr);
       onProgress?.call('extract', 100);
 
+      // 5. Limpiar zip para ahorrar espacio
+      try { File(zipPath).deleteSync(); } catch (_) {}
+
       onProgress?.call('done', count);
 
-      // 3. Verificar que bash quedó ejecutable
+      // 6. Verificar que bash quedó ejecutable
       _installed = await checkInstalled();
       return _installed;
     } catch (e) {
@@ -121,6 +159,52 @@ class RootfsManager {
       return false;
     } finally {
       _downloading = false;
+    }
+  }
+
+  /// Descarga y parsea el archivo SHA256SUMS oficial del release Termux.
+  /// Retorna el hash de bootstrap-aarch64.zip o null si falla.
+  Future<String?> _downloadSha256Sums() async {
+    try {
+      final response = await http.get(Uri.parse(sha256SumsUrl));
+      if (response.statusCode != 200) {
+        debugPrint('[rootfs] Error descargando SHA256SUMS: HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final lines = LineSplitter.split(response.body);
+      for (final line in lines) {
+        if (line.contains('bootstrap-aarch64.zip')) {
+          // Formato: <hash>  <filename>
+          final parts = line.split(RegExp(r'\s+'));
+          if (parts.length >= 2) {
+            return parts[0].trim();
+          }
+        }
+      }
+      debugPrint('[rootfs] No se encontró hash para bootstrap-aarch64.zip en SHA256SUMS');
+      return null;
+    } catch (e) {
+      debugPrint('[rootfs] Error procesando SHA256SUMS: $e');
+      return null;
+    }
+  }
+
+  /// Calcula SHA256 de un archivo local.
+  Future<String> _computeSha256(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) {
+        debugPrint('[rootfs] Archivo no existe para SHA256: $filePath');
+        return '';
+      }
+
+      final bytes = await file.readAsBytes();
+      final digest = crypto.sha256.convert(bytes);
+      return digest.toString();
+    } catch (e) {
+      debugPrint('[rootfs] Error calculando SHA256: $e');
+      return '';
     }
   }
 

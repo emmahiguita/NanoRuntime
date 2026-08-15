@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
+import 'package:nanoai/features/models/data/model_downloader.dart';
 import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
@@ -10,6 +14,31 @@ import 'package:nanoai/features/models/domain/model_storage_repository.dart';
 
 /// Fakes de la frontera storage SAF: sin canal, sin IO. Cada fake registra
 /// las llamadas recibidas para poder asertar el contrato completo.
+
+class BlockingDownloader extends ModelDownloader {
+  final Completer<void> entered = Completer<void>();
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<File> download({
+    required String url,
+    required String destPath,
+    required String expectedSha256,
+    void Function(double progress)? onProgress,
+    void Function()? onVerifying,
+    Future<bool> Function()? cancelToken,
+  }) async {
+    onProgress?.call(0.4);
+    entered.complete();
+    await release.future;
+    if (cancelToken != null && await cancelToken()) {
+      throw DownloadException.cancelled();
+    }
+    onVerifying?.call();
+    return File(destPath)..writeAsStringSync('gguf');
+  }
+}
+
 class FakeStorageRepository implements ModelStorageRepository {
   FakeStorageRepository({
     this.tree,
@@ -175,11 +204,15 @@ void main() {
       final state = container.read(modelsProvider);
       expect(state.scanning, isFalse);
       expect(storage.scanCalls, 1);
-      expect(state.detected, hasLength(1));
+      expect(state.detected, hasLength(2));
       expect(
-        state.detected.single.name,
-        'mistral-7b-instruct-v0.3.Q4_K_M.gguf',
+        state.detected.map((model) => model.name),
+        containsAll([
+          'mistral-7b-instruct-v0.3.Q4_K_M.gguf',
+          'qwen2.5-0.5b-instruct-q4_0.gguf',
+        ]),
       );
+      expect(state.models.single.installed, isFalse);
     });
 
     test('escaneo sin árbol lanzado a mano: scanError honesto, detected '
@@ -210,56 +243,64 @@ void main() {
       expect(storage.scanCalls, 1, reason: 'segundo escaneo debe saltarse');
     });
 
-    test('useDetected: abre fd y selecciona el modelo con el path del fd',
-        () async {
-      final storage = FakeStorageRepository(
-        tree: 'content://tree/primary',
-        fdPath: '/proc/self/fd/42',
-      );
-      final container = _container(storage: storage);
-      final model = _detected('mistral.Q4_K_M.gguf');
+    test(
+      'useDetected: abre fd y selecciona el modelo con el path del fd',
+      () async {
+        final storage = FakeStorageRepository(
+          tree: 'content://tree/primary',
+          fdPath: '/proc/self/fd/42',
+        );
+        final container = _container(storage: storage);
+        final model = _detected('mistral.Q4_K_M.gguf');
 
-      await container.read(modelsProvider.notifier).useDetected(model);
+        await container.read(modelsProvider.notifier).useDetected(model);
 
-      expect(storage.openedUris, [model.uri]);
-      final chat = container.read(chatProvider.notifier);
-      final recording = chat as _RecordingChatNotifier;
-      expect(recording.selected, [('mistral.Q4_K_M.gguf', '/proc/self/fd/42')]);
-      final state = container.read(modelsProvider);
-      expect(state.loadingDetectedUri, isNull);
-    });
+        expect(storage.openedUris, [model.uri]);
+        final chat = container.read(chatProvider.notifier);
+        final recording = chat as _RecordingChatNotifier;
+        expect(recording.selected, [
+          ('mistral.Q4_K_M.gguf', '/proc/self/fd/42'),
+        ]);
+        final state = container.read(modelsProvider);
+        expect(state.loadingDetectedUri, isNull);
+      },
+    );
 
-    test('useDetected con fd denegado: error honesto y sin selección',
-        () async {
-      final storage = FakeStorageRepository(tree: 'content://tree/primary');
-      final container = _container(storage: storage);
+    test(
+      'useDetected con fd denegado: error honesto y sin selección',
+      () async {
+        final storage = FakeStorageRepository(tree: 'content://tree/primary');
+        final container = _container(storage: storage);
 
-      await container
-          .read(modelsProvider.notifier)
-          .useDetected(_detected('broken.gguf'));
+        await container
+            .read(modelsProvider.notifier)
+            .useDetected(_detected('broken.gguf'));
 
-      final state = container.read(modelsProvider);
-      expect(state.scanError, contains('fd denegado'));
-      expect(state.loadingDetectedUri, isNull);
-      final recording =
-          container.read(chatProvider.notifier) as _RecordingChatNotifier;
-      expect(recording.selected, isEmpty);
-    });
+        final state = container.read(modelsProvider);
+        expect(state.scanError, contains('fd denegado'));
+        expect(state.loadingDetectedUri, isNull);
+        final recording =
+            container.read(chatProvider.notifier) as _RecordingChatNotifier;
+        expect(recording.selected, isEmpty);
+      },
+    );
 
-    test('useDetected con modelo no usable (magic malo): no hace nada',
-        () async {
-      final storage = FakeStorageRepository(tree: 'content://tree/primary');
-      final container = _container(storage: storage);
+    test(
+      'useDetected con modelo no usable (magic malo): no hace nada',
+      () async {
+        final storage = FakeStorageRepository(tree: 'content://tree/primary');
+        final container = _container(storage: storage);
 
-      await container
-          .read(modelsProvider.notifier)
-          .useDetected(_detected('fake.gguf', magicOk: false));
+        await container
+            .read(modelsProvider.notifier)
+            .useDetected(_detected('fake.gguf', magicOk: false));
 
-      expect(storage.openedUris, isEmpty);
-      final recording =
-          container.read(chatProvider.notifier) as _RecordingChatNotifier;
-      expect(recording.selected, isEmpty);
-    });
+        expect(storage.openedUris, isEmpty);
+        final recording =
+            container.read(chatProvider.notifier) as _RecordingChatNotifier;
+        expect(recording.selected, isEmpty);
+      },
+    );
   });
 
   group('Escaneo automático de todo el storage (MANAGE_EXTERNAL_STORAGE)', () {
@@ -287,7 +328,8 @@ void main() {
           ),
           _detected(
             'qwen2.5-0.5b-instruct-q4_0.gguf', // ya en catálogo
-            path: '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
+            path:
+                '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
           ),
         ],
       );
@@ -303,13 +345,21 @@ void main() {
       expect(storage.scanAllCalls, 1);
       expect(state.detected, hasLength(1));
       expect(state.detected.single.path, contains('/storage/emulated/0'));
+      expect(state.models.single.installed, isTrue);
+      expect(
+        state.models.single.localPath,
+        '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
+      );
     });
 
     test('requestAllFilesAccess concedido: escanea de inmediato', () async {
       final storage = FakeStorageRepository(
         allFilesGranted: true,
         scanAllResult: [
-          _detected('tiny.gguf', path: '/storage/emulated/0/Download/tiny.gguf'),
+          _detected(
+            'tiny.gguf',
+            path: '/storage/emulated/0/Download/tiny.gguf',
+          ),
         ],
       );
       final container = _container(storage: storage);
@@ -365,8 +415,10 @@ void main() {
       expect(_detected('a.gguf').usable, isTrue);
       expect(_detected('b.gguf', magicOk: false).usable, isFalse);
       expect(
-        _detected('c.safetensors', format: DetectedModelFormat.safetensors)
-            .usable,
+        _detected(
+          'c.safetensors',
+          format: DetectedModelFormat.safetensors,
+        ).usable,
         isFalse,
       );
       expect(
