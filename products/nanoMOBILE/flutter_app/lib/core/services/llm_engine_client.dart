@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 /// Cliente HTTP hacia el motor llama.cpp real desplegado localmente en el
 /// dispositivo (binario `nan`, libs en `llama_libs/`, modelos `.gguf`).
@@ -181,6 +182,7 @@ class LLMEngineClient {
     String? sessionId,
   }) async {
     try {
+      debugPrint('[llm] startStreamRequest sessionId=${sessionId ?? ''} prompt_len=${prompt.length}');
       final request = http.Request('POST', Uri.parse('$baseUrl/completion'));
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode({
@@ -218,6 +220,7 @@ class LLMEngineClient {
           .transform(const LineSplitter());
 
       await for (final line in lines) {
+        debugPrint('[llm] sse line: $line');
         if (line.isEmpty || !line.startsWith('data: ')) continue;
         final jsonStr = line.substring(6); // quitar prefijo "data: "
         try {
@@ -244,6 +247,7 @@ class LLMEngineClient {
           );
           if (stop) break;
         } on FormatException {
+          debugPrint('[llm] sse line malformed: $line');
           // línea SSE malformada: ignorar, continuar con la siguiente.
         }
       }
