@@ -57,6 +57,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   bool _showHelp = false;
   bool _helpDismissed = false; // ya visto/cerrado en esta sesión
   bool _helpSeen = false; // flag persistente (SharedPreferences)
+  bool _fabOpen = false; // estado del FAB radial
+  bool _isMobileMode = true; // modo mobile (true) o desktop (false)
 
   // â”€â”€ Reconexión automática â”€â”€
   _ConnState _connState = _ConnState.connecting;
@@ -161,10 +163,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       setState(() {
         _connState = _ConnState.reconnecting;
         _busy = true;
-        _status = 'Reconectando en ${seconds}s';
-        _detail =
-            'Intento $_reconnectAttempts/$_maxReconnectAttempts. '
-            'Esperando ${seconds}s antes de reintentar...';
+        _status = 'Reconectando...';
+        _detail = 'Intento $_reconnectAttempts/$_maxReconnectAttempts';
       });
     }
     _reconnectTimer = Timer(Duration(seconds: seconds), () {
@@ -1021,17 +1021,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0D14),
-      // Apps rápidas (Terminal/Archivos/Editor/Imágenes) fuera del visor:
-      // antes vivían en un panel lateral deslizante que estorbaba el
-      // framebuffer; ahora un FAB abre un bottom sheet puntual.
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'vnc_apps_fab',
-        onPressed: _openAppsSheet,
-        backgroundColor: const Color(0xFF10B981),
-        foregroundColor: Colors.white,
-        elevation: 4,
-        tooltip: 'Apps del escritorio',
-        child: const Icon(Icons.apps_rounded),
+      // FAB radial circular minimalista para apps del escritorio.
+      floatingActionButton: _RadialFab(
+        isOpen: _fabOpen,
+        onToggle: () => setState(() => _fabOpen = !_fabOpen),
+        onOpenApps: _openAppsSheet,
+        onToggleKeyboard: _toggleKeyboard,
+        showKeyboard: _showKeyboard,
       ),
       body: SafeArea(
         child: Stack(
@@ -1043,7 +1039,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
             // ningún control tapa ni "interviene" la imagen del escritorio.
             Column(
               children: [
-                // Franja superior: estado + conexión + teclado + panel.
+                // Franja superior: estado + conexión + teclado + modo toggle.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                   child: _FloatingControlBar(
@@ -1051,12 +1047,14 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     connected: _connected,
                     busy: _busy,
                     showKeyboard: _showKeyboard,
+                    isMobileMode: _isMobileMode,
                     onBack: () => context.pop(),
                     onRefresh: () {
                       _reconnectAttempts = 0;
                       _connect();
                     },
                     onToggleKeyboard: _toggleKeyboard,
+                    onToggleMode: () => setState(() => _isMobileMode = !_isMobileMode),
                   ),
                 ),
 
@@ -1077,7 +1075,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                 // conectado (sin frame no hay dónde clicar). Al expandir la
                 // fila de teclas, la franja crece y el framebuffer cede
                 // espacio — nunca se superponen.
-                if (_connected && _frame != null)
+                // En modo mobile, ocultar para maximizar espacio de visor.
+                if (_connected && _frame != null && !_isMobileMode)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                     child: Center(
@@ -1424,8 +1423,8 @@ class _MouseControlBar extends StatelessWidget {
               ),
               const Spacer(),
               _barButton(
-                Icons.keyboard_rounded,
-                expanded ? 'Ocultar teclas' : 'Mostrar teclas',
+                Icons.expand_less_rounded,
+                expanded ? 'Colapsar' : 'Expandir',
                 onToggleExpanded,
                 highlighted: expanded,
               ),
@@ -1663,18 +1662,22 @@ class _FloatingControlBar extends StatelessWidget {
   final bool connected;
   final bool busy;
   final bool showKeyboard;
+  final bool isMobileMode;
   final VoidCallback onBack;
   final VoidCallback onRefresh;
   final VoidCallback onToggleKeyboard;
+  final VoidCallback onToggleMode;
 
   const _FloatingControlBar({
     required this.status,
     required this.connected,
     required this.busy,
     required this.showKeyboard,
+    required this.isMobileMode,
     required this.onBack,
     required this.onRefresh,
     required this.onToggleKeyboard,
+    required this.onToggleMode,
   });
 
   @override
@@ -1720,16 +1723,18 @@ class _FloatingControlBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
+          Flexible(
+            fit: FlexFit.loose,
             child: Text(
               status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ),
           IconButton(
@@ -1740,6 +1745,24 @@ class _FloatingControlBar extends StatelessWidget {
               size: 20,
             ),
             tooltip: 'Teclado táctil',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 4),
+          Container(
+            width: 1,
+            height: 20,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: onToggleMode,
+            icon: Icon(
+              isMobileMode ? Icons.phone_android_rounded : Icons.desktop_windows_rounded,
+              color: const Color(0xFF10B981),
+              size: 20,
+            ),
+            tooltip: isMobileMode ? 'Modo Desktop' : 'Modo Mobile',
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
@@ -1764,6 +1787,214 @@ class _FloatingControlBar extends StatelessWidget {
             padding: EdgeInsets.zero,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// FAB radial circular minimalista para acceso rápido a apps del escritorio.
+/// Se expande en círculo con iconos minimalistas, aprovechando el espacio
+/// de forma eficiente sin sabana lateral.
+class _RadialFab extends StatefulWidget {
+  final bool isOpen;
+  final VoidCallback onToggle;
+  final VoidCallback onOpenApps;
+  final VoidCallback onToggleKeyboard;
+  final bool showKeyboard;
+
+  const _RadialFab({
+    required this.isOpen,
+    required this.onToggle,
+    required this.onOpenApps,
+    required this.onToggleKeyboard,
+    required this.showKeyboard,
+  });
+
+  @override
+  State<_RadialFab> createState() => _RadialFabState();
+}
+
+class _RadialFabState extends State<_RadialFab>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+    if (widget.isOpen) {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_RadialFab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isOpen != oldWidget.isOpen) {
+      if (widget.isOpen) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Ítems radiales (aparecen cuando isOpen = true)
+          if (widget.isOpen) ...[
+            _RadialFabItem(
+              angle: -45,
+              distance: 70,
+              icon: Icons.terminal_rounded,
+              label: 'Terminal',
+              onTap: () {
+                widget.onToggle();
+                widget.onOpenApps();
+              },
+              animation: _scaleAnimation,
+            ),
+            _RadialFabItem(
+              angle: 0,
+              distance: 80,
+              icon: Icons.folder_rounded,
+              label: 'Archivos',
+              onTap: () {
+                widget.onToggle();
+                widget.onOpenApps();
+              },
+              animation: _scaleAnimation,
+            ),
+            _RadialFabItem(
+              angle: 45,
+              distance: 70,
+              icon: Icons.edit_rounded,
+              label: 'Editor',
+              onTap: () {
+                widget.onToggle();
+                widget.onOpenApps();
+              },
+              animation: _scaleAnimation,
+            ),
+            _RadialFabItem(
+              angle: 90,
+              distance: 50,
+              icon: Icons.image_rounded,
+              label: 'Imágenes',
+              onTap: () {
+                widget.onToggle();
+                widget.onOpenApps();
+              },
+              animation: _scaleAnimation,
+            ),
+          ],
+          // Botón principal
+          ScaleTransition(
+            scale: _scaleAnimation,
+            child: FloatingActionButton(
+              heroTag: 'radial_fab',
+              onPressed: widget.onToggle,
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              elevation: 6,
+              child: AnimatedIcon(
+                icon: AnimatedIcons.menu_close,
+                progress: _scaleAnimation,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ítem individual del FAB radial
+class _RadialFabItem extends StatelessWidget {
+  final double angle;
+  final double distance;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Animation<double> animation;
+
+  const _RadialFabItem({
+    required this.angle,
+    required this.distance,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.animation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radians = angle * math.pi / 180;
+    final x = math.cos(radians) * distance;
+    final y = math.sin(radians) * distance;
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final scale = animation.value;
+        final opacity = animation.value;
+        final offsetX = x * scale;
+        final offsetY = y * scale;
+
+        return Transform.translate(
+          offset: Offset(offsetX, offsetY),
+          child: Opacity(
+            opacity: opacity,
+            child: ScaleTransition(
+              scale: animation,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF161B22).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black45,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
       ),
     );
   }
