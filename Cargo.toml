@@ -9,6 +9,7 @@ members = [
 
 [patch.crates-io]
 llama-cpp-sys-2 = { path = "vendor/llama-cpp-sys-2" }
+llama-cpp-2 = { path = "vendor/llama-cpp-2" }
 
 [workspace.package]
 version = "0.1.0"

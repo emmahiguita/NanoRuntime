@@ -145,6 +145,7 @@ impl RuntimeConfig {
     }
 
     /// Adjust config if available RAM is too low.
+    #[cfg(feature = "unstable")]
     pub fn adapt_to_ram(&mut self, available_mb: u64, total_mb: u64) {
         let ratio = available_mb as f64 / total_mb as f64;
 
@@ -167,16 +168,19 @@ impl RuntimeConfig {
     }
 
     /// Whether the device can run 7B models.
+    #[cfg(feature = "unstable")]
     pub fn can_run_7b(&self) -> bool {
         self.profile.ram_available_mb > 2500
     }
 
     /// Whether 7B can run with extreme Graceful Degradation.
+    #[cfg(feature = "unstable")]
     pub fn can_run_7b_degraded(&self) -> bool {
         self.profile.ram_available_mb > 1400
     }
 
     /// Summary for logging.
+    #[cfg(feature = "unstable")]
     pub fn summary(&self) -> String {
         format!(
             "AutoConfig: tier={} ctx={} batch={} kv={:?} page={:?} spec={} threads={} oom_thresh={} watermark={}MB can_7b={}",
@@ -194,7 +198,7 @@ impl RuntimeConfig {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "unstable"))]
 mod tests {
     use super::*;
     use crate::memory_engine::hardware_hal::DeviceProfile;

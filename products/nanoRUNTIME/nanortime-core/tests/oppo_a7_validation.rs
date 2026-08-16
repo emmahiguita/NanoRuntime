@@ -33,17 +33,15 @@ use nanortime_core::memory_engine::{
     hardware_hal::{classify_tier, DeviceProfile, DeviceTier},
     hardware_profiler::{DeviceClass, HardwareProfile},
     hierarchical_kv::HierarchicalKvCache,
-    kv_cache_optimizer::KvCacheOptimizer,
     // Memory Model (5 formulas)
     memory_model::MemoryModel,
     oom_guard::OomGuard,
-    quality_preserver::QualityPreserver,
     thermal_controller::{ThermalAction, ThermalCondition, ThermalController},
     // Hybrid Router
     // (imported via nanortime_core::hybrid_router)
-    // Memory Engine
-    NanoMemoryEngine,
 };
+#[cfg(feature = "unstable")]
+use nanortime_core::memory_engine::NanoMemoryEngine;
 use nanortime_core::speculative_decoder::{InferenceMode, SpeculativePlan};
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -122,7 +120,7 @@ fn a7_big_little_detection_handles_homogeneous_cores() {
     use nanortime_core::memory_engine::hardware_hal::detect_big_cores;
     let big = detect_big_cores(8);
     assert!(
-        big >= 2 && big <= 4,
+        (2..=4).contains(&big),
         "8 homogeneous A53 cores → big_cores should be 2-4 (platform-dependent), got {}",
         big
     );
@@ -567,7 +565,7 @@ fn a7_streaming_vma_estimate_is_under_800mb() {
 
 #[test]
 fn a7_3gb_oom_guard_initial_state() {
-    let mut guard = OomGuard::new();
+    let guard = OomGuard::new();
     // No samples yet — no risk
     assert!(!guard.is_trending_worse());
     assert!(!guard.is_survival_active());
@@ -673,8 +671,10 @@ fn a7_4gb_hierarchical_kv_less_aggressive_with_more_ram() {
 // 15. KV Cache Optimizer — Constrained Memory
 // ═══════════════════════════════════════════════════════════════════════
 
+#[cfg(feature = "unstable")]
 #[test]
 fn a7_3gb_kv_optimizer_aggressive_with_low_budget() {
+    use nanortime_core::memory_engine::kv_cache_optimizer::KvCacheOptimizer;
     // Tiny budget to simulate constrained 3 GB device
     let optimizer = KvCacheOptimizer::new(0.5, "aggressive"); // 0.5 MB budget
     let tokens: Vec<_> = (0..20)
@@ -746,8 +746,10 @@ fn a7_3gb_scheduler_offloads_layers_under_pressure() {
 // 17. Quality Preserver — Perplexity on Budget Hardware
 // ═══════════════════════════════════════════════════════════════════════
 
+#[cfg(feature = "unstable")]
 #[test]
 fn a7_quality_preserver_baseline_holds() {
+    use nanortime_core::memory_engine::quality_preserver::QualityPreserver;
     let mut qp = QualityPreserver::new(15.0); // Conservative baseline for budget device
     qp.set_baseline(15.0);
     // Feed very tight perplexity — near identical to baseline
@@ -769,8 +771,10 @@ fn a7_quality_preserver_baseline_holds() {
     );
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn a7_quality_preserver_triggers_on_big_drop() {
+    use nanortime_core::memory_engine::quality_preserver::QualityPreserver;
     let mut qp = QualityPreserver::new(15.0);
     qp.set_baseline(15.0);
     // Feed significantly worse perplexity
@@ -789,6 +793,7 @@ fn a7_quality_preserver_triggers_on_big_drop() {
 // 18. NanoMemoryEngine — Full Pipeline on A7 Profile
 // ═══════════════════════════════════════════════════════════════════════
 
+#[cfg(feature = "unstable")]
 #[test]
 fn a7_memory_engine_full_cycle_with_1_5b() {
     // 1.5B Qwen has 32 layers, moderate attention pattern
@@ -824,6 +829,7 @@ fn a7_memory_engine_full_cycle_with_1_5b() {
     // After scheduling, quality strategy should have adapted
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn a7_memory_engine_7b_survival_pressure() {
     let mut engine = NanoMemoryEngine::new(32);

@@ -2,6 +2,18 @@
 
 #[tokio::main]
 async fn main() {
+    // Ver los logs reales de la inyección (GGUF layout, memory engine).
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .try_init();
+
+    // El manifest declara rutas relativas a la raíz del repo
+    // (`models/...`) — mover el cwd antes de validar.
+    let repo_root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../..");
+    if let Err(e) = std::env::set_current_dir(repo_root) {
+        eprintln!("WARN: no se pudo cambiar cwd a {}: {}", repo_root, e);
+    }
+
     let mut p: u32 = 0;
     let mut f: u32 = 0;
     macro_rules! ok {
@@ -20,10 +32,19 @@ async fn main() {
     println!("╔══════════════════════════════════════════════╗");
     println!("║  NanoAI Phase 1 — REAL Verification FINAL   ║");
     println!("╚══════════════════════════════════════════════╝\n");
-    let mp = "C:\\llama-cpp-server\\models\\qwen2.5-1.5b-instruct-q4_k_m.gguf";
+    // Ruta real del modelo: argumento CLI o default relativo al repo
+    // (misma ubicación que usa gguf_probe).
+    let default_mp = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    );
+    let mp = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| default_mp.to_string());
 
     println!("─── 1. Config ───");
-    match nanortime_core::Config::load("nano.manifest.json") {
+    let manifest = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../nano.manifest.json");
+    match nanortime_core::Config::load(manifest) {
         Ok(c) => {
             if c.version == "1.0" {
                 ok!("Load manifest");
@@ -243,18 +264,18 @@ async fn main() {
 
     println!("\n─── 8. REAL Model ───");
     let mut cfg = nanortime_core::Config::default_config();
-    cfg.local_model.path = mp.to_string();
+    cfg.local_model.path = mp.clone();
     cfg.local_model.context_size = 2048;
     cfg.tools.auto_discover = false;
     let mgr = nanortime_core::execution::ModelManager::new(cfg)
         .await
         .unwrap();
     ok!("ModelManager created");
-    match mgr.load_model(mp).await {
+    match mgr.load_model(&mp).await {
         Ok(_) => ok!("GGUF loaded"),
         Err(e) => ko!("Load model", &e.to_string()),
     }
-    match mgr.generate_with_confidence("Hello!", 30).await {
+    match mgr.generate_with_confidence("Hello!", 30, None).await {
         Ok((text, probs)) => {
             if !text.is_empty() && !probs.is_empty() {
                 println!("     → {}", &text[..text.len().min(100)]);
@@ -284,7 +305,7 @@ async fn main() {
 
     println!("\n─── 10. Full Pipeline ───");
     let mut cfg2 = nanortime_core::Config::default_config();
-    cfg2.local_model.path = mp.to_string();
+    cfg2.local_model.path = mp.clone();
     cfg2.local_model.context_size = 2048;
     cfg2.tools.auto_discover = false;
     match nanortime_core::NanoRuntime::new(cfg2).await {
@@ -295,6 +316,9 @@ async fn main() {
                     prompt: "Explain Rust in one sentence.".into(),
                     context: None,
                     history: None,
+                    session_id: None,
+                    max_tokens: None,
+                    temperature: None,
                 })
                 .await
             {
@@ -318,7 +342,7 @@ async fn main() {
 
     println!("\n─── 11. PII Routing ───");
     let mut cfg3 = nanortime_core::Config::default_config();
-    cfg3.local_model.path = mp.to_string();
+    cfg3.local_model.path = mp.clone();
     cfg3.local_model.context_size = 1024;
     cfg3.hybrid_routing.privacy_filter = true;
     cfg3.tiers.tier3.enabled = true;
@@ -332,6 +356,9 @@ async fn main() {
                     prompt: "Email juan@ejemplo.com card 4111-1111-1111-1111".into(),
                     context: None,
                     history: None,
+                    session_id: None,
+                    max_tokens: None,
+                    temperature: None,
                 })
                 .await
             {

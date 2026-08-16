@@ -22,25 +22,10 @@
 
 use crate::memory_engine::auto_config::{KvCompression, PageStrategy, RuntimeConfig};
 use crate::memory_engine::hardware_hal::DeviceProfile;
-use std::fmt;
 
-/// Quality of Service mode.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum QosMode {
-    Eco,
-    Balanced,
-    Performance,
-}
-
-impl fmt::Display for QosMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            QosMode::Eco => write!(f, "Eco"),
-            QosMode::Balanced => write!(f, "Balanced"),
-            QosMode::Performance => write!(f, "Performance"),
-        }
-    }
-}
+/// QosMode vive en `types` (compartido con el orchestrator, activo).
+/// Re-export para no romper usos internos de este módulo.
+pub use crate::memory_engine::types::QosMode;
 
 /// Cost weights for multi-objective optimization.
 #[derive(Debug, Clone, Copy)]

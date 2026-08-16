@@ -11,7 +11,7 @@ import 'package:nanoai/core/providers/kali_provider.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
 import 'package:nanoai/core/services/kali_manager.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/app_theme.dart';
 import 'package:nanoai/features/models/application/models_notifier.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
 import 'package:nanoai/features/models/application/models_state.dart';
@@ -64,11 +64,10 @@ void main() {
       ],
     );
 
+    // Modo claro real (AppTheme.light): el dashboard es la cara de la app
+    // y su glassmorphism vive en el tema claro.
     Widget app = MaterialApp.router(
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        extensions: [NanoThemeExtension(colors: NanoDarkColors())],
-      ),
+      theme: AppTheme.light,
       routerConfig: router,
     );
 
@@ -213,22 +212,15 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
   });
 
-  // 10. Estado del motor Chat: el launcher no lo muestra (diseño fijo);
-  // el estado vive en ChatScreen con el badge LOCAL/DETENIDO.
-  testWidgets('shows fixed Chat card subtitle regardless of engine',
+  // 10. Subtítulo de la card Chat refleja el estado REAL del motor
+  // (diseño honesto: ya no es texto fijo — el motor apagado se anuncia).
+  testWidgets('shows honest Chat card subtitle from engine state',
       (tester) async {
     await pumpDashboard(
       tester,
       chatState: const ChatState(engineOnline: false),
     );
-    expect(find.text('Habla con NanoAI'), findsOneWidget);
-    expect(find.text('Motor detenido'), findsNothing);
-
-    await pumpDashboard(
-      tester,
-      chatState: const ChatState(engineOnline: true),
-    );
-    expect(find.text('Habla con NanoAI'), findsOneWidget);
+    expect(find.text('Motor apagado — elige modelo'), findsOneWidget);
   });
 
   // 11. Transición linuxReady false→true tras initState: el pulso de la
@@ -237,6 +229,7 @@ void main() {
     Widget build(bool ready) => ProviderScope(
           overrides: [kaliProvider.overrideWithValue(null)],
           child: MaterialApp(
+            theme: AppTheme.light,
             home: NanoHomeScreen(
               ramFreeGb: null,
               cpuCores: null,
@@ -288,6 +281,7 @@ void main() {
       ProviderScope(
         overrides: [kaliProvider.overrideWithValue(null)],
         child: MaterialApp(
+          theme: AppTheme.light,
           home: NanoHomeScreen(
             ramFreeGb: null,
             cpuCores: null,

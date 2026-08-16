@@ -5,7 +5,36 @@ import '../terminalservices.dart';
 class NetworkPlugin {
   void register(void Function(String, CmdFn) r, TerminalServices s) {
 
+    /// Sanitiza argumentos de comandos de red para prevenir inyección
+    bool sanitizeNetworkArgs(List<String> args) {
+      for (final arg in args) {
+        // Bloquear caracteres peligrosos
+        if (arg.contains('\n') || arg.contains('\r') || arg.contains('\0')) {
+          return false;
+        }
+        // Bloquear intentos de command chaining
+        if (arg.contains(';') || arg.contains('|') || arg.contains('&') || arg.contains('`')) {
+          return false;
+        }
+        // Bloquear redirecciones de shell
+        if (arg.contains('>') || arg.contains('<')) {
+          return false;
+        }
+        // Bloquear subshells
+        if (arg.contains(r'$(') || arg.contains(r'${')) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     void execNet(String cmd, List<String> a, void Function(String, Ln) o) {
+      // Sanitizar argumentos antes de ejecutar
+      if (!sanitizeNetworkArgs(a)) {
+        o('$cmd: argumentos inválidos detectados', Ln.stderr);
+        return;
+      }
+
       if (s.shell != null && s.shell!.initialized && s.rootfs?.isInstalled == true) {
         final binPath = '${s.rootfs!.usrDir}/bin/$cmd';
         s.shell!.execRootfs(binPath, [cmd, ...a], ldPreload: 'libnanoroot.so')

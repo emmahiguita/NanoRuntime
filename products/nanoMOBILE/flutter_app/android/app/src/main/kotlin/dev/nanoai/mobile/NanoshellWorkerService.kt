@@ -34,6 +34,7 @@ companion object {
         const val MSG_KILL = 4
         const val MSG_OPEN_FD = 5
         const val MSG_IS_PID_ALIVE = 6
+        const val MSG_KILL_PID = 7
         const val EXTRA_OUT = "nanoai.worker.out"
         const val EXTRA_ERR = "nanoai.worker.err"
         const val EXTRA_RC = "nanoai.worker.rc"
@@ -50,6 +51,7 @@ when (msg.what) {
                 MSG_KILL -> handleKill(msg)
                 MSG_OPEN_FD -> handleOpenFd(msg)
                 MSG_IS_PID_ALIVE -> handleIsPidAlive(msg)
+                MSG_KILL_PID -> handleKillPid(msg)
                 else -> android.util.Log.w("nanoshell-worker", "msg desconocido ${msg.what}")
             }
         }
@@ -180,6 +182,27 @@ when (msg.what) {
         reply.data = Bundle().apply {
             putString(EXTRA_TASK_ID, taskId)
             putBoolean("alive", alive)
+        }
+        try { replyTo.send(reply) } catch (_: Exception) {}
+    }
+
+    /**
+     * Kill individual de un daemon detached (BUG-2). El worker es el padre
+     * real: valida el pid contra g_daemons (worker_jni.c) y hace SIGKILL.
+     * kill(pid, SIGKILL) no bloquea — seguro en el looper. Responde al
+     * cliente por el replyTo del mensaje.
+     */
+    private fun handleKillPid(msg: Message) {
+        val b = msg.data
+        val pid = b.getInt("pid", -1)
+        val taskId = b.getString(EXTRA_TASK_ID) ?: "kill$pid"
+        val replyTo = msg.replyTo ?: return
+        val rc = NanoshellBridge.workerKillPid(pid)
+        android.util.Log.w("nanoshell-worker", "killPid $pid rc=$rc")
+        val reply = Message.obtain(null, MSG_RESULT)
+        reply.data = Bundle().apply {
+            putString(EXTRA_TASK_ID, taskId)
+            putBoolean("killed", rc == 0)
         }
         try { replyTo.send(reply) } catch (_: Exception) {}
     }

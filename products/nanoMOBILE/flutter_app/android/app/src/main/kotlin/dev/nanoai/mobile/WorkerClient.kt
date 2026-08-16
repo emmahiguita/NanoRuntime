@@ -32,6 +32,7 @@ class WorkerClient(private val ctx: Context) {
         const val MSG_KILL = 4
         const val MSG_OPEN_FD = 5
         const val MSG_IS_PID_ALIVE = 6
+        const val MSG_KILL_PID = 7
         // El proceso :nanoshell corre en un proceso Android separado (aislado
         // de la GPU/Flutter); bindService() es async y Android puede tardar
         // varios cientos de ms en arrancarlo en frío. Sin esta espera, la
@@ -274,6 +275,59 @@ class WorkerClient(private val ctx: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "isPidAlive fallo: $e")
+            false
+        } finally {
+            try {
+                replyThread?.quitSafely()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
+     * SIGKILL a un daemon detached [pid] delegado al worker (padre real).
+     * BUG-2: el proceso principal no puede matar hijos del worker en Android
+     * 12+ (Process.killProcess lanza SecurityException) — el worker valida el
+     * pid contra su registro g_daemons y mata sin tocar pids reciclados.
+     * False ante timeout o worker desconectado (el caller decide fallback).
+     */
+    fun killPid(pid: Int): Boolean {
+        if (shuttingDown || pid <= 0) return false
+        if (!awaitConnected(CONNECT_TIMEOUT_MS)) {
+            Log.e(TAG, "killPid abortado: worker no conectó a tiempo pid=$pid")
+            return false
+        }
+        val m = workerMessenger ?: return false
+        var replyThread: HandlerThread? = null
+        return try {
+            val killedRef = AtomicReference<Boolean?>(null)
+            val latch = CountDownLatch(1)
+            val taskId = "kill${System.currentTimeMillis()}"
+            replyThread = HandlerThread("nano-kill").apply { start() }
+
+            val msg = Message.obtain(null, MSG_KILL_PID)
+            msg.data = Bundle().apply {
+                putInt("pid", pid)
+                putString(NanoshellWorkerService.EXTRA_TASK_ID, taskId)
+            }
+            msg.replyTo = Messenger(object : Handler(replyThread.looper) {
+                override fun handleMessage(reply: Message) {
+                    if (reply.data.getString(NanoshellWorkerService.EXTRA_TASK_ID) == taskId) {
+                        killedRef.set(reply.data.getBoolean("killed", false))
+                        latch.countDown()
+                    }
+                }
+            })
+            m.send(msg)
+
+            if (!latch.await(3, TimeUnit.SECONDS)) {
+                Log.e(TAG, "killPid timeout pid=$pid")
+                false
+            } else {
+                killedRef.get() == true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "killPid fallo: $e")
             false
         } finally {
             try {

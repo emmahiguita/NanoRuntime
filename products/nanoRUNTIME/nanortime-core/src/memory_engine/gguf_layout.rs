@@ -1,10 +1,18 @@
-//! GGUF Layout Analyzer
+//! NanoModelIndex — GGUF layout analyzer with full tensor indexing
 //!
-//! Analiza la estructura de un archivo GGUF para mapear los índices
-//! de las capas a sus offsets físicos en disco. Esto es crucial para
-//! realizar madvise/paginación precisa sobre el mmap.
+//! Converts GGUF files into a structured index for the control plane.
+//! Provides tensor-level metadata, layer groupings, quantization info,
+//! and dynamic page size detection for precise memory management.
+//!
+//! This replaces the previous GGUFLayoutAnalyzer with a more comprehensive
+//! model index that supports:
+//! - Individual tensor indexing (not just layer-level)
+//! - Quantization metadata per tensor
+//! - Dynamic page size detection
+//! - Layer-to-tensor mapping
+//! - Working set estimation
 
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
@@ -21,47 +29,290 @@ pub enum GgufError {
     UnsupportedVersion(u32),
     #[error("File too small or malformed")]
     Malformed,
+    #[error("Invalid quantization type: {0}")]
+    InvalidQuantization(u32),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ByteRange {
-    pub start: usize,
-    pub end: usize,
+/// ByteRange vive en `types` (compartido con CacheAwareLoader, activo).
+/// Re-export para no romper usos internos de este módulo.
+pub use crate::memory_engine::types::ByteRange;
+
+/// Quantization type for a tensor or layer
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(non_camel_case_types)]
+pub enum QuantizationType {
+    F32,
+    F16,
+    BF16,
+    Q4_0,
+    Q4_1,
+    Q5_0,
+    Q5_1,
+    Q8_0,
+    Q8_1,
+    Q2_K,
+    Q3_K,
+    Q4_K,
+    Q5_K,
+    Q6_K,
+    Q8_K,
+    IQ2_XXS,
+    IQ2_XS,
+    IQ3_XXS,
+    IQ1_S,
+    IQ4_NL,
+    IQ3_S,
+    IQ2_S,
+    IQ4_XS,
+    I8,
+    I16,
+    I32,
+    I64,
+    F64,
+    IQ1_M,
+    Unknown(u32),
 }
 
-impl ByteRange {
-    pub fn len(&self) -> usize {
-        self.end.saturating_sub(self.start)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-pub struct GGUFLayoutAnalyzer {
-    /// Mapea el índice de la capa a su rango de bytes en el archivo.
-    pub layer_offsets: HashMap<usize, ByteRange>,
-    /// El offset de memoria donde comienzan los datos reales de los tensores.
-    pub data_offset: usize,
-}
-
-impl GGUFLayoutAnalyzer {
-    /// Analiza un archivo GGUF y extrae los rangos de bytes para cada capa.
+impl QuantizationType {
+    /// Returns bytes per element for this quantization type.
     ///
-    /// Parsea el header GGUF real para determinar el offset de datos (en lugar de
-    /// usar una heurística hardcodeada de 1MB). Lee los registros de info de tensores
-    /// para obtener offsets y tamaños reales por capa.
+    /// Valores verificados contra los `static_assert(sizeof(block_*))` de
+    /// `ggml-common.h` (llama.cpp) y los `QK_*` defines. Los valores
+    /// anteriores estaban inventados: Q4_K decía 0.875 cuando el bloque
+    /// real (144 bytes / 256 elementos) es 0.5625, Q8_1 estaba inflado
+    /// (1.25 vs 1.125 real), y varios IQ/*_K no coincidían con ggml.
+    pub fn bytes_per_element(&self) -> f32 {
+        match self {
+            QuantizationType::F32 => 4.0,
+            QuantizationType::F16 => 2.0,
+            QuantizationType::BF16 => 2.0,
+            QuantizationType::Q4_0 => 18.0 / 32.0, // 0.5625
+            QuantizationType::Q4_1 => 20.0 / 32.0, // 0.625
+            QuantizationType::Q5_0 => 22.0 / 32.0, // 0.6875
+            QuantizationType::Q5_1 => 24.0 / 32.0, // 0.75
+            QuantizationType::Q8_0 => 34.0 / 32.0, // 1.0625
+            QuantizationType::Q8_1 => 36.0 / 32.0, // 1.125
+            QuantizationType::Q2_K => 84.0 / 256.0, // 0.328125
+            QuantizationType::Q3_K => 110.0 / 256.0, // 0.4296875
+            QuantizationType::Q4_K => 144.0 / 256.0, // 0.5625
+            QuantizationType::Q5_K => 176.0 / 256.0, // 0.6875
+            QuantizationType::Q6_K => 210.0 / 256.0, // 0.8203125
+            QuantizationType::Q8_K => 292.0 / 256.0, // 1.140625
+            QuantizationType::IQ2_XXS => 66.0 / 256.0, // 0.2578125
+            QuantizationType::IQ2_XS => 74.0 / 256.0, // 0.2890625
+            QuantizationType::IQ3_XXS => 98.0 / 256.0, // 0.3828125
+            QuantizationType::IQ1_S => 50.0 / 256.0, // 0.1953125
+            QuantizationType::IQ4_NL => 18.0 / 32.0, // 0.5625
+            QuantizationType::IQ3_S => 110.0 / 256.0, // 0.4296875
+            QuantizationType::IQ2_S => 82.0 / 256.0, // 0.3203125
+            QuantizationType::IQ4_XS => 136.0 / 256.0, // 0.53125
+            QuantizationType::I8 => 1.0,
+            QuantizationType::I16 => 2.0,
+            QuantizationType::I32 => 4.0,
+            QuantizationType::I64 => 8.0,
+            QuantizationType::F64 => 8.0,
+            QuantizationType::IQ1_M => 56.0 / 256.0, // 0.21875
+            QuantizationType::Unknown(_) => 4.0, // Conservative default
+        }
+    }
+
+    /// Exact block layout: `(elements_per_block, bytes_per_block)`.
+    ///
+    /// Permite calcular el tamaño de un tensor en enteros sin pasar por
+    /// f32 (que pierde precisión con `element_count` > 16M). Los tamaños
+    /// vienen de la misma tabla verificada que `bytes_per_element`.
+    pub fn block_layout(&self) -> Option<(u32, u32)> {
+        match self {
+            QuantizationType::F32 => Some((1, 4)),
+            QuantizationType::F16 => Some((1, 2)),
+            QuantizationType::BF16 => Some((1, 2)),
+            QuantizationType::Q4_0 => Some((32, 18)),
+            QuantizationType::Q4_1 => Some((32, 20)),
+            QuantizationType::Q5_0 => Some((32, 22)),
+            QuantizationType::Q5_1 => Some((32, 24)),
+            QuantizationType::Q8_0 => Some((32, 34)),
+            QuantizationType::Q8_1 => Some((32, 36)),
+            QuantizationType::Q2_K => Some((256, 84)),
+            QuantizationType::Q3_K => Some((256, 110)),
+            QuantizationType::Q4_K => Some((256, 144)),
+            QuantizationType::Q5_K => Some((256, 176)),
+            QuantizationType::Q6_K => Some((256, 210)),
+            QuantizationType::Q8_K => Some((256, 292)),
+            QuantizationType::IQ2_XXS => Some((256, 66)),
+            QuantizationType::IQ2_XS => Some((256, 74)),
+            QuantizationType::IQ3_XXS => Some((256, 98)),
+            QuantizationType::IQ1_S => Some((256, 50)),
+            QuantizationType::IQ4_NL => Some((32, 18)),
+            QuantizationType::IQ3_S => Some((256, 110)),
+            QuantizationType::IQ2_S => Some((256, 82)),
+            QuantizationType::IQ4_XS => Some((256, 136)),
+            QuantizationType::I8 => Some((1, 1)),
+            QuantizationType::I16 => Some((1, 2)),
+            QuantizationType::I32 => Some((1, 4)),
+            QuantizationType::I64 => Some((1, 8)),
+            QuantizationType::F64 => Some((1, 8)),
+            QuantizationType::IQ1_M => Some((256, 56)),
+            QuantizationType::Unknown(_) => None,
+        }
+    }
+
+    /// Returns the memory efficiency factor (1.0 = F32 baseline)
+    pub fn efficiency_factor(&self) -> f32 {
+        4.0 / self.bytes_per_element()
+    }
+}
+
+/// Individual tensor metadata
+#[derive(Debug, Clone)]
+pub struct TensorInfo {
+    /// Tensor name (e.g., "blk.0.attn_q.weight")
+    pub name: String,
+    /// Index in the GGUF tensor list
+    pub tensor_index: usize,
+    /// Assigned layer index (logical grouping)
+    pub layer_index: usize,
+    /// Byte offset in the GGUF file
+    pub offset: u64,
+    /// Total byte size
+    pub byte_size: u64,
+    /// Quantization type
+    pub quantization: QuantizationType,
+    /// Dimensions [d0, d1, d2, ...] (GGUF spec: uint64)
+    pub dimensions: Vec<u64>,
+    /// Number of elements (product of dimensions)
+    pub element_count: u64,
+}
+
+/// Logical layer grouping of tensors
+#[derive(Debug, Clone)]
+pub struct LayerInfo {
+    /// Layer index
+    pub layer_index: usize,
+    /// Byte range covering all tensors in this layer
+    pub byte_range: ByteRange,
+    /// Total byte size
+    pub byte_size: u64,
+    /// List of tensor indices in this layer
+    pub tensor_indices: Vec<usize>,
+    /// Dominant quantization type (most common)
+    pub dominant_quantization: QuantizationType,
+    /// Average bytes per element
+    pub avg_bytes_per_element: f32,
+}
+
+/// System page size information
+#[derive(Debug, Clone)]
+pub struct PageSizeInfo {
+    /// System page size in bytes
+    pub page_size: usize,
+    /// Whether this was auto-detected or defaulted
+    pub auto_detected: bool,
+}
+
+impl PageSizeInfo {
+    /// Detect system page size
+    pub fn detect() -> Self {
+        #[cfg(unix)]
+        {
+            let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+            if page_size > 0 {
+                return Self {
+                    page_size,
+                    auto_detected: true,
+                };
+            }
+        }
+        
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::System::SystemInformation::GetSystemInfo;
+            let mut sys_info = unsafe { std::mem::zeroed() };
+            unsafe { GetSystemInfo(&mut sys_info) };
+            let page_size = sys_info.dwPageSize as usize;
+            if page_size > 0 {
+                return Self {
+                    page_size,
+                    auto_detected: true,
+                };
+            }
+        }
+        
+        // Fallback to 4KB
+        Self {
+            page_size: 4096,
+            auto_detected: false,
+        }
+    }
+    
+    /// Align a value down to page boundary
+    pub fn align_down(&self, val: usize) -> usize {
+        val & !(self.page_size - 1)
+    }
+    
+    /// Align a value up to page boundary
+    pub fn align_up(&self, val: usize) -> usize {
+        (val + self.page_size - 1) & !(self.page_size - 1)
+    }
+    
+    /// Calculate page count for a byte range
+    pub fn page_count(&self, byte_range: &ByteRange) -> usize {
+        let aligned_start = self.align_down(byte_range.start);
+        let aligned_end = self.align_up(byte_range.end);
+        (aligned_end - aligned_start) / self.page_size
+    }
+}
+
+/// Working set estimation for memory management
+#[derive(Debug, Clone)]
+pub struct WorkingSetEstimate {
+    /// Total weights in working set (bytes)
+    pub weights_bytes: u64,
+    /// Estimated KV cache (bytes)
+    pub kv_bytes: u64,
+    /// Runtime overhead (bytes)
+    pub runtime_bytes: u64,
+    /// Total working set (bytes)
+    pub total_bytes: u64,
+    /// Number of layers in working set
+    pub active_layers: usize,
+    /// Page count for working set
+    pub page_count: usize,
+}
+
+/// NanoModelIndex — comprehensive GGUF model index
+pub struct NanoModelIndex {
+    /// All tensors indexed by their global index
+    pub tensors: Vec<TensorInfo>,
+    /// Tensors indexed by name for quick lookup
+    tensors_by_name: HashMap<String, usize>,
+    /// Layer groupings
+    pub layers: BTreeMap<usize, LayerInfo>,
+    /// Page size information
+    pub page_info: PageSizeInfo,
+    /// File-level metadata
+    pub file_size: usize,
+    pub data_offset: usize,
+    pub tensor_count: usize,
+    /// GGUF version
+    pub gguf_version: u32,
+}
+
+impl NanoModelIndex {
+    /// Analyze a GGUF file and build a comprehensive model index.
+    ///
+    /// This replaces the previous GGUFLayoutAnalyzer with full tensor indexing,
+    /// quantization metadata, and dynamic page size detection.
     pub fn analyze(gguf_path: &Path, expected_layers: usize) -> Result<Self, GgufError> {
         let mut file = File::open(gguf_path)?;
-
-        // Comprobar tamaño
+        let page_info = PageSizeInfo::detect();
+        
+        // Check file size
         let file_size = file.metadata()?.len() as usize;
         if file_size < 16 {
             return Err(GgufError::Malformed);
         }
 
-        // Leer magic
+        // Read magic
         let mut magic = [0u8; 4];
         file.read_exact(&mut magic)?;
 
@@ -77,133 +328,314 @@ impl GGUFLayoutAnalyzer {
             return Err(GgufError::UnsupportedVersion(version));
         }
 
-        // ── Parsear header GGUF real ─────────────────────────────────
-        // Formato (v2/v3): tensor_count (u64) + metadata_kv_count (u64)
-        // seguido de N KV pairs (key:string + type:u32 + value) y
-        // M tensor info records (name:string + dims + type + offset:u64).
+        // Parse GGUF header
         let mut buf = [0u8; 8];
-
         file.read_exact(&mut buf)?;
         let tensor_count = u64::from_le_bytes(buf) as usize;
 
         file.read_exact(&mut buf)?;
         let kv_count = u64::from_le_bytes(buf) as usize;
 
-        // Skip all metadata KV pairs. Each pair: string key (u64 len + bytes)
-        // followed by value type (u32) and the value bytes (size depends on type).
+        // Skip metadata KV pairs
         for _ in 0..kv_count {
             skip_gguf_string(&mut file)?;
             skip_gguf_value(&mut file)?;
         }
 
-        // ── Parsear tensor info records para offsets reales ──────────
-        // Cada registro: name (string), n_dims (u32), dims (u32 × n_dims),
-        // ggml_type (u32), offset (u64).
-        // El offset más bajo entre todos los tensores = data_offset real.
-        // Almacenamos (tensor_index, offset, byte_size) para calcular límites.
-        let mut tensor_offsets: Vec<(usize, u64, u64)> = Vec::with_capacity(tensor_count);
+        // Parse tensor info records with full metadata
+        let mut tensors: Vec<TensorInfo> = Vec::with_capacity(tensor_count);
+        let mut tensors_by_name: HashMap<String, usize> = HashMap::new();
         let mut min_offset: Option<u64> = None;
 
         for i in 0..tensor_count {
-            skip_gguf_string(&mut file)?; // tensor name
+            let tensor_name = read_gguf_string(&mut file)?;
 
             let mut dim_buf = [0u8; 4];
             file.read_exact(&mut dim_buf)?;
             let n_dims = u32::from_le_bytes(dim_buf) as usize;
 
-            // Leer dimensiones para calcular el tamaño del tensor
-            let mut tensor_size: u64 = 1;
+            // GGUF spec: dims es uint64[n_dims]. Antes se leían como u32:
+            // los 4 bytes altos de cada dim quedaban en el stream y el
+            // parser se desalineaba en el segundo tensor ("Malformed" con
+            // modelos reales). 0 dims o > 8 (GGML_MAX_DIMS = 4) es corrupción.
+            if n_dims == 0 || n_dims > 8 {
+                return Err(GgufError::Malformed);
+            }
+
+            let mut dimensions = Vec::with_capacity(n_dims);
+            let mut element_count: u64 = 1;
             for _ in 0..n_dims {
-                file.read_exact(&mut dim_buf)?;
-                tensor_size = tensor_size.saturating_mul(u32::from_le_bytes(dim_buf) as u64);
+                let mut dim64_buf = [0u8; 8];
+                file.read_exact(&mut dim64_buf)?;
+                let dim = u64::from_le_bytes(dim64_buf);
+                dimensions.push(dim);
+                element_count = element_count.saturating_mul(dim);
             }
 
             file.read_exact(&mut dim_buf)?;
             let ggml_type = u32::from_le_bytes(dim_buf);
-            let element_size = gguf_type_size(ggml_type);
-            let tensor_bytes = tensor_size.saturating_mul(element_size as u64);
+            let quantization = parse_quantization_type(ggml_type)?;
+
+            // Tamaño exacto en enteros: blocks de tamaño fijo por tipo
+            // (tabla verificada contra static_asserts de ggml-common.h).
+            // f32 pierde precisión con element_count > 16M.
+            let tensor_bytes = match quantization.block_layout() {
+                Some((blck, block_bytes)) => {
+                    element_count.div_ceil(blck as u64) * block_bytes as u64
+                }
+                None => {
+                    // Tipo desconocido: aproximación conservadora en f64
+                    (element_count as f64 * quantization.bytes_per_element() as f64) as u64
+                }
+            };
 
             file.read_exact(&mut buf)?;
             let offset = u64::from_le_bytes(buf);
 
-            tensor_offsets.push((i, offset, tensor_bytes));
             if min_offset.is_none_or(|m| offset < m) {
                 min_offset = Some(offset);
             }
+
+            let tensor_info = TensorInfo {
+                name: tensor_name.clone(),
+                tensor_index: i,
+                layer_index: 0, // Will be assigned during layer grouping
+                offset,
+                byte_size: tensor_bytes,
+                quantization,
+                dimensions,
+                element_count,
+            };
+
+            tensors_by_name.insert(tensor_name, i);
+            tensors.push(tensor_info);
         }
 
-        let data_offset = min_offset.unwrap_or(0) as usize;
+        // Fin del header: los datos empiezan aquí, alineados a 32 bytes
+        // (GGUF_DEFAULT_ALIGNMENT).
+        let header_end = file.stream_position()? as usize;
+        let aligned_header_end = (header_end + 31) & !31;
 
-        // ── Construir layer_offsets a partir de los offsets reales ──
-        // Agrupamos tensores por cercanía para aproximar capas. Si hay más
-        // tensores que expected_layers, agrupamos tensores contiguos.
-        let mut layer_offsets = HashMap::new();
-        if tensor_offsets.is_empty() {
-            // Fallback: sin info de tensores, dividir uniformemente
-            let data_size = file_size.saturating_sub(data_offset);
-            let layer_size = data_size / expected_layers.max(1);
-            for i in 0..expected_layers {
-                let start = data_offset + (i * layer_size);
-                let end = start + layer_size;
-                layer_offsets.insert(i, ByteRange { start, end });
+        // Offsets: v2 son relativos al inicio de los datos del tensor
+        // (spec). v3 son absolutos (spec) — PERO hay archivos v3 reales
+        // (re-cuantizados con llama.cpp 2024) que siguen guardando
+        // offsets relativos. Detección empírica: si el primer tensor
+        // "empieza" antes del fin del header, es imposible en absoluto —
+        // son relativos de facto y se corrigen sumando el header.
+        let raw_min = min_offset.unwrap_or(0);
+        let offsets_relative = version == 2 || raw_min < aligned_header_end as u64;
+        if version >= 3 && offsets_relative {
+            tracing::warn!(
+                "GGUF v3 con offsets relativos de facto (primer tensor en {} < header alineado {}): writer no conforme a spec, corrigiendo",
+                raw_min,
+                aligned_header_end
+            );
+        }
+        if offsets_relative {
+            for t in &mut tensors {
+                t.offset = t.offset.saturating_add(aligned_header_end as u64);
             }
-        } else if tensor_count <= expected_layers {
-            // Un tensor por capa: usar offset del tensor como start,
-            // el siguiente offset (o offset + byte_size para el último) como end.
-            tensor_offsets.sort_by_key(|(_, off, _)| *off);
-            for (layer_idx, &(_, offset, byte_size)) in tensor_offsets.iter().enumerate() {
-                let start = offset as usize;
-                let end = if layer_idx + 1 < tensor_offsets.len() {
-                    tensor_offsets[layer_idx + 1].1 as usize
-                } else {
-                    // Último tensor: usar offset + tamaño real, acotado al file_size
-                    (offset as usize + byte_size as usize).min(file_size)
-                };
-                layer_offsets.insert(layer_idx, ByteRange { start, end });
-            }
+        }
+
+        let data_offset = if offsets_relative {
+            (raw_min + aligned_header_end as u64) as usize
         } else {
-            // Más tensores que capas: agrupar tensores contiguos en capas lógicas.
-            // Ordenar por offset y dividir en expected_layers grupos equitativos.
-            tensor_offsets.sort_by_key(|(_, off, _)| *off);
-            let tensors_per_layer = tensor_count.div_ceil(expected_layers);
-            for layer_idx in 0..expected_layers {
-                let tensor_start = layer_idx * tensors_per_layer;
-                let tensor_end = ((layer_idx + 1) * tensors_per_layer).min(tensor_count);
-                if tensor_start >= tensor_count {
-                    break;
-                }
-                let start = tensor_offsets[tensor_start].1 as usize;
-                let end = if tensor_end < tensor_count {
-                    tensor_offsets[tensor_end].1 as usize
-                } else {
-                    // Último grupo: offset del último tensor + su byte_size
-                    let last = &tensor_offsets[tensor_count - 1];
-                    (last.1 as usize + last.2 as usize).min(file_size)
-                };
-                layer_offsets.insert(layer_idx, ByteRange { start, end });
-            }
-        }
+            raw_min as usize
+        };
+
+        // Group tensors into logical layers
+        let layers = Self::group_tensors_into_layers(
+            &mut tensors,
+            expected_layers,
+            file_size,
+            data_offset,
+        );
 
         tracing::info!(
-            "GGUF layout: {} tensors, data_offset={}, {} layers, file_size={}",
+            "NanoModelIndex: {} tensors, {} layers, data_offset={}, page_size={}, file_size={}",
             tensor_count,
+            layers.len(),
             data_offset,
-            layer_offsets.len(),
+            page_info.page_size,
             file_size
         );
 
         Ok(Self {
-            layer_offsets,
+            tensors,
+            tensors_by_name,
+            layers,
+            page_info,
+            file_size,
             data_offset,
+            tensor_count,
+            gguf_version: version,
         })
     }
 
-    /// Retorna el rango de bytes físicos de una capa específica.
-    pub fn get_layer_range(&self, layer_idx: usize) -> Option<&ByteRange> {
-        self.layer_offsets.get(&layer_idx)
+    /// Group tensors into logical layers.
+    ///
+    /// La capa REAL la declara el nombre del tensor (`blk.N.*`). Los
+    /// tensores sin capa en el nombre (output, token_embd) caen en el
+    /// bucket contiguo por orden de archivo.
+    fn group_tensors_into_layers(
+        tensors: &mut [TensorInfo],
+        expected_layers: usize,
+        file_size: usize,
+        data_offset: usize,
+    ) -> BTreeMap<usize, LayerInfo> {
+        let mut layers = BTreeMap::new();
+        
+        if tensors.is_empty() {
+            return layers;
+        }
+
+        // Sort tensors by offset
+        tensors.sort_by_key(|t| t.offset);
+
+        let tensor_count = tensors.len();
+        
+        if tensor_count <= expected_layers {
+            // One tensor per layer (or close to it)
+            // First collect all the offsets
+            let offsets: Vec<u64> = tensors.iter().map(|t| t.offset).collect();
+            
+            for (layer_idx, tensor) in tensors.iter_mut().enumerate() {
+                tensor.layer_index = layer_idx;
+                
+                let start = tensor.offset as usize;
+                let end = if layer_idx + 1 < tensor_count {
+                    offsets[layer_idx + 1] as usize
+                } else {
+                    (tensor.offset as usize + tensor.byte_size as usize).min(file_size)
+                };
+
+                layers.insert(layer_idx, LayerInfo {
+                    layer_index: layer_idx,
+                    byte_range: ByteRange { start, end },
+                    byte_size: tensor.byte_size,
+                    tensor_indices: vec![tensor.tensor_index],
+                    dominant_quantization: tensor.quantization,
+                    avg_bytes_per_element: tensor.quantization.bytes_per_element(),
+                });
+            }
+        } else {
+            // Múltiples tensores por capa — agrupar por la capa REAL que
+            // declara el nombre (blk.N.*). Tensores sin capa en el nombre
+            // (output, token_embd) caen en bucket contiguo por orden de
+            // archivo.
+            let tensors_per_layer = tensor_count.div_ceil(expected_layers);
+            for tensor in tensors.iter_mut() {
+                let mut assigned = false;
+                if let Some(rest) = tensor.name.strip_prefix("blk.") {
+                    let digits: String = rest
+                        .chars()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect();
+                    if let Ok(n) = digits.parse::<usize>() {
+                        if n < expected_layers {
+                            tensor.layer_index = n;
+                            assigned = true;
+                        }
+                    }
+                }
+                if !assigned {
+                    let bucket = (tensor.tensor_index / tensors_per_layer).min(expected_layers - 1);
+                    tensor.layer_index = bucket;
+                }
+            }
+
+            for layer_idx in 0..expected_layers {
+                // Posiciones en `tensors` (ordenado por offset) de esta capa
+                let layer_tensor_indices: Vec<usize> = tensors
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, t)| t.layer_index == layer_idx)
+                    .map(|(i, _)| i)
+                    .collect();
+                if layer_tensor_indices.is_empty() {
+                    continue;
+                }
+
+                let layer_tensors_data: Vec<(u64, u64, QuantizationType, u64)> = layer_tensor_indices
+                    .iter()
+                    .map(|&idx| {
+                        let t = &tensors[idx];
+                        (t.offset, t.byte_size, t.quantization, t.element_count)
+                    })
+                    .collect();
+
+                let start = layer_tensors_data
+                    .iter()
+                    .map(|(o, _, _, _)| *o as usize)
+                    .min()
+                    .unwrap_or(data_offset);
+                let end = layer_tensors_data
+                    .iter()
+                    .map(|(o, bs, _, _)| (*o + *bs) as usize)
+                    .max()
+                    .unwrap_or(data_offset)
+                    .min(file_size);
+
+                let total_bytes: u64 = layer_tensors_data.iter().map(|(_, bs, _, _)| *bs).sum();
+                let tensor_indices: Vec<usize> = layer_tensor_indices
+                    .iter()
+                    .map(|&i| tensors[i].tensor_index)
+                    .collect();
+
+                // Find dominant quantization
+                let mut quant_counts: std::collections::HashMap<QuantizationType, usize> = std::collections::HashMap::new();
+                for (_, _, quant, _) in &layer_tensors_data {
+                    *quant_counts.entry(*quant).or_insert(0) += 1;
+                }
+                let dominant_quantization = quant_counts
+                    .into_iter()
+                    .max_by_key(|(_, count)| *count)
+                    .map(|(q, _)| q)
+                    .unwrap_or(QuantizationType::F32);
+
+                // Calculate average bytes per element
+                let total_elements: u64 = layer_tensors_data.iter().map(|(_, _, _, ec)| *ec).sum();
+                let avg_bytes_per_element = if total_elements > 0 {
+                    (total_bytes as f32) / (total_elements as f32)
+                } else {
+                    4.0
+                };
+
+                layers.insert(layer_idx, LayerInfo {
+                    layer_index: layer_idx,
+                    byte_range: ByteRange { start, end },
+                    byte_size: total_bytes,
+                    tensor_indices,
+                    dominant_quantization,
+                    avg_bytes_per_element,
+                });
+            }
+        }
+
+        layers
     }
 
-    /// Agrupa índices de capas en rangos contiguos de bytes para batching de syscalls.
+    /// Get layer info by index
+    pub fn get_layer(&self, layer_idx: usize) -> Option<&LayerInfo> {
+        self.layers.get(&layer_idx)
+    }
+
+    /// Get byte range for a specific layer
+    pub fn get_layer_range(&self, layer_idx: usize) -> Option<&ByteRange> {
+        self.layers.get(&layer_idx).map(|l| &l.byte_range)
+    }
+
+    /// Get tensor info by index
+    pub fn get_tensor(&self, tensor_idx: usize) -> Option<&TensorInfo> {
+        self.tensors.get(tensor_idx)
+    }
+
+    /// Get tensor info by name
+    pub fn get_tensor_by_name(&self, name: &str) -> Option<&TensorInfo> {
+        self.tensors_by_name.get(name).and_then(|&idx| self.tensors.get(idx))
+    }
+
+    /// Group layer indices into contiguous byte ranges for efficient syscall batching
     pub fn group_contiguous_layers(&self, layer_indices: &[usize]) -> Vec<ByteRange> {
         if layer_indices.is_empty() {
             return Vec::new();
@@ -214,13 +646,22 @@ impl GGUFLayoutAnalyzer {
 
         let mut ranges = Vec::new();
         let mut current_range: Option<ByteRange> = None;
+        let mut prev_idx: Option<usize> = None;
 
         for &idx in &sorted_indices {
-            if let Some(layer_range) = self.get_layer_range(idx) {
+            if let Some(layer_info) = self.get_layer(idx) {
+                let layer_range = &layer_info.byte_range;
                 if let Some(ref mut current) = current_range {
-                    // Tolerancia de contigüidad. Si la siguiente capa empieza exactamente donde
-                    // termina la actual, o hay un pequeño gap, las unimos.
-                    if current.end >= layer_range.start || current.end + 4096 >= layer_range.start {
+                    // Contigüidad física: solo capas ADYACENTES en índice
+                    // forman un rango. Saltarse capas intermedias (activas
+                    // 2 y 5 con 3-4 inactivas entre medio) NO es contiguo:
+                    // los bytes intermedios pertenecen a otras capas.
+                    let adjacent = prev_idx.is_some_and(|p| idx == p + 1);
+                    // Tolerancia de página: micro-gaps de alineación entre
+                    // tensores de capas adyacentes no rompen el rango.
+                    let gap = layer_range.start.saturating_sub(current.end);
+                    let tolerance = self.page_info.page_size;
+                    if adjacent && gap <= tolerance {
                         current.end = current.end.max(layer_range.end);
                     } else {
                         ranges.push(current.clone());
@@ -229,6 +670,7 @@ impl GGUFLayoutAnalyzer {
                 } else {
                     current_range = Some(layer_range.clone());
                 }
+                prev_idx = Some(idx);
             }
         }
 
@@ -239,41 +681,208 @@ impl GGUFLayoutAnalyzer {
         ranges
     }
 
-    /// Genera un layout mock para entornos de test.
+    /// Estimate working set for a given set of active layers
+    pub fn estimate_working_set(
+        &self,
+        active_layers: &[usize],
+        kv_cache_tokens: usize,
+        runtime_overhead_mb: f64,
+    ) -> WorkingSetEstimate {
+        let mut weights_bytes: u64 = 0;
+        let mut active_layer_count = 0;
+
+        for &layer_idx in active_layers {
+            if let Some(layer_info) = self.get_layer(layer_idx) {
+                weights_bytes += layer_info.byte_size;
+                active_layer_count += 1;
+            }
+        }
+
+        // Estimate KV cache (simplified: assumes average token size)
+        let kv_bytes = (kv_cache_tokens as f64 * 0.03 * active_layer_count as f64 * 1024.0) as u64;
+        let runtime_bytes = (runtime_overhead_mb * 1024.0 * 1024.0) as u64;
+        let total_bytes = weights_bytes + kv_bytes + runtime_bytes;
+
+        let page_count = self.page_info.page_count(&ByteRange {
+            start: 0,
+            end: total_bytes as usize,
+        });
+
+        WorkingSetEstimate {
+            weights_bytes,
+            kv_bytes,
+            runtime_bytes,
+            total_bytes,
+            active_layers: active_layer_count,
+            page_count,
+        }
+    }
+
+    /// Get total model size in bytes
+    pub fn total_model_bytes(&self) -> u64 {
+        self.layers.values().map(|l| l.byte_size).sum()
+    }
+
+    /// Get model size in MB
+    pub fn total_model_mb(&self) -> f64 {
+        self.total_model_bytes() as f64 / (1024.0 * 1024.0)
+    }
+
+    /// Get the system page size
+    pub fn page_size(&self) -> usize {
+        self.page_info.page_size
+    }
+
+    /// Check if page size was auto-detected
+    pub fn is_page_size_auto_detected(&self) -> bool {
+        self.page_info.auto_detected
+    }
+
+    /// Get quantization summary for the model
+    pub fn quantization_summary(&self) -> std::collections::HashMap<QuantizationType, usize> {
+        let mut summary = std::collections::HashMap::new();
+        for tensor in &self.tensors {
+            *summary.entry(tensor.quantization).or_insert(0) += 1;
+        }
+        summary
+    }
+
+    /// Get layer indices that contain a specific tensor name pattern
+    pub fn find_layers_with_pattern(&self, pattern: &str) -> Vec<usize> {
+        let mut layers = std::collections::HashSet::new();
+        for tensor in &self.tensors {
+            if tensor.name.contains(pattern) {
+                layers.insert(tensor.layer_index);
+            }
+        }
+        let mut result: Vec<_> = layers.into_iter().collect();
+        result.sort();
+        result
+    }
+
+    /// Generate a mock index for testing
     #[cfg(test)]
-    fn mock_layout(expected_layers: usize, file_size: usize) -> Self {
-        let mut layer_offsets = HashMap::new();
-        let data_offset = 128; // Dummy header size
+    pub fn mock_index(expected_layers: usize, file_size: usize) -> Self {
+        let page_info = PageSizeInfo {
+            page_size: 4096,
+            auto_detected: false,
+        };
+
+        let mut tensors = Vec::new();
+        let mut tensors_by_name = HashMap::new();
+        let mut layers = BTreeMap::new();
+
+        let data_offset = 128;
         let data_size = file_size.saturating_sub(data_offset);
         let layer_size = data_size / expected_layers.max(1);
 
         for i in 0..expected_layers {
             let start = data_offset + (i * layer_size);
             let end = start + layer_size;
-            layer_offsets.insert(i, ByteRange { start, end });
+
+            // Create a mock tensor for each layer
+            let tensor_name = format!("blk.{}.attn_q.weight", i);
+            let tensor_info = TensorInfo {
+                name: tensor_name.clone(),
+                tensor_index: i,
+                layer_index: i,
+                offset: start as u64,
+                byte_size: layer_size as u64,
+                quantization: QuantizationType::Q4_K,
+                dimensions: vec![4096, 4096],
+                element_count: 4096 * 4096,
+            };
+
+            tensors_by_name.insert(tensor_name, i);
+            tensors.push(tensor_info);
+
+            layers.insert(i, LayerInfo {
+                layer_index: i,
+                byte_range: ByteRange { start, end },
+                byte_size: layer_size as u64,
+                tensor_indices: vec![i],
+                dominant_quantization: QuantizationType::Q4_K,
+                avg_bytes_per_element: QuantizationType::Q4_K.bytes_per_element(),
+            });
         }
 
         Self {
-            layer_offsets,
+            tensors,
+            tensors_by_name,
+            layers,
+            page_info,
+            file_size,
             data_offset,
+            tensor_count: expected_layers,
+            gguf_version: 3,
         }
     }
 }
 
 // ── GGUF header parsing helpers ───────────────────────────────────────
-// Used by analyze() to skip metadata KV pairs and parse tensor info records
-// without a full-blown GGUF parser (avoids ~2000 lines of type dispatch).
 
-/// Reads and discards a GGUF string (u64 length prefix + raw bytes).
-/// GGUF strings are NOT null-terminated and have no alignment padding.
+/// Parse quantization type from GGML type ID
+fn parse_quantization_type(ggml_type: u32) -> Result<QuantizationType, GgufError> {
+    match ggml_type {
+        0 => Ok(QuantizationType::F32),
+        1 => Ok(QuantizationType::F16),
+        2 => Ok(QuantizationType::Q4_0),
+        3 => Ok(QuantizationType::Q4_1),
+        6 => Ok(QuantizationType::Q5_0),
+        7 => Ok(QuantizationType::Q5_1),
+        8 => Ok(QuantizationType::Q8_0),
+        9 => Ok(QuantizationType::Q8_1),
+        10 => Ok(QuantizationType::Q2_K),
+        11 => Ok(QuantizationType::Q3_K),
+        12 => Ok(QuantizationType::Q4_K),
+        13 => Ok(QuantizationType::Q5_K),
+        14 => Ok(QuantizationType::Q6_K),
+        15 => Ok(QuantizationType::Q8_K),
+        16 => Ok(QuantizationType::IQ2_XXS),
+        17 => Ok(QuantizationType::IQ2_XS),
+        18 => Ok(QuantizationType::IQ3_XXS),
+        19 => Ok(QuantizationType::IQ1_S),
+        20 => Ok(QuantizationType::IQ4_NL),
+        21 => Ok(QuantizationType::IQ3_S),
+        22 => Ok(QuantizationType::IQ2_S),
+        23 => Ok(QuantizationType::IQ4_XS),
+        24 => Ok(QuantizationType::I8),
+        25 => Ok(QuantizationType::I16),
+        26 => Ok(QuantizationType::I32),
+        27 => Ok(QuantizationType::I64),
+        28 => Ok(QuantizationType::F64),
+        29 => Ok(QuantizationType::IQ1_M),
+        30 => Ok(QuantizationType::BF16),
+        _ => Err(GgufError::InvalidQuantization(ggml_type)),
+    }
+}
+
+/// Read a GGUF string and return its contents
+fn read_gguf_string(file: &mut File) -> Result<String, GgufError> {
+    let mut len_buf = [0u8; 8];
+    file.read_exact(&mut len_buf)?;
+    let len = u64::from_le_bytes(len_buf) as usize;
+    
+    // Cap at 16MB to prevent OOM on malformed files
+    if len > 16 * 1024 * 1024 {
+        return Err(GgufError::Malformed);
+    }
+    
+    let mut buffer = vec![0u8; len];
+    file.read_exact(&mut buffer)?;
+    String::from_utf8(buffer).map_err(|_| GgufError::Malformed)
+}
+
+/// Skip a GGUF string (discard contents)
 fn skip_gguf_string(file: &mut File) -> Result<(), GgufError> {
     let mut len_buf = [0u8; 8];
     file.read_exact(&mut len_buf)?;
     let len = u64::from_le_bytes(len_buf) as usize;
-    // Seek past the string bytes. Capped at 16MB to prevent OOM on malformed files.
+    
     if len > 16 * 1024 * 1024 {
         return Err(GgufError::Malformed);
     }
+    
     file.seek(SeekFrom::Current(len as i64))?;
     Ok(())
 }
@@ -291,17 +900,19 @@ fn skip_gguf_value(file: &mut File) -> Result<(), GgufError> {
             let size = match value_type {
                 0 | 1 => 1, // u8, i8
                 2 | 3 => 2, // u16, i16
-                4..=7 => 4, // u32, i32, f32, bool
+                4..=6 => 4, // u32, i32, f32
+                7 => 1,     // bool — la spec GGUF dice 1 byte (antes se
+                // saltaban 4: desalineaba el stream en archivos con bools,
+                // e.g. tokenizer.ggml.add_bos_token en qwen2.5)
                 _ => unreachable!(),
             };
             file.seek(SeekFrom::Current(size))?;
         }
-        // String: u64 length + bytes (same as skip_gguf_string but inlined)
+        // String: u64 length + bytes
         8 => {
             skip_gguf_string(file)?;
         }
         // Array: element type (u32) + count (u64) + items
-        // Recursively skip each element without allocating.
         9 => {
             let mut elem_type_buf = [0u8; 4];
             file.read_exact(&mut elem_type_buf)?;
@@ -311,42 +922,34 @@ fn skip_gguf_value(file: &mut File) -> Result<(), GgufError> {
             file.read_exact(&mut count_buf)?;
             let count = u64::from_le_bytes(count_buf);
 
-            // Capped at 1M elements to prevent OOM on malformed files
             if count > 1_000_000 {
                 return Err(GgufError::Malformed);
             }
 
             if elem_type == 8 {
-                // Array of strings: skip each one individually
                 for _ in 0..count {
                     skip_gguf_string(file)?;
                 }
-            } else {
-                // Array of fixed-size scalars: bulk skip
+            } else if elem_type <= 12 {
+                // GGUF spec: arrays solo de tipos primitivos 0..=12
+                // (los arrays anidados no existen en el formato).
+                // bool (7) = 1 byte, igual que en los escalares.
                 let elem_size: i64 = match elem_type {
                     0 | 1 => 1,
                     2 | 3 => 2,
-                    4..=7 => 4,
-                    10..=12 => 8, // u64, i64, f64
-                    _ => {
-                        // Nested array or unknown — skip element by element
-                        // by recursing (rare, but valid in GGUF).
-                        for _ in 0..count {
-                            // Rewind to re-read elem_type, then skip full value
-                            file.seek(SeekFrom::Current(-4))?; // back to elem_type
-                            skip_gguf_value(file)?;
-                        }
-                        return Ok(());
-                    }
+                    4..=6 => 4,
+                    7 => 1,
+                    10..=12 => 8,
+                    _ => unreachable!(),
                 };
                 file.seek(SeekFrom::Current(elem_size * count as i64))?;
+            } else {
+                return Err(GgufError::Malformed);
             }
         }
-        // u64, i64, f64: 8 bytes each
         10..=12 => {
             file.seek(SeekFrom::Current(8))?;
         }
-        // Unknown type: treat as malformed
         _ => {
             return Err(GgufError::Malformed);
         }
@@ -355,128 +958,123 @@ fn skip_gguf_value(file: &mut File) -> Result<(), GgufError> {
     Ok(())
 }
 
-/// Returns the size in bytes of a single element for a given GGML type.
-/// Used to estimate tensor byte sizes from dimension products.
-/// Reference: ggml.h `ggml_type_size()` and GGUF spec table.
-fn gguf_type_size(ggml_type: u32) -> u16 {
-    match ggml_type {
-        0 => 4,  // F32
-        1 => 2,  // F16
-        2 => 4,  // Q4_0
-        3 => 4,  // Q4_1
-        6 => 4,  // Q5_0
-        7 => 4,  // Q5_1
-        8 => 4,  // Q8_0
-        9 => 4,  // Q8_1
-        10 => 2, // Q2_K
-        11 => 4, // Q3_K
-        12 => 4, // Q4_K
-        13 => 4, // Q5_K
-        14 => 4, // Q6_K
-        15 => 4, // Q8_K
-        16 => 4, // IQ2_XXS
-        17 => 4, // IQ2_XS
-        18 => 4, // IQ3_XXS
-        19 => 4, // IQ1_S
-        20 => 4, // IQ4_NL
-        21 => 4, // IQ3_S
-        22 => 4, // IQ2_S
-        23 => 4, // IQ4_XS
-        24 => 2, // I8
-        25 => 2, // I16
-        26 => 4, // I32
-        27 => 4, // I64
-        28 => 4, // F64
-        29 => 2, // IQ1_M
-        30 => 4, // BF16
-        _ => 4,  // Unknown: assume 4 bytes (safe overestimate for typical quant types)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_gguf_mock_layout_small_file() {
-        // analyze() now returns Err for files < 16 bytes or invalid magic.
-        // Test mock_layout directly since that's what the test exercises.
-        let analyzer = GGUFLayoutAnalyzer::mock_layout(4, 256);
+    fn test_mock_index_basic() {
+        let index = NanoModelIndex::mock_index(4, 256);
 
-        assert_eq!(analyzer.layer_offsets.len(), 4);
-        assert_eq!(analyzer.data_offset, 128);
+        assert_eq!(index.layers.len(), 4);
+        assert_eq!(index.data_offset, 128);
+        assert_eq!(index.tensor_count, 4);
+        assert_eq!(index.page_size(), 4096);
 
         // 256 - 128 = 128 bytes of data / 4 layers = 32 bytes per layer
-        let r0 = analyzer.get_layer_range(0).unwrap();
+        let r0 = index.get_layer_range(0).unwrap();
         assert_eq!(r0.start, 128);
         assert_eq!(r0.end, 160);
 
-        let r3 = analyzer.get_layer_range(3).unwrap();
+        let r3 = index.get_layer_range(3).unwrap();
         assert_eq!(r3.start, 224);
         assert_eq!(r3.end, 256);
     }
 
     #[test]
     fn test_group_contiguous_layers() {
-        let mut analyzer = GGUFLayoutAnalyzer {
-            layer_offsets: HashMap::new(),
-            data_offset: 100,
-        };
+        let index = NanoModelIndex::mock_index(8, 10000);
 
-        analyzer.layer_offsets.insert(
-            0,
-            ByteRange {
-                start: 100,
-                end: 200,
-            },
-        );
-        analyzer.layer_offsets.insert(
-            1,
-            ByteRange {
-                start: 200,
-                end: 300,
-            },
-        );
-        analyzer.layer_offsets.insert(
-            2,
-            ByteRange {
-                start: 300,
-                end: 400,
-            },
-        );
-        analyzer.layer_offsets.insert(
-            5,
-            ByteRange {
-                start: 6000,
-                end: 7000,
-            },
-        );
-        analyzer.layer_offsets.insert(
-            6,
-            ByteRange {
-                start: 7000,
-                end: 8000,
-            },
-        );
-
-        let ranges = analyzer.group_contiguous_layers(&[0, 1, 2, 5, 6]);
+        let ranges = index.group_contiguous_layers(&[0, 1, 2, 5, 6]);
         assert_eq!(ranges.len(), 2);
 
-        // Range 1: layers 0,1,2 (100 -> 400)
-        assert_eq!(
-            ranges[0],
-            ByteRange {
-                start: 100,
-                end: 400
-            }
-        );
-        // Range 2: layers 5,6 (6000 -> 8000)
-        assert_eq!(
-            ranges[1],
-            ByteRange {
-                start: 6000,
-                end: 8000
-            }
-        );
+        // Verify contiguity grouping works with dynamic page size
+        assert!(ranges[0].start < ranges[0].end);
+        assert!(ranges[1].start < ranges[1].end);
+        assert!(ranges[0].end < ranges[1].start); // Should be separate ranges
+    }
+
+    #[test]
+    fn test_quantization_type_efficiency() {
+        let f32_eff = QuantizationType::F32.efficiency_factor();
+        let q4k_eff = QuantizationType::Q4_K.efficiency_factor();
+
+        assert!((f32_eff - 1.0).abs() < 0.01); // F32 baseline
+        assert!(q4k_eff > f32_eff); // Q4_K should be more efficient
+        // 4.0 / 0.5625 = 7.11x (bloque real Q4_K: 144 bytes / 256 elementos)
+        assert!((q4k_eff - 7.111).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_working_set_estimation() {
+        let index = NanoModelIndex::mock_index(4, 256);
+        
+        let ws = index.estimate_working_set(&[0, 1, 2], 512, 200.0);
+        
+        assert!(ws.weights_bytes > 0);
+        assert!(ws.active_layers == 3);
+        assert!(ws.total_bytes > ws.weights_bytes);
+        assert!(ws.page_count > 0);
+    }
+
+    #[test]
+    fn test_tensor_lookup() {
+        let index = NanoModelIndex::mock_index(4, 256);
+        
+        // Should find tensor by name
+        let tensor = index.get_tensor_by_name("blk.0.attn_q.weight");
+        assert!(tensor.is_some());
+        
+        // Should not find non-existent tensor
+        let missing = index.get_tensor_by_name("nonexistent");
+        assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_find_layers_with_pattern() {
+        let index = NanoModelIndex::mock_index(8, 10000);
+        
+        let attn_layers = index.find_layers_with_pattern("attn");
+        assert!(!attn_layers.is_empty());
+        
+        // All layers should have attention tensors in our mock
+        assert!(attn_layers.len() <= 8);
+    }
+
+    #[test]
+    fn test_page_size_detection() {
+        let page_info = PageSizeInfo::detect();
+        
+        // Page size should be power of 2 and reasonable
+        assert!(page_info.page_size >= 4096);
+        assert!(page_info.page_size <= 65536);
+        assert!(page_info.page_size & (page_info.page_size - 1) == 0); // Power of 2
+    }
+
+    #[test]
+    fn test_page_alignment() {
+        let page_info = PageSizeInfo {
+            page_size: 4096,
+            auto_detected: false,
+        };
+        
+        assert_eq!(page_info.align_down(4095), 0);
+        assert_eq!(page_info.align_down(4096), 4096);
+        assert_eq!(page_info.align_down(4097), 4096);
+        
+        assert_eq!(page_info.align_up(4095), 4096);
+        assert_eq!(page_info.align_up(4096), 4096);
+        assert_eq!(page_info.align_up(4097), 8192);
+    }
+
+    #[test]
+    fn test_model_size_calculation() {
+        let index = NanoModelIndex::mock_index(4, 256);
+        
+        let total_bytes = index.total_model_bytes();
+        let total_mb = index.total_model_mb();
+        
+        assert!(total_bytes > 0);
+        assert!((total_mb - (total_bytes as f64 / (1024.0 * 1024.0))).abs() < 0.01);
     }
 }

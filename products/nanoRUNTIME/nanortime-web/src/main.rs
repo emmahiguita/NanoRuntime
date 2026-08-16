@@ -295,11 +295,9 @@ fn main() {
                     i += 1;
                 }
             }
-            "--port" | "-p" => {
-                if i + 1 < args.len() {
-                    port = args[i + 1].parse().unwrap_or(8080);
-                    i += 1;
-                }
+            "--port" | "-p" if i + 1 < args.len() => {
+                port = args[i + 1].parse().unwrap_or(8080);
+                i += 1;
             }
             _ => {}
         }
@@ -315,7 +313,7 @@ fn main() {
         println!("  ⚠ Binding to 0.0.0.0 — accessible from any device on the network.");
         println!("    Set NANO_BIND_ADDR=127.0.0.1 to restrict to localhost.");
     }
-    println!("");
+    println!();
 
     let state = Arc::new(ServerState::new(&model));
     let listener = TcpListener::bind(&bind_addr)

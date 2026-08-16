@@ -24,6 +24,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .to_string(),
         context: None,
         history: None,
+        session_id: None,
+        max_tokens: None,
+        temperature: None,
     };
     let resp1 = runtime.process_request(req1).await?;
     println!("  -> Tier usado: {}", resp1.tier_used);
@@ -40,6 +43,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .to_string(),
         context: None,
         history: None,
+        session_id: None,
+        max_tokens: None,
+        temperature: None,
     };
     let resp2 = runtime.process_request(req2).await?;
     println!("  -> Tier usado: {}", resp2.tier_used);
@@ -55,6 +61,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         prompt: "Genera un informe sobre el rendimiento del Nano Memory Engine.".to_string(),
         context: None,
         history: None,
+        session_id: None,
+        max_tokens: None,
+        temperature: None,
     };
     let resp3 = runtime.process_request(req3).await?;
     println!("  -> Tier usado: {}", resp3.tier_used);

@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/providers/kali_provider.dart';
 import '../../../../core/services/package_service.dart';
+import '../../../../core/theme/design_tokens.dart';
+import '../../../../core/theme/nano_type.dart';
+import '../../../../core/widgets/nano_components.dart';
 
 class DesktopAuditScreen extends ConsumerStatefulWidget {
   const DesktopAuditScreen({super.key});
@@ -99,6 +102,7 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
     return FutureBuilder<DesktopStatus>(
       future: _pkg.getDesktopStatus(),
       builder: (context, snapshot) {
+        final colors = NanoThemeExtension.of(context).colors;
         final status = snapshot.data;
         final kali = ref.watch(kaliProvider);
         final missing = kali?.missingTools() ?? const <String>[];
@@ -106,7 +110,7 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
         final graphicalReady = status?.graphicalExtras == true;
 
         return Scaffold(
-          backgroundColor: const Color(0xFF07111F),
+          backgroundColor: colors.background,
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -143,7 +147,7 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
                   ),
                   if (_message != null) ...[
                     const SizedBox(height: 12),
-                    Text(_message!, style: const TextStyle(color: Colors.white70)),
+                    Text(_message!, style: TextStyle(color: colors.onSurfaceVariant)),
                   ],
                 ],
               ),
@@ -179,26 +183,27 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return Row(
       children: [
         IconButton(
           tooltip: 'Inicio',
           onPressed: onBack,
           icon: const Icon(Icons.arrow_back_rounded),
-          color: Colors.white,
+          color: colors.onSurface,
         ),
         const SizedBox(width: 8),
-        const Expanded(
+        Expanded(
           child: Text(
             'NanoAI - Escritorio Linux',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
+            style: NanoType.display(colors.onSurface),
           ),
         ),
         IconButton(
           tooltip: 'Abrir escritorio',
           onPressed: onDesktop,
           icon: const Icon(Icons.desktop_windows_rounded),
-          color: Colors.white,
+          color: colors.onSurface,
         ),
       ],
     );
@@ -251,13 +256,14 @@ class _KaliCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return _InfoCard(
       title: 'Kali / rootfs',
       body: missingCount == 0 ? summary : '$summary. Faltan $missingCount herramientas auditadas.',
       trailing: Text(
         installed ? 'INSTALADO' : 'NO INSTALADO',
         style: TextStyle(
-          color: installed ? Colors.greenAccent : Colors.orangeAccent,
+          color: installed ? colors.success : colors.warning,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -341,16 +347,17 @@ class _AppTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0x1400A86B),
+        color: colors.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x3300A86B)),
+        border: Border.all(color: colors.success.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(app.icon, color: const Color(0xFF00A86B)),
+          Icon(app.icon, color: colors.success),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -362,17 +369,19 @@ class _AppTile extends StatelessWidget {
                     Flexible(
                       child: Text(app.label,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                          style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700)),
                     ),
                     const SizedBox(width: 6),
                     if (installed)
-                      const Icon(Icons.check_circle_rounded, size: 14, color: Colors.greenAccent),
+                      Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(installed ? 'Instalado' : app.role,
                     style: TextStyle(
-                      color: installed ? Colors.greenAccent : Colors.white60,
+                      color: installed
+                          ? colors.success
+                          : colors.onSurface.withValues(alpha: 0.6),
                       fontSize: 12,
                       fontWeight: installed ? FontWeight.w600 : FontWeight.w400,
                     )),
@@ -384,13 +393,13 @@ class _AppTile extends StatelessWidget {
               tooltip: 'Instalar paquete ${app.packageName}',
               onPressed: busy ? null : () => onInstall(app.packageName),
               icon: const Icon(Icons.download_rounded),
-              color: Colors.white70,
+              color: colors.onSurfaceVariant,
             ),
           IconButton(
             tooltip: graphicalReady ? 'Abrir ${app.label}' : 'Instala el escritorio primero',
             onPressed: busy || !desktopReady || !graphicalReady ? null : () => onLaunch(app.appId),
             icon: const Icon(Icons.open_in_new_rounded),
-            color: Colors.white70,
+            color: colors.onSurfaceVariant,
           ),
         ],
       ),
@@ -408,20 +417,24 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    final colors = NanoThemeExtension.of(context).colors;
+    return NanoCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x33FFFFFF)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white))),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
               if (trailing != null) trailing!,
             ],
           ),
@@ -429,7 +442,7 @@ class _InfoCard extends StatelessWidget {
           if (bodyWidget != null)
             Expanded(child: bodyWidget!)
           else
-            Text(body ?? '', style: const TextStyle(height: 1.4, color: Colors.white70)),
+            Text(body ?? '', style: NanoType.body(colors.onSurfaceVariant)),
         ],
       ),
     );

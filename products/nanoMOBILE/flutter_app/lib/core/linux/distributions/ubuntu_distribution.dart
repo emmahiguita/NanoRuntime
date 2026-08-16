@@ -2,41 +2,52 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import '../linux_distribution.dart';
-import '../../services/proot_manager.dart';
 import '../../services/shell_executor.dart';
 import '../../services/nano_runtime_api.dart';
 
 /// Adapter de Ubuntu ARM64 que implementa LinuxDistribution.
 ///
 /// Este adapter implementa la gestión de Ubuntu ARM64 dentro de la
-/// arquitectura multi-distro, usando ProotManager para ejecución
-/// y descargando el rootfs desde los mirrors oficiales de Ubuntu.
+/// arquitectura multi-distro. El rootfs ubuntu-base se descarga desde
+/// los mirrors oficiales de Ubuntu y se extrae con el mismo patrón que
+/// KaliManager: binarios del rootfs Termux ejecutándose nativos (sin
+/// jail proot) para que el tarball y el destino sean visibles.
 ///
-/// Ubuntu ARM64 base rootfs (ubuntu-base) se descarga desde los
-/// mirrors oficiales de Ubuntu para arquitectura arm64.
+/// Flujo de instalación:
+///   1. download  — channel nativo (streaming en Kotlin, no RAM)
+///   2. verify    — SHA256 fail-closed contra SHA256SUMS oficial
+///   3. extract   — tar -xzf a directorio temporal
+///   4. configure — DNS + sources.list (ubuntu-base no los trae)
+///   5. finalize  — promover tmp a ubicación final (rollback seguro)
 class UbuntuDistribution implements LinuxDistribution {
-  final ProotManager _prootManager;
   final ShellExecutor _shell;
 
   // Caché de estado para evitar llamadas repetidas al filesystem
   bool? _cachedInstalled;
   String? _filesDir;
 
-  UbuntuDistribution({
-    ProotManager? prootManager,
-    ShellExecutor? shell,
-  })  : _prootManager = prootManager ?? ProotManager(shell ?? ShellExecutor()),
-        _shell = shell ?? ShellExecutor();
+  UbuntuDistribution({ShellExecutor? shell})
+    : _shell = shell ?? ShellExecutor();
 
   Future<void> _init() async {
-    _filesDir ??= await NanoRuntimeApi.instance.getFilesDir();
+    if (_filesDir != null) return;
+    final dir = await NanoRuntimeApi.instance.getFilesDir();
+    if (dir == null || dir.isEmpty) {
+      throw StateError(
+        'getFilesDir no disponible: no se puede operar con el rootfs',
+      );
+    }
+    _filesDir = dir;
   }
 
-  String get _distDir => '$_filesDir/nano/distros';
+  /// getFilesDir() ya retorna `<filesDir>/nano` (Kotlin
+  /// ExecBinChannelHandler.handleGetFilesDir) — no añadir /nano de nuevo.
+  String get _distDir => '$_filesDir/distros';
   String get _ubuntuRoot => '$_distDir/ubuntu';
+  String get _tmpRoot => '$_distDir/.ubuntu-tmp';
+  String get _tarball => '$_distDir/ubuntu-base.tar.gz';
 
   @override
   String get id => 'ubuntu';
@@ -63,14 +74,15 @@ class UbuntuDistribution implements LinuxDistribution {
 
   @override
   Uri get rootfsUri => Uri.parse(
-    'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz',
+    'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz',
   );
 
   @override
   String? get expectedSha256 {
-    // SHA256 de ubuntu-base-24.04-base-arm64.tar.gz
-    // Actualizar cuando Ubuntu publique una nueva versión
-    return '7a2b5c8e9f3d4a6b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2';
+    // SHA256 de ubuntu-base-24.04.4-base-arm64.tar.gz
+    // Verificado contra la fuente oficial el 2026-08-15:
+    // https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/SHA256SUMS
+    return '04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2';
   }
 
   @override
@@ -80,11 +92,13 @@ class UbuntuDistribution implements LinuxDistribution {
     // Usar caché si está disponible
     if (_cachedInstalled != null) return _cachedInstalled!;
 
-    // Verificar si el rootfs existe y tiene archivos críticos
+    // Verificar que el rootfs existe y tiene archivos críticos
     final bash = File('$_ubuntuRoot/bin/bash');
     final osRelease = File('$_ubuntuRoot/etc/os-release');
+    final loader = File('$_ubuntuRoot/lib/ld-linux-aarch64.so.1');
 
-    _cachedInstalled = bash.existsSync() && osRelease.existsSync();
+    _cachedInstalled =
+        bash.existsSync() && osRelease.existsSync() && loader.existsSync();
     return _cachedInstalled!;
   }
 
@@ -94,68 +108,118 @@ class UbuntuDistribution implements LinuxDistribution {
   }) async {
     await _init();
 
-    onProgress('Iniciando instalación', 0);
-
-    // 1. Crear directorio de distribuciones
-    final distDir = Directory(_distDir);
-    if (!distDir.existsSync()) {
-      distDir.createSync(recursive: true);
-    }
-
-    // 2. Descargar rootfs
-    onProgress('Descargando rootfs Ubuntu', 10);
-    final tarball = '$_distDir/ubuntu-base.tar.gz';
-    await _downloadFile(rootfsUri.toString(), tarball, onProgress);
-
-    // 3. Verificar SHA256
-    onProgress('Verificando integridad', 70);
-    if (expectedSha256 != null) {
-      final actualHash = await _computeSha256(tarball);
-      if (actualHash != expectedSha256) {
-        throw Exception('SHA256 mismatch: expected $expectedSha256, got $actualHash');
-      }
-    }
-
-    // 4. Extraer rootfs
-    onProgress('Extrayendo rootfs', 80);
-    await _extractTarball(tarball, _ubuntuRoot);
-
-    // 5. Limpiar tarball
-    onProgress('Limpiando archivos temporales', 95);
     try {
-      File(tarball).deleteSync();
-    } catch (_) {}
+      // 1. Crear directorio de distribuciones
+      Directory(_distDir).createSync(recursive: true);
 
-    // 6. Verificar instalación
-    onProgress('Verificando instalación', 98);
-    _cachedInstalled = await isInstalled();
+      // 2. Validar URL antes de delegar la descarga al channel nativo
+      _validateDownloadUrl(rootfsUri);
 
-    onProgress('Instalación completada', 100);
+      // 3. Descargar rootfs vía channel nativo (streaming en Kotlin,
+      //    no carga el tarball en RAM como http.bodyBytes)
+      onProgress('download', 0);
+      final ok = await NanoRuntimeApi.instance.downloadFile(
+        rootfsUri.toString(),
+        _tarball,
+      );
+      if (!ok) {
+        throw Exception('Descarga falló: downloadFile retornó false');
+      }
+      onProgress('download', 100);
+
+      // 4. Verificar SHA256 (fail-closed: sin hash configurado se aborta)
+      onProgress('verify', 0);
+      if (expectedSha256 == null || expectedSha256!.isEmpty) {
+        throw Exception(
+          'SHA256 no configurado: no se instala un rootfs sin verificar',
+        );
+      }
+      final actualHash = await _computeSha256(_tarball);
+      if (actualHash != expectedSha256) {
+        throw Exception(
+          'SHA256 mismatch: expected $expectedSha256, got $actualHash',
+        );
+      }
+      onProgress('verify', 100);
+
+      // 5. Extraer a directorio temporal y validar archivos críticos
+      onProgress('extract', 0);
+      _cleanupDir(_tmpRoot);
+      await _extractTarball(_tarball, _tmpRoot);
+      _validateRootfs(_tmpRoot);
+      onProgress('extract', 100);
+
+      // 6. Configurar antes de promover: ubuntu-base no trae DNS ni
+      //    sources.list (debootstrap los genera). Sin esto, apt y DNS
+      //    quedan muertos dentro del rootfs.
+      onProgress('configure', 0);
+      await _writePostInstallConfig(_tmpRoot);
+      onProgress('configure', 100);
+
+      // 7. Promover tmp a ubicación final, reemplazando cualquier
+      //    instalación previa o parcial. La previa se renombra a
+      //    .ubuntu-old ANTES del promote: si el rename nuevo falla,
+      //    se restaura la instalación anterior.
+      onProgress('finalize', 0);
+      final oldRoot = '$_distDir/.ubuntu-old';
+      _cleanupDir(oldRoot);
+      if (Directory(_ubuntuRoot).existsSync()) {
+        Directory(_ubuntuRoot).renameSync(oldRoot);
+      }
+      try {
+        Directory(_tmpRoot).renameSync(_ubuntuRoot);
+      } catch (e) {
+        // Rollback del promote: restaurar la instalación previa
+        if (Directory(oldRoot).existsSync()) {
+          Directory(oldRoot).renameSync(_ubuntuRoot);
+        }
+        rethrow;
+      }
+      _cleanupDir(oldRoot);
+      onProgress('finalize', 100);
+
+      // 8. Limpiar tarball para ahorrar espacio
+      _cleanupFile(_tarball);
+
+      // 9. Verificar instalación final desde disco (sin caché)
+      _cachedInstalled = null;
+      if (!await isInstalled()) {
+        throw Exception('Instalación no verificada: faltan archivos críticos');
+      }
+
+      onProgress('done', 100);
+    } catch (e) {
+      // Rollback: no dejar rootfs temporal ni tarball parcial
+      _cleanupDir(_tmpRoot);
+      _cleanupFile(_tarball);
+      _cachedInstalled = null;
+      rethrow;
+    }
   }
 
   @override
   Future<void> repair() async {
-    // Ubuntu no tiene repair específico — reinstalar si está corrupto
+    // No hay repair incremental: limpiar estado corrupto y reinstalar
+    await uninstall();
     await install(onProgress: (stage, pct) {});
   }
 
   @override
   Future<void> uninstall() async {
-    // Eliminar el directorio del rootfs Ubuntu
-    final dir = Directory(_ubuntuRoot);
-    if (dir.existsSync()) {
-      dir.deleteSync(recursive: true);
-    }
+    await _init();
+    // Eliminar rootfs, temporales y tarball residual
+    _cleanupDir(_ubuntuRoot);
+    _cleanupDir(_tmpRoot);
+    _cleanupDir('$_distDir/.ubuntu-old');
+    _cleanupFile(_tarball);
     _cachedInstalled = false;
   }
 
   @override
   Future<LinuxSession> start() async {
-    // Iniciar sesión vía ProotManager
-    await _prootManager.init();
-
-    // Retornar una sesión placeholder
-    // La ejecución real de comandos se hace vía ProotManager.exec()
+    await _init();
+    // Patrón del codebase: la ejecución real de comandos se hace vía
+    // ShellExecutor/ProotManager.exec cuando se necesita.
     return LinuxSession(
       id: 'ubuntu-${DateTime.now().millisecondsSinceEpoch}',
       distributionId: id,
@@ -176,6 +240,7 @@ class UbuntuDistribution implements LinuxDistribution {
 
   @override
   Future<LinuxDistributionInfo> getInfo() async {
+    await _init();
     // Leer /etc/os-release del rootfs Ubuntu
     final etcOsRelease = File('$_ubuntuRoot/etc/os-release');
     if (await etcOsRelease.exists()) {
@@ -196,10 +261,23 @@ class UbuntuDistribution implements LinuxDistribution {
     );
   }
 
-  Future<void> _downloadFile(String url, String destPath, void Function(String, int) onProgress) async {
-    final response = await http.get(Uri.parse(url));
-    final file = File(destPath);
-    await file.writeAsBytes(response.bodyBytes);
+  /// Valida que la URL de descarga sea HTTPS y de un dominio oficial.
+  /// El channel nativo solo descarga; esta capa impone la allowlist.
+  void _validateDownloadUrl(Uri uri) {
+    if (uri.scheme != 'https') {
+      throw Exception('Solo HTTPS está permitido para descargas de seguridad');
+    }
+
+    const allowedDomains = [
+      'cdimage.ubuntu.com',
+      'releases.ubuntu.com',
+      'old-releases.ubuntu.com',
+      'archive.ubuntu.com',
+    ];
+
+    if (!allowedDomains.contains(uri.host)) {
+      throw Exception('Dominio no permitido: ${uri.host}');
+    }
   }
 
   Future<String> _computeSha256(String filePath) async {
@@ -210,24 +288,75 @@ class UbuntuDistribution implements LinuxDistribution {
   }
 
   Future<void> _extractTarball(String tarball, String destDir) async {
-    // Extraer tarball usando ProotManager con tar del rootfs Termux
-    final dest = Directory(destDir);
-    if (!dest.existsSync()) {
-      dest.createSync(recursive: true);
-    }
+    Directory(destDir).createSync(recursive: true);
 
-    // Usar tar del rootfs Termux si está disponible
-    await _prootManager.init();
-    if (_prootManager.isReady) {
-      await _prootManager.exec(
-        rootfs: _shell.usrDir ?? '',
-        command: 'tar',
-        args: ['-xzf', tarball, '-C', destDir],
-        onOut: (line) => debugPrint('[extract] $line'),
-        onErr: (line) => debugPrint('[extract error] $line'),
+    // Patrón KaliManager: binarios del rootfs Termux ejecutándose nativos
+    // con paths del host visibles. NO usar proot aquí — dentro del jail
+    // (rootfs Termux) el tarball y el destino en files/nano/distros/
+    // no son visibles y tar muere con "Cannot open".
+    final result = await _shell.bash(
+      'tar -xzf "$tarball" -C "$destDir"',
+      timeout: const Duration(minutes: 5),
+    );
+    if (result.exitCode != 0) {
+      throw Exception(
+        'Extracción fallida (exit=${result.exitCode}): ${result.stderr}',
       );
-    } else {
-      throw Exception('ProotManager no está inicializado');
+    }
+  }
+
+  /// Verifica que el rootfs extraído tenga los archivos críticos para
+  /// arrancar: bash, os-release y el loader dinámico arm64.
+  void _validateRootfs(String root) {
+    final required = [
+      '$root/bin/bash',
+      '$root/etc/os-release',
+      '$root/lib/ld-linux-aarch64.so.1',
+    ];
+    for (final path in required) {
+      if (!File(path).existsSync()) {
+        throw Exception('Rootfs incompleto: falta $path');
+      }
+    }
+  }
+
+  /// Configuración mínima para que Ubuntu sea usable:
+  /// - /etc/resolv.conf: DNS (ubuntu-base no lo trae)
+  /// - /etc/apt/sources.list: mirrors arm64 de noble
+  Future<void> _writePostInstallConfig(String root) async {
+    await File(
+      '$root/etc/resolv.conf',
+    ).writeAsString('nameserver 8.8.8.8\nnameserver 1.1.1.1\n');
+
+    // arm64 oficial de Ubuntu usa ports.ubuntu.com (verificado 2026-08-15:
+    // ports.ubuntu.com/ubuntu-ports/dists/noble/Release lista arm64)
+    final sources = [
+      'deb http://ports.ubuntu.com/ubuntu-ports noble main universe',
+      'deb http://ports.ubuntu.com/ubuntu-ports noble-updates main universe',
+      'deb http://ports.ubuntu.com/ubuntu-ports noble-security main universe',
+    ].join('\n');
+    await File('$root/etc/apt/sources.list').writeAsString('$sources\n');
+  }
+
+  void _cleanupDir(String path) {
+    try {
+      final dir = Directory(path);
+      if (dir.existsSync()) {
+        dir.deleteSync(recursive: true);
+      }
+    } catch (e) {
+      debugPrint('[ubuntu] cleanup dir $path: $e');
+    }
+  }
+
+  void _cleanupFile(String path) {
+    try {
+      final file = File(path);
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    } catch (e) {
+      debugPrint('[ubuntu] cleanup file $path: $e');
     }
   }
 

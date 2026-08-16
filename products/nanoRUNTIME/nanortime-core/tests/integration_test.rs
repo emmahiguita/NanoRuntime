@@ -41,6 +41,9 @@ async fn test_process_simple_request() {
             prompt: "Hello, how are you?".to_string(),
             context: None,
             history: None,
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .unwrap();
@@ -67,6 +70,9 @@ async fn test_process_request_with_history() {
                     content: "Rust is a systems programming language.".to_string(),
                 },
             ]),
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .unwrap();
@@ -83,6 +89,9 @@ async fn test_process_request_with_context() {
             prompt: "Summarize the document".to_string(),
             context: Some("This is a long document about AI safety...".to_string()),
             history: None,
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .unwrap();
@@ -107,6 +116,9 @@ async fn test_index_and_search_rag() {
             prompt: "What is NanoAI?".to_string(),
             context: None,
             history: None,
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .unwrap();
@@ -159,6 +171,9 @@ async fn test_privacy_filter_forces_local() {
                 .to_string(),
             context: None,
             history: None,
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .unwrap();

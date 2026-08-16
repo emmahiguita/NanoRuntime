@@ -236,7 +236,7 @@ mod tests {
     fn test_feed_respects_window_size() {
         let mut p = MemoryPredictor::new(5);
         for i in 0..10 {
-            p.feed(&vec![i as f32 / 10.0; 8]);
+            p.feed(&[i as f32 / 10.0; 8]);
         }
         assert_eq!(p.lookback_window.len(), 5); // Bounded by lookback
         assert_eq!(p.token_count, 10);
@@ -305,7 +305,7 @@ mod tests {
     fn test_reset_clears_state() {
         let mut p = MemoryPredictor::new(5);
         for _ in 0..5 {
-            p.feed(&vec![0.5; 8]);
+            p.feed(&[0.5; 8]);
         }
         assert!(p.token_count > 0);
         p.reset();

@@ -6,6 +6,7 @@ import 'package:nanoai/core/providers/dashboard_provider.dart';
 import 'package:nanoai/core/providers/rootfs_provider.dart';
 import 'package:nanoai/core/providers/kali_provider.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
+import 'package:nanoai/core/theme/app_theme.dart';
 import 'package:nanoai/features/dashboard/presentation/screens/dashboard_screen.dart';
 
 /// Landscape del launcher: el diseño horizontal debe llenar la pantalla
@@ -44,7 +45,12 @@ void main() {
             rootfsProvider.overrideWithValue(RootfsManager()),
             kaliProvider.overrideWithValue(null),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            routerConfig: router,
+            // La pantalla lee la extensión NanoThemeExtension del tema
+            // (colores reales); sin theme el null check crashea.
+            theme: AppTheme.light,
+          ),
         ),
       );
       await tester.pump();
@@ -57,7 +63,9 @@ void main() {
       expect(find.text('Chat'), findsOneWidget);
       expect(find.text('Modelos'), findsOneWidget);
       expect(find.text('Escritorio'), findsOneWidget);
-      expect(find.text('Ajustes'), findsOneWidget);
+      // El acceso a Ajustes vive en el header como IconButton con tooltip
+      // (no Text visible) desde el rediseño compacto.
+      expect(find.byTooltip('Ajustes'), findsOneWidget);
     });
   }
 }

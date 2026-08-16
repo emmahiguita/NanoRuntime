@@ -14,7 +14,12 @@ class ChannelModelStorageRepository implements ModelStorageRepository {
 
   @override
   Future<String?> pickTree() async {
-    return await _channel.invokeMethod<String>('pickTree');
+    try {
+      return await _channel.invokeMethod<String>('pickTree');
+    } on PlatformException {
+      // "pick_pending": selector anterior aún abierto — sin cambios.
+      return null;
+    }
   }
 
   @override
@@ -58,7 +63,13 @@ class ChannelModelStorageRepository implements ModelStorageRepository {
 
   @override
   Future<bool> requestAllFilesAccess() async {
-    return await _channel.invokeMethod<bool>('requestAllFilesAccess') ?? false;
+    try {
+      return await _channel.invokeMethod<bool>('requestAllFilesAccess') ??
+          false;
+    } on PlatformException {
+      // "pending": solicitud anterior aún abierta — el permiso no cambió.
+      return false;
+    }
   }
 
   DetectedModel _fromMap(Map<String, Object?> map) {
@@ -73,7 +84,7 @@ class ChannelModelStorageRepository implements ModelStorageRepository {
       sizeBytes: (map['sizeBytes'] as num?)?.toInt() ?? -1,
       uri: map['uri'] as String? ?? '',
       format: format,
-      magicOk: map['magicOk'] as bool? ?? true,
+      magicOk: map['magicOk'] as bool? ?? false,
       path: map['path'] as String?,
     );
   }

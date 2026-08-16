@@ -11,7 +11,7 @@ import 'nano_runtime_api.dart';
 ///
 /// Flujo de vida:
 ///   1. isInstalled() → verifica si files/nano/usr/bin/bash existe y es ejecutable.
-///   2. Si no está instalado, install() → descarga SHA256SUMS, verifica hash, descarga el zip (~30 MB) y lo extrae.
+///   2. Si no está instalado, install() → obtiene el SHA-256 oficial (API de GitHub, digest del asset), descarga el zip (~30 MB), verifica hash y extrae.
 ///   3. installStatus stream → reporta progreso (descarga, extracción, listo).
 ///
 /// Después de instalar, ShellExecutor redirige sus paths a files/nano/usr/bin/
@@ -29,8 +29,16 @@ class RootfsManager {
       'https://github.com/termux/termux-packages/releases/latest/download/bootstrap-aarch64.zip';
 
   /// SHA256SUMS oficial del release termux-packages.
+  /// Upstream dejó de publicar este asset en releases recientes (HTTP 404),
+  /// se conserva como fallback legado por si vuelve a existir.
   static const sha256SumsUrl =
       'https://github.com/termux/termux-packages/releases/latest/download/SHA256SUMS';
+
+  /// API de GitHub del release latest. Cada asset expone su SHA-256 en el
+  /// campo `digest` (formato "sha256:<hex>") — la fuente de verificación
+  /// actual, firmada por el repo oficial de Termux.
+  static const releasesApiUrl =
+      'https://api.github.com/repos/termux/termux-packages/releases/latest';
 
   String? _usrDir;
   bool _installed = false;
@@ -99,12 +107,13 @@ class RootfsManager {
     onProgress?.call('download', 0);
 
     try {
-      // 1. Descargar SHA256SUMS oficial
+      // 1. Obtener el SHA-256 oficial (API GitHub asset digest, con
+      //    fallback al SHA256SUMS legado)
       onProgress?.call('verify', 0);
-      final expectedHash = await _downloadSha256Sums();
+      final expectedHash = await _fetchExpectedSha256();
       if (expectedHash == null) {
         onProgress?.call('error', 0);
-        debugPrint('[rootfs] No se pudo descargar SHA256SUMS oficial. Instalación abortada por seguridad.');
+        debugPrint('[rootfs] No se pudo obtener el SHA-256 oficial. Instalación abortada por seguridad.');
         return false;
       }
       debugPrint('[rootfs] SHA256 esperado para bootstrap-aarch64.zip: $expectedHash');
@@ -162,9 +171,65 @@ class RootfsManager {
     }
   }
 
-  /// Descarga y parsea el archivo SHA256SUMS oficial del release Termux.
-  /// Retorna el hash de bootstrap-aarch64.zip o null si falla.
-  Future<String?> _downloadSha256Sums() async {
+  /// Obtiene el SHA-256 esperado de bootstrap-aarch64.zip.
+  ///
+  /// BUG-8 FIX: el SHA256SUMS ya no se publica en el release latest de
+  /// termux-packages (HTTP 404 — evidencia device 2026-08-15: la compuerta
+  /// fail-closed bloqueaba la reinstalación del rootfs por no existir el
+  /// archivo a verificar). Fuente primaria ahora: campo `digest` del asset
+  /// en la API de GitHub (formato "sha256:<hex>"). Si la API falla, se
+  /// intenta el SHA256SUMS legado; si ambos fallan, null → "Instalación
+  /// abortada por seguridad". Fail-closed intacto.
+  Future<String?> _fetchExpectedSha256() async {
+    final apiHash = await _fetchHashFromGitHubApi();
+    if (apiHash != null) return apiHash;
+    return _fetchHashFromLegacySums();
+  }
+
+  /// Descarga el JSON de releases/latest y extrae el `digest` del asset
+  /// bootstrap-aarch64.zip. Retorna el hex del SHA-256 o null si falla.
+  Future<String?> _fetchHashFromGitHubApi() async {
+    try {
+      final response = await http.get(
+        Uri.parse(releasesApiUrl),
+        headers: const {
+          'Accept': 'application/vnd.github+json',
+          // GitHub API exige User-Agent; sin él responde HTTP 403.
+          'User-Agent': 'nanoai-mobile-rootfs-installer',
+        },
+      );
+      if (response.statusCode != 200) {
+        debugPrint('[rootfs] Error consultando releases API: HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final json = jsonDecode(response.body);
+      final assets = json['assets'];
+      if (assets is! List) {
+        debugPrint('[rootfs] releases API: sin lista de assets');
+        return null;
+      }
+      for (final asset in assets) {
+        if (asset is Map && asset['name'] == 'bootstrap-aarch64.zip') {
+          final digest = asset['digest'];
+          if (digest is String && digest.startsWith('sha256:')) {
+            return digest.substring('sha256:'.length).toLowerCase();
+          }
+          debugPrint('[rootfs] asset sin digest sha256 utilizable: $digest');
+          return null;
+        }
+      }
+      debugPrint('[rootfs] No se encontró bootstrap-aarch64.zip en la API');
+      return null;
+    } catch (e) {
+      debugPrint('[rootfs] Error procesando releases API: $e');
+      return null;
+    }
+  }
+
+  /// Fallback legado: descarga y parsea el archivo SHA256SUMS si upstream
+  /// vuelve a publicarlo. Retorna el hash de bootstrap-aarch64.zip o null.
+  Future<String?> _fetchHashFromLegacySums() async {
     try {
       final response = await http.get(Uri.parse(sha256SumsUrl));
       if (response.statusCode != 200) {

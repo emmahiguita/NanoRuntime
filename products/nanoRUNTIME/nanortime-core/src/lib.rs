@@ -25,6 +25,9 @@
 //!         prompt: "¿Qué hora es?".to_string(),
 //!         context: None,
 //!         history: None,
+//!         session_id: None,
+//!         max_tokens: None,
+//!         temperature: None,
 //!     }).await?;
 //!
 //!     println!("{}", response.text);
@@ -54,6 +57,7 @@ pub use config::tools::ToolDefinition;
 pub use error::NanoError;
 pub use memory_engine::NanoMemoryEngine;
 pub use orchestrator::Orchestrator;
+pub use execution::model_manager::{RuntimeStatus, ViabilityStatus};
 
 /// Petición del usuario al runtime.
 #[derive(Debug, Clone)]
@@ -64,6 +68,13 @@ pub struct UserRequest {
     pub context: Option<String>,
     /// Historial de conversación previa.
     pub history: Option<Vec<ChatMessage>>,
+    /// Identificador estable de conversacion para cache KV.
+    pub session_id: Option<String>,
+    /// Límite opcional de tokens para esta petición.
+    pub max_tokens: Option<usize>,
+    /// Temperatura opcional para esta petición. Si es None, se usa la del
+    /// config. Some(0.0) es válido y significa greedy determinista.
+    pub temperature: Option<f32>,
 }
 
 /// Mensaje en el historial de conversación.
@@ -133,6 +144,12 @@ pub struct NanoRuntime {
 }
 
 impl NanoRuntime {
+    /// Estado completo del runtime (telemetría + viabilidad) para la API HTTP.
+    /// Síncrono — lo consume el hilo del servidor HTTP.
+    pub fn status(&self) -> RuntimeStatus {
+        self.model_manager.status()
+    }
+
     /// Inicializa el runtime con la configuración proporcionada.
     ///
     /// Carga el modelo local, inicializa la base de datos vectorial,

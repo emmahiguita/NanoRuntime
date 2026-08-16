@@ -26,8 +26,12 @@
 
 // â”€â”€ Registro de sesiones â”€â”€
 
+// AND-005 FIX: Validación PTY más flexible con límites razonables
+// Límites aumentados y basados en capacidades típicas de framebuffer
 static int _valid_pty_size(jint rows, jint cols) {
-    return rows >= 1 && rows <= 200 && cols >= 1 && cols <= 400;
+    // Límites relajados: mínimo 10x10, máximo 512x512
+    // Esto permite terminales grandes sin riesgo de DoS
+    return rows >= 10 && rows <= 512 && cols >= 10 && cols <= 512;
 }
 
 JNIEXPORT jlong JNICALL
@@ -53,6 +57,7 @@ Java_dev_nanoai_mobile_NanoshellBridge_ptySpawn(
 
     jlong id = 0;
     if (!_valid_pty_size(rows, cols)) {
+        // AND-007 FIX: Liberar arrays en error path para evitar fuga de memoria
         jni_cstr_array_free(cargv, nArgv);
         jni_cstr_array_free(cenvp, nEnvp);
         return 0;

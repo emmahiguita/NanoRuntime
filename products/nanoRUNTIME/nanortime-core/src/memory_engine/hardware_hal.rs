@@ -99,6 +99,9 @@ pub struct StorageBench {
 }
 
 // ── Platform detection ───────────────────────────────────────────────
+//
+// Sin callers de producción: el target OS se conoce en compile-time vía
+// cfg!(target_os). Duerme tras feature `unstable`.
 
 /// Detect the current platform.
 pub fn detect_platform() -> Platform {

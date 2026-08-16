@@ -25,4 +25,5 @@ libc = "0.2"
 
 [features]
 default = []
+mmap-streaming = ["nanortime-core/mmap-streaming"]  # Streaming > RAM (peso mmap-friendly, sin repack)
 v2 = []

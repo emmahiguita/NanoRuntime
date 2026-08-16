@@ -641,6 +641,13 @@ fn main() {
         }
     }
 
+    // Deshabilitar el repack runtime (anon-RAM) para mmap-streaming: los pesos
+    // quedan en su layout original mmap-friendly, evictables vía madvise.
+    // Feature `mmap-streaming` — necesario cuando el modelo es mayor que RAM.
+    if env::var("CARGO_FEATURE_MMAP_STREAMING").is_ok() {
+        config.define("GGML_CPU_REPACK", "OFF");
+    }
+
     // extract the target-cpu config value, if specified
     let target_cpu = std::env::var("CARGO_ENCODED_RUSTFLAGS")
         .ok()

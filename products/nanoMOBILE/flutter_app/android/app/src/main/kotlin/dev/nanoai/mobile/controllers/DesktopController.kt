@@ -80,6 +80,13 @@ class DesktopController(
                 isPidAlive = { pid ->
                     workerClientProvider()?.isPidAlive(pid.toInt()) ?: false
                 },
+                // BUG-2 FIX: kill de daemons detached (Xvnc/openbox/terminal)
+                // delegado al worker — el proceso principal no puede matar
+                // hijos del worker en Android 12+ (SecurityException tragada
+                // dejaba Xvnc huérfano ocupando 5901).
+                killPidDelegate = { pid ->
+                    workerClientProvider()?.killPid(pid.toInt()) ?: false
+                },
             )
             activeSession = session
         }

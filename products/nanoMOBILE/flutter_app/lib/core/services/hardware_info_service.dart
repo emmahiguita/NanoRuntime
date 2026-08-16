@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'nano_runtime_api.dart';
 
@@ -30,7 +31,13 @@ class HardwareInfoService {
   /// Lee temperatura del CPU desde thermal_zones del kernel Linux.
   /// Prueba varias rutas comunes en Android (Snapdragon, Mediatek, Exynos).
   /// Retorna °C o null si ninguna ruta es legible.
-  double? readCpuTemp() {
+  /// AND-003 FIX: Ejecuta en isolate para no bloquear el UI thread con syscalls síncronos.
+  Future<double?> readCpuTemp() async {
+    return await compute(_readCpuTempSync, null);
+  }
+
+  /// Implementación síncrona interna (ejecutada en isolate).
+  static double? _readCpuTempSync(void _) {
     const paths = [
       '/sys/class/thermal/thermal_zone0/temp',
       '/sys/class/thermal/thermal_zone1/temp',
@@ -53,6 +60,11 @@ class HardwareInfoService {
   /// o /sys/kernel/gpu/ (Mali). Retorna Map con name, freqMhz, tempC,
   /// gpuLoad, gpuMemMb. Campos ausentes si la ruta no existe en el device.
   Map<String, dynamic> readGpuInfo() {
+    return _readGpuInfoSync(_devId);
+  }
+  
+  /// Implementación síncrona interna
+  static Map<String, dynamic> _readGpuInfoSync(Map<String, dynamic>? devId) {
     final info = <String, dynamic>{};
     // Adreno (Qualcomm Snapdragon)
     const kgslBase = '/sys/class/kgsl/kgsl-3d0';
@@ -113,7 +125,7 @@ class HardwareInfoService {
     }
     // Fallback: detectar del cpuHardware
     if (!info.containsKey('name')) {
-      final hw = _devId?['cpuHardware'] as String? ?? '';
+      final hw = devId?['cpuHardware'] as String? ?? '';
       if (hw.contains('SDM') || hw.contains('SM') || hw.contains('SC')) {
         info['name'] = 'Adreno';
       } else if (hw.contains('MT')) {

@@ -119,7 +119,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       if (mounted) {
         setState(() {
           _helpSeen = seen;
-          _barExpanded = mobileMode;
+          // D-FIX: desktopMobileMode se cargaba SOLO en _barExpanded — el
+          // modo persistido nunca se aplicaba a _isMobileMode (quedaba true
+          // por defecto: barra inferior siempre oculta aunque el usuario
+          // guardara modo PC). Ahora el modo manda: en PC la fila de teclas
+          // rápidas arranca expandida (es el "teclado" del escritorio).
+          _isMobileMode = mobileMode;
+          _barExpanded = !mobileMode;
         });
       }
     });
@@ -765,14 +771,17 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   /// panel lateral — las apps viven en un acceso puntual que no estorba
   /// la vista del framebuffer.
   void _openAppsSheet() {
+    final colors = NanoThemeExtension.of(context).colors;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF161B22),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-          border: Border(top: BorderSide(color: Colors.white12)),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(22),
+          ),
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
         ),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child: SafeArea(
@@ -787,18 +796,18 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: colors.outline,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const Text(
+              Text(
                 'Apps del escritorio',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: colors.onSurface,
                 ),
               ),
               const SizedBox(height: 10),
@@ -838,7 +847,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                   _launchApp('feh');
                 },
               ),
-              const Divider(height: 20, color: Colors.white12),
+              Divider(height: 20, color: colors.outlineVariant),
               _appTile(
                 icon: Icons.gesture_rounded,
                 label: 'Guía de gestos',
@@ -861,6 +870,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     required String sub,
     required VoidCallback onTap,
   }) {
+    final colors = NanoThemeExtension.of(context).colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -872,10 +882,10 @@ class _VncScreenState extends ConsumerState<VncScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.14),
+                color: colors.accent.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: const Color(0xFF10B981), size: 21),
+              child: Icon(icon, color: colors.accent, size: 21),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -884,11 +894,11 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: colors.onSurface,
                     ),
                   ),
                   Text(
@@ -896,7 +906,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -905,7 +915,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
             Icon(
               Icons.chevron_right_rounded,
               size: 20,
-              color: Colors.white.withValues(alpha: 0.35),
+              color: colors.onSurfaceVariant,
             ),
           ],
         ),
@@ -1020,7 +1030,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final colors = NanoThemeExtension.of(context).colors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0D14),
+      backgroundColor: colors.background,
       // FAB radial circular minimalista para apps del escritorio.
       floatingActionButton: _RadialFab(
         isOpen: _fabOpen,
@@ -1054,7 +1064,21 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                       _connect();
                     },
                     onToggleKeyboard: _toggleKeyboard,
-                    onToggleMode: () => setState(() => _isMobileMode = !_isMobileMode),
+                    onToggleMode: () {
+                      // D-FIX: el toggle no persistía — al salir de la
+                      // pantalla el modo elegido se perdía. Ahora guarda en
+                      // settings y sincroniza la fila de teclas: en PC
+                      // expandida (es el teclado del escritorio), en móvil
+                      // colapsada (la barra ni se muestra).
+                      final next = !_isMobileMode;
+                      ref
+                          .read(settingsProvider.notifier)
+                          .setDesktopMobileMode(next);
+                      setState(() {
+                        _isMobileMode = next;
+                        _barExpanded = !next;
+                      });
+                    },
                   ),
                 ),
 
@@ -1081,6 +1105,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                     child: Center(
                       child: _MouseControlBar(
+                        colors: colors,
                         zoom: _zoom,
                         expanded: _barExpanded,
                         onToggleExpanded: () =>
@@ -1143,98 +1168,111 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final waitingFirstFrame =
         _initialized && _connState == _ConnState.connected && _frame == null;
     if ((_busy || waitingFirstFrame) && _frame == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: Color(0xFF10B981)),
-            const SizedBox(height: 16),
-            Text(
-              _status,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _detail,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (!_connected || _frame == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      // Estado "sin señal" del área del framebuffer: se mantiene oscuro
+      // (video chrome) aunque la app esté en modo claro.
+      return Container(
+        color: const Color(0xFF0A0D14),
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.desktop_access_disabled_rounded,
-                  color: Colors.white.withValues(alpha: 0.4),
-                  size: 48,
-                ),
-              ),
+              CircularProgressIndicator(color: colors.accent),
               const SizedBox(height: 16),
               Text(
                 _status,
                 style: const TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 _detail,
-                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 13,
+                  fontSize: 12,
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () {
-                  _reconnectAttempts = 0;
-                  _connect();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text(
-                  'Reintentar Conexión',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
             ],
+          ),
+        ),
+      );
+    }
+
+    if (!_connected || _frame == null) {
+      // Estado de error del área del framebuffer: se mantiene oscuro
+      // (video chrome); el botón usa tokens para legibilidad en ambos modos.
+      return Container(
+        color: const Color(0xFF0A0D14),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.desktop_access_disabled_rounded,
+                    color: Colors.white.withValues(alpha: 0.4),
+                    size: 48,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _status,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _detail,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _reconnectAttempts = 0;
+                    _connect();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    // D-FIX: verde 0xFF10B981 era inconsistente con la paleta
+                    // Nano — commit 50c384d unificó 'Reintentar' a cyan; hoy
+                    // colors.accent (0xFF42D9FF oscuro / 0xFF0EA5E9 claro).
+                    backgroundColor: colors.accent,
+                    foregroundColor: colors.onAccent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text(
+                    'Reintentar Conexión',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -1356,8 +1394,10 @@ class _MouseControlBar extends StatelessWidget {
   final double zoom;
   final bool expanded;
   final VoidCallback onToggleExpanded;
+  final NanoColors colors;
 
   const _MouseControlBar({
+    required this.colors,
     required this.onLeftClick,
     required this.onRightClick,
     required this.onWheelUp,
@@ -1377,19 +1417,20 @@ class _MouseControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // U-6: ancho fijo al 94% de la pantalla (máx 1200). Medido en device
-    // 1080px @3.0: 8 botones de 44dp = 352dp + separadores + padding ~370dp,
-    // caben en los ~380dp disponibles. El tope anterior (720) hacía desbordar
-    // el Row y el toggle de teclado quedaba fuera de pantalla — inaccesible.
+    // U-6: ancho fijo al 94% de la pantalla (máx 1200).
+    // D-FIX overflow: 8 botones fijos de 40dp + separadores + padding =
+    // 338dp vs 338.4dp disponibles en 360dp de pantalla — margen 0.4dp que
+    // desbordaba con cualquier redondeo. Botones ahora Expanded (min 32dp):
+    // se reparten el ancho real y NO desbordan en ninguna resolución.
     final barWidth = math.min(MediaQuery.sizeOf(context).width * 0.94, 1200.0);
 
     return Container(
       width: barWidth,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22).withValues(alpha: 0.92),
+        color: colors.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: colors.outlineVariant),
         boxShadow: const [
           BoxShadow(
             color: Colors.black45,
@@ -1402,31 +1443,60 @@ class _MouseControlBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Fila 1: mouse/rueda/zoom + toggle de teclado. Siempre visible.
+          // Cada botón Expanded: reparto equitativo del ancho — sin Spacer
+          // ni anchos fijos que desbordaban (D-FIX).
           Row(
             children: [
-              _barButton(Icons.mouse_rounded, 'Clic izquierdo', onLeftClick),
-              _barButton(Icons.ads_click_rounded, 'Clic derecho', onRightClick),
-              _separator(),
-              _barButton(Icons.arrow_upward_rounded, 'Rueda arriba', onWheelUp),
-              _barButton(
-                Icons.arrow_downward_rounded,
-                'Rueda abajo',
-                onWheelDown,
+              Expanded(
+                child: _barButton(
+                  Icons.mouse_rounded,
+                  'Clic izquierdo',
+                  onLeftClick,
+                ),
+              ),
+              Expanded(
+                child: _barButton(
+                  Icons.ads_click_rounded,
+                  'Clic derecho',
+                  onRightClick,
+                ),
               ),
               _separator(),
-              _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
-              _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
-              _barButton(
-                Icons.zoom_out_map_rounded,
-                'Zoom 100%',
-                zoom > 1.0 ? onResetZoom : null,
+              Expanded(
+                child: _barButton(
+                  Icons.arrow_upward_rounded,
+                  'Rueda arriba',
+                  onWheelUp,
+                ),
               ),
-              const Spacer(),
-              _barButton(
-                Icons.expand_less_rounded,
-                expanded ? 'Colapsar' : 'Expandir',
-                onToggleExpanded,
-                highlighted: expanded,
+              Expanded(
+                child: _barButton(
+                  Icons.arrow_downward_rounded,
+                  'Rueda abajo',
+                  onWheelDown,
+                ),
+              ),
+              _separator(),
+              Expanded(
+                child: _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
+              ),
+              Expanded(
+                child: _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
+              ),
+              Expanded(
+                child: _barButton(
+                  Icons.zoom_out_map_rounded,
+                  'Zoom 100%',
+                  zoom > 1.0 ? onResetZoom : null,
+                ),
+              ),
+              Expanded(
+                child: _barButton(
+                  Icons.expand_less_rounded,
+                  expanded ? 'Colapsar' : 'Expandir',
+                  onToggleExpanded,
+                  highlighted: expanded,
+                ),
               ),
             ],
           ),
@@ -1458,7 +1528,7 @@ class _MouseControlBar extends StatelessWidget {
     width: 1,
     height: 28,
     margin: const EdgeInsets.symmetric(horizontal: 1),
-    color: Colors.white.withValues(alpha: 0.14),
+    color: colors.outlineVariant,
   );
 
   Widget _barButton(
@@ -1473,22 +1543,21 @@ class _MouseControlBar extends StatelessWidget {
       icon: Icon(
         icon,
         color: highlighted
-            ? const Color(0xFF2DD4BF)
+            ? colors.accent
             : enabled
-            ? Colors.white70
-            : Colors.white24,
-        size: 24,
+            ? colors.onSurfaceVariant
+            : colors.onSurface.withValues(alpha: 0.24),
+        size: 22,
       ),
       tooltip: tooltip,
-      // 40x40 = 120px reales @3.0, piso táctil práctico. Flutter 3.38 (M3):
-      // el tap target va en el style — sin shrinkWrap el IconButton impone
-      // 48dp por encima de los constraints. Medido en device 1080px: con
-      // 44dp la fila (8 botones) desbordaba y el toggle de teclado quedaba
-      // cortado a 81px; con 40dp caben los 8 completos.
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      // D-FIX: minWidth 40dp fijo desbordaba la fila en 360dp (8×40 +
+      // separadores = 326 vs 326.4 disponibles). El Expanded del Row reparte
+      // el ancho; minWidth 32 es solo el piso (350dp/9 slots ≈ 39dp reales).
+      // Alto 44 conserva el piso táctil práctico.
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
-        minimumSize: const Size(40, 40),
+        minimumSize: const Size(32, 44),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: EdgeInsets.zero,
       ),
@@ -1503,8 +1572,8 @@ class _MouseControlBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 3),
         child: Material(
           color: active
-              ? const Color(0xFF2DD4BF).withValues(alpha: 0.25)
-              : Colors.white.withValues(alpha: 0.08),
+              ? colors.accent.withValues(alpha: 0.25)
+              : colors.onSurface.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: onTap,
@@ -1517,7 +1586,7 @@ class _MouseControlBar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: active ? const Color(0xFF2DD4BF) : Colors.white,
+                  color: active ? colors.accent : colors.onSurface,
                 ),
               ),
             ),
@@ -1537,6 +1606,7 @@ class _HelpOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return Container(
       color: Colors.black.withValues(alpha: 0.62),
       child: Center(
@@ -1553,15 +1623,15 @@ class _HelpOverlay extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(
                     Icons.gesture_rounded,
-                    color: Color(0xFF10B981),
+                    color: colors.accent,
                     size: 22,
                   ),
-                  SizedBox(width: 8),
-                  Text(
+                  const SizedBox(width: 8),
+                  const Text(
                     'Gestos del escritorio',
                     style: TextStyle(
                       fontFamily: 'Inter',
@@ -1606,8 +1676,8 @@ class _HelpOverlay extends StatelessWidget {
                   icon: const Icon(Icons.check_rounded, size: 18),
                   label: const Text('Entendido'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
+                    backgroundColor: colors.accent,
+                    foregroundColor: colors.onAccent,
                     minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1682,12 +1752,13 @@ class _FloatingControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22).withValues(alpha: 0.85),
+        color: colors.surface.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: colors.outlineVariant),
         boxShadow: const [
           BoxShadow(
             color: Colors.black45,
@@ -1700,9 +1771,9 @@ class _FloatingControlBar extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(
+            icon: Icon(
               Icons.arrow_back_rounded,
-              color: Colors.white,
+              color: colors.onSurface,
               size: 20,
             ),
             tooltip: 'Volver',
@@ -1715,10 +1786,10 @@ class _FloatingControlBar extends StatelessWidget {
             height: 8,
             decoration: BoxDecoration(
               color: connected
-                  ? const Color(0xFF10B981)
+                  ? colors.success
                   : busy
-                  ? const Color(0xFF3B82F6)
-                  : Colors.amber,
+                  ? colors.info
+                  : colors.warning,
               shape: BoxShape.circle,
             ),
           ),
@@ -1729,11 +1800,11 @@ class _FloatingControlBar extends StatelessWidget {
               status,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: colors.onSurface,
               ),
             ),
           ),
@@ -1741,7 +1812,7 @@ class _FloatingControlBar extends StatelessWidget {
             onPressed: onToggleKeyboard,
             icon: Icon(
               Icons.keyboard_rounded,
-              color: showKeyboard ? const Color(0xFF10B981) : Colors.white70,
+              color: showKeyboard ? colors.accent : colors.onSurfaceVariant,
               size: 20,
             ),
             tooltip: 'Teclado táctil',
@@ -1752,34 +1823,65 @@ class _FloatingControlBar extends StatelessWidget {
           Container(
             width: 1,
             height: 20,
-            color: Colors.white.withValues(alpha: 0.2),
+            color: colors.outlineVariant,
           ),
           const SizedBox(width: 4),
-          IconButton(
-            onPressed: onToggleMode,
-            icon: Icon(
-              isMobileMode ? Icons.phone_android_rounded : Icons.desktop_windows_rounded,
-              color: const Color(0xFF10B981),
-              size: 20,
+          // D-FIX: el modo era un icono ambiguo sin texto. Ahora es un chip
+          // con etiqueta del modo ACTUAL — el tap alterna. Resaltado azul
+          // paleta Nano cuando está en PC (desktop), tenue en Táctil.
+          Material(
+            color: isMobileMode
+                ? Colors.transparent
+                : colors.accent.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: onToggleMode,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isMobileMode
+                          ? Icons.phone_android_rounded
+                          : Icons.desktop_windows_rounded,
+                      size: 16,
+                      color: isMobileMode
+                          ? colors.onSurfaceVariant
+                          : colors.accent,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isMobileMode ? 'Táctil' : 'PC',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isMobileMode
+                            ? colors.onSurfaceVariant
+                            : colors.accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            tooltip: isMobileMode ? 'Modo Desktop' : 'Modo Mobile',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: EdgeInsets.zero,
           ),
           IconButton(
             onPressed: busy ? null : onRefresh,
             icon: busy
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: colors.onSurface,
                     ),
                   )
-                : const Icon(
+                : Icon(
                     Icons.refresh_rounded,
-                    color: Colors.white70,
+                    color: colors.onSurfaceVariant,
                     size: 20,
                   ),
             tooltip: 'Reconectar',
@@ -1855,6 +1957,7 @@ class _RadialFabState extends State<_RadialFab>
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return SizedBox(
       width: 56,
       height: 56,
@@ -1914,8 +2017,10 @@ class _RadialFabState extends State<_RadialFab>
             child: FloatingActionButton(
               heroTag: 'radial_fab',
               onPressed: widget.onToggle,
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
+              // D-FIX: FAB verde 0xFF10B981 fuera de paleta — azul Nano
+              // 0xFF42D9FF igual que Reintentar/teclado/modo.
+              backgroundColor: colors.accent,
+              foregroundColor: colors.onAccent,
               elevation: 6,
               child: AnimatedIcon(
                 icon: AnimatedIcons.menu_close,
@@ -1949,6 +2054,7 @@ class _RadialFabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     final radians = angle * math.pi / 180;
     final x = math.cos(radians) * distance;
     final y = math.sin(radians) * distance;
@@ -1978,9 +2084,9 @@ class _RadialFabItem extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22).withValues(alpha: 0.9),
+            color: colors.surface.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            border: Border.all(color: colors.outlineVariant),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black45,
@@ -1991,7 +2097,7 @@ class _RadialFabItem extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            color: Colors.white,
+            color: colors.onSurface,
             size: 24,
           ),
         ),

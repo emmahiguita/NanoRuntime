@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::memory_engine::adaptive_scheduler::MemorySchedule;
-use crate::memory_engine::gguf_layout::GGUFLayoutAnalyzer;
+use crate::memory_engine::gguf_layout::NanoModelIndex;
 use crate::memory_engine::hardware_profiler::HardwareProfile;
 use crate::memory_engine::os_paginator::OSMemoryPaginator;
 
@@ -57,8 +57,8 @@ pub struct StorageManager {
     pub compression: OffloadCompression,
     /// Layers actualmente offloaded (layer_id → ruta de archivo).
     offloaded: std::collections::HashMap<usize, PathBuf>,
-    /// Analizador de layout de archivo GGUF (para paginación OS).
-    pub layout_analyzer: Option<GGUFLayoutAnalyzer>,
+    /// NanoModelIndex para layout del archivo GGUF (para paginación OS).
+    pub model_index: Option<NanoModelIndex>,
     /// Paginador a nivel de SO (madvise).
     pub paginator: Option<OSMemoryPaginator>,
 }
@@ -91,7 +91,7 @@ impl StorageManager {
             page_size: 4096,
             compression,
             offloaded: std::collections::HashMap::new(),
-            layout_analyzer: None,
+            model_index: None,
             paginator: None,
         }
     }
@@ -311,19 +311,20 @@ impl StorageManager {
         }
     }
 
-    /// Initializes the layout analyzer from a GGUF model file.
+    /// Initializes the model index from a GGUF model file.
     /// Must be called after a model is loaded so that `apply_schedule`
     /// can compute contiguous layer ranges for eviction/prefetch.
     pub fn init_layout(&mut self, gguf_path: &Path, expected_layers: usize) {
-        match GGUFLayoutAnalyzer::analyze(gguf_path, expected_layers) {
-            Ok(layout) => {
+        match NanoModelIndex::analyze(gguf_path, expected_layers) {
+            Ok(index) => {
                 tracing::info!(
-                    "StorageManager: layout initialized from {} ({} layers, data_offset={})",
+                    "StorageManager: model index initialized from {} ({} layers, data_offset={}, page_size={})",
                     gguf_path.display(),
-                    layout.layer_offsets.len(),
-                    layout.data_offset,
+                    index.layers.len(),
+                    index.data_offset,
+                    index.page_size(),
                 );
-                self.layout_analyzer = Some(layout);
+                self.model_index = Some(index);
             }
             Err(e) => {
                 tracing::warn!(
@@ -358,21 +359,21 @@ impl StorageManager {
     /// Applies a memory schedule using OS-level pagination (madvise, eviction, prefetch).
     ///
     /// Gracefully degrades when components are not yet initialized:
-    /// - Layout grouping always runs if `layout_analyzer` is set.
+    /// - Layout grouping always runs if `model_index` is set.
     /// - Eviction/prefetch runs only if `paginator` is also set.
     /// - Logs diagnostic info when either component is missing.
     pub fn apply_schedule(&self, schedule: &MemorySchedule) -> crate::error::Result<()> {
         // ── Layout-based contiguous grouping ──────────────────────
         // Works independently of the paginator — groups layers into
         // contiguous byte ranges for efficient OS operations.
-        let (evict_ranges, prefetch_ranges) = if let Some(layout) = &self.layout_analyzer {
+        let (evict_ranges, prefetch_ranges) = if let Some(index) = &self.model_index {
             (
-                layout.group_contiguous_layers(&schedule.layers_to_offload),
-                layout.group_contiguous_layers(&schedule.layers_to_prefetch),
+                index.group_contiguous_layers(&schedule.layers_to_offload),
+                index.group_contiguous_layers(&schedule.layers_to_prefetch),
             )
         } else {
             tracing::debug!(
-                "Schedule not applied: layout_analyzer not initialized. \
+                "Schedule not applied: model_index not initialized. \
                  strategy={:?} offload={} prefetch={} layers_in_ram={}",
                 schedule.strategy,
                 schedule.layers_to_offload.len(),
@@ -408,8 +409,8 @@ impl StorageManager {
 
     /// Evict inmediato de múltiples capas (útil para Early Exiting)
     pub fn evict_layers_batch(&self, layer_indices: &[usize]) -> crate::error::Result<()> {
-        if let (Some(layout), Some(paginator)) = (&self.layout_analyzer, &self.paginator) {
-            let evict_ranges = layout.group_contiguous_layers(layer_indices);
+        if let (Some(index), Some(paginator)) = (&self.model_index, &self.paginator) {
+            let evict_ranges = index.group_contiguous_layers(layer_indices);
             for range in evict_ranges {
                 if let Err(e) = paginator.evict_range(&range) {
                     tracing::warn!("Failed to evict range {:?}: {}", range, e);

@@ -140,8 +140,18 @@ class ScaffoldShell extends ConsumerWidget {
     required VoidCallback onTap,
     bool iconOnly = false,
   }) {
-    final bg = selected ? colors.primary : colors.surfaceVariant;
-    final fg = selected ? Colors.white : colors.onSurface;
+    // M3: el chip activo usa el contenedor primario en claro (verde claro
+    // + texto verde oscuro, contraste alto); en oscuro primary neón + negro.
+    final bg = selected
+        ? (colors is NanoDarkColors
+            ? colors.primary
+            : colors.primaryContainer)
+        : colors.surfaceVariant;
+    final fg = selected
+        ? (colors is NanoDarkColors
+            ? const Color(0xFF000000)
+            : colors.onPrimaryContainer)
+        : colors.onSurface;
     return Material(
       color: bg.withValues(alpha: selected ? 1 : 0.16),
       borderRadius: NanoShapes.full,

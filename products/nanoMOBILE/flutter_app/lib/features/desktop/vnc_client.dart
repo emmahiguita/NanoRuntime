@@ -248,13 +248,14 @@ class VncClient {
   void _onData(Uint8List data) {
     if (!_running) return;
 
-    // Compactar el buffer si el puntero superó 64 KB.
+    // AND-001 FIX: Incrementar umbral de compactación de 64 KB a 256 KB
+    // para reducir frecuencia de copias O(N) en frames grandes.
     // Copia REAL (no sublistView): la vista comparte el TypedData subyacente,
     // así que el buffer grande (524 KB+) seguía vivo aunque solo quedaran
     // ~2 KB útiles (B6). Además el orden viejo restaba _end ANTES de usarlo
     // como índice absoluto de la vista — con _readPos=522329 y _end=523917
     // la sublistView recibía (522329, 1588) y lanzaba RangeError.
-    if (_readPos > 65536) {
+    if (_readPos > 262144) { // 256 KB en lugar de 64 KB
       final newLen = _end - _readPos;
       final compact = Uint8List(newLen);
       compact.setRange(0, newLen, _rawBuf, _readPos);
@@ -450,8 +451,21 @@ class VncClient {
 
     if (_availableBytes < 24 + nameLen) return;
 
-    _fbWidth = w;
-    _fbHeight = h;
+    // AND-002 FIX: Validar tamaño de framebuffer para prevenir DoS por memoria
+    // Cap superior: 4096x4096 (~64MB para RGBA). Piso mínimo 1 para evitar
+    // dimensiones 0 (maliciosas) sin inflar desktops pequeños legítimos.
+    const maxFbDimension = 4096;
+    const minFbDimension = 1;
+    
+    final clampedW = w.clamp(minFbDimension, maxFbDimension);
+    final clampedH = h.clamp(minFbDimension, maxFbDimension);
+    
+    if (w != clampedW || h != clampedH) {
+      _status('Framebuffer ajustado: $w x $h -> $clampedW x $clampedH (cap de seguridad)');
+    }
+
+    _fbWidth = clampedW;
+    _fbHeight = clampedH;
     _desktopName = String.fromCharCodes(
       _rawBuf.sublist(_readPos + 24, _readPos + 24 + nameLen),
     );

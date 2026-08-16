@@ -24,6 +24,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _ref.read(runtimeEngineProvider.notifier).client;
   // Cliente HTTP de la generación streaming en curso. Se cierra para cancelar.
   http.Client? _streamClient;
+  // Monitoreo de conexiones activas para detectar memory leaks
+  int _activeConnections = 0;
   // Cancelación cooperativa: STOP o un segundo envío anulan la generación en curso.
   bool _generationCancelled = false;
   // Timer de carga de modelo: cancelable para que solo el último
@@ -87,14 +89,29 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     final info = DeviceInfo.read();
     final buffer = StringBuffer();
-    buffer.writeln('Eres NanoAI, un asistente de inteligencia artificial avanzado y soberano ');
-    buffer.writeln('que se ejecuta localmente en el dispositivo móvil del usuario mediante el motor nanortime (llama.cpp). ');
+    buffer.writeln('Eres NanoAI, un asistente de inteligencia artificial avanzado que se ejecuta ');
+    buffer.writeln('localmente en el dispositivo móvil del usuario mediante el motor nanortime (llama.cpp). ');
     buffer.writeln('Modelo activo actual: "$modelName". ');
-    buffer.writeln('Responde siempre en español (o en el idioma en que el usuario te hable) ');
-    buffer.writeln('de forma natural, completa, estructurada y útil como cualquier asistente conversacional. ');
-    buffer.writeln('Puedes organizar información con formato Markdown rico, tablas claras, listas y diagramas (en bloques de código ```mermaid o esquemas ASCII). ');
-    buffer.writeln('Tus respuestas pueden ser exportadas directamente a informes PDF profesionales por el usuario. ');
-    buffer.writeln('Si necesitas una herramienta del sistema, responde solo JSON: ');
+    buffer.writeln('');
+    buffer.writeln('Idioma: responde siempre en el idioma en que el usuario te hable (por defecto español).');
+    buffer.writeln('');
+    buffer.writeln('Estilo de respuesta (nivel de un asistente profesional tipo GPT o Claude):');
+    buffer.writeln('- Responde de forma completa, útil y directa. Desarrolla las ideas con ');
+    buffer.writeln('  profundidad real: explica el PORQUÉ, da ejemplos concretos y menciona ');
+    buffer.writeln('  alternativas cuando aporten valor.');
+    buffer.writeln('- Eres libre de razonar, opinar con matices y proponer. Solo te abstienes ');
+    buffer.writeln('  de guiar en acciones ilegales concretas; ante cualquier duda legítima, ');
+    buffer.writeln('  responde con honestidad y contexto, no con rechazos automáticos.');
+    buffer.writeln('- Usa Markdown rico cuando ayude: encabezados, listas, tablas claras, ');
+    buffer.writeln('  bloques de código con lenguaje y diagramas ```mermaid o ASCII.');
+    buffer.writeln('- No des respuestas de una sola línea salvo que la pregunta sea trivial. ');
+    buffer.writeln('- No inventes datos: si no sabes algo, dilo y ofrece cómo averiguarlo.');
+    buffer.writeln('- Evita relleno corporativo ("¡Excelente pregunta!", "¡Por supuesto!") — ');
+    buffer.writeln('  ve al grano con claridad y estructura.');
+    buffer.writeln('- Tus respuestas pueden exportarse a informes PDF profesionales.');
+    buffer.writeln('');
+    buffer.writeln('Herramientas del sistema (SOLO cuando el usuario pida ejecutar una acción): ');
+    buffer.writeln('si necesitas una herramienta, responde únicamente el JSON de una línea: ');
     buffer.writeln('{"tool":"screen"}, {"tool":"tap","selector":"<sel>"}, ');
     buffer.writeln('{"tool":"write","selector":"<sel>","text":"..."}, {"tool":"back"}. ');
     buffer.writeln('Si no usas herramienta, responde normal con texto.');
@@ -241,6 +258,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// Agrega un adjunto pendiente. Un nombre repetido reemplaza el anterior
   /// (mismo archivo re-elegido = última versión).
   void addAttachment(ChatAttachment attachment) {
+    // CORRECCIÓN LEVE: Validar tamaño del contenido antes de aceptar
+    const maxAttachmentSizeBytes = 500000; // 500KB límite
+    final contentSize = attachment.content.length * 2; // Aproximación UTF-16
+    
+    if (contentSize > maxAttachmentSizeBytes) {
+      debugPrint('[chat_provider] Adjunto rechazado: demasiado grande ($contentSize bytes)');
+      return;
+    }
+    
     final current = [...state.attachments]
       ..removeWhere((a) => a.name == attachment.name);
     if (current.length >= _maxAttachments) {
@@ -289,13 +315,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final trace = _pendingTrace;
     final callText = _pendingCallText;
     _pendingCall = null;
+    
+    // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
+    if (!mounted) return;
     state = state.copyWith(
       generating: true,
       pendingTool: null,
       pendingToolDescription: null,
     );
+    
     final outcome = await _tools.runToolGuarded(call, confirmed: true);
     if (!mounted || _generationCancelled) return;
+    
+    // CORRECCIÓN CRÍTICA: Verificar mounted nuevamente antes de continuar
+    if (!mounted) return;
     await _generateRound(userText, [
       ...trace,
       callText,
@@ -312,11 +345,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final trace = _pendingTrace;
     final callText = _pendingCallText;
     _pendingCall = null;
+    
+    // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
+    if (!mounted) return;
     state = state.copyWith(
       generating: true,
       pendingTool: null,
       pendingToolDescription: null,
     );
+    
+    // CORRECCIÓN CRÍTICA: Verificar mounted antes de continuar generación
+    if (!mounted) return;
     await _generateRound(userText, [
       ...trace,
       callText,
@@ -429,31 +468,42 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _generate(t, attachments);
   }
 
-  /// Construye el prompt multi-turno según el [ChatTemplate] del modelo activo.
-  /// Delega a [_buildQwenPrompt] o [_buildDeepSeekPrompt] según corresponda.
-  String _buildChatPrompt(
+  /// Construye el historial como lista de turnos role/content para el motor.
+  ///
+  /// El core nanortime aplica el chat template REAL del GGUF y convierte
+  /// estos turnos en bloques nativos del template. Antes la app formateaba
+  /// ChatML por su cuenta y el core lo re-encapsulaba como contenido del
+  /// turno user: template anidado que hacía al modelo responder vacío o
+  /// genérico ("El motor terminó sin emitir texto").
+  List<Map<String, String>> _buildHistory(
     List<ChatMessage> history,
-    String newUserText,
-    List<ChatAttachment> attachments, {
-    bool openAssistantTurn = true,
-  }) {
-    final template = NeuralCatalog.templateOf(state.activeModel);
-    switch (template) {
-      case ChatTemplate.deepseek:
-        return _buildDeepSeekPrompt(
-          history,
-          newUserText,
-          attachments,
-          openAssistantTurn: openAssistantTurn,
-        );
-      case ChatTemplate.qwen:
-        return _buildQwenPrompt(
-          history,
-          newUserText,
-          attachments,
-          openAssistantTurn: openAssistantTurn,
-        );
+    List<String> toolTrace,
+  ) {
+    final result = <Map<String, String>>[];
+    final window = history.length > _maxHistoryMessages
+        ? history.sublist(history.length - _maxHistoryMessages)
+        : history;
+    for (final msg in window) {
+      result.add({
+        'role': msg.sender == MessageSender.user ? 'user' : 'assistant',
+        'content': _promptClip(msg.text, _maxHistoryChars),
+      });
     }
+    // Trace de herramientas: la llamada JSON como assistant y el resultado
+    // real como user, para que el modelo continúe informado del resultado.
+    for (var i = 0; i + 1 < toolTrace.length; i += 2) {
+      result.add({
+        'role': 'assistant',
+        'content': _promptClip(toolTrace[i], _maxToolTraceChars),
+      });
+      result.add({
+        'role': 'user',
+        'content':
+            'Resultado de la herramienta:\n'
+            '${_promptClip(toolTrace[i + 1], _maxToolTraceChars)}',
+      });
+    }
+    return result;
   }
 
   /// Neutraliza tokens especiales que podrían cerrar/abrir roles del modelo
@@ -468,7 +518,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
       .replaceAll(
         '<\uFF5Cend\u2581of\u2581sentence\uFF5C>',
         '< |end_of_sentence| >',
-      );
+      )
+      .replaceAll('<|start_header_id|>', '< |start_header_id| >')
+      .replaceAll('<|end_header_id|>', '< |end_header_id| >')
+      .replaceAll('<|eot_id|>', '< |eot_id| >')
+      .replaceAll('<|begin_of_text|>', '< |begin_of_text| >')
+      .replaceAll('<start_of_turn>', '< start_of_turn >')
+      .replaceAll('<end_of_turn>', '< end_of_turn >')
+      .replaceAll('[INST]', '[ INST ]')
+      .replaceAll('[/INST]', '[ /INST ]');
 
   String _promptClip(String value, int maxChars) {
     final safe = _promptSafe(value);
@@ -490,91 +548,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
     return buffer.toString();
   }
 
-  /// Prompt en formato Qwen (ChatML-like):
-  String _buildQwenPrompt(
-    List<ChatMessage> history,
-    String newUserText,
-    List<ChatAttachment> attachments, {
-    bool openAssistantTurn = true,
-  }) {
-    final buffer = StringBuffer();
-    buffer.write('<|im_start|>system\n${_buildSystemPrompt()}<|im_end|>\n');
-    final window = history.length > _maxHistoryMessages
-        ? history.sublist(history.length - _maxHistoryMessages)
-        : history;
-    for (final msg in window) {
-      final role = msg.sender == MessageSender.user ? 'user' : 'assistant';
-      buffer.write(
-        '<|im_start|>$role\n${_promptClip(msg.text, _maxHistoryChars)}<|im_end|>\n',
-      );
-    }
-    buffer.write(
-      '<|im_start|>user\n${_attachmentsBlock(attachments)}'
-      '${_promptClip(newUserText, _maxUserChars)}<|im_end|>\n',
-    );
-    if (openAssistantTurn) {
-      buffer.write('<|im_start|>assistant\n');
-    }
-    return buffer.toString();
-  }
-
-  /// Prompt en formato DeepSeek-R1:
-  String _buildDeepSeekPrompt(
-    List<ChatMessage> history,
-    String newUserText,
-    List<ChatAttachment> attachments, {
-    bool openAssistantTurn = true,
-  }) {
-    // Tokens especiales native de DeepSeek-R1.
-    const bos = '<｜begin▁of▁sentence｜>';
-    const eos = '<｜end▁of▁sentence｜>';
-    final buffer = StringBuffer();
-    buffer.write('$bos\nsystem\n${_buildSystemPrompt()}\n$eos\n');
-    final window = history.length > _maxHistoryMessages
-        ? history.sublist(history.length - _maxHistoryMessages)
-        : history;
-    for (final msg in window) {
-      final role = msg.sender == MessageSender.user ? 'user' : 'assistant';
-      buffer.write('$bos$role\n${_promptSafe(msg.text)}\n$eos\n');
-    }
-    buffer.write(
-      '$bos\nuser\n${_attachmentsBlock(attachments)}'
-      '${_promptSafe(newUserText)}\n$eos\n',
-    );
-    if (openAssistantTurn) {
-      buffer.write('$bos\nassistant\n');
-    }
-    return buffer.toString();
-  }
-
-  /// Turnos de herramienta para el trace: la llamada JSON como assistant y
-  /// el resultado real como user, listos para que el modelo continúe.
-  String _toolTurnSuffix(String toolCall, String result) {
-    final template = NeuralCatalog.templateOf(state.activeModel);
-    switch (template) {
-      case ChatTemplate.deepseek:
-        const bos = '<｜begin▁of▁sentence｜>';
-        const eos = '<｜end▁of▁sentence｜>';
-        return '$bos\nassistant\n${_promptSafe(toolCall)}\n$eos\n'
-            '$bos\nuser\nResultado de la herramienta:\n'
-            '${_promptSafe(result)}\n$eos\n'
-            '$bos\nassistant\n';
-      case ChatTemplate.qwen:
-        return '<|im_start|>assistant\n'
-            '${_promptClip(toolCall, _maxToolTraceChars)}<|im_end|>\n'
-            '<|im_start|>user\nResultado de la herramienta:\n'
-            '${_promptClip(result, _maxToolTraceChars)}<|im_end|>\n'
-            '<|im_start|>assistant\n';
-    }
-  }
-
   /// Programa el siguiente flush del texto parcial si no hay uno pendiente.
   void _scheduleStreamFlush(StringBuffer buffer) {
     if (_flushTimer != null) return;
     _flushTimer = Timer(const Duration(milliseconds: 32), () {
       _flushTimer = null;
+      // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
+      // para evitar race conditions cuando el componente se desmonta
       if (mounted && !_generationCancelled) {
-        state = state.copyWith(streamingText: buffer.toString());
+        try {
+          state = state.copyWith(streamingText: buffer.toString());
+        } catch (e) {
+          debugPrint('[chat_provider] Error en flush callback: $e');
+        }
       }
     });
   }
@@ -631,17 +617,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
   ) async {
     _generationCancelled = false;
     // El historial YA incluye el turno actual y, si hubo tools, sus trazas
-    // visibles. Se excluye todo eso para que el prompt no duplique turnos.
+    // visibles. Se excluye todo eso para que no se dupliquen turnos.
+    // El prompt viaja CRUDO: el motor aplica el chat template real del
+    // GGUF. `context` lleva el system prompt dinámico y `history` los
+    // turnos previos como role/content (el core los templatea bien).
     final history = _historyBeforeCurrentUser(text);
-    var prompt = _buildChatPrompt(
-      history,
-      text,
-      toolTrace.isEmpty ? attachments : const <ChatAttachment>[],
-      openAssistantTurn: toolTrace.isEmpty,
-    );
-    for (var i = 0; i + 1 < toolTrace.length; i += 2) {
-      prompt += _toolTurnSuffix(toolTrace[i], toolTrace[i + 1]);
-    }
+    final prompt =
+        '${toolTrace.isEmpty ? _attachmentsBlock(attachments) : ''}'
+        '${_promptClip(text, _maxUserChars)}';
 
     // Streaming: cada token actualiza streamingText en tiempo real.
     final settings = _ref.read(settingsProvider);
@@ -651,8 +634,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
       topP: settings.topP,
       maxTokens: settings.maxTokens.clamp(32, 2048),
       sessionId: _sessionId,
+      context: _buildSystemPrompt(),
+      history: _buildHistory(history, toolTrace),
     );
     _streamClient = client;
+    _activeConnections++; // CORRECCIÓN CRÍTICA: Monitoreo de conexiones activas
+    debugPrint('[chat_provider] Conexión activa: $_activeConnections');
 
     try {
       final buffer = StringBuffer();
@@ -817,8 +804,21 @@ class ChatNotifier extends StateNotifier<ChatState> {
       );
       _persistMessages();
     } finally {
+      // CORRECCIÓN CRÍTICA: Finally block garantizado para cerrar cliente
+      // y evitar memory leaks en todos los caminos de ejecución
       _cancelStreamFlush();
-      _streamClient = null;
+      if (_streamClient != null) {
+        try {
+          _streamClient!.close();
+          debugPrint('[chat_provider] Cliente HTTP cerrado correctamente');
+        } catch (e) {
+          debugPrint('[chat_provider] Error cerrando cliente HTTP: $e');
+        } finally {
+          _streamClient = null;
+          _activeConnections--; // Decrementar contador de conexiones activas
+          debugPrint('[chat_provider] Conexiones activas: $_activeConnections');
+        }
+      }
     }
   }
 
@@ -828,8 +828,21 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Cancelar el flush pendiente ANTES de cerrar el cliente: evita que un
     // timer de 32ms escriba streamingText residual con generating=false.
     _cancelStreamFlush();
-    _streamClient?.close();
-    _streamClient = null;
+    
+    // CORRECCIÓN CRÍTICA: Cerrar cliente con manejo de errores garantizado
+    if (_streamClient != null) {
+      try {
+        _streamClient!.close();
+        debugPrint('[chat_provider] Cliente HTTP cerrado por stop()');
+      } catch (e) {
+        debugPrint('[chat_provider] Error cerrando cliente HTTP en stop(): $e');
+      } finally {
+        _streamClient = null;
+        _activeConnections--;
+        debugPrint('[chat_provider] Conexiones activas tras stop: $_activeConnections');
+      }
+    }
+    
     state = state.copyWith(generating: false, streamingText: '');
     _persistMessages();
   }
@@ -913,8 +926,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
   @override
   void dispose() {
     _cancelStreamFlush();
-    _streamClient?.close();
+    
+    // CORRECCIÓN CRÍTICA: Asegurar limpieza de recursos en dispose
+    if (_streamClient != null) {
+      try {
+        _streamClient!.close();
+        debugPrint('[chat_provider] Cliente HTTP cerrado en dispose()');
+      } catch (e) {
+        debugPrint('[chat_provider] Error cerrando cliente HTTP en dispose(): $e');
+      } finally {
+        _streamClient = null;
+        _activeConnections--;
+      }
+    }
+    
     _loadTimer?.cancel();
+    
+    // CORRECCIÓN CRÍTICA: Verificar memory leaks al dispose
+    if (_activeConnections > 0) {
+      debugPrint('[chat_provider] WARNING: $_activeConnections conexiones activas en dispose()');
+    }
+    
     // El client es propiedad de RuntimeEngineNotifier: él lo dispone.
     super.dispose();
   }

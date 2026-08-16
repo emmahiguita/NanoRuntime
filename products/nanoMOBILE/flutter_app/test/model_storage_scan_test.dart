@@ -104,6 +104,20 @@ class FakeLocalRepository implements LocalModelRepository {
   Future<List<LocalModel>> listModels() async => models;
 }
 
+/// Repo con gate manual: simula el arranque frío donde el escaneo del
+/// storage termina ANTES que listModels (race _load vs escaneo).
+class GatedLocalRepository extends FakeLocalRepository {
+  GatedLocalRepository(super.models);
+
+  final gate = Completer<void>();
+
+  @override
+  Future<List<LocalModel>> listModels() async {
+    await gate.future;
+    return super.listModels();
+  }
+}
+
 /// ChatNotifier que solo registra selectModel: sin IO, sin timers.
 class _RecordingChatNotifier extends ChatNotifier {
   _RecordingChatNotifier(Ref ref) : super.fixed(ref, const ChatState());
@@ -286,19 +300,29 @@ void main() {
     );
 
     test(
-      'useDetected con modelo no usable (magic malo): no hace nada',
+      'useDetected con modelo no usable (magic malo): lo intenta igual; '
+      'el aviso vive en la tarjeta, no en scanError',
       () async {
-        final storage = FakeStorageRepository(tree: 'content://tree/primary');
+        final storage = FakeStorageRepository(
+          tree: 'content://tree/primary',
+          fdPath: '/proc/self/fd/42',
+        );
         final container = _container(storage: storage);
 
         await container
             .read(modelsProvider.notifier)
             .useDetected(_detected('fake.gguf', magicOk: false));
 
-        expect(storage.openedUris, isEmpty);
+        // Permite intentar (política de bbb8ee9): el modelo se selecciona
+        // con el fd abierto, sin bloquear la UI.
         final recording =
             container.read(chatProvider.notifier) as _RecordingChatNotifier;
-        expect(recording.selected, isEmpty);
+        expect(recording.selected, [
+          ('fake.gguf', '/proc/self/fd/42'),
+        ]);
+        final state = container.read(modelsProvider);
+        expect(state.scanError, isNull, reason: 'scanError es solo del escaneo');
+        expect(state.loadingDetectedUri, isNull);
       },
     );
   });
@@ -328,6 +352,7 @@ void main() {
           ),
           _detected(
             'qwen2.5-0.5b-instruct-q4_0.gguf', // ya en catálogo
+            sizeBytes: 1073741824, // 1 GiB: coincide con sizeGb 1.0 (±10%)
             path:
                 '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
           ),
@@ -350,6 +375,77 @@ void main() {
         state.models.single.localPath,
         '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
       );
+    });
+
+    test('archivo con mismo nombre pero tamaño distinto: NO marca el '
+        'catálogo instalado, queda como detected', () async {
+      final storage = FakeStorageRepository(
+        allFilesGranted: true,
+        scanAllResult: [
+          _detected(
+            'qwen2.5-0.5b-instruct-q4_0.gguf',
+            sizeBytes: 555, // no coincide con sizeGb 1.0 del catálogo
+            path:
+                '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
+          ),
+        ],
+      );
+      final container = _container(
+        storage: storage,
+        catalog: [_catalogModel('qwen2.5-0.5b-instruct-q4_0.gguf')],
+      );
+
+      await container.read(modelsProvider.notifier).maybeAutoScanAll();
+
+      final state = container.read(modelsProvider);
+      expect(state.models.single.installed, isFalse);
+      expect(state.detected, hasLength(1));
+      expect(
+        state.detected.single.name,
+        'qwen2.5-0.5b-instruct-q4_0.gguf',
+      );
+    });
+
+    test('race: escaneo termina antes que listModels — el catálogo se '
+        'reconcilia al completar _load', () async {
+      final storage = FakeStorageRepository(
+        allFilesGranted: true,
+        scanAllResult: [
+          _detected(
+            'qwen2.5-0.5b-instruct-q4_0.gguf',
+            sizeBytes: 1073741824,
+            path:
+                '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
+          ),
+        ],
+      );
+      final repo = GatedLocalRepository([
+        _catalogModel('qwen2.5-0.5b-instruct-q4_0.gguf'),
+      ]);
+      final container = ProviderContainer(
+        overrides: [
+          modelStorageRepositoryProvider.overrideWithValue(storage),
+          localModelRepositoryProvider.overrideWithValue(repo),
+          chatProvider.overrideWith(_RecordingChatNotifier.new),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(modelsProvider.notifier);
+      // El escaneo completa mientras listModels sigue bloqueado en el gate.
+      await notifier.maybeAutoScanAll();
+      expect(container.read(modelsProvider).models, isEmpty);
+
+      repo.gate.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(modelsProvider);
+      expect(state.models.single.installed, isTrue);
+      expect(
+        state.models.single.localPath,
+        '/storage/emulated/0/Download/qwen2.5-0.5b-instruct-q4_0.gguf',
+      );
+      expect(state.detected, isEmpty);
     });
 
     test('requestAllFilesAccess concedido: escanea de inmediato', () async {

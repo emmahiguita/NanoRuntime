@@ -1,4 +1,9 @@
 //! Benchmark de consumo de memoria y tiempo de ejecución del Nano Memory Engine.
+//!
+//! Requiere `feature = "unstable"` — usa `evaluate_quality`, que depende del
+//! QualityPreserver (dormido sin hook de perplejidad de referencia).
+
+#![cfg(feature = "unstable")]
 
 use nanortime_core::memory_engine::{HardwareProfiler, NanoMemoryEngine};
 use std::time::Instant;

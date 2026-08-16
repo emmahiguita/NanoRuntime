@@ -61,6 +61,12 @@ pub trait InferenceBackend: Send + Sync {
     /// Number of tokens in the model's vocabulary.
     fn n_vocab(model: &Self::Model) -> usize;
 
+    /// Number of transformer layers in the model (0 if unknown).
+    fn n_layer(model: &Self::Model) -> usize;
+
+    /// Chat template from GGUF metadata (None for base models).
+    fn chat_template(model: &Self::Model) -> Option<String>;
+
     /// Generate text (blocking, synchronous).
     fn generate(
         ctx: &mut Self::Context,
@@ -137,6 +143,14 @@ impl InferenceBackend for LlamaCppBackend {
 
     fn n_vocab(model: &Self::Model) -> usize {
         model.n_vocab() as usize
+    }
+
+    fn n_layer(model: &Self::Model) -> usize {
+        model.n_layer() as usize
+    }
+
+    fn chat_template(model: &Self::Model) -> Option<String> {
+        model.chat_template()
     }
 
     fn generate(

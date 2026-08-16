@@ -21,6 +21,12 @@ class DesktopSessionManager(
     // principal no puede leer /proc de los hijos del worker: isAlive() local
     // devolvía false siempre y mataba a un Xvnc vivo con SIGKILL propio.
     private val isPidAlive: (Long) -> Boolean = { false },
+    // BUG-2 FIX: kill de daemons detached delegado al worker. Android 12+
+    // restringe Process.killProcess a procesos propios — los daemons son
+    // hijos del worker (:nanoshell), el kill local lanzaba SecurityException
+    // (tragada) y dejaba Xvnc huérfano ocupando 5901. False = no se pudo.
+    // (Nombre *_Delegate: hay un método privado killPid(pid) en esta clase.)
+    private val killPidDelegate: (Long) -> Boolean = { false },
 ) {
     companion object {
         private const val TAG = "desktop-session"
@@ -50,7 +56,7 @@ class DesktopSessionManager(
 
     // Entorno del último arranque — el watchdog granular lo usa para
     // re-lanzar SOLO el terminal (no toda la sesión) cuando muere.
-    @Volatile private var lastWmEnv: Map<String, String> = emptyMap()
+    @Volatile private var lastWmEnv: MutableMap<String, String> = mutableMapOf()
 
     val currentStage: String get() = stage
     val currentError: String? get() = lastError
@@ -60,14 +66,19 @@ class DesktopSessionManager(
     // pueda reiniciar todo limpiamente.
     private var watchdogThread: Thread? = null
 
-    private val backend: XServerBackend = InternalXvncBackend(usrDir, spawnBg, vncPassword, isPidAlive)
+    private val backend: XServerBackend = InternalXvncBackend(usrDir, spawnBg, vncPassword, isPidAlive, killPidDelegate)
 
     // ── Entorno base ─────────────────────────────────────────────────────────
 
     private fun baseEnv(display: String): MutableMap<String, String> {
         val lib    = usrDir.absolutePath + "/lib"
         val libCan = usrDir.canonicalPath + "/lib"
-        val libAlt = "/data/data/dev.nanoai.mobile/files/nano/usr/lib"
+        // BUG-4 FIX: estaba hardcodeado "/data/data/dev.nanoai.mobile/files/
+        // nano/usr/lib". Android expone files/ como /data/user/0/<pkg> pero
+        // algunos loaders nativos resuelven /data/data/<pkg> (symlink).
+        // Derivar la variante del usrDir real: sin hardcodear el package y
+        // sin romper si el path ya viene por /data/data/ (replace no-op).
+        val libAlt = usrDir.path.replace("/data/user/0/", "/data/data/") + "/lib"
         val ldPath = listOf(lib, libCan, libAlt, "/system/lib64", "/system/lib")
             .distinct().joinToString(":")
 
@@ -246,19 +257,9 @@ class DesktopSessionManager(
         }
     }
 
-    private fun startInternalImpl(
-        onStatus: (String) -> Unit,
-        onReady: () -> Unit,
-        onError: (String) -> Unit,
-        width: Int,
-        height: Int,
-    ) {
-        val tmpDir = File(usrDir, "tmp").also { it.mkdirs() }
-
-        // 1. Limpiar locks X11 previos
-        if (abortIfStopped("before-clean", onError)) return
-        cleanX11Runtime(tmpDir)
-
+    // AND-012 FIX: Extraer funciones de startInternalImpl para cumplir SRP
+    
+    private fun setupX11Environment(tmpDir: File): String {
         // El socket X11 UNIX: Xvnc crea usr/tmp/.X11-unix (su path hardcodeado
         // de Termux, redirigido por libnanoroot en mkdir/bind). openbox/libX11
         // buscan el display en /tmp/.X11-unix/X1, y nanoroot redirige /tmp a
@@ -275,19 +276,122 @@ class DesktopSessionManager(
         val displayStr = if (displayHost.isNotEmpty()) "$displayHost:${endpointInfo.display}" else ":${endpointInfo.display}"
         val wmEnv = baseEnv(displayStr)
         lastWmEnv = wmEnv
+        return displayStr
+    }
+    
+    private fun launchDBusSession(tmpDir: File, wmEnv: MutableMap<String, String>) {
+        // U-1: session bus de D-Bus — gvfs (papelera trash:// de pcmanfm) y
+        // los daemons gvfsd lo necesitan. Socket UNIX en el tmp del rootfs
+        // (nanoroot redirige /tmp a files/nano/tmp); el address se exporta en
+        // wmEnv para que TODOS los hijos (openbox/feh/aterm/pcmanfm)
+        // compartan el mismo bus. Sin bus, pcmanfm borra archivos sin
+        // papelera (delete directo) — evidencia: bin/dbus-launch instalado
+        // pero NADIE lo lanzaba (grep en todo el repo, solo 2 menciones).
+        val dbusBin = File(usrDir, "bin/dbus-daemon")
+        if (dbusBin.exists()) {
+            dbusBin.setExecutable(true, false)
+            val dbusSock = File(tmpDir, "dbus-session.sock")
+            dbusPid = spawnBg(
+                dbusBin.absolutePath,
+                listOf(
+                    "dbus-daemon", "--session", "--nofork",
+                    "--address=unix:path=${dbusSock.absolutePath}",
+                ),
+                wmEnv,
+            )
+            if (dbusPid > 0) {
+                wmEnv["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=${dbusSock.absolutePath}"
+                Log.i(TAG, "dbus-daemon PID=$dbusPid (session bus en $dbusSock)")
+            } else {
+                Log.w(TAG, "dbus-daemon no arrancó — gvfs/papelera deshabilitados")
+            }
+        }
+    }
+    
+    private fun launchWindowManager(wmEnv: Map<String, String>, onStatus: (String) -> Unit): Boolean {
+        // Lanzar openbox
+        val openboxBin = File(usrDir, "bin/openbox")
+        if (openboxBin.exists()) {
+            openboxBin.setExecutable(true, false)
+            openboxPid = spawnBg(openboxBin.absolutePath, listOf("openbox"), wmEnv)
+            Log.i(TAG, "openbox PID=$openboxPid")
+            onStatus("openbox arrancado (PID=$openboxPid)")
+            return true
+        } else {
+            Log.w(TAG, "openbox no encontrado")
+            return false
+        }
+    }
+    
+    private fun launchWallpaper(wmEnv: Map<String, String>) {
+        // Wallpaper: sin fondo el root de X es ruido de píxeles heredado;
+        // feh aplica el pixmap propio sin depender de xsetroot (no instalado).
+        val fehBin = File(usrDir, "bin/feh")
+        val (wallpaper, wallFlag) = wallpaperForLaunch()
+        if (fehBin.exists() && wallpaper.exists()) {
+            fehPid = spawnBg(fehBin.absolutePath, listOf("feh", wallFlag, wallpaper.absolutePath), wmEnv)
+            Log.i(TAG, "feh wallpaper aplicado ($wallFlag ${wallpaper.name}, PID=$fehPid)")
+        }
+    }
+    
+    private fun launchTerminal(wmEnv: Map<String, String>, onStatus: (String) -> Unit) {
+        // Lanzar terminal gráfica
+        val terminal = firstExistingTerminal()
+        if (terminal != null) {
+            terminal.file.setExecutable(true, false)
+            terminalPid = spawnBg(terminal.file.absolutePath, terminal.argv, wmEnv)
+            Log.i(TAG, "terminal ${terminal.file.name} PID=$terminalPid")
+            onStatus("terminal ${terminal.file.name} arrancada (PID=$terminalPid)")
+            // Supervisión de spawn (P1): el aterm ha muerto en silencio tras
+            // el spawn en ciclos previos (sin stderr propio, sin reap visible
+            // en logcat — evidencia device 2026-08-12, ciclos 16:33/16:35/
+            // 16:51). Verificar /proc/<pid> 500 ms después: si ya murió, se
+            // re-lanza UNA vez antes de declarar ready. Si vuelve a morir,
+            // el watchdog granular (cada 5s) lo re-lanza sin tocar el resto.
+            Thread.sleep(500)
+            if (terminalPid > 0 && !File("/proc/$terminalPid").exists()) {
+                Log.w(TAG, "terminal ${terminal.file.name} PID=$terminalPid murió a los 500ms — re-lanzando")
+                terminalPid = spawnBg(terminal.file.absolutePath, terminal.argv, wmEnv)
+                Log.i(TAG, "terminal ${terminal.file.name} re-lanzado PID=$terminalPid")
+            }
+        } else {
+            Log.w(TAG, "terminal gráfica no encontrada")
+        }
+    }
+    
+    private fun startInternalImpl(
+        onStatus: (String) -> Unit,
+        onReady: () -> Unit,
+        onError: (String) -> Unit,
+        width: Int,
+        height: Int,
+    ) {
+        val tmpDir = File(usrDir, "tmp").also { it.mkdirs() }
+
+        // 1. Limpiar locks X11 previos
+        if (abortIfStopped("before-clean", onError)) return
+        cleanX11Runtime(tmpDir)
+
+        // 2. Configurar entorno X11
+        val displayStr = setupX11Environment(tmpDir)
 
         onStatus("Iniciando backend gráfico (Xvnc)...")
         stage = "xvnc"
 
-        runBlocking {
-            if (!backend.start(wmEnv, width, height)) {
-                val msg = "Fallo al iniciar el backend del servidor X11."
-                lastError = msg
-                stage = "failed"
-                onError(msg)
-                starting = false
-                return@runBlocking
-            }
+        // BUG-1 FIX: el `return@runBlocking` anterior solo salía del lambda
+        // del runBlocking — el flujo CONTINUABA a stage="rfb" y awaitReady()
+        // tras el fallo, produciendo doble onError y cleanup doble. Manejar
+        // el fallo FUERA del bloque y retornar de startInternalImpl de verdad.
+        val backendOk = runBlocking { backend.start(baseEnv(displayStr), width, height) }
+        if (!backendOk) {
+            val msg = "Fallo al iniciar el backend del servidor X11."
+            lastError = msg
+            stage = "failed"
+            onError(msg)
+            cleanupProcesses()
+            runBlocking { backend.stop() }
+            starting = false
+            return
         }
 
         onStatus("Esperando puerto RFB/VNC...")
@@ -325,80 +429,31 @@ class DesktopSessionManager(
         setupGtkTheme()
         setupLxTerminalConfig()
 
-        // U-1: session bus de D-Bus — gvfs (papelera trash:// de pcmanfm) y
-        // los daemons gvfsd lo necesitan. Socket UNIX en el tmp del rootfs
-        // (nanoroot redirige /tmp a files/nano/tmp); el address se exporta en
-        // wmEnv para que TODOS los hijos (openbox/feh/aterm/pcmanfm)
-        // compartan el mismo bus. Sin bus, pcmanfm borra archivos sin
-        // papelera (delete directo) — evidencia: bin/dbus-launch instalado
-        // pero NADIE lo lanzaba (grep en todo el repo, solo 2 menciones).
-        val dbusBin = File(usrDir, "bin/dbus-daemon")
-        if (dbusBin.exists()) {
-            dbusBin.setExecutable(true, false)
-            val dbusSock = File(tmpDir, "dbus-session.sock")
-            dbusPid = spawnBg(
-                dbusBin.absolutePath,
-                listOf(
-                    "dbus-daemon", "--session", "--nofork",
-                    "--address=unix:path=${dbusSock.absolutePath}",
-                ),
-                wmEnv,
-            )
-            if (dbusPid > 0) {
-                wmEnv["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=${dbusSock.absolutePath}"
-                Log.i(TAG, "dbus-daemon PID=$dbusPid (session bus en $dbusSock)")
-            } else {
-                Log.w(TAG, "dbus-daemon no arrancó — gvfs/papelera deshabilitados")
-            }
-        }
+        // 3. Lanzar D-Bus session bus
+        launchDBusSession(tmpDir, lastWmEnv)
 
-        // Lanzar openbox
-        val openboxBin = File(usrDir, "bin/openbox")
-        if (openboxBin.exists()) {
-            openboxBin.setExecutable(true, false)
-            openboxPid = spawnBg(openboxBin.absolutePath, listOf("openbox"), wmEnv)
-            Log.i(TAG, "openbox PID=$openboxPid")
-            onStatus("openbox arrancado (PID=$openboxPid)")
-            if (abortIfStopped("after-openbox-spawn", onError)) return
-        } else {
-            Log.w(TAG, "openbox no encontrado")
+        // 4. Lanzar window manager
+        if (!launchWindowManager(lastWmEnv, onStatus)) {
+            // Continuar aunque openbox falle
         }
-
+        
+        // BUG-5 FIX: sleep fijo no es criterio de readiness. Tras la espera,
+        // verificar salud del openboxPid vía worker y re-lanzar UNA vez si
+        // murió (mismo patrón que la terminal en launchTerminal: /proc check
+        // a los 500ms con re-spawn).
         Thread.sleep(800)
+        if (openboxPid > 0 && !isPidAlive(openboxPid)) {
+            Log.w(TAG, "openbox PID=$openboxPid murió tras el spawn — re-lanzando")
+            launchWindowManager(lastWmEnv, onStatus)
+        }
         if (abortIfStopped("after-openbox-wait", onError)) return
 
-        // Wallpaper: sin fondo el root de X es ruido de píxeles heredado;
-        // feh aplica el pixmap propio sin depender de xsetroot (no instalado).
-        val fehBin = File(usrDir, "bin/feh")
-        val (wallpaper, wallFlag) = wallpaperForLaunch()
-        if (fehBin.exists() && wallpaper.exists()) {
-            fehPid = spawnBg(fehBin.absolutePath, listOf("feh", wallFlag, wallpaper.absolutePath), wmEnv)
-            Log.i(TAG, "feh wallpaper aplicado ($wallFlag ${wallpaper.name}, PID=$fehPid)")
-        }
+        // 5. Aplicar wallpaper
+        launchWallpaper(lastWmEnv)
 
-        // Lanzar terminal gráfica
-        val terminal = firstExistingTerminal()
-        if (terminal != null) {
-            terminal.file.setExecutable(true, false)
-            terminalPid = spawnBg(terminal.file.absolutePath, terminal.argv, wmEnv)
-            Log.i(TAG, "terminal ${terminal.file.name} PID=$terminalPid")
-            onStatus("terminal ${terminal.file.name} arrancada (PID=$terminalPid)")
-            if (abortIfStopped("after-terminal-spawn", onError)) return
-            // Supervisión de spawn (P1): el aterm ha muerto en silencio tras
-            // el spawn en ciclos previos (sin stderr propio, sin reap visible
-            // en logcat — evidencia device 2026-08-12, ciclos 16:33/16:35/
-            // 16:51). Verificar /proc/<pid> 500 ms después: si ya murió, se
-            // re-lanza UNA vez antes de declarar ready. Si vuelve a morir,
-            // el watchdog granular (cada 5s) lo re-lanza sin tocar el resto.
-            Thread.sleep(500)
-            if (terminalPid > 0 && !File("/proc/$terminalPid").exists()) {
-                Log.w(TAG, "terminal ${terminal.file.name} PID=$terminalPid murió a los 500ms — re-lanzando")
-                terminalPid = spawnBg(terminal.file.absolutePath, terminal.argv, wmEnv)
-                Log.i(TAG, "terminal ${terminal.file.name} re-lanzado PID=$terminalPid")
-            }
-        } else {
-            Log.w(TAG, "terminal gráfica no encontrada")
-        }
+        // 6. Lanzar terminal
+        launchTerminal(lastWmEnv, onStatus)
+        if (abortIfStopped("after-terminal-spawn", onError)) return
 
         if (abortIfStopped("before-ready", onError)) return
         // K-6: raza start/stop. `running=true` se escribía FUERA del lock tras
@@ -407,6 +462,9 @@ class DesktopSessionManager(
         // el check y estas líneas → desktop "ready" con PIDs muertos. La
         // transición final debe ser atómica con stopRequested bajo el MISMO
         // lock que stop().
+        // AND-014: synchronized(this) es el MISMO monitor que @Synchronized
+        // (azúcar sintáctica). Inline es obligatorio aquí: la sección crítica
+        // está dentro de una función, no en un método completo.
         val abortedByStop = synchronized(this) {
             if (stopRequested) true
             else {
@@ -496,10 +554,16 @@ class DesktopSessionManager(
     // ── Utilidades de proceso ─────────────────────────────────────────────────
 
     private fun killPid(pid: Long) {
-        if (pid > 0) {
-            try { android.os.Process.killProcess(pid.toInt()) }
-            catch (e: Exception) { Log.w(TAG, "kill $pid: ${e.message}") }
-        }
+        if (pid <= 0) return
+        // BUG-2 FIX: todos los daemons del desktop (openbox/terminal/feh/
+        // dbus/Xvnc) son hijos del worker :nanoshell. El kill local
+        // Process.killProcess falla en Android 12+ (proceso ajeno) — delegar
+        // al worker, que los valida contra g_daemons y hace SIGKILL real.
+        if (killPidDelegate(pid)) return
+        // Fallback: cubre un spawn local o worker caído. No puede matar
+        // hijos del worker, pero es lo único disponible en ese caso.
+        try { android.os.Process.killProcess(pid.toInt()) }
+        catch (e: Exception) { Log.w(TAG, "kill $pid: ${e.message}") }
     }
 
     @Synchronized

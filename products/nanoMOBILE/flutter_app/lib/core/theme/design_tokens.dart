@@ -19,52 +19,84 @@ abstract class NanoColors {
   Color get error;
   Color get info;
   Color get tertiary;
+
+  // Roles custom del chat (modo claro real)
+  Color get accent;      // Cyan marca Nano (bordes, títulos de tabla)
+  Color get onAccent;    // Texto/icono sobre fondos accent (navy, alto contraste)
+  Color get danger;      // Errores custom (más vivo que error)
+  Color get codeBlockBg; // Fondo bloques de código markdown
+  Color get quoteBg;     // Fondo blockquote
   Color get terminalBg;
   Color get terminalGreen;
+  
+  // Glassmorphism tokens (solo modo claro)
+  Color get glassSurface;
+  Color get glassBorder;
+  Color get glassOverlay;
 }
 
 class NanoDarkColors implements NanoColors {
-  @override final primary = const Color(0xFF00E676);
-  @override final primaryContainer = const Color(0xFF0A3D1F);
+  @override final primary = const Color(0xFF00E676); // Verde brillante para alto contraste
+  @override final primaryContainer = const Color(0xFF1A4D2E); // Más visible
   @override final onPrimaryContainer = const Color(0xFFB9F6CA);
-  @override final secondary = const Color(0xFF38BDF8);
-  @override final secondaryContainer = const Color(0xFF0C2D48);
-  @override final surface = const Color(0xFF0F172A);
-  @override final surfaceVariant = const Color(0xFF1E293B);
-  @override final background = const Color(0xFF07090E);
-  @override final onSurface = const Color(0xFFF8FAFC);
-  @override final onSurfaceVariant = const Color(0xFF94A3B8);
-  @override final outline = const Color(0xFF475569);
-  @override final outlineVariant = const Color(0xFF1E293B);
-  @override final success = const Color(0xFF00E676);
-  @override final warning = const Color(0xFFF59E0B);
-  @override final error = const Color(0xFFEF4444);
-  @override final info = const Color(0xFF22D3EE);
-  @override final tertiary = const Color(0xFFC084FC);
-  @override final terminalBg = const Color(0xFF050810);
-  @override final terminalGreen = const Color(0xFF00E676);
+  @override final secondary = const Color(0xFF38BDF8); // Azul cielo
+  @override final secondaryContainer = const Color(0xFF1E3A5F); // Más visible
+  @override final surface = const Color(0xFF0F172A); // Slate 900
+  @override final surfaceVariant = const Color(0xFF1E293B); // Slate 800
+  @override final background = const Color(0xFF0B1120); // Slate 950 - más profundo
+  @override final onSurface = const Color(0xFFF1F5F9); // Slate 100 - mejor contraste
+  @override final onSurfaceVariant = const Color(0xFFCBD5E1); // Slate 300 - más legible
+  @override final outline = const Color(0xFF64748B); // Slate 500 - más visible
+  @override final outlineVariant = const Color(0xFF334155); // Slate 700 - más definido
+  @override final success = const Color(0xFF22C55E); // Verde éxito
+  @override final warning = const Color(0xFFF59E0B); // Amarillo advertencia
+  @override final error = const Color(0xFFEF4444); // Rojo error
+  @override final info = const Color(0xFF3B82F6); // Azul información
+  @override final tertiary = const Color(0xFFA855F7); // Púrpura terciario
+  @override final accent = const Color(0xFF42D9FF); // Cyan marca Nano
+  @override final onAccent = const Color(0xFF062A3A); // Navy profundo sobre cyan
+  @override final danger = const Color(0xFFFF5C6C); // Rojo coral vivo
+  @override final codeBlockBg = const Color(0xFF040E1A); // Azul casi negro
+  @override final quoteBg = const Color(0xFF003040); // Teal profundo
+  @override final terminalBg = const Color(0xFF0B1120); // Coincide con background
+  @override final terminalGreen = const Color(0xFF22C55E); // Verde terminal
+  
+  // Glassmorphism no aplicado en modo oscuro (usa valores por defecto)
+  @override final glassSurface = const Color(0x00000000); // Transparente
+  @override final glassBorder = const Color(0x00000000); // Transparente
+  @override final glassOverlay = const Color(0x00000000); // Transparente
 }
 
 class NanoLightColors implements NanoColors {
-  @override final primary = const Color(0xFF008F39);
-  @override final primaryContainer = const Color(0xFFB9F6CA);
-  @override final onPrimaryContainer = const Color(0xFF002106);
-  @override final secondary = const Color(0xFF0284C7);
-  @override final secondaryContainer = const Color(0xFFBAE6FD);
-  @override final surface = const Color(0xFFFFFFFF);
-  @override final surfaceVariant = const Color(0xFFF1F5F9);
-  @override final background = const Color(0xFFF8FAFC);
-  @override final onSurface = const Color(0xFF0F172A);
-  @override final onSurfaceVariant = const Color(0xFF475569);
-  @override final outline = const Color(0xFF94A3B8);
-  @override final outlineVariant = const Color(0xFFCBD5E1);
-  @override final success = const Color(0xFF16A34A);
-  @override final warning = const Color(0xFFD97706);
-  @override final error = const Color(0xFFDC2626);
-  @override final info = const Color(0xFF0891B2);
-  @override final tertiary = const Color(0xFF7C3AED);
-  @override final terminalBg = const Color(0xFFF1F5F9);
-  @override final terminalGreen = const Color(0xFF008F39);
+  @override final primary = const Color(0xFF10B981); // Verde esmeralda vibrante (más profesional)
+  @override final primaryContainer = const Color(0xFFD1FAE5); // Contenedor verde esmeralda claro
+  @override final onPrimaryContainer = const Color(0xFF064E3B); // Texto oscuro sobre verde esmeralda
+  @override final secondary = const Color(0xFF3B82F6); // Azul real (más profesional)
+  @override final secondaryContainer = const Color(0xFFDBEAFE); // Contenedor azul real claro
+  @override final surface = const Color(0xFFFFFFFF); // Blanco puro
+  @override final surfaceVariant = const Color(0xFFF8FAFC); // Slate 50 - fondo cards
+  @override final background = const Color(0xFFFCFCFD); // Blanco casi puro - más limpio
+  @override final onSurface = const Color(0xFF0F172A); // Slate 900 - alto contraste
+  @override final onSurfaceVariant = const Color(0xFF475569); // Slate 600 - legible
+  @override final outline = const Color(0xFFCBD5E1); // Slate 300 - bordes sutiles
+  @override final outlineVariant = const Color(0xFFF1F5F9); // Slate 100 - muy sutil
+  @override final success = const Color(0xFF059669); // Esmeralda 600 — "ACTIVO"/"Concedido" legibles sobre blanco (500 era 2.3:1)
+  @override final warning = const Color(0xFFB45309); // Ámbar 700 — legible sobre blanco (500 era 2.2:1)
+  @override final error = const Color(0xFFEF4444); // Rojo error
+  @override final info = const Color(0xFF3B82F6); // Azul real información
+  @override final tertiary = const Color(0xFF8B5CF6); // Violeta terciario (más vibrante)
+  @override final accent = const Color(0xFF0284C7); // Sky 600 — chips/textos accent 3.9:1 sobre blanco (500 era 2.6:1)
+  @override final onAccent = const Color(0xFF082F49); // Sky 950 - alto contraste sobre sky
+  @override final danger = const Color(0xFFDC2626); // Red 600 - legible sobre blanco
+  @override final codeBlockBg = const Color(0xFFF1F5F9); // Slate 100
+  @override final quoteBg = const Color(0xFFF0FDFA); // Teal 50
+  @override final terminalBg = const Color(0xFFF8FAFC); // Slate 50 - terminal claro
+  @override final terminalGreen = const Color(0xFF047857); // Esmeralda 700 — texto terminal 4.5:1 sobre slate-50
+  
+  // Glassmorphism tokens (solo modo claro)
+  @override final glassSurface = const Color(0xDDFFFFFF); // Blanco 87% transparente (mejor contraste)
+  @override final glassBorder = const Color(0x4DFFFFFF); // Blanco 30% transparente para bordes (más visible)
+  @override final glassOverlay = const Color(0x0F10B981); // Verde esmeralda 6% overlay sutil (más notorio)
 }
 
 /// ── Spacing Tokens (8dp grid) ──
@@ -80,12 +112,10 @@ class NanoSpacing {
   static const minTouch = 44.0;
 }
 
-/// ── Animation Tokens ──
-class NanoDurations {
-  static const fast = Duration(milliseconds: 150);
-  static const normal = Duration(milliseconds: 250);
-  static const slow = Duration(milliseconds: 400);
-  static const shimmer = Duration(milliseconds: 900);
+/// ── Animation Curves ──
+class NanoCurves {
+  static const easeOut = Curves.easeOutCubic;
+  static const easeInOut = Curves.easeInOutCubic;
 }
 
 /// ── Shape Tokens ──
@@ -101,9 +131,108 @@ class NanoShapes {
 
 /// ── Shadow Tokens ──
 class NanoShadows {
-  static List<BoxShadow> card(NanoColors c) => [BoxShadow(color: c is NanoDarkColors ? c.primary.withValues(alpha: 0.06) : c.onSurface.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))];
-  static List<BoxShadow> elevated(NanoColors c) => [BoxShadow(color: c is NanoDarkColors ? c.primary.withValues(alpha: 0.12) : c.onSurface.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4))];
-  static List<BoxShadow> glow(NanoColors c, Color color) => [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 12, spreadRadius: 2)];
+  static List<BoxShadow> card(NanoColors c) => [
+    BoxShadow(
+      color: c is NanoDarkColors 
+        ? const Color(0xFF000000).withValues(alpha: 0.3) // Sombra oscura en modo oscuro
+        : const Color(0xFF000000).withValues(alpha: 0.06), // Sombra muy sutil en modo claro
+      blurRadius: 8, 
+      offset: const Offset(0, 2),
+    ),
+    if (c is! NanoDarkColors) // Sombra secundaria solo en modo claro para profundidad
+      BoxShadow(
+        color: const Color(0xFF000000).withValues(alpha: 0.04),
+        blurRadius: 1,
+        offset: const Offset(0, 1),
+      ),
+  ];
+  
+  static List<BoxShadow> elevated(NanoColors c) => [
+    BoxShadow(
+      color: c is NanoDarkColors 
+        ? const Color(0xFF000000).withValues(alpha: 0.4) // Sombra más oscura en modo oscuro
+        : const Color(0xFF000000).withValues(alpha: 0.10), // Sombra profesional en modo claro
+      blurRadius: 16, 
+      offset: const Offset(0, 4),
+    ),
+    if (c is! NanoDarkColors) // Sombra secundaria en modo claro
+      BoxShadow(
+        color: const Color(0xFF000000).withValues(alpha: 0.05),
+        blurRadius: 4,
+        offset: const Offset(0, 2),
+      ),
+  ];
+  
+  static List<BoxShadow> glow(NanoColors c, Color color) => [
+    BoxShadow(
+      color: color.withValues(alpha: c is NanoDarkColors ? 0.4 : 0.25), // Glow ajustado por tema
+      blurRadius: 12, 
+      spreadRadius: 2,
+    ),
+  ];
+  
+  /// Sombra profesional para floating action buttons
+  static List<BoxShadow> fab(NanoColors c) => [
+    BoxShadow(
+      color: c is NanoDarkColors 
+        ? const Color(0xFF000000).withValues(alpha: 0.5)
+        : const Color(0xFF000000).withValues(alpha: 0.15),
+      blurRadius: 20,
+      offset: const Offset(0, 6),
+    ),
+    if (c is! NanoDarkColors)
+      BoxShadow(
+        color: const Color(0xFF000000).withValues(alpha: 0.08),
+        blurRadius: 6,
+        offset: const Offset(0, 2),
+      ),
+  ];
+  
+  /// Sombra para elementos destacados en modo claro
+  static List<BoxShadow> highlight(NanoColors c) => [
+    if (c is! NanoDarkColors)
+      BoxShadow(
+        color: const Color(0xFF10B981).withValues(alpha: 0.15), // Tinte verde sutil
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+  ];
+  
+  /// Sombras específicas para Glassmorphism (modo claro)
+  static List<BoxShadow> glass(NanoColors c) => [
+    if (c is! NanoDarkColors)
+      BoxShadow(
+        color: const Color(0xFF000000).withValues(alpha: 0.08),
+        blurRadius: 16,
+        offset: const Offset(0, 4),
+      ),
+    BoxShadow(
+      color: c is NanoDarkColors 
+        ? const Color(0xFF000000).withValues(alpha: 0.3)
+        : const Color(0xFFFFFFFF).withValues(alpha: 0.3), // Sombra interna blanca para glass
+      blurRadius: 2,
+      offset: const Offset(0, -1),
+      spreadRadius: -1,
+    ),
+  ];
+  
+  /// Sombras para elementos glass elevados
+  static List<BoxShadow> glassElevated(NanoColors c) => [
+    if (c is! NanoDarkColors)
+      BoxShadow(
+        color: const Color(0xFF000000).withValues(alpha: 0.12),
+        blurRadius: 24,
+        offset: const Offset(0, 8),
+      ),
+    BoxShadow(
+      color: c is NanoDarkColors 
+        ? const Color(0xFF000000).withValues(alpha: 0.4)
+        : const Color(0xFFFFFFFF).withValues(alpha: 0.4),
+      blurRadius: 4,
+      offset: const Offset(0, -2),
+      spreadRadius: -1,
+    ),
+  ];
 }
 
 /// ── ThemeExtension for semantic colors ──
@@ -116,8 +245,80 @@ class NanoThemeExtension extends ThemeExtension<NanoThemeExtension> {
       NanoThemeExtension(colors: colors ?? this.colors);
 
   @override
-  ThemeExtension<NanoThemeExtension> lerp(ThemeExtension<NanoThemeExtension>? other, double t) => this;
+  ThemeExtension<NanoThemeExtension> lerp(ThemeExtension<NanoThemeExtension>? other, double t) {
+    if (other is! NanoThemeExtension) return this;
+    return NanoThemeExtension(
+      colors: _LerpedNanoColors(a: colors, b: other.colors, t: t),
+    );
+  }
 
   static NanoThemeExtension of(BuildContext context) =>
       Theme.of(context).extension<NanoThemeExtension>()!;
+}
+
+/// Interpolación REAL de cada token para transiciones de tema suaves.
+/// Color.lerp con t entre 0 (a) y 1 (b) — sin atajos ni `return this`.
+class _LerpedNanoColors implements NanoColors {
+  final NanoColors a;
+  final NanoColors b;
+  final double t;
+
+  _LerpedNanoColors({required this.a, required this.b, required this.t});
+
+  Color _l(Color x, Color y) => Color.lerp(x, y, t)!;
+
+  @override
+  Color get primary => _l(a.primary, b.primary);
+  @override
+  Color get primaryContainer => _l(a.primaryContainer, b.primaryContainer);
+  @override
+  Color get onPrimaryContainer => _l(a.onPrimaryContainer, b.onPrimaryContainer);
+  @override
+  Color get secondary => _l(a.secondary, b.secondary);
+  @override
+  Color get secondaryContainer => _l(a.secondaryContainer, b.secondaryContainer);
+  @override
+  Color get surface => _l(a.surface, b.surface);
+  @override
+  Color get surfaceVariant => _l(a.surfaceVariant, b.surfaceVariant);
+  @override
+  Color get background => _l(a.background, b.background);
+  @override
+  Color get onSurface => _l(a.onSurface, b.onSurface);
+  @override
+  Color get onSurfaceVariant => _l(a.onSurfaceVariant, b.onSurfaceVariant);
+  @override
+  Color get outline => _l(a.outline, b.outline);
+  @override
+  Color get outlineVariant => _l(a.outlineVariant, b.outlineVariant);
+  @override
+  Color get success => _l(a.success, b.success);
+  @override
+  Color get warning => _l(a.warning, b.warning);
+  @override
+  Color get error => _l(a.error, b.error);
+  @override
+  Color get info => _l(a.info, b.info);
+  @override
+  Color get tertiary => _l(a.tertiary, b.tertiary);
+  @override
+  Color get accent => _l(a.accent, b.accent);
+  @override
+  Color get onAccent => _l(a.onAccent, b.onAccent);
+  @override
+  Color get danger => _l(a.danger, b.danger);
+  @override
+  Color get codeBlockBg => _l(a.codeBlockBg, b.codeBlockBg);
+  @override
+  Color get quoteBg => _l(a.quoteBg, b.quoteBg);
+  @override
+  Color get terminalBg => _l(a.terminalBg, b.terminalBg);
+  @override
+  Color get terminalGreen => _l(a.terminalGreen, b.terminalGreen);
+  @override
+  Color get glassSurface => _l(a.glassSurface, b.glassSurface);
+  @override
+  Color get glassBorder => _l(a.glassBorder, b.glassBorder);
+  @override
+  Color get glassOverlay => _l(a.glassOverlay, b.glassOverlay);
 }

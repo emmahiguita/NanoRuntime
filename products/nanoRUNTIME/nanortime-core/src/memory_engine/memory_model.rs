@@ -41,6 +41,7 @@ pub struct ThroughputEstimate {
 }
 
 /// Memory Model — formal RAM and throughput estimation.
+#[derive(Clone)]
 pub struct MemoryModel {
     /// Overhead factor (file-to-RAM ratio).
     overhead_factor: f64,

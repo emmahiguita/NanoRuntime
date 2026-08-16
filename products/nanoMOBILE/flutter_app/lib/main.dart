@@ -9,6 +9,8 @@ import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/services/boot_orchestrator.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/design_tokens.dart';
+import 'core/theme/adaptive_theme.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -58,13 +60,33 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    return MaterialApp.router(
-      title: 'NanoPlatform',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: themeMode,
-      routerConfig: AppRouter.router,
+    
+    return AdaptiveOrientationBuilder(
+      builder: (context, isLandscape) {
+        return MaterialApp.router(
+          title: 'NanoPlatform',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeMode,
+          routerConfig: AppRouter.router,
+          // Animación de transición de tema suave
+          builder: (context, child) {
+            return AnimatedSwitcher(
+              duration: AdaptiveTheme.getThemeTransitionDuration(context),
+              switchInCurve: NanoCurves.easeInOut,
+              switchOutCurve: NanoCurves.easeInOut,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: child,
+                );
+              },
+              child: child,
+            );
+          },
+        );
+      },
     );
   }
 }

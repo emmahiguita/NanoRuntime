@@ -3,8 +3,12 @@
 //! Verifica la interacción entre todos los componentes del engine.
 
 use nanortime_core::memory_engine::{
-    AdaptiveScheduler, CompressionLevel, DeviceClass, HardwareProfile, HardwareProfiler, KvAction,
-    KvCacheOptimizer, MemoryPredictor, ModelProfile, NanoMemoryEngine, QualityPreserver,
+    AdaptiveScheduler, DeviceClass, HardwareProfile, HardwareProfiler, ModelProfile,
+    NanoMemoryEngine,
+};
+#[cfg(feature = "unstable")]
+use nanortime_core::memory_engine::{
+    CompressionLevel, KvAction, KvCacheOptimizer, MemoryPredictor, QualityPreserver,
     StorageManager, TokenImportance,
 };
 use std::time::Instant;
@@ -60,6 +64,7 @@ fn test_hardware_profiler_ssd_benchmark() {
 
 // ─── Storage Manager ─────────────────────────────────────────────────────────
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_storage_manager_offload_roundtrip() {
     let profile = test_profile(16384, 500.0, 8);
@@ -74,6 +79,7 @@ fn test_storage_manager_offload_roundtrip() {
     assert_eq!(loaded, original_data, "Roundtrip should preserve data");
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_storage_manager_nonexistent_layer() {
     let profile = test_profile(16384, 500.0, 8);
@@ -84,6 +90,7 @@ fn test_storage_manager_nonexistent_layer() {
     );
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_storage_manager_penalty_scales_with_size() {
     let profile = test_profile(16384, 1000.0, 8);
@@ -149,6 +156,7 @@ fn test_scheduler_strategy_adjusts() {
 
 // ─── Memory Predictor ─────────────────────────────────────────────────────────
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_predictor_identifies_consistent_hot_layers() {
     let mut predictor = MemoryPredictor::new(10);
@@ -166,6 +174,7 @@ fn test_predictor_identifies_consistent_hot_layers() {
     );
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_predictor_no_hot_layers_when_uniform_low() {
     let mut predictor = MemoryPredictor::new(10);
@@ -182,17 +191,19 @@ fn test_predictor_no_hot_layers_when_uniform_low() {
     );
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_predictor_window_bounded() {
     let mut predictor = MemoryPredictor::new(5);
     for i in 0..20 {
-        predictor.feed(&vec![i as f32 / 20.0; 8]);
+        predictor.feed(&[i as f32 / 20.0; 8]);
     }
     assert_eq!(predictor.token_count(), 20);
 }
 
 // ─── KV Cache Optimizer ──────────────────────────────────────────────────────
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_kv_optimizer_importance_ordering() {
     let opt = KvCacheOptimizer::new(0.001, "aggressive"); // Tiny budget to force eviction
@@ -231,6 +242,7 @@ fn test_kv_optimizer_importance_ordering() {
     );
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_kv_optimizer_compression_reduces_size() {
     let data = vec![100u8; 1024];
@@ -238,6 +250,7 @@ fn test_kv_optimizer_compression_reduces_size() {
     assert_eq!(compressed_int4.len(), 256); // 4x reduction
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_kv_optimizer_savings_calculation() {
     let actions = vec![
@@ -252,6 +265,7 @@ fn test_kv_optimizer_savings_calculation() {
 
 // ─── Quality Preserver ────────────────────────────────────────────────────────
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_quality_preserver_stable_quality() {
     let mut qp = QualityPreserver::new(10.0);
@@ -262,6 +276,7 @@ fn test_quality_preserver_stable_quality() {
     assert!((metrics.current_perplexity - 10.2).abs() < 0.5);
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_quality_preserver_high_drop_triggers_conservative() {
     let mut qp = QualityPreserver::new(10.0);
@@ -274,6 +289,7 @@ fn test_quality_preserver_high_drop_triggers_conservative() {
     assert!(report.quality_drop_pct > 2.0);
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_quality_preserver_perplexity_from_logits() {
     // Confident prediction: one logit dominates
@@ -296,6 +312,7 @@ fn test_engine_initializes_with_real_hardware() {
     assert_eq!(engine.layers_in_ram().len(), 32);
 }
 
+#[cfg(feature = "unstable")]
 #[test]
 fn test_engine_full_pipeline() {
     let mut engine = NanoMemoryEngine::new(16);

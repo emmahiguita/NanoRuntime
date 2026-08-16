@@ -430,6 +430,8 @@ class _FakeEngineClient extends LLMEngineClient {
     double topP = 0.9,
     int maxTokens = 256,
     String? sessionId,
+    String? context,
+    List<Map<String, String>>? history,
   }) {
     prompts.add(prompt);
     final chunks = script[rounds < script.length ? rounds : script.length - 1];

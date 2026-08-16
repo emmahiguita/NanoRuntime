@@ -79,9 +79,9 @@ class _LinuxTestScreenState extends ConsumerState<LinuxTestScreen> {
                           ElevatedButton(
                             onPressed: () async {
                               final info = await dist.getInfo();
-                              if (mounted) {
-                                showDialog(
-                                  context: context,
+                              if (!context.mounted) return;
+                              showDialog(
+                                context: context,
                                   builder: (context) => AlertDialog(
                                     title: const Text('Info'),
                                     content: Column(
@@ -101,8 +101,7 @@ class _LinuxTestScreenState extends ConsumerState<LinuxTestScreen> {
                                       ),
                                     ],
                                   ),
-                                );
-                              }
+                              );
                             },
                             child: const Text('Get Info'),
                           ),

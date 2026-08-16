@@ -22,12 +22,11 @@ class CatalogLocalModelRepository implements LocalModelRepository {
   Future<List<LocalModel>> listModels() async {
     final dirPath = await modelsDir();
     return [
-      for (final (index, entry) in NeuralCatalog.models.indexed)
-        _toModel(index, entry, dirPath),
+      for (final entry in NeuralCatalog.models) _toModel(entry, dirPath),
     ];
   }
 
-  LocalModel _toModel(int index, LmCatalogEntry entry, String? dirPath) {
+  LocalModel _toModel(LmCatalogEntry entry, String? dirPath) {
     final dest = dirPath == null
         ? null
         : File('$dirPath${Platform.pathSeparator}${entry.file}');
@@ -36,7 +35,9 @@ class CatalogLocalModelRepository implements LocalModelRepository {
         dest != null && dest.existsSync() && dest.lengthSync() > 0;
     final destPath = installed ? dest.path : null;
     return LocalModel(
-      id: 'm$index',
+      // Id estable: el nombre de archivo no cambia al reordenar el catálogo
+      // (los ids `m$index` cambiaban y un activo podía apuntar a otro modelo).
+      id: entry.file,
       name: entry.name,
       params: entry.params,
       quant: entry.quant,

@@ -68,6 +68,11 @@ class InternalXvncBackend(
     // arranque" 1 ms tras el spawn y stop() mataba a un Xvnc vivo con
     // SIGKILL. Evidencia device 2026-08-14: reap "signal=9" + kill del app.
     private val isPidAlive: (Long) -> Boolean = { false },
+    // BUG-2 FIX: kill de Xvnc delegado al worker (padre real). El kill local
+    // Process.killProcess lanzaba SecurityException en Android 12+ (proceso
+    // ajeno al app) — tragada por el catch, Xvnc seguía vivo y huérfano
+    // ocupando 5901 hasta que el próximo start() lo mataba vía anti-duplicado.
+    private val killPid: (Long) -> Boolean = { false },
 ) : XServerBackend {
     companion object {
         private const val TAG = "InternalXvncBackend"
@@ -253,11 +258,18 @@ class InternalXvncBackend(
 
     override suspend fun stop() {
         if (xvncPid > 0) {
-            try {
-                android.os.Process.killProcess(xvncPid.toInt())
-                android.util.Log.i("InternalXvncBackend", "Xvnc PID $xvncPid terminated")
-            } catch (e: Exception) {
-                android.util.Log.w("InternalXvncBackend", "kill Xvnc PID $xvncPid: ${e.message}")
+            val delegated = killPid(xvncPid)
+            if (delegated) {
+                android.util.Log.i("InternalXvncBackend", "Xvnc PID $xvncPid terminated (delegado al worker)")
+            } else {
+                // Fallback: kill local. No puede matar hijos del worker en
+                // Android 12+, pero cubre un spawn local o worker caído.
+                try {
+                    android.os.Process.killProcess(xvncPid.toInt())
+                    android.util.Log.i("InternalXvncBackend", "Xvnc PID $xvncPid terminated (fallback local)")
+                } catch (e: Exception) {
+                    android.util.Log.w("InternalXvncBackend", "kill Xvnc PID $xvncPid: ${e.message}")
+                }
             }
             // K-1: SIGKILL es asíncrono. Esperar (bounded) a que /proc/<pid>
             // desaparezca para que el puerto 5901 quede libre antes del próximo

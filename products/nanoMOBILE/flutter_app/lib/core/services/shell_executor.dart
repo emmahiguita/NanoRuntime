@@ -11,6 +11,7 @@ import 'nanoshell_ffi.dart';
 import 'rootfs_env.dart';
 import '../../features/terminal/terminal_types.dart';
 import '../../features/terminal/i_bin_executor.dart';
+import '../utils/security_utils.dart';
 
 /// Ejecuta comandos reales con streaming de salida.
 ///
@@ -29,6 +30,10 @@ import '../../features/terminal/i_bin_executor.dart';
 /// no funcionarán — pero todo lo demás (compiladores, curl, git, pip,
 /// compilaciones largas) emite output en tiempo real.
 class ShellExecutor implements IBinExecutor {
+  /// AND-009: Path base de último recurso. Solo se usa en tests/desktop
+  /// donde no existe MethodChannel; en Android gana getFilesDir() real.
+  static const _fallbackBaseDir = '/data/data/dev.nanoai.mobile/files/nano';
+
   final RootfsManager _rootfs;
 
   String? _baseDir; // files/nano/
@@ -66,12 +71,12 @@ class ShellExecutor implements IBinExecutor {
     try {
       _baseDir = await NanoRuntimeApi.instance.getFilesDir();
     } catch (_) {
-      // Fallback: sin channel (tests, desktop). Nanoshell aún puede funcionar
-      // si conocemos el path del app sandbox.
-      _baseDir = '/data/data/dev.nanoai.mobile/files/nano';
+      // AND-009 FIX: Fallback sin channel (tests, desktop). En device real
+      // getFilesDir() siempre gana; este literal solo aplica fuera de Android.
+      _baseDir = _fallbackBaseDir;
     }
     if (_baseDir == null || _baseDir!.isEmpty) {
-      _baseDir = '/data/data/dev.nanoai.mobile/files/nano';
+      _baseDir = _fallbackBaseDir;
     }
     _assetBinDir = _baseDir;
 
@@ -301,7 +306,10 @@ class ShellExecutor implements IBinExecutor {
     } catch (e) {
       _running.remove(proc);
       if (trackTag != null) _tracked.remove(trackTag);
-      // Fallback a probeExec nativo (sin streaming, captura completa)
+      // AND-016 FIX: Fallback a probeExec nativo (sin streaming, captura completa).
+      // El código de retorno -126 indica "error interno de ejecución" distinto de
+      // 127 (command not found). El caller puede distinguir entre fallo del sistema
+      // vs comando inexistente.
       try {
         final map = await NanoRuntimeApi.instance.probeExec(command, args);
         if (map != null) {
@@ -317,8 +325,7 @@ class ShellExecutor implements IBinExecutor {
         }
       } catch (_) {}
       onErr?.call('exec bloqueado: $e');
-      return -126; // código distinto de 127 (command not found) para que el
-      // caller pueda distinguir "error interno" de "fallo real"
+      return -126; // código -126 = error interno, 127 = command not found
     }
   }
 
@@ -361,6 +368,10 @@ class ShellExecutor implements IBinExecutor {
     );
   }
 
+  /// Sanitiza un comando para prevenir inyección de comandos.
+  /// AND-015 FIX: Usa SecurityUtils compartido en lugar de implementación duplicada.
+  String _sanitizeCommand(String cmd) => SecurityUtils.sanitizeCommand(cmd);
+
   /// Ejecuta comando vía /system/bin/sh -c con streaming de salida en tiempo real.
   /// Usa /system/bin/sh como entry point porque SELinux bloquea execve() desde
   /// el app data dir en Android 10+ (error=13 Permission denied).
@@ -378,6 +389,15 @@ class ShellExecutor implements IBinExecutor {
       onErr?.call('bash: sin base dir');
       return 1;
     }
+
+    // Sanitizar comando para prevenir inyección
+    try {
+      cmd = _sanitizeCommand(cmd);
+    } catch (e) {
+      onErr?.call('bash: error de sanitización: $e');
+      return 126;
+    }
+
     return stream(
       _shPath,
       ['-c', cmd],
@@ -395,6 +415,17 @@ class ShellExecutor implements IBinExecutor {
     Map<String, String>? env,
     Duration timeout = const Duration(seconds: 120),
   }) async {
+    // Sanitizar comando antes de pasar a bashStream
+    try {
+      cmd = _sanitizeCommand(cmd);
+    } catch (e) {
+      return ShellResult(
+        stdout: '',
+        stderr: 'bash: error de sanitización: $e',
+        exitCode: 126,
+      );
+    }
+
     final outBuf = StringBuffer();
     final errBuf = StringBuffer();
     final rc = await bashStream(
@@ -439,7 +470,7 @@ class ShellExecutor implements IBinExecutor {
   /// Entorno mínimo para comandos BusyBox via Nanoshell.
   /// Sin PATH ni HOME, busybox_main no encuentra sus applets ni archivos.
   Map<String, String> get _defaultEnv {
-    final base = _baseDir ?? '/data/data/dev.nanoai.mobile/files/nano';
+    final base = _baseDir ?? _fallbackBaseDir;
     return {
       'HOME': base,
       'PATH': '$base:/system/bin:/system/xbin',
@@ -522,6 +553,17 @@ class ShellExecutor implements IBinExecutor {
     List<String> args, {
     Map<String, String>? env,
   }) async {
+    // Validar argumentos para prevenir inyección
+    for (final arg in args) {
+      if (arg.contains('\n') || arg.contains('\r') || arg.contains('\u0000')) {
+        return const ShellResult(
+          stdout: '',
+          stderr: 'busybox: argumento inválido contiene caracteres de control',
+          exitCode: 126,
+        );
+      }
+    }
+
     String esc(String s) => "'${s.replaceAll("'", "'\\''")}'";
     final cmd = args.map(esc).join(' ');
     return bash(cmd, env: env);
@@ -632,7 +674,7 @@ class ShellExecutor implements IBinExecutor {
       );
       if (taskId == null) return null;
       // Esperar a que el worker escriba los archivos de resultado.
-      final base = _baseDir ?? '/data/data/dev.nanoai.mobile/files/nano';
+      final base = _baseDir ?? _fallbackBaseDir;
       final outF = File('$base/worker_out_$taskId');
       final errF = File('$base/worker_err_$taskId');
       final rcF = File('$base/worker_rc_$taskId');

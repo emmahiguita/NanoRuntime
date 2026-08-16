@@ -331,45 +331,48 @@ class ModelStorageChannelHandler(
                 null
             } ?: continue
 
-            while (children.moveToNext() && visited < MAX_ENTRIES) {
-                visited++
-                val name = children.getString(
-                    children.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
-                ) ?: continue
-                val mime = children.getString(
-                    children.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE),
-                ) ?: ""
-                val docId = children.getString(
-                    children.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
-                ) ?: continue
-                val childUri = DocumentsContract.buildDocumentUriUsingTree(dir, docId)
+            try {
+                while (children.moveToNext() && visited < MAX_ENTRIES) {
+                    visited++
+                    val name = children.getString(
+                        children.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                    ) ?: continue
+                    val mime = children.getString(
+                        children.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE),
+                    ) ?: ""
+                    val docId = children.getString(
+                        children.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+                    ) ?: continue
+                    val childUri = DocumentsContract.buildDocumentUriUsingTree(dir, docId)
 
-                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    queue.addLast(childUri)
-                    continue
+                    if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                        queue.addLast(childUri)
+                        continue
+                    }
+
+                    val ext = name.substringAfterLast('.', "").lowercase()
+                    if (ext !in MODEL_EXTENSIONS) continue
+
+                    val sizeIdx = children.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                    val size = if (sizeIdx >= 0) children.getLong(sizeIdx) else -1L
+                    val magicOk = if (ext == "gguf") isGguf(childUri) else true
+                    if (ext == "gguf" && !magicOk) {
+                        Log.w(TAG, "extensión .gguf sin magic GGUF: $name")
+                    }
+
+                    out.add(
+                        mapOf(
+                            "name" to name,
+                            "sizeBytes" to size,
+                            "uri" to childUri.toString(),
+                            "format" to ext,
+                            "magicOk" to magicOk,
+                        ),
+                    )
                 }
-
-                val ext = name.substringAfterLast('.', "").lowercase()
-                if (ext !in MODEL_EXTENSIONS) continue
-
-                val sizeIdx = children.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
-                val size = if (sizeIdx >= 0) children.getLong(sizeIdx) else -1L
-                val magicOk = if (ext == "gguf") isGguf(childUri) else true
-                if (ext == "gguf" && !magicOk) {
-                    Log.w(TAG, "extensión .gguf sin magic GGUF: $name")
-                }
-
-                out.add(
-                    mapOf(
-                        "name" to name,
-                        "sizeBytes" to size,
-                        "uri" to childUri.toString(),
-                        "format" to ext,
-                        "magicOk" to magicOk,
-                    ),
-                )
+            } finally {
+                children.close()
             }
-            children.close()
         }
         return out
     }
@@ -408,7 +411,12 @@ class ModelStorageChannelHandler(
                 }
                 return@launch
             }
-            val fdPath = openFdInWorker(uriStr, pfd)
+            val fdPath = try {
+                openFdInWorker(uriStr, pfd)
+            } catch (e: Exception) {
+                Log.w(TAG, "openFdInWorker falló: ${e.message}")
+                null
+            }
             try { pfd.close() } catch (_: Exception) {}
             mainHandler.post {
                 if (fdPath != null) {

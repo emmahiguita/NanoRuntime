@@ -27,8 +27,14 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   // Una descarga a la vez (GGUF de varios GB): la activa posee el token.
   String? _downloadingId;
 
-  // Último escaneo exitoso: evita re-walkear el storage en cada navegación.
-  DateTime? _lastScanAt;
+  // Último escaneo exitoso por vía: throttles independientes — un escaneo
+  // SAF no debe impedir el escaneo completo del storage (y viceversa).
+  DateTime? _lastSafScanAt;
+  DateTime? _lastAllScanAt;
+
+  // Última lista detectada exitosa: permite reconciliar el catálogo cuando
+  // listModels termina DESPUÉS del escaneo (race del arranque).
+  List<DetectedModel>? _lastDetected;
 
   ModelsNotifier(
     this._ref,
@@ -60,7 +66,12 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     try {
       final models = await _repository.listModels();
       if (!mounted) return;
-      state = state.copyWith(models: models);
+      final lastDetected = _lastDetected;
+      // Si el escaneo terminó primero, reconcilia de inmediato: sin esto el
+      // catálogo sobrescribiría la lista con modelos sin reconciliar.
+      state = lastDetected != null && !state.scanning
+          ? _applyScan(lastDetected, models: models)
+          : state.copyWith(models: models);
     } catch (e) {
       debugPrint('[models] listModels falló: $e');
     }
@@ -185,6 +196,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         for (final model in state.models)
           model.copyWith(active: model.id == id, loading: model.id == id),
       ],
+      activeDetected: null,
     );
     _ref
         .read(chatProvider.notifier)
@@ -210,8 +222,10 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   }
 
   /// Auto-escaneo al entrar a la pantalla. Solo si el árbol ya está
-  /// concedido y el último escaneo tiene más de 30 s (no re-walkear
-  /// el storage en cada navegación).
+  /// concedido y el último escaneo SAF tiene más de 30 s (no re-walkear
+  /// el storage en cada navegación). Se llama DESPUÉS de [maybeAutoScanAll]:
+  /// si el acceso completo está concedido, el árbol SAF es subconjunto del
+  /// storage compartido y no se re-walkea.
   Future<void> maybeAutoScan() async {
     String? tree;
     try {
@@ -223,7 +237,8 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     if (!mounted) return;
     state = state.copyWith(treeGranted: tree != null);
     if (tree == null) return;
-    final last = _lastScanAt;
+    if (state.allFilesGranted) return;
+    final last = _lastSafScanAt;
     if (last != null && DateTime.now().difference(last).inSeconds < 30) return;
     await _scanInternal();
   }
@@ -244,7 +259,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     if (!mounted) return;
     state = state.copyWith(allFilesGranted: granted);
     if (!granted) return;
-    final last = _lastScanAt;
+    final last = _lastAllScanAt;
     if (last != null && DateTime.now().difference(last).inSeconds < 30) return;
     await _scanAllInternal();
   }
@@ -265,23 +280,18 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   }
 
   Future<void> _scanAllInternal() async {
+    if (state.scanning) return; // un escaneo a la vez, da igual la vía
     state = state.copyWith(scanning: true, scanError: null);
     try {
       final detected = await _storage.scanAll();
       if (!mounted) return;
-      _lastScanAt = DateTime.now();
-      final reconciled = _reconcileDetectedWithCatalog(detected);
-      state = state.copyWith(
-        scanning: false,
-        models: reconciled.models,
-        detected: reconciled.detected,
-        scanError: null,
-      );
+      _lastAllScanAt = DateTime.now();
+      state = _applyScan(detected);
     } on StateError {
       // El canal lanza StateError cuando el permiso MANAGE no está
       // concedido: mensaje propio, distinto del flujo SAF.
       if (!mounted) return;
-      _lastScanAt = null;
+      _lastAllScanAt = null;
       state = state.copyWith(
         scanning: false,
         scanError: 'Acceso al storage no concedido. Toca "Conceder acceso".',
@@ -292,39 +302,57 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   }
 
   Future<void> _scanInternal() async {
+    if (state.scanning) return; // un escaneo a la vez, da igual la vía
     state = state.copyWith(scanning: true, scanError: null);
     try {
       final detected = await _storage.scan();
       if (!mounted) return;
-      _lastScanAt = DateTime.now();
-      final reconciled = _reconcileDetectedWithCatalog(detected);
-      state = state.copyWith(
-        scanning: false,
-        models: reconciled.models,
-        detected: reconciled.detected,
-        scanError: null,
-      );
+      _lastSafScanAt = DateTime.now();
+      state = _applyScan(detected);
     } catch (e) {
       _scanFailed(e);
     }
   }
 
+  /// Aplica una lista detectada al estado: reconcilia el catálogo (con
+  /// [models] si se pasa, p. ej. cuando _load termina después del escaneo)
+  /// y expone las tarjetas detected restantes.
+  ModelsState _applyScan(
+    List<DetectedModel> detected, {
+    List<LocalModel>? models,
+  }) {
+    _lastDetected = detected;
+    final reconciled = _reconcileDetectedWithCatalog(detected, models: models);
+    return state.copyWith(
+      scanning: false,
+      models: reconciled.models,
+      detected: reconciled.detected,
+      scanError: null,
+    );
+  }
+
   /// Reconciles external storage findings with the downloadable catalog.
   ///
   /// A catalog model is considered installed when the exact catalog file is
-  /// found with a direct readable path from MANAGE_EXTERNAL_STORAGE. SAF-only
-  /// matches remain visible as detected cards because they need fd opening.
+  /// found with a direct readable path from MANAGE_EXTERNAL_STORAGE AND its
+  /// size matches the catalog (±10%): sin eso, un archivo corrupto o distinto
+  /// con el mismo nombre se marcaría instalado sin verificación de hash.
+  /// SAF-only matches remain visible as detected cards because they need fd
+  /// opening.
   _CatalogReconciliation _reconcileDetectedWithCatalog(
-    List<DetectedModel> detected,
-  ) {
+    List<DetectedModel> detected, {
+    List<LocalModel>? models,
+  }) {
+    final current = models ?? state.models;
     final detectedByName = {
       for (final model in detected)
         if (model.usable && model.path != null) model.name.toLowerCase(): model,
     };
 
     final reconciledModels = [
-      for (final model in state.models)
-        if (detectedByName[model.fileName.toLowerCase()] case final found?)
+      for (final model in current)
+        if (detectedByName[model.fileName.toLowerCase()] case final found?
+            when _sizeMatchesCatalog(model, found))
           model.copyWith(
             downloadState: ModelDownloadState.installed,
             progress: 1,
@@ -347,9 +375,21 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     return _CatalogReconciliation(reconciledModels, visibleDetected);
   }
 
+  /// El tamaño del archivo detectado debe coincidir con el declarado en el
+  /// catálogo (±10%: los sizeGb son aproximados). Sin coincidencia no se
+  /// marca el catálogo instalado: el archivo queda como tarjeta detected
+  /// para uso directo, con aviso honesto en la tarjeta.
+  bool _sizeMatchesCatalog(LocalModel catalog, DetectedModel found) {
+    if (found.sizeBytes <= 0) return false;
+    final expectedBytes = catalog.sizeGb * 1024 * 1024 * 1024;
+    final delta = (found.sizeBytes - expectedBytes).abs();
+    return delta <= expectedBytes * 0.10;
+  }
+
   void _scanFailed(Object e) {
     if (!mounted) return;
-    _lastScanAt = null;
+    _lastSafScanAt = null;
+    _lastAllScanAt = null;
     state = state.copyWith(
       scanning: false,
       scanError: e is StateError
@@ -364,25 +404,20 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// worker (:nanoshell) lo abre directo y el engine lo lee con
   /// `--model <path>`. Cero copias de archivos pesados. Si vino del árbol
   /// SAF (sin path), se abre el fd en el worker (`/proc/self/fd/N`).
+  ///
+  /// Se permite intentar modelos aunque el scanner marque incompatibilidad
+  /// (formato no GGUF o magic no válido): el aviso honesto vive en la tarjeta
+  /// detected (_DetectedCard), no en scanError, que es exclusivo del escaneo.
   Future<void> useDetected(DetectedModel model) async {
-    // Permitimos intentar modelos aun cuando el scanner marque incompatibilidad
-    // (ej. formato no GGUF o magic no válido). Se expone un aviso honesto en
-    // scanError pero se deja al usuario probar el modelo. Evita bloquear la UI.
     if (state.loadingDetectedUri != null) return; // una apertura a la vez
     final directPath = model.path;
-    state = state.copyWith(
-      loadingDetectedUri: directPath ?? model.uri,
-      scanError: null,
-    );
+    state = state.copyWith(loadingDetectedUri: directPath ?? model.uri);
     if (directPath != null) {
       if (!mounted) return;
-      state = state.copyWith(loadingDetectedUri: null);
-      if (!model.usable) {
-        // Aviso honesto: modelo detectado no compatible, intentando de todos modos.
-        state = state.copyWith(
-          scanError: 'Modelo detectado no totalmente compatible: ${model.name}. Intentando cargar de todos modos.',
-        );
-      }
+      state = state.copyWith(
+        loadingDetectedUri: null,
+        activeDetected: model.name,
+      );
       _ref
           .read(chatProvider.notifier)
           .selectModel(model.name, path: directPath);
@@ -398,7 +433,10 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         );
         return;
       }
-      state = state.copyWith(loadingDetectedUri: null);
+      state = state.copyWith(
+        loadingDetectedUri: null,
+        activeDetected: model.name,
+      );
       _ref.read(chatProvider.notifier).selectModel(model.name, path: fdPath);
     } catch (e) {
       if (!mounted) return;

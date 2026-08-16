@@ -92,10 +92,12 @@ class ProotManager {
       defaultBinds.add('${_shell.usrDir}:/usr/termux');
     }
 
-    // Si hay un directorio home en el rootfs, bind-earlo también
-    final homeDir = '$rootfs/root';
-    if (Directory(homeDir).existsSync()) {
-      // Asegurar que /root existe dentro del rootfs
+    // BUG-6 FIX: el bloque anterior tenía el cuerpo vacío (solo el
+    // comentario). proot arranca con workDir=/root — sin ese directorio el
+    // spawn muere con chdir ENOENT. Crearlo si falta.
+    final homeDir = Directory('$rootfs/root');
+    if (!homeDir.existsSync()) {
+      await homeDir.create(recursive: true);
     }
 
     final allBinds = [...defaultBinds, ...bindMounts];
@@ -104,16 +106,63 @@ class ProotManager {
     // standard system paths (/dev, /proc, /sys, /data/data/<app>).
     // Block arbitrary host paths to prevent sandbox escape.
     for (final bind in allBinds) {
-      final src = bind.split(':').first;
-      if (src.startsWith('/dev') || src.startsWith('/proc') ||
-          src.startsWith('/sys') || src.startsWith('/data/data/')) {
-        continue; // allowed
+      final parts = bind.split(':');
+      if (parts.isEmpty) {
+        onErr?.call('Security: bind mount formato inválido: "$bind"');
+        return 127;
       }
-      // Also allow app-specific paths resolved at runtime
-      if (_shell.usrDir != null && src.startsWith(_shell.usrDir!)) continue;
-      if (src == _shell.baseDir) continue;
-      onErr?.call('Security: bind mount "$src" is not allowed');
-      return 127;
+
+      final src = parts.first;
+
+      // Validar contra path traversal
+      if (src.contains('..') || src.contains('\0') || src.contains('\n')) {
+        onErr?.call('Security: bind mount contiene caracteres de control: "$src"');
+        return 127;
+      }
+
+      // Normalizar el path para detectar ataques de path traversal
+      final normalized = src.replaceAll(RegExp(r'/+'), '/');
+      if (normalized != src) {
+        onErr?.call('Security: bind mount contiene paths normalizados inválidos: "$src"');
+        return 127;
+      }
+
+      // Allowlist de paths seguros
+      final allowedPaths = [
+        '/dev',
+        '/proc',
+        '/sys',
+        '/data/data/',
+      ];
+
+      bool isAllowed = false;
+      for (final allowed in allowedPaths) {
+        if (src.startsWith(allowed)) {
+          isAllowed = true;
+          break;
+        }
+      }
+
+      // También permitir paths específicos de la app
+      if (_shell.usrDir != null && src.startsWith(_shell.usrDir!)) {
+        isAllowed = true;
+      }
+      if (_shell.baseDir != null && src == _shell.baseDir) {
+        isAllowed = true;
+      }
+
+      if (!isAllowed) {
+        onErr?.call('Security: bind mount "$src" no está en allowlist');
+        return 127;
+      }
+
+      // Validar que el path exista (excepto para /dev, /proc, /sys que son virtuales)
+      if (!src.startsWith('/dev') && !src.startsWith('/proc') && !src.startsWith('/sys')) {
+        if (!Directory(src).existsSync() && !File(src).existsSync()) {
+          onErr?.call('Security: bind mount "$src" no existe');
+          return 127;
+        }
+      }
     }
 
     // Construir argumentos de proot

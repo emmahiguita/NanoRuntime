@@ -480,8 +480,8 @@ mod tests {
         // Corromper el archivo principal
         let path = session.available_sessions()[0].clone();
         let mut file = OpenOptions::new().write(true).open(&path).unwrap();
-        let mut garbage = vec![0x00u8; 100];
-        file.write_all(&mut garbage).unwrap();
+        let garbage = vec![0x00u8; 100];
+        file.write_all(&garbage).unwrap();
         drop(file);
 
         // Debería recuperarse del backup

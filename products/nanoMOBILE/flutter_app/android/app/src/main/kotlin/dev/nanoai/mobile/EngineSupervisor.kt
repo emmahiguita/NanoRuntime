@@ -164,6 +164,15 @@ class EngineSupervisor(
      * pasará la ruta del GGUF descargado.
      */
     fun start(port: Int, modelPath: String?, onState: (EngineState) -> Unit) {
+        startInternal(port, modelPath, onState, fallbackMode = false)
+    }
+    
+    /**
+     * Implementación interna del start con soporte para modo fallback.
+     * En fallback mode, intenta configuraciones alternativas para diagnosticar
+     * el problema de inicialización.
+     */
+    private fun startInternal(port: Int, modelPath: String?, onState: (EngineState) -> Unit, fallbackMode: Boolean) {
         synchronized(lock) {
             if (shuttingDown) {
                 onState(EngineState.Failed("supervisor en shutdown"))
@@ -201,19 +210,57 @@ class EngineSupervisor(
                     } else {
                         add("--model"); add(modelPath)
                     }
-                    add("--quiet")
+                    // En modo fallback, usar --verbose para más diagnóstico
+                    if (fallbackMode) {
+                        add("--verbose")
+                    } else {
+                        add("--quiet")
+                    }
                 }
                 val nativeLibDir = context.applicationInfo.nativeLibraryDir
                 val nanoUsr = File(appFilesDir, "nano/usr").absolutePath
                 val nanoUsrLib = File(nanoUsr, "lib").absolutePath
+                
+                // Verificar que los directorios de librerías existan
+                val nativeLibExists = File(nativeLibDir).exists()
+                val nanoUsrLibExists = File(nanoUsrLib).exists()
+                
+                Log.i(TAG, "nativeLibDir: $nativeLibDir (exists=$nativeLibExists)")
+                Log.i(TAG, "nanoUsrLib: $nanoUsrLib (exists=$nanoUsrLibExists)")
+                
+                if (!nativeLibExists) {
+                    failIfCurrent(gen, onState, "directorio nativeLibDir no existe: $nativeLibDir")
+                    return@launch
+                }
+                
+                // Crear directorios temporales si no existen
+                val tmpDir = File(appFilesDir, "nano/usr/tmp")
+                if (!tmpDir.exists()) {
+                    tmpDir.mkdirs()
+                    Log.i(TAG, "creado directorio tmp: ${tmpDir.absolutePath}")
+                }
+                
+                val homeDir = File(appFilesDir, "nano/home")
+                if (!homeDir.exists()) {
+                    homeDir.mkdirs()
+                    Log.i(TAG, "creado directorio home: ${homeDir.absolutePath}")
+                }
+                
                 val envp = listOf(
                     "LD_LIBRARY_PATH=$nativeLibDir:$nanoUsrLib:/system/lib64",
                     "NANO_NATIVE_LIB_DIR=$nativeLibDir",
-                    "HOME=${File(appFilesDir, "nano/home").absolutePath}",
-                    "TMPDIR=${File(appFilesDir, "nano/usr/tmp").absolutePath}",
+                    "HOME=${homeDir.absolutePath}",
+                    "TMPDIR=${tmpDir.absolutePath}",
                     "NANO_ROOTFS=$nanoUsr",
                 )
                 val taskId = "engine-$gen-${System.currentTimeMillis()}"
+                
+                // Verificar disponibilidad del puerto antes de spawn
+                if (!isPortAvailable(port)) {
+                    failIfCurrent(gen, onState, "puerto $port ya está en uso (¿otra instancia?)")
+                    return@launch
+                }
+                
                 val pid = withContext(Dispatchers.IO) {
                     // spawnDetached espera hasta 20s el latch del worker
                     // (awaitConnected + replyTo) — bloqueante por diseño.
@@ -228,16 +275,35 @@ class EngineSupervisor(
                     if (generation != gen) return@launch // stop() ocurrió mientras tanto
                     handle = EngineHandle(pid, port)
                 }
-                Log.i(TAG, "engine pid=$pid port=$port taskId=$taskId — health poll")
+                Log.i(TAG, "engine pid=$pid port=$port taskId=$taskId — esperando logs de inicio")
+                
+                // Dar tiempo al proceso para inicializar y escribir logs
+                delay(500)
+                
+                // Leer logs de error del proceso para diagnóstico
+                val errorLogs = readEngineErrorLogs(pid)
+                if (errorLogs.isNotEmpty()) {
+                    Log.w(TAG, "engine stderr logs: $errorLogs")
+                }
 
                 // Health poll con backoff limitado. Si el proceso muere antes,
                 // no se sigue esperando el máximo.
                 var delayMs = HEALTH_BASE_DELAY_MS
+                var lastError = ""
+                
                 for (attempt in 1..HEALTH_MAX_ATTEMPTS) {
                     if (!isPidAlive(pid)) {
-                        failIfCurrent(gen, onState, "proceso murió antes de estar sano (pid=$pid)")
+                        // Leer logs finales antes de reportar fallo
+                        val finalLogs = readEngineErrorLogs(pid)
+                        val errorMsg = if (finalLogs.isNotEmpty()) {
+                            "proceso murió antes de estar sano (pid=$pid). Logs: $finalLogs"
+                        } else {
+                            "proceso murió antes de estar sano (pid=$pid)"
+                        }
+                        failIfCurrent(gen, onState, errorMsg)
                         return@launch
                     }
+                    
                     val body = withContext(Dispatchers.IO) { probeHealth(port, HEALTH_TIMEOUT_MS) }
                     if (body != null) {
                         synchronized(lock) {
@@ -248,16 +314,49 @@ class EngineSupervisor(
                         onState(EngineState.Ready(pid, port))
                         return@launch
                     }
+                    
+                    // En cada intento fallido, leer logs para diagnóstico
+                    if (attempt % 3 == 0) {
+                        val errorLogs = readEngineErrorLogs(pid)
+                        if (errorLogs.isNotEmpty()) {
+                            lastError = errorLogs
+                            Log.w(TAG, "attempt $attempt: logs del motor: $errorLogs")
+                        }
+                    }
+                    
                     delay(delayMs)
                     delayMs = minOf(delayMs * 2, HEALTH_MAX_DELAY_MS)
                 }
+                
                 // El proceso sigue vivo pero no responde /health — un server
                 // inservible no debe quedar de huérfano ocupando el PID.
-                failIfCurrent(
-                    gen, onState,
-                    "health timeout tras $HEALTH_MAX_ATTEMPTS intentos (pid=$pid)",
-                    pidToKill = pid,
-                )
+                val finalLogs = readEngineErrorLogs(pid)
+                val timeoutMsg = if (finalLogs.isNotEmpty()) {
+                    "health timeout tras $HEALTH_MAX_ATTEMPTS intentos (pid=$pid). Últimos logs: $finalLogs"
+                } else {
+                    "health timeout tras $HEALTH_MAX_ATTEMPTS intentos (pid=$pid)"
+                }
+                
+                // Si no estamos en modo fallback y falló, intentar modo diagnóstico
+                if (!fallbackMode && gen == generation) {
+                    Log.w(TAG, "health check falló, intentando modo diagnóstico...")
+                    // Matar el proceso actual
+                    if (isPidAlive(pid)) {
+                        sendSignal(pid, SIGTERM)
+                        delay(1000)
+                        if (isPidAlive(pid)) {
+                            sendSignal(pid, SIGKILL)
+                        }
+                    }
+                    // Esperar un momento antes de reintentar
+                    delay(2000)
+                    // Intentar en modo fallback (verbose)
+                    startInternal(port, modelPath, onState, fallbackMode = true)
+                    return@launch
+                }
+                
+                // En modo fallback, no matar el proceso para permitir inspección manual
+                failIfCurrent(gen, onState, timeoutMsg, pidToKill = pid, skipKill = fallbackMode)
             } catch (e: Exception) {
                 Log.w(TAG, "start falló: $e")
                 // Si el spawn ya devolvió PID y algo falló después, matarlo.
@@ -279,12 +378,13 @@ class EngineSupervisor(
         onState: (EngineState) -> Unit,
         reason: String,
         pidToKill: Int? = null,
+        skipKill: Boolean = false,
     ) {
         synchronized(lock) {
             if (generation != gen) return
             handle = null
         }
-        if (pidToKill != null && isPidAlive(pidToKill)) {
+        if (!skipKill && pidToKill != null && isPidAlive(pidToKill)) {
             Log.w(TAG, "Failed: matando pid=$pidToKill (proceso inservible)")
             sendSignal(pidToKill, SIGKILL)
         }
@@ -299,10 +399,32 @@ class EngineSupervisor(
             conn.connectTimeout = timeoutMs
             conn.readTimeout = timeoutMs
             conn.requestMethod = "GET"
-            if (conn.responseCode != 200) return null
+            
+            // Verificar que la conexión sea exitosa
+            val responseCode = conn.responseCode
+            if (responseCode != 200) {
+                Log.w(TAG, "health check falló con HTTP $responseCode")
+                return null
+            }
+            
             val body = conn.inputStream.readBytes().toString(Charsets.UTF_8)
-            if (!body.contains("\"status\":\"ok\"")) null else body
-        } catch (_: Exception) {
+            
+            // Verificar que el cuerpo tenga el formato esperado
+            if (!body.contains("\"status\":\"ok\"")) {
+                Log.w(TAG, "health check response inválido: $body")
+                return null
+            }
+            
+            Log.d(TAG, "health check OK: $body")
+            body
+        } catch (e: java.net.ConnectException) {
+            Log.w(TAG, "health check: conexión rechazada (puerto no abierto aún)")
+            null
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.w(TAG, "health check: timeout tras ${timeoutMs}ms")
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "health check error: ${e.javaClass.simpleName}: ${e.message}")
             null
         } finally {
             conn?.disconnect()
@@ -367,6 +489,36 @@ class EngineSupervisor(
             if (signal == SIGTERM) {
                 try { android.os.Process.killProcess(pid) } catch (_: Exception) {}
             }
+        }
+    }
+
+    /** Verifica si un puerto está disponible en localhost. */
+    private fun isPortAvailable(port: Int): Boolean {
+        return try {
+            val socket = java.net.Socket("127.0.0.1", port)
+            socket.close()
+            false // Puerto está en uso
+        } catch (e: java.net.ConnectException) {
+            true // Puerto está libre
+        } catch (e: Exception) {
+            Log.w(TAG, "Error verificando puerto $port: ${e.message}")
+            true // Asumir disponible ante error
+        }
+    }
+    
+    /** Lee logs de error del proceso nanortime desde el archivo temporal. */
+    private fun readEngineErrorLogs(pid: Int): String {
+        return try {
+            val logFile = File(appFilesDir, "nano/usr/tmp/nanortime_err.txt")
+            if (logFile.exists()) {
+                val logs = logFile.readText().take(500) // Limitar a 500 caracteres
+                if (logs.length >= 500) logs + "..." else logs
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error leyendo logs del motor: ${e.message}")
+            ""
         }
     }
 

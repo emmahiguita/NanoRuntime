@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import '../utils/security_utils.dart';
 
 /// Structured, privacy-aware audit logger for terminal orchestration.
 ///
@@ -141,21 +142,8 @@ class TerminalAuditLogger {
   }
 
   static String _sanitize(String value) {
-    var s = value;
-    s = s.replaceAll(RegExp("/data/(user|data)/0/[^\\s\"']+"), '<app-data>');
-    s = s.replaceAll(
-      RegExp("C:\\\\Users\\\\[^\\s\"']+", caseSensitive: false),
-      '<user-path>',
-    );
-    s = s.replaceAll(
-      RegExp(
-        r'(token|password|passwd|secret|key)=([^\s&]+)',
-        caseSensitive: false,
-      ),
-      r'$1=<redacted>',
-    );
-    if (s.length > 500) s = '${s.substring(0, 500)}...';
-    return s;
+    // AND-015 FIX: Usa SecurityUtils compartido en lugar de implementación duplicada
+    return SecurityUtils.sanitizeInput(value);
   }
 
   static String _shortStack(StackTrace stackTrace) {

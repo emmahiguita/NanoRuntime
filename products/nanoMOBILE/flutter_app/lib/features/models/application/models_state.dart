@@ -24,6 +24,11 @@ class ModelsState {
   /// uri o path del detectado que se está abriendo (spinner en su botón).
   final String? loadingDetectedUri;
 
+  /// Nombre del modelo detectado seleccionado (useDetected): refleja el
+  /// activo cuando no viene del catálogo. Null cuando el activo es del
+  /// catálogo o no hay modelo cargado.
+  final String? activeDetected;
+
   const ModelsState({
     this.models = const [],
     this.detected = const [],
@@ -32,6 +37,7 @@ class ModelsState {
     this.allFilesGranted = false,
     this.scanError,
     this.loadingDetectedUri,
+    this.activeDetected,
   });
 
   ModelsState copyWith({
@@ -42,6 +48,7 @@ class ModelsState {
     bool? allFilesGranted,
     Object? scanError = _sentinel,
     Object? loadingDetectedUri = _sentinel,
+    Object? activeDetected = _sentinel,
   }) {
     return ModelsState(
       models: models ?? this.models,
@@ -55,6 +62,9 @@ class ModelsState {
       loadingDetectedUri: identical(loadingDetectedUri, _sentinel)
           ? this.loadingDetectedUri
           : loadingDetectedUri as String?,
+      activeDetected: identical(activeDetected, _sentinel)
+          ? this.activeDetected
+          : activeDetected as String?,
     );
   }
 }

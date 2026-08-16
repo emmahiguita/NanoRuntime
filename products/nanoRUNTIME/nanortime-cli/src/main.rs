@@ -73,6 +73,11 @@ struct Cli {
     #[arg(short = 'q', long)]
     quiet: bool,
 
+    /// Verbose: log-level debug. Lo usa EngineSupervisor (Android) en modo
+    /// fallback/diagnóstico cuando el health check del arranque falla.
+    #[arg(long, conflicts_with = "quiet")]
+    verbose: bool,
+
     /// Solo usar inferencia local, desactivar tiers cloud/LAN
     #[arg(long)]
     edge_only: bool,
@@ -154,12 +159,12 @@ async fn main() -> anyhow::Result<()> {
 
     let bind_addr = cli
         .bind
-        .as_ref()
-        .map(|s| s.as_str())
+        .as_deref()
         .unwrap_or_else(|| platform::get_default_bind_address());
 
-    // Initialize logging
-    setup_logging(&cli.log_level);
+    // Initialize logging — --verbose sube a debug (diagnóstico de arranque)
+    let log_level = if cli.verbose { "debug" } else { cli.log_level.as_str() };
+    setup_logging(log_level);
 
     tracing::info!("NanoAI Runtime v{}", env!("CARGO_PKG_VERSION"));
     #[cfg(target_os = "linux")]
@@ -232,8 +237,12 @@ async fn main() -> anyhow::Result<()> {
             profile.storage_read_mbps,
             profile.tier
         );
-        // Dynamic token budget: 30% of available RAM for KV cache
-        let kv_budget_tokens = (profile.ram_available_mb as f64 * 0.30 / 0.03) as usize;
+        // Dynamic token budget: 30% of available RAM for KV cache.
+        // Per-token KV cost: 2 (K+V) × n_layers × n_kv_heads × head_dim × 2 bytes.
+        // Gemma2-27B (46 layers, 8 KV heads, 128 dim, FP16) ≈ 0.36 MB/token.
+        // Usamos 0.3 MB/token como estimación conservadora para la familia 7B-27B;
+        // el OomGuard sigue siendo la red de seguridad final.
+        let kv_budget_tokens = (profile.ram_available_mb as f64 * 0.30 / 0.3) as usize;
         let safe = cli.max_tokens.min(kv_budget_tokens.max(1));
         tracing::info!(
             "Dynamic token budget: {} tokens (requested={}, safe={})",
@@ -400,7 +409,7 @@ async fn main() -> anyhow::Result<()> {
                 .save_session_state(&session_path.to_string_lossy())
                 .await
             {
-                Ok(_) => tracing::info!("Sesión guardada — próxima carga será ~0.5s"),
+                Ok(_) => tracing::info!("Sesión guardada — el KV cache se reutilizará en la próxima carga"),
                 Err(e) => tracing::warn!("No se pudo guardar sesión: {}", e),
             }
         }
@@ -428,6 +437,9 @@ async fn process_single_prompt(
         prompt: prompt.to_string(),
         context: None,
         history: None,
+        session_id: None,
+        max_tokens: Some(max_tokens),
+        temperature: None,
     };
 
     let t_start = Instant::now();
@@ -549,6 +561,11 @@ async fn process_single_prompt(
                     prompt: prompt.to_string(),
                     context: None,
                     history: None,
+                    session_id: None,
+                    max_tokens: Some(max_tokens),
+                    // Retry determinista: temperature=0.0 → greedy (antes el
+                    // valor se perdía porque el campo no existía en el request).
+                    temperature: Some(0.0),
                 };
                 if let Ok((retry_response_rx, mut retry_rx)) =
                     runtime.process_request_streaming(retry_request).await
@@ -687,7 +704,7 @@ async fn interactive_chat(
 
         // Handle commands
         if input.starts_with('/') {
-            match handle_command(&input, &runtime).await {
+            match handle_command(&input, runtime).await {
                 CommandResult::Continue => continue,
                 CommandResult::Exit => break,
                 CommandResult::ClearHistory => {
@@ -709,6 +726,9 @@ async fn interactive_chat(
             } else {
                 Some(history.clone())
             },
+            session_id: None,
+            max_tokens: Some(max_tokens),
+            temperature: None,
         };
 
         // Process with streaming
@@ -830,7 +850,7 @@ enum CommandResult {
 async fn handle_command(input: &str, runtime: &NanoRuntime) -> CommandResult {
     match input {
         "/exit" | "/quit" | "/q" => {
-            return CommandResult::Exit;
+            CommandResult::Exit
         }
         "/help" | "/h" => {
             println!("Commands:");

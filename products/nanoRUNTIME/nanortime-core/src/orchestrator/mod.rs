@@ -43,7 +43,7 @@ fn token_confidence(probabilities: &[f32]) -> Option<f32> {
 
 // ── V2: Policy Engine + Cost Scheduler ─────────────────────────────
 use crate::memory_engine::hardware_hal::profile_device;
-use crate::memory_engine::policy_engine::QosMode;
+use crate::memory_engine::types::QosMode;
 use crate::speculative_decoder::{InferenceMode, SpeculativePlan};
 // ── V2: Thermal + Battery + Hierarchical KV ────────────────────────
 use crate::memory_engine::battery_guardian::{BatteryGuardian, BatteryMode};
@@ -587,13 +587,13 @@ impl Orchestrator {
         // Step 6: Execute in selected tier with rate limiting
         let mut response = match routing_decision {
             router::RoutingDecision::Local => {
-                self.execute_local_with_escalation(&augmented_prompt, has_pii)
+                self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
                     .await
             }
             router::RoutingDecision::Cloud(anonymized) => {
                 if has_pii {
                     tracing::warn!("Cloud route blocked because augmented prompt contains PII");
-                    self.execute_local_with_escalation(&augmented_prompt, has_pii)
+                    self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
                         .await
                 } else {
                     // Cloud policy, including rate limiting, lives inside execute_cloud.
@@ -601,7 +601,7 @@ impl Orchestrator {
                         Ok(response) => Ok(response),
                         Err(e) => {
                             tracing::warn!("Cloud execution failed ({}), falling back to local", e);
-                            self.execute_local_with_escalation(&augmented_prompt, has_pii)
+                            self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
                                 .await
                         }
                     }
@@ -611,7 +611,7 @@ impl Orchestrator {
                 // Check LAN rate limiter
                 if !self.lan_rate_limiter.try_consume_one() {
                     tracing::warn!("LAN rate limit exceeded, falling back to local");
-                    self.execute_local_with_escalation(&augmented_prompt, has_pii)
+                    self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
                         .await
                 } else {
                     // Try LAN; if it fails, fall back to local
@@ -619,7 +619,7 @@ impl Orchestrator {
                         Ok(response) => Ok(response),
                         Err(e) => {
                             tracing::warn!("LAN execution failed ({}), falling back to local", e);
-                            self.execute_local_with_escalation(&augmented_prompt, has_pii)
+                            self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
                                 .await
                         }
                     }
@@ -680,15 +680,53 @@ impl Orchestrator {
     /// 1. Generar respuesta local siempre
     /// 2. Si confianza < threshold y cloud activo, escalar
     /// 3. Nunca enviar PII a cloud
-    async fn execute_local_with_escalation(&self, prompt: &str, has_pii: bool) -> Result<Response> {
+    async fn execute_local_with_escalation(
+        &self,
+        prompt: &str,
+        has_pii: bool,
+        temperature: Option<f32>,
+    ) -> Result<Response> {
         // Step 0: Sample hardware controllers for throttling
         let thermal_action = self.sample_thermal();
         let battery_mode = self.battery.determine_mode();
 
-        // Step 1: Always try local first
-        let local = self
-            .execute_local(prompt, has_pii, &thermal_action, &battery_mode)
-            .await?;
+        // Step 1: Always try local first. Un error local (modelo sin cargar,
+        // OOM, fallo de inferencia) ya no mata el request: si el escalado a
+        // cloud es posible, se intenta como degradación. Antes el `?` devolvía
+        // el error directo al cliente sin importar que hubiera tier3 activo.
+        let local = match self
+            .execute_local(prompt, has_pii, &thermal_action, &battery_mode, temperature)
+            .await
+        {
+            Ok(local) => local,
+            Err(local_err) => {
+                let can_escalate = self.config.hybrid_routing.enabled
+                    && !self.config.hybrid_routing.edge_only
+                    && !has_pii
+                    && self.config.tiers.tier3.enabled;
+                if can_escalate {
+                    tracing::warn!(
+                        "Local inference failed ({}). Escalating to cloud as degradation.",
+                        local_err
+                    );
+                    let safe_prompt = if privacy::contains_pii(prompt) {
+                        privacy::anonymize(prompt)
+                    } else {
+                        prompt.to_string()
+                    };
+                    return match self.execute_cloud(&safe_prompt).await {
+                        Ok(cloud_response) => Ok(cloud_response),
+                        Err(cloud_err) => Err(NanoError::Internal {
+                            message: format!(
+                                "Local inference failed ({}) and cloud fallback failed ({})",
+                                local_err, cloud_err
+                            ),
+                        }),
+                    };
+                }
+                return Err(local_err);
+            }
+        };
 
         // Step 2: Check if escalation is possible and needed
         let should_escalate = self.config.hybrid_routing.enabled
@@ -752,14 +790,24 @@ impl Orchestrator {
     }
 
     async fn build_augmented_prompt(
+
         &self,
         prompt: &str,
         rag_docs: &[crate::SourceDocument],
         request: &UserRequest,
     ) -> String {
+        // Detectar instruct-ness por la metadata del GGUF cargado (señal
+        // autoritativa: los modelos base no traen tokenizer.chat_template).
+        // El nombre del archivo queda como fallback para modelos sin metadata.
         let model_path_lower = self.config.local_model.path.to_lowercase();
-        let is_instruct =
-            model_path_lower.contains("instruct") || model_path_lower.contains("chat");
+        let is_instruct = self
+            .model_manager
+            .chat_template()
+            .await
+            .map(|tpl| !tpl.trim().is_empty())
+            .unwrap_or_else(|| {
+                model_path_lower.contains("instruct") || model_path_lower.contains("chat")
+            });
 
         // ── Instruct model path: use proper chat template ──────────
         if is_instruct {
@@ -889,14 +937,25 @@ impl Orchestrator {
         request: &UserRequest,
     ) -> String {
         // ── System message ──────────────────────────────────────────
+        // Prioridad: el `context` del cliente ES el system prompt principal
+        // (la app móvil envía identidad, estilo y telemetría real). El
+        // fallback genérico solo aplica cuando no hay context (CLI/FFI).
+        // Si además el servidor registró tools propias, se añaden después.
         let tools_prompt = self.tool_executor.build_system_prompt().await;
         let mut system_parts = Vec::new();
 
-        if !tools_prompt.is_empty() {
-            system_parts.push(tools_prompt);
+        if let Some(ref context) = request.context {
+            if !context.trim().is_empty() {
+                system_parts.push(context.clone());
+            }
+        } else if !tools_prompt.is_empty() {
+            system_parts.push(tools_prompt.clone());
         } else {
             system_parts
                 .push("You are a helpful assistant. Answer concisely and accurately.".to_string());
+        }
+        if request.context.is_some() && !tools_prompt.is_empty() {
+            system_parts.push(tools_prompt);
         }
 
         // Learned corrections go into system context
@@ -922,12 +981,11 @@ impl Orchestrator {
             }
         }
 
-        if let Some(ref context) = request.context {
-            system_parts.push("\nAdditional user-provided context:".to_string());
-            system_parts.push(context.clone());
-        }
-
-        let system_msg = system_parts.join("\n");
+        // El system también se sanitiza: un context malicioso (CLI/FFI/terminal)
+        // podría inyectar tokens de template y romper el prompt igual que el
+        // history. La app móvil ya neutraliza antes de enviar; esto cubre a
+        // TODOS los clientes en la última frontera real.
+        let system_msg = sanitize_chat_content(&system_parts.join("\n"));
 
         // ── User message ────────────────────────────────────────────
         let mut user_parts = Vec::new();
@@ -956,26 +1014,87 @@ impl Orchestrator {
             }
         }
 
-        // Chat history (inject as prior turns)
-        if let Some(ref history) = request.history {
-            // We embed history as alternating user/assistant blocks in the user message
-            // for simplicity. Full multi-turn support would require dynamic template building.
-            user_parts.push("\nPrevious conversation:\n".to_string());
-            for msg in history {
-                user_parts.push(format!("{}: {}", msg.role, msg.content));
-            }
-            user_parts.push("\n---\n".to_string());
-        }
-
         // Current prompt
         user_parts.push(prompt.to_string());
-        let user_msg = user_parts.join("\n");
+        // Misma frontera de seguridad que el system: el prompt de cualquier
+        // cliente (no solo la app) no puede cerrar turnos del template.
+        let user_msg = sanitize_chat_content(&user_parts.join("\n"));
 
         // ── Assemble chat template ──────────────────────────────────
-        format!(
-            "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
-            system_msg, user_msg
-        )
+        // El historial se inyecta como turnos REALES del template (antes
+        // viajaba como texto plano dentro del turno user: los modelos
+        // instruct lo leían como contenido, no como conversación, y el
+        // modelo degradaba a respuestas vacías o genéricas).
+        //
+        // La familia se detecta desde el template GGUF real; el nombre del
+        // archivo queda como fallback para DeepSeek (su chat_template usa
+        // variables Jinja sin los literales de los tokens especiales).
+        let tpl = self.model_manager.chat_template().await.unwrap_or_default();
+        let model_path_lower = self.config.local_model.path.to_lowercase();
+        let is_gemma = tpl.contains("start_of_turn");
+        let is_deepseek = tpl.contains("begin_of_sentence")
+            || tpl.contains("end_of_sentence")
+            || model_path_lower.contains("deepseek")
+            || model_path_lower.contains("r1");
+
+        let history = request.history.as_deref().unwrap_or(&[]);
+        let history: Vec<(String, String)> = history
+            .iter()
+            .filter(|m| m.role == "user" || m.role == "assistant")
+            .map(|m| (m.role.clone(), sanitize_chat_content(&m.content)))
+            .collect();
+
+        if is_gemma {
+            // Gemma: sin role system separado; se inyecta al inicio del
+            // primer turno user. Rol model = "model" en el template.
+            let mut out = String::new();
+            for (role, content) in &history {
+                let turn = if role == "user" { "user" } else { "model" };
+                out.push_str(&format!("<start_of_turn>{turn}\n{content}<end_of_turn>\n"));
+            }
+            let mut first_user = String::new();
+            if !system_msg.is_empty() {
+                first_user.push_str(&system_msg);
+                first_user.push_str("\n\n");
+            }
+            first_user.push_str(&user_msg);
+            out.push_str(&format!(
+                "<start_of_turn>user\n{first_user}<end_of_turn>\n<start_of_turn>model\n"
+            ));
+            out
+        } else if is_deepseek {
+            // DeepSeek-R1 canónico: BOS al inicio, system crudo, turnos
+            // "User:"/"Assistant:" con EOS tras cada turno assistant, y el
+            // turno de generación abierto con "Assistant:".
+            let mut out = String::new();
+            if !system_msg.is_empty() {
+                out.push_str(&format!("<｜begin▁of▁sentence｜>{system_msg}\n\n"));
+            } else {
+                out.push_str("<｜begin▁of▁sentence｜>");
+            }
+            for (role, content) in &history {
+                if role == "user" {
+                    out.push_str(&format!("User: {content}\n\n"));
+                } else {
+                    out.push_str(&format!("Assistant: {content}<｜end▁of▁sentence｜>"));
+                }
+            }
+            out.push_str(&format!("User: {user_msg}\n\nAssistant:"));
+            out
+        } else {
+            // ChatML (Qwen, Llama-3 y la mayoría de instruct).
+            let mut out = String::new();
+            if !system_msg.is_empty() {
+                out.push_str(&format!("<|im_start|>system\n{system_msg}<|im_end|>\n"));
+            }
+            for (role, content) in &history {
+                out.push_str(&format!("<|im_start|>{role}\n{content}<|im_end|>\n"));
+            }
+            out.push_str(&format!(
+                "<|im_start|>user\n{user_msg}<|im_end|>\n<|im_start|>assistant\n"
+            ));
+            out
+        }
     }
 
     /// Procesa una petición con streaming de tokens.
@@ -1000,24 +1119,14 @@ impl Orchestrator {
             false
         };
 
-        // RAG
-        let rag_docs = if !has_pii {
-            let query_embedding = match self.model_manager.embed_text(prompt).await {
-                Ok(emb) => Some(emb),
-                Err(e) => {
-                    tracing::warn!(
-                        "RAG embedding failed for prompt — falling back to keyword search: {}",
-                        e
-                    );
-                    None
-                }
-            };
+        // RAG streaming: no ejecutar embeddings sincronos con el mismo GGUF.
+        // En movil esto crea un contexto llama.cpp extra antes de la respuesta
+        // y anade ~15-20s de latencia + cientos de MB de memoria transitoria.
+        // Se conserva busqueda lexica ligera; embeddings deben precalcularse
+        // fuera del camino caliente del chat.
+        let rag_docs = if !has_pii && self.config.memory.max_context_docs > 0 {
             self.vector_engine
-                .search(
-                    prompt,
-                    self.config.memory.max_context_docs,
-                    query_embedding.as_deref(),
-                )
+                .search(prompt, self.config.memory.max_context_docs, None)
                 .await
                 .unwrap_or_default()
         } else {
@@ -1033,7 +1142,14 @@ impl Orchestrator {
         // oneshot when generation finishes or is aborted.
         let (result_rx, token_rx) = self
             .model_manager
-            .generate_streaming(&augmented_prompt, self.config.generation.max_tokens)
+            .generate_streaming(
+                &augmented_prompt,
+                request
+                    .max_tokens
+                    .unwrap_or(self.config.generation.max_tokens),
+                request.session_id.as_deref(),
+                request.temperature,
+            )
             .await?;
 
         // Monitor de alucinaciones (solo warn, no interrumpe generación)
@@ -1235,6 +1351,7 @@ impl Orchestrator {
         _has_pii: bool,
         thermal_action: &ThermalAction,
         battery_mode: &BatteryMode,
+        temperature: Option<f32>,
     ) -> Result<Response> {
         let max_loops = 3;
         let mut full_text = String::new();
@@ -1260,7 +1377,7 @@ impl Orchestrator {
 
             let (text, confidence_scores) = self
                 .model_manager
-                .generate_with_confidence(&current_prompt, adjusted_max_tokens)
+                .generate_with_confidence(&current_prompt, adjusted_max_tokens, temperature)
                 .await?;
 
             if iteration == 0 {
@@ -1423,6 +1540,21 @@ impl Orchestrator {
     }
 }
 
+/// Neutraliza tokens de control del template dentro del CONTENIDO de un
+/// turno: si un mensaje del historial los contiene literales, rompería la
+/// estructura del prompt (el modelo vería un cierre de turno anticipado y
+/// degradaría a respuestas vacías o genéricas).
+fn sanitize_chat_content(content: &str) -> String {
+    content
+        .replace("<|im_start|>", "< |im_start| >")
+        .replace("<|im_end|>", "< |im_end| >")
+        .replace("<|eot_id|>", "< |eot_id| >")
+        .replace("<start_of_turn>", "< start_of_turn >")
+        .replace("<end_of_turn>", "< end_of_turn >")
+        .replace("<｜begin▁of▁sentence｜>", "< |begin_of_sentence| >")
+        .replace("<｜end▁of▁sentence｜>", "< |end_of_sentence| >")
+}
+
 #[cfg(test)]
 #[cfg(feature = "simulated")]
 mod tests {
@@ -1546,7 +1678,7 @@ mod tests {
         let thermal = ThermalAction::Normal;
         let battery = BatteryMode::Performance;
         let response = orch
-            .execute_local("Hello", false, &thermal, &battery)
+            .execute_local("Hello", false, &thermal, &battery, None)
             .await
             .unwrap();
         assert!(!response.text.is_empty());

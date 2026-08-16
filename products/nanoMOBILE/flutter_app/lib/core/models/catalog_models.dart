@@ -195,7 +195,7 @@ abstract final class NeuralCatalog {
       'Llama-3.2-1B-Instruct-Q4_K_M.gguf',
       'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
       '5d15c7e099ae50bcbcbb60df64aeafbe883907c11f7c5e13aa4a56a6448aa798',
-      template: ChatTemplate.qwen,
+      template: ChatTemplate.llama,
     ),
     LmCatalogEntry(
       'Gemma-2-27B-IT-Q2',
@@ -206,7 +206,7 @@ abstract final class NeuralCatalog {
       'gemma-2-27b-it-Q2_K.gguf',
       'https://huggingface.co/bartowski/gemma-2-27b-it-GGUF/resolve/main/gemma-2-27b-it-Q2_K.gguf',
       'cefe0543e49e29f5f5c80ba1e468bead7c484f39572457813df1fa24e81fe10f',
-      template: ChatTemplate.qwen,
+      template: ChatTemplate.gemma,
     ),
     LmCatalogEntry(
       'Qwen2.5-32B-Instruct-Q2',
@@ -248,7 +248,22 @@ abstract final class NeuralCatalog {
 
   static String fileOf(String name) => entryOf(name).file;
 
-  /// Devuelve el [ChatTemplate] del modelo por nombre, o [ChatTemplate.qwen]
-  /// por defecto.
-  static ChatTemplate templateOf(String name) => entryOf(name).template;
+  /// Devuelve el [ChatTemplate] del modelo por nombre exacto de catálogo.
+  ///
+  /// Para modelos detectados fuera del catálogo (nombre de archivo),
+  /// infiere la familia por el nombre: deepseek/r1, llama, mistral, gemma.
+  /// Fallback honesto: [ChatTemplate.qwen] cuando la familia no se reconoce.
+  static ChatTemplate templateOf(String name) {
+    for (final model in models) {
+      if (model.name == name) return model.template;
+    }
+    final lower = name.toLowerCase();
+    if (lower.contains('deepseek') || lower.contains('r1')) {
+      return ChatTemplate.deepseek;
+    }
+    if (lower.contains('llama')) return ChatTemplate.llama;
+    if (lower.contains('mistral')) return ChatTemplate.mistral;
+    if (lower.contains('gemma')) return ChatTemplate.gemma;
+    return ChatTemplate.qwen;
+  }
 }

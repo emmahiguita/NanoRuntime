@@ -471,6 +471,9 @@ async fn test_routing_pii() -> Result<(), String> {
             prompt: "Send email to juan@ejemplo.com with card 4111-1111-1111-1111".to_string(),
             context: None,
             history: None,
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .map_err(|e| e.to_string())?;
@@ -501,6 +504,9 @@ async fn test_e2e_pipeline() -> Result<String, String> {
             prompt: "Hello! What time is it?".to_string(),
             context: None,
             history: None,
+            session_id: None,
+            max_tokens: None,
+            temperature: None,
         })
         .await
         .map_err(|e| e.to_string())?;

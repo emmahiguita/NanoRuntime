@@ -234,8 +234,7 @@ class _TermState extends State<NanoTerminal> {
   /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info auténtica sin depender de execve() (bloqueado por SELinux en este device).
   Future<void> _fetchDeviceIdentity() => _hw.fetchDeviceIdentity();
 
-  double? _readCpuTemp() => _hw.readCpuTemp();
-  Map<String, dynamic> _readGpuInfo() => _hw.readGpuInfo();
+  Future<double?> _readCpuTemp() => _hw.readCpuTemp();
 
   /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  ¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalación esté sincronizado.
   Future<void> _initShell() async {
@@ -386,7 +385,7 @@ class _TermState extends State<NanoTerminal> {
       final bashPath = a.isNotEmpty ? a[0] : '$usr/bin/bash';
       _ptyOpen([bashPath, ...a.sublist(1)], o: o);
     };
-    _cmds['stat'] = (a, c, o, af) {
+    _cmds['stat'] = (a, c, o, af) async {
       final all = a.contains('--all'),
           mem = all || a.contains('--memory'),
           cpu = all || a.contains('--cpu');
@@ -421,7 +420,7 @@ class _TermState extends State<NanoTerminal> {
         final cores =
             _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
         final hw = _devId?['cpuHardware'] as String?;
-        final tempC = _readCpuTemp();
+        final tempC = await _readCpuTemp();
         final tempStr = tempC != null
             ? ' | Temp: ${tempC.toStringAsFixed(1)}°C'
             : '';
@@ -497,7 +496,7 @@ class _TermState extends State<NanoTerminal> {
       final totalMb = (mem['MemTotal'] ?? 0) ~/ 1024;
       final availMb = (mem['MemAvailable'] ?? mem['MemFree'] ?? 0) ~/ 1024;
       final cores = _devId?['cpuCores'] as int? ?? Platform.numberOfProcessors;
-      final tempC = _readCpuTemp();
+      final tempC = await _readCpuTemp();
       o(
         'Device: ${totalMb}MB RAM, ${availMb}MB libre, $cores cores'
         '${tempC != null ? ', ${tempC.toStringAsFixed(1)}°C' : ''}',
@@ -566,7 +565,7 @@ class _TermState extends State<NanoTerminal> {
       }
     };
     _cmds['gpu'] = (a, c, o, af) {
-      final info = _readGpuInfo();
+      final info = _hw.readGpuInfo();
       // Sin nombre real del sysfs: 'desconocida', nunca una marca inventada.
       final name = info['name'] as String? ?? 'desconocida';
       final freq = info['freqMhz'];
@@ -591,7 +590,7 @@ class _TermState extends State<NanoTerminal> {
       }
     };
     _cmds['nvtop'] = (a, c, o, af) {
-      final info = _readGpuInfo();
+      final info = _hw.readGpuInfo();
       final name = (info['name'] as String?) ?? 'desconocida';
       final freq = info['freqMhz'];
       o('╔══ nvtop ══╗', Ln.header);
@@ -1097,22 +1096,22 @@ class _TermState extends State<NanoTerminal> {
     } catch (_) {}
   }
 
-  Color _c(Ln t, Color fg) => switch (t) {
+  Color _c(Ln t, Color fg, NanoColors c) => switch (t) {
     Ln.prompt => fg.withValues(alpha: 0.9),
     Ln.stdout => fg.withValues(alpha: 0.78),
-    Ln.stderr => const Color(0xFFFF5C6C),
+    Ln.stderr => c.danger,
     Ln.success => fg,
     Ln.info => fg.withValues(alpha: 0.65),
-    Ln.warn => const Color(0xFFFFA726),
+    Ln.warn => c.warning,
     Ln.system => fg.withValues(alpha: 0.55),
-    Ln.header => const Color(0xFF21F2B2),
+    Ln.header => c.success,
   };
 
   @override
   Widget build(BuildContext context) {
     final c = NanoThemeExtension.of(context).colors;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final chrome = dark ? const Color(0xFF07192B) : const Color(0xFFE0E0EC);
+    final chrome = dark ? const Color(0xFF07192B) : c.terminalBg;
     final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
     final sug = _sug();
     return Stack(
@@ -1122,7 +1121,7 @@ class _TermState extends State<NanoTerminal> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-              color: const Color(0xFF07192B),
+              color: chrome,
               child: Text(
                 _ptyActive
                     ? 'PTY: bash (rootfs real)'
@@ -1130,9 +1129,7 @@ class _TermState extends State<NanoTerminal> {
                 style: TextStyle(
                   fontFamily: 'JetBrainsMono',
                   fontSize: 10,
-                  color: _ptyActive
-                      ? const Color(0xFF21F2B2)
-                      : const Color(0xFFFFA726),
+                  color: _ptyActive ? c.success : c.warning,
                 ),
               ),
             ),
@@ -1220,7 +1217,7 @@ class _TermState extends State<NanoTerminal> {
                                         style: TextStyle(
                                           fontFamily: 'JetBrainsMono',
                                           fontSize: 12.5,
-                                          color: _c(line.type, fg),
+                                          color: _c(line.type, fg, c),
                                           height: 1.6,
                                         ),
                                       ),

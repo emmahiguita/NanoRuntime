@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
 import 'nano_ambient_background.dart';
 
 /// Shell compartido de las pantallas Chat y Modelos.
@@ -21,8 +22,14 @@ class NanoScreenShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    // Header adaptativo: en landscape el título grande (40px) roba el alto
+    // que las listas/grids necesitan — se compacta a la mitad.
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF020611),
+      backgroundColor: colors.background,
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
@@ -32,9 +39,11 @@ class NanoScreenShell extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                  padding: isLandscape
+                      ? const EdgeInsets.fromLTRB(18, 6, 18, 8)
+                      : const EdgeInsets.fromLTRB(20, 12, 20, 14),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Column(
@@ -43,20 +52,20 @@ class NanoScreenShell extends StatelessWidget {
                             Text(
                               'nanoai',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.92),
-                                fontSize: 19,
+                                color: colors.onSurface.withValues(alpha: 0.92),
+                                fontSize: isLandscape ? 14 : 19,
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: isLandscape ? 2 : 6),
                             Text(
                               title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 40,
+                              style: TextStyle(
+                                color: colors.onSurface,
+                                fontSize: isLandscape ? 24 : 40,
                                 height: 1,
                                 fontWeight: FontWeight.w400,
-                                letterSpacing: -1.2,
+                                letterSpacing: isLandscape ? -0.6 : -1.2,
                               ),
                             ),
                           ],

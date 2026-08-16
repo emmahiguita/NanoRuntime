@@ -107,4 +107,12 @@ object NanoshellBridge {
      * Nota: daemons detached hacen setsid() → grupo propio → NO se matan aquí.
      */
     @JvmStatic external fun workerKillGroup(): Int
+
+    /**
+     * SIGKILL a un daemon detached individual (Xvnc/openbox). Valida contra
+     * el registro g_daemons del worker: NO mata pids reciclados que ya no
+     * son nuestros. Retorna 0 si ok, -1 si el pid no estaba registrado o el
+     * kill falló. BUG-2: única vía de matar hijos del worker desde el app.
+     */
+    @JvmStatic external fun workerKillPid(pid: Int): Int
 }

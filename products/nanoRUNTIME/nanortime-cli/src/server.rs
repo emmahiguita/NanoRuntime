@@ -299,11 +299,23 @@ fn handle_completion_sse(
         prompt: String,
         #[serde(default = "default_n_predict")]
         n_predict: usize,
-        #[serde(default)]
-        temperature: f32,
+        // Option: ausente → config del motor; presente (incl. 0.0 = greedy)
+        temperature: Option<f32>,
         #[serde(default = "default_stream")]
         stream: bool,
         request_id: Option<String>,
+        session_id: Option<String>,
+        // System prompt / contexto del cliente (la app móvil envía su
+        // system dinámico aquí: identidad, estilo y telemetría real).
+        context: Option<String>,
+        // Historial de turnos previos como lista role/content.
+        history: Option<Vec<HistoryItem>>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct HistoryItem {
+        role: String,
+        content: String,
     }
     fn default_n_predict() -> usize {
         512
@@ -335,18 +347,52 @@ fn handle_completion_sse(
 
     let request_id = req.request_id.unwrap_or_else(|| state.new_request_id());
 
+    // El tope lo impone el motor (contexto + planificador); 2048 cubre el
+    // móvil (256-512) y el desktop. Clamp honesto: si el cliente pide más,
+    // se registra en log en vez de recortar en silencio.
+    let max_tokens = if req.n_predict > 2048 {
+        tracing::warn!(
+            "n_predict {} clamped to 2048 (engine limit)",
+            req.n_predict
+        );
+        2048
+    } else {
+        req.n_predict.max(1)
+    };
+
     let request = nanortime_core::UserRequest {
         prompt: req.prompt,
-        context: None,
-        history: None,
+        context: req.context,
+        history: req.history.map(|items| {
+            items
+                .into_iter()
+                .map(|h| nanortime_core::ChatMessage {
+                    role: h.role,
+                    content: h.content,
+                })
+                .collect()
+        }),
+        session_id: req.session_id,
+        max_tokens: Some(max_tokens),
+        // temperature del request se respeta (antes se deserializaba y se
+        // ignoraba). None = no especificada → config del motor.
+        // Some(0.0) = greedy determinista.
+        temperature: req.temperature,
     };
 
     // ── Non-streaming: single JSON response ──────────────────────────
     if !req.stream {
-        let result = run_async(async { runtime.process_request(request).await });
+        let result = run_async(async {
+            let (_, mut rx) = runtime.process_request_streaming(request).await?;
+            let mut text = String::new();
+            while let Some((token, _prob)) = rx.recv().await {
+                text.push_str(&token);
+            }
+            Ok::<String, anyhow::Error>(text)
+        });
         let json_body = match result {
-            Ok(r) => serde_json::json!({
-                "content": r.text,
+            Ok(text) => serde_json::json!({
+                "content": text,
                 "stop": true,
                 "request_id": request_id,
             })
@@ -467,6 +513,7 @@ fn handle_chat_json(stream: &mut TcpStream, body: &[u8], runtime: &NanoRuntime) 
         prompt: String,
         #[serde(default = "default_max_tokens")]
         max_tokens: usize,
+        session_id: Option<String>,
     }
     fn default_max_tokens() -> usize {
         150
@@ -480,10 +527,23 @@ fn handle_chat_json(stream: &mut TcpStream, body: &[u8], runtime: &NanoRuntime) 
         }
     };
 
+    let max_tokens = if req.max_tokens > 2048 {
+        tracing::warn!(
+            "max_tokens {} clamped to 2048 (engine limit)",
+            req.max_tokens
+        );
+        2048
+    } else {
+        req.max_tokens.max(1)
+    };
+
     let request = nanortime_core::UserRequest {
         prompt: req.prompt,
         context: None,
         history: None,
+        session_id: req.session_id,
+        max_tokens: Some(max_tokens),
+        temperature: None,
     };
 
     let response = run_async(async { runtime.process_request(request).await });
@@ -507,13 +567,28 @@ fn handle_chat_json(stream: &mut TcpStream, body: &[u8], runtime: &NanoRuntime) 
 }
 
 /// GET /api/status — Runtime info.
-fn handle_status(stream: &mut TcpStream, _runtime: &NanoRuntime, state: &Arc<ServerState>) {
+fn handle_status(stream: &mut TcpStream, runtime: &NanoRuntime, state: &Arc<ServerState>) {
+    let st = runtime.status();
     let json = serde_json::json!({
         "status": "running",
         "version": env!("CARGO_PKG_VERSION"),
         "tier": "local",
         "uptime_seconds": state.started_at.elapsed().as_secs(),
-        "message": "NanoAI HTTP+SSE server active",
+        "model_loaded": st.model_loaded,
+        "model_size_mb": st.model_size_mb,
+        "context_size": st.context_size,
+        "fault_rate": st.fault_rate,
+        "pss_mb": st.pss_mb,
+        "pressure_ratio": st.pressure_ratio,
+        "thrashing": st.thrashing,
+        "resident_window": st.resident_window,
+        "tok_s": st.tok_s,
+        "viability": st.viability.map(|v| serde_json::json!({
+            "tier": v.tier,
+            "can_run": v.can_run,
+            "should_run_interactive": v.should_run_interactive,
+            "reason": v.reason,
+        })),
     })
     .to_string();
     send_json(stream, "200 OK", &json);

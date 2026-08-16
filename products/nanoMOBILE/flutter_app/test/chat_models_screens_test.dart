@@ -11,6 +11,7 @@ import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
+import 'package:nanoai/core/theme/app_theme.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/chat/presentation/screens/chat_screen.dart';
@@ -44,10 +45,17 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
     });
 
+    // Los temas reales aportan la NanoThemeExtension: las pantallas la
+    // leen con `!` (chat_screen/models_screen) y sin ella el build revienta.
     await tester.pumpWidget(
       ProviderScope(
         overrides: overrides,
-        child: MaterialApp(home: screen),
+        child: MaterialApp(
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.dark,
+          home: screen,
+        ),
       ),
     );
     await tester.pump();
@@ -386,8 +394,8 @@ void main() {
       );
 
       expect(find.text('ACTIVO'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
-      expect(find.text('1 instalado · 1.2 GB'), findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      expect(find.text('1 · 1.2 GB'), findsOneWidget);
     });
 
     testWidgets('modelo instalado muestra INSTALADO y botón Usar', (
@@ -438,8 +446,9 @@ void main() {
 
       expect(find.text('DISPONIBLE'), findsOneWidget);
       expect(find.text('Descargar'), findsOneWidget);
-      // Sin modelos instalados: resumen sin dato inventado.
-      expect(find.text('0 instalados · 0 GB'), findsOneWidget);
+      // Sin modelos instalados: el resumen no se muestra (0 datos = 0
+      // componente estático; solo ScanBar + lista).
+      expect(find.textContaining('· 0 GB'), findsNothing);
     });
 
     testWidgets('descarga en curso muestra progreso y cancelación', (
@@ -465,7 +474,15 @@ void main() {
       );
 
       expect(find.text('DESCARGANDO'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      // Dos barras: el progreso de la card (value > 0) y el pie de
+      // almacenamiento (value 0 con dashboard vacío).
+      final indicators = tester
+          .widgetList<LinearProgressIndicator>(
+            find.byType(LinearProgressIndicator),
+          )
+          .toList();
+      expect(indicators.length, 2);
+      expect(indicators.any((i) => (i.value ?? 0) > 0), isTrue);
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     });
 
@@ -511,7 +528,8 @@ void main() {
         ],
       );
 
-      expect(find.text('0 instalados · 0 GB'), findsOneWidget);
+      // Catálogo vacío: estado vacío honesto, sin resumen ni acciones.
+      expect(find.text('Sin modelos'), findsOneWidget);
       expect(find.text('Descargar'), findsNothing);
       expect(find.text('Usar'), findsNothing);
     });
@@ -556,9 +574,12 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'sin overflow a 320x568');
       expect(find.text('ACTIVO'), findsOneWidget);
 
-      await tester.drag(find.byType(ListView), const Offset(0, -600));
-      await tester.pumpAndSettle();
+      // Scroll incremental hasta ver la card descargando: con la fuente de
+      // prueba (métrica mayor que Inter) un drag fijo de -600 se pasaba y
+      // desmontaba la card buscada.
+      await tester.scrollUntilVisible(find.text('DESCARGANDO'), 120);
       expect(find.text('DESCARGANDO'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('ERROR'), 120);
       expect(find.text('ERROR'), findsOneWidget);
     });
 
@@ -567,14 +588,15 @@ void main() {
     ) async {
       final state = ModelsState(
         models: [
-          // Requiere 7 GB de RAM, el device reporta 3.9 GB libres: INCOMPATIBLE.
+          // Requiere 7 GB de RAM, el device reporta 3.9 GB TOTALES:
+          // INCOMPATIBLE (D1: se compara contra RAM total, dato estable).
           model(
             id: 'big-7b',
             name: 'Big Model 7B',
             ramGb: 7.0,
             downloadState: ModelDownloadState.notInstalled,
           ),
-          // El instalado se queda INSTALADO aunque la RAM libre baje.
+          // El instalado se queda INSTALADO aunque la RAM no alcance.
           model(
             id: 'big-installed',
             name: 'Big Model Instalado',
@@ -594,7 +616,7 @@ void main() {
           dashboardProvider.overrideWith(
             (ref) => DashboardNotifier.fixed(
               ref,
-              const DashboardState(ramTotalGb: 8.0, ramFreeGb: 3.9),
+              const DashboardState(ramTotalGb: 3.9, ramFreeGb: 1.2),
             ),
           ),
         ],
@@ -603,12 +625,12 @@ void main() {
       expect(find.text('INCOMPATIBLE'), findsOneWidget);
       expect(find.text('INSTALADO'), findsOneWidget);
       expect(
-        find.textContaining('Requiere 7 GB de RAM (disponible: 3.9 GB)'),
+        find.textContaining('Requiere 7 GB de RAM (dispositivo: 3.9 GB)'),
         findsOneWidget,
       );
-      expect(find.byIcon(Icons.block_rounded), findsOneWidget);
-      // El incompatible no ofrece descarga; el instalado sí 'Usar'.
-      expect(find.text('Descargar'), findsNothing);
+      // D6: política try-anyway — el incompatible también ofrece descarga
+      // (el ramNote naranja advierte); el instalado ofrece 'Usar'.
+      expect(find.text('Descargar'), findsOneWidget);
       expect(find.text('Usar'), findsOneWidget);
     });
 
@@ -704,6 +726,8 @@ class _FakeEngineClient extends LLMEngineClient {
     double topP = 0.9,
     int maxTokens = 256,
     String? sessionId,
+    String? context,
+    List<Map<String, String>>? history,
   }) {
     return (stream: _controller.stream, client: http.Client());
   }

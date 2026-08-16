@@ -224,6 +224,36 @@ Java_dev_nanoai_mobile_NanoshellBridge_workerIsProcessAlive(
     return (errno == EPERM) ? 1 : 0;
 }
 
+// Kill individual de un daemon detached (BUG-2). El proceso principal NO
+// puede matar hijos del worker (Android 12+: killProcess solo procesos
+// propios — lanzaba SecurityException y Xvnc quedaba huérfano ocupando
+// 5901). Este JNI valida el pid contra el registro g_daemons ANTES del
+// kill: un pid reciclado por Android (daemon muerto + pid reutilizado)
+// no se mata. La marca del reaper limpia el slot vía waitpid.
+JNIEXPORT jint JNICALL
+Java_dev_nanoai_mobile_NanoshellBridge_workerKillPid(
+    JNIEnv* env, jclass cls, jint pid) {
+    if (pid <= 0) return -1;
+    pthread_mutex_lock(&g_daemons_lock);
+    int registered = 0;
+    for (int i = 0; i < MAX_TRACKED_DAEMONS; i++) {
+        if (g_daemons[i].pid == pid) {
+            registered = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_daemons_lock);
+    if (!registered) {
+        __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
+            "workerKillPid: pid=%d no registrado (reciclado?) — no se mata", pid);
+        return -1;
+    }
+    int rc = kill(pid, SIGKILL);
+    __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
+        "workerKillPid: SIGKILL a pid=%d rc=%d", pid, rc);
+    return rc == 0 ? 0 : -1;
+}
+
 // Kill switch: terminate the worker process group
 // El worker ejecuta tareas en threads (fork + _spawn_internal + waitpid).
 // Un binario colgado (apt sin input, tar infinito) mantiene el waitpid

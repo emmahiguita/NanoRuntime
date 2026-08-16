@@ -71,20 +71,32 @@ pub fn run_single(
             prompt: prompt.to_string(),
             context: None,
             history: None,
+            session_id: None,
+            max_tokens: Some(max_tokens),
+            // Semántica del bridge: el llamador define la temperatura
+            // explícitamente (0.0 = greedy determinista, documentado arriba).
+            temperature: Some(temperature),
         };
+
+        let started = std::time::Instant::now();
 
         let response = runtime.process_request(request).await.map_err(|e| {
             crate::error::NanoError::Internal {
                 message: format!("Inference: {}", e),
             }
         })?;
+        let elapsed = started.elapsed().as_secs_f64();
 
         // 4. Extraer texto y métricas
         let text = response.text.clone();
         let confidence = response.confidence.unwrap_or(0.0) as f64;
-        // tok/s se estima: tokens_generated / tiempo. Sin timer aquí,
-        // reportamos 0.0 y el servidor web muestra la respuesta igualmente.
-        let tok_s = 0.0;
+        // tok/s REAL: tokens generados / tiempo de la petición (el timer
+        // arranca tras la carga del modelo, así que mide solo inferencia).
+        let tok_s = if elapsed > 0.0 {
+            response.tokens_generated as f64 / elapsed
+        } else {
+            0.0
+        };
 
         Ok(SingleResult {
             text,

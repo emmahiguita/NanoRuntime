@@ -365,7 +365,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                 ),
                 const SizedBox(height: NanoSpacing.sm),
               ],
-              const Divider(height: 1, color: Colors.white12),
+              Divider(height: 1, color: colors.outlineVariant),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(

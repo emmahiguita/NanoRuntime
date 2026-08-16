@@ -11,7 +11,9 @@ enum MessageStatus { sending, sent, error }
 /// Formato de chat template que usa cada familia de modelos.
 /// Los GGUF de Qwen usan `<|im_start|>/<|im_end|>` (ChatML-like).
 /// Los GGUF de DeepSeek-R1 usan `<｜begin▁of▁sentence｜>/<｜end▁of▁sentence｜>`.
-enum ChatTemplate { qwen, deepseek }
+/// Llama-3 usa `<|begin_of_text|>/<|eot_id|>`, Mistral usa `[INST]/[/INST]`
+/// y Gemma usa `<start_of_turn>/<end_of_turn>`.
+enum ChatTemplate { qwen, deepseek, llama, mistral, gemma }
 
 /// Adjunto pendiente de envío: un archivo textual elegido en el composer.
 ///

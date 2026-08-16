@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
+
 /// Componentes de animación viva compartidos por Chat y Modelos.
 ///
 /// Reglas de consumo mínimo (móvil con inferencia local):
@@ -97,16 +99,20 @@ class _CursorShape extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // El verde neón original (0xFF21F2B2) es invisible sobre blanco en modo
+    // claro — success se adapta por tema (esmeralda en claro, verde en oscuro).
+    final cursor = Theme.of(context).extension<NanoThemeExtension>()!.colors.success;
+
     return Container(
       width: 3,
       height: 17,
       margin: const EdgeInsets.only(left: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFF21F2B2),
+        color: cursor,
         borderRadius: BorderRadius.circular(3),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF21F2B2).withValues(alpha: 0.55),
+            color: cursor.withValues(alpha: 0.55),
             blurRadius: 7,
           ),
         ],
@@ -141,6 +147,7 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
 
     return AnimatedBuilder(
       animation: _controller,
@@ -159,9 +166,11 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
               margin: const EdgeInsets.symmetric(horizontal: 3),
               transform: Matrix4.translationValues(0, -3 * wave, 0),
               decoration: BoxDecoration(
+                // Blanco 32% era invisible sobre fondo claro — onSurface se
+                // adapta por tema y success reemplaza al verde neón fijo.
                 color: Color.lerp(
-                  Colors.white.withValues(alpha: 0.32),
-                  const Color(0xFF21F2B2),
+                  colors.onSurface.withValues(alpha: 0.32),
+                  colors.success,
                   wave,
                 ),
                 shape: BoxShape.circle,
@@ -311,6 +320,7 @@ class _AnimatedActiveBorderState extends State<AnimatedActiveBorder>
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
 
     if (!widget.active || reduceMotion) {
       return widget.child;
@@ -328,19 +338,19 @@ class _AnimatedActiveBorderState extends State<AnimatedActiveBorder>
             borderRadius: BorderRadius.circular(widget.borderRadius),
             gradient: SweepGradient(
               transform: GradientRotation(_controller.value * 2 * math.pi),
-              colors: const [
-                Color(0xFF21F2B2),
-                Color(0x3342D9FF),
-                Color(0xFF42D9FF),
-                Color(0x3321F2B2),
-                Color(0xFF21F2B2),
+              // Neón fijo (verde/cyan) lavaba el modo claro — success/accent
+              // son los equivalentes por tema del mismo par cromático.
+              colors: [
+                colors.success,
+                colors.accent.withValues(alpha: 0.2),
+                colors.accent,
+                colors.success.withValues(alpha: 0.2),
+                colors.success,
               ],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(
-                  0xFF21F2B2,
-                ).withValues(alpha: 0.10 + breath * 0.14),
+                color: colors.success.withValues(alpha: 0.10 + breath * 0.14),
                 blurRadius: 22,
               ),
             ],

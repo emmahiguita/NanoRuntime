@@ -152,18 +152,13 @@ class SettingsState {
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
   final SettingsRepository _repo;
-  final Ref _ref;
 
-  SettingsNotifier(this._repo, this._ref) : super(const SettingsState());
+  SettingsNotifier(this._repo) : super(const SettingsState());
 
   Future<void> init() async {
     await _repo.init();
     state = await _repo.load();
-    _ref.read(themeModeProvider.notifier).state = state.themeMode == 'Oscuro'
-        ? ThemeMode.dark
-        : state.themeMode == 'Claro'
-        ? ThemeMode.light
-        : ThemeMode.system;
+    // themeModeProvider ahora es derivado y se sincroniza automáticamente
   }
 
   Future<void> _lastWrite = Future<void>.value();
@@ -181,11 +176,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   void setThemeMode(String m) {
     _persist(state.copyWith(themeMode: m));
-    _ref.read(themeModeProvider.notifier).state = m == 'Oscuro'
-        ? ThemeMode.dark
-        : m == 'Claro'
-        ? ThemeMode.light
-        : ThemeMode.system;
+    // themeModeProvider ahora es derivado y se sincroniza automáticamente
   }
 
   void setTemperature(double v) => _persist(state.copyWith(temperature: v));
@@ -202,7 +193,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       _persist(state.copyWith(agentAutomationMode: v));
 }
 
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
-  (ref) => SettingsNotifier(ref.read(settingsRepoProvider), ref),
+  (ref) => SettingsNotifier(ref.read(settingsRepoProvider)),
 );
+
+/// Provider derivado que sincroniza automáticamente el ThemeMode con settings
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  final settings = ref.watch(settingsProvider);
+  return settings.themeMode == 'Oscuro'
+      ? ThemeMode.dark
+      : settings.themeMode == 'Claro'
+      ? ThemeMode.light
+      : ThemeMode.system;
+});

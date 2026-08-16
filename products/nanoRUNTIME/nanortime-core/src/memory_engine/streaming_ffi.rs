@@ -14,7 +14,7 @@ use std::sync::Mutex;
 use crate::memory_engine::cache_aware_loader::{
     can_stream_model, CacheAwareLoader, StreamingConfig,
 };
-use crate::memory_engine::gguf_layout::GGUFLayoutAnalyzer;
+use crate::memory_engine::gguf_layout::NanoModelIndex;
 
 static LOADER: Mutex<Option<CacheAwareLoader>> = Mutex::new(None);
 static LAYER_COUNT: Mutex<usize> = Mutex::new(0);
@@ -57,14 +57,14 @@ pub unsafe extern "C" fn nanortime_streaming_init(
             Err(_) => return -2,
         };
 
-        let layout = match GGUFLayoutAnalyzer::analyze(std::path::Path::new(&path_str), 32) {
+        let layout = match NanoModelIndex::analyze(std::path::Path::new(&path_str), 32) {
             Ok(l) => l,
             Err(_) => return -3,
         };
 
-        let mut layer_ranges: Vec<_> = layout.layer_offsets.iter().collect();
+        let mut layer_ranges: Vec<_> = layout.layers.iter().collect();
         layer_ranges.sort_by_key(|(idx, _)| *idx);
-        let ranges: Vec<_> = layer_ranges.iter().map(|(_, r)| (*r).clone()).collect();
+        let ranges: Vec<_> = layer_ranges.iter().map(|(_, r)| r.byte_range.clone()).collect();
 
         if ranges.is_empty() {
             return -4;

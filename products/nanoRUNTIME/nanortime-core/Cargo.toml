@@ -11,7 +11,8 @@ description = "NanoAI Runtime core — orchestrator, execution, and inference la
 default = []
 simulated = []  # Use simulated backend for testing without real model
 lancedb = ["dep:lancedb"]
-unstable = []   # Gates dead/incomplete modules (none currently — all modules active since v0.2)
+unstable = []   # Duerme módulos del control plane que esperan hooks de llama.cpp inexistentes (mmap pointer, atención por capa, NGRAM, perplejidad de referencia). Sin estos hooks, conectarlos sería simulación. Ver src/memory_engine/mod.rs para el estado de conexión.
+mmap-streaming = ["nanortime-ffi/mmap-streaming"]  # Peso mmap-friendly (sin repack anon-RAM) para modelos > RAM
 
 [lib]
 crate-type = ["lib", "staticlib"]
@@ -37,7 +38,7 @@ sysinfo = { workspace = true }
 # FFI bridge to llama.cpp
 nanortime-ffi = { path = "../nanortime-ffi" }
 libc = "0.2.189"
-windows-sys = { version = "0.61.2", features = ["Win32_System_Memory"] }
+windows-sys = { version = "0.61.2", features = ["Win32_System_Memory", "Win32_System_SystemInformation"] }
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
@@ -56,5 +57,21 @@ name = "validate"
 path = "examples/validate.rs"
 
 [[example]]
+name = "runtime_probe"
+path = "examples/runtime_probe.rs"
+
+[[example]]
 name = "verify_real"
 path = "examples/verify_real.rs"
+
+[[example]]
+name = "gguf_probe"
+path = "examples/gguf_probe.rs"
+
+[[example]]
+name = "load_unload_gate"
+path = "examples/load_unload_gate.rs"
+
+[[example]]
+name = "sweep_analyze"
+path = "examples/sweep_analyze.rs"

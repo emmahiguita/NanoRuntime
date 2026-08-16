@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 // ════════════════════════════════════════════════════════════════════
@@ -13,15 +14,6 @@ import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 // ScaffoldShell oculta la barra en el index 0). Los cards llevan a
 // Terminal/Chat/Modelos; el resto de la navegación vive en las demás
 // pestañas.
-
-/// Paleta del launcher (fondo y acentos de los cards).
-abstract final class NanoPalette {
-  static const background = Color(0xFF020611);
-  static const emerald = Color(0xFF21F2B2);
-  static const cyan = Color(0xFF42D9FF);
-  static const blue = Color(0xFF6592FF);
-  static const slate = Color(0xFF8FA3B8);
-}
 
 /// Vista pura del launcher: recibe datos y callbacks, sin providers.
 class NanoHomeScreen extends ConsumerWidget {
@@ -38,6 +30,10 @@ class NanoHomeScreen extends ConsumerWidget {
     required this.onModels,
     required this.onDesktop,
     required this.onSettings,
+    this.chatSubtitle = 'Habla con NanoAI',
+    this.chatPulse = false,
+    this.modelsSubtitle = 'Gestionar modelos',
+    this.modelsPulse = false,
   });
 
   final double? ramFreeGb;
@@ -47,6 +43,20 @@ class NanoHomeScreen extends ConsumerWidget {
   final int? batteryPercent;
   final bool linuxReady;
 
+  /// Subtítulo de la card Chat inyectado desde chatProvider: refleja el
+  /// modelo activo y el estado real del motor (listo/cargando/error).
+  final String chatSubtitle;
+
+  /// Punto vivo en la card Chat cuando el motor está online.
+  final bool chatPulse;
+
+  /// Subtítulo de la card Modelos inyectado desde modelsProvider: conteo
+  /// real de modelos del catálogo + detectados en storage.
+  final String modelsSubtitle;
+
+  /// Punto vivo en la card Modelos cuando hay al menos un modelo.
+  final bool modelsPulse;
+
   final VoidCallback onTerminal;
   final VoidCallback onChat;
   final VoidCallback onModels;
@@ -55,6 +65,7 @@ class NanoHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 700),
@@ -66,7 +77,7 @@ class NanoHomeScreen extends ConsumerWidget {
         );
       },
       child: Scaffold(
-        backgroundColor: NanoPalette.background,
+        backgroundColor: colors.background,
         body: Stack(
           children: [
             const Positioned.fill(child: NanoAmbientBackground()),
@@ -80,12 +91,11 @@ class NanoHomeScreen extends ConsumerWidget {
                 final cardGap = narrow ? 8.0 : 10.0;
                 // Todo el Inicio cabe en UNA pantalla, sin alturas exageradas:
                 // retrato compacto y horizontal usan medidas reducidas.
-                final actionHeight = landscape
+                // La fila Terminal+Kali comparte altura: antes Terminal solo
+                // medía hasta 260px verticales — ahora mitad de pantalla.
+                final terminalRowHeight = landscape
                     ? 108.0
-                    : (narrow ? 112.0 : (compact ? 140.0 : 170.0));
-                final terminalHeight = landscape
-                    ? 132.0
-                    : (narrow ? 142.0 : (compact ? 170.0 : 260.0));
+                    : (compact ? 100.0 : 118.0);
                 final tileAspect = landscape ? 1.02 : (narrow ? 1.5 : 1.72);
 
                 // Especificación única de las 4 acciones: el layout portrait
@@ -94,43 +104,49 @@ class NanoHomeScreen extends ConsumerWidget {
                 final actionCards = <_ActionSpec>[
                   _ActionSpec(
                     title: 'Chat',
-                    subtitle: 'Habla con NanoAI',
+                    subtitle: chatSubtitle,
                     icon: Icons.chat_bubble_outline_rounded,
-                    colors: const [Color(0x99005270), Color(0x77004485)],
-                    accent: NanoPalette.cyan,
+                    colors: [
+                      colors.surface.withValues(alpha: 0.6),
+                      colors.surfaceVariant.withValues(alpha: 0.47),
+                    ],
+                    accent: colors.accent,
+                    pulse: chatPulse,
                     onTap: onChat,
                   ),
                   _ActionSpec(
                     title: 'Modelos',
-                    subtitle: 'Gestionar modelos',
+                    subtitle: modelsSubtitle,
                     icon: Icons.view_in_ar_rounded,
-                    colors: const [Color(0x88003977), Color(0x88092160)],
-                    accent: NanoPalette.blue,
+                    colors: [
+                      colors.surface.withValues(alpha: 0.53),
+                      colors.surfaceVariant.withValues(alpha: 0.53),
+                    ],
+                    accent: colors.secondary,
+                    pulse: modelsPulse,
                     onTap: onModels,
                   ),
                   _ActionSpec(
                     title: 'Escritorio',
                     subtitle: 'Linux completo',
                     icon: Icons.desktop_windows_rounded,
-                    colors: const [Color(0x8800496B), Color(0x77002B4D)],
-                    accent: NanoPalette.emerald,
+                    colors: [
+                      colors.surface.withValues(alpha: 0.53),
+                      colors.surfaceVariant.withValues(alpha: 0.47),
+                    ],
+                    accent: colors.success,
                     onTap: onDesktop,
                   ),
                   _ActionSpec(
                     title: 'Linux',
                     subtitle: 'Multi-distro',
                     icon: Icons.computer_rounded,
-                    colors: const [Color(0x8800496B), Color(0x77002B4D)],
-                    accent: NanoPalette.emerald,
+                    colors: [
+                      colors.surface.withValues(alpha: 0.53),
+                      colors.surfaceVariant.withValues(alpha: 0.47),
+                    ],
+                    accent: colors.success,
                     onTap: () => context.push('/linux'),
-                  ),
-                  _ActionSpec(
-                    title: 'Ajustes',
-                    subtitle: 'Configuración',
-                    icon: Icons.settings_rounded,
-                    colors: const [Color(0x88001A30), Color(0x77000F24)],
-                    accent: NanoPalette.slate,
-                    onTap: onSettings,
                   ),
                 ];
 
@@ -152,16 +168,19 @@ class NanoHomeScreen extends ConsumerWidget {
                       icon: spec.icon,
                       colors: spec.colors,
                       accent: spec.accent,
-                      height: dense ? null : actionHeight,
+                      // Sin altura fija: la celda del grid impone el tamaño
+                      // y el contenido se adapta (icono FittedBox).
                       dense: dense,
+                      pulse: spec.pulse,
                       onTap: spec.onTap,
                     ),
                   );
                 }
 
                 Widget buildActionGrid() {
-                  // Teléfono retrato: mosaico 2x2 — la columna de 4 cards
-                  // no cabía en una pantalla y obligaba a scroll.
+                  // Mosaico 2x2 de las 4 acciones principales. Dense: la
+                  // celda del grid impone la altura y el contenido se adapta
+                  // (icono y tipografía compactos) sin alturas fijas.
                   return GridView.count(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -171,7 +190,7 @@ class NanoHomeScreen extends ConsumerWidget {
                     mainAxisSpacing: cardGap,
                     children: [
                       for (var i = 0; i < actionCards.length; i++)
-                        buildActionCard(actionCards[i], i),
+                        buildActionCard(actionCards[i], i, dense: true),
                     ],
                   );
                 }
@@ -233,8 +252,11 @@ class NanoHomeScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const _NanoHeader(
-                                  compact: true, landscape: true),
+                              _NanoHeader(
+                                compact: true,
+                                landscape: true,
+                                onSettings: onSettings,
+                              ),
                               const SizedBox(height: 6),
                               _MetricsStrip(
                                 ramFreeGb: ramFreeGb,
@@ -259,11 +281,12 @@ class NanoHomeScreen extends ConsumerWidget {
                                         ? 'Linux listo'
                                         : 'Preparando Linux',
                                     icon: Icons.terminal_rounded,
-                                    colors: const [
-                                      Color(0xAA006B51),
-                                      Color(0x77005A70),
+                                    colors: [
+                                      colors.surface.withValues(alpha: 0.67),
+                                      colors.surfaceVariant
+                                          .withValues(alpha: 0.47),
                                     ],
-                                    accent: NanoPalette.emerald,
+                                    accent: colors.success,
                                     onTap: onTerminal,
                                     pulse: linuxReady,
                                   ),
@@ -298,7 +321,10 @@ class NanoHomeScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _NanoHeader(compact: compact),
+                          _NanoHeader(
+                            compact: compact,
+                            onSettings: onSettings,
+                          ),
                           SizedBox(height: compact ? 10 : 14),
                           TweenAnimationBuilder<double>(
                             tween: Tween(begin: 0.94, end: 1),
@@ -316,28 +342,55 @@ class NanoHomeScreen extends ConsumerWidget {
                             ),
                           ),
                           SizedBox(height: compact ? 10 : 12),
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.95, end: 1),
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, scale, child) {
-                              return Transform.scale(scale: scale, child: child);
-                            },
-                            child: GlassActionCard(
-                              title: 'Terminal',
-                              subtitle: linuxReady ? 'Linux listo' : 'Preparando Linux',
-                              icon: Icons.terminal_rounded,
-                              colors: const [Color(0xAA006B51), Color(0x77005A70)],
-                              accent: NanoPalette.emerald,
-                              height: terminalHeight,
-                              onTap: onTerminal,
-                              pulse: linuxReady,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _KaliCard(height: narrow ? 100 : (compact ? 120 : 132)),
-                          const SizedBox(height: 10),
+                          // Launcher primero: las 4 acciones principales en
+                          // mosaico 2x2 compacto. Antes el grid iba al final,
+                          // tras una card Terminal gigante (hasta 260px) que
+                          // empujaba la navegación fuera de la pantalla.
                           buildActionGrid(),
+                          SizedBox(height: compact ? 8 : 10),
+                          // Terminal + Kali en una fila: mismo peso visual y
+                          // la mitad del alto vertical que ocupaban antes.
+                          // Sin CrossAxisAlignment.stretch: en un scroll
+                          // vertical la altura es infinita y stretch exige
+                          // h=Infinity — ambos hijos ya traen height fija.
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.95, end: 1),
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, scale, child) {
+                                    return Transform.scale(
+                                      scale: scale,
+                                      child: child,
+                                    );
+                                  },
+                                  child: GlassActionCard(
+                                    title: 'Terminal',
+                                    subtitle: linuxReady
+                                        ? 'Linux listo'
+                                        : 'Preparando Linux',
+                                    icon: Icons.terminal_rounded,
+                                    colors: [
+                                      colors.surface.withValues(alpha: 0.67),
+                                      colors.surfaceVariant
+                                          .withValues(alpha: 0.47),
+                                    ],
+                                    accent: colors.success,
+                                    dense: true,
+                                    height: terminalRowHeight,
+                                    onTap: onTerminal,
+                                    pulse: linuxReady,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _KaliCard(height: terminalRowHeight),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -353,47 +406,95 @@ class NanoHomeScreen extends ConsumerWidget {
 }
 
 class _NanoHeader extends StatelessWidget {
-  const _NanoHeader({required this.compact, this.landscape = false});
+  const _NanoHeader({
+    required this.compact,
+    this.landscape = false,
+    this.onSettings,
+  });
 
   final bool compact;
   final bool landscape;
+  final VoidCallback? onSettings;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    // En horizontal el título no debe robarle alto a la pantalla:
-    // tope 44 en vez de 74.
+    // Fila compacta: el título gigante (hasta 74px) robaba el primer tercio
+    // de la pantalla; ahora el encabezado completo cabe en una sola fila
+    // con el acceso a Ajustes integrado.
     final titleSize = landscape
-        ? clampDouble(screenWidth * 0.10, 32.0, 44.0)
-        : clampDouble(screenWidth * 0.18, 52.0, 74.0);
+        ? clampDouble(screenWidth * 0.055, 22.0, 28.0)
+        : clampDouble(screenWidth * 0.085, 26.0, 34.0);
 
     return Semantics(
       header: true,
       label: 'NanoAI - inteligencia local',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      // LayoutBuilder: en landscape el header vive en una columna de ~243dp
+      // aunque la pantalla mida 480dp — las decisiones de ancho deben usar
+      // el espacio REAL del header, no el global (overflow confirmado).
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          // El chip "local intelligence" es ancho fijo (~110dp): por debajo
+          // de 280dp no cabe junto al título + botón de Ajustes.
+          final showTag = w >= 280;
+          // Columnas ultra-angostas (<120dp): IconButton compacto y sin gap.
+          final ultraNarrow = w < 120;
+          return Row(
         children: [
-          Text(
-            'nanoai',
-            maxLines: 1,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? titleSize * 0.84 : titleSize,
-              fontWeight: FontWeight.w300,
-              height: 0.95,
-              letterSpacing: landscape ? -2 : -3,
+          Flexible(
+            child: Text(
+              'nanoai',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: ultraNarrow
+                    ? 15
+                    : (compact ? titleSize * 0.86 : titleSize),
+                fontWeight: FontWeight.w300,
+                height: 1,
+                letterSpacing: landscape ? -1.6 : -2,
+              ),
             ),
           ),
-          SizedBox(height: landscape ? 3 : 8),
-          Text(
-            'local intelligence',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.64),
-              fontSize: landscape ? 12 : (compact ? 15 : 18),
-              fontWeight: FontWeight.w400,
+          if (!ultraNarrow) const SizedBox(width: 10),
+          if (showTag)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: colors.onSurface.withValues(alpha: 0.07),
+                borderRadius: NanoShapes.full,
+                border: Border.all(
+                  color: colors.onSurface.withValues(alpha: 0.14),
+                ),
+              ),
+              child: Text(
+                'local intelligence',
+                style: TextStyle(
+                  color: colors.onSurface.withValues(alpha: 0.6),
+                  fontSize: landscape ? 10 : 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ],
+          const Spacer(),
+          if (onSettings != null)
+            IconButton(
+              tooltip: 'Ajustes',
+              visualDensity: ultraNarrow ? VisualDensity.compact : null,
+              padding: ultraNarrow ? EdgeInsets.zero : null,
+              icon: Icon(
+                Icons.settings_rounded,
+                color: colors.onSurface.withValues(alpha: 0.75),
+                size: 21,
+              ),
+              onPressed: onSettings,
+            ),
+          ],
+          );
+        },
       ),
     );
   }
@@ -408,6 +509,7 @@ class _ActionSpec {
     required this.colors,
     required this.accent,
     required this.onTap,
+    this.pulse = false,
   });
 
   final String title;
@@ -416,6 +518,9 @@ class _ActionSpec {
   final List<Color> colors;
   final Color accent;
   final VoidCallback onTap;
+
+  /// Punto de estado vivo junto al subtítulo (motor online, modelos listos).
+  final bool pulse;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -439,6 +544,7 @@ class _MetricsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final items = [
       _MetricData(
         Icons.memory_rounded,
@@ -476,7 +582,7 @@ class _MetricsStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       borderRadius: 14,
       blur: 12,
-      tint: const Color(0xFF092034),
+      tint: colors.surface,
       child: SizedBox(
         height: 58,
         child: Row(
@@ -503,7 +609,7 @@ class _MetricsStrip extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 36,
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: colors.onSurface.withValues(alpha: 0.12),
                 ),
             ],
           ],
@@ -530,12 +636,13 @@ class _MetricItem extends StatelessWidget {
   /// Contador animado: arranca en 0 y sube hasta el valor real; cuando la
   /// métrica cambia, TweenAnimationBuilder re-apunta desde el valor actual.
   Widget _animatedValue(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final value = data.value;
     if (value == null) {
-      return const Text(
+      return Text(
         '—',
         style: TextStyle(
-          color: Colors.white,
+          color: colors.onSurface,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -545,8 +652,8 @@ class _MetricItem extends StatelessWidget {
     if (reduceMotion) {
       return Text(
         data.format(value),
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colors.onSurface,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -559,8 +666,8 @@ class _MetricItem extends StatelessWidget {
       builder: (context, animated, _) {
         return Text(
           data.format(animated),
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: colors.onSurface,
             fontSize: 11,
             fontWeight: FontWeight.w700,
           ),
@@ -571,6 +678,7 @@ class _MetricItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return Semantics(
       label: '${data.label}: ${data.value == null ? '—' : data.format(data.value!)}',
       child: Column(
@@ -579,14 +687,14 @@ class _MetricItem extends StatelessWidget {
           Icon(
             data.icon,
             size: 17,
-            color: Colors.white.withValues(alpha: 0.88),
+            color: colors.onSurface.withValues(alpha: 0.88),
           ),
           const SizedBox(height: 3),
           Text(
             data.label,
             maxLines: 1,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.52),
+              color: colors.onSurface.withValues(alpha: 0.52),
               fontSize: 8,
               fontWeight: FontWeight.w600,
             ),
@@ -701,6 +809,7 @@ class _GlassActionCardState extends State<GlassActionCard>
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
@@ -744,7 +853,7 @@ class _GlassActionCardState extends State<GlassActionCard>
                       setState(() => _pressed = value);
                     },
                     splashColor: widget.accent.withValues(alpha: 0.16),
-                    highlightColor: Colors.white.withValues(alpha: 0.04),
+                    highlightColor: colors.onSurface.withValues(alpha: 0.04),
                     child: Padding(
                       padding: EdgeInsets.all(widget.dense ? 10 : 18),
                       child: Column(
@@ -755,7 +864,7 @@ class _GlassActionCardState extends State<GlassActionCard>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colors.onSurface,
                               fontSize: widget.dense ? 15 : 24,
                               fontWeight: FontWeight.w500,
                             ),
@@ -775,7 +884,7 @@ class _GlassActionCardState extends State<GlassActionCard>
                                   child: Icon(
                                     widget.icon,
                                     size: _iconSize,
-                                    color: Colors.white,
+                                    color: colors.onSurface,
                                     shadows: [
                                       Shadow(
                                         color: widget.accent,
@@ -961,6 +1070,7 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final kali = ref.read(kaliProvider);
     final audit = kali?.auditTools() ?? const <String, bool>{};
     final ready = kali?.isInstalled == true;
@@ -978,27 +1088,27 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
     if (_installing) {
       chip = '$_pct%';
       detail = _stageLabels[_stage] ?? _stage;
-      accent = NanoPalette.cyan;
+      accent = colors.accent;
     } else if (_stage == 'error') {
       chip = 'ERROR';
       detail = 'Toca para reintentar la instalación';
-      accent = const Color(0xFFFF5D6C);
+      accent = colors.danger;
     } else if (ready && missingCount == 0) {
       chip = 'AUDIT 100%';
       detail = 'Catálogo completo — toca para abrir shell';
-      accent = NanoPalette.emerald;
+      accent = colors.success;
     } else if (ready) {
       chip = 'AUDIT $installedCount/${audit.length}';
       detail = 'Faltan $missingCount tools — toca para abrir shell';
-      accent = NanoPalette.cyan;
+      accent = colors.accent;
     } else if (kali == null) {
       chip = 'NO INICIALIZADO';
       detail = 'Abre el terminal para usar el comando kali';
-      accent = NanoPalette.slate;
+      accent = colors.onSurfaceVariant;
     } else {
       chip = 'NO INSTALADO';
       detail = 'Rootfs Kali ARM64 — toca para instalar';
-      accent = NanoPalette.slate;
+      accent = colors.onSurfaceVariant;
     }
 
     return TweenAnimationBuilder<double>(
@@ -1016,10 +1126,13 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xD106233F), Color(0xD102101F)],
+                  colors: [
+                    colors.surface.withValues(alpha: 0.82),
+                    colors.background.withValues(alpha: 0.82),
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
@@ -1032,7 +1145,7 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                 child: InkWell(
                   onTap: _tap,
                   splashColor: accent.withValues(alpha: 0.14),
-                  highlightColor: Colors.white.withValues(alpha: 0.04),
+                  highlightColor: colors.onSurface.withValues(alpha: 0.04),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
@@ -1068,13 +1181,13 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                             children: [
                               Row(
                                 children: [
-                                  const Flexible(
+                                  Flexible(
                                     child: Text(
                                       'Kali',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: colors.onSurface,
                                         fontSize: 17,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -1092,12 +1205,12 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                                     Container(
                                       width: 7,
                                       height: 7,
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: NanoPalette.emerald,
+                                        color: colors.success,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: NanoPalette.emerald,
+                                            color: colors.success,
                                             blurRadius: 6,
                                           ),
                                         ],
@@ -1112,7 +1225,8 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
+                                  color:
+                                      colors.onSurface.withValues(alpha: 0.6),
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -1143,7 +1257,7 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                                     Text(
                                       'Cobertura',
                                       style: TextStyle(
-                                        color: Colors.white
+                                        color: colors.onSurface
                                             .withValues(alpha: 0.45),
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w600,
@@ -1156,9 +1270,9 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                                         child: LinearProgressIndicator(
                                           value: coverage,
                                           minHeight: 3,
-                                          color: NanoPalette.emerald,
+                                          color: colors.success,
                                           backgroundColor:
-                                              NanoPalette.emerald
+                                              colors.success
                                                   .withValues(alpha: 0.15),
                                         ),
                                       ),
@@ -1166,8 +1280,8 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
                                     const SizedBox(width: 8),
                                     Text(
                                       '$installedCount/${audit.length}',
-                                      style: const TextStyle(
-                                        color: NanoPalette.emerald,
+                                      style: TextStyle(
+                                        color: colors.success,
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -1233,17 +1347,18 @@ class GlassPanel extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 18,
     this.blur = 12,
-    this.tint = const Color(0xFF081727),
+    this.tint,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final double blur;
-  final Color tint;
+  final Color? tint;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final radius = BorderRadius.circular(borderRadius);
 
     return RepaintBoundary(
@@ -1254,12 +1369,14 @@ class GlassPanel extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.62),
+              color: (tint ?? colors.surface).withValues(alpha: 0.62),
               borderRadius: radius,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+              border: Border.all(
+                color: colors.onSurface.withValues(alpha: 0.16),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: NanoPalette.cyan.withValues(alpha: 0.12),
+                  color: colors.accent.withValues(alpha: 0.12),
                   blurRadius: 16,
                 ),
               ],
@@ -1279,12 +1396,45 @@ class GlassPanel extends StatelessWidget {
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
+  /// Subtítulo de la card Chat según el estado REAL del motor LLM.
+  /// Prioridad: generando > cargando modelo > online > error > sin modelo.
+  static String _chatSubtitle(ChatState chat) {
+    if (chat.generating) return 'Generando respuesta...';
+    switch (chat.connection) {
+      case ModelConnectionState.loadingModel:
+        return 'Cargando ${chat.activeModel}...';
+      case ModelConnectionState.error:
+        return 'Motor con error — toca para ver';
+      case ModelConnectionState.ready:
+        return chat.activeModel == 'Sin modelo'
+            ? 'Motor listo — sin modelo'
+            : '${chat.activeModel} — motor listo';
+      case ModelConnectionState.noModel:
+        return 'Motor apagado — elige modelo';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
     final rootfs = ref.watch(rootfsProvider);
 
+    // Lógica real inyectada en las cards: el motor LLM (chatProvider) y el
+    // inventario de modelos (modelsProvider) alimentan subtítulos y puntos
+    // de estado vivos. El dashboard deja de ser solo navegación estática.
+    final chat = ref.watch(chatProvider);
+    final models = ref.watch(modelsProvider);
+    final modelCount = models.models.length + models.detected.length;
+
     return NanoHomeScreen(
+      chatSubtitle: _chatSubtitle(chat),
+      chatPulse: chat.engineOnline && !chat.generating,
+      modelsSubtitle: models.scanning
+          ? 'Escaneando storage...'
+          : modelCount > 0
+              ? '$modelCount modelos disponibles'
+              : 'Sin modelos — importa un GGUF',
+      modelsPulse: modelCount > 0 && !models.scanning,
       ramFreeGb: dashboard.ramTotalGb > 0 ? dashboard.ramFreeGb : null,
       cpuCores: dashboard.cpuCores > 0 ? dashboard.cpuCores : null,
       temperatureC: dashboard.tempC > 0 ? dashboard.tempC : null,

@@ -110,7 +110,16 @@ unsafe impl Send for NanoModel {}
 pub struct NanoContext {
     inner: llama_cpp_2::context::LlamaContext<'static>,
     context_size: u32,
+    batch_size: u32,
+    cached_tokens: Vec<LlamaToken>,
 }
+
+// SAFETY: NanoContext is moved only as an exclusive value by ModelManager.
+// Generation takes `&mut NanoContext`, ModelManager removes it from shared
+// state while a blocking thread owns it, and restores it after inference. It is
+// never accessed concurrently.
+unsafe impl Send for NanoContext {}
+unsafe impl Sync for NanoContext {}
 
 #[derive(Debug, Clone)]
 pub struct ModelLoadParams {
@@ -162,22 +171,40 @@ pub struct GenerateResult {
 }
 
 impl NanoModel {
-    pub fn load(path: &str, _params: &ModelLoadParams) -> Result<Self, String> {
+    pub fn load(path: &str, params: &ModelLoadParams) -> Result<Self, String> {
         init_backend()?;
         let backend = BACKEND.get().unwrap();
         let model_path = Path::new(path);
         if !model_path.exists() {
             return Err(format!("Model file not found: {}", path));
         }
-        let model_params = LlamaModelParams::default();
+        // Aplicar el config real: use_mmap decide si los pesos se mmap-ean
+        // (crítico en Android: sin mmap un GGUF de 27B no cabe en RAM) y
+        // gpu_layers (0 = solo CPU). Antes se ignoraban y se usaba el default.
+        let model_params = LlamaModelParams::default()
+            .with_use_mmap(params.use_mmap)
+            .with_n_gpu_layers(params.gpu_layers.max(0) as u32);
         let inner = LlamaModel::load_from_file(backend, model_path, &model_params)
             .map_err(|e| format!("Failed to load model '{}': {}", path, e))?;
         let vocab = inner.n_vocab();
-        tracing::info!("Loaded model: {} ({} vocab)", path, vocab);
+        tracing::info!(
+            "Loaded model: {} ({} vocab, mmap={}, gpu_layers={})",
+            path,
+            vocab,
+            params.use_mmap,
+            params.gpu_layers
+        );
         Ok(Self {
             inner: Box::new(inner),
             path: path.to_string(),
         })
+    }
+
+    /// Base address + size (bytes) of the primary mmap of the model file.
+    /// `(null, 0)` if the model was not mmap'd. NanoRuntime's OS-like layer
+    /// streaming uses this with per-tensor GGUF offsets to madvise layers.
+    pub fn mmap_addr(&self) -> (*mut std::ffi::c_void, usize) {
+        self.inner.mmap_addr()
     }
 
     pub fn create_context(&self, params: &ModelLoadParams) -> Result<NanoContext, String> {
@@ -220,6 +247,8 @@ impl NanoModel {
         Ok(NanoContext {
             inner,
             context_size: params.context_size,
+            batch_size: params.batch_size.max(1),
+            cached_tokens: Vec::new(),
         })
     }
 
@@ -248,6 +277,24 @@ impl NanoModel {
 
     pub fn n_vocab(&self) -> i32 {
         self.inner.n_vocab()
+    }
+
+    pub fn n_layer(&self) -> u32 {
+        self.inner.n_layer()
+    }
+
+    /// Lee el chat template desde la metadata del GGUF.
+    ///
+    /// Llaves estándar: `tokenizer.chat_template` (la más común) y
+    /// `tokenizer.ggml.chat_template` (variante antigua). Devuelve None si el
+    /// modelo no trae template (modelos base) o si la metadata no está
+    /// disponible. Permite detectar instruct-ness sin depender del nombre
+    /// del archivo.
+    pub fn chat_template(&self) -> Option<String> {
+        self.inner
+            .meta_val_str("tokenizer.chat_template")
+            .or_else(|_| self.inner.meta_val_str("tokenizer.ggml.chat_template"))
+            .ok()
     }
 
     pub fn estimate_tokens(text: &str) -> usize {
@@ -375,8 +422,15 @@ impl NanoContext {
         if tokens.is_empty() {
             return Err("Empty prompt".to_string());
         }
+        if n_prompt as u32 >= self.context_size {
+            return Err(format!(
+                "Prompt too long: {} tokens exceeds context size {}",
+                n_prompt, self.context_size
+            ));
+        }
 
         let mut n_past: i32 = 0;
+        let prefill_batch = self.batch_size as usize;
 
         // Process prompt: all tokens except last (no logits), then last with logits.
         if tokens.len() == 1 {
@@ -391,7 +445,7 @@ impl NanoContext {
         } else {
             let (prompt_tokens, last_tok) = tokens.split_at(tokens.len() - 1);
 
-            for chunk in prompt_tokens.chunks(1024) {
+            for chunk in prompt_tokens.chunks(prefill_batch) {
                 let mut batch = LlamaBatch::new(chunk.len(), 1);
                 for (i, &token) in chunk.iter().enumerate() {
                     batch
@@ -420,11 +474,16 @@ impl NanoContext {
         let mut output = String::new();
         let mut token_probs = Vec::with_capacity(params.max_tokens);
         let mut rng = rand::thread_rng();
+        // Historial de tokens emitidos para repeat_penalty (el prompt NO se
+        // penaliza — solo la salida generada, igual que llama.cpp con
+        // penalty_last_n cubriendo la ventana de generación).
+        let mut generated: Vec<LlamaToken> = Vec::with_capacity(params.max_tokens);
 
         // Sample first generated token from logits at batch position 0.
         let logits = self.inner.get_logits_ith(0);
         let first_token = sample_token(logits, params.temperature, params.top_p, &mut rng);
         let mut last_token = first_token;
+        generated.push(first_token);
 
         // Always push first token probability — even EOS.
         // token_confidence() returns None on empty arrays, causing
@@ -450,6 +509,10 @@ impl NanoContext {
                 break;
             }
             if n_past as u32 >= self.context_size {
+                tracing::warn!(
+                    "[NanoContext] context limit reached ({} tokens) — truncating output",
+                    self.context_size
+                );
                 break;
             }
 
@@ -463,12 +526,15 @@ impl NanoContext {
             n_past += 1;
 
             let logits = self.inner.get_logits_ith(0);
-            let token = sample_token(logits, params.temperature, params.top_p, &mut rng);
+            let penalized = apply_repeat_penalty(logits, params.repeat_penalty, &generated);
+            let effective: &[f32] = penalized.as_deref().unwrap_or(logits);
+            let token = sample_token(effective, params.temperature, params.top_p, &mut rng);
             last_token = token;
+            generated.push(token);
             // Push probability BEFORE checking EOS — ensures confidence
             // array is never empty even when model terminates immediately.
             {
-                let probs = apply_temperature_and_softmax(logits, params.temperature);
+                let probs = apply_temperature_and_softmax(effective, params.temperature);
                 let prob = probs.get(token.0 as usize).copied().unwrap_or(0.5);
                 token_probs.push(prob);
             }
@@ -483,13 +549,15 @@ impl NanoContext {
             // from the tail: longest stop sequence + current piece.
             // Must align to a valid UTF-8 character boundary to avoid panics
             // on multi-byte characters (ñ, ¿, emoji, etc.).
+            // +4 slack para safe_utf8_boundary: retroceder hasta 3 bytes no
+            // debe recortar un stop sequence que termine en el borde.
             let max_stop = params
                 .stop_sequences
                 .iter()
                 .map(|s| s.len())
                 .max()
                 .unwrap_or(64);
-            let candidate_start = output.len().saturating_sub(max_stop + piece.len());
+            let candidate_start = output.len().saturating_sub(max_stop + piece.len() + 4);
             let win = safe_utf8_boundary(&output, candidate_start);
             let recent = format!("{}{}", &output[win..], piece);
             if params.stop_sequences.iter().any(|s| recent.contains(s)) {
@@ -526,6 +594,11 @@ impl NanoContext {
         self.context_size
     }
 
+    pub fn clear_kv_cache(&mut self) {
+        self.inner.clear_kv_cache();
+        self.cached_tokens.clear();
+    }
+
     // ── Session Persistence (KV cache state) ────────────────────
     // Guarda/restaura el estado completo (KV cache) para eliminar
     // la espera de prefill en la siguiente sesión. Byte-idéntico.
@@ -537,25 +610,29 @@ impl NanoContext {
 
     /// Guarda el estado (KV cache) a un archivo.
     ///
+    /// Los tokens del contexto (`cached_tokens`) se guardan junto con el KV:
+    /// llama.cpp los usa en la restauración para reubicar las posiciones de
+    /// cada celda del cache. Guardar con lista vacía dejaba el KV inutilizable
+    /// (las posiciones se perdían al recargar).
+    ///
     /// Devuelve el número de bytes escritos.
     pub fn save_state(&self, path: &str) -> Result<usize, String> {
-        // state_save_file necesita los tokens; guardamos con lista vacía
-        // (el estado del KV cache se persiste, los tokens se re-tokenizan)
-        let tokens: Vec<LlamaToken> = Vec::new();
         self.inner
-            .state_save_file(path, &tokens)
+            .state_save_file(path, &self.cached_tokens)
             .map_err(|e| format!("Failed to save state: {:?}", e))?;
         Ok(self.inner.get_state_size())
     }
 
     /// Restaura el estado (KV cache) desde un archivo.
     ///
-    /// Devuelve el número de tokens restaurados (0 si la lista estaba vacía).
+    /// Devuelve el número de tokens restaurados y actualiza `cached_tokens`
+    /// para que el prefix reuse de la próxima generación sepa qué hay en el KV.
     pub fn load_state(&mut self, path: &str) -> Result<usize, String> {
         let tokens = self
             .inner
             .state_load_file(path, self.context_size as usize)
             .map_err(|e| format!("Failed to load state: {:?}", e))?;
+        self.cached_tokens = tokens.clone();
         Ok(tokens.len())
     }
 
@@ -597,21 +674,85 @@ impl NanoContext {
         if tokens.is_empty() {
             return Err("Empty prompt".to_string());
         }
+        if n_prompt as u32 >= self.context_size {
+            return Err(format!(
+                "Prompt too long: {} tokens exceeds context size {}",
+                n_prompt, self.context_size
+            ));
+        }
 
-        let mut n_past: i32 = 0;
+        let prefill_batch = self.batch_size as usize;
+        let mut common_prefix = self
+            .cached_tokens
+            .iter()
+            .zip(tokens.iter())
+            .take_while(|(cached, current)| cached == current)
+            .count();
 
-        if tokens.len() == 1 {
+        // The final prompt token must be decoded with logits=true, so do not
+        // reuse it blindly from cache. Re-decode that boundary token.
+        common_prefix = common_prefix.min(tokens.len().saturating_sub(1));
+
+        if common_prefix == 0 {
+            self.inner.clear_kv_cache();
+            self.cached_tokens.clear();
+        } else if common_prefix < self.cached_tokens.len() {
+            // Recortar la cola cacheada. Los modelos recurrentes/híbridos
+            // (qwen35/SSM) NO soportan partial sequence removal: llama.cpp
+            // devuelve false. En ese caso invalidamos el KV completo y
+            // reconstruimos desde cero — más lento pero correcto, nunca
+            // continuar con un KV inconsistente.
+            match self
+                .inner
+                .kv_cache_seq_rm(0, Some(common_prefix as u32), None)
+            {
+                Ok(()) => {
+                    self.cached_tokens.truncate(common_prefix);
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        "KV partial trim no soportado (modelo recurrente) — invalidando KV completo y reconstruyendo"
+                    );
+                    self.inner.clear_kv_cache();
+                    self.cached_tokens.clear();
+                    common_prefix = 0;
+                }
+            }
+        }
+
+        let mut n_past: i32 = common_prefix as i32;
+        let missing = &tokens[common_prefix..];
+
+        if missing.is_empty() {
+            // This should be rare because common_prefix is capped below the full
+            // prompt, but keep behavior total for degenerate one-token prompts.
+            let token = *tokens.last().unwrap();
+            self.inner
+                .kv_cache_seq_rm(0, Some(n_past.saturating_sub(1) as u32), None)
+                .map_err(|e| format!("KV cache boundary trim failed: {}", e))?;
+            n_past = n_past.saturating_sub(1);
             let mut batch = LlamaBatch::new(1, 1);
             batch
-                .add(tokens[0], 0, &[0], true)
+                .add(token, n_past, &[0], true)
                 .map_err(|e| format!("Batch add: {}", e))?;
             self.inner
                 .decode(&mut batch)
                 .map_err(|e| format!("Decode: {}", e))?;
-            n_past = 1;
+            n_past += 1;
+            self.cached_tokens.push(token);
+        } else if missing.len() == 1 {
+            let mut batch = LlamaBatch::new(1, 1);
+            batch
+                .add(missing[0], n_past, &[0], true)
+                .map_err(|e| format!("Batch add: {}", e))?;
+            self.inner
+                .decode(&mut batch)
+                .map_err(|e| format!("Decode: {}", e))?;
+            n_past += 1;
+            self.cached_tokens.push(missing[0]);
         } else {
-            let (prompt_tokens, last_tok) = tokens.split_at(tokens.len() - 1);
-            for chunk in prompt_tokens.chunks(1024) {
+            let (prompt_tokens, last_tok) = missing.split_at(missing.len() - 1);
+            for chunk in prompt_tokens.chunks(prefill_batch) {
                 let mut batch = LlamaBatch::new(chunk.len(), 1);
                 for (i, &token) in chunk.iter().enumerate() {
                     batch
@@ -622,6 +763,7 @@ impl NanoContext {
                     .decode(&mut batch)
                     .map_err(|e| format!("Decode: {}", e))?;
                 n_past += chunk.len() as i32;
+                self.cached_tokens.extend_from_slice(chunk);
             }
             let mut batch = LlamaBatch::new(1, 1);
             batch
@@ -631,7 +773,15 @@ impl NanoContext {
                 .decode(&mut batch)
                 .map_err(|e| format!("Decode: {}", e))?;
             n_past += 1;
+            self.cached_tokens.push(last_tok[0]);
         }
+
+        tracing::info!(
+            "[NanoKV] prompt_tokens={} reused={} decoded={}",
+            n_prompt,
+            common_prefix,
+            n_prompt.saturating_sub(common_prefix)
+        );
 
         let eos = model.token_eos();
         let mut output = String::new();
@@ -652,6 +802,8 @@ impl NanoContext {
         token_probs.push(first_prob);
 
         let mut aborted = false;
+        let mut generated_tokens = Vec::with_capacity(params.max_tokens);
+        generated_tokens.push(first_token);
 
         if first_token != eos {
             let piece = model.token_to_text(first_token)?;
@@ -672,6 +824,10 @@ impl NanoContext {
                 break;
             }
             if n_past as u32 >= self.context_size {
+                tracing::warn!(
+                    "[NanoContext] context limit reached ({} tokens) — truncating streaming output",
+                    self.context_size
+                );
                 break;
             }
 
@@ -685,12 +841,16 @@ impl NanoContext {
             n_past += 1;
 
             let logits = self.inner.get_logits_ith(0);
-            let token = sample_token(logits, params.temperature, params.top_p, &mut rng);
+            let penalized =
+                apply_repeat_penalty(logits, params.repeat_penalty, &generated_tokens);
+            let effective: &[f32] = penalized.as_deref().unwrap_or(logits);
+            let token = sample_token(effective, params.temperature, params.top_p, &mut rng);
             last_token = token;
+            generated_tokens.push(token);
             // Push probability BEFORE EOS check — so confidence is available
             // even when model terminates immediately.
             let token_prob = {
-                let probs = apply_temperature_and_softmax(logits, params.temperature);
+                let probs = apply_temperature_and_softmax(effective, params.temperature);
                 probs.get(token.0 as usize).copied().unwrap_or(0.5)
             };
             token_probs.push(token_prob);
@@ -703,13 +863,14 @@ impl NanoContext {
             // Only check the recent suffix against stop sequences.
             // Must align to a valid UTF-8 character boundary to avoid panics
             // on multi-byte characters (ñ, ¿, emoji, etc.).
+            // +4 slack para safe_utf8_boundary (retrocede hasta 3 bytes).
             let max_stop = params
                 .stop_sequences
                 .iter()
                 .map(|s| s.len())
                 .max()
                 .unwrap_or(64);
-            let candidate_start = output.len().saturating_sub(max_stop + piece.len());
+            let candidate_start = output.len().saturating_sub(max_stop + piece.len() + 4);
             let win = safe_utf8_boundary(&output, candidate_start);
             let recent = format!("{}{}", &output[win..], piece);
             if params.stop_sequences.iter().any(|s| recent.contains(s)) {
@@ -721,6 +882,8 @@ impl NanoContext {
                 break;
             }
         }
+
+        self.cached_tokens.extend(generated_tokens.iter().copied());
 
         let elapsed = start.elapsed().as_secs_f64();
         let tokens_generated = n_past as usize - n_prompt;
@@ -760,6 +923,37 @@ fn safe_utf8_boundary(s: &str, index: usize) -> usize {
         pos -= 1;
     }
     pos
+}
+
+/// Aplica repeat_penalty sobre los logits de tokens ya emitidos en esta
+/// generación. Fórmula de llama.cpp: logit < 0 → logit * penalty;
+/// logit >= 0 → logit / penalty (penalty > 1 baja la probabilidad de repetir).
+///
+/// Devuelve None cuando no hay penalización que aplicar (penalty ≈ 1.0 o
+/// historial vacío): los callers usan el slice original sin clonar, así el
+/// caso por defecto no paga el costo de copiar el vocabulario completo.
+fn apply_repeat_penalty(
+    logits: &[f32],
+    repeat_penalty: f32,
+    history: &[LlamaToken],
+) -> Option<Vec<f32>> {
+    if (repeat_penalty - 1.0).abs() <= f32::EPSILON || history.is_empty() {
+        return None;
+    }
+    let mut penalized = logits.to_vec();
+    for t in history {
+        let idx = t.0 as usize;
+        if idx >= penalized.len() {
+            continue;
+        }
+        let v = penalized[idx];
+        penalized[idx] = if v < 0.0 {
+            v * repeat_penalty
+        } else {
+            v / repeat_penalty
+        };
+    }
+    Some(penalized)
 }
 
 /// Sample un token de una distribución de logits usando temperatura y top-p.
@@ -948,6 +1142,29 @@ pub unsafe extern "C" fn nano_model_free(model: *mut NanoModel) {
     if !model.is_null() {
         let _ = Box::from_raw(model);
     }
+}
+
+/// Base address + size (bytes) of the model's primary mmap.
+/// Returns NULL + *size=0 if not mmap'd. For NanoRuntime layer streaming.
+///
+/// # Safety
+/// `model` must be a valid, non-null pointer returned by `nano_model_load`.
+#[no_mangle]
+pub unsafe extern "C" fn nano_model_mmap_addr(
+    model: *const NanoModel,
+    size: *mut usize,
+) -> *mut std::ffi::c_void {
+    if model.is_null() {
+        if !size.is_null() {
+            *size = 0;
+        }
+        return std::ptr::null_mut();
+    }
+    let (addr, sz) = (*model).mmap_addr();
+    if !size.is_null() {
+        *size = sz;
+    }
+    addr
 }
 
 /// Create an inference context for a loaded model.

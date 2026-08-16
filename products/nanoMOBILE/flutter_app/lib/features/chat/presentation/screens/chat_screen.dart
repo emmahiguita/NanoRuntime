@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:share_plus/share_plus.dart';
@@ -53,12 +54,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _showHonestError(String message) {
     if (!mounted) return;
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: const Color(0xFF07192B),
+          backgroundColor: colors.surfaceVariant,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -189,6 +191,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
 
@@ -220,7 +223,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   : () => _showClearDialog(notifier),
               icon: Icon(
                 Icons.delete_sweep_rounded,
-                color: Colors.white.withValues(alpha: 0.72),
+                color: colors.onSurface.withValues(alpha: 0.72),
                 size: 22,
               ),
             ),
@@ -312,23 +315,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Diálogo de confirmación para limpiar todo el historial.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0A1929),
+        backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: const Color(0xFF42D9FF).withValues(alpha: 0.3),
+            color: colors.accent.withValues(alpha: 0.3),
           ),
         ),
-        title: const Text(
+        title: Text(
           '¿Limpiar conversación?',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
           'Se eliminarán todos los mensajes. Esta acción no se puede deshacer.',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
         ),
         actions: [
           TextButton(
@@ -338,7 +342,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5C6C),
+              backgroundColor: colors.danger,
             ),
             child: const Text('Limpiar'),
           ),
@@ -355,25 +359,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ChatNotifier notifier,
     ChatMessage message,
   ) async {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0A1929),
+        backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: const Color(0xFF42D9FF).withValues(alpha: 0.3),
+            color: colors.accent.withValues(alpha: 0.3),
           ),
         ),
-        title: const Text(
+        title: Text(
           '¿Eliminar mensaje?',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
           message.text.length > 80
               ? '"${message.text.substring(0, 80)}…"'
               : '"${message.text}"',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
@@ -385,7 +390,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5C6C),
+              backgroundColor: colors.danger,
             ),
             child: const Text('Eliminar'),
           ),
@@ -403,26 +408,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// pendiente queda descartado por el siguiente send().
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final approved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0A1929),
+        backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: const Color(0xFF42D9FF).withValues(alpha: 0.3),
+            color: colors.accent.withValues(alpha: 0.3),
           ),
         ),
         title: Text(
           'Confirmar acción "$tool"',
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
           description.isEmpty
               ? 'El agente quiere ejecutar "$tool" en el dispositivo.'
               : description,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
         ),
         actions: [
           TextButton(
@@ -491,8 +497,9 @@ class _EngineBadgeState extends State<_EngineBadge>
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final online = widget.online;
-    final color = online ? const Color(0xFF21F2B2) : const Color(0xFFFFA726);
+    final color = online ? colors.success : colors.warning;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
@@ -508,7 +515,7 @@ class _EngineBadgeState extends State<_EngineBadge>
             constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.symmetric(horizontal: 13),
             decoration: BoxDecoration(
-              color: const Color(0xFF07192B).withValues(alpha: 0.72),
+              color: colors.surfaceVariant.withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: color.withValues(alpha: 0.45)),
               boxShadow: [
@@ -561,79 +568,82 @@ MarkdownStyleSheet _buildChatMarkdownStyleSheet(
   BuildContext context, {
   required bool isUser,
 }) {
+  final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
   return MarkdownStyleSheet(
     p: TextStyle(
-      color: isUser ? Colors.white : Colors.white.withValues(alpha: 0.95),
+      color: isUser
+          ? colors.onSurface
+          : colors.onSurface.withValues(alpha: 0.95),
       fontSize: 15,
       height: 1.55,
       letterSpacing: 0.15,
     ),
-    h1: const TextStyle(
-      color: Color(0xFF42D9FF),
+    h1: TextStyle(
+      color: colors.accent,
       fontSize: 20,
       fontWeight: FontWeight.bold,
       height: 1.4,
     ),
-    h2: const TextStyle(
-      color: Color(0xFF42D9FF),
+    h2: TextStyle(
+      color: colors.accent,
       fontSize: 18,
       fontWeight: FontWeight.w700,
       height: 1.4,
     ),
-    h3: const TextStyle(
-      color: Color(0xFF21F2B2),
+    h3: TextStyle(
+      color: colors.success,
       fontSize: 16,
       fontWeight: FontWeight.w600,
       height: 1.35,
     ),
-    strong: const TextStyle(
-      color: Colors.white,
+    strong: TextStyle(
+      color: colors.onSurface,
       fontWeight: FontWeight.w700,
     ),
     em: TextStyle(
-      color: Colors.white.withValues(alpha: 0.9),
+      color: colors.onSurface.withValues(alpha: 0.9),
       fontStyle: FontStyle.italic,
     ),
-    listBullet: const TextStyle(
-      color: Color(0xFF42D9FF),
+    listBullet: TextStyle(
+      color: colors.accent,
       fontSize: 15,
     ),
-    code: const TextStyle(
-      backgroundColor: Color(0x2021F2B2),
-      color: Color(0xFF21F2B2),
+    code: TextStyle(
+      backgroundColor: colors.success.withValues(alpha: 0x20 / 0xFF),
+      color: colors.success,
       fontFamily: 'monospace',
       fontSize: 13.5,
     ),
     codeblockPadding: const EdgeInsets.all(12),
     codeblockDecoration: BoxDecoration(
-      color: const Color(0xFF040E1A),
+      color: colors.codeBlockBg,
       borderRadius: BorderRadius.circular(10),
       border: Border.all(
-        color: const Color(0xFF42D9FF).withValues(alpha: 0.25),
+        color: colors.accent.withValues(alpha: 0.25),
       ),
     ),
     blockquote: TextStyle(
-      color: Colors.white.withValues(alpha: 0.8),
+      color: colors.onSurface.withValues(alpha: 0.8),
       fontSize: 14.5,
       fontStyle: FontStyle.italic,
     ),
     blockquoteDecoration: BoxDecoration(
-      color: const Color(0xFF003040).withValues(alpha: 0.3),
+      color: colors.quoteBg.withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(8),
-      border: const Border(
-        left: BorderSide(color: Color(0xFF42D9FF), width: 3),
+      border: Border(
+        left: BorderSide(color: colors.accent, width: 3),
       ),
     ),
     tableBorder: TableBorder.all(
-      color: Colors.white.withValues(alpha: 0.18),
+      color: colors.onSurface.withValues(alpha: 0.18),
       borderRadius: BorderRadius.circular(6),
     ),
-    tableHead: const TextStyle(
-      color: Color(0xFF42D9FF),
+    tableHead: TextStyle(
+      color: colors.accent,
       fontWeight: FontWeight.w700,
     ),
     tableBody: TextStyle(
-      color: Colors.white.withValues(alpha: 0.9),
+      color: colors.onSurface.withValues(alpha: 0.9),
     ),
     tableCellsPadding: const EdgeInsets.symmetric(
       horizontal: 10,
@@ -672,6 +682,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final time =
         '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}';
@@ -681,7 +692,7 @@ class _MessageBubble extends StatelessWidget {
       Text(
         time,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.48),
+          color: colors.onSurface.withValues(alpha: 0.48),
           fontSize: 10,
         ),
       ),
@@ -693,16 +704,16 @@ class _MessageBubble extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(
-            color: const Color(0xFF21F2B2).withValues(alpha: 0.15),
+            color: colors.success.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: const Color(0xFF21F2B2).withValues(alpha: 0.30),
+              color: colors.success.withValues(alpha: 0.30),
             ),
           ),
           child: Text(
             '${tps!.toStringAsFixed(1)} tok/s',
-            style: const TextStyle(
-              color: Color(0xFF21F2B2),
+            style: TextStyle(
+              color: colors.success,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
@@ -712,12 +723,12 @@ class _MessageBubble extends StatelessWidget {
     }
 
     final bubbleColor = isUser
-        ? const Color(0xFF42D9FF).withValues(alpha: 0.15)
-        : const Color(0xFF0A1929).withValues(alpha: 0.72);
+        ? colors.accent.withValues(alpha: 0.15)
+        : colors.surface.withValues(alpha: 0.72);
 
     final borderColor = isUser
-        ? const Color(0xFF42D9FF).withValues(alpha: 0.3)
-        : Colors.white.withValues(alpha: 0.12);
+        ? colors.accent.withValues(alpha: 0.3)
+        : colors.onSurface.withValues(alpha: 0.12);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -757,19 +768,19 @@ class _MessageBubble extends StatelessWidget {
                                               Icon(
                                                 Icons.attach_file_rounded,
                                                 size: 14,
-                                                color: Colors.white.withValues(alpha: 0.72),
+                                                color: colors.onSurface.withValues(alpha: 0.72),
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
                                                 name,
                                                 style: TextStyle(
-                                                  color: Colors.white.withValues(alpha: 0.72),
+                                                  color: colors.onSurface.withValues(alpha: 0.72),
                                                   fontSize: 11,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                          backgroundColor: colors.onSurface.withValues(alpha: 0.08),
                                           visualDensity: VisualDensity.compact,
                                         ))
                                     .toList(),
@@ -804,13 +815,13 @@ class _MessageBubble extends StatelessWidget {
                         Icon(
                           Icons.refresh_rounded,
                           size: 14,
-                          color: const Color(0xFF42D9FF),
+                          color: colors.accent,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           'Reintentar',
                           style: TextStyle(
-                            color: const Color(0xFF42D9FF),
+                            color: colors.accent,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -877,18 +888,19 @@ class _MessageActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return PopupMenuButton<String>(
       icon: Icon(
         Icons.more_horiz_rounded,
         size: 18,
-        color: Colors.white.withValues(alpha: 0.48),
+        color: colors.onSurface.withValues(alpha: 0.48),
       ),
       tooltip: 'Acciones',
-      color: const Color(0xFF0A1929),
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: const Color(0xFF42D9FF).withValues(alpha: 0.25),
+          color: colors.accent.withValues(alpha: 0.25),
         ),
       ),
       elevation: 8,
@@ -943,13 +955,13 @@ class _MessageActions extends StatelessWidget {
               Icon(
                 Icons.copy_rounded,
                 size: 18,
-                color: Colors.white.withValues(alpha: 0.72),
+                color: colors.onSurface.withValues(alpha: 0.72),
               ),
               const SizedBox(width: 12),
               Text(
                 'Copiar',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: colors.onSurface.withValues(alpha: 0.9),
                   fontSize: 14,
                 ),
               ),
@@ -964,13 +976,13 @@ class _MessageActions extends StatelessWidget {
               Icon(
                 Icons.share_rounded,
                 size: 18,
-                color: Colors.white.withValues(alpha: 0.72),
+                color: colors.onSurface.withValues(alpha: 0.72),
               ),
               const SizedBox(width: 12),
               Text(
                 'Compartir',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: colors.onSurface.withValues(alpha: 0.9),
                   fontSize: 14,
                 ),
               ),
@@ -986,10 +998,10 @@ class _MessageActions extends StatelessWidget {
           value: 'export_pdf',
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.picture_as_pdf_rounded,
                 size: 18,
-                color: Color(0xFF42D9FF),
+                color: colors.accent,
               ),
               const SizedBox(width: 12),
               Column(
@@ -999,14 +1011,14 @@ class _MessageActions extends StatelessWidget {
                   Text(
                     'Exportar como PDF',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: colors.onSurface.withValues(alpha: 0.9),
                       fontSize: 14,
                     ),
                   ),
                   Text(
                     'Informe técnico estructurado',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: colors.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
                     ),
                   ),
@@ -1020,10 +1032,10 @@ class _MessageActions extends StatelessWidget {
           value: 'export_md',
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.description_rounded,
                 size: 18,
-                color: Color(0xFF21F2B2),
+                color: colors.success,
               ),
               const SizedBox(width: 12),
               Column(
@@ -1033,14 +1045,14 @@ class _MessageActions extends StatelessWidget {
                   Text(
                     'Exportar como Markdown',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: colors.onSurface.withValues(alpha: 0.9),
                       fontSize: 14,
                     ),
                   ),
                   Text(
                     'Archivo .md para Obsidian, Notion…',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: colors.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
                     ),
                   ),
@@ -1065,15 +1077,16 @@ class _StreamingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A1929).withValues(alpha: 0.72),
+          color: colors.surface.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(color: colors.onSurface.withValues(alpha: 0.12)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.25),
@@ -1117,8 +1130,8 @@ class _StreamingBubble extends StatelessWidget {
                 Container(
                   width: 6,
                   height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF21F2B2),
+                  decoration: BoxDecoration(
+                    color: colors.success,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -1128,7 +1141,7 @@ class _StreamingBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.48),
+                      color: colors.onSurface.withValues(alpha: 0.48),
                       fontSize: 11,
                     ),
                   ),
@@ -1159,6 +1172,7 @@ class _EmptyChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return Center(
       child: SingleChildScrollView(
         child: Padding(
@@ -1169,13 +1183,13 @@ class _EmptyChat extends StatelessWidget {
           Icon(
             Icons.chat_bubble_outline_rounded,
             size: 64,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: colors.onSurface.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
             'Chat local',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: colors.onSurface.withValues(alpha: 0.72),
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -1187,7 +1201,7 @@ class _EmptyChat extends StatelessWidget {
                 Text(
                   'Motor local detenido',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.48),
+                    color: colors.onSurface.withValues(alpha: 0.48),
                     fontSize: 14,
                   ),
                 ),
@@ -1197,8 +1211,8 @@ class _EmptyChat extends StatelessWidget {
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('Reintentar'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF42D9FF),
-                    foregroundColor: Colors.white,
+                    backgroundColor: colors.accent,
+                    foregroundColor: colors.onSurface,
                   ),
                 ),
               ],
@@ -1209,7 +1223,7 @@ class _EmptyChat extends StatelessWidget {
                 Text(
                   'No hay modelos cargados',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.48),
+                    color: colors.onSurface.withValues(alpha: 0.48),
                     fontSize: 14,
                   ),
                 ),
@@ -1219,8 +1233,8 @@ class _EmptyChat extends StatelessWidget {
                   icon: const Icon(Icons.extension_rounded, size: 18),
                   label: const Text('Ir a Modelos'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF42D9FF),
-                    foregroundColor: Colors.white,
+                    backgroundColor: colors.accent,
+                    foregroundColor: colors.onSurface,
                   ),
                 ),
               ],
@@ -1231,7 +1245,7 @@ class _EmptyChat extends StatelessWidget {
                 Text(
                   'Escribe un mensaje para comenzar',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.48),
+                    color: colors.onSurface.withValues(alpha: 0.48),
                     fontSize: 14,
                   ),
                 ),
@@ -1342,15 +1356,16 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     if (widget.thought.trim().isEmpty) return const SizedBox.shrink();
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF040E1A).withValues(alpha: 0.5),
+        color: colors.codeBlockBg.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF21F2B2).withValues(alpha: 0.2),
+          color: colors.success.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -1366,7 +1381,7 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
                   Icon(
                     Icons.psychology_outlined,
                     size: 16,
-                    color: const Color(0xFF21F2B2).withValues(alpha: 0.8),
+                    color: colors.success.withValues(alpha: 0.8),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -1375,7 +1390,7 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
                       fontFamily: 'Inter',
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF21F2B2).withValues(alpha: 0.8),
+                      color: colors.success.withValues(alpha: 0.8),
                       letterSpacing: 0.1,
                     ),
                   ),
@@ -1383,7 +1398,7 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
                   Icon(
                     _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                     size: 16,
-                    color: Colors.white.withValues(alpha: 0.48),
+                    color: colors.onSurface.withValues(alpha: 0.48),
                   ),
                 ],
               ),
@@ -1396,7 +1411,7 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF020611).withValues(alpha: 0.3),
+                  color: colors.codeBlockBg.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1405,7 +1420,7 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
                     fontFamily: 'JetBrainsMono',
                     fontSize: 12,
                     height: 1.5,
-                    color: Colors.white.withValues(alpha: 0.65),
+                    color: colors.onSurface.withValues(alpha: 0.65),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -1428,15 +1443,16 @@ class _SuggestionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return ActionChip(
       label: Text(label),
       onPressed: onTap,
-      backgroundColor: Colors.white.withValues(alpha: 0.08),
+      backgroundColor: colors.onSurface.withValues(alpha: 0.08),
       labelStyle: TextStyle(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: colors.onSurface.withValues(alpha: 0.72),
         fontSize: 13,
       ),
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+      side: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
     );
   }
 }
@@ -1468,12 +1484,13 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1929).withValues(alpha: 0.96),
+        color: colors.surface.withValues(alpha: 0.96),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          top: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
         ),
       ),
       child: Column(
@@ -1494,15 +1511,15 @@ class _Composer extends StatelessWidget {
                       label: Text(
                         attachment.name,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
+                          color: colors.onSurface.withValues(alpha: 0.72),
                           fontSize: 12,
                         ),
                       ),
-                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      backgroundColor: colors.onSurface.withValues(alpha: 0.08),
                       deleteIcon: Icon(
                         Icons.close_rounded,
                         size: 16,
-                        color: Colors.white.withValues(alpha: 0.48),
+                        color: colors.onSurface.withValues(alpha: 0.48),
                       ),
                       onDeleted: () => onRemoveAttachment(attachment.name),
                     ),
@@ -1516,8 +1533,8 @@ class _Composer extends StatelessWidget {
                 icon: Icon(
                   listening ? Icons.mic_rounded : Icons.mic_none_rounded,
                   color: listening
-                      ? const Color(0xFF21F2B2)
-                      : Colors.white.withValues(alpha: 0.48),
+                      ? colors.success
+                      : colors.onSurface.withValues(alpha: 0.48),
                 ),
                 onPressed: onMic,
                 tooltip: 'Dictado por voz',
@@ -1525,7 +1542,7 @@ class _Composer extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   Icons.attach_file_rounded,
-                  color: Colors.white.withValues(alpha: 0.48),
+                  color: colors.onSurface.withValues(alpha: 0.48),
                 ),
                 onPressed: onAttach,
                 tooltip: 'Adjuntar archivo',
@@ -1537,13 +1554,13 @@ class _Composer extends StatelessWidget {
                   maxLines: 4,
                   minLines: 1,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: colors.onSurface.withValues(alpha: 0.92),
                     fontSize: 15,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Escribe un mensaje...',
                     hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: colors.onSurface.withValues(alpha: 0.3),
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -1553,7 +1570,7 @@ class _Composer extends StatelessWidget {
               if (generating)
                 IconButton(
                   icon: const Icon(Icons.stop_rounded),
-                  color: const Color(0xFFFF5C6C),
+                  color: colors.danger,
                   onPressed: onStop,
                   tooltip: 'Detener generación',
                 )
@@ -1561,8 +1578,8 @@ class _Composer extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.send_rounded),
                   color: enabled
-                      ? const Color(0xFF42D9FF)
-                      : Colors.white.withValues(alpha: 0.24),
+                      ? colors.accent
+                      : colors.onSurface.withValues(alpha: 0.24),
                   onPressed: enabled ? onSend : null,
                   tooltip: 'Enviar',
                 ),
