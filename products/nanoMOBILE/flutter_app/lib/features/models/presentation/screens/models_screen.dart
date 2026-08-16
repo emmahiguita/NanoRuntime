@@ -146,6 +146,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
               description: model.description,
               error: model.error,
               status: status,
+              viability: _viabilityOf(model, dashboard),
               ramNote: status == ModelUiStatus.incompatible
                   ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
                   : null,
@@ -436,6 +437,7 @@ class _ModelCard extends StatelessWidget {
     required this.description,
     required this.error,
     required this.status,
+    required this.viability,
     required this.ramNote,
     required this.progress,
     required this.onUse,
@@ -449,6 +451,7 @@ class _ModelCard extends StatelessWidget {
   final String description;
   final String? error;
   final ModelUiStatus status;
+  final ModelViability viability;
   final String? ramNote;
   final double progress;
   final VoidCallback onUse;
@@ -506,6 +509,7 @@ class _ModelCard extends StatelessWidget {
                       description: description,
                       error: error,
                       status: status,
+                      viability: viability,
                       ramNote: ramNote,
                       progress: progress,
                       accent: accent,
@@ -622,6 +626,7 @@ class _ModelDetails extends StatelessWidget {
     required this.description,
     required this.error,
     required this.status,
+    required this.viability,
     required this.ramNote,
     required this.progress,
     required this.accent,
@@ -633,6 +638,7 @@ class _ModelDetails extends StatelessWidget {
   final String description;
   final String? error;
   final ModelUiStatus status;
+  final ModelViability viability;
   final String? ramNote;
   final double progress;
   final Color accent;
@@ -662,6 +668,10 @@ class _ModelDetails extends StatelessWidget {
             _StatusChip(label: _statusLabel(status), color: accent),
             if (quantization.isNotEmpty)
               _StatusChip(label: quantization, color: colors.accent),
+            _StatusChip(
+              label: _viabilityLabel(viability),
+              color: _viabilityColor(viability, colors),
+            ),
           ],
         ),
         const SizedBox(height: 7),
@@ -689,6 +699,15 @@ class _ModelDetails extends StatelessWidget {
               fontSize: 12,
             ),
           ),
+        if (viability == ModelViability.extreme) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Extremadamente lento en este dispositivo. Recomendado: LAN/Cloud.',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: colors.danger, fontSize: 12),
+          ),
+        ],
         if (status == ModelUiStatus.downloading) ...[
           const SizedBox(height: 10),
           if (MediaQuery.disableAnimationsOf(context))
@@ -1312,6 +1331,47 @@ String formatBytes(int bytes) {
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
   if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+}
+
+/// Tier de viabilidad de un modelo en ESTE device — espejo Dart del
+/// `assess_viability` de NanoRuntime (Rust). Derivado de datos reales:
+/// ramGb del modelo vs RAM total del dispositivo. Distingue CanRun de
+/// ShouldRun: EXTREME "can_run" pero NO es interactivo.
+enum ModelViability { fast, balanced, streaming, extreme }
+
+ModelViability _viabilityOf(LocalModel model, DashboardState dashboard) {
+  if (dashboard.ramTotalGb <= 0) return ModelViability.fast;
+  final ratio = model.ramGb / dashboard.ramTotalGb;
+  if (ratio <= 0.7) return ModelViability.fast;
+  if (ratio <= 1.0) return ModelViability.balanced;
+  if (ratio <= 2.0) return ModelViability.streaming;
+  return ModelViability.extreme;
+}
+
+String _viabilityLabel(ModelViability v) {
+  switch (v) {
+    case ModelViability.fast:
+      return 'RÁPIDO';
+    case ModelViability.balanced:
+      return 'EQUILIBRADO';
+    case ModelViability.streaming:
+      return 'STREAMING';
+    case ModelViability.extreme:
+      return 'EXTREMO';
+  }
+}
+
+Color _viabilityColor(ModelViability v, NanoColors colors) {
+  switch (v) {
+    case ModelViability.fast:
+      return colors.success;
+    case ModelViability.balanced:
+      return colors.accent;
+    case ModelViability.streaming:
+      return colors.warning;
+    case ModelViability.extreme:
+      return colors.danger;
+  }
 }
 
 Color _statusColor(ModelUiStatus status, NanoColors colors) {
