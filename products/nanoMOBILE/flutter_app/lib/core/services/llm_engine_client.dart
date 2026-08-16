@@ -405,6 +405,26 @@ class RuntimeStatus {
             ? ViabilityStatus.fromJson(j['viability'] as Map<String, dynamic>)
             : null,
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RuntimeStatus &&
+          modelLoaded == other.modelLoaded &&
+          modelSizeMb == other.modelSizeMb &&
+          contextSize == other.contextSize &&
+          faultRate == other.faultRate &&
+          pssMb == other.pssMb &&
+          pressureRatio == other.pressureRatio &&
+          thrashing == other.thrashing &&
+          residentWindow == other.residentWindow &&
+          tokS == other.tokS &&
+          viability == other.viability;
+
+  @override
+  int get hashCode => Object.hash(modelLoaded, modelSizeMb, contextSize,
+      faultRate, pssMb, pressureRatio, thrashing, residentWindow, tokS,
+      viability);
 }
 
 /// Verdicto de viabilidad (CanRun vs ShouldRun) — espejo de `ViabilityStatus`.
@@ -427,4 +447,16 @@ class ViabilityStatus {
         shouldRunInteractive: j['should_run_interactive'] as bool? ?? false,
         reason: j['reason'] as String? ?? '',
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ViabilityStatus &&
+          tier == other.tier &&
+          canRun == other.canRun &&
+          shouldRunInteractive == other.shouldRunInteractive &&
+          reason == other.reason;
+
+  @override
+  int get hashCode => Object.hash(tier, canRun, shouldRunInteractive, reason);
 }

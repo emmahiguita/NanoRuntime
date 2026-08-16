@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
+import 'package:nanoai/core/widgets/runtime_health_monitor.dart';
 
 // ════════════════════════════════════════════════════════════════════
 // Dashboard — NanoAI Launcher (diseño de referencia 2026-08-13)
@@ -258,6 +259,10 @@ class NanoHomeScreen extends ConsumerWidget {
                                 onSettings: onSettings,
                               ),
                               const SizedBox(height: 6),
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 6),
+                                child: RuntimeHealthMonitor(),
+                              ),
                               _MetricsStrip(
                                 ramFreeGb: ramFreeGb,
                                 cpuCores: cpuCores,
@@ -326,6 +331,10 @@ class NanoHomeScreen extends ConsumerWidget {
                             onSettings: onSettings,
                           ),
                           SizedBox(height: compact ? 10 : 14),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: RuntimeHealthMonitor(),
+                          ),
                           TweenAnimationBuilder<double>(
                             tween: Tween(begin: 0.94, end: 1),
                             duration: const Duration(milliseconds: 420),
