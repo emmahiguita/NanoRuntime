@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
@@ -10,28 +8,28 @@ import 'package:nanoai/features/models/application/models_provider.dart';
 import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 
-/// Tokens locales Material 3 Expressive aplicados SOLO a este módulo.
+/// Tokens locales Material 3 Expressive aplicados SOLO a este mÃ³dulo.
 ///
-/// M3E: formas más grandes y pill-shaped (superficies de radio amplio,
-/// chips y botones stadium), color saturado en superficies de acción
-/// (FilledButtons con accent + texto oscuro), tipografía con más peso y
-/// motion con énfasis (curvas con overshoot en entradas y cambios de estado).
+/// M3E: formas mÃ¡s grandes y pill-shaped (superficies de radio amplio,
+/// chips y botones stadium), color saturado en superficies de acciÃ³n
+/// (FilledButtons con accent + texto oscuro), tipografÃ­a con mÃ¡s peso y
+/// motion con Ã©nfasis (curvas con overshoot en entradas y cambios de estado).
 class _M3 {
-  // Shape — radios mayores que M3 base, camino a squircle.
+  // Shape â€” radios mayores que M3 base, camino a squircle.
   static const cardRadius = 24.0;
   static const compactRadius = 22.0;
   static const barRadius = 18.0;
   static const iconRadius = 16.0;
   static const chipRadius = BorderRadius.all(Radius.circular(999));
 
-  // Typography — display con más peso.
+  // Typography â€” display con mÃ¡s peso.
   static const titleSize = 18.0;
 
-  // Motion — énfasis: overshoot sutil en entradas y cambios de estado.
+  // Motion â€” Ã©nfasis: overshoot sutil en entradas y cambios de estado.
   static const pressScale = 0.94;
 }
 
-/// Pantalla Modelos — identidad visual de Inicio (glassmorphism, sin AppBar).
+/// Pantalla Modelos â€” identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
 /// Nombres reales del dominio: `LocalModel.quant`/`sizeGb`/`active`/
 /// `installed`/`downloadState`, `ModelsNotifier.loadModel`/`downloadModel`/
@@ -49,7 +47,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     with SingleTickerProviderStateMixin {
   /// Entrada escalonada de las tarjetas: UN solo controller para toda la
   /// lista (nunca uno por tarjeta). Cada tarjeta mapea su tramo con un
-  /// Interval; las primeras entran antes, las últimas terminan después.
+  /// Interval; las primeras entran antes, las Ãºltimas terminan despuÃ©s.
   late final AnimationController _entryController;
   bool _entryStarted = false;
 
@@ -62,9 +60,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       duration: const Duration(milliseconds: 750),
     );
 
-    // Auto-escaneo al entrar: primero el de todo el storage (vía principal).
-    // Al terminar, si el acceso completo no está concedido, se intenta el
-    // auto-escaneo del árbol SAF (maybeAutoScan se salta si scanAll cubrió).
+    // Auto-escaneo al entrar: primero el de todo el storage (vÃ­a principal).
+    // Al terminar, si el acceso completo no estÃ¡ concedido, se intenta el
+    // auto-escaneo del Ã¡rbol SAF (maybeAutoScan se salta si scanAll cubriÃ³).
     final notifier = ref.read(modelsProvider.notifier);
     notifier.maybeAutoScanAll().then((_) {
       if (mounted) notifier.maybeAutoScan();
@@ -93,10 +91,10 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final dashboard = ref.watch(dashboardProvider);
     final notifier = ref.read(modelsProvider.notifier);
 
-    // Política de lista: DESCARGADOS primero. Activo, instalados y
+    // PolÃ­tica de lista: DESCARGADOS primero. Activo, instalados y
     // descargas en curso arriba; disponible/incompatible abajo. El sort
-    // de Dart es estable — dentro de cada grupo se conserva el orden del
-    // catálogo.
+    // de Dart es estable â€” dentro de cada grupo se conserva el orden del
+    // catÃ¡logo.
     final catalogModels = List<LocalModel>.of(state.models)
       ..sort((a, b) => _listRank(a, dashboard).compareTo(_listRank(b, dashboard)));
 
@@ -115,8 +113,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       title: 'Modelos',
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // BUG-FIX orientación: maxWidth >= 640 marcaba "landscape" en
-          // portrait de phones anchos (1080px). La orientación real se mide
+          // BUG-FIX orientaciÃ³n: maxWidth >= 640 marcaba "landscape" en
+          // portrait de phones anchos (1080px). La orientaciÃ³n real se mide
           // comparando ancho contra alto.
           final isLandscape = constraints.maxWidth > constraints.maxHeight;
           final totalCount = catalogModels.length + detected.length;
@@ -124,7 +122,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
           Widget buildCardAt(int index) {
             if (index >= catalogModels.length) {
               // Modelo detectado en storage SAF: se usa directo desde su
-              // ubicación original (fd por Binder, cero copias).
+              // ubicaciÃ³n original (fd por Binder, cero copias).
               final detectedModel = detected[index - catalogModels.length];
               return _DetectedCard(
                 model: detectedModel,
@@ -188,7 +186,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
           }
 
           // Resumen y pie SOLO cuando hay algo instalado: con 0 modelos son
-          // componentes estáticos que repiten "0 · 0 GB" sin información.
+          // componentes estÃ¡ticos que repiten "0 Â· 0 GB" sin informaciÃ³n.
           final hasInstalled = installedModels.isNotEmpty;
           final hasAny = totalCount > 0;
 
@@ -294,7 +292,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
   /// El activo es `LocalModel.active`; el instalado, el getter `installed`
   /// (downloadState == installed, GGUF verificado por el notifier).
   /// El NO COMPATIBLE compara el requisito real del modelo (ramGb) contra
-  /// la RAM libre real reportada por el dashboard — sin inventar datos.
+  /// la RAM libre real reportada por el dashboard â€” sin inventar datos.
   ModelUiStatus _statusOf(LocalModel model, DashboardState dashboard) {
     if (model.downloadState == ModelDownloadState.failed) {
       return ModelUiStatus.error;
@@ -306,7 +304,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     if (model.active) return ModelUiStatus.active;
     if (model.installed) return ModelUiStatus.installed;
     // Compara contra la RAM TOTAL del device (dato estable): con la RAM
-    // libre el estado INCOMPATIBLE parpadeaba según el uso del momento.
+    // libre el estado INCOMPATIBLE parpadeaba segÃºn el uso del momento.
     if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb) {
       return ModelUiStatus.incompatible;
     }
@@ -402,7 +400,7 @@ class _ModelsSummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Miniatura: icono más pequeño y compacto
+          // Miniatura: icono mÃ¡s pequeÃ±o y compacto
           _MiniIcon(
             icon: Icons.view_in_ar_rounded,
             color: colors.accent,
@@ -413,7 +411,7 @@ class _ModelsSummary extends StatelessWidget {
           SizedBox(width: isCompact ? 8 : 10),
           Expanded(
             child: Text(
-              '$installedCount · ${usedGb <= 0 ? '0 GB' : formatGb(usedGb)}',
+              '$installedCount Â· ${usedGb <= 0 ? '0 GB' : formatGb(usedGb)}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -463,7 +461,7 @@ class _ModelCard extends StatelessWidget {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final accent = _statusColor(status, colors);
 
-    // El icono del modelo activo flota ±2px (FloatingModelIcon).
+    // El icono del modelo activo flota Â±2px (FloatingModelIcon).
     final icon = FloatingModelIcon(
       active: status == ModelUiStatus.active,
       child: _ModelIcon(name: name),
@@ -477,8 +475,7 @@ class _ModelCard extends StatelessWidget {
         child: RepaintBoundary(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_M3.cardRadius),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
+            child: ClipRect(
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -498,7 +495,7 @@ class _ModelCard extends StatelessWidget {
                 ),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // En pantallas angostas la acción (botón/check) no cabe
+                    // En pantallas angostas la acciÃ³n (botÃ³n/check) no cabe
                     // junto al icono de 66px: baja a su propia fila.
                     final compact = constraints.maxWidth < 310;
 
@@ -617,7 +614,7 @@ class _ModelIcon extends StatelessWidget {
   }
 }
 
-/// Columna informativa de la card (nombre, chips, tamaño, progreso).
+/// Columna informativa de la card (nombre, chips, tamaÃ±o, progreso).
 class _ModelDetails extends StatelessWidget {
   const _ModelDetails({
     required this.name,
@@ -691,7 +688,7 @@ class _ModelDetails extends StatelessWidget {
           )
         else
           Text(
-            '${formatGb(sizeGb)} · $description',
+            '${formatGb(sizeGb)} Â· $description',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -767,7 +764,7 @@ class _StatusChip extends StatelessWidget {
 
     if (MediaQuery.disableAnimationsOf(context)) return chip;
 
-    // Cambio de estado (INSTALADO → ACTIVO, etc.) con fade + escala y
+    // Cambio de estado (INSTALADO â†’ ACTIVO, etc.) con fade + escala y
     // overshoot (M3E emphasis motion).
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
@@ -855,16 +852,16 @@ class _ModelAction extends StatelessWidget {
         return _PillButton(label: 'Reintentar', accent: accent, onPressed: onDownload);
 
       case ModelUiStatus.incompatible:
-        // Política consistente con los detectados: se permite intentar.
+        // PolÃ­tica consistente con los detectados: se permite intentar.
         // El ramNote naranja ya advierte el requisito de RAM real.
         return _PillButton(label: 'Descargar', accent: accent, onPressed: onDownload);
     }
   }
 }
 
-/// Botón principal pill (M3E): FilledButton stadium con accent saturado y
+/// BotÃ³n principal pill (M3E): FilledButton stadium con accent saturado y
 /// texto onAccent (contraste correcto en claro Y oscuro, antes onSurface
-/// dejaba blanco sobre cyan). Compartido por _ModelAction y _DetectedCard —
+/// dejaba blanco sobre cyan). Compartido por _ModelAction y _DetectedCard â€”
 /// mismo estilo, un solo punto de mantenimiento.
 class _PillButton extends StatelessWidget {
   const _PillButton({
@@ -876,7 +873,7 @@ class _PillButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  /// Null → accent del tema.
+  /// Null â†’ accent del tema.
   final Color? accent;
 
   @override
@@ -899,7 +896,7 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-/// Barra del scanner automático del storage. Estados honestos:
+/// Barra del scanner automÃ¡tico del storage. Estados honestos:
 /// scanning=true (ocupado), detectedCount>0 (resultados), error!=null
 /// (fallo SAF), allFilesGranted=false (falta permiso).
 class _ScanBar extends StatelessWidget {
@@ -923,7 +920,7 @@ class _ScanBar extends StatelessWidget {
   final VoidCallback onPickTree;
   final VoidCallback onRescan;
 
-  /// Botón de acción de la barra: pill con accent (M3E).
+  /// BotÃ³n de acciÃ³n de la barra: pill con accent (M3E).
   Widget _scanButton(String label, VoidCallback onPressed, NanoColors colors) {
     return PressableScale(
       pressedScale: _M3.pressScale,
@@ -946,9 +943,9 @@ class _ScanBar extends StatelessWidget {
     final accent = error != null ? colors.danger : colors.accent;
 
     // En compact los botones de texto se ocultan y la barra entera se
-    // vuelve el gesto. "Conceder acceso" sin tap era un callejón muerto
-    // en phone. Con permiso concedido, el tap SIEMPRE reescanea (también
-    // con detectados: la acción debe seguir disponible).
+    // vuelve el gesto. "Conceder acceso" sin tap era un callejÃ³n muerto
+    // en phone. Con permiso concedido, el tap SIEMPRE reescanea (tambiÃ©n
+    // con detectados: la acciÃ³n debe seguir disponible).
     final VoidCallback? tapAction = !allFilesGranted && !treeGranted
         ? onGrant
         : !allFilesGranted && treeGranted
@@ -973,7 +970,7 @@ class _ScanBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Miniatura: icono más pequeño y compacto
+          // Miniatura: icono mÃ¡s pequeÃ±o y compacto
           _MiniIcon(
             icon: scanning
                 ? Icons.refresh_rounded
@@ -1014,10 +1011,10 @@ class _ScanBar extends StatelessWidget {
             _scanButton('Escanear', onPickTree, colors)
           else if (!isCompact && !scanning)
             _scanButton('Reescanear', onRescan, colors)
-          // Compact (phone): el análisis/reescaneo sigue VISIBLE como
-          // icono refresh tappable — la acción no puede desaparecer.
+          // Compact (phone): el anÃ¡lisis/reescaneo sigue VISIBLE como
+          // icono refresh tappable â€” la acciÃ³n no puede desaparecer.
           // Solo con permiso concedido: sin permiso el texto dice
-          // "Conceder acceso" y un refresh confundiría la acción.
+          // "Conceder acceso" y un refresh confundirÃ­a la acciÃ³n.
           else if (isCompact &&
               !scanning &&
               (allFilesGranted || treeGranted))
@@ -1050,8 +1047,8 @@ class _ScanBar extends StatelessWidget {
   }
 }
 
-/// Card de modelo detectado en storage (sin instalación: uso directo desde su
-/// ubicación original). Botón CARGAR invoca `useDetected`. Misma identidad
+/// Card de modelo detectado en storage (sin instalaciÃ³n: uso directo desde su
+/// ubicaciÃ³n original). BotÃ³n CARGAR invoca `useDetected`. Misma identidad
 /// visual que `_ModelCard` (glassmorphism) + chips de formato y estado.
 class _DetectedCard extends StatelessWidget {
   const _DetectedCard({
@@ -1077,8 +1074,7 @@ class _DetectedCard extends StatelessWidget {
         child: RepaintBoundary(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_M3.compactRadius),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 11, sigmaY: 11),
+            child: ClipRect(
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -1129,7 +1125,7 @@ class _DetectedCard extends StatelessWidget {
                           Text(
                             model.sizeBytes > 0
                                 ? formatBytes(model.sizeBytes)
-                                : 'Tamaño desconocido',
+                                : 'TamaÃ±o desconocido',
                             style: TextStyle(
                               color: colors.onSurface.withValues(alpha: 0.5),
                               fontSize: 12,
@@ -1138,7 +1134,7 @@ class _DetectedCard extends StatelessWidget {
                           if (!model.usable) ...[
                             const SizedBox(height: 4),
                             // Aviso honesto en la tarjeta: el motor solo lee
-                            // GGUF con magic válido, pero se permite intentar.
+                            // GGUF con magic vÃ¡lido, pero se permite intentar.
                             Text(
                               model.format == DetectedModelFormat.gguf
                                   ? 'Magic GGUF no verificado. Intentando cargar de todos modos.'
@@ -1167,7 +1163,7 @@ class _DetectedCard extends StatelessWidget {
                         ),
                       )
                     else
-                      // M3E: acción principal FilledButton pill.
+                      // M3E: acciÃ³n principal FilledButton pill.
                       _PillButton(label: 'Cargar', onPressed: onUse),
                   ],
                 ),
@@ -1180,8 +1176,8 @@ class _DetectedCard extends StatelessWidget {
   }
 }
 
-/// Estado vacío compacto: reemplaza la lista vacía gigante con un aviso
-/// honesto y mínimo. Sin barras, sin tarjetas fantasma.
+/// Estado vacÃ­o compacto: reemplaza la lista vacÃ­a gigante con un aviso
+/// honesto y mÃ­nimo. Sin barras, sin tarjetas fantasma.
 class _EmptyModels extends StatelessWidget {
   const _EmptyModels();
 
@@ -1211,7 +1207,7 @@ class _EmptyModels extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Concede acceso al storage o descarga un GGUF del catálogo.',
+            'Concede acceso al storage o descarga un GGUF del catÃ¡logo.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurface.withValues(alpha: 0.5),
@@ -1333,7 +1329,7 @@ String formatBytes(int bytes) {
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
-/// Tier de viabilidad de un modelo en ESTE device — espejo Dart del
+/// Tier de viabilidad de un modelo en ESTE device â€” espejo Dart del
 /// `assess_viability` de NanoRuntime (Rust). Derivado de datos reales:
 /// ramGb del modelo vs RAM total del dispositivo. Distingue CanRun de
 /// ShouldRun: EXTREME "can_run" pero NO es interactivo.
@@ -1351,7 +1347,7 @@ ModelViability _viabilityOf(LocalModel model, DashboardState dashboard) {
 String _viabilityLabel(ModelViability v) {
   switch (v) {
     case ModelViability.fast:
-      return 'RÁPIDO';
+      return 'RÃPIDO';
     case ModelViability.balanced:
       return 'EQUILIBRADO';
     case ModelViability.streaming:

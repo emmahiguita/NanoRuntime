@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/device_metrics.dart';
 import '../services/runtime_engine.dart';
-import '../services/llm_engine_client.dart';
 import 'chat_provider.dart';
 
 // ================================================================
@@ -24,9 +23,6 @@ class DashboardState {
   final int cpuCores;
   final bool isLive; // true = connected to real device
   final EnginePhase enginePhase; // fase real del motor nanortime
-  /// Telemetría REAL del runtime (fault_rate/PSS/thrashing/W/tier) vía
-  /// /api/status. Null cuando el motor no está vivo o el poll aún no respondió.
-  final RuntimeStatus? telemetry;
 
   const DashboardState({
     this.ramFreeGb = 0,
@@ -44,7 +40,6 @@ class DashboardState {
     this.cpuCores = 0,
     this.isLive = false,
     this.enginePhase = EnginePhase.idle,
-    this.telemetry,
   });
 
   /// Value equality: prevents StateNotifier from notifying watchers when
@@ -67,8 +62,7 @@ class DashboardState {
           isCharging == other.isCharging &&
           cpuCores == other.cpuCores &&
           isLive == other.isLive &&
-          enginePhase == other.enginePhase &&
-          telemetry == other.telemetry;
+          enginePhase == other.enginePhase;
 
   @override
   int get hashCode => Object.hash(
@@ -87,7 +81,6 @@ class DashboardState {
     cpuCores,
     isLive,
     enginePhase,
-    telemetry,
   );
 }
 
@@ -118,20 +111,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     // TPS real del motor: lo reporta ChatNotifier tras cada generación.
     final liveTps = _ref.read(chatProvider).liveTps;
     // Fase real del motor: la posee RuntimeEngineNotifier (único dueño).
-    final engine = _ref.read(runtimeEngineProvider);
-    final enginePhase = engine.phase;
-    // Telemetría REAL del runtime vía /api/status — solo con motor vivo.
-    RuntimeStatus? telemetry;
-    if (engine.isLive) {
-      try {
-        telemetry = await _ref
-            .read(runtimeEngineProvider.notifier)
-            .client
-            .getStatus();
-      } catch (_) {
-        // El motor cayó entre el check de fase y el poll: mantener null.
-      }
-    }
+    final enginePhase = _ref.read(runtimeEngineProvider).phase;
     state = DashboardState(
       ramFreeGb: d.ramAvailableGb,
       ramTotalGb: d.ramTotalGb,
@@ -148,7 +128,6 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       cpuCores: d.cpuCores,
       isLive: d.ramTotalMb > 0,
       enginePhase: enginePhase,
-      telemetry: telemetry,
     );
   }
 

@@ -1,4 +1,4 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -832,8 +832,7 @@ class _GlassActionCardState extends State<GlassActionCard>
           height: widget.height,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: ClipRect(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -1131,8 +1130,7 @@ class _KaliCardState extends ConsumerState<_KaliCard> {
         height: widget.height,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: ClipRect(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(

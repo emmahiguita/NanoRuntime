@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/providers/dashboard_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
+import 'package:nanoai/core/services/runtime_telemetry.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 
 /// Health monitor compacto del runtime — telemetría REAL (fault_rate/PSS/
@@ -14,9 +14,9 @@ class RuntimeHealthMonitor extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dashboard = ref.watch(dashboardProvider);
+    final telemetry = ref.watch(runtimeTelemetryProvider);
+    final enginePhase = ref.watch(runtimeEngineProvider).phase;
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final telemetry = dashboard.telemetry;
 
     final String title;
     final String subtitle;
@@ -24,7 +24,7 @@ class RuntimeHealthMonitor extends ConsumerWidget {
     final IconData icon;
 
     if (telemetry == null) {
-      final idle = dashboard.enginePhase == EnginePhase.idle;
+      final idle = enginePhase == EnginePhase.idle;
       title = idle ? 'Local AI apagado' : 'Consultando…';
       subtitle = idle ? 'Motor sin arrancar' : 'Esperando telemetría del runtime';
       accent = idle
