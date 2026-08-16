@@ -31,7 +31,7 @@ class NanoAmbientBackground extends StatelessWidget {
           : const [
               Color(0xFFFCFCFD),
               Color(0xFFEFF8FC),
-              Color(0xFFF0FDFA),
+              Color(0xFFF0F9FF), // Sky 50 (era teal — gama unificada cyan)
               Color(0xFFFCFCFD),
             ],
     );
@@ -51,9 +51,7 @@ class NanoAmbientBackground extends StatelessWidget {
               right: -130,
               child: _Glow(
                 size: 340,
-                color: dark
-                    ? const Color(0xFF0066CC)
-                    : const Color(0xFF0EA5E9),
+                color: const Color(0xFF0EA5E9), // Sky 500 — cyan (era azul/verde)
                 alpha: glowAlpha,
               ),
             ),
@@ -62,9 +60,7 @@ class NanoAmbientBackground extends StatelessWidget {
               left: -170,
               child: _Glow(
                 size: 390,
-                color: dark
-                    ? const Color(0xFF00C896)
-                    : const Color(0xFF10B981),
+                color: const Color(0xFF06B6D4), // Cyan 500 — gama única (era verde)
                 alpha: glowAlpha,
               ),
             ),

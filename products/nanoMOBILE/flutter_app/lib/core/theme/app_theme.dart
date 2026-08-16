@@ -174,11 +174,11 @@ class AppTheme {
         // glassSurface al 43% dejaba el campo confundido con el fondo blanco
       border: OutlineInputBorder(
         borderRadius: NanoShapes.medium,
-        borderSide: BorderSide(color: c.outlineVariant),
+        borderSide: BorderSide(color: c.outline), // borde cyan (claro) / slate (oscuro)
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: NanoShapes.medium,
-        borderSide: BorderSide(color: c.outlineVariant),
+        borderSide: BorderSide(color: c.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: NanoShapes.medium,

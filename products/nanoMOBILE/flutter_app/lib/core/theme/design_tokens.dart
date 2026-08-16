@@ -68,35 +68,35 @@ class NanoDarkColors implements NanoColors {
 }
 
 class NanoLightColors implements NanoColors {
-  @override final primary = const Color(0xFF10B981); // Verde esmeralda vibrante (más profesional)
-  @override final primaryContainer = const Color(0xFFD1FAE5); // Contenedor verde esmeralda claro
-  @override final onPrimaryContainer = const Color(0xFF064E3B); // Texto oscuro sobre verde esmeralda
-  @override final secondary = const Color(0xFF3B82F6); // Azul real (más profesional)
-  @override final secondaryContainer = const Color(0xFFDBEAFE); // Contenedor azul real claro
+  @override final primary = const Color(0xFF0284C7); // Sky 600 — cyan acción (bordes/botones)
+  @override final primaryContainer = const Color(0xFFE0F2FE); // Sky 100 — contenedor cyan claro
+  @override final onPrimaryContainer = const Color(0xFF075985); // Sky 800 — texto oscuro sobre cyan
+  @override final secondary = const Color(0xFF0EA5E9); // Sky 500 — secundario cyan
+  @override final secondaryContainer = const Color(0xFFE0F2FE); // Sky 100
   @override final surface = const Color(0xFFFFFFFF); // Blanco puro
   @override final surfaceVariant = const Color(0xFFF8FAFC); // Slate 50 - fondo cards
-  @override final background = const Color(0xFFFCFCFD); // Blanco casi puro - más limpio
+  @override final background = const Color(0xFFFCFCFD); // Blanco casi puro
   @override final onSurface = const Color(0xFF0F172A); // Slate 900 - alto contraste
   @override final onSurfaceVariant = const Color(0xFF475569); // Slate 600 - legible
-  @override final outline = const Color(0xFFCBD5E1); // Slate 300 - bordes sutiles
-  @override final outlineVariant = const Color(0xFFF1F5F9); // Slate 100 - muy sutil
-  @override final success = const Color(0xFF059669); // Esmeralda 600 — "ACTIVO"/"Concedido" legibles sobre blanco (500 era 2.3:1)
-  @override final warning = const Color(0xFFB45309); // Ámbar 700 — legible sobre blanco (500 era 2.2:1)
+  @override final outline = const Color(0xFF7DD3FC); // Sky 300 — LÍNEA DE BORDE CYAN
+  @override final outlineVariant = const Color(0xFFBAE6FD); // Sky 200 — cyan muy sutil
+  @override final success = const Color(0xFF059669); // Esmeralda 600 — semántico "ok" (no es gama decorativa)
+  @override final warning = const Color(0xFFB45309); // Ámbar 700 — semántico
   @override final error = const Color(0xFFEF4444); // Rojo error
-  @override final info = const Color(0xFF3B82F6); // Azul real información
-  @override final tertiary = const Color(0xFF8B5CF6); // Violeta terciario (más vibrante)
-  @override final accent = const Color(0xFF0284C7); // Sky 600 — chips/textos accent 3.9:1 sobre blanco (500 era 2.6:1)
-  @override final onAccent = const Color(0xFF082F49); // Sky 950 - alto contraste sobre sky
+  @override final info = const Color(0xFF0284C7); // Cyan información
+  @override final tertiary = const Color(0xFF0D9488); // Teal 600 — misma gama cyan (era violeta)
+  @override final accent = const Color(0xFF0284C7); // Sky 600 — cyan marca Nano
+  @override final onAccent = const Color(0xFF082F49); // Sky 950 - alto contraste sobre cyan
   @override final danger = const Color(0xFFDC2626); // Red 600 - legible sobre blanco
   @override final codeBlockBg = const Color(0xFFF1F5F9); // Slate 100
-  @override final quoteBg = const Color(0xFFF0FDFA); // Teal 50
+  @override final quoteBg = const Color(0xFFE0F2FE); // Sky 100 — cita en gama cyan
   @override final terminalBg = const Color(0xFFF8FAFC); // Slate 50 - terminal claro
-  @override final terminalGreen = const Color(0xFF047857); // Esmeralda 700 — texto terminal 4.5:1 sobre slate-50
-  
-  // Glassmorphism tokens (solo modo claro)
-  @override final glassSurface = const Color(0xDDFFFFFF); // Blanco 87% transparente (mejor contraste)
-  @override final glassBorder = const Color(0x4DFFFFFF); // Blanco 30% transparente para bordes (más visible)
-  @override final glassOverlay = const Color(0x0F10B981); // Verde esmeralda 6% overlay sutil (más notorio)
+  @override final terminalGreen = const Color(0xFF047857); // Esmeralda 700 — semántico terminal
+
+  // Glassmorphism tokens (solo modo claro) — bordes cyan
+  @override final glassSurface = const Color(0xDDFFFFFF); // Blanco 87% transparente
+  @override final glassBorder = const Color(0x4D7DD3FC); // Sky 300 30% — borde cristal CYAN
+  @override final glassOverlay = const Color(0x0F0284C7); // Sky 600 6% overlay cyan
 }
 
 /// ── Spacing Tokens (8dp grid) ──
@@ -192,7 +192,7 @@ class NanoShadows {
   static List<BoxShadow> highlight(NanoColors c) => [
     if (c is! NanoDarkColors)
       BoxShadow(
-        color: const Color(0xFF10B981).withValues(alpha: 0.15), // Tinte verde sutil
+        color: const Color(0xFF0284C7).withValues(alpha: 0.15), // Tinte cyan sutil (era verde)
         blurRadius: 8,
         offset: const Offset(0, 2),
       ),

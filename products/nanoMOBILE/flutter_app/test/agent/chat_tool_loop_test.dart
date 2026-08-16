@@ -102,7 +102,7 @@ void main() {
     expect(fake.rounds, 0);
     final ai = notifier.state.messages.last;
     expect(ai.sender, MessageSender.ai);
-    expect(ai.text, contains('✅ Pantalla "com.android.settings" · 7 nodos'));
+    expect(ai.text, contains('Pantalla "com.android.settings" · 7 nodos'));
     expect(notifier.state.messages.first.text, '@pantalla');
   });
 

@@ -60,31 +60,31 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    
-    return AdaptiveOrientationBuilder(
-      builder: (context, isLandscape) {
-        return MaterialApp.router(
-          title: 'NanoPlatform',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          themeMode: themeMode,
-          routerConfig: AppRouter.router,
-          // Animación de transición de tema suave
-          builder: (context, child) {
-            return AnimatedSwitcher(
-              duration: AdaptiveTheme.getThemeTransitionDuration(context),
-              switchInCurve: NanoCurves.easeInOut,
-              switchOutCurve: NanoCurves.easeInOut,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: child,
-                );
-              },
+
+    // Sin wrapper de orientación aquí: rotar forzaba rebuild del MaterialApp
+    // completo y producía flicker ("pantalla dañada al voltearse"). La
+    // orientación se resuelve DENTRO de cada pantalla vía LayoutBuilder/
+    // MediaQuery, que ya manejan portrait/landscape con su propio layout.
+    return MaterialApp.router(
+      title: 'NanoPlatform',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
+      routerConfig: AppRouter.router,
+      // Animación de transición de tema suave (dark↔light).
+      builder: (context, child) {
+        return AnimatedSwitcher(
+          duration: AdaptiveTheme.getThemeTransitionDuration(context),
+          switchInCurve: NanoCurves.easeInOut,
+          switchOutCurve: NanoCurves.easeInOut,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
               child: child,
             );
           },
+          child: child,
         );
       },
     );

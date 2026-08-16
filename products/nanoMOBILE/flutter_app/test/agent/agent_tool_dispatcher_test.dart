@@ -79,20 +79,20 @@ void main() {
   group('comandos @', () {
     test('@pantalla → resumen con package y nodos visibles', () async {
       final r = await dispatcher.runCommand('@pantalla');
-      expect(r, contains('✅ Pantalla "com.android.settings" · 7 nodos'));
+      expect(r, contains('Pantalla "com.android.settings" · 7 nodos'));
       expect(r, contains('3 Ajustes @(540,180)'));
     });
 
     test('@resolver → top con criterios', () async {
       final r = await dispatcher.runCommand('@resolver text=Bluetooth');
-      expect(r, contains('✅ Resuelto: "Bluetooth" (75 pts)'));
+      expect(r, contains('Resuelto: "Bluetooth" (75 pts)'));
       expect(r, contains('75 pts [textExact:+75]'));
       expect(tapCalls, isEmpty);
     });
 
     test('@tap → ok con coordenadas del centro', () async {
       final r = await dispatcher.runCommand('@tap text=Bluetooth');
-      expect(r, '✅ tap en "Bluetooth" @(540,340)');
+      expect(r, 'tap en "Bluetooth" @(540,340)');
       expect(tapCalls, [
         [540, 340],
       ]);
@@ -102,7 +102,7 @@ void main() {
     test('@tap ambiguo → FAIL tipado sin gesto', () async {
       dumpProvider = () => snapshotDobleAceptar();
       final r = await dispatcher.runCommand('@tap text=Aceptar');
-      expect(r, contains('❌ [ambiguousTarget]'));
+      expect(r, contains('[ambiguousTarget]'));
       expect(tapCalls, isEmpty);
     });
 
@@ -110,25 +110,25 @@ void main() {
       focused = true;
       dumpProvider = ajustesFocused;
       final r = await dispatcher.runCommand('@escribir wifi | editable=true');
-      expect(r, contains('✅ "wifi" escrito en'));
+      expect(r, contains('"wifi" escrito en'));
       expect(inputCalls, ['wifi']);
     });
 
     test('@back → globalAction', () async {
       final r = await dispatcher.runCommand('@back');
-      expect(r, '✅ Botón atrás ejecutado.');
+      expect(r, 'Botón atrás ejecutado.');
       expect(methodCalls, contains('globalAction'));
     });
 
     test('@desconocido → error legible con lista', () async {
       final r = await dispatcher.runCommand('@volar');
-      expect(r, contains('❌ Comando desconocido "@volar"'));
+      expect(r, contains('Comando desconocido "@volar"'));
       expect(r, contains('@tap'));
     });
 
     test('@tap selector inválido → error de parseo legible', () async {
       final r = await dispatcher.runCommand('@tap foo=bar');
-      expect(r, contains('❌ Selector inválido "foo=bar"'));
+      expect(r, contains('Selector inválido "foo=bar"'));
       expect(tapCalls, isEmpty);
     });
 
@@ -231,12 +231,12 @@ void main() {
 
     test('screen → resumen', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'screen'));
-      expect(r, contains('✅ Pantalla "com.android.settings"'));
+      expect(r, contains('Pantalla "com.android.settings"'));
     });
 
     test('tool desconocida → denied con lista para corregirse', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'teletransport'));
-      expect(r, contains('❌ [policy] Herramienta desconocida "teletransport"'));
+      expect(r, contains('[policy] Herramienta desconocida "teletransport"'));
       expect(r, contains('Disponibles: screen, resolve, tap, back, write'));
     });
   });
