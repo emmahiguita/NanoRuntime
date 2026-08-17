@@ -79,6 +79,18 @@ class NanoRuntime private constructor() {
                 temperature: Float,
                 topP: Float
             ): String?
+            @JvmStatic
+            private external fun nativeSupportsMtp(modelHandle: Long): Boolean
+            @JvmStatic
+            private external fun nativeGenerateMtp(
+                ctxHandle: Long,
+                modelHandle: Long,
+                prompt: String,
+                maxTokens: Int,
+                temperature: Float,
+                topP: Float,
+                nMax: Int
+            ): String?
         }
 
         fun generate(
@@ -98,6 +110,43 @@ class NanoRuntime private constructor() {
                 }
             }
             return result ?: throw RuntimeException("NanoAI generation failed or returned null")
+        }
+
+        /**
+         * True si el GGUF cargado tiene cabezas NextN (MTP). Los modelos
+         * Qwen3.5-MTP lo exponen; usarlo antes de [generateMtp] para evitar
+         * crear el engine MTP con un modelo sin soporte (error nativo).
+         */
+        fun supportsMtp(): Boolean {
+            synchronized(model) {
+                require(handle != 0L) { "Context handle is closed or invalid." }
+                return nativeSupportsMtp(model.currentHandle())
+            }
+        }
+
+        /**
+         * Genera con speculative MTP (drafts del mismo modelo vía NextN).
+         *
+         * Requiere un modelo con cabezas NextN (ver [supportsMtp]). `nMax` =
+         * drafts por verificación: 1 es el óptimo medido en CPU (1.2-1.4x);
+         * valores >3 degradan. La salida es distribuicionalmente idéntica a
+         * [generate] (lossless).
+         */
+        fun generateMtp(
+            prompt: String,
+            maxTokens: Int = 512,
+            temperature: Float = 0.7f,
+            topP: Float = 0.9f,
+            nMax: Int = 1
+        ): String {
+            val result = synchronized(model) {
+                synchronized(this) {
+                    require(handle != 0L) { "Context handle is closed or invalid." }
+                    val modelHandle = model.currentHandle()
+                    nativeGenerateMtp(handle, modelHandle, prompt, maxTokens, temperature, topP, nMax)
+                }
+            }
+            return result ?: throw RuntimeException("NanoAI MTP generation failed or returned null")
         }
 
         override fun close() {

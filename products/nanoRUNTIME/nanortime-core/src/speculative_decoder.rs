@@ -29,8 +29,12 @@ pub const MIN_DRAFT_TOKENS: usize = 2;
 pub enum InferenceMode {
     /// Inferencia estándar sin draft.
     Standard { context: usize },
-    /// Speculative decoding con K tokens de draft.
+    /// Speculative decoding con K tokens de draft (modelo draft externo).
     Speculative { draft_tokens: usize },
+    /// Speculative MTP: el MISMO modelo propone drafts con sus cabezas NextN.
+    /// No requiere un GGUF draft separado — solo el contexto draft (1 capa,
+    /// ~15% RAM extra del target). n_max = drafts por verificación.
+    Mtp { n_max: usize },
     /// Modo supervivencia (contexto mínimo).
     Survival { context: usize },
 }
@@ -53,10 +57,30 @@ impl SpeculativePlan {
     /// | > target+300       | Standard { ctx: 512 }         |
     /// | else               | Survival { ctx: 256 }         |
     pub fn plan(profile: &DeviceProfile, target_size_mb: u64, draft_size_mb: u64) -> Self {
+        Self::plan_with_mtp(profile, target_size_mb, draft_size_mb, false)
+    }
+
+    /// Como [`Self::plan`] pero prioriza speculative MTP cuando el modelo lo
+    /// soporta (`model_supports_mtp`): el draft es el mismo GGUF, así que solo
+    /// cuesta ~15% de RAM extra del target en vez de un modelo draft completo.
+    pub fn plan_with_mtp(
+        profile: &DeviceProfile,
+        target_size_mb: u64,
+        draft_size_mb: u64,
+        model_supports_mtp: bool,
+    ) -> Self {
         let avail = profile.ram_available_mb;
         let overhead = 500u64;
 
-        let mode = if avail > target_size_mb + draft_size_mb + overhead {
+        // MTP: mismo modelo + ctx draft de 1 capa (~15% del target, min 200 MB).
+        let mtp_overhead = (target_size_mb as f64 * 0.15).max(200.0) as u64;
+
+        let mode = if model_supports_mtp && avail > target_size_mb + mtp_overhead {
+            // n_max=1: óptimo medido en host (1.2-1.4x). n_max>1 degrada en
+            // CPU porque el re-decode del ctx draft cuesta más que lo que
+            // ahorran los drafts adicionales.
+            InferenceMode::Mtp { n_max: 1 }
+        } else if avail > target_size_mb + draft_size_mb + overhead {
             InferenceMode::Speculative { draft_tokens: 4 }
         } else if avail > target_size_mb + draft_size_mb + 200 {
             InferenceMode::Speculative { draft_tokens: 2 }
@@ -302,6 +326,35 @@ mod tests {
         assert!(matches!(
             plan.mode,
             InferenceMode::Speculative { draft_tokens: 2 }
+        ));
+    }
+
+    #[test]
+    fn test_plan_mtp_priority_over_external_draft() {
+        // Modelo con NextN: MTP gana aunque haya RAM para draft externo,
+        // porque MTP no carga un GGUF draft (más barato en RAM).
+        let plan = SpeculativePlan::plan_with_mtp(&samsung(), 1070, 350, true);
+        assert!(matches!(plan.mode, InferenceMode::Mtp { n_max: 1 }));
+    }
+
+    #[test]
+    fn test_plan_mtp_not_selected_without_support() {
+        // Sin cabezas NextN → vuelve al draft externo.
+        let plan = SpeculativePlan::plan_with_mtp(&samsung(), 1070, 350, false);
+        assert!(matches!(
+            plan.mode,
+            InferenceMode::Speculative { .. } | InferenceMode::Standard { .. }
+        ));
+    }
+
+    #[test]
+    fn test_plan_mtp_requires_room_for_overhead() {
+        // 7B (4470) en Samsung (1900): 1900 < 4470 + 670 → ni MTP ni draft.
+        let plan = SpeculativePlan::plan_with_mtp(&samsung(), 4470, 1070, true);
+        assert!(!matches!(plan.mode, InferenceMode::Mtp { .. }));
+        assert!(matches!(
+            plan.mode,
+            InferenceMode::Standard { .. } | InferenceMode::Survival { .. }
         ));
     }
 

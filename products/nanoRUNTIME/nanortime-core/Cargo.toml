@@ -44,6 +44,11 @@ windows-sys = { version = "0.61.2", features = ["Win32_System_Memory", "Win32_Sy
 tracing-subscriber = { workspace = true }
 criterion = { version = "0.5", features = ["async_tokio"] }
 
+# Directo para probes/ejemplos (mtp_probe, ...) que necesitan la API cruda
+llama-cpp-2 = { path = "../../../vendor/llama-cpp-2" }
+llama-cpp-sys-2 = { path = "../../../vendor/llama-cpp-sys-2-mtp" }
+encoding_rs = "0.8"
+
 # Benchmarks disabled — files not yet ported. Re-enable when ready.
 # [[bench]]
 # name = "router_benchmark"

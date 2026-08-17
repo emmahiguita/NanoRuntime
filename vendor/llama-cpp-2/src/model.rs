@@ -156,6 +156,15 @@ impl LlamaModel {
         self.model.as_ptr()
     }
 
+    /// Number of trained NextN (MTP) layers in the model.
+    ///
+    /// `0` means the model has no multi-token prediction head and cannot be
+    /// used with `MtpSpeculative` (draft-mtp).
+    #[must_use]
+    pub fn n_layer_nextn(&self) -> i32 {
+        unsafe { llama_cpp_sys_2::llama_model_n_layer_nextn(self.model.as_ptr()) }
+    }
+
     /// Base address + size (bytes) of the primary mmap of the model file.
     ///
     /// Returns `(null, 0)` if the model was not mmap'd (e.g. anon RAM buffer).

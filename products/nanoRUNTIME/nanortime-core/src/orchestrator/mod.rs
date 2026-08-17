@@ -375,14 +375,31 @@ impl Orchestrator {
     ///
     /// Devuelve una descripción del modo para logging.
     pub fn decide_inference_mode(target_size_mb: u64, draft_size_mb: u64) -> InferenceMode {
+        Self::decide_inference_mode_with_mtp(target_size_mb, draft_size_mb, false)
+    }
+
+    /// Como [`Self::decide_inference_mode`] pero prioriza speculative MTP
+    /// cuando el modelo tiene cabezas NextN (model_supports_mtp): el draft es
+    /// el mismo GGUF — solo ~15% RAM extra, sin cargar un modelo draft.
+    pub fn decide_inference_mode_with_mtp(
+        target_size_mb: u64,
+        draft_size_mb: u64,
+        model_supports_mtp: bool,
+    ) -> InferenceMode {
         let profile = profile_device();
-        let plan = SpeculativePlan::plan(&profile, target_size_mb, draft_size_mb);
+        let plan = SpeculativePlan::plan_with_mtp(
+            &profile,
+            target_size_mb,
+            draft_size_mb,
+            model_supports_mtp,
+        );
         tracing::info!(
-            "Inference mode: {:?} (RAM={}MB, target={}MB, draft={}MB)",
+            "Inference mode: {:?} (RAM={}MB, target={}MB, draft={}MB, mtp={})",
             plan.mode,
             profile.ram_available_mb,
             target_size_mb,
-            draft_size_mb
+            draft_size_mb,
+            model_supports_mtp
         );
         plan.mode
     }

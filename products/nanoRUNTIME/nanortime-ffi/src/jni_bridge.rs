@@ -122,6 +122,58 @@ mod exports {
         }
     }
 
+    fn supports_mtp_jni(model_handle: jlong) -> jboolean {
+        if model_handle == 0 {
+            return 0;
+        }
+        // SAFETY: handle from nativeLoadModel, alive for the call.
+        unsafe { crate::nano_model_supports_mtp(model_handle as *const crate::NanoModel) as jboolean }
+    }
+
+    fn generate_mtp_jni(
+        mut env: JNIEnv,
+        ctx_handle: jlong,
+        model_handle: jlong,
+        prompt: JString,
+        max_tokens: jint,
+        temperature: jfloat,
+        top_p: jfloat,
+        n_max: jint,
+    ) -> jstring {
+        if ctx_handle == 0 || model_handle == 0 {
+            return std::ptr::null_mut();
+        }
+        let prompt_str: String = match env.get_string(&prompt) {
+            Ok(s) => s.into(),
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let c_prompt = match std::ffi::CString::new(prompt_str.as_str()) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        // SAFETY: handles from this library, C string lives through the call.
+        unsafe {
+            let out = crate::nano_context_generate_mtp(
+                ctx_handle as *mut crate::NanoContext,
+                model_handle as *const crate::NanoModel,
+                c_prompt.as_ptr(),
+                max_tokens.max(1) as u32,
+                temperature,
+                top_p,
+                n_max.max(1),
+            );
+            if out.is_null() {
+                return std::ptr::null_mut();
+            }
+            let text = std::ffi::CStr::from_ptr(out).to_string_lossy().into_owned();
+            crate::nano_string_free(out);
+            env.new_string(&text)
+                .map(|s| s.into_raw())
+                .unwrap_or(std::ptr::null_mut())
+        }
+    }
+
     #[no_mangle]
     pub extern "system" fn Java_com_nanoai_data_runtime_NanoRuntimeBridge_nativeInitBackend(
         _env: JNIEnv,
@@ -368,6 +420,107 @@ mod exports {
             max_tokens,
             temperature,
             top_p,
+        )
+    }
+
+    // ── MTP exports ────────────────────────────────────────────────────────
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_nanoai_data_runtime_NanoRuntimeBridge_nativeSupportsMtp(
+        _env: JNIEnv,
+        _class: JClass,
+        model_handle: jlong,
+    ) -> jboolean {
+        supports_mtp_jni(model_handle)
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_nanoai_data_runtime_NanoRuntimeBridge_nativeGenerateMtp(
+        mut env: JNIEnv,
+        _class: JClass,
+        ctx_handle: jlong,
+        model_handle: jlong,
+        prompt: JString,
+        max_tokens: jint,
+        temperature: jfloat,
+        top_p: jfloat,
+        n_max: jint,
+    ) -> jstring {
+        generate_mtp_jni(
+            env,
+            ctx_handle,
+            model_handle,
+            prompt,
+            max_tokens,
+            temperature,
+            top_p,
+            n_max,
+        )
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_nanoai_runtime_NanoRuntime_00024Context_nativeSupportsMtp(
+        _env: JNIEnv,
+        _class: JClass,
+        model_handle: jlong,
+    ) -> jboolean {
+        supports_mtp_jni(model_handle)
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_nanoai_runtime_NanoRuntime_00024Context_00024Companion_nativeSupportsMtp(
+        _env: JNIEnv,
+        _class: JClass,
+        model_handle: jlong,
+    ) -> jboolean {
+        supports_mtp_jni(model_handle)
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_nanoai_runtime_NanoRuntime_00024Context_nativeGenerateMtp(
+        mut env: JNIEnv,
+        _class: JClass,
+        ctx_handle: jlong,
+        model_handle: jlong,
+        prompt: JString,
+        max_tokens: jint,
+        temperature: jfloat,
+        top_p: jfloat,
+        n_max: jint,
+    ) -> jstring {
+        generate_mtp_jni(
+            env,
+            ctx_handle,
+            model_handle,
+            prompt,
+            max_tokens,
+            temperature,
+            top_p,
+            n_max,
+        )
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_nanoai_runtime_NanoRuntime_00024Context_00024Companion_nativeGenerateMtp(
+        mut env: JNIEnv,
+        _class: JClass,
+        ctx_handle: jlong,
+        model_handle: jlong,
+        prompt: JString,
+        max_tokens: jint,
+        temperature: jfloat,
+        top_p: jfloat,
+        n_max: jint,
+    ) -> jstring {
+        generate_mtp_jni(
+            env,
+            ctx_handle,
+            model_handle,
+            prompt,
+            max_tokens,
+            temperature,
+            top_p,
+            n_max,
         )
     }
 }
