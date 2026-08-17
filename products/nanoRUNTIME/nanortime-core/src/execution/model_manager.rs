@@ -1382,13 +1382,20 @@ impl ModelManager {
                         .pss_bytes
                         .map(|b| format!("{:.1}", b as f64 / 1048576.0))
                         .unwrap_or_else(|| "n/a".to_string());
+                    // Amortiguación de memoria por token útil — la métrica
+                    // científica (residency × speculative). En DIRECT,
+                    // forward_passes = tokens, así que ComputeAmp = 1.0.
+                    let amp = snapshot.amplification(callback_tokens, callback_tokens);
                     tracing::info!(
-                        "[RuntimeMetrics] post-gen fault_rate={:.2}/s pss_mb={} thrash={} tok_avg_ms={:.1} tok_p90_ms={:.1}",
+                        "[RuntimeMetrics] post-gen fault_rate={:.2}/s pss_mb={} thrash={} tok_avg_ms={:.1} tok_p90_ms={:.1} IOamp={:.0}B/tok FaultAmp={:.2}f/tok ComputeAmp={:.2}",
                         snapshot.memory.fault_rate,
                         pss_mb,
                         thrash,
                         snapshot.throughput.avg_token_latency_ms,
-                        snapshot.throughput.p90_token_latency_ms
+                        snapshot.throughput.p90_token_latency_ms,
+                        amp.io_amp,
+                        amp.fault_amp,
+                        amp.compute_amp
                     );
                 }
 

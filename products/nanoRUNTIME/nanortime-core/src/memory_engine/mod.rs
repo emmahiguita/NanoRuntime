@@ -100,7 +100,7 @@ pub use hardware_profiler::{DeviceClass, HardwareProfile, HardwareProfiler, Ther
 pub use hierarchical_kv::{HierarchicalKvCache, HierarchicalKvConfig, KvSavingsEstimate, KvTier};
 pub use memory_model::{MemoryEstimate, MemoryModel, ThroughputEstimate};
 pub use model_profile::{ArchitectureType, ModelProfile};
-pub use runtime_metrics::{RuntimeMetricsCollector, RuntimeMetrics, MemoryPressureMetrics, IoMetrics, PsiMetrics, CacheMetrics, ThroughputMetrics, NgramMetrics};
+pub use runtime_metrics::{RuntimeMetricsCollector, RuntimeMetrics, Amplification, MemoryPressureMetrics, IoMetrics, PsiMetrics, CacheMetrics, ThroughputMetrics, NgramMetrics};
 pub use working_set_estimator::{WorkingSetEstimator, WorkingSetBreakdown, ThrashingState, ThrashingDetection, ThrashingFactor, ThrashingAction};
 pub use runtime_planner::{
     Backend, ComputePlan, InferenceBudget, LatencyClass, Measurements, MemoryPlan,
