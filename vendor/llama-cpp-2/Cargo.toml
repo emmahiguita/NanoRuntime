@@ -102,14 +102,11 @@ features = ["json"]
 version = "0.1.153"
 features = ["metal"]
 
-[lints.clippy.pedantic]
-level = "warn"
-priority = 0
+# Fork del proyecto: todos los lints del vendor silenciados. Este crate es
+# codigo de terceros parcheado (MTP); no debe romper `-D warnings` del CI,
+# que valida SOLO el workspace propio (nanortime-core/ffi/cli/web).
+[lints.clippy]
+all = "allow"
 
-[lints.rust.missing_debug_implementations]
-level = "warn"
-priority = 0
-
-[lints.rust.missing_docs]
-level = "warn"
-priority = 0
+[lints.rust]
+all = "allow"

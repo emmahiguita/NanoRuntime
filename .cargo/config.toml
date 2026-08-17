@@ -18,9 +18,13 @@ rustflags = ["-C", "target-feature=+neon,+dotprod,+fp16"]
 [target.x86_64-linux-android]
 
 # ── Linux (Ubuntu/Debian desktop) ────────────────────────────────────────────
-# Sin env heredado: usa gcc/clang del sistema. Requiere build-essential.
+# Sin linker explicito: el build nativo usa el gcc del sistema (build-essential).
+# Un linker cross (x86_64-linux-gnu-gcc) aqui rompe TODO build nativo en Linux
+# porque cargo lo aplica tambien al triple del host (detectado en CI
+# ubuntu-latest: "linking with x86_64-linux-gnu-gcc failed"). El cross
+# Windows->Linux x86_64 NO es caso soportado; la validacion Linux es build
+# nativo (CI/WSL). El cross de la Pi usa la seccion aarch64-unknown-linux-gnu.
 [target.x86_64-unknown-linux-gnu]
-linker = "x86_64-linux-gnu-gcc"
 
 # ── Raspberry Pi / ARM64 Linux ───────────────────────────────────────────────
 # Solo linker: el cross-build necesita CMAKE_TOOLCHAIN_FILE propio (ver build.rs
