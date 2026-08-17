@@ -376,52 +376,52 @@ impl ModelManager {
         };
         self.unload_model().await;
 
-        // ── V2: Auto-detect device profile and compute optimal config ──
+        // ── Planificador ÚNICO: RuntimePlanner decide ctx/threads/W ──
+        // El ExecutionPlanner/auto_configure_v2 queda como referencia legacy
+        // (deprecated): antes dos fuentes calculaban el mismo número.
         let file_size_mb = std::fs::metadata(path)
             .map(|m| m.len() / (1024 * 1024))
             .unwrap_or(0);
-        let (v2_ctx, v2_batch, v2_risk) = MemoryManager::auto_configure_v2(
-            file_size_mb,
-            8192, // max context
-        );
-        // Auto-detect optimal thread count from big.LITTLE architecture
-        let profile = crate::memory_engine::hardware_hal::profile_device();
-        // On desktop/server (Flagship/Desktop tier), use all physical cores.
-        // On mobile (Budget/MidRange), use big_cores to avoid LITTLE-core thrashing.
-        let optimal_threads = match profile.tier {
-            crate::memory_engine::hardware_hal::DeviceTier::Desktop
-            | crate::memory_engine::hardware_hal::DeviceTier::Flagship => {
-                // Desktop: homogeneous cores, use all for max throughput
-                let n = profile.cpu_cores as usize;
-                if n > 0 {
-                    n
-                } else {
-                    self.config.local_model.threads
-                }
-            }
-            _ => {
-                // Mobile: big.LITTLE — use only big cores to avoid cache thrashing
-                if profile.big_cores > 0 {
-                    profile.big_cores as usize
-                } else {
-                    self.config.local_model.threads
-                }
-            }
+        // Estimación de capas pre-load (el nº real viene del GGUF tras cargar).
+        let est_layers = ((file_size_mb as f64 / 140.0).round() as usize).clamp(1, 128);
+        let obs = crate::memory_engine::Observations {
+            device: self.device.clone(),
+            runtime: {
+                let mut c = crate::memory_engine::RuntimeMetricsCollector::new();
+                c.collect()
+            },
+            thermal: {
+                let mut tc = crate::memory_engine::ThermalController::new();
+                tc.sample().state
+            },
+            battery: crate::memory_engine::BatteryGuardian::new().determine_mode(),
+            thrashing: crate::memory_engine::ThrashingState::None,
         };
-        tracing::info!(
-            "V2 Auto-config: ctx={} batch={} risk={} threads={} big_cores={} model_mb={}",
-            v2_ctx,
-            v2_batch,
-            v2_risk,
-            optimal_threads,
-            profile.big_cores,
-            file_size_mb
+        let plan = self.planner.plan_for_model(
+            file_size_mb,
+            est_layers,
+            8192, // target context (config)
+            &self.runtime_budget,
+            &obs,
         );
-        // Override config with V2-optimized values
+
+        // Comparación con el planner legacy — auditar que la migración produce
+        // ≈ lo mismo antes de deprecar/eliminar auto_configure_v2.
+        let (legacy_ctx, legacy_batch, legacy_risk) =
+            MemoryManager::auto_configure_v2(file_size_mb, 8192);
+        tracing::info!(
+            "[Planner] {} || legacy(ctx={} batch={} risk={})",
+            plan.summary,
+            legacy_ctx,
+            legacy_batch,
+            legacy_risk
+        );
+
+        // Override config con los valores del plan (única fuente aplicada).
         let mut adapted_config = self.config.local_model.clone();
-        adapted_config.context_size = v2_ctx as usize;
-        adapted_config.batch_size = v2_batch as usize;
-        adapted_config.threads = optimal_threads;
+        adapted_config.context_size = plan.model.context_tokens;
+        adapted_config.batch_size = plan.model.context_tokens.min(512) as usize;
+        adapted_config.threads = plan.compute.threads;
 
         // ── Hierarchical KV: estimate compression potential (informational only) ──
         // NOTE: The HierarchicalKvCache estimator is a planning tool — it does NOT
@@ -432,7 +432,7 @@ impl ModelManager {
         {
             let kv_cache = crate::memory_engine::hierarchical_kv::HierarchicalKvCache::new(32, 128);
             let kv_savings =
-                kv_cache.estimate_savings(adapted_config.context_size, profile.ram_total_mb);
+                kv_cache.estimate_savings(adapted_config.context_size, self.device.ram_total_mb);
             tracing::info!(
                 "Hierarchical KV estimate: ctx={} original={:.0}MB hierarchical={:.0}MB reduction={:.0}% quality_loss={:.1}%",
                 adapted_config.context_size, kv_savings.original_mb, kv_savings.hierarchical_mb,

@@ -575,6 +575,106 @@ impl RuntimePlanner {
         }
     }
 
+    /// Planifica para UN modelo específico (tamaño conocido, no el catálogo).
+    ///
+    /// Lo usa `load_model` para decidir la configuración aplicada (contexto,
+    /// threads, ventana residente W). Reemplaza al `ExecutionPlanner` legacy
+    /// (`auto_configure_v2`): misma lógica de ceiling/fit, pero con señales
+    /// reales del OS y un único planner como fuente de verdad.
+    #[allow(clippy::too_many_arguments)]
+    pub fn plan_for_model(
+        &self,
+        model_size_mb: u64,
+        n_layers: usize,
+        target_context: usize,
+        budget: &InferenceBudget,
+        obs: &Observations,
+    ) -> RuntimePlan {
+        let device = &obs.device;
+        let n_layers = n_layers.max(1);
+
+        // Ceiling efectivo (mismo que plan()).
+        let live_available_mb = (obs.runtime.memory.available_bytes / 1_048_576) as u64;
+        let avail_mb = if live_available_mb > 0 {
+            live_available_mb
+        } else {
+            device.ram_available_mb
+        };
+        let mut ceiling = (budget.max_memory_mb.min(avail_mb) as f64).max(64.0);
+        ceiling *= Self::battery_memory_factor(obs.battery);
+        ceiling *= Self::thermal_memory_factor(obs.thermal);
+        if obs.thrashing.is_thrashing() {
+            ceiling *= 0.70;
+        }
+
+        let target_ctx = Self::battery_context_limit(obs.battery, target_context);
+        let target_ctx = Self::thermal_context_limit(obs.thermal, target_ctx);
+
+        let cand = ModelCandidate {
+            label: format!("{}MB", model_size_mb),
+            params_b: 0.0,
+            size_mb: model_size_mb,
+            n_layers,
+            quant: QuantLevel::Q4,
+        };
+
+        let (ctx, kv, rss, streaming) = match self.fit(&cand, ceiling, target_ctx) {
+            Some((ctx, kv, rss)) => (ctx, kv, rss, 0usize),
+            None => {
+                let (_, ctx, kv, rss, streaming) = self.survival_fit(ceiling);
+                (ctx, kv, rss, streaming)
+            }
+        };
+
+        // Ventana residente W: capas que caben en el presupuesto (mín 4).
+        let bytes_per_layer = model_size_mb as f64 / n_layers as f64;
+        let window = (ceiling / bytes_per_layer.max(1.0))
+            .max(4.0)
+            .min(n_layers as f64) as usize;
+
+        let risk = Self::classify_risk(rss, device);
+        let page = match risk {
+            RiskLevel::Critical => PageStrategy::Conservative,
+            RiskLevel::High => PageStrategy::Balanced,
+            _ => PageStrategy::Aggressive,
+        };
+        let compute = self.compute_plan(device, budget, obs, risk);
+
+        let summary = format!(
+            "{} Q4 · ctx={} · KV={:?} · W={} · {} thread(s) · backend={} · rss={:.0}MB (ceiling {:.0}) · risk={}",
+            cand.label,
+            ctx,
+            kv,
+            window,
+            compute.threads,
+            compute.backend,
+            rss,
+            ceiling,
+            risk,
+        );
+
+        RuntimePlan {
+            model: ModelPlan {
+                label: cand.label,
+                params_b: 0.0,
+                quant: QuantLevel::Q4,
+                model_size_mb,
+                context_tokens: ctx,
+            },
+            memory: MemoryPlan {
+                kv_compression: kv,
+                page_strategy: page,
+                streaming_window: streaming,
+                resident_window: window,
+                budget_mb: ceiling as u64,
+            },
+            compute,
+            estimated_rss_mb: rss,
+            risk,
+            summary,
+        }
+    }
+
     /// Try to fit a candidate within the ceiling: prefer the largest context
     /// that fits, degrading KV before context, then halving context.
     fn fit(
@@ -658,7 +758,14 @@ impl RuntimePlanner {
             (ThermalCondition::Hot, _) => 2,
             (_, BatteryMode::Survival) => 1,
             (_, BatteryMode::Eco) => 2,
-            _ => (big.min(4)).max(2) as usize,
+            _ => match device.tier {
+                // Desktop/Flagship: todos los cores (homogéneos o suficientes).
+                DeviceTier::Desktop | DeviceTier::Flagship => {
+                    device.cpu_cores.max(1) as usize
+                }
+                // Mobile: solo big cores (evitar thrashing LITTLE).
+                _ => big.max(1) as usize,
+            },
         };
 
         let big_cores_only =
