@@ -184,9 +184,7 @@ impl ModelManager {
             metrics: Arc::new(std::sync::Mutex::new(
                 crate::memory_engine::RuntimeMetricsCollector::new(),
             )),
-            working_set: std::sync::Mutex::new(
-                crate::memory_engine::WorkingSetEstimator::new(),
-            ),
+            working_set: std::sync::Mutex::new(crate::memory_engine::WorkingSetEstimator::new()),
             device,
             planner,
             runtime_budget,
@@ -252,7 +250,13 @@ impl ModelManager {
                     let size = std::fs::metadata(&s.model_path)
                         .map(|m| m.len() / 1048576)
                         .unwrap_or(0);
-                    (s.model.is_some(), size, s.context_size)
+                    // `model` solo existe en builds reales (cfg not(simulated));
+                    // en modo simulado no hay modelo cargado.
+                    #[cfg(not(feature = "simulated"))]
+                    let model_loaded = s.model.is_some();
+                    #[cfg(feature = "simulated")]
+                    let model_loaded = s.is_simulated;
+                    (model_loaded, size, s.context_size)
                 }
                 None => (false, 0, 0),
             }
@@ -344,18 +348,20 @@ impl ModelManager {
                 .parent()
                 .filter(|p| !p.as_os_str().is_empty())
                 .unwrap_or(Path::new("."));
-            let models_dir = models_dir_raw
-                .canonicalize()
-                .map_err(|e| NanoError::ModelLoadFailed {
-                    path: self.config.local_model.path.clone(),
-                    reason: format!("Failed to resolve configured models directory: {}", e),
-                })?;
-            let canonical = Path::new(path)
-                .canonicalize()
-                .map_err(|e| NanoError::ModelLoadFailed {
-                    path: path.to_string(),
-                    reason: format!("Failed to resolve model path: {}", e),
-                })?;
+            let models_dir =
+                models_dir_raw
+                    .canonicalize()
+                    .map_err(|e| NanoError::ModelLoadFailed {
+                        path: self.config.local_model.path.clone(),
+                        reason: format!("Failed to resolve configured models directory: {}", e),
+                    })?;
+            let canonical =
+                Path::new(path)
+                    .canonicalize()
+                    .map_err(|e| NanoError::ModelLoadFailed {
+                        path: path.to_string(),
+                        reason: format!("Failed to resolve model path: {}", e),
+                    })?;
             if !canonical.starts_with(&models_dir) {
                 return Err(NanoError::ModelLoadFailed {
                     path: path.to_string(),
@@ -496,11 +502,8 @@ impl ModelManager {
                                 info.byte_size as f64 / (1024.0 * 1024.0),
                             );
                         }
-                        let total_mb: f64 = index
-                            .layers
-                            .values()
-                            .map(|l| l.byte_size)
-                            .sum::<u64>() as f64
+                        let total_mb: f64 = index.layers.values().map(|l| l.byte_size).sum::<u64>()
+                            as f64
                             / (1024.0 * 1024.0);
                         tracing::info!(
                             "GGUF layout: {} capas con tamaños reales inyectados al scheduler ({:.0} MB en pesos)",
@@ -544,7 +547,9 @@ impl ModelManager {
                             .and_then(|v| v.parse::<usize>().ok())
                             .filter(|w| *w <= n_layers_real)
                             .unwrap_or_else(|| {
-                                (budget_bytes / bytes_per_layer.max(1)).max(4).min(n_layers_real)
+                                (budget_bytes / bytes_per_layer.max(1))
+                                    .max(4)
+                                    .min(n_layers_real)
                             });
                         for l in 0..window {
                             residency.force_state(l, crate::memory_engine::ResidencyState::Keep);
@@ -649,8 +654,7 @@ impl ModelManager {
         }
 
         // 4. Verificación de recuperación.
-        let (mem_avail_after, _) =
-            crate::memory_engine::OomGuard::read_meminfo().unwrap_or((0, 0));
+        let (mem_avail_after, _) = crate::memory_engine::OomGuard::read_meminfo().unwrap_or((0, 0));
         if mem_avail_before > 0 && mem_avail_after > 0 {
             let delta_kb = mem_avail_after as i64 - mem_avail_before as i64;
             tracing::info!(
@@ -737,9 +741,7 @@ impl ModelManager {
                                     path: s.model_path.clone(),
                                     reason: e,
                                 })?;
-                            tracing::info!(
-                                "[NanoSession] Created persistent context for restore"
-                            );
+                            tracing::info!("[NanoSession] Created persistent context for restore");
                             c
                         }
                     };
@@ -863,11 +865,7 @@ impl ModelManager {
                     d.factors
                 );
             } else {
-                tracing::debug!(
-                    "[WorkingSet] {:?} conf={:.2}",
-                    d.state,
-                    d.confidence
-                );
+                tracing::debug!("[WorkingSet] {:?} conf={:.2}", d.state, d.confidence);
             }
         }
 
@@ -886,8 +884,7 @@ impl ModelManager {
 
         // 4. Perplejidad REAL desde probabilidades = exp(-mean(ln(p))).
         let avg_nll = if !token_probs.is_empty() {
-            -token_probs.iter().map(|&p| p.max(0.01).ln()).sum::<f32>()
-                / token_probs.len() as f32
+            -token_probs.iter().map(|&p| p.max(0.01).ln()).sum::<f32>() / token_probs.len() as f32
         } else {
             0.2
         };
@@ -1070,7 +1067,9 @@ impl ModelManager {
     }
 
     pub async fn generate(&self, prompt: &str, max_tokens: usize) -> Result<String> {
-        let (t, _) = self.generate_with_confidence(prompt, max_tokens, None).await?;
+        let (t, _) = self
+            .generate_with_confidence(prompt, max_tokens, None)
+            .await?;
         Ok(t)
     }
 
