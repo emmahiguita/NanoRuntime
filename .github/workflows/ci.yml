@@ -62,21 +62,46 @@ jobs:
       - run: rustup update stable && rustup default stable
       - run: cargo fmt --all -- --check
 
+  # NOTA: no usar `--all-features` en jobs Rust. El vendor llama-cpp-sys-2
+  # expone features que requieren SDKs externos ausentes en runners y en
+  # builds de produccion (vulkan -> VULKAN_SDK, system-ggml -> find_package(ggml),
+  # cuda -> nvcc). `--all-features` activa configuraciones que el producto nunca
+  # soporta simultaneamente. El CI valida SOLO el contrato de produccion
+  # declarado abajo.
+
   rust-clippy:
     name: Rust Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: rustup update stable && rustup default stable
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      # --no-deps: el vendor llama-cpp-2 (path-dep) emite warnings propios
+      # (unused imports); -D warnings no debe arrastrarlo.
+      - run: cargo clippy --all-targets --no-deps -- -D warnings
+      - run: cargo clippy -p nanortime-core --features simulated --no-deps -- -D warnings
+      - run: cargo clippy -p nanortime-core --features mmap-streaming --no-deps -- -D warnings
+      - run: cargo clippy -p nanortime-ffi --features android-jni,mmap-streaming --no-deps -- -D warnings
 
   rust-test:
-    name: Rust Test
+    name: Rust Test (matriz de produccion)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: rustup update stable && rustup default stable
-      - run: cargo test --all-features
+      # Contrato de produccion: default (host), simulated (QA sin modelo),
+      # mmap-streaming (streaming > RAM, OPPO) y wrapper JNI (Android).
+      - run: cargo test -p nanortime-core
+      - run: cargo test -p nanortime-core --features simulated
+      - run: cargo test -p nanortime-core --features mmap-streaming
+      - run: cargo check -p nanortime-ffi --features android-jni,mmap-streaming
+
+  rust-build:
+    name: Rust Build Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable && rustup default stable
+      - run: cargo build --release -p nanortime-cli
 
   rust-audit:
     name: Rust Security Audit
