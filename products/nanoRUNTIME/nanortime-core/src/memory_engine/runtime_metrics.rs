@@ -143,6 +143,42 @@ pub struct RuntimeMetrics {
     pub uptime_secs: f64,
 }
 
+/// Amortiguación del movimiento de memoria por token útil — la métrica
+/// científica de NanoRuntime: cuánto cuesta (en bytes, faults y forward
+/// passes) producir cada token útil. Conecta residency con speculative
+/// decoding: MTP/NGRAM reducen estas métricas al amortizar el working set
+/// entre múltiples tokens útiles.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct Amplification {
+    /// Bytes leídos de storage por token útil (IO_amp).
+    pub io_amp: f64,
+    /// Major page faults por token útil (FaultAmp).
+    pub fault_amp: f64,
+    /// Forward passes del target por token útil (ComputeAmp). Direct = 1.0;
+    /// speculative (MTP/NGRAM) < 1.0 (un batch verifica K tokens).
+    pub compute_amp: f64,
+}
+
+impl RuntimeMetrics {
+    /// Calcula las métricas de amplificación contra el nº de tokens útiles.
+    ///
+    /// `forward_passes` = decode calls del target. En DIRECT es igual al nº
+    /// de tokens (1 por token); en speculative es menor. Es el parámetro que
+    /// distingue el decoder y el que cambiará al integrar MTP/NGRAM.
+    pub fn amplification(
+        &self,
+        useful_tokens: usize,
+        forward_passes: usize,
+    ) -> Amplification {
+        let n = useful_tokens.max(1) as f64;
+        Amplification {
+            io_amp: self.io.bytes_read as f64 / n,
+            fault_amp: self.memory.major_faults as f64 / n,
+            compute_amp: forward_passes.max(1) as f64 / n,
+        }
+    }
+}
+
 /// Runtime metrics collector
 pub struct RuntimeMetricsCollector {
     /// System information collector
