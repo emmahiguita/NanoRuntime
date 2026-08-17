@@ -1,31 +1,29 @@
 # Cargo configuration for Multi-Platform Cross-Compilation (Android, Linux, macOS, Raspberry Pi)
+#
+# Este config del REPO es portable: solo contiene opciones validas en cualquier
+# maquina. Las rutas de toolchain de maquina (Android NDK, ninja del SDK, CC/CXX/AR
+# del NDK) viven en ~/.cargo/config.toml (config de USUARIO, no versionado) — ver
+# .cargo/README.md. Asi el workspace compila limpio en Windows, Ubuntu/WSL y
+# macOS sin heredar rutas de otro host.
 
-[env]
-NDK_ROOT = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
-ANDROID_NDK = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
-ANDROID_NDK_ROOT = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
-ANDROID_NDK_HOME = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358"
-CMAKE_GENERATOR = "Ninja"
-CMAKE_MAKE_PROGRAM = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe"
-CC_aarch64_linux_android = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\aarch64-linux-android26-clang.cmd"
-CXX_aarch64_linux_android = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\aarch64-linux-android26-clang++.cmd"
-AR_aarch64_linux_android = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
-
+# ── Android ARM64 ────────────────────────────────────────────────────────────
+# ar/linker del NDK: definidos en ~/.cargo/config.toml del usuario (rutas de maquina).
 [target.aarch64-linux-android]
-ar = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
-linker = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\aarch64-linux-android26-clang.cmd"
 rustflags = ["-C", "target-feature=+neon,+dotprod,+fp16"]
 
+# ── Android ARMv7 / x86_64 ───────────────────────────────────────────────────
+# ar/linker: en ~/.cargo/config.toml del usuario.
 [target.armv7-linux-androideabi]
-ar = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
-linker = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\armv7a-linux-androideabi26-clang.cmd"
 
 [target.x86_64-linux-android]
-ar = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
-linker = "C:\\Users\\emman\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\x86_64-linux-android26-clang.cmd"
 
-[target.aarch64-unknown-linux-gnu]
-linker = "aarch64-linux-gnu-gcc"
-
+# ── Linux (Ubuntu/Debian desktop) ────────────────────────────────────────────
+# Sin env heredado: usa gcc/clang del sistema. Requiere build-essential.
 [target.x86_64-unknown-linux-gnu]
 linker = "x86_64-linux-gnu-gcc"
+
+# ── Raspberry Pi / ARM64 Linux ───────────────────────────────────────────────
+# Solo linker: el cross-build necesita CMAKE_TOOLCHAIN_FILE propio (ver build.rs
+# de llama-cpp-sys-2, que solo define toolchain para Android).
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"

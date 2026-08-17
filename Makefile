@@ -12,7 +12,12 @@
 # Variables a configurar:
 MODEL ?= models/qwen2.5-1.5b-instruct-q4_k_m.gguf
 MODEL_7B ?= models/deepseek-7b-q4_k_m.gguf
+# Binario dependiente del SO: Windows genera .exe, Unix (Linux/macOS/WSL) no
+ifeq ($(OS),Windows_NT)
 BINARY ?= target/release/nanortime.exe
+else
+BINARY ?= target/release/nanortime
+endif
 CONFIG ?= nano.manifest.json
 PAPER_DIR ?= docs/paper
 
