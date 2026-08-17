@@ -105,8 +105,11 @@ features = ["metal"]
 # Fork del proyecto: todos los lints del vendor silenciados. Este crate es
 # codigo de terceros parcheado (MTP); no debe romper `-D warnings` del CI,
 # que valida SOLO el workspace propio (nanortime-core/ffi/cli/web).
+# NOTA: [lints.rust] all = "allow" es deprecated (no surte efecto y emite
+# warning); usar grupos explícitos. Clippy `all` si es valido.
 [lints.clippy]
 all = "allow"
 
 [lints.rust]
-all = "allow"
+unused = "allow"
+deprecated = "allow"

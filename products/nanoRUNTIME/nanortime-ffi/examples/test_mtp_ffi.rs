@@ -10,7 +10,7 @@
 
 use std::path::Path;
 
-use nanortime_ffi::{GenerateParams, ModelLoadParams, NanoContext, NanoModel};
+use nanortime_ffi::{GenerateParams, ModelLoadParams, NanoModel};
 
 fn main() {
     let mut args = std::env::args().skip(1);

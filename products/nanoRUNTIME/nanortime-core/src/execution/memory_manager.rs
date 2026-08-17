@@ -10,6 +10,7 @@ use sysinfo::System;
 use crate::memory_engine::hardware_profiler::{DeviceClass, HardwareProfile, HardwareProfiler};
 
 // ── V2 modules: Hardware Abstraction Layer + Auto-Config ──────────
+#[allow(deprecated)] // artefacto del paper (F1-F5), ver doc del struct
 use crate::memory_engine::execution_planner::ExecutionPlanner;
 use crate::memory_engine::hardware_hal::profile_device;
 
@@ -332,6 +333,7 @@ impl MemoryManager {
         // Intentar V2
         let profile = profile_device();
         let num_layers = 32; // Standard for Qwen/DeepSeek architectures
+        #[allow(deprecated)] // artefacto del paper (F1-F5), ver doc del struct
         let planner = ExecutionPlanner::new(model_file_mb as f64, num_layers);
         let plan = planner.plan_boot(&profile);
 

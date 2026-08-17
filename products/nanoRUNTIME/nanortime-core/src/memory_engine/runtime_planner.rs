@@ -1,28 +1,28 @@
-//! Runtime Planner — the OS-like control plane.
+//! Runtime Planner â€” the OS-like control plane.
 //!
-//! Materializa la filosofía de "administrar la inferencia como Linux administra
+//! Materializa la filosofÃ­a de "administrar la inferencia como Linux administra
 //! un proceso": en vez de obligar al hardware a ejecutar un modelo fijo, el
-//! planner recibe un **presupuesto declarativo** y decide qué modelo, cuánto
-//! contexto, qué compresión de KV, qué backend y cuántos cores puede
+//! planner recibe un **presupuesto declarativo** y decide quÃ© modelo, cuÃ¡nto
+//! contexto, quÃ© compresiÃ³n de KV, quÃ© backend y cuÃ¡ntos cores puede
 //! permitirse. Cuando las condiciones del dispositivo cambian, cambia la
 //! estrategia.
 //!
 //! ## El lazo
 //!
 //! ```text
-//! OBSERVE ──► PLAN ──► EXECUTE ──► MEASURE ──► ADAPT ──┐
-//!    ▲                                                  │
-//!    └──────────────────────────────────────────────────┘
+//! OBSERVE â”€â”€â–º PLAN â”€â”€â–º EXECUTE â”€â”€â–º MEASURE â”€â”€â–º ADAPT â”€â”€â”
+//!    â–²                                                  â”‚
+//!    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 //! ```
 //!
-//! - `Observations::sample()` = OBSERVE (señales REALES: RAM, faults, PSI,
-//!   thermal, batería, thrashing).
-//! - `RuntimePlanner::plan()` = PLAN (budget → Memory/Compute/Model plan).
+//! - `Observations::sample()` = OBSERVE (seÃ±ales REALES: RAM, faults, PSI,
+//!   thermal, baterÃ­a, thrashing).
+//! - `RuntimePlanner::plan()` = PLAN (budget â†’ Memory/Compute/Model plan).
 //! - el caller ejecuta el plan contra `ModelManager`.
 //! - `Measurements` = MEASURE (tok/s, ttft, calidad, fault_rate reales).
 //! - `RuntimePlanner::adapt()` = ADAPT (re-planificar con las mediciones).
 //!
-//! Todo usa señales reales del OS. Nada fabricado.
+//! Todo usa seÃ±ales reales del OS. Nada fabricado.
 
 use std::fmt;
 
@@ -34,16 +34,16 @@ use crate::memory_engine::runtime_metrics::{RuntimeMetrics, RuntimeMetricsCollec
 use crate::memory_engine::thermal_controller::{ThermalCondition, ThermalController};
 use crate::memory_engine::working_set_estimator::{ThrashingState, WorkingSetEstimator};
 
-// ── Budget: contrato declarativo ─────────────────────────────────────────
+// â”€â”€ Budget: contrato declarativo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Latency class requested by the caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LatencyClass {
-    /// Conversational — target < ~1s first token, ≥ ~5 tok/s.
+    /// Conversational â€” target < ~1s first token, â‰¥ ~5 tok/s.
     Interactive,
-    /// Long-form generation — latency less critical, quality first.
+    /// Long-form generation â€” latency less critical, quality first.
     Batch,
-    /// Offline jobs — energy/quality over latency.
+    /// Offline jobs â€” energy/quality over latency.
     Background,
 }
 
@@ -58,7 +58,7 @@ pub enum PrivacyClass {
     AllowCloud,
 }
 
-/// Declarative inference budget — the "sistema operativo" contract.
+/// Declarative inference budget â€” the "sistema operativo" contract.
 ///
 /// The planner NEVER exceeds these bounds. It may deliver *less* than asked
 /// if the device cannot afford it (liveness > maximum throughput).
@@ -66,9 +66,9 @@ pub enum PrivacyClass {
 pub struct InferenceBudget {
     /// RAM ceiling (MB) for weights + KV + runtime.
     pub max_memory_mb: u64,
-    /// Thermal ceiling (°C). Above this, compute degrades.
+    /// Thermal ceiling (Â°C). Above this, compute degrades.
     pub max_temperature_c: f32,
-    /// Minimum acceptable quality (0.0–1.0) as confidence/probability proxy.
+    /// Minimum acceptable quality (0.0â€“1.0) as confidence/probability proxy.
     pub min_quality: f32,
     /// Privacy policy.
     pub privacy: PrivacyClass,
@@ -88,7 +88,7 @@ impl Default for InferenceBudget {
     }
 }
 
-// ── Model catalog ────────────────────────────────────────────────────────
+// â”€â”€ Model catalog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Quantization level (memory multiplier relative to Q4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,7 +129,7 @@ pub struct ModelCandidate {
     pub quant: QuantLevel,
 }
 
-// ── Plan output (Memory/Compute/Model) ───────────────────────────────────
+// â”€â”€ Plan output (Memory/Compute/Model) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Execution backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,8 +186,8 @@ pub struct MemoryPlan {
     pub page_strategy: PageStrategy,
     /// Streaming window (0 = disabled, whole model resident).
     pub streaming_window: usize,
-    /// Ventana residente W: cuántas capas se mantienen en RAM. 0 = aún sin
-    /// determinar (se fija al cargar según el modelo real).
+    /// Ventana residente W: cuÃ¡ntas capas se mantienen en RAM. 0 = aÃºn sin
+    /// determinar (se fija al cargar segÃºn el modelo real).
     pub resident_window: usize,
     /// Actual memory budget allotted to this plan (MB).
     pub budget_mb: u64,
@@ -221,7 +221,7 @@ impl fmt::Display for RuntimePlan {
     }
 }
 
-// ── OBSERVE input ────────────────────────────────────────────────────────
+// â”€â”€ OBSERVE input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Live resource observations fed into the planner.
 #[derive(Debug, Clone)]
@@ -265,16 +265,16 @@ impl Observations {
     }
 }
 
-// ── MEASURE feedback ─────────────────────────────────────────────────────
+// â”€â”€ MEASURE feedback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// Measured results from an executed plan — the MEASURE step.
+/// Measured results from an executed plan â€” the MEASURE step.
 #[derive(Debug, Clone)]
 pub struct Measurements {
     /// Measured tokens per second.
     pub tok_s: f64,
     /// Time to first token (ms).
     pub ttft_ms: f64,
-    /// Measured quality (0.0–1.0) — confidence/perplexity proxy.
+    /// Measured quality (0.0â€“1.0) â€” confidence/perplexity proxy.
     pub quality: f32,
     /// Major page faults per second after generation (thrashing signal).
     pub fault_rate: f64,
@@ -282,14 +282,14 @@ pub struct Measurements {
     pub thermal: ThermalCondition,
 }
 
-// ── Viabilidad (CanRun vs ShouldRun) ─────────────────────────────────────
+// â”€â”€ Viabilidad (CanRun vs ShouldRun) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// Tier de viabilidad de una combinación modelo+dispositivo.
+/// Tier de viabilidad de una combinaciÃ³n modelo+dispositivo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Viability {
-    /// model << RAM: residente, rápido.
+    /// model << RAM: residente, rÃ¡pido.
     Fast,
-    /// model ≈ RAM: residencia adaptativa.
+    /// model â‰ˆ RAM: residencia adaptativa.
     Balanced,
     /// model > RAM: layer streaming, lento pero viable.
     Streaming,
@@ -309,7 +309,7 @@ impl fmt::Display for Viability {
 }
 
 /// Verdicto de viabilidad: distingue `can_run` (liveness) de
-/// `should_run_interactive` (utilidad práctica).
+/// `should_run_interactive` (utilidad prÃ¡ctica).
 #[derive(Debug, Clone)]
 pub struct ViabilityReport {
     pub can_run: bool,
@@ -318,9 +318,9 @@ pub struct ViabilityReport {
     pub reason: String,
 }
 
-// ── The planner ──────────────────────────────────────────────────────────
+// â”€â”€ The planner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// Runtime Planner — decides Memory/Compute/Model from a budget.
+/// Runtime Planner â€” decides Memory/Compute/Model from a budget.
 #[derive(Clone)]
 pub struct RuntimePlanner {
     catalog: Vec<ModelCandidate>,
@@ -336,7 +336,7 @@ impl RuntimePlanner {
         }
     }
 
-    /// Default catalog — small, realistic candidates.
+    /// Default catalog â€” small, realistic candidates.
     fn default_catalog() -> Vec<ModelCandidate> {
         vec![
             ModelCandidate {
@@ -377,7 +377,7 @@ impl RuntimePlanner {
 
         // 1. Effective ceiling. Prefer LIVE available RAM (from RuntimeMetrics)
         //    over the boot-time DeviceProfile value.
-        let live_available_mb = (obs.runtime.memory.available_bytes / 1_048_576) as u64;
+        let live_available_mb = obs.runtime.memory.available_bytes / 1_048_576;
         let avail_mb = if live_available_mb > 0 {
             live_available_mb
         } else {
@@ -411,7 +411,7 @@ impl RuntimePlanner {
             }
         }
 
-        // Fallback: survival — smallest model, minimal context, max compression.
+        // Fallback: survival â€” smallest model, minimal context, max compression.
         let (cand, ctx, kv, rss, streaming) = match chosen {
             Some((c, ctx, kv, rss)) => (c, ctx, kv, rss, 0usize),
             None => self.survival_fit(ceiling),
@@ -429,7 +429,7 @@ impl RuntimePlanner {
         let compute = self.compute_plan(device, budget, obs, risk);
 
         let summary = format!(
-            "{} {} · ctx={} · KV={:?} · streaming={} · {} thread(s){}{} · backend={} · rss={:.0}MB (ceiling {:.0}) · risk={}",
+            "{} {} Â· ctx={} Â· KV={:?} Â· streaming={} Â· {} thread(s){}{} Â· backend={} Â· rss={:.0}MB (ceiling {:.0}) Â· risk={}",
             cand.label,
             cand.quant,
             ctx,
@@ -437,7 +437,7 @@ impl RuntimePlanner {
             streaming,
             compute.threads,
             if compute.big_cores_only { " big-only" } else { "" },
-            if compute.speculative_decoding { " · speculative" } else { "" },
+            if compute.speculative_decoding { " Â· speculative" } else { "" },
             compute.backend,
             rss,
             ceiling,
@@ -485,11 +485,11 @@ impl RuntimePlanner {
 
         let mut reason = String::new();
 
-        // Thrashing: the working set does not fit — tighten the ceiling.
+        // Thrashing: the working set does not fit â€” tighten the ceiling.
         if meas.fault_rate > 100.0 {
             adj.max_memory_mb = ((budget.max_memory_mb as f64) * 0.70) as u64;
             reason.push_str(&format!(
-                "thrashing(fault_rate={:.1}/s)→ceiling↓{:.0}%",
+                "thrashing(fault_rate={:.1}/s)â†’ceilingâ†“{:.0}%",
                 meas.fault_rate, 30.0
             ));
         }
@@ -501,12 +501,12 @@ impl RuntimePlanner {
                 reason.push_str("; ");
             }
             reason.push_str(&format!(
-                "quality={:.2}<min={:.2} (budget binding — no upgrade within {}MB)",
+                "quality={:.2}<min={:.2} (budget binding â€” no upgrade within {}MB)",
                 meas.quality, budget.min_quality, budget.max_memory_mb
             ));
         }
 
-        // Thermal spike: pin to fewer threads — handled by compute_plan via
+        // Thermal spike: pin to fewer threads â€” handled by compute_plan via
         // fresh obs.thermal; record the trigger.
         if meas.thermal >= ThermalCondition::Hot {
             if !reason.is_empty() {
@@ -533,8 +533,8 @@ impl RuntimePlanner {
     /// Clasifica la viabilidad de un modelo+dispositivo SIN cargar el modelo.
     ///
     /// Distingue `can_run` (liveness alcanzable) de `should_run_interactive`
-    /// (generación útil). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
-    /// "should_run_interactive" — la app lo usa para advertir o recomendar
+    /// (generaciÃ³n Ãºtil). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
+    /// "should_run_interactive" â€” la app lo usa para advertir o recomendar
     /// un modelo menor en vez de arrancar algo inusable.
     pub fn assess_viability(&self, model_size_mb: u64, device: &DeviceProfile) -> ViabilityReport {
         let avail_mb = device.ram_available_mb.max(1) as f64;
@@ -544,13 +544,13 @@ impl RuntimePlanner {
             (
                 Viability::Fast,
                 true,
-                "modelo cabe cómodamente en RAM".to_string(),
+                "modelo cabe cÃ³modamente en RAM".to_string(),
             )
         } else if ratio <= 1.0 {
             (
                 Viability::Balanced,
                 true,
-                "modelo ≈ RAM disponible: residencia adaptativa".to_string(),
+                "modelo â‰ˆ RAM disponible: residencia adaptativa".to_string(),
             )
         } else if ratio <= 2.0 {
             (
@@ -562,7 +562,7 @@ impl RuntimePlanner {
             (
                 Viability::Extreme,
                 false,
-                "modelo >> RAM: thrashing extremo, generación no interactiva".to_string(),
+                "modelo >> RAM: thrashing extremo, generaciÃ³n no interactiva".to_string(),
             )
         };
 
@@ -574,12 +574,12 @@ impl RuntimePlanner {
         }
     }
 
-    /// Planifica para UN modelo específico (tamaño conocido, no el catálogo).
+    /// Planifica para UN modelo especÃ­fico (tamaÃ±o conocido, no el catÃ¡logo).
     ///
-    /// Lo usa `load_model` para decidir la configuración aplicada (contexto,
+    /// Lo usa `load_model` para decidir la configuraciÃ³n aplicada (contexto,
     /// threads, ventana residente W). Reemplaza al `ExecutionPlanner` legacy
-    /// (`auto_configure_v2`): misma lógica de ceiling/fit, pero con señales
-    /// reales del OS y un único planner como fuente de verdad.
+    /// (`auto_configure_v2`): misma lÃ³gica de ceiling/fit, pero con seÃ±ales
+    /// reales del OS y un Ãºnico planner como fuente de verdad.
     #[allow(clippy::too_many_arguments)]
     pub fn plan_for_model(
         &self,
@@ -593,7 +593,7 @@ impl RuntimePlanner {
         let n_layers = n_layers.max(1);
 
         // Ceiling efectivo (mismo que plan()).
-        let live_available_mb = (obs.runtime.memory.available_bytes / 1_048_576) as u64;
+        let live_available_mb = obs.runtime.memory.available_bytes / 1_048_576;
         let avail_mb = if live_available_mb > 0 {
             live_available_mb
         } else {
@@ -625,7 +625,7 @@ impl RuntimePlanner {
             }
         };
 
-        // Ventana residente W: capas que caben en el presupuesto (mín 4).
+        // Ventana residente W: capas que caben en el presupuesto (mÃ­n 4).
         let bytes_per_layer = model_size_mb as f64 / n_layers as f64;
         let window = (ceiling / bytes_per_layer.max(1.0))
             .max(4.0)
@@ -640,7 +640,7 @@ impl RuntimePlanner {
         let compute = self.compute_plan(device, budget, obs, risk);
 
         let summary = format!(
-            "{} Q4 · ctx={} · KV={:?} · W={} · {} thread(s) · backend={} · rss={:.0}MB (ceiling {:.0}) · risk={}",
+            "{} Q4 Â· ctx={} Â· KV={:?} Â· W={} Â· {} thread(s) Â· backend={} Â· rss={:.0}MB (ceiling {:.0}) Â· risk={}",
             cand.label,
             ctx,
             kv,
@@ -758,7 +758,7 @@ impl RuntimePlanner {
             (_, BatteryMode::Survival) => 1,
             (_, BatteryMode::Eco) => 2,
             _ => match device.tier {
-                // Desktop/Flagship: todos los cores (homogéneos o suficientes).
+                // Desktop/Flagship: todos los cores (homogÃ©neos o suficientes).
                 DeviceTier::Desktop | DeviceTier::Flagship => device.cpu_cores.max(1) as usize,
                 // Mobile: solo big cores (evitar thrashing LITTLE).
                 _ => big.max(1) as usize,
@@ -779,7 +779,7 @@ impl RuntimePlanner {
         };
 
         // Speculative decoding only helps interactive latency on capable,
-        // cool, plugged-in devices — not worth the RAM otherwise.
+        // cool, plugged-in devices â€” not worth the RAM otherwise.
         let speculative = budget.latency == LatencyClass::Interactive
             && matches!(obs.battery, BatteryMode::Performance)
             && obs.thermal < ThermalCondition::Hot
@@ -793,7 +793,7 @@ impl RuntimePlanner {
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
+    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     fn context_ladder(target: usize) -> Vec<usize> {
         let mut out = Vec::new();
@@ -869,7 +869,7 @@ impl Default for RuntimePlanner {
     }
 }
 
-// ── Tests ────────────────────────────────────────────────────────────────
+// â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[cfg(test)]
 mod tests {
@@ -935,7 +935,7 @@ mod tests {
     #[test]
     fn test_constrained_budget_picks_small_model() {
         let planner = RuntimePlanner::new();
-        // Samsung with only 1.5 GB ceiling → 7B/3B won't fit, must pick 1.5B.
+        // Samsung with only 1.5 GB ceiling â†’ 7B/3B won't fit, must pick 1.5B.
         let plan = planner.plan(
             &interactive_budget(1500),
             &obs(
@@ -952,7 +952,7 @@ mod tests {
     #[test]
     fn test_roomy_budget_picks_7b() {
         let planner = RuntimePlanner::new();
-        // OPPO with 6 GB ceiling → 7B fits.
+        // OPPO with 6 GB ceiling â†’ 7B fits.
         let plan = planner.plan(
             &interactive_budget(6000),
             &obs(
@@ -1045,7 +1045,7 @@ mod tests {
         let prev = planner.plan(&budget, &o);
         assert_eq!(prev.model.label, "7B");
 
-        // Severe thrashing measured → adapt must shrink the plan.
+        // Severe thrashing measured â†’ adapt must shrink the plan.
         let meas = Measurements {
             tok_s: 1.0,
             ttft_ms: 2000.0,
@@ -1075,7 +1075,7 @@ mod tests {
         );
         let prev = planner.plan(&budget, &o);
 
-        // Healthy measurements → no change → returns prev unchanged.
+        // Healthy measurements â†’ no change â†’ returns prev unchanged.
         let meas = Measurements {
             tok_s: 8.0,
             ttft_ms: 400.0,

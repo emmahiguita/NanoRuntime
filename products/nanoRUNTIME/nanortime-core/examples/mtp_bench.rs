@@ -40,6 +40,7 @@ fn piece_of(model: &LlamaModel, token: LlamaToken) -> String {
 
 // ── I/O del proceso (Windows): bytes leídos de disco vía GetProcessIoCounters.
 // Incluye page-ins del mmap del GGUF → base para IOAmp = BytesRead/Token útil.
+#[cfg(target_os = "windows")]
 #[repr(C)]
 struct IoCounters {
     read_operation_count: u64,
@@ -50,12 +51,16 @@ struct IoCounters {
     other_transfer_count: u64,
 }
 
+#[cfg(target_os = "windows")]
 #[link(name = "kernel32")]
 extern "system" {
     fn GetCurrentProcess() -> *mut std::ffi::c_void;
     fn GetProcessIoCounters(process: *mut std::ffi::c_void, counters: *mut IoCounters) -> i32;
 }
 
+// IOAmp solo es medible en Windows (GetProcessIoCounters). En Linux/Android el
+// ejemplo compila con stub: el link a kernel32 rompia el build en CI ubuntu.
+#[cfg(target_os = "windows")]
 fn io_bytes_read() -> u64 {
     let mut c = IoCounters {
         read_operation_count: 0,
@@ -71,6 +76,11 @@ fn io_bytes_read() -> u64 {
     } else {
         c.read_transfer_count
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn io_bytes_read() -> u64 {
+    0
 }
 
 /// Modo Direct: decode plano de 1 token por iteración.
@@ -120,7 +130,6 @@ fn run_mtp(
     tokens: &[LlamaToken],
     eos: LlamaToken,
     n_gen: usize,
-    n_max: i32,
 ) -> (f64, f64, String) {
     // Prefill (fuera del timing): todos los tokens excepto el último.
     let mut n_past: i32 = 0;
@@ -190,7 +199,7 @@ fn run_mtp(
         }
         n_accepted += n_ok;
 
-        let real = greedy_argmax(&mtp.target_context().get_logits_ith(n_ok as i32).to_vec());
+        let real = greedy_argmax(mtp.target_context().get_logits_ith(n_ok as i32));
         mtp.accept(n_ok as u16).expect("accept");
 
         for &d in drafts.iter().take(n_ok) {
@@ -285,7 +294,7 @@ fn main() {
     .expect("init mtp");
 
     let io1 = io_bytes_read();
-    let (tps_mtp, rate, out_mtp) = run_mtp(&model, &mut mtp, &tokens, eos, n_gen, n_max);
+    let (tps_mtp, rate, out_mtp) = run_mtp(&model, &mut mtp, &tokens, eos, n_gen);
     let io_mtp = io_bytes_read().saturating_sub(io1);
     println!("\n[mtp] {tps_mtp:.2} tok/s  (aceptación {rate:.3})  ({out_mtp})");
 

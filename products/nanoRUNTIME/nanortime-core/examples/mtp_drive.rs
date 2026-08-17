@@ -202,11 +202,7 @@ fn main() {
 
         // Token real: predicción en la primera posición de desacuerdo
         // (o tras el último draft si todos fueron aceptados).
-        let real = greedy_argmax(
-            &mtp.target_context()
-                .get_logits_ith(n_accepted as i32)
-                .to_vec(),
-        );
+        let real = greedy_argmax(mtp.target_context().get_logits_ith(n_accepted as i32));
 
         mtp.accept(n_accepted as u16).expect("accept");
 

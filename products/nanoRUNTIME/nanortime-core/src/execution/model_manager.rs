@@ -3,8 +3,10 @@
 //! Crea contexto fresco por cada generación para evitar contaminación del KV cache.
 
 use std::path::Path;
+#[cfg(not(feature = "simulated"))]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+#[cfg(not(feature = "simulated"))]
 use std::time::Instant;
 
 use tokio::sync::RwLock;
@@ -975,6 +977,8 @@ impl ModelManager {
         temperature: Option<f32>,
     ) -> Result<(String, Vec<f32>)> {
         #[cfg(feature = "simulated")]
+        let _ = temperature;
+        #[cfg(feature = "simulated")]
         {
             let mut g = self.state.write().await;
             let s = g.as_mut().ok_or_else(|| NanoError::Internal {
@@ -1180,6 +1184,8 @@ impl ModelManager {
         tokio::sync::oneshot::Receiver<Result<(String, Vec<f32>)>>,
         TokenReceiver,
     )> {
+        #[cfg(feature = "simulated")]
+        let _ = (session_id, temperature);
         let (tokio_tx, tokio_rx) = tokio::sync::mpsc::channel(max_tokens.max(4096));
         let (res_tx, res_rx) = tokio::sync::oneshot::channel();
 

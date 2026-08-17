@@ -127,5 +127,7 @@ version = "2"
 all = "allow"
 
 [lints.rust]
-all = "allow"
+unused = "allow"
+deprecated = "allow"
+
 

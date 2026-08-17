@@ -1740,6 +1740,11 @@ pub unsafe extern "C" fn nano_string_free(str_ptr: *mut c_char) {
 }
 
 /// 1 si el modelo tiene cabezas NextN (MTP), 0 si no (o modelo inválido).
+///
+/// # Safety
+///
+/// `model` debe ser un puntero válido devuelto por `nano_load_model` que no
+/// haya sido liberado, o null (devuelve 0). Cualquier otro puntero es UB.
 #[no_mangle]
 pub unsafe extern "C" fn nano_model_supports_mtp(model: *const NanoModel) -> i32 {
     if model.is_null() {
