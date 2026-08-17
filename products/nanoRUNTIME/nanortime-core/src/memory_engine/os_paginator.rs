@@ -75,7 +75,7 @@ impl OSMemoryPaginator {
                 return page_size;
             }
         }
-        
+
         #[cfg(windows)]
         {
             use windows_sys::Win32::System::SystemInformation::GetSystemInfo;
@@ -86,7 +86,7 @@ impl OSMemoryPaginator {
                 return page_size;
             }
         }
-        
+
         // Fallback a 4KB
         4096
     }
@@ -278,7 +278,13 @@ impl OSMemoryPaginator {
 
         #[cfg(unix)]
         {
-            let res = unsafe { libc::madvise(self.mmap_ptr as *mut c_void, self.mmap_size, libc::MADV_DONTNEED) };
+            let res = unsafe {
+                libc::madvise(
+                    self.mmap_ptr as *mut c_void,
+                    self.mmap_size,
+                    libc::MADV_DONTNEED,
+                )
+            };
             if res != 0 {
                 return Err(std::io::Error::last_os_error());
             }
@@ -337,14 +343,7 @@ pub fn release_file_cache(path: &Path) -> std::io::Result<()> {
         use std::os::fd::AsRawFd;
 
         let file = std::fs::File::open(path)?;
-        let res = unsafe {
-            libc::posix_fadvise(
-                file.as_raw_fd(),
-                0,
-                0,
-                libc::POSIX_FADV_DONTNEED,
-            )
-        };
+        let res = unsafe { libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED) };
         if res != 0 {
             return Err(std::io::Error::last_os_error());
         }
@@ -400,7 +399,7 @@ mod tests {
     fn test_dynamic_page_size() {
         let dummy_ptr = 8192 as *mut c_void;
         let paginator = OSMemoryPaginator::new(dummy_ptr, 100000);
-        
+
         // Page size should be detected and be reasonable
         assert!(paginator.page_size() >= 4096);
         assert!(paginator.page_size() <= 65536);
@@ -412,7 +411,7 @@ mod tests {
         let dummy_ptr = 8192 as *mut c_void;
         let custom_page_size = 8192;
         let paginator = OSMemoryPaginator::with_page_size(dummy_ptr, 100000, custom_page_size);
-        
+
         assert_eq!(paginator.page_size(), custom_page_size);
     }
 }

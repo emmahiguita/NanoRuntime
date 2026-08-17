@@ -351,10 +351,7 @@ fn handle_completion_sse(
     // móvil (256-512) y el desktop. Clamp honesto: si el cliente pide más,
     // se registra en log en vez de recortar en silencio.
     let max_tokens = if req.n_predict > 2048 {
-        tracing::warn!(
-            "n_predict {} clamped to 2048 (engine limit)",
-            req.n_predict
-        );
+        tracing::warn!("n_predict {} clamped to 2048 (engine limit)", req.n_predict);
         2048
     } else {
         req.n_predict.max(1)

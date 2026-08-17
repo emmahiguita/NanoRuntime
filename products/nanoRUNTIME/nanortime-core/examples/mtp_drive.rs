@@ -57,8 +57,8 @@ fn main() {
     let model_params = LlamaModelParams::default()
         .with_use_mmap(true)
         .with_n_gpu_layers(0);
-    let model = LlamaModel::load_from_file(&backend, path.as_path(), &model_params)
-        .expect("cargar modelo");
+    let model =
+        LlamaModel::load_from_file(&backend, path.as_path(), &model_params).expect("cargar modelo");
 
     let n_nextn = model.n_layer_nextn();
     println!("n_layer_nextn(MTP) = {n_nextn}");
@@ -118,7 +118,9 @@ fn main() {
                 .add(token, n_past + i as i32, &[0], false)
                 .expect("batch add");
         }
-        mtp.target_context_mut().decode(&mut batch).expect("decode prefill");
+        mtp.target_context_mut()
+            .decode(&mut batch)
+            .expect("decode prefill");
         mtp.process(&batch).expect("process prefill");
         n_past += chunk.len() as i32;
     }
@@ -154,7 +156,9 @@ fn main() {
             batch
                 .add(last_token, n_past, &[0], true)
                 .expect("batch add");
-            mtp.target_context_mut().decode(&mut batch).expect("decode plain");
+            mtp.target_context_mut()
+                .decode(&mut batch)
+                .expect("decode plain");
             mtp.process(&batch).expect("process plain");
             n_past += 1;
             let logits = mtp.target_context().get_logits_ith(0).to_vec();
@@ -177,7 +181,9 @@ fn main() {
                 .add(d, n_past + 1 + j as i32, &[0], true)
                 .expect("batch add verify");
         }
-        mtp.target_context_mut().decode(&mut vbatch).expect("decode verify");
+        mtp.target_context_mut()
+            .decode(&mut vbatch)
+            .expect("decode verify");
         mtp.process(&vbatch).expect("process verify");
 
         // Aceptar mientras el draft sea el argmax greedy.
@@ -197,8 +203,7 @@ fn main() {
         // Token real: predicción en la primera posición de desacuerdo
         // (o tras el último draft si todos fueron aceptados).
         let real = greedy_argmax(
-            &mtp
-                .target_context()
+            &mtp.target_context()
                 .get_logits_ith(n_accepted as i32)
                 .to_vec(),
         );

@@ -33,7 +33,11 @@ fn main() {
         batch_size: 64,
     };
     let model = NanoModel::load(&path, &load).expect("load model");
-    println!("n_layer={} supports_mtp={}", model.n_layer(), model.supports_mtp());
+    println!(
+        "n_layer={} supports_mtp={}",
+        model.n_layer(),
+        model.supports_mtp()
+    );
     if !model.supports_mtp() {
         eprintln!("ERROR: el modelo no tiene cabezas NextN (MTP)");
         std::process::exit(1);
@@ -51,11 +55,18 @@ fn main() {
     let prompt = "Hola, ¿cómo estás? Cuéntame sobre la inteligencia artificial.";
 
     // 1. Baseline plano
-    let res = ctx.generate(&model, prompt, &params, None).expect("generate plano");
-    println!("\n[plano]  {:.2} tok/s  ({})", res.tokens_per_second, res.text);
+    let res = ctx
+        .generate(&model, prompt, &params, None)
+        .expect("generate plano");
+    println!(
+        "\n[plano]  {:.2} tok/s  ({})",
+        res.tokens_per_second, res.text
+    );
 
     // 2. MTP (greedy, no sampling → tasa de aceptación = argmax match)
-    let res = ctx.generate_mtp(&model, prompt, &params, n_max, None).expect("generate mtp");
+    let res = ctx
+        .generate_mtp(&model, prompt, &params, n_max, None)
+        .expect("generate mtp");
     println!(
         "\n[mtp]    {:.2} tok/s  {} tokens  ({})",
         res.tokens_per_second, res.tokens_generated, res.text
@@ -64,20 +75,24 @@ fn main() {
     // 3. MTP streaming
     let mut n_cb = 0usize;
     let res = ctx
-        .generate_streaming_mtp(&model, prompt, &params, n_max, None, |piece, _prob, is_stop| {
-            n_cb += 1;
-            if n_cb <= 3 {
-                println!("  stream[{n_cb}]: {piece:?} stop={is_stop}");
-            }
-            true
-        })
+        .generate_streaming_mtp(
+            &model,
+            prompt,
+            &params,
+            n_max,
+            None,
+            |piece, _prob, is_stop| {
+                n_cb += 1;
+                if n_cb <= 3 {
+                    println!("  stream[{n_cb}]: {piece:?} stop={is_stop}");
+                }
+                true
+            },
+        )
         .expect("generate streaming mtp");
     println!(
         "\n[stream] {:.2} tok/s  {} tokens  ({} callbacks)  ({})",
-        res.tokens_per_second,
-        res.tokens_generated,
-        n_cb,
-        res.text
+        res.tokens_per_second, res.tokens_generated, n_cb, res.text
     );
 
     println!("\n=== FFI MTP OK ===");

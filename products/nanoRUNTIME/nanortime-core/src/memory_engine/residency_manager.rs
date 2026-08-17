@@ -41,12 +41,12 @@ impl ResidencyState {
     pub fn should_be_resident(&self) -> bool {
         matches!(self, ResidencyState::Keep | ResidencyState::Cold)
     }
-    
+
     /// Returns whether the state indicates pages should be prefetched
     pub fn should_prefetch(&self) -> bool {
         matches!(self, ResidencyState::Prefetch)
     }
-    
+
     /// Returns whether the state indicates pages can be reclaimed
     pub fn can_reclaim(&self) -> bool {
         matches!(self, ResidencyState::Reclaim)
@@ -111,8 +111,8 @@ impl Default for ResidencyPolicy {
     fn default() -> Self {
         Self {
             cooling_period_secs: 5.0,
-            hot_threshold: 0.1,  // 0.1 accesses/sec minimum
-            pressure_threshold: 0.75,  // Start reclaiming at 75% RAM pressure
+            hot_threshold: 0.1,       // 0.1 accesses/sec minimum
+            pressure_threshold: 0.75, // Start reclaiming at 75% RAM pressure
             prefetch_lookahead: 2,
             use_sequential_hints: true,
         }
@@ -201,16 +201,17 @@ impl ResidencyManager {
         if let Some(info) = self.layer_residency.get_mut(&layer_id) {
             let now = Instant::now();
             let time_since_last = now.duration_since(info.access_pattern.last_access);
-            
+
             // Update access pattern
             info.access_pattern.last_access = now;
             info.access_pattern.access_count += 1;
             info.access_pattern.is_sequential = is_sequential;
-            
+
             // Calculate frequency (exponential moving average)
             if time_since_last.as_secs_f64() > 0.0 {
                 let instant_freq = 1.0 / time_since_last.as_secs_f64();
-                info.access_pattern.frequency = info.access_pattern.frequency * 0.9 + instant_freq * 0.1;
+                info.access_pattern.frequency =
+                    info.access_pattern.frequency * 0.9 + instant_freq * 0.1;
             }
 
             // Check if this was a prefetch hit
@@ -231,7 +232,7 @@ impl ResidencyManager {
         for (&layer_id, info) in self.layer_residency.iter() {
             // Update state duration
             let state_duration = now.duration_since(info.access_pattern.last_access);
-            
+
             layer_data.push((
                 layer_id,
                 info.state,
@@ -243,7 +244,9 @@ impl ResidencyManager {
         }
 
         // Calculate new states based on collected data
-        for (layer_id, current_state, state_duration, frequency, is_sequential, priority) in layer_data {
+        for (layer_id, current_state, state_duration, frequency, is_sequential, priority) in
+            layer_data
+        {
             let time_since_access = state_duration.as_secs_f64();
             let new_state = self.calculate_next_state_with_data(
                 current_state,
@@ -252,7 +255,7 @@ impl ResidencyManager {
                 is_sequential,
                 priority,
             );
-            
+
             if new_state != current_state {
                 transitions.push((layer_id, new_state));
             }
@@ -295,7 +298,9 @@ impl ResidencyManager {
             if current_state == ResidencyState::Keep {
                 return ResidencyState::Cold;
             }
-            if current_state == ResidencyState::Cold && time_since_access > self.policy.cooling_period_secs * 2.0 {
+            if current_state == ResidencyState::Cold
+                && time_since_access > self.policy.cooling_period_secs * 2.0
+            {
                 return ResidencyState::Reclaim;
             }
         }
@@ -304,8 +309,9 @@ impl ResidencyManager {
         match current_state {
             ResidencyState::Keep => {
                 // Keep → Cold if not accessed recently and frequency is low
-                if time_since_access > self.policy.cooling_period_secs 
-                    && frequency < self.policy.hot_threshold {
+                if time_since_access > self.policy.cooling_period_secs
+                    && frequency < self.policy.hot_threshold
+                {
                     ResidencyState::Cold
                 } else {
                     ResidencyState::Keep
@@ -315,7 +321,7 @@ impl ResidencyManager {
                 // Cold → Reclaim if cooling period exceeded
                 if time_since_access > self.policy.cooling_period_secs * 2.0 {
                     ResidencyState::Reclaim
-                } 
+                }
                 // Cold → Keep if accessed again
                 else if time_since_access < 1.0 {
                     ResidencyState::Keep
@@ -361,13 +367,21 @@ impl ResidencyManager {
     }
 
     /// Enforce a residency state at the OS level
-    fn enforce_state(&self, paginator: &OSMemoryPaginator, range: &ByteRange, state: ResidencyState) {
+    fn enforce_state(
+        &self,
+        paginator: &OSMemoryPaginator,
+        range: &ByteRange,
+        state: ResidencyState,
+    ) {
         match state {
             ResidencyState::Keep => {
                 // Ensure pages are resident and marked as sequential if applicable
                 let _ = paginator.prefetch_range(range);
                 if self.policy.use_sequential_hints {
-                    let _ = paginator.set_access_pattern(range, crate::memory_engine::os_paginator::AccessPattern::Sequential);
+                    let _ = paginator.set_access_pattern(
+                        range,
+                        crate::memory_engine::os_paginator::AccessPattern::Sequential,
+                    );
                 }
             }
             ResidencyState::Cold => {
@@ -509,10 +523,10 @@ mod tests {
         assert!(ResidencyState::Cold.should_be_resident());
         assert!(!ResidencyState::Reclaim.should_be_resident());
         assert!(!ResidencyState::Prefetch.should_be_resident());
-        
+
         assert!(ResidencyState::Prefetch.should_prefetch());
         assert!(!ResidencyState::Keep.should_prefetch());
-        
+
         assert!(ResidencyState::Reclaim.can_reclaim());
         assert!(!ResidencyState::Keep.can_reclaim());
     }
@@ -528,7 +542,7 @@ mod tests {
     fn test_layer_registration() {
         let mut manager = ResidencyManager::with_defaults();
         manager.register_layer(0, 0.5);
-        
+
         let info = manager.get_layer_info(0);
         assert!(info.is_some());
         assert_eq!(info.unwrap().state, ResidencyState::Prefetch);
@@ -538,9 +552,9 @@ mod tests {
     fn test_access_recording() {
         let mut manager = ResidencyManager::with_defaults();
         manager.register_layer(0, 0.5);
-        
+
         manager.record_access(0, true);
-        
+
         let info = manager.get_layer_info(0).unwrap();
         assert_eq!(info.access_pattern.access_count, 1);
         assert!(info.access_pattern.is_sequential);
@@ -552,14 +566,14 @@ mod tests {
         let mut manager = ResidencyManager::with_defaults();
         manager.register_layer(0, 0.5);
         manager.record_access(0, true);
-        
+
         // Set high memory pressure
         manager.set_memory_pressure(0.9);
-        
+
         // After some time, should transition to Cold then Reclaim
         std::thread::sleep(std::time::Duration::from_millis(100));
         manager.update_states();
-        
+
         let info = manager.get_layer_info(0).unwrap();
         // With high pressure and time passed, should transition away from Keep
         assert_ne!(info.state, ResidencyState::Keep);
@@ -571,12 +585,12 @@ mod tests {
         manager.register_layer(0, 0.9);
         manager.register_layer(1, 0.3);
         manager.register_layer(2, 0.1);
-        
+
         manager.record_access(0, true); // High priority -> Keep
         manager.record_access(1, false); // Medium priority -> Keep initially
-        
+
         manager.update_states();
-        
+
         let keep_layers = manager.get_keep_layers();
         assert!(keep_layers.contains(&0));
     }

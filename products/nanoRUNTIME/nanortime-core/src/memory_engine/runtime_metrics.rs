@@ -15,10 +15,10 @@
 //! - **Token Throughput**: Tokens per second with breakdown by strategy
 //! - **NGRAM Acceptance**: Speculative decoding acceptance rate
 
-use std::time::{Duration, Instant, SystemTime};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use sysinfo::{System, Pid};
-use serde::{Serialize, Deserialize};
+use std::time::{Duration, Instant, SystemTime};
+use sysinfo::{Pid, System};
 
 /// Memory pressure metrics from the OS
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,11 +165,7 @@ impl RuntimeMetrics {
     /// `forward_passes` = decode calls del target. En DIRECT es igual al nº
     /// de tokens (1 por token); en speculative es menor. Es el parámetro que
     /// distingue el decoder y el que cambiará al integrar MTP/NGRAM.
-    pub fn amplification(
-        &self,
-        useful_tokens: usize,
-        forward_passes: usize,
-    ) -> Amplification {
+    pub fn amplification(&self, useful_tokens: usize, forward_passes: usize) -> Amplification {
         let n = useful_tokens.max(1) as f64;
         Amplification {
             io_amp: self.io.bytes_read as f64 / n,
@@ -210,7 +206,7 @@ impl RuntimeMetricsCollector {
     pub fn new() -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        
+
         let pid = Pid::from(std::process::id() as usize);
 
         Self {
@@ -234,7 +230,7 @@ impl RuntimeMetricsCollector {
     pub fn for_pid(pid: u32) -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        
+
         Self {
             system,
             pid: Pid::from(pid as usize),
@@ -255,14 +251,14 @@ impl RuntimeMetricsCollector {
     /// Collect current runtime metrics
     pub fn collect(&mut self) -> RuntimeMetrics {
         self.system.refresh_all();
-        
+
         let memory = self.collect_memory_metrics();
         let io = self.collect_io_metrics();
         let psi = self.collect_psi_metrics();
         let cache = self.collect_cache_metrics();
         let throughput = self.collect_throughput_metrics();
         let ngram = self.collect_ngram_metrics();
-        
+
         // Update previous metrics for delta calculations
         self.previous_memory = Some(memory.clone());
         self.previous_io = Some(io.clone());
@@ -273,7 +269,7 @@ impl RuntimeMetricsCollector {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs_f64();
-        
+
         RuntimeMetrics {
             timestamp_secs,
             memory,
@@ -310,19 +306,18 @@ impl RuntimeMetricsCollector {
             // Tasa de major faults entre este collect y el anterior.
             // Major fault = página que requiere I/O de disco → señal directa
             // de que el working set no cabe en RAM (thrashing).
-            let fault_rate = if let (Some(prev), Some(last)) =
-                (&self.previous_memory, self.last_collect)
-            {
-                let delta = major_faults.saturating_sub(prev.major_faults);
-                let delta_time = now.duration_since(last).as_secs_f64();
-                if delta_time > 0.0 {
-                    delta as f64 / delta_time
+            let fault_rate =
+                if let (Some(prev), Some(last)) = (&self.previous_memory, self.last_collect) {
+                    let delta = major_faults.saturating_sub(prev.major_faults);
+                    let delta_time = now.duration_since(last).as_secs_f64();
+                    if delta_time > 0.0 {
+                        delta as f64 / delta_time
+                    } else {
+                        0.0
+                    }
                 } else {
                     0.0
-                }
-            } else {
-                0.0
-            };
+                };
 
             MemoryPressureMetrics {
                 rss_bytes,
@@ -401,8 +396,8 @@ impl RuntimeMetricsCollector {
         let (bytes_read, bytes_written) = (0u64, 0u64);
 
         let io_rate = if let (Some(prev), Some(last)) = (&self.previous_io, self.last_collect) {
-            let delta_bytes = (bytes_read + bytes_written)
-                .saturating_sub(prev.bytes_read + prev.bytes_written);
+            let delta_bytes =
+                (bytes_read + bytes_written).saturating_sub(prev.bytes_read + prev.bytes_written);
             let delta_time = last.elapsed().as_secs_f64();
             if delta_time > 0.0 {
                 delta_bytes as f64 / delta_time
@@ -452,7 +447,7 @@ impl RuntimeMetricsCollector {
                     return Self::parse_psi(&memory_psi, &io_psi);
                 }
             }
-            
+
             PsiMetrics {
                 memory_some: 0.0,
                 memory_full: 0.0,
@@ -461,7 +456,7 @@ impl RuntimeMetricsCollector {
                 available: false,
             }
         }
-        
+
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         {
             PsiMetrics {
@@ -478,22 +473,30 @@ impl RuntimeMetricsCollector {
     fn parse_psi(memory_psi: &str, io_psi: &str) -> PsiMetrics {
         let parse_psi_line = |line: &str| -> (f64, f64) {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            let some = parts.get(4).and_then(|s| s.trim_end_matches('%').parse().ok()).unwrap_or(0.0);
-            let full = parts.get(7).and_then(|s| s.trim_end_matches('%').parse().ok()).unwrap_or(0.0);
+            let some = parts
+                .get(4)
+                .and_then(|s| s.trim_end_matches('%').parse().ok())
+                .unwrap_or(0.0);
+            let full = parts
+                .get(7)
+                .and_then(|s| s.trim_end_matches('%').parse().ok())
+                .unwrap_or(0.0);
             (some, full)
         };
-        
+
         let memory_lines: Vec<&str> = memory_psi.lines().collect();
         let io_lines: Vec<&str> = io_psi.lines().collect();
-        
-        let (memory_some, memory_full) = memory_lines.first()
+
+        let (memory_some, memory_full) = memory_lines
+            .first()
             .map(|line| parse_psi_line(line))
             .unwrap_or((0.0, 0.0));
-        
-        let (io_some, io_full) = io_lines.first()
+
+        let (io_some, io_full) = io_lines
+            .first()
             .map(|line| parse_psi_line(line))
             .unwrap_or((0.0, 0.0));
-        
+
         PsiMetrics {
             memory_some,
             memory_full,
@@ -546,7 +549,7 @@ impl RuntimeMetricsCollector {
         } else {
             0.0
         };
-        
+
         ThroughputMetrics {
             total_tokens: self.token_counter,
             tokens_per_second,
@@ -564,19 +567,19 @@ impl RuntimeMetricsCollector {
         } else {
             0.0
         };
-        
+
         let bytes_per_token = if self.ngram_accepted > 0 {
             self.ngram_bytes_read as f64 / self.ngram_accepted as f64
         } else {
             0.0
         };
-        
+
         let speculation_accuracy = if total > 0 {
             self.ngram_accepted as f64 / total as f64
         } else {
             0.0
         };
-        
+
         NgramMetrics {
             total_attempts: total,
             accepted: self.ngram_accepted,
@@ -591,7 +594,7 @@ impl RuntimeMetricsCollector {
     pub fn record_token(&mut self, latency: Duration, _strategy: &str) {
         self.token_counter += 1;
         self.token_latencies.push(latency);
-        
+
         // Keep only last 1000 latencies for memory efficiency
         if self.token_latencies.len() > 1000 {
             self.token_latencies.remove(0);
@@ -673,7 +676,7 @@ mod tests {
     fn test_metrics_collection() {
         let mut collector = RuntimeMetricsCollector::new();
         let metrics = collector.collect();
-        
+
         // Should have collected some basic metrics
         assert!(metrics.memory.total_bytes > 0);
         assert!(metrics.uptime_secs >= 0.0);
@@ -682,10 +685,10 @@ mod tests {
     #[test]
     fn test_token_recording() {
         let mut collector = RuntimeMetricsCollector::new();
-        
+
         collector.record_token(Duration::from_millis(10), "default");
         collector.record_token(Duration::from_millis(15), "default");
-        
+
         assert_eq!(collector.token_counter, 2);
         assert_eq!(collector.token_latencies.len(), 2);
     }
@@ -693,11 +696,11 @@ mod tests {
     #[test]
     fn test_ngram_recording() {
         let mut collector = RuntimeMetricsCollector::new();
-        
+
         collector.record_ngram_attempt(true, 1024);
         collector.record_ngram_attempt(false, 0);
         collector.record_ngram_attempt(true, 2048);
-        
+
         assert_eq!(collector.ngram_attempts, 3);
         assert_eq!(collector.ngram_accepted, 2);
         assert_eq!(collector.ngram_rejected, 1);
@@ -708,7 +711,7 @@ mod tests {
     fn test_memory_pressure() {
         let collector = RuntimeMetricsCollector::new();
         let pressure = collector.memory_pressure();
-        
+
         // Pressure should be between 0.0 and 1.0
         assert!((0.0..=1.0).contains(&pressure));
     }
@@ -716,12 +719,12 @@ mod tests {
     #[test]
     fn test_reset_counters() {
         let mut collector = RuntimeMetricsCollector::new();
-        
+
         collector.record_token(Duration::from_millis(10), "default");
         collector.record_ngram_attempt(true, 1024);
-        
+
         collector.reset_counters();
-        
+
         assert_eq!(collector.token_counter, 0);
         assert_eq!(collector.ngram_attempts, 0);
     }

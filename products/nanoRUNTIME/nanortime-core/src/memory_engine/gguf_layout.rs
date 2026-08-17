@@ -12,7 +12,7 @@
 //! - Layer-to-tensor mapping
 //! - Working set estimation
 
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
@@ -86,13 +86,13 @@ impl QuantizationType {
             QuantizationType::F32 => 4.0,
             QuantizationType::F16 => 2.0,
             QuantizationType::BF16 => 2.0,
-            QuantizationType::Q4_0 => 18.0 / 32.0, // 0.5625
-            QuantizationType::Q4_1 => 20.0 / 32.0, // 0.625
-            QuantizationType::Q5_0 => 22.0 / 32.0, // 0.6875
-            QuantizationType::Q5_1 => 24.0 / 32.0, // 0.75
-            QuantizationType::Q8_0 => 34.0 / 32.0, // 1.0625
-            QuantizationType::Q8_1 => 36.0 / 32.0, // 1.125
-            QuantizationType::Q2_K => 84.0 / 256.0, // 0.328125
+            QuantizationType::Q4_0 => 18.0 / 32.0,   // 0.5625
+            QuantizationType::Q4_1 => 20.0 / 32.0,   // 0.625
+            QuantizationType::Q5_0 => 22.0 / 32.0,   // 0.6875
+            QuantizationType::Q5_1 => 24.0 / 32.0,   // 0.75
+            QuantizationType::Q8_0 => 34.0 / 32.0,   // 1.0625
+            QuantizationType::Q8_1 => 36.0 / 32.0,   // 1.125
+            QuantizationType::Q2_K => 84.0 / 256.0,  // 0.328125
             QuantizationType::Q3_K => 110.0 / 256.0, // 0.4296875
             QuantizationType::Q4_K => 144.0 / 256.0, // 0.5625
             QuantizationType::Q5_K => 176.0 / 256.0, // 0.6875
@@ -112,7 +112,7 @@ impl QuantizationType {
             QuantizationType::I64 => 8.0,
             QuantizationType::F64 => 8.0,
             QuantizationType::IQ1_M => 56.0 / 256.0, // 0.21875
-            QuantizationType::Unknown(_) => 4.0, // Conservative default
+            QuantizationType::Unknown(_) => 4.0,     // Conservative default
         }
     }
 
@@ -222,7 +222,7 @@ impl PageSizeInfo {
                 };
             }
         }
-        
+
         #[cfg(windows)]
         {
             use windows_sys::Win32::System::SystemInformation::GetSystemInfo;
@@ -236,24 +236,24 @@ impl PageSizeInfo {
                 };
             }
         }
-        
+
         // Fallback to 4KB
         Self {
             page_size: 4096,
             auto_detected: false,
         }
     }
-    
+
     /// Align a value down to page boundary
     pub fn align_down(&self, val: usize) -> usize {
         val & !(self.page_size - 1)
     }
-    
+
     /// Align a value up to page boundary
     pub fn align_up(&self, val: usize) -> usize {
         (val + self.page_size - 1) & !(self.page_size - 1)
     }
-    
+
     /// Calculate page count for a byte range
     pub fn page_count(&self, byte_range: &ByteRange) -> usize {
         let aligned_start = self.align_down(byte_range.start);
@@ -305,7 +305,7 @@ impl NanoModelIndex {
     pub fn analyze(gguf_path: &Path, expected_layers: usize) -> Result<Self, GgufError> {
         let mut file = File::open(gguf_path)?;
         let page_info = PageSizeInfo::detect();
-        
+
         // Check file size
         let file_size = file.metadata()?.len() as usize;
         if file_size < 16 {
@@ -444,12 +444,8 @@ impl NanoModelIndex {
         };
 
         // Group tensors into logical layers
-        let layers = Self::group_tensors_into_layers(
-            &mut tensors,
-            expected_layers,
-            file_size,
-            data_offset,
-        );
+        let layers =
+            Self::group_tensors_into_layers(&mut tensors, expected_layers, file_size, data_offset);
 
         tracing::info!(
             "NanoModelIndex: {} tensors, {} layers, data_offset={}, page_size={}, file_size={}",
@@ -484,7 +480,7 @@ impl NanoModelIndex {
         data_offset: usize,
     ) -> BTreeMap<usize, LayerInfo> {
         let mut layers = BTreeMap::new();
-        
+
         if tensors.is_empty() {
             return layers;
         }
@@ -493,15 +489,15 @@ impl NanoModelIndex {
         tensors.sort_by_key(|t| t.offset);
 
         let tensor_count = tensors.len();
-        
+
         if tensor_count <= expected_layers {
             // One tensor per layer (or close to it)
             // First collect all the offsets
             let offsets: Vec<u64> = tensors.iter().map(|t| t.offset).collect();
-            
+
             for (layer_idx, tensor) in tensors.iter_mut().enumerate() {
                 tensor.layer_index = layer_idx;
-                
+
                 let start = tensor.offset as usize;
                 let end = if layer_idx + 1 < tensor_count {
                     offsets[layer_idx + 1] as usize
@@ -509,14 +505,17 @@ impl NanoModelIndex {
                     (tensor.offset as usize + tensor.byte_size as usize).min(file_size)
                 };
 
-                layers.insert(layer_idx, LayerInfo {
-                    layer_index: layer_idx,
-                    byte_range: ByteRange { start, end },
-                    byte_size: tensor.byte_size,
-                    tensor_indices: vec![tensor.tensor_index],
-                    dominant_quantization: tensor.quantization,
-                    avg_bytes_per_element: tensor.quantization.bytes_per_element(),
-                });
+                layers.insert(
+                    layer_idx,
+                    LayerInfo {
+                        layer_index: layer_idx,
+                        byte_range: ByteRange { start, end },
+                        byte_size: tensor.byte_size,
+                        tensor_indices: vec![tensor.tensor_index],
+                        dominant_quantization: tensor.quantization,
+                        avg_bytes_per_element: tensor.quantization.bytes_per_element(),
+                    },
+                );
             }
         } else {
             // Múltiples tensores por capa — agrupar por la capa REAL que
@@ -527,10 +526,7 @@ impl NanoModelIndex {
             for tensor in tensors.iter_mut() {
                 let mut assigned = false;
                 if let Some(rest) = tensor.name.strip_prefix("blk.") {
-                    let digits: String = rest
-                        .chars()
-                        .take_while(|c| c.is_ascii_digit())
-                        .collect();
+                    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
                     if let Ok(n) = digits.parse::<usize>() {
                         if n < expected_layers {
                             tensor.layer_index = n;
@@ -556,13 +552,14 @@ impl NanoModelIndex {
                     continue;
                 }
 
-                let layer_tensors_data: Vec<(u64, u64, QuantizationType, u64)> = layer_tensor_indices
-                    .iter()
-                    .map(|&idx| {
-                        let t = &tensors[idx];
-                        (t.offset, t.byte_size, t.quantization, t.element_count)
-                    })
-                    .collect();
+                let layer_tensors_data: Vec<(u64, u64, QuantizationType, u64)> =
+                    layer_tensor_indices
+                        .iter()
+                        .map(|&idx| {
+                            let t = &tensors[idx];
+                            (t.offset, t.byte_size, t.quantization, t.element_count)
+                        })
+                        .collect();
 
                 let start = layer_tensors_data
                     .iter()
@@ -583,7 +580,8 @@ impl NanoModelIndex {
                     .collect();
 
                 // Find dominant quantization
-                let mut quant_counts: std::collections::HashMap<QuantizationType, usize> = std::collections::HashMap::new();
+                let mut quant_counts: std::collections::HashMap<QuantizationType, usize> =
+                    std::collections::HashMap::new();
                 for (_, _, quant, _) in &layer_tensors_data {
                     *quant_counts.entry(*quant).or_insert(0) += 1;
                 }
@@ -601,14 +599,17 @@ impl NanoModelIndex {
                     4.0
                 };
 
-                layers.insert(layer_idx, LayerInfo {
-                    layer_index: layer_idx,
-                    byte_range: ByteRange { start, end },
-                    byte_size: total_bytes,
-                    tensor_indices,
-                    dominant_quantization,
-                    avg_bytes_per_element,
-                });
+                layers.insert(
+                    layer_idx,
+                    LayerInfo {
+                        layer_index: layer_idx,
+                        byte_range: ByteRange { start, end },
+                        byte_size: total_bytes,
+                        tensor_indices,
+                        dominant_quantization,
+                        avg_bytes_per_element,
+                    },
+                );
             }
         }
 
@@ -632,7 +633,9 @@ impl NanoModelIndex {
 
     /// Get tensor info by name
     pub fn get_tensor_by_name(&self, name: &str) -> Option<&TensorInfo> {
-        self.tensors_by_name.get(name).and_then(|&idx| self.tensors.get(idx))
+        self.tensors_by_name
+            .get(name)
+            .and_then(|&idx| self.tensors.get(idx))
     }
 
     /// Group layer indices into contiguous byte ranges for efficient syscall batching
@@ -796,14 +799,17 @@ impl NanoModelIndex {
             tensors_by_name.insert(tensor_name, i);
             tensors.push(tensor_info);
 
-            layers.insert(i, LayerInfo {
-                layer_index: i,
-                byte_range: ByteRange { start, end },
-                byte_size: layer_size as u64,
-                tensor_indices: vec![i],
-                dominant_quantization: QuantizationType::Q4_K,
-                avg_bytes_per_element: QuantizationType::Q4_K.bytes_per_element(),
-            });
+            layers.insert(
+                i,
+                LayerInfo {
+                    layer_index: i,
+                    byte_range: ByteRange { start, end },
+                    byte_size: layer_size as u64,
+                    tensor_indices: vec![i],
+                    dominant_quantization: QuantizationType::Q4_K,
+                    avg_bytes_per_element: QuantizationType::Q4_K.bytes_per_element(),
+                },
+            );
         }
 
         Self {
@@ -862,12 +868,12 @@ fn read_gguf_string(file: &mut File) -> Result<String, GgufError> {
     let mut len_buf = [0u8; 8];
     file.read_exact(&mut len_buf)?;
     let len = u64::from_le_bytes(len_buf) as usize;
-    
+
     // Cap at 16MB to prevent OOM on malformed files
     if len > 16 * 1024 * 1024 {
         return Err(GgufError::Malformed);
     }
-    
+
     let mut buffer = vec![0u8; len];
     file.read_exact(&mut buffer)?;
     String::from_utf8(buffer).map_err(|_| GgufError::Malformed)
@@ -878,11 +884,11 @@ fn skip_gguf_string(file: &mut File) -> Result<(), GgufError> {
     let mut len_buf = [0u8; 8];
     file.read_exact(&mut len_buf)?;
     let len = u64::from_le_bytes(len_buf) as usize;
-    
+
     if len > 16 * 1024 * 1024 {
         return Err(GgufError::Malformed);
     }
-    
+
     file.seek(SeekFrom::Current(len as i64))?;
     Ok(())
 }
@@ -1001,16 +1007,16 @@ mod tests {
 
         assert!((f32_eff - 1.0).abs() < 0.01); // F32 baseline
         assert!(q4k_eff > f32_eff); // Q4_K should be more efficient
-        // 4.0 / 0.5625 = 7.11x (bloque real Q4_K: 144 bytes / 256 elementos)
+                                    // 4.0 / 0.5625 = 7.11x (bloque real Q4_K: 144 bytes / 256 elementos)
         assert!((q4k_eff - 7.111).abs() < 0.01);
     }
 
     #[test]
     fn test_working_set_estimation() {
         let index = NanoModelIndex::mock_index(4, 256);
-        
+
         let ws = index.estimate_working_set(&[0, 1, 2], 512, 200.0);
-        
+
         assert!(ws.weights_bytes > 0);
         assert!(ws.active_layers == 3);
         assert!(ws.total_bytes > ws.weights_bytes);
@@ -1020,11 +1026,11 @@ mod tests {
     #[test]
     fn test_tensor_lookup() {
         let index = NanoModelIndex::mock_index(4, 256);
-        
+
         // Should find tensor by name
         let tensor = index.get_tensor_by_name("blk.0.attn_q.weight");
         assert!(tensor.is_some());
-        
+
         // Should not find non-existent tensor
         let missing = index.get_tensor_by_name("nonexistent");
         assert!(missing.is_none());
@@ -1033,10 +1039,10 @@ mod tests {
     #[test]
     fn test_find_layers_with_pattern() {
         let index = NanoModelIndex::mock_index(8, 10000);
-        
+
         let attn_layers = index.find_layers_with_pattern("attn");
         assert!(!attn_layers.is_empty());
-        
+
         // All layers should have attention tensors in our mock
         assert!(attn_layers.len() <= 8);
     }
@@ -1044,7 +1050,7 @@ mod tests {
     #[test]
     fn test_page_size_detection() {
         let page_info = PageSizeInfo::detect();
-        
+
         // Page size should be power of 2 and reasonable
         assert!(page_info.page_size >= 4096);
         assert!(page_info.page_size <= 65536);
@@ -1057,11 +1063,11 @@ mod tests {
             page_size: 4096,
             auto_detected: false,
         };
-        
+
         assert_eq!(page_info.align_down(4095), 0);
         assert_eq!(page_info.align_down(4096), 4096);
         assert_eq!(page_info.align_down(4097), 4096);
-        
+
         assert_eq!(page_info.align_up(4095), 4096);
         assert_eq!(page_info.align_up(4096), 4096);
         assert_eq!(page_info.align_up(4097), 8192);
@@ -1070,10 +1076,10 @@ mod tests {
     #[test]
     fn test_model_size_calculation() {
         let index = NanoModelIndex::mock_index(4, 256);
-        
+
         let total_bytes = index.total_model_bytes();
         let total_mb = index.total_model_mb();
-        
+
         assert!(total_bytes > 0);
         assert!((total_mb - (total_bytes as f64 / (1024.0 * 1024.0))).abs() < 0.01);
     }

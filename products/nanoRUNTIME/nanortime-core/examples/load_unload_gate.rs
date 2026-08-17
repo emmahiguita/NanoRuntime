@@ -69,7 +69,9 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let mut args = std::env::args().skip(1);
-    let model = args.next().expect("uso: load_unload_gate <model.gguf> [--cycles N] [--tokens N] [--stabilize-ms N]");
+    let model = args
+        .next()
+        .expect("uso: load_unload_gate <model.gguf> [--cycles N] [--tokens N] [--stabilize-ms N]");
     let mut cycles = 20usize;
     let mut max_tokens = 4usize;
     let mut stabilize_ms = 1000u64;
@@ -109,12 +111,7 @@ async fn main() {
         }
     };
 
-    let prompts = [
-        "Cuanto es 7 por 8?",
-        "Dime una palabra.",
-        "Hola.",
-        "2+2?",
-    ];
+    let prompts = ["Cuanto es 7 por 8?", "Dime una palabra.", "Hola.", "2+2?"];
 
     let mut collector = nanortime_core::memory_engine::RuntimeMetricsCollector::new();
     let baseline = collector.collect();
@@ -170,8 +167,16 @@ async fn main() {
             ),
             None => (f64::NAN, f64::NAN),
         };
-        let psi_mem = if snap.psi.available { snap.psi.memory_some } else { f64::NAN };
-        let psi_io = if snap.psi.available { snap.psi.io_some } else { f64::NAN };
+        let psi_mem = if snap.psi.available {
+            snap.psi.memory_some
+        } else {
+            f64::NAN
+        };
+        let psi_io = if snap.psi.available {
+            snap.psi.io_some
+        } else {
+            f64::NAN
+        };
 
         println!(
             "[Gate] {:>5} | {:>7} | {:>9} | {:>11} | {:>6.1} | {:>6.1} | {:>11.1} | {:>11.1} | {:>11} | {:>7.2} | {:>6.2} | {:>9}",
@@ -217,10 +222,16 @@ async fn main() {
             println!("[Gate] FAIL: ciclos incompletos (OOM o muerte probable)");
         }
         if !pss_trend_ok {
-            println!("[Gate] FAIL: crecimiento PSS monótono (slope > {:.0} kB/ciclo)", PSS_SLOPE_LIMIT_KB);
+            println!(
+                "[Gate] FAIL: crecimiento PSS monótono (slope > {:.0} kB/ciclo)",
+                PSS_SLOPE_LIMIT_KB
+            );
         }
         if !memavail_trend_ok {
-            println!("[Gate] FAIL: pérdida MemAvailable monótona (slope < {:.0} kB/ciclo)", MEMAVAIL_SLOPE_LIMIT_KB);
+            println!(
+                "[Gate] FAIL: pérdida MemAvailable monótona (slope < {:.0} kB/ciclo)",
+                MEMAVAIL_SLOPE_LIMIT_KB
+            );
         }
     }
 }

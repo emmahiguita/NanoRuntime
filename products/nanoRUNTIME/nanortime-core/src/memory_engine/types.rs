@@ -54,10 +54,16 @@ mod tests {
 
     #[test]
     fn test_byte_range_math() {
-        let r = ByteRange { start: 100, end: 200 };
+        let r = ByteRange {
+            start: 100,
+            end: 200,
+        };
         assert_eq!(r.len(), 100);
         assert!(!r.is_empty());
-        let empty = ByteRange { start: 100, end: 100 };
+        let empty = ByteRange {
+            start: 100,
+            end: 100,
+        };
         assert!(empty.is_empty());
     }
 

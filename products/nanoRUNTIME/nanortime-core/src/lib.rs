@@ -55,9 +55,9 @@ use tracing::info;
 pub use config::manifest::Config;
 pub use config::tools::ToolDefinition;
 pub use error::NanoError;
+pub use execution::model_manager::{RuntimeStatus, ViabilityStatus};
 pub use memory_engine::NanoMemoryEngine;
 pub use orchestrator::Orchestrator;
-pub use execution::model_manager::{RuntimeStatus, ViabilityStatus};
 
 /// Petición del usuario al runtime.
 #[derive(Debug, Clone)]

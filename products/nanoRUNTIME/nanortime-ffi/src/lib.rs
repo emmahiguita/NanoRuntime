@@ -852,8 +852,7 @@ impl NanoContext {
             n_past += 1;
 
             let logits = self.inner.get_logits_ith(0);
-            let penalized =
-                apply_repeat_penalty(logits, params.repeat_penalty, &generated_tokens);
+            let penalized = apply_repeat_penalty(logits, params.repeat_penalty, &generated_tokens);
             let effective: &[f32] = penalized.as_deref().unwrap_or(logits);
             let token = sample_token(effective, params.temperature, params.top_p, &mut rng);
             last_token = token;
@@ -989,7 +988,9 @@ impl NanoContext {
 
         if had_lora {
             let adapter: &mut NanoLoraAdapter = lora.as_mut().unwrap();
-            let _ = engine.target_context_mut().lora_adapter_remove(&mut adapter.0);
+            let _ = engine
+                .target_context_mut()
+                .lora_adapter_remove(&mut adapter.0);
         }
 
         let elapsed = start.elapsed().as_secs_f64();
@@ -1059,7 +1060,9 @@ impl NanoContext {
 
         if had_lora {
             let adapter: &mut NanoLoraAdapter = lora.as_mut().unwrap();
-            let _ = engine.target_context_mut().lora_adapter_remove(&mut adapter.0);
+            let _ = engine
+                .target_context_mut()
+                .lora_adapter_remove(&mut adapter.0);
         }
 
         let elapsed = start.elapsed().as_secs_f64();

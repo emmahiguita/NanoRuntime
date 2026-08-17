@@ -42,11 +42,11 @@ pub mod memory_model;
 pub mod model_profile;
 pub mod oom_guard;
 pub mod runtime_metrics;
+pub mod runtime_planner;
 pub mod thermal_controller;
 pub mod traits;
 pub mod types;
 pub mod working_set_estimator;
-pub mod runtime_planner;
 // Activo de verdad: CacheAwareLoader lo usa con su propio puntero mmap real
 // (no es hook de llama.cpp — evicción quirúrgica MADV_COLD/PAGEOUT antes de munmap).
 pub mod weight_cache_aware;
@@ -100,33 +100,51 @@ pub use hardware_profiler::{DeviceClass, HardwareProfile, HardwareProfiler, Ther
 pub use hierarchical_kv::{HierarchicalKvCache, HierarchicalKvConfig, KvSavingsEstimate, KvTier};
 pub use memory_model::{MemoryEstimate, MemoryModel, ThroughputEstimate};
 pub use model_profile::{ArchitectureType, ModelProfile};
-pub use runtime_metrics::{RuntimeMetricsCollector, RuntimeMetrics, Amplification, MemoryPressureMetrics, IoMetrics, PsiMetrics, CacheMetrics, ThroughputMetrics, NgramMetrics};
-pub use working_set_estimator::{WorkingSetEstimator, WorkingSetBreakdown, ThrashingState, ThrashingDetection, ThrashingFactor, ThrashingAction};
+pub use runtime_metrics::{
+    Amplification, CacheMetrics, IoMetrics, MemoryPressureMetrics, NgramMetrics, PsiMetrics,
+    RuntimeMetrics, RuntimeMetricsCollector, ThroughputMetrics,
+};
 pub use runtime_planner::{
-    Backend, ComputePlan, InferenceBudget, LatencyClass, Measurements, MemoryPlan,
-    ModelCandidate, ModelPlan, Observations, PrivacyClass, QuantLevel, RiskLevel, RuntimePlan,
-    RuntimePlanner, Viability, ViabilityReport,
+    Backend, ComputePlan, InferenceBudget, LatencyClass, Measurements, MemoryPlan, ModelCandidate,
+    ModelPlan, Observations, PrivacyClass, QuantLevel, RiskLevel, RuntimePlan, RuntimePlanner,
+    Viability, ViabilityReport,
+};
+pub use working_set_estimator::{
+    ThrashingAction, ThrashingDetection, ThrashingFactor, ThrashingState, WorkingSetBreakdown,
+    WorkingSetEstimator,
 };
 
 // ── Re-exports de módulos dormidos (atención por capa / NGRAM: sin hook) ──
 #[cfg(feature = "unstable")]
-pub use adaptive_kv_policy::{AdaptiveKvPolicy, AdaptiveKvConfig, AdaptiveKvTier, TokenImportance as AdaptiveTokenImportance, TokenAccessPattern, AdaptiveKvStats};
+pub use adaptive_kv_policy::{
+    AdaptiveKvConfig, AdaptiveKvPolicy, AdaptiveKvStats, AdaptiveKvTier, TokenAccessPattern,
+    TokenImportance as AdaptiveTokenImportance,
+};
 #[cfg(feature = "unstable")]
 pub use kv_cache_optimizer::{CompressionLevel, KvAction, KvCacheOptimizer, TokenImportance};
 #[cfg(feature = "unstable")]
 pub use memory_predictor::{AttentionPattern, MemoryPredictor};
 #[cfg(feature = "unstable")]
-pub use ngram_scheduler_integration::{NgramSchedulerIntegration, NgramSchedulingDecision, StrategyAdjustment};
+pub use ngram_scheduler_integration::{
+    NgramSchedulerIntegration, NgramSchedulingDecision, StrategyAdjustment,
+};
 
 // ── Re-exports de módulos despertados (hook mmap real) ──
-pub use async_prefetch::{AsyncPrefetchManager, DoubleBuffer, BufferState, PrefetchStats, PrefetchResult};
+pub use async_prefetch::{
+    AsyncPrefetchManager, BufferState, DoubleBuffer, PrefetchResult, PrefetchStats,
+};
 pub use hardware_hal::{detect_platform, Platform};
 pub use os_paginator::{AccessPattern, OSMemoryPaginator};
 pub use policy_engine::{Constraints, CostWeights, Decision, PolicyEngine};
 pub use quality_preserver::{QualityMetrics, QualityPreserver, QualityReport};
-pub use residency_manager::{ResidencyManager, ResidencyState, ResidencyPolicy, ResidencyInfo, ResidencyStats};
+pub use residency_manager::{
+    ResidencyInfo, ResidencyManager, ResidencyPolicy, ResidencyState, ResidencyStats,
+};
 pub use storage_manager::{MmapConfig, OffloadCompression, StorageManager};
-pub use utility::{best_window, liveness_rate, pressure_penalty, useful_throughput, utility, SweepPoint, UtilityWeights};
+pub use utility::{
+    best_window, liveness_rate, pressure_penalty, useful_throughput, utility, SweepPoint,
+    UtilityWeights,
+};
 
 // ── Facade ─────────────────────────────────────────────────────────────
 // (imports cfg(unstable) eliminados: los `pub use` de arriba ya traen
@@ -250,7 +268,10 @@ impl NanoMemoryEngine {
     /// evaluate_quality) requiere el actuador StorageManager, que espera
     /// un mmap pointer de llama.cpp inexistente (feature = "unstable").
     #[cfg(all(not(feature = "unstable"), test))]
-    pub fn compute_schedule(&mut self, attention_scores: &[f32]) -> crate::memory_engine::adaptive_scheduler::MemorySchedule {
+    pub fn compute_schedule(
+        &mut self,
+        attention_scores: &[f32],
+    ) -> crate::memory_engine::adaptive_scheduler::MemorySchedule {
         let ram_available_mb = self.profiler.get_available_ram() as f64;
 
         let predicted: Vec<usize> = Vec::new();

@@ -22,8 +22,8 @@
 //! - The model becomes practically useless despite being "loaded"
 
 use crate::memory_engine::runtime_metrics::RuntimeMetricsCollector;
-use std::time::Instant;
 use std::collections::VecDeque;
+use std::time::Instant;
 
 /// Working set breakdown
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ impl ThrashingState {
     pub fn is_thrashing(&self) -> bool {
         !matches!(self, ThrashingState::None)
     }
-    
+
     /// Returns the severity level (0-3)
     pub fn severity(&self) -> u8 {
         match self {
@@ -165,7 +165,7 @@ impl WorkingSetEstimator {
             kv_per_token: 1024, // Default 1KB per token per layer
             context_window: 512,
             runtime_overhead: 200 * 1024 * 1024, // 200MB default
-            buffer_overhead: 100 * 1024 * 1024, // 100MB default
+            buffer_overhead: 100 * 1024 * 1024,  // 100MB default
         }
     }
 
@@ -192,9 +192,9 @@ impl WorkingSetEstimator {
         let kv_cache = self.estimate_kv_cache();
         let buffers = self.buffer_overhead;
         let runtime = self.runtime_overhead;
-        
+
         let total = weights_active + kv_cache + buffers + runtime;
-        
+
         // Get total RAM from metrics
         let total_ram = self.metrics.memory_pressure() * 1_000_000_000.0; // Convert ratio to bytes estimate
         let ram_percentage = if total_ram > 0.0 {
@@ -234,44 +234,49 @@ impl WorkingSetEstimator {
     pub fn detect_thrashing(&mut self) -> ThrashingDetection {
         let current_metrics = self.metrics.collect();
         let working_set = self.estimate_working_set();
-        
+
         // Add to history
-        self.add_history_sample(working_set.clone(), current_metrics.memory.fault_rate, current_metrics.io.io_rate);
-        
+        self.add_history_sample(
+            working_set.clone(),
+            current_metrics.memory.fault_rate,
+            current_metrics.io.io_rate,
+        );
+
         // Analyze factors
         let mut factors = Vec::new();
         let mut confidence: f64 = 0.0;
-        
+
         // Factor 1: High memory pressure
         if current_metrics.memory.pressure_ratio > 0.85 {
             factors.push(ThrashingFactor::HighMemoryPressure);
             confidence += 0.3;
         }
-        
+
         // Factor 2: High page fault rate
         if current_metrics.memory.fault_rate > 100.0 {
             factors.push(ThrashingFactor::HighPageFaultRate);
             confidence += 0.4;
         }
-        
+
         // Factor 3: High I/O rate
-        if current_metrics.io.io_rate > 10_000_000.0 { // 10MB/s
+        if current_metrics.io.io_rate > 10_000_000.0 {
+            // 10MB/s
             factors.push(ThrashingFactor::HighIOWait);
             confidence += 0.2;
         }
-        
+
         // Factor 4: Insufficient working set
         if working_set.ram_percentage > 90.0 {
             factors.push(ThrashingFactor::InsufficientWorkingSet);
             confidence += 0.3;
         }
-        
+
         // Factor 5: Trend analysis (increasing fault rate)
         if self.is_fault_rate_increasing() {
             factors.push(ThrashingFactor::MemoryFragmentation);
             confidence += 0.2;
         }
-        
+
         // Determine state based on factors and confidence
         let state = if confidence > 0.8 {
             ThrashingState::Severe
@@ -282,7 +287,7 @@ impl WorkingSetEstimator {
         } else {
             ThrashingState::None
         };
-        
+
         // Recommend action based on state
         let recommended_action = match state {
             ThrashingState::None => ThrashingAction::None,
@@ -290,7 +295,7 @@ impl WorkingSetEstimator {
             ThrashingState::Moderate => ThrashingAction::ReduceWorkingSet,
             ThrashingState::Severe => ThrashingAction::EmergencyMode,
         };
-        
+
         ThrashingDetection {
             state,
             confidence: confidence.min(1.0),
@@ -300,16 +305,21 @@ impl WorkingSetEstimator {
     }
 
     /// Add a sample to history
-    fn add_history_sample(&mut self, working_set: WorkingSetBreakdown, fault_rate: f64, io_rate: f64) {
+    fn add_history_sample(
+        &mut self,
+        working_set: WorkingSetBreakdown,
+        fault_rate: f64,
+        io_rate: f64,
+    ) {
         let sample = WorkingSetSample {
             timestamp: Instant::now(),
             working_set,
             fault_rate,
             io_rate,
         };
-        
+
         self.history.samples.push_back(sample);
-        
+
         if self.history.samples.len() > self.history.max_samples {
             self.history.samples.pop_front();
         }
@@ -337,7 +347,10 @@ impl WorkingSetEstimator {
         let (Some(oldest), Some(newest)) = (older.first(), recent.last()) else {
             return false;
         };
-        let window_secs = newest.timestamp.duration_since(oldest.timestamp).as_secs_f64();
+        let window_secs = newest
+            .timestamp
+            .duration_since(oldest.timestamp)
+            .as_secs_f64();
         if window_secs < 1.0 {
             return false; // muestras demasiado juntas: tendencia no confiable
         }
@@ -352,8 +365,16 @@ impl WorkingSetEstimator {
 
         // Working set que NO encogió: si encogió y faults igual suben,
         // la causa no es presión de RAM del proceso (no es thrashing).
-        let older_ws: f64 = older.iter().map(|s| s.working_set.total as f64).sum::<f64>() / 5.0;
-        let recent_ws: f64 = recent.iter().map(|s| s.working_set.total as f64).sum::<f64>() / 5.0;
+        let older_ws: f64 = older
+            .iter()
+            .map(|s| s.working_set.total as f64)
+            .sum::<f64>()
+            / 5.0;
+        let recent_ws: f64 = recent
+            .iter()
+            .map(|s| s.working_set.total as f64)
+            .sum::<f64>()
+            / 5.0;
 
         fault_slope > 5.0 && recent_io >= older_io && recent_ws >= older_ws
     }
@@ -363,7 +384,7 @@ impl WorkingSetEstimator {
     pub fn efficiency_score(&mut self) -> f64 {
         let working_set = self.estimate_working_set();
         let detection = self.detect_thrashing();
-        
+
         // Base efficiency on RAM usage and thrashing state
         let ram_efficiency = if working_set.ram_percentage < 50.0 {
             1.0
@@ -374,7 +395,7 @@ impl WorkingSetEstimator {
         } else {
             0.2
         };
-        
+
         // Penalize for thrashing
         let thrashing_penalty = match detection.state {
             ThrashingState::None => 0.0,
@@ -382,16 +403,20 @@ impl WorkingSetEstimator {
             ThrashingState::Moderate => 0.5,
             ThrashingState::Severe => 0.8,
         };
-        
+
         let result = ram_efficiency - thrashing_penalty;
-        if result < 0.0_f64 { 0.0_f64 } else { result }
+        if result < 0.0_f64 {
+            0.0_f64
+        } else {
+            result
+        }
     }
 
     /// Check if the current working set is sustainable
     pub fn is_sustainable(&mut self) -> bool {
         let working_set = self.estimate_working_set();
         let detection = self.detect_thrashing();
-        
+
         // Sustainable if: not thrashing AND under memory pressure threshold
         !detection.state.is_thrashing() && working_set.ram_percentage < 80.0
     }
@@ -399,7 +424,7 @@ impl WorkingSetEstimator {
     /// Get recommended working set size
     pub fn recommended_working_set(&mut self) -> usize {
         let current_ram_percentage = self.estimate_working_set().ram_percentage;
-        
+
         // Target 60-70% RAM usage for optimal performance
         if current_ram_percentage > 80.0 {
             // Aggressively reduce
@@ -450,9 +475,9 @@ mod tests {
     fn test_working_set_estimation() {
         let mut estimator = WorkingSetEstimator::new();
         estimator.set_active_layers(vec![0, 1, 2]);
-        
+
         let working_set = estimator.estimate_working_set();
-        
+
         // Should have some working set estimate
         assert!(working_set.total > 0);
         assert!(working_set.weights_active > 0);
@@ -463,11 +488,14 @@ mod tests {
     fn test_thrashing_detection() {
         let mut estimator = WorkingSetEstimator::new();
         estimator.set_active_layers(vec![0, 1, 2]);
-        
+
         let detection = estimator.detect_thrashing();
-        
+
         // Should return a detection result
-        assert!(matches!(detection.state, ThrashingState::None | ThrashingState::Mild));
+        assert!(matches!(
+            detection.state,
+            ThrashingState::None | ThrashingState::Mild
+        ));
         assert!(detection.confidence >= 0.0 && detection.confidence <= 1.0);
     }
 
@@ -477,7 +505,7 @@ mod tests {
         assert!(ThrashingState::Mild.is_thrashing());
         assert!(ThrashingState::Moderate.is_thrashing());
         assert!(ThrashingState::Severe.is_thrashing());
-        
+
         assert_eq!(ThrashingState::None.severity(), 0);
         assert_eq!(ThrashingState::Severe.severity(), 3);
     }
@@ -487,7 +515,7 @@ mod tests {
         let mut estimator = WorkingSetEstimator::new();
 
         let score = estimator.efficiency_score();
-        
+
         // Should be between 0.0 and 1.0
         assert!((0.0..=1.0).contains(&score));
     }
@@ -496,11 +524,10 @@ mod tests {
     fn test_recommended_working_set() {
         let mut estimator = WorkingSetEstimator::new();
         estimator.set_active_layers(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-        
+
         let recommended = estimator.recommended_working_set();
-        
+
         // Should recommend something reasonable
         assert!(recommended <= 10);
     }
-
 }

@@ -55,15 +55,17 @@ async fn main() {
     let mgr = nanortime_core::execution::ModelManager::new(cfg)
         .await
         .expect("ModelManager::new");
-    mgr.load_model(model_path)
-        .await
-        .expect("load_model");
+    mgr.load_model(model_path).await.expect("load_model");
 
     // generate_with_confidence → dispara update_memory_engine_metrics
     // → collector.collect() real + is_thrashing + logs [RuntimeMetrics]
     match mgr.generate_with_confidence("Hello!", 24, None).await {
         Ok((text, probs)) => {
-            println!("[probe] generate OK: {} chars, {} probs", text.len(), probs.len());
+            println!(
+                "[probe] generate OK: {} chars, {} probs",
+                text.len(),
+                probs.len()
+            );
             println!(
                 "[probe]   text: {}",
                 text.chars().take(120).collect::<String>()

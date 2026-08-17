@@ -35,7 +35,10 @@ fn diagnose_header(path: &PathBuf) {
     let version = rd_u32(&mut f, &mut u32b);
     let nt = rd_u64(&mut f, &mut u64b);
     let nkv = rd_u64(&mut f, &mut u64b);
-    println!("\n[Diagnóstico] magic=0x{:X} version={} tensors={} kv={}", magic, version, nt, nkv);
+    println!(
+        "\n[Diagnóstico] magic=0x{:X} version={} tensors={} kv={}",
+        magic, version, nt, nkv
+    );
 
     for i in 0..nkv {
         let klen = rd_u64(&mut f, &mut u64b);
@@ -227,7 +230,11 @@ fn main() {
 
     // ── Tensores clave de qwen2.5 ──
     let embd = index.get_tensor_by_name("token_embd.weight");
-    check("token_embd.weight existe", embd.is_some(), "no encontrado".into());
+    check(
+        "token_embd.weight existe",
+        embd.is_some(),
+        "no encontrado".into(),
+    );
     if let Some(t) = embd {
         check(
             "token_embd.weight dims [1536, 151936]",
@@ -248,7 +255,11 @@ fn main() {
     }
 
     let output = index.get_tensor_by_name("output.weight");
-    check("output.weight existe", output.is_some(), "no encontrado".into());
+    check(
+        "output.weight existe",
+        output.is_some(),
+        "no encontrado".into(),
+    );
     if let Some(t) = output {
         // En los K-quants de llama.cpp el output se cuantiza a Q6_K
         // (mayor precisión para logits), no F32.
@@ -304,7 +315,10 @@ fn main() {
     }
 
     if failures == 0 {
-        println!("\nRESULTADO: parser GGUF real OK — {} checks verdes", index.tensor_count);
+        println!(
+            "\nRESULTADO: parser GGUF real OK — {} checks verdes",
+            index.tensor_count
+        );
     } else {
         println!("\nRESULTADO: {} checks fallaron", failures);
         std::process::exit(1);

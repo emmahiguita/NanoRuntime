@@ -133,11 +133,12 @@ impl CacheAwareLoader {
         let byte_start = self.layers[new_start].start;
         let byte_end = self.layers[new_end - 1].end;
         let window_size = byte_end - byte_start;
-        
+
         // Use dynamic page size detection instead of hardcoded 4096
         let page_size = self.detect_page_size();
         let aligned_start = (byte_start / page_size) * page_size;
-        let aligned_size = ((window_size + (byte_start - aligned_start) + page_size - 1) / page_size) * page_size;
+        let aligned_size =
+            ((window_size + (byte_start - aligned_start) + page_size - 1) / page_size) * page_size;
         let ptr = unsafe {
             libc::mmap(
                 std::ptr::null_mut(),
@@ -211,7 +212,7 @@ impl CacheAwareLoader {
     pub fn is_loaded(&self, l: usize) -> bool {
         l >= self.window.start_layer && l < self.window.end_layer
     }
-    
+
     /// Detect system page size for alignment
     fn detect_page_size(&self) -> usize {
         #[cfg(unix)]
@@ -221,7 +222,7 @@ impl CacheAwareLoader {
                 return page_size;
             }
         }
-        
+
         #[cfg(windows)]
         {
             use windows_sys::Win32::System::SystemInformation::GetSystemInfo;
@@ -232,7 +233,7 @@ impl CacheAwareLoader {
                 return page_size;
             }
         }
-        
+
         // Fallback to 4KB
         4096
     }

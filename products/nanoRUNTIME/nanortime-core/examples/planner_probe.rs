@@ -29,7 +29,10 @@ fn main() {
     println!(
         "[observe] runtime: rss={:.1}MB pss={:?} avail={:.1}MB fault_rate={:.2}/s pressure={:.2}",
         obs.runtime.memory.rss_bytes as f64 / 1048576.0,
-        obs.runtime.memory.pss_bytes.map(|b| format!("{:.1}MB", b as f64 / 1048576.0)),
+        obs.runtime
+            .memory
+            .pss_bytes
+            .map(|b| format!("{:.1}MB", b as f64 / 1048576.0)),
         obs.runtime.memory.available_bytes as f64 / 1048576.0,
         obs.runtime.memory.fault_rate,
         obs.runtime.memory.pressure_ratio,

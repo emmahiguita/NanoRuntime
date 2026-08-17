@@ -163,7 +163,11 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|| platform::get_default_bind_address());
 
     // Initialize logging — --verbose sube a debug (diagnóstico de arranque)
-    let log_level = if cli.verbose { "debug" } else { cli.log_level.as_str() };
+    let log_level = if cli.verbose {
+        "debug"
+    } else {
+        cli.log_level.as_str()
+    };
     setup_logging(log_level);
 
     tracing::info!("NanoAI Runtime v{}", env!("CARGO_PKG_VERSION"));
@@ -409,7 +413,9 @@ async fn main() -> anyhow::Result<()> {
                 .save_session_state(&session_path.to_string_lossy())
                 .await
             {
-                Ok(_) => tracing::info!("Sesión guardada — el KV cache se reutilizará en la próxima carga"),
+                Ok(_) => tracing::info!(
+                    "Sesión guardada — el KV cache se reutilizará en la próxima carga"
+                ),
                 Err(e) => tracing::warn!("No se pudo guardar sesión: {}", e),
             }
         }
@@ -849,9 +855,7 @@ enum CommandResult {
 
 async fn handle_command(input: &str, runtime: &NanoRuntime) -> CommandResult {
     match input {
-        "/exit" | "/quit" | "/q" => {
-            CommandResult::Exit
-        }
+        "/exit" | "/quit" | "/q" => CommandResult::Exit,
         "/help" | "/h" => {
             println!("Commands:");
             println!("  /help, /h     — Show this help");

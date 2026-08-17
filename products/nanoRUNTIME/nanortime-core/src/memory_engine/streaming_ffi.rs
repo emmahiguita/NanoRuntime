@@ -64,7 +64,10 @@ pub unsafe extern "C" fn nanortime_streaming_init(
 
         let mut layer_ranges: Vec<_> = layout.layers.iter().collect();
         layer_ranges.sort_by_key(|(idx, _)| *idx);
-        let ranges: Vec<_> = layer_ranges.iter().map(|(_, r)| r.byte_range.clone()).collect();
+        let ranges: Vec<_> = layer_ranges
+            .iter()
+            .map(|(_, r)| r.byte_range.clone())
+            .collect();
 
         if ranges.is_empty() {
             return -4;

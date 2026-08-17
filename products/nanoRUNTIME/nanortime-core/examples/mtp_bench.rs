@@ -12,8 +12,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use encoding_rs::UTF_8;
-use llama_cpp_2::context::params::LlamaContextType;
 use llama_cpp_2::context::params::LlamaContextParams;
+use llama_cpp_2::context::params::LlamaContextType;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
@@ -130,7 +130,9 @@ fn run_mtp(
         for (i, &tok) in chunk.iter().enumerate() {
             batch.add(tok, n_past + i as i32, &[0], false).expect("add");
         }
-        mtp.target_context_mut().decode(&mut batch).expect("decode prefill");
+        mtp.target_context_mut()
+            .decode(&mut batch)
+            .expect("decode prefill");
         mtp.process(&batch).expect("process prefill");
         n_past += chunk.len() as i32;
     }
@@ -148,7 +150,9 @@ fn run_mtp(
         if drafts.is_empty() {
             let mut batch = LlamaBatch::new(1, 1);
             batch.add(last_token, n_past, &[0], true).expect("add");
-            mtp.target_context_mut().decode(&mut batch).expect("decode plain");
+            mtp.target_context_mut()
+                .decode(&mut batch)
+                .expect("decode plain");
             mtp.process(&batch).expect("process plain");
             n_past += 1;
             let logits = mtp.target_context().get_logits_ith(0).to_vec();
@@ -170,7 +174,9 @@ fn run_mtp(
                 .add(d, n_past + 1 + j as i32, &[0], true)
                 .expect("add draft");
         }
-        mtp.target_context_mut().decode(&mut vbatch).expect("decode verify");
+        mtp.target_context_mut()
+            .decode(&mut vbatch)
+            .expect("decode verify");
         mtp.process(&vbatch).expect("process verify");
 
         let mut n_ok: usize = 0;
@@ -184,12 +190,7 @@ fn run_mtp(
         }
         n_accepted += n_ok;
 
-        let real = greedy_argmax(
-            &mtp
-                .target_context()
-                .get_logits_ith(n_ok as i32)
-                .to_vec(),
-        );
+        let real = greedy_argmax(&mtp.target_context().get_logits_ith(n_ok as i32).to_vec());
         mtp.accept(n_ok as u16).expect("accept");
 
         for &d in drafts.iter().take(n_ok) {
@@ -241,7 +242,8 @@ fn main() {
     let model_params = LlamaModelParams::default()
         .with_use_mmap(true)
         .with_n_gpu_layers(0);
-    let model = LlamaModel::load_from_file(&backend, path.as_path(), &model_params).expect("modelo");
+    let model =
+        LlamaModel::load_from_file(&backend, path.as_path(), &model_params).expect("modelo");
 
     let prompt = "Hola, ¿cómo estás? Cuéntame sobre la inteligencia artificial.";
     let tokens = model
@@ -254,9 +256,7 @@ fn main() {
     let ctx_params = LlamaContextParams::default()
         .with_n_ctx(NonZeroU32::new(1024))
         .with_n_batch(64);
-    let mut ctx = model
-        .new_context(&backend, ctx_params)
-        .expect("ctx direct");
+    let mut ctx = model.new_context(&backend, ctx_params).expect("ctx direct");
     let io0 = io_bytes_read();
     let (tps_direct, out_direct) = run_direct(&model, &mut ctx, &tokens, eos, n_gen);
     let io_direct = io_bytes_read().saturating_sub(io0);

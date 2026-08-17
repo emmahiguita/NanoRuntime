@@ -24,8 +24,8 @@ fn main() {
     let params = LlamaModelParams::default()
         .with_use_mmap(true)
         .with_n_gpu_layers(0);
-    let model = LlamaModel::load_from_file(&backend, path.as_path(), &params)
-        .expect("cargar modelo");
+    let model =
+        LlamaModel::load_from_file(&backend, path.as_path(), &params).expect("cargar modelo");
 
     let n_layer = unsafe { llama_cpp_sys_2::llama_model_n_layer_nextn(model.as_ptr()) };
     let n_embd = model.n_embd();
@@ -41,6 +41,8 @@ fn main() {
     if n_layer > 0 {
         println!("RESULTADO: modelo CON cabezas MTP ({n_layer}) — speculative draft-mtp viable");
     } else {
-        println!("RESULTADO: modelo SIN cabezas MTP — draft-mtp inviable, requerir modelo MTP-trained");
+        println!(
+            "RESULTADO: modelo SIN cabezas MTP — draft-mtp inviable, requerir modelo MTP-trained"
+        );
     }
 }

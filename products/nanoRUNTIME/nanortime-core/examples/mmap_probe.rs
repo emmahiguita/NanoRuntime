@@ -40,7 +40,10 @@ fn main() {
 
     // 1. Hook mmap.
     let (addr, size) = model.mmap_addr();
-    println!("mmap_addr={:p} size={} bytes (archivo={})", addr, size, file_size);
+    println!(
+        "mmap_addr={:p} size={} bytes (archivo={})",
+        addr, size, file_size
+    );
     assert!(!addr.is_null(), "puntero mmap NULL — ¿modelo no mmap-eado?");
     assert!(size > 0, "size 0 — mapping vacía");
     assert!(
@@ -58,8 +61,7 @@ fn main() {
         String::from_utf8_lossy(magic)
     );
     assert_eq!(
-        magic,
-        b"GGUF",
+        magic, b"GGUF",
         "magic no coincide — la mapping no arranca en el offset 0 del archivo"
     );
 

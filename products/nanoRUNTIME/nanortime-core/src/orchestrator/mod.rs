@@ -610,16 +610,24 @@ impl Orchestrator {
             router::RoutingDecision::Cloud(anonymized) => {
                 if has_pii {
                     tracing::warn!("Cloud route blocked because augmented prompt contains PII");
-                    self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
-                        .await
+                    self.execute_local_with_escalation(
+                        &augmented_prompt,
+                        has_pii,
+                        request.temperature,
+                    )
+                    .await
                 } else {
                     // Cloud policy, including rate limiting, lives inside execute_cloud.
                     match self.execute_cloud(&anonymized).await {
                         Ok(response) => Ok(response),
                         Err(e) => {
                             tracing::warn!("Cloud execution failed ({}), falling back to local", e);
-                            self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
-                                .await
+                            self.execute_local_with_escalation(
+                                &augmented_prompt,
+                                has_pii,
+                                request.temperature,
+                            )
+                            .await
                         }
                     }
                 }
@@ -628,16 +636,24 @@ impl Orchestrator {
                 // Check LAN rate limiter
                 if !self.lan_rate_limiter.try_consume_one() {
                     tracing::warn!("LAN rate limit exceeded, falling back to local");
-                    self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
-                        .await
+                    self.execute_local_with_escalation(
+                        &augmented_prompt,
+                        has_pii,
+                        request.temperature,
+                    )
+                    .await
                 } else {
                     // Try LAN; if it fails, fall back to local
                     match self.execute_lan(&augmented_prompt, &endpoint).await {
                         Ok(response) => Ok(response),
                         Err(e) => {
                             tracing::warn!("LAN execution failed ({}), falling back to local", e);
-                            self.execute_local_with_escalation(&augmented_prompt, has_pii, request.temperature)
-                                .await
+                            self.execute_local_with_escalation(
+                                &augmented_prompt,
+                                has_pii,
+                                request.temperature,
+                            )
+                            .await
                         }
                     }
                 }
@@ -807,7 +823,6 @@ impl Orchestrator {
     }
 
     async fn build_augmented_prompt(
-
         &self,
         prompt: &str,
         rag_docs: &[crate::SourceDocument],

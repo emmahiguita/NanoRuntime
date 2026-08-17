@@ -168,7 +168,10 @@ fn main() {
             let u_star = utility(star, &weights);
             let ratio = if u_star > 0.0 { u_auto / u_star } else { 0.0 };
             println!("\nAUTO vs W*:");
-            println!("  Utility(AUTO) = {:.3}  ·  Utility(W*={}) = {:.3}", u_auto, w_star, u_star);
+            println!(
+                "  Utility(AUTO) = {:.3}  ·  Utility(W*={}) = {:.3}",
+                u_auto, w_star, u_star
+            );
             println!("  ratio = {:.2}", ratio);
             if ratio >= 0.8 {
                 println!("  VERDICTO: PASS — AUTO se acerca al mejor W manual (ratio ≥ 0.8).");
@@ -220,7 +223,11 @@ mod tests {
         let dir = std::env::temp_dir();
         let path = dir.join("sweep_analyze_junk_test.csv");
         let mut f = fs::File::create(&path).unwrap();
-        writeln!(f, "run,order,w,rep,success,tok_s,fault_rate,pss_mb,ttft_ms,tok_avg_ms,tok_p90_ms,thrash").unwrap();
+        writeln!(
+            f,
+            "run,order,w,rep,success,tok_s,fault_rate,pss_mb,ttft_ms,tok_avg_ms,tok_p90_ms,thrash"
+        )
+        .unwrap();
         writeln!(f, "").unwrap();
         writeln!(f, "columna rota").unwrap();
         writeln!(f, "A,2>4,2,1,OK,0.39,80.2,12.1,18756,41.0,95.0,heavy").unwrap();

@@ -456,7 +456,11 @@ impl RuntimePlanner {
                 kv_compression: kv,
                 page_strategy: page,
                 streaming_window: streaming,
-                resident_window: if streaming > 0 { streaming } else { cand.n_layers },
+                resident_window: if streaming > 0 {
+                    streaming
+                } else {
+                    cand.n_layers
+                },
                 budget_mb: ceiling as u64,
             },
             compute,
@@ -486,8 +490,7 @@ impl RuntimePlanner {
             adj.max_memory_mb = ((budget.max_memory_mb as f64) * 0.70) as u64;
             reason.push_str(&format!(
                 "thrashing(fault_rate={:.1}/s)→ceiling↓{:.0}%",
-                meas.fault_rate,
-                30.0
+                meas.fault_rate, 30.0
             ));
         }
 
@@ -533,11 +536,7 @@ impl RuntimePlanner {
     /// (generación útil). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
     /// "should_run_interactive" — la app lo usa para advertir o recomendar
     /// un modelo menor en vez de arrancar algo inusable.
-    pub fn assess_viability(
-        &self,
-        model_size_mb: u64,
-        device: &DeviceProfile,
-    ) -> ViabilityReport {
+    pub fn assess_viability(&self, model_size_mb: u64, device: &DeviceProfile) -> ViabilityReport {
         let avail_mb = device.ram_available_mb.max(1) as f64;
         let ratio = model_size_mb as f64 / avail_mb;
 
@@ -760,9 +759,7 @@ impl RuntimePlanner {
             (_, BatteryMode::Eco) => 2,
             _ => match device.tier {
                 // Desktop/Flagship: todos los cores (homogéneos o suficientes).
-                DeviceTier::Desktop | DeviceTier::Flagship => {
-                    device.cpu_cores.max(1) as usize
-                }
+                DeviceTier::Desktop | DeviceTier::Flagship => device.cpu_cores.max(1) as usize,
                 // Mobile: solo big cores (evitar thrashing LITTLE).
                 _ => big.max(1) as usize,
             },
@@ -941,7 +938,12 @@ mod tests {
         // Samsung with only 1.5 GB ceiling → 7B/3B won't fit, must pick 1.5B.
         let plan = planner.plan(
             &interactive_budget(1500),
-            &obs(samsung(), ThermalCondition::Cool, BatteryMode::Performance, ThrashingState::None),
+            &obs(
+                samsung(),
+                ThermalCondition::Cool,
+                BatteryMode::Performance,
+                ThrashingState::None,
+            ),
         );
         assert_eq!(plan.model.label, "1.5B");
         assert!(plan.estimated_rss_mb <= 1500.0);
@@ -953,7 +955,12 @@ mod tests {
         // OPPO with 6 GB ceiling → 7B fits.
         let plan = planner.plan(
             &interactive_budget(6000),
-            &obs(oppo(), ThermalCondition::Cool, BatteryMode::Performance, ThrashingState::None),
+            &obs(
+                oppo(),
+                ThermalCondition::Cool,
+                BatteryMode::Performance,
+                ThrashingState::None,
+            ),
         );
         assert_eq!(plan.model.label, "7B");
         assert!(plan.estimated_rss_mb <= 6000.0);
@@ -965,7 +972,12 @@ mod tests {
         for budget_mb in [512u64, 1024, 1500, 2000, 3000, 4500, 6000] {
             let plan = planner.plan(
                 &interactive_budget(budget_mb),
-                &obs(samsung(), ThermalCondition::Cool, BatteryMode::Performance, ThrashingState::None),
+                &obs(
+                    samsung(),
+                    ThermalCondition::Cool,
+                    BatteryMode::Performance,
+                    ThrashingState::None,
+                ),
             );
             assert!(
                 plan.estimated_rss_mb <= budget_mb as f64 + 1.0,
@@ -982,11 +994,21 @@ mod tests {
         let planner = RuntimePlanner::new();
         let cool = planner.plan(
             &interactive_budget(4000),
-            &obs(oppo(), ThermalCondition::Cool, BatteryMode::Performance, ThrashingState::None),
+            &obs(
+                oppo(),
+                ThermalCondition::Cool,
+                BatteryMode::Performance,
+                ThrashingState::None,
+            ),
         );
         let hot = planner.plan(
             &interactive_budget(4000),
-            &obs(oppo(), ThermalCondition::Hot, BatteryMode::Performance, ThrashingState::None),
+            &obs(
+                oppo(),
+                ThermalCondition::Hot,
+                BatteryMode::Performance,
+                ThrashingState::None,
+            ),
         );
         assert!(hot.compute.threads <= cool.compute.threads);
         assert!(hot.model.context_tokens <= cool.model.context_tokens);
@@ -997,7 +1019,12 @@ mod tests {
         let planner = RuntimePlanner::new();
         let plan = planner.plan(
             &interactive_budget(4000),
-            &obs(oppo(), ThermalCondition::Cool, BatteryMode::Survival, ThrashingState::None),
+            &obs(
+                oppo(),
+                ThermalCondition::Cool,
+                BatteryMode::Survival,
+                ThrashingState::None,
+            ),
         );
         assert_eq!(plan.compute.threads, 1);
         assert!(plan.compute.big_cores_only);
@@ -1009,7 +1036,12 @@ mod tests {
         let planner = RuntimePlanner::new();
         let device = oppo();
         let budget = interactive_budget(6000);
-        let o = obs(device.clone(), ThermalCondition::Cool, BatteryMode::Performance, ThrashingState::None);
+        let o = obs(
+            device.clone(),
+            ThermalCondition::Cool,
+            BatteryMode::Performance,
+            ThrashingState::None,
+        );
         let prev = planner.plan(&budget, &o);
         assert_eq!(prev.model.label, "7B");
 
@@ -1035,7 +1067,12 @@ mod tests {
         let planner = RuntimePlanner::new();
         let device = oppo();
         let budget = interactive_budget(6000);
-        let o = obs(device.clone(), ThermalCondition::Cool, BatteryMode::Performance, ThrashingState::None);
+        let o = obs(
+            device.clone(),
+            ThermalCondition::Cool,
+            BatteryMode::Performance,
+            ThrashingState::None,
+        );
         let prev = planner.plan(&budget, &o);
 
         // Healthy measurements → no change → returns prev unchanged.

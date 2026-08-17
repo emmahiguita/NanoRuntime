@@ -14,10 +14,10 @@
 
 use crate::memory_engine::gguf_layout::NanoModelIndex;
 use crate::memory_engine::os_paginator::OSMemoryPaginator;
-use std::sync::Arc;
-use tokio::sync::{Mutex, Semaphore};
-use std::time::{Duration, Instant};
 use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::{Mutex, Semaphore};
 
 /// Buffer state for double buffering
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,7 +172,7 @@ impl DoubleBuffer {
             .iter()
             .filter_map(|b| b.load_duration)
             .collect();
-        
+
         if durations.is_empty() {
             None
         } else {
@@ -293,10 +293,10 @@ impl AsyncPrefetchManager {
     /// Process the prefetch queue
     pub async fn process_prefetch_queue(&self) -> Vec<PrefetchResult> {
         let mut results = Vec::new();
-        
+
         // Get available permit for concurrent prefetch
         let _permit = self.prefetch_semaphore.acquire().await.unwrap();
-        
+
         // Check if we have a buffer available for loading
         let buffer_id = {
             let mut buffer = self.double_buffer.lock().await;
@@ -332,29 +332,30 @@ impl AsyncPrefetchManager {
             buffer.mark_loading(buffer_id, layer_id);
         }
 
-        let success = if let (Some(model_index), Some(paginator)) = (&self.model_index, &self.paginator) {
+        let success = if let (Some(model_index), Some(paginator)) =
+            (&self.model_index, &self.paginator)
+        {
             if let Some(layer_range) = model_index.get_layer_range(layer_id) {
                 // Perform synchronous prefetch (coordinated with async runtime)
                 let prefetch_result = {
                     let paginator = paginator.clone();
                     let range = layer_range.clone();
                     // Use tokio::task::block_in_place to allow blocking operation in async context
-                    tokio::task::block_in_place(|| {
-                        paginator.prefetch_range(&range)
-                    })
+                    tokio::task::block_in_place(|| paginator.prefetch_range(&range))
                 };
 
                 match prefetch_result {
                     Ok(()) => {
                         let bytes_loaded = layer_range.len();
-                        
+
                         // Update stats
                         let mut stats = self.stats.lock().await;
                         stats.successful_prefetches += 1;
                         stats.total_bytes_prefetched += bytes_loaded as u64;
                         stats.total_prefetch_time += start_time.elapsed();
-                        stats.avg_prefetch_duration = Some(stats.total_prefetch_time / stats.successful_prefetches as u32);
-                        
+                        stats.avg_prefetch_duration =
+                            Some(stats.total_prefetch_time / stats.successful_prefetches as u32);
+
                         true
                     }
                     Err(e) => {
@@ -424,7 +425,7 @@ impl AsyncPrefetchManager {
             let buffer = self.double_buffer.lock().await;
             buffer.get_stats()
         };
-        
+
         // Calculate buffer utilization
         let ready_count = match (buffer_stats.buffer_a_state, buffer_stats.buffer_b_state) {
             (BufferState::Ready, BufferState::Ready) => 2,
@@ -477,9 +478,11 @@ impl AsyncPrefetchManager {
             let buffer = self.double_buffer.lock().await;
             buffer.get_stats()
         };
-        
+
         // Simple heuristic: if we have ready buffers, we're achieving overlap
-        if buffer_stats.buffer_a_state == BufferState::Ready || buffer_stats.buffer_b_state == BufferState::Ready {
+        if buffer_stats.buffer_a_state == BufferState::Ready
+            || buffer_stats.buffer_b_state == BufferState::Ready
+        {
             1.0
         } else {
             0.0
@@ -513,7 +516,7 @@ mod tests {
     fn test_double_buffer_creation() {
         let buffer = DoubleBuffer::new();
         let stats = buffer.get_stats();
-        
+
         assert_eq!(stats.buffer_a_state, BufferState::Empty);
         assert_eq!(stats.buffer_b_state, BufferState::Empty);
     }
@@ -521,17 +524,17 @@ mod tests {
     #[test]
     fn test_double_buffer_state_transitions() {
         let mut buffer = DoubleBuffer::new();
-        
+
         // Initially no ready buffer
         assert_eq!(buffer.get_ready_buffer(), None);
-        
+
         // Mark buffer B as loading then ready
         buffer.mark_loading(BufferId::B, 1);
         buffer.mark_ready(BufferId::B);
-        
+
         // Now should get ready buffer
         assert_eq!(buffer.get_ready_buffer(), Some(1));
-        
+
         // Buffer should now be in use
         let stats = buffer.get_stats();
         assert_eq!(stats.buffer_b_state, BufferState::InUse);
@@ -546,11 +549,11 @@ mod tests {
     #[tokio::test]
     async fn test_prefetch_queue() {
         let manager = AsyncPrefetchManager::new(2);
-        
+
         manager.queue_prefetch(1).await;
         manager.queue_prefetch(2).await;
         manager.queue_prefetch(3).await;
-        
+
         // Check queue processing would work (simplified test)
         let results = manager.process_prefetch_queue().await;
         // Without model index, should fail but not crash
@@ -560,14 +563,14 @@ mod tests {
     #[tokio::test]
     async fn test_stats_tracking() {
         let manager = AsyncPrefetchManager::new(2);
-        
+
         let initial_stats = manager.get_stats().await;
         assert_eq!(initial_stats.total_requests, 0);
-        
+
         // Record some stats
         manager.record_prefetch_hit(1).await;
         manager.record_prefetch_miss(2).await;
-        
+
         let updated_stats = manager.get_stats().await;
         assert_eq!(updated_stats.prefetch_hits, 1);
         assert_eq!(updated_stats.prefetch_misses, 1);
@@ -576,15 +579,15 @@ mod tests {
     #[tokio::test]
     async fn test_prefetch_efficiency() {
         let manager = AsyncPrefetchManager::new(2);
-        
+
         // Initially 0 efficiency
         assert_eq!(manager.prefetch_efficiency().await, 0.0);
-        
+
         // Add some hits
         manager.record_prefetch_hit(1).await;
         manager.record_prefetch_hit(2).await;
         manager.record_prefetch_miss(3).await;
-        
+
         // Should be 2/3 = 0.666...
         let efficiency = manager.prefetch_efficiency().await;
         assert!((efficiency - 0.666).abs() < 0.01);
@@ -593,12 +596,12 @@ mod tests {
     #[tokio::test]
     async fn test_queue_clear() {
         let manager = AsyncPrefetchManager::new(2);
-        
+
         manager.queue_prefetch(1).await;
         manager.queue_prefetch(2).await;
-        
+
         manager.clear_queue().await;
-        
+
         // Queue should be empty (verified by processing returning no results)
         let results = manager.process_prefetch_queue().await;
         assert!(results.is_empty());

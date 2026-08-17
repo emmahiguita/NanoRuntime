@@ -70,10 +70,10 @@ pub struct AdaptiveKvConfig {
 impl Default for AdaptiveKvConfig {
     fn default() -> Self {
         Self {
-            critical_percentage: 0.1, // Top 10% of tokens are critical
+            critical_percentage: 0.1,    // Top 10% of tokens are critical
             heavy_hitter_threshold: 5.0, // 5+ accesses per 1000 tokens = heavy-hitter
-            enable_threshold_mb: 2000, // Enable adaptive with 2GB+ RAM
-            quality_sensitivity: 0.5, // Balanced quality/performance
+            enable_threshold_mb: 2000,   // Enable adaptive with 2GB+ RAM
+            quality_sensitivity: 0.5,    // Balanced quality/performance
         }
     }
 }
@@ -114,17 +114,18 @@ impl AdaptiveKvPolicy {
 
     /// Record token access (for heavy-hitter detection)
     pub fn record_access(&mut self, token_position: usize) {
-        let pattern = self.access_patterns.entry(token_position).or_insert_with(|| {
-            TokenAccessPattern {
+        let pattern = self
+            .access_patterns
+            .entry(token_position)
+            .or_insert_with(|| TokenAccessPattern {
                 access_count: 0,
                 last_access_position: token_position,
                 access_frequency: 0.0,
-            }
-        });
+            });
 
         pattern.access_count += 1;
         pattern.last_access_position = token_position;
-        
+
         // Update frequency (exponential moving average)
         let new_freq = if self.total_tokens > 0 {
             (pattern.access_count as f64 / self.total_tokens as f64) * 1000.0
@@ -135,14 +136,18 @@ impl AdaptiveKvPolicy {
 
         // Clone pattern for importance calculation to avoid borrow issues
         let pattern_clone = pattern.clone();
-        
+
         // Update importance based on access pattern
         let importance = self.calculate_importance(token_position, &pattern_clone);
         self.token_importance.insert(token_position, importance);
     }
 
     /// Calculate token importance (KIVI-inspired)
-    fn calculate_importance(&self, position: usize, pattern: &TokenAccessPattern) -> TokenImportance {
+    fn calculate_importance(
+        &self,
+        position: usize,
+        pattern: &TokenAccessPattern,
+    ) -> TokenImportance {
         // Base importance from position (recent tokens are more important)
         let position_importance = if position < 256 {
             TokenImportance::Normal
@@ -152,7 +157,7 @@ impl AdaptiveKvPolicy {
 
         // Heavy-hitter bonus (H2O-inspired)
         let heavy_hitter_bonus = if pattern.access_frequency > self.config.heavy_hitter_threshold {
-            1  // Upgrade importance by 1 level
+            1 // Upgrade importance by 1 level
         } else {
             0
         };
@@ -166,7 +171,7 @@ impl AdaptiveKvPolicy {
         };
 
         let adjusted_level = (base_level + heavy_hitter_bonus).min(3);
-        
+
         match adjusted_level {
             3 => TokenImportance::Critical,
             2 => TokenImportance::High,
@@ -176,18 +181,28 @@ impl AdaptiveKvPolicy {
     }
 
     /// Get adaptive tier for a token (combines hierarchy + importance)
-    pub fn get_adaptive_tier(&self, token_position: usize, available_ram_mb: u64) -> AdaptiveKvTier {
-        let base_tier = self.hierarchical_kv.tier_for_position(token_position, available_ram_mb);
-        let importance = self.token_importance.get(&token_position).copied().unwrap_or(TokenImportance::Normal);
+    pub fn get_adaptive_tier(
+        &self,
+        token_position: usize,
+        available_ram_mb: u64,
+    ) -> AdaptiveKvTier {
+        let base_tier = self
+            .hierarchical_kv
+            .tier_for_position(token_position, available_ram_mb);
+        let importance = self
+            .token_importance
+            .get(&token_position)
+            .copied()
+            .unwrap_or(TokenImportance::Normal);
 
         // Adaptive adjustment: critical tokens stay higher tier
         let final_tier = match (base_tier, importance) {
             (KvTier::Int2, TokenImportance::Critical) => KvTier::Int4, // Critical: upgrade from Int2 to Int4
-            (KvTier::Int2, TokenImportance::High) => KvTier::Int4,     // High: upgrade from Int2 to Int4
+            (KvTier::Int2, TokenImportance::High) => KvTier::Int4, // High: upgrade from Int2 to Int4
             (KvTier::Evicted, TokenImportance::Critical) => KvTier::Int4, // Critical: don't evict
-            (KvTier::Evicted, TokenImportance::High) => KvTier::Int2,      // High: downgrade eviction to Int2
-            (KvTier::Fp16, TokenImportance::Low) => KvTier::Int4,        // Low: downgrade Fp16 to Int4 to save RAM
-            _ => base_tier, // Otherwise keep base tier
+            (KvTier::Evicted, TokenImportance::High) => KvTier::Int2, // High: downgrade eviction to Int2
+            (KvTier::Fp16, TokenImportance::Low) => KvTier::Int4, // Low: downgrade Fp16 to Int4 to save RAM
+            _ => base_tier,                                       // Otherwise keep base tier
         };
 
         AdaptiveKvTier {
@@ -200,20 +215,27 @@ impl AdaptiveKvPolicy {
     /// Calculate critical tokens (KIVI-inspired)
     pub fn calculate_critical_tokens(&self) -> Vec<usize> {
         let critical_count = (self.total_tokens as f32 * self.config.critical_percentage) as usize;
-        
-        let mut importance_scores: Vec<(usize, i32)> = self.token_importance
+
+        let mut importance_scores: Vec<(usize, i32)> = self
+            .token_importance
             .iter()
-            .map(|(&pos, &imp)| (pos, match imp {
-                TokenImportance::Critical => 3,
-                TokenImportance::High => 2,
-                TokenImportance::Normal => 1,
-                TokenImportance::Low => 0,
-            }))
+            .map(|(&pos, &imp)| {
+                (
+                    pos,
+                    match imp {
+                        TokenImportance::Critical => 3,
+                        TokenImportance::High => 2,
+                        TokenImportance::Normal => 1,
+                        TokenImportance::Low => 0,
+                    },
+                )
+            })
             .collect();
-        
+
         importance_scores.sort_by_key(|&(_, score)| std::cmp::Reverse(score)); // Sort descending
-        
-        importance_scores.iter()
+
+        importance_scores
+            .iter()
             .take(critical_count)
             .map(|(pos, _)| *pos)
             .collect()
@@ -242,7 +264,7 @@ impl AdaptiveKvPolicy {
     pub fn get_stats(&self) -> AdaptiveKvStats {
         let critical_count = self.calculate_critical_tokens().len();
         let heavy_hitter_count = self.calculate_heavy_hitters().len();
-        
+
         AdaptiveKvStats {
             total_tokens: self.total_tokens,
             critical_tokens: critical_count,
@@ -256,8 +278,7 @@ impl AdaptiveKvPolicy {
         // Presión REAL del sistema > 0.9: aunque haya RAM nominal, el
         // sistema está paginando — desactivar KV adaptativo evita sumar
         // presión a un kernel que ya está thrashing.
-        available_ram_mb >= self.config.enable_threshold_mb
-            && self.metrics.memory_pressure() < 0.9
+        available_ram_mb >= self.config.enable_threshold_mb && self.metrics.memory_pressure() < 0.9
     }
 
     /// Get configuration
@@ -299,7 +320,7 @@ mod tests {
     fn test_adaptive_kv_creation() {
         let hierarchical_kv = HierarchicalKvCache::new(32, 128);
         let policy = AdaptiveKvPolicy::with_defaults(hierarchical_kv);
-        
+
         assert_eq!(policy.total_tokens, 0);
         assert_eq!(policy.config().critical_percentage, 0.1);
     }
@@ -308,16 +329,16 @@ mod tests {
     fn test_token_importance_calculation() {
         let hierarchical_kv = HierarchicalKvCache::new(32, 128);
         let policy = AdaptiveKvPolicy::with_defaults(hierarchical_kv);
-        
+
         // Recent token with high access frequency
         let pattern = TokenAccessPattern {
             access_count: 100,
             last_access_position: 10,
             access_frequency: 10.0, // High frequency
         };
-        
+
         let importance = policy.calculate_importance(10, &pattern);
-        
+
         // Should be High due to heavy-hitter bonus
         assert_eq!(importance, TokenImportance::High);
     }
@@ -326,12 +347,14 @@ mod tests {
     fn test_adaptive_tier_upgrade() {
         let hierarchical_kv = HierarchicalKvCache::new(32, 128);
         let mut policy = AdaptiveKvPolicy::with_defaults(hierarchical_kv);
-        
+
         // Set critical importance for a position
-        policy.token_importance.insert(1000, TokenImportance::Critical);
-        
+        policy
+            .token_importance
+            .insert(1000, TokenImportance::Critical);
+
         let adaptive_tier = policy.get_adaptive_tier(1000, 4000);
-        
+
         // Critical token should be upgraded from Int2 to Int4
         assert_eq!(adaptive_tier.base_tier, KvTier::Int2);
         assert_eq!(adaptive_tier.importance, TokenImportance::Critical);
@@ -342,7 +365,7 @@ mod tests {
     fn test_critical_tokens_calculation() {
         let hierarchical_kv = HierarchicalKvCache::new(32, 128);
         let mut policy = AdaptiveKvPolicy::with_defaults(hierarchical_kv);
-        
+
         // Add some importance scores
         for i in 0..100 {
             let importance = if i < 10 {
@@ -352,11 +375,11 @@ mod tests {
             };
             policy.token_importance.insert(i, importance);
         }
-        
+
         policy.total_tokens = 100;
-        
+
         let critical = policy.calculate_critical_tokens();
-        
+
         // Should get top 10% = 10 tokens
         assert_eq!(critical.len(), 10);
     }
@@ -365,16 +388,19 @@ mod tests {
     fn test_heavy_hitter_detection() {
         let hierarchical_kv = HierarchicalKvCache::new(32, 128);
         let mut policy = AdaptiveKvPolicy::with_defaults(hierarchical_kv);
-        
+
         // Add heavy-hitter pattern
-        policy.access_patterns.insert(50, TokenAccessPattern {
-            access_count: 100,
-            last_access_position: 50,
-            access_frequency: 10.0,
-        });
-        
+        policy.access_patterns.insert(
+            50,
+            TokenAccessPattern {
+                access_count: 100,
+                last_access_position: 50,
+                access_frequency: 10.0,
+            },
+        );
+
         let heavy_hitters = policy.calculate_heavy_hitters();
-        
+
         assert!(heavy_hitters.contains(&50));
     }
 
@@ -382,11 +408,11 @@ mod tests {
     fn test_quality_sensitivity_adjustment() {
         let hierarchical_kv = HierarchicalKvCache::new(32, 128);
         let mut policy = AdaptiveKvPolicy::with_defaults(hierarchical_kv);
-        
+
         assert_eq!(policy.config().quality_sensitivity, 0.5);
-        
+
         policy.update_quality_sensitivity(2.0); // Quality dropping
-        
+
         assert!(policy.config().quality_sensitivity > 0.5);
     }
 }

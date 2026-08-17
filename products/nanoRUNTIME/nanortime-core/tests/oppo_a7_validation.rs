@@ -21,6 +21,8 @@
 use std::time::Instant;
 
 use nanortime_core::hybrid_router::{route_prompt, ModelTier};
+#[cfg(feature = "unstable")]
+use nanortime_core::memory_engine::NanoMemoryEngine;
 use nanortime_core::memory_engine::{
     // Components
     adaptive_scheduler::AdaptiveScheduler,
@@ -41,8 +43,6 @@ use nanortime_core::memory_engine::{
     // Hybrid Router
     // (imported via nanortime_core::hybrid_router)
 };
-#[cfg(feature = "unstable")]
-use nanortime_core::memory_engine::NanoMemoryEngine;
 use nanortime_core::speculative_decoder::{InferenceMode, SpeculativePlan};
 
 // ═══════════════════════════════════════════════════════════════════════
