@@ -78,6 +78,7 @@ pub mod utility;
 pub use auto_config::{KvCompression, PageStrategy, RuntimeConfig};
 pub use battery_guardian::{BatteryConfig, BatteryGuardian, BatteryMode};
 pub use cache_aware_loader::{can_stream_model, CacheAwareLoader, StreamingConfig};
+#[allow(deprecated)]
 pub use execution_planner::{ExecutionPlanner, PlanResult};
 pub use hardware_hal::{classify_tier, profile_device, DeviceProfile, DeviceTier};
 pub use oom_guard::{OomGuard, OomRisk, OomSnapshot};

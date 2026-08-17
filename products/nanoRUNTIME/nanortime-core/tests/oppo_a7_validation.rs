@@ -1,6 +1,7 @@
 //! Oppo A7 Validation Suite — tests that exercise every critical path
 //! on a device profile matching Oppo A7 hardware.
 //!
+#![allow(deprecated)] // usa ExecutionPlanner/auto_configure_v2 legacy a propósito (artefacto del paper)
 //! Oppo A7 (2018):
 //!   - CPU: Snapdragon 450 — 8× Cortex-A53 @ 1.8 GHz (homogeneous, no big.LITTLE)
 //!   - RAM: 3 GB (CPH1901) / 4 GB (CPH1905)

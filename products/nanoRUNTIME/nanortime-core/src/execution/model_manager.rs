@@ -11,7 +11,6 @@ use tokio::sync::RwLock;
 
 use crate::config::manifest::Config;
 use crate::error::{NanoError, Result};
-use crate::execution::memory_manager::MemoryManager;
 #[cfg(not(feature = "simulated"))]
 use crate::inference_backend::{
     BackendGenerateParams, BackendLoadParams, InferenceBackend, LlamaCppBackend,
@@ -403,18 +402,6 @@ impl ModelManager {
             8192, // target context (config)
             &self.runtime_budget,
             &obs,
-        );
-
-        // Comparación con el planner legacy — auditar que la migración produce
-        // ≈ lo mismo antes de deprecar/eliminar auto_configure_v2.
-        let (legacy_ctx, legacy_batch, legacy_risk) =
-            MemoryManager::auto_configure_v2(file_size_mb, 8192);
-        tracing::info!(
-            "[Planner] {} || legacy(ctx={} batch={} risk={})",
-            plan.summary,
-            legacy_ctx,
-            legacy_batch,
-            legacy_risk
         );
 
         // Override config con los valores del plan (única fuente aplicada).

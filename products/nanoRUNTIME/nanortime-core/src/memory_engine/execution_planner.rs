@@ -44,6 +44,14 @@ pub struct PlanResult {
 }
 
 /// Execution Planner — central decision engine.
+///
+/// **DEPRECATED**: superseded by `RuntimePlanner` (presupuesto + señales OS
+/// reales + lazo ADAPT + viabilidad). Se conserva como artefacto del paper
+/// (fórmulas F1–F5 del MemoryModel) y para sus tests de validación.
+#[deprecated(
+    since = "0.1.0",
+    note = "Superseded by RuntimePlanner. Conservado como artefacto del paper (F1-F5)."
+)]
 pub struct ExecutionPlanner {
     model: MemoryModel,
     model_size_mb: f64,
@@ -51,9 +59,9 @@ pub struct ExecutionPlanner {
     bytes_per_layer_mb: f64,
 }
 
+#[allow(deprecated)]
 impl ExecutionPlanner {
-    /// Create a new planner for a specific model.
-    ///
+    /// Create a new planner for a specific model.    ///
     /// # Arguments
     /// - `model_size_mb`: GGUF file size in MB (e.g., 4470 for DeepSeek 7B).
     /// - `num_layers`: Number of transformer layers (e.g., 32).
@@ -312,6 +320,7 @@ impl ExecutionPlanner {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 

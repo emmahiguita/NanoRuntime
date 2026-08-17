@@ -323,6 +323,11 @@ impl MemoryManager {
     /// Reemplaza la heurística simple por el planificador formal que ejecuta
     /// las 5 fórmulas del Memory Model. Si el planner V2 falla, usa el método
     /// original como fallback.
+    #[allow(deprecated)]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Superseded by RuntimePlanner::plan_for_model(). Conservado para los tests del paper."
+    )]
     pub fn auto_configure_v2(model_file_mb: u64, max_context: u32) -> (u32, u32, String) {
         // Intentar V2
         let profile = profile_device();
