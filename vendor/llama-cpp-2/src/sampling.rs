@@ -482,12 +482,10 @@ impl LlamaSampler {
             seq_breakers.iter().map(|s| s.as_ptr()).collect();
 
         let sampler = unsafe {
+            // llama.cpp >= b9xxx dropped the n_ctx_train argument from
+            // llama_sampler_init_dry (the sampler now reads it from the vocab).
             llama_cpp_sys_2::llama_sampler_init_dry(
                 model.vocab_ptr(),
-                model
-                    .n_ctx_train()
-                    .try_into()
-                    .expect("n_ctx_train exceeds i32::MAX"),
                 multiplier,
                 base,
                 allowed_length,
@@ -502,6 +500,7 @@ impl LlamaSampler {
     /// Penalizes tokens for being present in the context.
     ///
     /// Parameters:
+    /// - ``n_vocab``: size of the model vocabulary (from [`LlamaModel::n_vocab`])
     /// - ``penalty_last_n``: last n tokens to penalize (0 = disable penalty, -1 = context size)
     /// - ``penalty_repeat``: 1.0 = disabled
     /// - ``penalty_freq``: 0.0 = disabled
@@ -509,6 +508,7 @@ impl LlamaSampler {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub fn penalties(
+        n_vocab: i32,
         penalty_last_n: i32,
         penalty_repeat: f32,
         penalty_freq: f32,
@@ -516,6 +516,7 @@ impl LlamaSampler {
     ) -> Self {
         let sampler = unsafe {
             llama_cpp_sys_2::llama_sampler_init_penalties(
+                n_vocab,
                 penalty_last_n,
                 penalty_repeat,
                 penalty_freq,
