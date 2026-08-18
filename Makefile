@@ -21,7 +21,7 @@ endif
 CONFIG ?= nano.manifest.json
 PAPER_DIR ?= docs/paper
 
-.PHONY: build eval routing benchmark-mem fill-paper paper all-data clean-data
+.PHONY: build eval routing benchmark-mem fill-paper paper all-data clean-data release-gates
 
 # ── Compilación ─────────────────────────────────────────────────────
 build:
@@ -85,6 +85,10 @@ all-data: build eval routing fill-paper
 	@echo "   2. Correr eval-7b en Android (make eval-7b MODEL_7B=...)"
 	@echo "   3. make fill-paper para actualizar el paper"
 	@echo "   4. make paper para compilar PDF"
+
+# ── Release gates V1 (baseline congelado y reproducible) ────────────
+release-gates:
+	@bash scripts/release_gates.sh
 
 # ── Limpieza ─────────────────────────────────────────────────────────
 clean-data:
