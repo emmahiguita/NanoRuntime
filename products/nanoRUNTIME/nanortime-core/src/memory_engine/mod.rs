@@ -43,6 +43,7 @@ pub mod model_profile;
 pub mod oom_guard;
 pub mod runtime_metrics;
 pub mod runtime_planner;
+pub mod supervision;
 pub mod thermal_controller;
 pub mod traits;
 pub mod types;
@@ -82,6 +83,10 @@ pub use cache_aware_loader::{can_stream_model, CacheAwareLoader, StreamingConfig
 pub use execution_planner::{ExecutionPlanner, PlanResult};
 pub use hardware_hal::{classify_tier, profile_device, DeviceProfile, DeviceTier};
 pub use oom_guard::{OomGuard, OomRisk, OomSnapshot};
+pub use supervision::{
+    EngineHealth, EngineStopReason, EngineSupervisor, MemoryGuard, MemoryPressure,
+    RecoveryIntent, SupervisorPolicy,
+};
 pub use thermal_controller::{ThermalAction, ThermalCondition, ThermalController, ThermalReading};
 pub use types::{ByteRange, QosMode};
 
