@@ -14,6 +14,8 @@ use tokio::sync::RwLock;
 use crate::config::manifest::Config;
 use crate::error::{NanoError, Result};
 #[cfg(not(feature = "simulated"))]
+use crate::execution::session::{NanoSession, SessionState, template_hash};
+#[cfg(not(feature = "simulated"))]
 use crate::inference_backend::{
     BackendGenerateParams, BackendLoadParams, InferenceBackend, LlamaCppBackend,
 };
@@ -43,12 +45,10 @@ struct ModelState {
     lora_adapter: Option<NanoLoraAdapter>,
     #[cfg(not(feature = "simulated"))]
     lora_path: Option<String>,
+    /// Gate R5 — supervisor de sesión: gates de invalidación del KV
+    /// (modelo/template/rollback). None = sin sesión activa.
     #[cfg(not(feature = "simulated"))]
-    active_session_id: Option<String>,
-    /// Gate R6 — KV quedó en estado dudoso (cancel/abort durante prefill o
-    /// decode). El siguiente turno de la MISMA sesión reconstruye el contexto.
-    #[cfg(not(feature = "simulated"))]
-    kv_dirty: bool,
+    session: Option<NanoSession>,
     /// Chat template leído de la metadata del GGUF (None en modelos base).
     /// Detecta instruct-ness sin depender del nombre del archivo.
     #[cfg(not(feature = "simulated"))]
@@ -486,8 +486,7 @@ impl ModelManager {
                 load_params: lp,
                 lora_adapter: None,
                 lora_path: None,
-                active_session_id: None,
-                kv_dirty: false,
+                session: None,
                 chat_template: template,
                 generation: next_gen,
             });
@@ -1017,7 +1016,7 @@ impl ModelManager {
                 // que no incluye este turno (prefix mismatch → re-prefill
                 // completo, correcto pero con falsa sensación de reuso).
                 s.context = None;
-                s.active_session_id = None;
+                s.session = None;
                 let lp = s.load_params.clone();
                 let la = s.lora_adapter.take();
                 (m, lp, la, gen)
@@ -1184,7 +1183,7 @@ impl ModelManager {
                     ctx.clear_kv_cache();
                     tracing::warn!("[NanoSession] KV invalidado por cancelación — siguiente turno hará prefill limpio");
                 }
-                s.active_session_id = None;
+                s.session = None;
             }
         }
         #[cfg(feature = "simulated")]
@@ -1197,19 +1196,23 @@ impl ModelManager {
 
     /// Gate R6 — marca el KV de la sesión [session_id] como dudoso tras una
     /// cancelación. A diferencia de [invalidate_session_kv] (limpieza global
-    /// inmediata), actúa SOLO sobre la sesión activa si coincide: el
-    /// siguiente turno de esa sesión reconstruye el contexto vía `kv_dirty`.
+    /// inmediata), actúa SOLO sobre la sesión activa si coincide: marca
+    /// `kv_valid=false` + `SessionState::Cancelled`, y el siguiente turno
+    /// reconstruye el contexto.
     pub async fn mark_session_cancelled(&self, session_id: &str) {
         #[cfg(not(feature = "simulated"))]
         {
             let mut g = self.state.write().await;
             if let Some(s) = g.as_mut() {
-                if s.active_session_id.as_deref() == Some(session_id) {
-                    s.kv_dirty = true;
-                    tracing::info!(
-                        "[NanoSession] session {} cancelled; KV marked dirty",
-                        session_id
-                    );
+                if let Some(sess) = s.session.as_mut() {
+                    if sess.session_id == session_id {
+                        sess.kv_valid = false;
+                        sess.state = SessionState::Cancelled;
+                        tracing::info!(
+                            "[NanoSession] session {} cancelled; KV marked invalid",
+                            session_id
+                        );
+                    }
                 }
             }
         }
@@ -1293,17 +1296,39 @@ impl ModelManager {
                     message: "Model temporarily unavailable (streaming in progress)".to_string(),
                 })?;
                 let mut ctx = s.context.take();
-                if s.active_session_id.as_deref() != session_id_owned.as_deref() || s.kv_dirty {
+                // Gate R5 — decidir si el KV persistente se reutiliza:
+                // misma sesión + kv_valid + template del GGUF sin cambios.
+                // El template se deriva del modelo cargado (fuente de verdad),
+                // no del request del cliente.
+                let tpl_hash = s.chat_template.as_deref().map(template_hash);
+                let reuse_kv = match (s.session.as_ref(), session_id_owned.as_deref()) {
+                    (Some(sess), Some(sid)) => {
+                        sess.session_id == sid
+                            && sess.kv_valid
+                            && tpl_hash.map_or(true, |h| sess.template_hash == h)
+                    }
+                    _ => false,
+                };
+                if !reuse_kv {
                     if let Some(ref mut existing) = ctx {
                         existing.clear_kv_cache();
                     }
+                    let sid = session_id_owned.clone().unwrap_or_default();
+                    let model_path = s.model_path.clone();
+                    let n_ctx = s.context_size;
+                    let tpl = tpl_hash.unwrap_or(0);
                     tracing::info!(
-                        "[NanoSession] KV reset (switch {:?} -> {:?} o dirty)",
-                        s.active_session_id,
-                        session_id_owned
+                        "[NanoSession] KV reset (sesión nueva o gate inválido) sid={:?} tpl_hash={}",
+                        session_id_owned,
+                        tpl
                     );
-                    s.active_session_id = session_id_owned.clone();
-                    s.kv_dirty = false;
+                    s.session = Some(NanoSession::new(
+                        sid,
+                        model_path.clone(),
+                        model_path, // model_hash = path (el path ES el identificador)
+                        tpl,
+                        n_ctx,
+                    ));
                 }
                 let lp = s.load_params.clone();
                 (m, ctx, lp, gen)
@@ -1451,6 +1476,28 @@ impl ModelManager {
                     tps,
                     first_token_ms.load(Ordering::Relaxed)
                 );
+
+                // Gate R5 — actualizar el estado de la sesión con la evidencia
+                // real del turno: Ready (KV válido) o Invalid (fallo).
+                {
+                    let mut g = state.blocking_write();
+                    if let Some(ref mut s) = g.as_mut() {
+                        if s.generation == gen {
+                            if let Some(sess) = s.session.as_mut() {
+                                if result.is_ok() {
+                                    sess.kv_valid = true;
+                                    sess.state = SessionState::Ready;
+                                    sess.token_count =
+                                        sess.token_count.saturating_add(tokens_generated);
+                                    sess.last_access = std::time::SystemTime::now();
+                                } else {
+                                    sess.kv_valid = false;
+                                    sess.state = SessionState::Invalid;
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Snapshot post-generación: fault_rate y PSS REALES con delta
                 // contra el baseline tomado antes de generar, más la latencia

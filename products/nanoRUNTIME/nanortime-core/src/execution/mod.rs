@@ -9,6 +9,7 @@ pub mod memory_manager;
 pub mod model_manager;
 pub mod prompt_cache;
 pub mod rate_limiter;
+pub mod session;
 pub mod tool_executor;
 pub mod vector_engine;
 
@@ -17,5 +18,6 @@ pub use memory_manager::MemoryManager;
 pub use model_manager::ModelManager;
 pub use prompt_cache::PromptCache;
 pub use rate_limiter::RateLimiter;
+pub use session::{NanoSession, SessionState, template_hash};
 pub use tool_executor::ToolExecutor;
 pub use vector_engine::VectorEngine;
