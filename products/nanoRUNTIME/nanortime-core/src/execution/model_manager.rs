@@ -14,6 +14,9 @@ use tokio::sync::RwLock;
 use crate::config::manifest::Config;
 use crate::error::{NanoError, Result};
 #[cfg(not(feature = "simulated"))]
+use crate::execution::prefix_cache::{content_hash, PrefixKey};
+use crate::execution::prefix_cache::PrefixCache;
+#[cfg(not(feature = "simulated"))]
 use crate::execution::session::{NanoSession, SessionState, template_hash};
 #[cfg(not(feature = "simulated"))]
 use crate::inference_backend::{
@@ -83,6 +86,11 @@ pub struct ModelManager {
     /// vía madvise (tesis DOOM). Construido en load_model. Arc para poder
     /// compartirlo con el closure de streaming (aplica W en vivo).
     residency: Arc<std::sync::Mutex<Option<crate::memory_engine::ResidencyManager>>>,
+    /// PrefixCache (V1.1) — snapshot del KV del prefix estático, reutilizable
+    /// entre sesiones. El dir real (files/nano/prefix-cache en Android) se
+    /// configura en Etapa 3; por ahora temp_dir para CI/desarrollo.
+    #[cfg_attr(feature = "simulated", allow(dead_code))]
+    prefix_cache: PrefixCache,
 }
 
 /// Umbral de thrashing: major page faults por segundo. En flash móvil un
@@ -196,6 +204,10 @@ impl ModelManager {
             runtime_budget,
             last_plan: Arc::new(std::sync::Mutex::new(None)),
             residency: Arc::new(std::sync::Mutex::new(None)),
+            prefix_cache: PrefixCache::new(
+                std::env::temp_dir().join("nanoai-prefix-cache"),
+                true,
+            ),
         };
         // PLAN inicial con señales reales del OS (presupuesto, no modelo).
         mgr.plan_and_log();
@@ -1288,7 +1300,7 @@ impl ModelManager {
                 stop_sequences: self.config.generation.stop_sequences.clone(),
             };
 
-            let (model, context, load_params, gen, reuse_kv) = {
+            let (model, context, load_params, gen, reuse_kv, model_path_s, chat_tpl, ctx_size) = {
                 let mut g = self.state.write().await;
                 let s = g.as_mut().ok_or_else(|| NanoError::Internal {
                     message: "No model loaded".to_string(),
@@ -1333,8 +1345,13 @@ impl ModelManager {
                     ));
                 }
                 let lp = s.load_params.clone();
-                (m, ctx, lp, gen, reuse_kv)
+                let model_path_s = s.model_path.clone();
+                let chat_tpl = s.chat_template.clone();
+                let ctx_size = s.context_size;
+                (m, ctx, lp, gen, reuse_kv, model_path_s, chat_tpl, ctx_size)
             };
+
+            let prefix_cache = self.prefix_cache.clone();
 
             let state = Arc::clone(&self.state);
             let metrics = Arc::clone(&self.metrics);
@@ -1379,10 +1396,33 @@ impl ModelManager {
                                     &prefix_tokens,
                                     false,
                                 ) {
-                                    Ok(n) => tracing::info!(
-                                        "[PrefixCache] prefill prefix: {} tokens (sin sampler)",
-                                        n
-                                    ),
+                                    Ok(n) => {
+                                        tracing::info!(
+                                            "[PrefixCache] prefill prefix: {} tokens (sin sampler)",
+                                            n
+                                        );
+                                        // Etapa 2 — snapshot del KV del prefix para
+                                        // reutilizar en conversaciones nuevas.
+                                        let key = PrefixKey::new(
+                                            model_path_s.clone(),
+                                            template_hash(chat_tpl.as_deref().unwrap_or("")),
+                                            content_hash(&[prefix_text]),
+                                            ctx_size,
+                                        );
+                                        let path = prefix_cache.snapshot_path(&key);
+                                        let path_str = path.to_string_lossy().to_string();
+                                        match LlamaCppBackend::save_state(&ctx, &path_str) {
+                                            Ok(bytes) => tracing::info!(
+                                                "[PrefixCache] snapshot OK: {} ({} bytes)",
+                                                path.display(),
+                                                bytes
+                                            ),
+                                            Err(e) => tracing::warn!(
+                                                "[PrefixCache] snapshot falló: {}",
+                                                e
+                                            ),
+                                        }
+                                    }
                                     Err(e) => {
                                         tracing::warn!(
                                             "[PrefixCache] prefill prefix falló ({}); continuando con prefill completo",

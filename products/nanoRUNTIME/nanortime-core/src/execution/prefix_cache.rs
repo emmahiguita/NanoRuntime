@@ -65,6 +65,7 @@ pub enum PrefixLookup {
 
 /// Gestor de snapshots del prefix estático (solo identidad + paths + invalidación).
 /// El save/restore real del KV vive en `ModelManager`, que posee el contexto.
+#[derive(Clone)]
 pub struct PrefixCache {
     dir: PathBuf,
     enabled: bool,
