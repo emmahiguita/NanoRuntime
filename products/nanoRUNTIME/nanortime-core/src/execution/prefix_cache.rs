@@ -69,7 +69,14 @@ pub enum PrefixLookup {
 pub struct PrefixCache {
     dir: PathBuf,
     enabled: bool,
+    /// Tamaño máximo total del cache. Superado, `housekeep` elimina los más
+    /// antiguos (LRU por mtime).
+    max_bytes: u64,
 }
+
+/// Tamaño máximo por defecto (512 MB). Con ~0.5 MB por snapshot (1.5B),
+/// caben ~1000 snapshots; el LRU evita crecimiento ilimitado en producción.
+pub const DEFAULT_MAX_BYTES: u64 = 512 * 1024 * 1024;
 
 impl PrefixCache {
     pub fn new(dir: PathBuf, enabled: bool) -> Self {
@@ -80,7 +87,64 @@ impl PrefixCache {
             // puede crear, lookup → Miss y snapshot falla con warning honesto.
             let _ = std::fs::create_dir_all(&dir);
         }
-        Self { dir, enabled }
+        Self {
+            dir,
+            enabled,
+            max_bytes: DEFAULT_MAX_BYTES,
+        }
+    }
+
+    /// Setter fluido del tamaño máximo (para configuración en producción y tests).
+    pub fn with_max_bytes(mut self, max_bytes: u64) -> Self {
+        self.max_bytes = max_bytes;
+        self
+    }
+
+    /// Housekeeping de producción: elimina `.tmp` huérfanos (snapshots
+    /// interrumpidos por kill) y, si el total excede `max_bytes`, elimina los
+    /// `.kv` más antiguos (LRU por mtime). Devuelve el número de archivos
+    /// eliminados. Se llama al arranque y tras cada snapshot.
+    pub fn housekeep(&self) -> usize {
+        if !self.enabled {
+            return 0;
+        }
+        let mut removed = 0usize;
+        let Ok(entries) = std::fs::read_dir(&self.dir) else {
+            return 0;
+        };
+        let mut kvs: Vec<(std::time::SystemTime, PathBuf)> = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if ext == "tmp" {
+                // Snapshot interrumpido a mitad: basura, eliminar.
+                if std::fs::remove_file(&path).is_ok() {
+                    removed += 1;
+                }
+            } else if ext == "kv" {
+                if let (Ok(meta), Ok(mtime)) = (entry.metadata(), entry.metadata().and_then(|m| m.modified())) {
+                    let _ = meta;
+                    kvs.push((mtime, path));
+                }
+            }
+        }
+        // LRU por mtime: eliminar los más antiguos hasta caber en max_bytes.
+        kvs.sort_by_key(|(mtime, _)| *mtime);
+        let mut total: u64 = kvs
+            .iter()
+            .map(|(_, p)| p.metadata().map(|m| m.len()).unwrap_or(0))
+            .sum();
+        let mut idx = 0;
+        while total > self.max_bytes && idx < kvs.len() {
+            let (_, path) = &kvs[idx];
+            let size = path.metadata().map(|m| m.len()).unwrap_or(0);
+            if std::fs::remove_file(path).is_ok() {
+                total = total.saturating_sub(size);
+                removed += 1;
+            }
+            idx += 1;
+        }
+        removed
     }
 
     /// Ruta del snapshot para un key. Determinista: key idéntico → mismo path.

@@ -1432,12 +1432,24 @@ impl ModelManager {
                                             );
                                             let path = prefix_cache.snapshot_path(&key);
                                             let path_str = path.to_string_lossy().to_string();
-                                            match LlamaCppBackend::save_state(&ctx, &path_str) {
-                                                Ok(bytes) => tracing::info!(
-                                                    "[PrefixCache] snapshot OK: {} ({} bytes)",
-                                                    path.display(),
-                                                    bytes
-                                                ),
+                                            // Snapshot atómico: escribir a .tmp, luego
+                                            // rename. Un kill -9 durante el save nunca
+                                            // deja un .kv aparentemente válido pero truncado.
+                                            let tmp_path = format!("{}.tmp", path_str);
+                                            match LlamaCppBackend::save_state(&ctx, &tmp_path) {
+                                                Ok(bytes) => {
+                                                    match std::fs::rename(&tmp_path, &path_str) {
+                                                        Ok(()) => tracing::info!(
+                                                            "[PrefixCache] snapshot OK: {} ({} bytes)",
+                                                            path.display(),
+                                                            bytes
+                                                        ),
+                                                        Err(e) => tracing::warn!(
+                                                            "[PrefixCache] rename falló: {}",
+                                                            e
+                                                        ),
+                                                    }
+                                                }
                                                 Err(e) => tracing::warn!(
                                                     "[PrefixCache] snapshot falló: {}",
                                                     e
