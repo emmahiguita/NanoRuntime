@@ -197,4 +197,69 @@ mod tests {
         let cache = PrefixCache::new(PathBuf::from("/tmp/nano-prefix"), true);
         assert_ne!(cache.snapshot_path(&a), cache.snapshot_path(&b));
     }
+
+    #[test]
+    fn prefix_key_invalidation_scenarios() {
+        let cache = PrefixCache::new(PathBuf::from("/tmp/nano-prefix"), true);
+        let base = PrefixKey::new(
+            "model.gguf".into(),
+            1,
+            content_hash(&["system", "tools"]),
+            4096,
+        );
+
+        // Mismo system + mismas tools → mismo path (HIT).
+        let same = PrefixKey::new(
+            "model.gguf".into(),
+            1,
+            content_hash(&["system", "tools"]),
+            4096,
+        );
+        assert_eq!(cache.snapshot_path(&base), cache.snapshot_path(&same));
+
+        // system cambia 1 carácter → MISS.
+        let sys_changed = PrefixKey::new(
+            "model.gguf".into(),
+            1,
+            content_hash(&["systen", "tools"]),
+            4096,
+        );
+        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&sys_changed));
+
+        // tools cambian → MISS.
+        let tools_changed = PrefixKey::new(
+            "model.gguf".into(),
+            1,
+            content_hash(&["system", "toolz"]),
+            4096,
+        );
+        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&tools_changed));
+
+        // model cambia → MISS.
+        let model_changed = PrefixKey::new(
+            "other.gguf".into(),
+            1,
+            content_hash(&["system", "tools"]),
+            4096,
+        );
+        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&model_changed));
+
+        // template cambia → MISS.
+        let tpl_changed = PrefixKey::new(
+            "model.gguf".into(),
+            2,
+            content_hash(&["system", "tools"]),
+            4096,
+        );
+        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&tpl_changed));
+
+        // n_ctx cambia → MISS.
+        let ctx_changed = PrefixKey::new(
+            "model.gguf".into(),
+            1,
+            content_hash(&["system", "tools"]),
+            2048,
+        );
+        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&ctx_changed));
+    }
 }
