@@ -720,9 +720,9 @@ fn handle_completion_sse(
         let mut cancelled = false;
         loop {
             tokio::select! {
-                token = rx.recv() => {
+                token = tokio::time::timeout(std::time::Duration::from_secs(60), rx.recv()) => {
                     match token {
-                        Some((token, _prob)) => {
+                        Ok(Some((token, _prob))) => {
                             let json = serde_json::json!({"content": token, "stop": false});
                             if !write_all_or_log(stream, format!("data: {}\n\n", json).as_bytes()) {
                                 break;
@@ -733,7 +733,15 @@ fn handle_completion_sse(
                             }
                             last_frame = Instant::now();
                         }
-                        None => break,
+                        Ok(None) => break,
+                        Err(_) => {
+                            // 60s sin token: generación colgada (backend atascado,
+                            // no prefill legítimo — el heartbeat ya cubre el
+                            // silencio largo). Cortar el stream para liberar el
+                            // runtime y evitar que el server quede mudo.
+                            tracing::warn!("SSE token timeout 60s — generación colgada, cortando stream");
+                            break;
+                        }
                     }
                 }
                 _ = heartbeat.tick() => {
