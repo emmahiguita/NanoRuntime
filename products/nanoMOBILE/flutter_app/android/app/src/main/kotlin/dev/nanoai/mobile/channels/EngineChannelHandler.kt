@@ -38,7 +38,7 @@ class EngineChannelHandler(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "start" -> handleStart(call, result)
-            "state" -> result.success(stateToMap(engineSupervisor.currentState()))
+            "state" -> handleVerifiedState(result)
             "health" -> handleHealth(result)
             "stop" -> handleStop(result)
             "ensureExtracted" -> handleEnsureExtracted(result)
@@ -130,6 +130,33 @@ class EngineChannelHandler(
             is EngineSupervisor.EngineState.Ready ->
                 mapOf("state" to "ready", "pid" to state.pid, "port" to state.port)
             is EngineSupervisor.EngineState.Failed -> mapOf("state" to "failed", "reason" to state.reason)
+        }
+    }
+
+    /**
+     * `state` ahora significa "comprueba que el proceso todavía existe" —
+     * la verificación real (worker round-trip) corre en IO, no en main thread.
+     * `process_alive` es la señal autoritativa de liveness para el watchdog.
+     */
+    private fun handleVerifiedState(result: MethodChannel.Result) {
+        ioScope.launch {
+            val state = engineSupervisor.verifiedState()
+            mainHandler.post {
+                result.success(verifiedStateToMap(state))
+            }
+        }
+    }
+
+    private fun verifiedStateToMap(state: EngineSupervisor.EngineState): Map<String, Any?> {
+        return when (state) {
+            is EngineSupervisor.EngineState.Idle ->
+                mapOf("state" to "idle", "process_alive" to false, "source" to "worker")
+            is EngineSupervisor.EngineState.Starting ->
+                mapOf("state" to "starting", "port" to state.port, "process_alive" to false, "source" to "worker")
+            is EngineSupervisor.EngineState.Ready ->
+                mapOf("state" to "ready", "pid" to state.pid, "port" to state.port, "process_alive" to true, "source" to "worker")
+            is EngineSupervisor.EngineState.Failed ->
+                mapOf("state" to "failed", "reason" to state.reason, "process_alive" to false, "source" to "worker")
         }
     }
 }

@@ -150,11 +150,35 @@ class EngineSupervisor(
         return File("/proc/$pid").exists()
     }
 
-    /** Snapshot sin IO de red — útil para la UI entre polls. */
+    /** Snapshot barato (sin probe de proceso) — útil para la UI entre polls. */
     fun currentState(): EngineState {
         val h = handle ?: return EngineState.Idle
-        return if (isPidAlive(h.pid)) EngineState.Ready(h.pid, h.port)
-        else EngineState.Idle
+        return EngineState.Ready(h.pid, h.port)
+    }
+
+    /**
+     * Comprobación REAL del proceso (worker round-trip + /proc fallback).
+     * Async: NO debe correr en el main thread. Race-safe: solo limpia el
+     * handle si sigue siendo el mismo PID probado (un restart concurrente no
+     * debe borrar el handle nuevo).
+     */
+    suspend fun verifiedState(): EngineState = withContext(Dispatchers.IO) {
+        val snapshot = synchronized(lock) { handle }
+            ?: return@withContext EngineState.Idle
+
+        val alive = isPidAlive(snapshot.pid)
+
+        if (alive) {
+            EngineState.Ready(snapshot.pid, snapshot.port)
+        } else {
+            synchronized(lock) {
+                if (handle?.pid == snapshot.pid) {
+                    handle = null
+                }
+            }
+            Log.w(TAG, "PID ${snapshot.pid} ya no existe; limpiando handle stale")
+            EngineState.Idle
+        }
     }
 
     /**

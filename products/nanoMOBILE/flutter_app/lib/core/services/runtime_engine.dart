@@ -299,10 +299,10 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
       _supervisor.onHealthOk();
       return;
     }
-    // Health falló: ¿el proceso está vivo? Consultar el supervisor nativo.
+    // Health falló: ¿el proceso está vivo? `process_alive` es la señal
+    // autoritativa que Kotlin verifica contra el worker (no un enum stale).
     final snapshot = await _api.engineGetState();
-    final st = snapshot?['state'];
-    final processAlive = st == 'ready' || st == 'starting';
+    final processAlive = snapshot?['process_alive'] == true;
     final intent = _supervisor.onHealthFail(
       nowMs: DateTime.now().millisecondsSinceEpoch,
       processAlive: processAlive,
