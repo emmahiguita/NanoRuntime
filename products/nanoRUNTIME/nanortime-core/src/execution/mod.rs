@@ -7,6 +7,7 @@
 pub mod lan_executor;
 pub mod memory_manager;
 pub mod model_manager;
+pub mod prefix_cache;
 pub mod prompt_cache;
 pub mod rate_limiter;
 pub mod session;
@@ -16,6 +17,7 @@ pub mod vector_engine;
 pub use lan_executor::LanExecutor;
 pub use memory_manager::MemoryManager;
 pub use model_manager::ModelManager;
+pub use prefix_cache::{PrefixCache, PrefixKey, PrefixLookup, content_hash};
 pub use prompt_cache::PromptCache;
 pub use rate_limiter::RateLimiter;
 pub use session::{NanoSession, SessionState, template_hash};
