@@ -45,6 +45,10 @@ struct ModelState {
     lora_path: Option<String>,
     #[cfg(not(feature = "simulated"))]
     active_session_id: Option<String>,
+    /// Gate R6 — KV quedó en estado dudoso (cancel/abort durante prefill o
+    /// decode). El siguiente turno de la MISMA sesión reconstruye el contexto.
+    #[cfg(not(feature = "simulated"))]
+    kv_dirty: bool,
     /// Chat template leído de la metadata del GGUF (None en modelos base).
     /// Detecta instruct-ness sin depender del nombre del archivo.
     #[cfg(not(feature = "simulated"))]
@@ -483,6 +487,7 @@ impl ModelManager {
                 lora_adapter: None,
                 lora_path: None,
                 active_session_id: None,
+                kv_dirty: false,
                 chat_template: template,
                 generation: next_gen,
             });
@@ -1190,6 +1195,31 @@ impl ModelManager {
         }
     }
 
+    /// Gate R6 — marca el KV de la sesión [session_id] como dudoso tras una
+    /// cancelación. A diferencia de [invalidate_session_kv] (limpieza global
+    /// inmediata), actúa SOLO sobre la sesión activa si coincide: el
+    /// siguiente turno de esa sesión reconstruye el contexto vía `kv_dirty`.
+    pub async fn mark_session_cancelled(&self, session_id: &str) {
+        #[cfg(not(feature = "simulated"))]
+        {
+            let mut g = self.state.write().await;
+            if let Some(s) = g.as_mut() {
+                if s.active_session_id.as_deref() == Some(session_id) {
+                    s.kv_dirty = true;
+                    tracing::info!(
+                        "[NanoSession] session {} cancelled; KV marked dirty",
+                        session_id
+                    );
+                }
+            }
+        }
+        #[cfg(feature = "simulated")]
+        {
+            // Sin KV persistente no hay estado que marcar.
+            let _ = (session_id, self.state.read().await);
+        }
+    }
+
     /// Genera tokens de forma streaming, emitiendo cada token por un canal.
     ///
     /// La generación corre en un hilo separado (spawn_blocking) y el receiver
@@ -1263,16 +1293,17 @@ impl ModelManager {
                     message: "Model temporarily unavailable (streaming in progress)".to_string(),
                 })?;
                 let mut ctx = s.context.take();
-                if s.active_session_id.as_deref() != session_id_owned.as_deref() {
+                if s.active_session_id.as_deref() != session_id_owned.as_deref() || s.kv_dirty {
                     if let Some(ref mut existing) = ctx {
                         existing.clear_kv_cache();
                     }
                     tracing::info!(
-                        "[NanoSession] switch {:?} -> {:?}; KV reset",
+                        "[NanoSession] KV reset (switch {:?} -> {:?} o dirty)",
                         s.active_session_id,
                         session_id_owned
                     );
                     s.active_session_id = session_id_owned.clone();
+                    s.kv_dirty = false;
                 }
                 let lp = s.load_params.clone();
                 (m, ctx, lp, gen)

@@ -103,6 +103,32 @@ pub struct Response {
     pub tokens_generated: usize,
     /// Memoria total del modelo cargado (MB). 0 si no hay modelo.
     pub model_memory_mb: u64,
+    /// Gate R10 — métricas de generación del último turno (TTFT, prefill,
+    /// cache-hit). Permite al cliente saber SIEMPRE por qué un turno fue
+    /// lento: modelo cargando vs prefill vs cache miss vs decode vs tool.
+    pub stats: Option<GenerationStats>,
+}
+
+/// Gate R10 — métricas de latencia de una generación. Medidas en el backend
+/// (ffi), propagadas por ModelManager y expuestas en /completion (SSE final).
+#[derive(Debug, Clone, Default)]
+pub struct GenerationStats {
+    /// Tiempo hasta el primer token emitido (ms). Incluye prefill + decode.
+    pub ttft_ms: u64,
+    /// Tiempo de prefill puro — procesado del prompt (ms).
+    pub prefill_ms: u64,
+    /// Tokens del prompt reutilizados del KV cache (prefix hit).
+    pub cache_hit_tokens: usize,
+    /// Tokens del prompt que hubo que decodificar (miss).
+    pub cache_miss_tokens: usize,
+    /// Tokens totales procesados (prompt + generados).
+    pub total_tokens: usize,
+    /// Tokens generados en este turno.
+    pub generated_tokens: usize,
+    /// Tokens por segundo (decode).
+    pub decode_tok_s: f64,
+    /// Tiempo total de la generación (ms).
+    pub total_ms: u64,
 }
 
 /// Resultado de la ejecución de una herramienta.
@@ -347,5 +373,20 @@ impl NanoRuntime {
     /// Acceso al gestor de modelos (para persistencia de sesión, etc.).
     pub fn model_manager(&self) -> &Arc<ModelManager> {
         &self.model_manager
+    }
+
+    /// Gate R6 — invalida el KV de la sesión tras una cancelación.
+    /// La usa el server HTTP al detectar POST /cancel o desconexión del
+    /// cliente: el siguiente turno arranca con prefill limpio, nunca con
+    /// estado dudoso heredado.
+    pub async fn invalidate_session_kv(&self) {
+        self.model_manager.invalidate_session_kv().await;
+    }
+
+    /// Gate R6 — marca el KV de la sesión [session_id] como dudoso tras una
+    /// cancelación. Más fino que [invalidate_session_kv]: solo afecta a la
+    /// sesión indicada, dejando intactas otras sesiones concurrentes.
+    pub async fn mark_session_cancelled(&self, session_id: &str) {
+        self.model_manager.mark_session_cancelled(session_id).await;
     }
 }
