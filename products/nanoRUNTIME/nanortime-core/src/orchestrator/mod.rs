@@ -16,10 +16,40 @@ use std::sync::Mutex as StdMutex; // para thermal, que no necesita async
 
 use crate::config::manifest::Config;
 use crate::error::{NanoError, Result};
-use crate::execution::{ModelManager, PromptCache, RateLimiter, ToolExecutor, VectorEngine};
+use crate::execution::{
+    content_hash, template_hash, ModelManager, PromptCache, RateLimiter, ToolExecutor,
+    VectorEngine, STATE_VERSION,
+};
 use crate::inference::grammar::Grammar;
 use crate::inference::research::hallucination_detector::{analyze_token, HallucinationDetector};
 use crate::{Response, ToolCallResult, UserRequest};
+
+/// Partes del prompt instruct (Etapa 1A del prefix cache).
+///
+/// `static_prefix` es determinista entre conversaciones equivalentes (system +
+/// tools + instrucciones). `dynamic_turn` es todo lo variable (history, user,
+/// corrections, RAG). Propiedad de equivalencia: `static_prefix + dynamic_turn`
+/// reproduce el prompt V1 exacto — el refactor NO cambia comportamiento.
+struct InstructPromptParts {
+    static_prefix: String,
+    dynamic_turn: String,
+    prefix_meta: PrefixMeta,
+}
+
+/// Metadatos de identidad del prefix (para debugging e invalidación).
+/// Se compone después en [crate::execution::PrefixKey].
+/// Los campos se consumen en Etapa 2 (invalidación por hash); en 1A solo
+/// se exponen en debug, por eso `dead_code` está permitido aquí.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+struct PrefixMeta {
+    model_hash: u64,
+    template_hash: u64,
+    system_hash: u64,
+    tools_hash: u64,
+    n_ctx: u32,
+    state_version: u32,
+}
 
 /// Computes confidence (0.0-1.0) from generated-token probabilities.
 ///
@@ -969,6 +999,30 @@ impl Orchestrator {
         rag_docs: &[crate::SourceDocument],
         request: &UserRequest,
     ) -> String {
+        let parts = self
+            .build_instruct_prompt_parts(prompt, rag_docs, request)
+            .await;
+        // Etapa 1A: el prefix_meta se expone en debug para el gate de
+        // equivalencia (Etapa 1B) sin consumirse todavía.
+        tracing::debug!(
+            "[PrefixCache] prefix={}B turn={}B meta={:?}",
+            parts.static_prefix.len(),
+            parts.dynamic_turn.len(),
+            parts.prefix_meta
+        );
+        format!("{}{}", parts.static_prefix, parts.dynamic_turn)
+    }
+
+    /// Etapa 1A del prefix cache: construye el prompt en dos partes
+    /// (prefix estático + turno dinámico) SIN cambiar el resultado — la
+    /// concatenación produce exactamente el prompt V1. El snapshot del prefix
+    /// NO se guarda todavía: solo separación lógica.
+    async fn build_instruct_prompt_parts(
+        &self,
+        prompt: &str,
+        rag_docs: &[crate::SourceDocument],
+        request: &UserRequest,
+    ) -> InstructPromptParts {
         // ── System message ──────────────────────────────────────────
         // Prioridad: el `context` del cliente ES el system prompt principal
         // (la app móvil envía identidad, estilo y telemetría real). El
@@ -988,7 +1042,7 @@ impl Orchestrator {
                 .push("You are a helpful assistant. Answer concisely and accurately.".to_string());
         }
         if request.context.is_some() && !tools_prompt.is_empty() {
-            system_parts.push(tools_prompt);
+            system_parts.push(tools_prompt.clone());
         }
 
         // Learned corrections go into system context
@@ -1077,9 +1131,25 @@ impl Orchestrator {
             .map(|m| (m.role.clone(), sanitize_chat_content(&m.content)))
             .collect();
 
+        // ── PrefixMeta (identidad del prefix, para debugging/invalidación) ──
+        let n_ctx = self
+            .model_manager
+            .context_size()
+            .await
+            .unwrap_or(self.config.local_model.context_size) as u32;
+        let prefix_meta = PrefixMeta {
+            model_hash: content_hash(&[&self.config.local_model.path]),
+            template_hash: template_hash(&tpl),
+            system_hash: content_hash(&[&system_msg]),
+            tools_hash: content_hash(&[&tools_prompt]),
+            n_ctx,
+            state_version: STATE_VERSION,
+        };
+
         if is_gemma {
-            // Gemma: sin role system separado; se inyecta al inicio del
-            // primer turno user. Rol model = "model" en el template.
+            // Gemma: el system se inyecta DENTRO del primer turno user (tras el
+            // history), no al inicio del prompt. No hay prefix separable al
+            // inicio → todo es turno dinámico; el prefix cache no aplica aquí.
             let mut out = String::new();
             for (role, content) in &history {
                 let turn = if role == "user" { "user" } else { "model" };
@@ -1094,39 +1164,52 @@ impl Orchestrator {
             out.push_str(&format!(
                 "<start_of_turn>user\n{first_user}<end_of_turn>\n<start_of_turn>model\n"
             ));
-            out
-        } else if is_deepseek {
-            // DeepSeek-R1 canónico: BOS al inicio, system crudo, turnos
-            // "User:"/"Assistant:" con EOS tras cada turno assistant, y el
-            // turno de generación abierto con "Assistant:".
-            let mut out = String::new();
-            if !system_msg.is_empty() {
-                out.push_str(&format!("<｜begin▁of▁sentence｜>{system_msg}\n\n"));
-            } else {
-                out.push_str("<｜begin▁of▁sentence｜>");
+            InstructPromptParts {
+                static_prefix: String::new(),
+                dynamic_turn: out,
+                prefix_meta,
             }
+        } else if is_deepseek {
+            // DeepSeek: BOS + system crudo al inicio = prefix separable.
+            let static_prefix = if !system_msg.is_empty() {
+                format!("<｜begin▁of▁sentence｜>{system_msg}\n\n")
+            } else {
+                "<｜begin▁of▁sentence｜>".to_string()
+            };
+            let mut dynamic_turn = String::new();
             for (role, content) in &history {
                 if role == "user" {
-                    out.push_str(&format!("User: {content}\n\n"));
+                    dynamic_turn.push_str(&format!("User: {content}\n\n"));
                 } else {
-                    out.push_str(&format!("Assistant: {content}<｜end▁of▁sentence｜>"));
+                    dynamic_turn
+                        .push_str(&format!("Assistant: {content}<｜end▁of▁sentence｜>"));
                 }
             }
-            out.push_str(&format!("User: {user_msg}\n\nAssistant:"));
-            out
+            dynamic_turn.push_str(&format!("User: {user_msg}\n\nAssistant:"));
+            InstructPromptParts {
+                static_prefix,
+                dynamic_turn,
+                prefix_meta,
+            }
         } else {
-            // ChatML (Qwen, Llama-3 y la mayoría de instruct).
-            let mut out = String::new();
-            if !system_msg.is_empty() {
-                out.push_str(&format!("<|im_start|>system\n{system_msg}<|im_end|>\n"));
-            }
+            // ChatML (Qwen, Llama-3): system como turno separado = prefix separable.
+            let static_prefix = if !system_msg.is_empty() {
+                format!("<|im_start|>system\n{system_msg}<|im_end|>\n")
+            } else {
+                String::new()
+            };
+            let mut dynamic_turn = String::new();
             for (role, content) in &history {
-                out.push_str(&format!("<|im_start|>{role}\n{content}<|im_end|>\n"));
+                dynamic_turn.push_str(&format!("<|im_start|>{role}\n{content}<|im_end|>\n"));
             }
-            out.push_str(&format!(
+            dynamic_turn.push_str(&format!(
                 "<|im_start|>user\n{user_msg}<|im_end|>\n<|im_start|>assistant\n"
             ));
-            out
+            InstructPromptParts {
+                static_prefix,
+                dynamic_turn,
+                prefix_meta,
+            }
         }
     }
 
@@ -1720,5 +1803,44 @@ mod tests {
         assert!(!response.text.is_empty());
         assert_eq!(response.tier_used, "local");
         assert!(response.tool_calls.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_instruct_prompt_parts_equivalence_chatml() {
+        let orch = test_orchestrator().await;
+        let request = UserRequest {
+            prompt: "hola".into(),
+            context: Some("Eres NanoAI, un asistente local.".into()),
+            history: None,
+            session_id: None,
+            max_tokens: Some(16),
+            temperature: None,
+        };
+        let full = orch.build_instruct_prompt("hola", &[], &request).await;
+        let parts = orch
+            .build_instruct_prompt_parts("hola", &[], &request)
+            .await;
+
+        // Equivalencia 1A: la concatenación reproduce el prompt V1 exacto.
+        let joined = format!("{}{}", parts.static_prefix, parts.dynamic_turn);
+        assert_eq!(full, joined, "1A: el split no debe cambiar el prompt");
+
+        // ChatML: prefix = bloque system autocontenido; turno = user + assistant.
+        assert!(
+            parts.static_prefix.contains("<|im_start|>system"),
+            "prefix debe contener el system"
+        );
+        assert!(
+            parts.static_prefix.trim_end().ends_with("<|im_end|>"),
+            "prefix debe cerrar el turno system (sin romper roles)"
+        );
+        assert!(
+            parts.dynamic_turn.starts_with("<|im_start|>user"),
+            "turno debe empezar en user (transición correcta)"
+        );
+        assert!(
+            parts.dynamic_turn.ends_with("<|im_start|>assistant\n"),
+            "turno debe abrir assistant para generación"
+        );
     }
 }
