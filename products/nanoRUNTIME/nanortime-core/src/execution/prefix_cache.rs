@@ -73,6 +73,13 @@ pub struct PrefixCache {
 
 impl PrefixCache {
     pub fn new(dir: PathBuf, enabled: bool) -> Self {
+        if enabled {
+            // El dir debe existir antes de guardar snapshots: llama.cpp
+            // state_save_file falla si el directorio padre no existe. En
+            // Android `temp_dir()` puede no existir. Best-effort: si no se
+            // puede crear, lookup → Miss y snapshot falla con warning honesto.
+            let _ = std::fs::create_dir_all(&dir);
+        }
         Self { dir, enabled }
     }
 

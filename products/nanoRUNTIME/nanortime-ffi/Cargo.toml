@@ -11,6 +11,7 @@ default = []
 cuda = ["llama-cpp-2/cuda"]  # Compila llama.cpp con backend CUDA (ggml-cuda.cu vía nvcc + find_cuda_helper)
 mmap-streaming = ["llama-cpp-2/mmap-streaming"]  # Peso mmap-friendly (sin repack anon-RAM) para streaming > RAM
 android-jni = ["dep:jni"]    # JNI bridge for Android NanoRuntimeBridge.kt
+static-stdcxx = ["llama-cpp-2/static-stdcxx"]  # libc++ estático: binario autocontenido (sin libc++_shared.so)
 
 [dependencies]
 thiserror = { workspace = true }
@@ -18,8 +19,11 @@ tracing = { workspace = true }
 encoding_rs = "0.8"
 rand = { workspace = true }
 
-# Real llama.cpp bindings via llama-cpp-2
-llama-cpp-2 = { version = "0.1.153" }
+# Real llama.cpp bindings via llama-cpp-2.
+# default-features=false: el default incluye `android-shared-stdcxx`, que es
+# mutuamente exclusivo con `static-stdcxx` (necesario para binario Android
+# autocontenido sin libc++_shared.so). Se re-listian openmp+common explícito.
+llama-cpp-2 = { version = "0.1.153", default-features = false, features = ["openmp", "common"] }
 
 # JNI bindings (Android only, feature-gated)
 jni = { workspace = true, optional = true }

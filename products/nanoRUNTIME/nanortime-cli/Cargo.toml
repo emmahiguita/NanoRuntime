@@ -27,4 +27,5 @@ libc = "0.2"
 default = []
 simulated = ["nanortime-core/simulated"]  # Tests del server sin GGUF real
 mmap-streaming = ["nanortime-core/mmap-streaming"]  # Streaming > RAM (peso mmap-friendly, sin repack)
+static-stdcxx = ["nanortime-core/static-stdcxx"]  # libc++ estático para Android
 v2 = []
