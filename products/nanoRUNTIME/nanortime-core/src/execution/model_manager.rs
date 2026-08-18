@@ -1305,7 +1305,7 @@ impl ModelManager {
                     (Some(sess), Some(sid)) => {
                         sess.session_id == sid
                             && sess.kv_valid
-                            && tpl_hash.map_or(true, |h| sess.template_hash == h)
+                            && tpl_hash.is_none_or(|h| sess.template_hash == h)
                     }
                     _ => false,
                 };

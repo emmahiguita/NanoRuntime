@@ -27,10 +27,18 @@ pub struct BackendGenerateParams {
 }
 
 /// Result of a generation call.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BackendGenerateResult {
     pub text: String,
     pub token_probabilities: Vec<f32>,
+    /// Gate R10 — tiempo hasta el primer token, ms.
+    pub ttft_ms: u64,
+    /// Gate R10 — tiempo de prefill (procesado del prompt), ms.
+    pub prefill_ms: u64,
+    /// Gate R10 — tokens del prompt reutilizados del KV cache (prefix hit).
+    pub cache_hit_tokens: usize,
+    /// Gate R10 — tokens totales procesados.
+    pub total_tokens: usize,
 }
 
 /// Streaming token callback: (token_text, probability, is_stop).
@@ -66,6 +74,27 @@ pub trait InferenceBackend: Send + Sync {
 
     /// Chat template from GGUF metadata (None for base models).
     fn chat_template(model: &Self::Model) -> Option<String>;
+
+    /// Token type produced by the backend.
+    type Token: Copy + Debug;
+
+    /// Tokenize text with optional BOS token.
+    ///
+    /// SRP: separa tokenización del decode. El prefix cache tokeniza prefix y
+    /// turno por separado (`add_bos=true` solo en el prefix; el turno no debe
+    /// re-añadir BOS o la secuencia de tokens se corrompe).
+    fn tokenize(model: &Self::Model, text: &str, add_bos: bool)
+        -> Result<Vec<Self::Token>, String>;
+
+    /// Prefill puro: decodifica tokens en el KV sin sampler.
+    ///
+    /// `need_logits` pone logits en el último token (para muestrear después).
+    /// Retorna el número de tokens procesados. SRP: prefill ≠ generación.
+    fn decode_prompt(
+        ctx: &mut Self::Context,
+        tokens: &[Self::Token],
+        need_logits: bool,
+    ) -> Result<usize, String>;
 
     /// Generate text (blocking, synchronous).
     fn generate(
@@ -115,6 +144,7 @@ impl InferenceBackend for LlamaCppBackend {
     type Model = nanortime_ffi::NanoModel;
     type Context = nanortime_ffi::NanoContext;
     type LoraAdapter = nanortime_ffi::NanoLoraAdapter;
+    type Token = nanortime_ffi::LlamaToken;
 
     fn load_model(path: &str, params: &BackendLoadParams) -> Result<Self::Model, String> {
         let lp = nanortime_ffi::ModelLoadParams {
@@ -153,6 +183,22 @@ impl InferenceBackend for LlamaCppBackend {
         model.chat_template()
     }
 
+    fn tokenize(
+        model: &Self::Model,
+        text: &str,
+        add_bos: bool,
+    ) -> Result<Vec<Self::Token>, String> {
+        model.tokenize(text, add_bos)
+    }
+
+    fn decode_prompt(
+        ctx: &mut Self::Context,
+        tokens: &[Self::Token],
+        need_logits: bool,
+    ) -> Result<usize, String> {
+        ctx.decode_prompt(tokens, need_logits)
+    }
+
     fn generate(
         ctx: &mut Self::Context,
         model: &Self::Model,
@@ -171,6 +217,10 @@ impl InferenceBackend for LlamaCppBackend {
         Ok(BackendGenerateResult {
             text: r.text,
             token_probabilities: r.token_probabilities,
+            ttft_ms: r.ttft_ms,
+            prefill_ms: r.prefill_ms,
+            cache_hit_tokens: r.cache_hit_tokens,
+            total_tokens: r.total_tokens,
         })
     }
 
@@ -195,6 +245,10 @@ impl InferenceBackend for LlamaCppBackend {
         Ok(BackendGenerateResult {
             text: r.text,
             token_probabilities: r.token_probabilities,
+            ttft_ms: r.ttft_ms,
+            prefill_ms: r.prefill_ms,
+            cache_hit_tokens: r.cache_hit_tokens,
+            total_tokens: r.total_tokens,
         })
     }
 

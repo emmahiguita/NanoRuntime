@@ -13,7 +13,7 @@ use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{AddBos, LlamaLoraAdapter, LlamaModel};
 use llama_cpp_2::speculative::{MtpSpeculative, MtpSpeculativeParams};
-use llama_cpp_2::token::LlamaToken;
+pub use llama_cpp_2::token::LlamaToken;
 use rand::Rng;
 
 // ── Llama.cpp log suppression ──────────────────────────────────
@@ -170,6 +170,14 @@ pub struct GenerateResult {
     pub token_probabilities: Vec<f32>,
     pub tokens_generated: usize,
     pub tokens_per_second: f64,
+    /// Gate R10 — tiempo hasta el primer token (prefill + decode del 1er token).
+    pub ttft_ms: u64,
+    /// Gate R10 — tiempo de prefill puro (procesado del prompt).
+    pub prefill_ms: u64,
+    /// Gate R10 — tokens del prompt reutilizados del KV cache (prefix hit).
+    pub cache_hit_tokens: usize,
+    /// Gate R10 — tokens totales procesados (prompt + generados).
+    pub total_tokens: usize,
 }
 
 impl NanoModel {
@@ -598,6 +606,10 @@ impl NanoContext {
             token_probabilities: token_probs,
             tokens_generated,
             tokens_per_second: tps,
+            ttft_ms: start.elapsed().as_millis() as u64,
+            prefill_ms: 0,
+            cache_hit_tokens: 0,
+            total_tokens: n_past as usize,
         })
     }
 
@@ -608,6 +620,50 @@ impl NanoContext {
     pub fn clear_kv_cache(&mut self) {
         self.inner.clear_kv_cache();
         self.cached_tokens.clear();
+    }
+
+    /// Prefill puro: decodifica `tokens` en el KV SIN sampler.
+    ///
+    /// SRP: separa el prefill (decode de tokens del prompt) de la generación
+    /// (decode + sampler). `need_logits` pone logits en el último token global
+    /// para poder muestrear después. La posición se deriva de `cached_tokens`
+    /// (tokens ya en el KV), mantenido por clear/load/streaming.
+    pub fn decode_prompt(
+        &mut self,
+        tokens: &[LlamaToken],
+        need_logits: bool,
+    ) -> Result<usize, String> {
+        if tokens.is_empty() {
+            return Err("Empty tokens".to_string());
+        }
+        let base = self.cached_tokens.len();
+        let n = tokens.len();
+        if base + n >= self.context_size as usize {
+            return Err(format!(
+                "Prompt too long: {} tokens exceeds context size {}",
+                base + n,
+                self.context_size
+            ));
+        }
+        let mut offset = 0usize;
+        for chunk in tokens.chunks(self.batch_size.max(1) as usize) {
+            let mut batch = LlamaBatch::new(chunk.len(), 1);
+            for (i, &tok) in chunk.iter().enumerate() {
+                let global = offset + i;
+                let pos = (base + global) as i32;
+                // logits solo en el último token global (si need_logits).
+                let logits = need_logits && global == n - 1;
+                batch
+                    .add(tok, pos, &[0], logits)
+                    .map_err(|e| format!("Batch add: {}", e))?;
+            }
+            self.inner
+                .decode(&mut batch)
+                .map_err(|e| format!("Decode: {}", e))?;
+            offset += chunk.len();
+        }
+        self.cached_tokens.extend_from_slice(tokens);
+        Ok(n)
     }
 
     // ── Session Persistence (KV cache state) ────────────────────
@@ -794,6 +850,13 @@ impl NanoContext {
             n_prompt.saturating_sub(common_prefix)
         );
 
+        // Gate R10 — prefill_ms: el prompt ya está decodificado en el KV cache.
+        let prefill_ms = start.elapsed().as_millis() as u64;
+        // cache_hit_tokens: los tokens del prompt que NO hubo que re-decodificar.
+        let cache_hit_tokens = common_prefix;
+        // Marca para TTFT: se completa en el primer token emitido.
+        let mut ttft_ms: u64 = 0;
+
         let eos = model.token_eos();
         let mut output = String::new();
         let mut token_probs = Vec::with_capacity(params.max_tokens);
@@ -820,6 +883,10 @@ impl NanoContext {
             let piece = model.token_to_text(first_token)?;
             let should_stop = params.stop_sequences.iter().any(|s| piece.contains(s));
             if !should_stop {
+                // Gate R10 — TTFT: primer token emitido al cliente.
+                if ttft_ms == 0 {
+                    ttft_ms = start.elapsed().as_millis() as u64;
+                }
                 output.push_str(&piece);
                 // Callback returns false when the token receiver is gone:
                 // abort instead of burning CPU with no listener.
@@ -903,6 +970,12 @@ impl NanoContext {
             0.0
         };
 
+        // Gate R10 — si el modelo terminó sin emitir tokens (p. ej. stop
+        // inmediato), el TTFT es el tiempo total de la generación.
+        if ttft_ms == 0 {
+            ttft_ms = start.elapsed().as_millis() as u64;
+        }
+
         // Remove LoRA adapter if it was applied
         if had_lora {
             let adapter: &mut NanoLoraAdapter = lora.as_mut().unwrap();
@@ -914,6 +987,10 @@ impl NanoContext {
             token_probabilities: token_probs,
             tokens_generated,
             tokens_per_second: tps,
+            ttft_ms,
+            prefill_ms,
+            cache_hit_tokens,
+            total_tokens: n_past as usize,
         })
     }
 
@@ -1005,6 +1082,10 @@ impl NanoContext {
             token_probabilities: probs,
             tokens_generated: n_emitted,
             tokens_per_second: tps,
+            ttft_ms: start.elapsed().as_millis() as u64,
+            prefill_ms: 0,
+            cache_hit_tokens: 0,
+            total_tokens: n_emitted,
         })
     }
 
@@ -1077,6 +1158,10 @@ impl NanoContext {
             token_probabilities: probs,
             tokens_generated: n_emitted,
             tokens_per_second: tps,
+            ttft_ms: start.elapsed().as_millis() as u64,
+            prefill_ms: 0,
+            cache_hit_tokens: 0,
+            total_tokens: n_emitted,
         })
     }
 
