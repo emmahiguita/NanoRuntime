@@ -307,7 +307,16 @@ fn wait_runtime(
 
 /// Gate R2 — liveness: proceso/socket vivo. 200 siempre, sin dependencia
 /// del modelo. El cliente Flutter lo usa para decidir si el motor existe.
+/// DEBUG/TEST: cuando > 0, /health devuelve 503 (fallo transitorio simulado)
+/// y decrementa. Para la prueba C del watchdog: 1-2 miss no deben reiniciar.
+static FLAKY_HEALTH: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
 fn handle_liveness(stream: &mut TcpStream, state: &Arc<ServerState>) {
+    if FLAKY_HEALTH.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+        FLAKY_HEALTH.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        send_json(stream, "503 Service Unavailable", r#"{"status":"flaky"}"#);
+        return;
+    }
     let json = serde_json::json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
@@ -1007,6 +1016,12 @@ fn handle_http(
             // aviso). El watchdog de la app debe detectarlo y reiniciar.
             tracing::warn!("DEBUG: /debug/kill — terminando proceso deliberadamente");
             std::process::exit(1);
+        }
+        ("POST", "/debug/flaky") => {
+            // DEBUG/TEST: los próximos 3 /health devuelven 503 (fallo
+            // transitorio). El watchdog NO debe reiniciar por 1-2 miss.
+            FLAKY_HEALTH.store(3, std::sync::atomic::Ordering::SeqCst);
+            send_json(&mut stream, "200 OK", r#"{"flaky":true,"count":3}"#);
         }
         _ => {
             tracing::info!("HTTP: no route for {} {} → 404", method, path);
