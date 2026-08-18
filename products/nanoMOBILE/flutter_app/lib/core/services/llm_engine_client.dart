@@ -15,11 +15,28 @@ class LLMEngineClient {
   final String baseUrl;
   final Duration timeout;
   final http.Client _client;
+  // Fábrica del client de streaming (uno nuevo por stream para poder cerrarlo
+  // en cancelación sin afectar el client compartido). Inyectable en tests.
+  final http.Client Function()? _streamClientFactory;
 
   LLMEngineClient({
     this.baseUrl = 'http://127.0.0.1:8080',
     this.timeout = const Duration(seconds: 120), // Aumentado de 60 a 120 segundos para dar más tiempo al motor
-  }) : _client = http.Client();
+    http.Client? client,
+    http.Client Function()? streamClientFactory,
+  })  : _client = client ?? http.Client(),
+        _streamClientFactory = streamClientFactory;
+
+  /// Genera un request_id único para correlacionar la cancelación
+  /// (POST /cancel) con la generación en curso. El server lo usa para cortar
+  /// el stream y marcar el KV de sesión como dudoso.
+  static String newRequestId() =>
+      'req-${DateTime.now().microsecondsSinceEpoch}-${++_requestSeq}';
+
+  /// Contador monótono: garantiza unicidad entre request_id generados en el
+  /// mismo microsegundo (dos turnos consecutivos inmediatos). Dart es
+  /// single-threaded por isolate, así que no hay carrera real.
+  static int _requestSeq = 0;
 
   /// Comprueba si el motor responde. GET /health -> {"status":"ok"}.
   ///
@@ -180,12 +197,14 @@ class LLMEngineClient {
   /// `stop: true` y contiene el `tps` reportado por el motor.
   ///
   /// El stream se cancela cerrando el [http.Client] subyacente. Para abortar
-  /// una generación en curso, llama a [cancelStream] o cierra el cliente
+  /// una generación en curso, llama a [cancelRequest] o cierra el cliente
   /// retornado por [generateStream].
   ///
-  /// Devuelve un record con el [Stream] y el [http.Client] usado para que
-  /// el llamador pueda cerrarlo (cancelación).
-  ({Stream<LLMStreamToken> stream, http.Client client}) generateStream({
+  /// Devuelve un record con el [Stream], el [http.Client] usado para que
+  /// el llamador pueda cerrarlo (cancelación) y el [String] `requestId`
+  /// correlacionado con este turno (autogenerado si no se pasa).
+  ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
+      generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,
@@ -193,9 +212,12 @@ class LLMEngineClient {
     String? sessionId,
     String? context,
     List<Map<String, String>>? history,
+    String? requestId,
   }) {
-    final client = http.Client();
+    final client = _streamClientFactory?.call() ?? http.Client();
     final controller = StreamController<LLMStreamToken>();
+    final effectiveRequestId =
+        (requestId != null && requestId.isNotEmpty) ? requestId : newRequestId();
 
     // Lanzamos la petición en background y puenteamos los tokens al controller.
     // Esto permite cancelar cerrando el client sin esperar al future del stream.
@@ -209,9 +231,39 @@ class LLMEngineClient {
       sessionId: sessionId,
       context: context,
       history: history,
+      requestId: effectiveRequestId,
     );
 
-    return (stream: controller.stream, client: client);
+    return (
+      stream: controller.stream,
+      client: client,
+      requestId: effectiveRequestId,
+    );
+  }
+
+  /// Gate R6 — cancela una generación en curso de forma cooperativa.
+  ///
+  /// POST /cancel con el request_id: el servidor corta el stream (incluso
+  /// durante prefill), y además invalida el KV de la sesión para que el
+  /// siguiente turno arranque limpio. Cerrar solo el socket (lo que hacía el
+  /// cliente antes) dejaba la generación corriendo en el worker con KV a
+  /// medias. Devuelve true si el server confirmó la cancelación.
+  Future<bool> cancelRequest(String requestId) async {
+    try {
+      final r = await _client
+          .post(
+            Uri.parse('$baseUrl/cancel'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'request_id': requestId}),
+          )
+          .timeout(const Duration(seconds: 5));
+      final ok = r.statusCode == 200;
+      debugPrint('[llm] cancel $requestId -> HTTP ${r.statusCode}');
+      return ok;
+    } catch (e) {
+      debugPrint('[llm] cancel falló (el cierre de socket sigue como fallback): $e');
+      return false;
+    }
   }
 
   Future<void> _startStreamRequest({
@@ -224,6 +276,7 @@ class LLMEngineClient {
     String? sessionId,
     String? context,
     List<Map<String, String>>? history,
+    String? requestId,
   }) async {
     try {
       debugPrint('[llm] startStreamRequest sessionId=${sessionId ?? ''} prompt_len=${prompt.length}');
@@ -240,6 +293,7 @@ class LLMEngineClient {
         'top_p': topP,
         'repeat_penalty': 1.1,
         'stream': true,
+        if (requestId != null && requestId.isNotEmpty) 'request_id': requestId,
         if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
         if (context != null && context.isNotEmpty) 'context': context,
         if (history != null && history.isNotEmpty) 'history': history,

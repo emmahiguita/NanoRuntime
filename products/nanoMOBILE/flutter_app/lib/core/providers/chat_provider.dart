@@ -24,6 +24,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _ref.read(runtimeEngineProvider.notifier).client;
   // Cliente HTTP de la generación streaming en curso. Se cierra para cancelar.
   http.Client? _streamClient;
+  // Gate R6 — request_id de la generación en curso, para POST /cancel
+  // cooperativo (no solo cerrar el socket).
+  String? _activeRequestId;
   // Monitoreo de conexiones activas para detectar memory leaks
   int _activeConnections = 0;
   // Cancelación cooperativa: STOP o un segundo envío anulan la generación en curso.
@@ -89,32 +92,30 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     final info = DeviceInfo.read();
     final buffer = StringBuffer();
-    buffer.writeln('Eres NanoAI, un asistente de inteligencia artificial avanzado que se ejecuta ');
-    buffer.writeln('localmente en el dispositivo móvil del usuario mediante el motor nanortime (llama.cpp). ');
-    buffer.writeln('Modelo activo actual: "$modelName". ');
+    buffer.writeln('Eres NanoAI, un asistente de inteligencia artificial avanzado y de alto rendimiento que se ejecuta');
+    buffer.writeln('de forma 100% real y local en el dispositivo móvil del usuario mediante el motor nanortime (llama.cpp).');
+    buffer.writeln('Modelo activo en inferencia: "$modelName".');
     buffer.writeln('');
-    buffer.writeln('Idioma: responde siempre en el idioma en que el usuario te hable (por defecto español).');
+    buffer.writeln('DIRECTIVAS CRÍTICAS DE CALIDAD Y RESPUESTA:');
+    buffer.writeln('1. INFERENCIA REAL (CERO SIMULACIÓN): Estás conectado al hardware real. Nunca generes respuestas simuladas, placeholders o datos inventados. Si no posees una información específica, decláralo con honestidad técnica.');
+    buffer.writeln('2. CÓDIGO 100% COMPLETO Y FUNCIONAL:');
+    buffer.writeln('   - Cuando el usuario solicite código, NUNCA lo trunques ni uses comentarios evasivos como "// ... resto del código ...", "// implementar aquí" o "// TODO".');
+    buffer.writeln('   - Escribe implementaciones completas, listas para producción o ejecución.');
+    buffer.writeln('   - Especifica siempre el identificador de lenguaje en cada bloque Markdown (ej. ```python, ```dart, ```javascript, ```sql, ```json, ```bash).');
+    buffer.writeln('3. TABLAS DE DATOS Y ESTRUCTURAS:');
+    buffer.writeln('   - Cuando compares alternativas, muestres métricas, listas estructuradas o datasets, utiliza tablas Markdown estándar con encabezados claros y delimitadores (| Columna | ... |).');
+    buffer.writeln('4. PROFUNDIDAD, ESTRUCTURA Y FORMATO RICO:');
+    buffer.writeln('   - Desarrolla las explicaciones a fondo: explica el PORQUÉ, la lógica subyacente y las mejores prácticas.');
+    buffer.writeln('   - Utiliza títulos y subtítulos jerárquicos (##, ###), listas organizadas, negritas para términos clave y diagramas mermaid o ASCII cuando aporten valor visual.');
+    buffer.writeln('   - Evita respuestas vacías, redundancias o saludos corporativos innecesarios. Ve directo al valor técnico.');
+    buffer.writeln('5. IDIOMA Y ADAPTABILIDAD:');
+    buffer.writeln('   - Responde con naturalidad, riqueza de vocabulario y precisión en el mismo idioma en que te hable el usuario (por defecto español).');
     buffer.writeln('');
-    buffer.writeln('Estilo de respuesta (nivel de un asistente profesional tipo GPT o Claude):');
-    buffer.writeln('- Responde de forma completa, útil y directa. Desarrolla las ideas con ');
-    buffer.writeln('  profundidad real: explica el PORQUÉ, da ejemplos concretos y menciona ');
-    buffer.writeln('  alternativas cuando aporten valor.');
-    buffer.writeln('- Eres libre de razonar, opinar con matices y proponer. Solo te abstienes ');
-    buffer.writeln('  de guiar en acciones ilegales concretas; ante cualquier duda legítima, ');
-    buffer.writeln('  responde con honestidad y contexto, no con rechazos automáticos.');
-    buffer.writeln('- Usa Markdown rico cuando ayude: encabezados, listas, tablas claras, ');
-    buffer.writeln('  bloques de código con lenguaje y diagramas ```mermaid o ASCII.');
-    buffer.writeln('- No des respuestas de una sola línea salvo que la pregunta sea trivial. ');
-    buffer.writeln('- No inventes datos: si no sabes algo, dilo y ofrece cómo averiguarlo.');
-    buffer.writeln('- Evita relleno corporativo ("¡Excelente pregunta!", "¡Por supuesto!") — ');
-    buffer.writeln('  ve al grano con claridad y estructura.');
-    buffer.writeln('- Tus respuestas pueden exportarse a informes PDF profesionales.');
-    buffer.writeln('');
-    buffer.writeln('Herramientas del sistema (SOLO cuando el usuario pida ejecutar una acción): ');
-    buffer.writeln('si necesitas una herramienta, responde únicamente el JSON de una línea: ');
-    buffer.writeln('{"tool":"screen"}, {"tool":"tap","selector":"<sel>"}, ');
-    buffer.writeln('{"tool":"write","selector":"<sel>","text":"..."}, {"tool":"back"}. ');
-    buffer.writeln('Si no usas herramienta, responde normal con texto.');
+    buffer.writeln('Herramientas del sistema (SOLO cuando el usuario pida ejecutar una acción directa sobre el dispositivo):');
+    buffer.writeln('si necesitas una herramienta, responde únicamente el JSON de una línea:');
+    buffer.writeln('{"tool":"screen"}, {"tool":"tap","selector":"<sel>"},');
+    buffer.writeln('{"tool":"write","selector":"<sel>","text":"..."}, {"tool":"back"}.');
+    buffer.writeln('Si no usas herramienta, responde con texto normal estructurado.');
     
     buffer.writeln('<realtime_context>');
     buffer.writeln('  <datetime>$dateStr, $timeStr</datetime>');
@@ -593,13 +594,23 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// Devuelve el historial anterior al turno user actual. En rondas con tools,
   /// el estado ya contiene mensajes assistant con llamadas JSON visibles;
   /// esos mensajes pertenecen al turno en curso y se reinyectan vía toolTrace.
+  /// Devuelve el historial ANTES del último mensaje user con [text].
+  /// Busca de atrás hacia adelante para capturar el turno actual, no uno
+  /// anterior con el mismo texto (evita bug con textos duplicados).
   List<ChatMessage> _historyBeforeCurrentUser(String text) {
+    // Buscar el último mensaje user (independientemente del texto) que
+    // coincida con el texto actual. Si hay duplicados, el último es el actual.
     for (var i = state.messages.length - 1; i >= 0; i--) {
       final msg = state.messages[i];
       if (msg.sender == MessageSender.user && msg.text == text) {
         return state.messages.sublist(0, i);
       }
     }
+    // Fallback: si no se encontró (no debería pasar), excluir el último user.
+    final lastUserIdx = state.messages.lastIndexWhere(
+      (m) => m.sender == MessageSender.user,
+    );
+    if (lastUserIdx >= 0) return state.messages.sublist(0, lastUserIdx);
     return state.messages;
   }
 
@@ -628,16 +639,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     // Streaming: cada token actualiza streamingText en tiempo real.
     final settings = _ref.read(settingsProvider);
-    final (:stream, :client) = _engine.generateStream(
+    // Gate R6 — request_id por generación: permite que stop() haga un
+    // POST /cancel cooperativo (corta stream + invalida KV de la sesión),
+    // en vez de solo cerrar el socket y dejar el worker calculando. El id
+    // lo genera el propio cliente (LLMEngineClient.newRequestId) y viaja en
+    // el body JSON para que el server correlacione la cancelación.
+    final (:stream, :client, :requestId) = _engine.generateStream(
       prompt: prompt,
       temperature: settings.temperature,
       topP: settings.topP,
-      maxTokens: settings.maxTokens.clamp(32, 2048),
+      maxTokens: settings.maxTokens.clamp(32, 4096),
       sessionId: _sessionId,
       context: _buildSystemPrompt(),
       history: _buildHistory(history, toolTrace),
     );
     _streamClient = client;
+    _activeRequestId = requestId;
     _activeConnections++; // CORRECCIÓN CRÍTICA: Monitoreo de conexiones activas
     debugPrint('[chat_provider] Conexión activa: $_activeConnections');
 
@@ -804,21 +821,33 @@ class ChatNotifier extends StateNotifier<ChatState> {
       );
       _persistMessages();
     } finally {
-      // CORRECCIÓN CRÍTICA: Finally block garantizado para cerrar cliente
-      // y evitar memory leaks en todos los caminos de ejecución
+      // Finally block garantizado para cerrar cliente y evitar memory leaks.
+      // Si stop() ya cerró el cliente (_streamClient == null), no hacer nada
+      // para evitar doble decremento de _activeConnections.
       _cancelStreamFlush();
+      _activeRequestId = null; // generación terminada (natural o por stop)
       if (_streamClient != null) {
+        final clientToClose = _streamClient;
+        _streamClient = null;
+        if (_activeConnections > 0) _activeConnections--;
         try {
-          _streamClient!.close();
-          debugPrint('[chat_provider] Cliente HTTP cerrado correctamente');
+          clientToClose!.close();
+          debugPrint('[chat_provider] Cliente HTTP cerrado en finally. Activas: $_activeConnections');
         } catch (e) {
-          debugPrint('[chat_provider] Error cerrando cliente HTTP: $e');
-        } finally {
-          _streamClient = null;
-          _activeConnections--; // Decrementar contador de conexiones activas
-          debugPrint('[chat_provider] Conexiones activas: $_activeConnections');
+          debugPrint('[chat_provider] Error cerrando cliente HTTP en finally: $e');
         }
       }
+    }
+  }
+
+  /// Gate R6 — cancel cooperativo con manejo de error explícito (sin
+  /// catchError: el retorno void del handler rompe el tipo de onError).
+  Future<void> _cancelCooperativo(String requestId) async {
+    try {
+      final ok = await _engine.cancelRequest(requestId);
+      debugPrint('[chat_provider] cancel $requestId ${ok ? 'confirmado' : 'no encontrado'}');
+    } catch (e) {
+      debugPrint('[chat_provider] cancel request error: $e');
     }
   }
 
@@ -828,21 +857,34 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Cancelar el flush pendiente ANTES de cerrar el cliente: evita que un
     // timer de 32ms escriba streamingText residual con generating=false.
     _cancelStreamFlush();
-    
-    // CORRECCIÓN CRÍTICA: Cerrar cliente con manejo de errores garantizado
+
+    // Gate R6 — cancel cooperativo: POST /cancel corta el stream en el
+    // servidor (incluso durante prefill) e invalida el KV de la sesión.
+    // Sin esto, cerrar solo el socket dejaba el worker calculando con KV a
+    // medias que el siguiente turno heredaba (estado corrupto).
+    final requestId = _activeRequestId;
+    _activeRequestId = null;
+    if (requestId != null) {
+      // Fire-and-forget con manejo de error: si /cancel falla, el cierre de
+      // socket de abajo sigue como fallback de corte de stream.
+      unawaited(_cancelCooperativo(requestId));
+    }
+
+    // Cerrar cliente HTTP. El bloque finally de _generateRound también
+    // intenta cerrarlo, por eso se marca null ANTES de cerrar para que
+    // el finally encuentre null y no haga doble decremento de _activeConnections.
     if (_streamClient != null) {
+      final clientToClose = _streamClient;
+      _streamClient = null; // marcar null primero para evitar doble cierre
+      if (_activeConnections > 0) _activeConnections--;
       try {
-        _streamClient!.close();
-        debugPrint('[chat_provider] Cliente HTTP cerrado por stop()');
+        clientToClose!.close();
+        debugPrint('[chat_provider] Cliente HTTP cerrado por stop(). Activas: $_activeConnections');
       } catch (e) {
         debugPrint('[chat_provider] Error cerrando cliente HTTP en stop(): $e');
-      } finally {
-        _streamClient = null;
-        _activeConnections--;
-        debugPrint('[chat_provider] Conexiones activas tras stop: $_activeConnections');
       }
     }
-    
+
     state = state.copyWith(generating: false, streamingText: '');
     _persistMessages();
   }

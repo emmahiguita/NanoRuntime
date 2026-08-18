@@ -720,7 +720,8 @@ class _FakeEngineClient extends LLMEngineClient {
   Future<void> close() => _controller.close();
 
   @override
-  ({Stream<LLMStreamToken> stream, http.Client client}) generateStream({
+  ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
+      generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,
@@ -728,8 +729,13 @@ class _FakeEngineClient extends LLMEngineClient {
     String? sessionId,
     String? context,
     List<Map<String, String>>? history,
+    String? requestId,
   }) {
-    return (stream: _controller.stream, client: http.Client());
+    return (
+      stream: _controller.stream,
+      client: http.Client(),
+      requestId: requestId ?? LLMEngineClient.newRequestId(),
+    );
   }
 }
 

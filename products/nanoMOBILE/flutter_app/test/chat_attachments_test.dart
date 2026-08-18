@@ -424,7 +424,8 @@ class _FakeEngineClient extends LLMEngineClient {
   int rounds = 0;
 
   @override
-  ({Stream<LLMStreamToken> stream, http.Client client}) generateStream({
+  ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
+      generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,
@@ -432,6 +433,7 @@ class _FakeEngineClient extends LLMEngineClient {
     String? sessionId,
     String? context,
     List<Map<String, String>>? history,
+    String? requestId,
   }) {
     prompts.add(prompt);
     final chunks = script[rounds < script.length ? rounds : script.length - 1];
@@ -446,7 +448,11 @@ class _FakeEngineClient extends LLMEngineClient {
         controller.close();
       },
     );
-    return (stream: controller.stream, client: http.Client());
+    return (
+      stream: controller.stream,
+      client: http.Client(),
+      requestId: requestId ?? LLMEngineClient.newRequestId(),
+    );
   }
 }
 
