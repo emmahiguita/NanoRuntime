@@ -12,6 +12,7 @@ cuda = ["llama-cpp-2/cuda"]  # Compila llama.cpp con backend CUDA (ggml-cuda.cu 
 mmap-streaming = ["llama-cpp-2/mmap-streaming"]  # Peso mmap-friendly (sin repack anon-RAM) para streaming > RAM
 android-jni = ["dep:jni"]    # JNI bridge for Android NanoRuntimeBridge.kt
 static-stdcxx = ["llama-cpp-2/static-stdcxx"]  # libc++ estático: binario autocontenido (sin libc++_shared.so)
+vulkan = ["llama-cpp-2/vulkan"]  # backend Vulkan (ggml-vulkan) para GPU Mali/Adreno
 
 [dependencies]
 thiserror = { workspace = true }

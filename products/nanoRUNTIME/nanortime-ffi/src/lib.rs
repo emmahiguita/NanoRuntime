@@ -3,6 +3,14 @@
 //! Wraps the `llama-cpp-2` crate to provide a clean, safe API
 //! for loading GGUF models and generating text with confidence scores.
 
+// Vulkan backend en Android: el build.rs de llama-cpp-sys-2 solo enlaza
+// `vulkan-1` (Windows) o `vulkan` (Linux host); para el target Android deja
+// el `-lvulkan` al crate superior. En runtime el ICD del driver provee la
+// implementación real (Mali/Adreno).
+#[cfg(all(target_os = "android", feature = "vulkan"))]
+#[link(name = "vulkan")]
+extern "C" {}
+
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::OnceLock;

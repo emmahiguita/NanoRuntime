@@ -14,6 +14,7 @@ lancedb = ["dep:lancedb"]
 unstable = []   # Duerme módulos del control plane que esperan hooks de llama.cpp inexistentes (mmap pointer, atención por capa, NGRAM, perplejidad de referencia). Sin estos hooks, conectarlos sería simulación. Ver src/memory_engine/mod.rs para el estado de conexión.
 mmap-streaming = ["nanortime-ffi/mmap-streaming"]  # Peso mmap-friendly (sin repack anon-RAM) para modelos > RAM
 static-stdcxx = ["nanortime-ffi/static-stdcxx"]  # libc++ estático para Android (sin libc++_shared.so)
+vulkan = ["nanortime-ffi/vulkan"]  # backend Vulkan para benchmark GPU
 
 [lib]
 crate-type = ["lib", "staticlib"]
