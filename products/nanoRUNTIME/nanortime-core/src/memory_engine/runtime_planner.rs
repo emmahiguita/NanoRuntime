@@ -309,14 +309,28 @@ impl fmt::Display for Viability {
 }
 
 /// Verdicto de viabilidad: distingue `can_run` (liveness) de
-/// `should_run_interactive` (utilidad prÃ¡ctica).
+/// `should_run_interactive` (utilidad práctica).
 #[derive(Debug, Clone)]
 pub struct ViabilityReport {
     pub can_run: bool,
     pub should_run_interactive: bool,
     pub viability: Viability,
     pub reason: String,
+    /// Predicción de decode en CPU (tok/s), heurística calibrada con medición
+    /// real. 0.0 = no estimado (backend acelerado lo sobreescribe).
+    pub predicted_decode_tok_s: f64,
 }
+
+/// Constante de calibración CPU: tok/s × tamaño_mb ≈ constante.
+/// Medido en OPPO CPH2557 (arm64, 4 threads):
+///   1.5B (1065 MB) → 4.2 tok/s → 4.2 × 1065 ≈ 4470
+///   9B  (5512 MB) → 0.31 tok/s (con throttling; en frío ~0.7)
+/// Se usa 4000 como punto medio conservador.
+const CPU_DECODE_CALIBRATION: f64 = 4000.0;
+
+/// Umbral de interactividad: por debajo de 1 tok/s la conversación no es
+/// usable (cada token tarda >1s). El planner marca no-interactivo.
+const INTERACTIVE_MIN_TOK_S: f64 = 1.0;
 
 // â”€â”€ The planner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -540,17 +554,20 @@ impl RuntimePlanner {
         let avail_mb = device.ram_available_mb.max(1) as f64;
         let ratio = model_size_mb as f64 / avail_mb;
 
+        // Predicción de decode en CPU (heurística calibrada con medición real).
+        let predicted_decode = CPU_DECODE_CALIBRATION / model_size_mb.max(1) as f64;
+
         let (viability, interactive, reason) = if ratio <= 0.7 {
             (
                 Viability::Fast,
                 true,
-                "modelo cabe cÃ³modamente en RAM".to_string(),
+                "modelo cabe cómodamente en RAM".to_string(),
             )
         } else if ratio <= 1.0 {
             (
                 Viability::Balanced,
                 true,
-                "modelo â‰ˆ RAM disponible: residencia adaptativa".to_string(),
+                "modelo ≈ RAM disponible: residencia adaptativa".to_string(),
             )
         } else if ratio <= 2.0 {
             (
@@ -562,15 +579,30 @@ impl RuntimePlanner {
             (
                 Viability::Extreme,
                 false,
-                "modelo >> RAM: thrashing extremo, generaciÃ³n no interactiva".to_string(),
+                "modelo >> RAM: thrashing extremo, generación no interactiva".to_string(),
             )
+        };
+
+        // Endurecimiento CPU: aunque "cabe" (streaming), un decode < 1 tok/s
+        // no es una experiencia interactiva. El planner distingue "vale la
+        // pena ejecutarlo así" de "solo cabe" — memory liveness y interactive
+        // performance son objetivos distintos (medido en OPPO: 9B = 0.31 tok/s).
+        let should_run_interactive = interactive && predicted_decode >= INTERACTIVE_MIN_TOK_S;
+        let reason = if interactive && !should_run_interactive {
+            format!(
+                "{}; decode CPU estimado {:.2} tok/s < 1.0 — no interactivo, requiere GPU/NPU",
+                reason, predicted_decode
+            )
+        } else {
+            reason
         };
 
         ViabilityReport {
             can_run: true,
-            should_run_interactive: interactive,
+            should_run_interactive,
             viability,
             reason,
+            predicted_decode_tok_s: predicted_decode,
         }
     }
 
@@ -1113,6 +1145,12 @@ mod tests {
         assert!(r_15b.should_run_interactive);
         let r_9b = planner.assess_viability(5512, &d);
         assert_eq!(r_9b.viability, Viability::Streaming);
+        assert!(r_9b.can_run);
+        // 9B en CPU ≈ 0.73 tok/s estimado (< 1.0) → no interactivo aunque
+        // "cabe" por streaming. Medido real en OPPO: 0.31 tok/s.
+        assert!(!r_9b.should_run_interactive);
+        assert!(r_9b.reason.contains("no interactivo"));
+        assert!(r_9b.predicted_decode_tok_s < 1.0);
         let r_27b = planner.assess_viability(18094, &d);
         assert_eq!(r_27b.viability, Viability::Extreme);
         assert!(r_27b.can_run);
