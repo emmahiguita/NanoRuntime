@@ -193,6 +193,19 @@ async fn main() -> anyhow::Result<()> {
         config.local_model.path = model_path.clone();
     }
 
+    // DEBUG/TEST: si el flag existe, fallar el load (modelo inválido) para
+    // probar el fallback al modelo seguro (prueba D) y el restart budget (E).
+    // El flag se borra para no fallar para siempre.
+    #[cfg(target_os = "android")]
+    {
+        let fail_flag = std::path::Path::new("/data/local/tmp/nano-fail-load");
+        if fail_flag.exists() {
+            let _ = std::fs::remove_file(fail_flag);
+            config.local_model.path = "/data/local/tmp/__missing_model__.gguf".to_string();
+            tracing::warn!("DEBUG: flag nano-fail-load → forzando modelo inválido");
+        }
+    }
+
     // Override max tokens if specified
     config.generation.max_tokens = cli.max_tokens;
 

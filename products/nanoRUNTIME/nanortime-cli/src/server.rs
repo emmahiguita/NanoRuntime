@@ -1023,6 +1023,12 @@ fn handle_http(
             FLAKY_HEALTH.store(3, std::sync::atomic::Ordering::SeqCst);
             send_json(&mut stream, "200 OK", r#"{"flaky":true,"count":3}"#);
         }
+        ("POST", "/debug/fail-load") => {
+            // DEBUG/TEST: crea el flag que hace fallar el PRÓXIMO load
+            // (prueba D fallback + E restart budget).
+            let _ = std::fs::write("/data/local/tmp/nano-fail-load", b"1");
+            send_json(&mut stream, "200 OK", r#"{"fail_load":true}"#);
+        }
         _ => {
             tracing::info!("HTTP: no route for {} {} → 404", method, path);
             write_all_or_log(
