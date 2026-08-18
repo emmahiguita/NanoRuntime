@@ -79,11 +79,15 @@ class SupervisorPolicy {
   final int consecutiveFailuresBeforeAction;
   final int restartBackoffMs;
   final int maxRestartsPerWindow;
+  /// Ticks de health fallido con proceso vivo (stalled) antes de escalar a
+  /// restart. Distingue "modelo lento" de "engine colgado".
+  final int stallTicksBeforeRestart;
 
   const SupervisorPolicy({
     this.consecutiveFailuresBeforeAction = 3,
     this.restartBackoffMs = 5000,
     this.maxRestartsPerWindow = 3,
+    this.stallTicksBeforeRestart = 5,
   });
 }
 
@@ -95,11 +99,13 @@ class EngineSupervisorState {
   int _consecutiveFailures = 0;
   int _restartsInWindow = 0;
   int _backoffUntilMs = 0;
+  int _stallTicks = 0;
 
   EngineSupervisorState({this.policy = const SupervisorPolicy()});
 
   void onHealthOk() {
     _consecutiveFailures = 0;
+    _stallTicks = 0;
     if (health == EngineHealthState.suspect ||
         health == EngineHealthState.unhealthy) {
       health = EngineHealthState.healthy;
@@ -126,12 +132,24 @@ class EngineSupervisorState {
     }
 
     if (processAlive) {
-      // Proceso vivo pero health falla N veces → posible generation stalled.
+      // Proceso vivo pero health falla N veces → posible stalled.
+      // Escalar a restart solo tras stall sostenido (evita confundir
+      // "modelo lento" con "engine colgado").
+      _stallTicks++;
       health = EngineHealthState.unhealthy;
+      if (_stallTicks >= policy.stallTicksBeforeRestart) {
+        _stallTicks = 0;
+        return _doRestart(nowMs);
+      }
       return RecoveryIntent.cancelGeneration;
     }
 
     // Proceso muerto → restart con backoff + presupuesto.
+    _stallTicks = 0;
+    return _doRestart(nowMs);
+  }
+
+  RecoveryIntent _doRestart(int nowMs) {
     if (nowMs < _backoffUntilMs) return RecoveryIntent.none;
     if (_restartsInWindow >= policy.maxRestartsPerWindow) {
       health = EngineHealthState.safeMode;
