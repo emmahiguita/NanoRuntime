@@ -25,5 +25,6 @@ libc = "0.2"
 
 [features]
 default = []
+simulated = ["nanortime-core/simulated"]  # Tests del server sin GGUF real
 mmap-streaming = ["nanortime-core/mmap-streaming"]  # Streaming > RAM (peso mmap-friendly, sin repack)
 v2 = []

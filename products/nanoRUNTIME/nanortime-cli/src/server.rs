@@ -687,9 +687,9 @@ fn handle_completion_sse(
         tokio::pin! {
             let start = runtime.process_request_streaming(request);
         }
-        let mut rx = tokio::select! {
+        let (result_rx, mut rx) = tokio::select! {
             res = &mut start => match res {
-                Ok((_, rx)) => rx,
+                Ok((result_rx, rx)) => (result_rx, rx),
                 Err(e) => return Err(format!("{}", e)),
             },
             changed = cancel_rx.changed() => {
@@ -700,7 +700,7 @@ fn handle_completion_sse(
                 // Sender dropped without a signal (registry cleanup raced):
                 // fall through and await the start future normally.
                 match start.await {
-                    Ok((_, rx)) => rx,
+                    Ok((result_rx, rx)) => (result_rx, rx),
                     Err(e) => return Err(format!("{}", e)),
                 }
             }
@@ -749,13 +749,34 @@ fn handle_completion_sse(
                 }
             }
         }
+        // Gate R10 — timings reales del turno (TTFT, prefill, cache hit/miss,
+        // tok/s). En cancel NO se espera el oneshot (el backend sigue
+        // generando sin abort hook): los timings se omiten honestamente.
+        let stats = if cancelled {
+            None
+        } else {
+            result_rx.await.ok().and_then(|resp| resp.stats)
+        };
+
         // Only send stop event if client is still connected
-        let stop_json = serde_json::json!({
+        let mut stop_json = serde_json::json!({
             "content": "",
             "stop": true,
             "request_id": request_id,
             "cancelled": cancelled,
         });
+        if let Some(ref s) = stats {
+            stop_json["timings"] = serde_json::json!({
+                "ttft_ms": s.ttft_ms,
+                "prefill_ms": s.prefill_ms,
+                "cache_hit_tokens": s.cache_hit_tokens,
+                "cache_miss_tokens": s.cache_miss_tokens,
+                "total_tokens": s.total_tokens,
+                "generated_tokens": s.generated_tokens,
+                "decode_tok_s": s.decode_tok_s,
+                "total_ms": s.total_ms,
+            });
+        }
         if write_all_or_log(stream, format!("data: {}\n\n", stop_json).as_bytes()) {
             let _ = stream.flush(); // Best-effort flush for stop event
         }
@@ -1200,5 +1221,99 @@ mod tests {
         state.record_session("req-3", "chat-b");
         assert_eq!(state.take_session("req-2"), Some("chat-a".to_string()));
         assert_eq!(state.take_session("req-3"), Some("chat-b".to_string()));
+    }
+
+    // ── Gate R10: timings en el frame SSE final (solo con feature simulated) ──
+
+    /// Crea un runtime simulado con un GGUF dummy (sin llama.cpp real).
+    /// El backend simulated emite `GenerationStats` deterministas (ceros),
+    /// suficientes para verificar la FORMA del frame SSE, no los valores.
+    #[cfg(feature = "simulated")]
+    fn simulated_runtime() -> Arc<NanoRuntime> {
+        let runtime = run_async(async {
+            let dir = std::env::temp_dir().join(format!(
+                "nano-simulated-test-{}",
+                std::process::id()
+            ));
+            std::fs::create_dir_all(&dir).expect("crear dir temporal");
+            let model_path = dir.join("dummy.gguf");
+            std::fs::write(&model_path, b"dummy gguf content").expect("escribir dummy");
+            let mut config = nanortime_core::Config::default_config();
+            config.local_model.path = model_path.to_string_lossy().to_string();
+            nanortime_core::NanoRuntime::new(config).await.expect("runtime simulado")
+        });
+        Arc::new(runtime)
+    }
+
+    /// Envía un request a través de un socket real contra `handle_http` con un
+    /// runtime YA cargado y lee la respuesta completa hasta EOF (el server
+    /// cierra la conexión al terminar el handler — SSE sin Content-Length).
+    #[cfg(feature = "simulated")]
+    fn drive_sse_with_runtime(request: &str, runtime: Arc<NanoRuntime>) -> (String, String) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let state = Arc::new(ServerState::new());
+        let state2 = Arc::clone(&state);
+        let slot: Arc<RwLock<RuntimeSlot>> =
+            Arc::new(RwLock::new(RuntimeSlot::Ready(runtime)));
+        let slot2 = Arc::clone(&slot);
+        let handle = std::thread::spawn(move || {
+            if let Ok((stream, _)) = listener.accept() {
+                handle_http(stream, &slot2, &state2);
+            }
+        });
+        let mut client = TcpStream::connect(addr).unwrap();
+        client
+            .set_read_timeout(Some(std::time::Duration::from_secs(30)))
+            .unwrap();
+        write_all_or_log(&mut client, request.as_bytes());
+        client.shutdown(std::net::Shutdown::Write).unwrap();
+
+        let mut buf = Vec::new();
+        let mut reader = BufReader::new(&mut client);
+        reader.read_to_end(&mut buf).expect("leer respuesta completa");
+        handle.join().unwrap();
+
+        let raw = String::from_utf8_lossy(&buf).to_string();
+        let status_line = raw.lines().next().unwrap_or("").to_string();
+        let body = raw.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
+        (status_line, body)
+    }
+
+    #[cfg(feature = "simulated")]
+    #[test]
+    fn completion_sse_final_frame_includes_timings() {
+        let runtime = simulated_runtime();
+        let (status, body) = drive_sse_with_runtime(
+            &http_request(
+                "POST",
+                "/completion",
+                r#"{"prompt":"hola","stream":true,"n_predict":4}"#,
+            ),
+            runtime,
+        );
+        assert!(status.starts_with("HTTP/1.1 200"), "status was: {}", status);
+
+        // Último frame `stop:true` debe traer el objeto `timings`.
+        let mut last_stop: Option<serde_json::Value> = None;
+        for line in body.lines() {
+            if let Some(data) = line.strip_prefix("data: ") {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(data) {
+                    if v["stop"].as_bool() == Some(true) {
+                        last_stop = Some(v);
+                    }
+                }
+            }
+        }
+        let last = last_stop.expect("frame stop:true presente en el SSE");
+        let timings = last["timings"].as_object().expect("timings presentes");
+        assert!(timings.contains_key("ttft_ms"));
+        assert!(timings.contains_key("prefill_ms"));
+        assert!(timings.contains_key("cache_hit_tokens"));
+        assert!(timings.contains_key("cache_miss_tokens"));
+        assert!(timings.contains_key("total_tokens"));
+        assert!(timings.contains_key("generated_tokens"));
+        assert!(timings.contains_key("decode_tok_s"));
+        assert!(timings.contains_key("total_ms"));
     }
 }

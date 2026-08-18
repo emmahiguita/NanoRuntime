@@ -111,7 +111,7 @@ pub struct Response {
 
 /// Gate R10 — métricas de latencia de una generación. Medidas en el backend
 /// (ffi), propagadas por ModelManager y expuestas en /completion (SSE final).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct GenerationStats {
     /// Tiempo hasta el primer token emitido (ms). Incluye prefill + decode.
     pub ttft_ms: u64,
