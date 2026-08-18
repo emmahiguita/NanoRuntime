@@ -68,5 +68,6 @@ pub async fn execute_cloud(tier3: &Tier3Config, prompt: &str) -> Result<Response
         sources: vec![],
         tokens_generated: 0,
         model_memory_mb: 0,
+        stats: None,
     })
 }

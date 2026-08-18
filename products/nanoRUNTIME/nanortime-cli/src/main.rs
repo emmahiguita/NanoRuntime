@@ -311,20 +311,78 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // Initialize runtime — salvo --no-model, donde el server arranca
-    // model-free: /health y /cancel responden, /completion devuelve
-    // 503 runtime_unavailable hasta que un GGUF esté instalado (B5).
-    let runtime: Option<Arc<NanoRuntime>> = if cli.no_model {
-        tracing::warn!(
-            "--no-model: server model-free — /completion responderá 503 hasta instalar un modelo"
-        );
-        None
+    // ── Server mode: HTTP+SSE for Flutter, Web UIs ─────────────────
+    if cli.server {
+        tracing::info!("Starting HTTP+SSE server on {}:{}", bind_addr, cli.port);
+
+        // Gate R1/R2: el socket se abre INMEDIATAMENTE (antes de cargar el
+        // modelo): /liveness responde desde el segundo cero. El runtime (GGUF)
+        // se carga en un thread de fondo y publica Ready en el slot cuando
+        // termina (Failed con causa si la carga aborta). /readiness refleja
+        // el estado explícito: MODEL_LOADING → 503, MODEL_READY → 200,
+        // MODEL_FAILED → 500. El cliente Flutter distingue "proceso vivo"
+        // de "modelo listo" — nunca más "motor llama.cpp no conectado".
+        let runtime_slot: std::sync::Arc<std::sync::RwLock<server::RuntimeSlot>> =
+            std::sync::Arc::new(std::sync::RwLock::new(server::RuntimeSlot::Loading));
+
+        let load_slot = runtime_slot.clone();
+        if cli.no_model {
+            tracing::warn!(
+                "--no-model: server model-free — /completion responderá 503 hasta instalar un modelo"
+            );
+        } else {
+            tracing::info!("Runtime: cargando modelo en background...");
+            // Clone: el closure consume config; el original queda para el
+            // modo CLI no-server (nunca alcanzado con --server, pero el
+            // borrow checker no lo sabe).
+            let bg_config = config.clone();
+            std::thread::spawn(move || {
+                // Runtime tokio propio por thread: NanoRuntime::new es async y
+                // necesita un reactor; el thread de fondo no tiene runtime.
+                let result = match tokio::runtime::Runtime::new() {
+                    Ok(runtime) => runtime.block_on(NanoRuntime::new(bg_config)),
+                    Err(e) => {
+                        tracing::error!("failed to build tokio runtime: {}", e);
+                        if let Ok(mut guard) = load_slot.write() {
+                            *guard = server::RuntimeSlot::Failed(e.to_string());
+                        }
+                        return;
+                    }
+                };
+                match result {
+                    Ok(rt) => {
+                        let arc = std::sync::Arc::new(rt);
+                        if let Ok(mut guard) = load_slot.write() {
+                            *guard = server::RuntimeSlot::Ready(arc);
+                        }
+                        tracing::info!("Runtime listo — modelo cargado, server activo");
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to initialize runtime: {}", e);
+                        // Gate R8: fallo explícito, no silencio. /readiness
+                        // responde 500 MODEL_FAILED con la causa real.
+                        if let Ok(mut guard) = load_slot.write() {
+                            *guard = server::RuntimeSlot::Failed(format!("{}", e));
+                        }
+                    }
+                }
+            });
+        }
+
+        server::run_server(runtime_slot, bind_addr, cli.port);
+        // run_server never returns — if it does, it panicked
+    }
+
+    // ── Modo CLI interactivo / prompt directo (sin --server) ──────
+    // Validado al inicio: --no-model sin --server aborta con bail!.
+    let runtime: Arc<NanoRuntime> = if cli.no_model {
+        unreachable!("--no-model sin --server fue rechazado arriba")
     } else {
         tracing::info!("Initializing runtime...");
         match NanoRuntime::new(config).await {
             Ok(rt) => {
                 tracing::info!("Runtime initialized successfully");
-                Some(Arc::new(rt))
+                Arc::new(rt)
             }
             Err(e) => {
                 tracing::error!("Failed to initialize runtime: {}", e);
@@ -339,16 +397,6 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     };
-
-    // ── Server mode: HTTP+SSE for Flutter, Web UIs ─────────────────
-    if cli.server {
-        tracing::info!("Starting HTTP+SSE server on {}:{}", bind_addr, cli.port);
-        server::run_server(runtime.clone(), bind_addr, cli.port);
-        // run_server never returns — if it does, it panicked
-    }
-
-    // Validado al inicio: --no-model sin --server aborta con bail!.
-    let runtime = runtime.expect("--no-model sin --server fue rechazado arriba");
 
     // Process input
     if let Some(prompt) = cli.prompt {
@@ -793,6 +841,7 @@ async fn interactive_chat(
                         sources: vec![],
                         tokens_generated: 0,
                         model_memory_mb: 0,
+                        stats: None,
                     }
                 });
 

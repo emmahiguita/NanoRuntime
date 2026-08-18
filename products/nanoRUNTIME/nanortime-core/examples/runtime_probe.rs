@@ -87,7 +87,7 @@ async fn main() {
             }
             println!();
             match res_rx.await {
-                Ok(Ok((text, _))) => println!("[probe] streaming OK: {} chars", text.len()),
+                Ok(Ok((text, _, _))) => println!("[probe] streaming OK: {} chars", text.len()),
                 Ok(Err(e)) => println!("[probe] streaming FAILED: {e}"),
                 Err(e) => println!("[probe] oneshot closed: {e}"),
             }

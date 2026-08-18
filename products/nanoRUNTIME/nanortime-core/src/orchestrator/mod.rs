@@ -574,6 +574,7 @@ impl Orchestrator {
                     sources: vec![],
                     tokens_generated: 0,
                     model_memory_mb: 0, // Populated from MemoryManager when model is loaded
+                    stats: None,
                 };
                 self.record_response_metrics(
                     &response,
@@ -1211,15 +1212,15 @@ impl Orchestrator {
         // empty response with a warning — never fabricate metrics.
         let (response_tx, response_rx) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
-            let (text, confidence_scores) = match result_rx.await {
-                Ok(Ok((t, s))) => (t, s),
+            let (text, confidence_scores, stats) = match result_rx.await {
+                Ok(Ok((t, s, st))) => (t, s, st),
                 Ok(Err(e)) => {
                     tracing::warn!("Streaming generation failed: {}", e);
-                    (String::new(), Vec::new())
+                    (String::new(), Vec::new(), crate::GenerationStats::default())
                 }
                 Err(_) => {
                     tracing::warn!("Streaming generation task died before reporting a result");
-                    (String::new(), Vec::new())
+                    (String::new(), Vec::new(), crate::GenerationStats::default())
                 }
             };
 
@@ -1238,8 +1239,9 @@ impl Orchestrator {
                         similarity: d.similarity,
                     })
                     .collect(),
-                tokens_generated: 0,
+                tokens_generated: stats.generated_tokens,
                 model_memory_mb: 0, // Populated from MemoryManager when model is loaded
+                stats: Some(stats),
             };
             let _ = response_tx.send(response);
         });
@@ -1531,6 +1533,7 @@ impl Orchestrator {
             sources: vec![],
             tokens_generated: 0,
             model_memory_mb: 0, // Populated from MemoryManager when model is loaded
+            stats: None,
         })
     }
 
@@ -1557,6 +1560,7 @@ impl Orchestrator {
             sources: vec![],
             tokens_generated: 0,
             model_memory_mb: 0, // Populated from MemoryManager when model is loaded
+            stats: None,
         })
     }
 

@@ -1163,6 +1163,33 @@ impl ModelManager {
         self.state.read().await.as_ref().map(|s| s.context_size)
     }
 
+    /// Gate R6 — invalida el KV cache persistente de la sesión activa.
+    ///
+    /// Se llama cuando una generación se cancela (POST /cancel o desconexión
+    /// del cliente): el KV contiene tokens a medias de un prompt interrumpido,
+    /// y reutilizarlo en el siguiente turno heredaría estado corrupto. Limpiar
+    /// el KV fuerza un prefill limpio en el siguiente turno: más lento, pero
+    /// SIEMPRE consistente (la regla de cancelación es "estado conocido").
+    pub async fn invalidate_session_kv(&self) {
+        #[cfg(not(feature = "simulated"))]
+        {
+            let mut g = self.state.write().await;
+            if let Some(s) = g.as_mut() {
+                if let Some(ref mut ctx) = s.context {
+                    ctx.clear_kv_cache();
+                    tracing::warn!("[NanoSession] KV invalidado por cancelación — siguiente turno hará prefill limpio");
+                }
+                s.active_session_id = None;
+            }
+        }
+        #[cfg(feature = "simulated")]
+        {
+            // Sin contexto llama.cpp persistente no hay KV que invalidar.
+            // El lock de lectura mantiene el método `async` sin warning.
+            let _ = self.state.read().await;
+        }
+    }
+
     /// Genera tokens de forma streaming, emitiendo cada token por un canal.
     ///
     /// La generación corre en un hilo separado (spawn_blocking) y el receiver
@@ -1181,7 +1208,9 @@ impl ModelManager {
         session_id: Option<&str>,
         temperature: Option<f32>,
     ) -> Result<(
-        tokio::sync::oneshot::Receiver<Result<(String, Vec<f32>)>>,
+        tokio::sync::oneshot::Receiver<
+            Result<(String, Vec<f32>, crate::GenerationStats)>,
+        >,
         TokenReceiver,
     )> {
         #[cfg(feature = "simulated")]
@@ -1208,7 +1237,7 @@ impl ModelManager {
                     tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
                 }
             });
-            let _ = res_tx.send(Ok((full_text, probs)));
+            let _ = res_tx.send(Ok((full_text, probs, crate::GenerationStats::default())));
             Ok((res_rx, tokio_rx))
         }
 
@@ -1356,7 +1385,23 @@ impl ModelManager {
                     },
                 );
 
-                restore_model_context(&state, model, Some(ctx), gen);
+                // Gate R5 — KV integrity: si la generación falló (error del
+                // backend, prefill abortado, stop anómalo), el KV cache puede
+                // quedar en estado inconsistente (tokens a medias). Reconstruir
+                // el contexto en lugar de restaurarlo: el siguiente turno arranca
+                // con KV limpio, nunca con estado dudoso heredado.
+                if result.is_err() {
+                    tracing::warn!(
+                        "[NanoSession] generación falló — descartando KV cache (reconstrucción en el siguiente turno)"
+                    );
+                }
+                let ctx_to_restore = if result.is_ok() {
+                    Some(ctx)
+                } else {
+                    ctx.clear_kv_cache();
+                    Some(ctx)
+                };
+                restore_model_context(&state, model, ctx_to_restore, gen);
 
                 let elapsed = request_start.elapsed().as_secs_f64();
                 let tokens_generated = result
@@ -1446,7 +1491,34 @@ impl ModelManager {
 
                 match result {
                     Ok(r) => {
-                        let _ = res_tx.send(Ok((r.text, r.token_probabilities)));
+                        // Gate R10 — stats del turno. cache_miss = tokens del
+                        // prompt no reutilizados; decode_tok_s = generados / (total - prefill).
+                        let elapsed_ms = request_start.elapsed().as_millis() as u64;
+                        let decode_secs = (elapsed_ms as f64 / 1000.0).max(0.001);
+                        let stats = crate::GenerationStats {
+                            ttft_ms: first_token_ms.load(Ordering::Relaxed),
+                            prefill_ms: r.prefill_ms,
+                            cache_hit_tokens: r.cache_hit_tokens,
+                            cache_miss_tokens: r
+                                .total_tokens
+                                .saturating_sub(r.cache_hit_tokens),
+                            total_tokens: r.total_tokens,
+                            generated_tokens: r.token_probabilities.len(),
+                            decode_tok_s: r.token_probabilities.len() as f64 / decode_secs,
+                            total_ms: elapsed_ms,
+                        };
+                        tracing::info!(
+                            "[GenerationStats] ttft_ms={} prefill_ms={} cache_hit={} cache_miss={} total_tokens={} generated={} tok_s={:.1} total_ms={}",
+                            stats.ttft_ms,
+                            stats.prefill_ms,
+                            stats.cache_hit_tokens,
+                            stats.cache_miss_tokens,
+                            stats.total_tokens,
+                            stats.generated_tokens,
+                            stats.decode_tok_s,
+                            stats.total_ms,
+                        );
+                        let _ = res_tx.send(Ok((r.text, r.token_probabilities, stats)));
                     }
                     Err(e) => {
                         let _ = res_tx.send(Err(NanoError::InferenceError { reason: e }));
