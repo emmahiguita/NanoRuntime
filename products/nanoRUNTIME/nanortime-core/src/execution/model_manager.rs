@@ -191,6 +191,17 @@ impl ModelManager {
             max_memory_mb: ((device.ram_available_mb as f64) * 0.6).max(512.0) as u64,
             ..crate::memory_engine::InferenceBudget::default()
         };
+        // Startup housekeeping: limpiar .tmp huérfanos (kill durante snapshot)
+        // y evictar .kv antiguos si exceden max_bytes (LRU por mtime).
+        let prefix_cache = PrefixCache::new(
+            std::env::temp_dir().join("nanoai-prefix-cache"),
+            true,
+        );
+        let cleaned = prefix_cache.housekeep();
+        if cleaned > 0 {
+            tracing::info!("[PrefixCache] housekeeping eliminó {} archivos", cleaned);
+        }
+
         let mgr = Self {
             config,
             state: Arc::new(RwLock::new(None)),
@@ -204,10 +215,7 @@ impl ModelManager {
             runtime_budget,
             last_plan: Arc::new(std::sync::Mutex::new(None)),
             residency: Arc::new(std::sync::Mutex::new(None)),
-            prefix_cache: PrefixCache::new(
-                std::env::temp_dir().join("nanoai-prefix-cache"),
-                true,
-            ),
+            prefix_cache,
         };
         // PLAN inicial con señales reales del OS (presupuesto, no modelo).
         mgr.plan_and_log();
