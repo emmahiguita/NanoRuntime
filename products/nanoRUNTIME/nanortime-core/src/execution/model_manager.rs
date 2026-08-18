@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use crate::config::manifest::Config;
 use crate::error::{NanoError, Result};
 #[cfg(not(feature = "simulated"))]
-use crate::execution::prefix_cache::{content_hash, PrefixKey};
+use crate::execution::prefix_cache::{content_hash, PrefixKey, PrefixLookup};
 use crate::execution::prefix_cache::PrefixCache;
 #[cfg(not(feature = "simulated"))]
 use crate::execution::session::{NanoSession, SessionState, template_hash};
@@ -1381,62 +1381,84 @@ impl ModelManager {
                     },
                 };
 
-                // V1.1 1B — prefill separado del prefix estático.
-                // Si hay prefix y la sesión es nueva (reuse_kv=false, KV ya
-                // limpio), se prefillea SOLO el prefix con decode_prompt (sin
-                // sampler). Luego generate_streaming(prompt completo)
-                // reutiliza el prefix vía common_prefix y decodifica solo el
-                // turno. Sin prefix (Gemma o sin system) → camino V1.
+                // V1.1 — prefix cache: HIT restaura el KV del prefix desde el
+                // snapshot (sin re-prefillear), MISS prefillea + guarda el
+                // snapshot. Solo en sesión nueva (reuse_kv=false). Sin prefix
+                // (Gemma o base model) → camino V1.
                 if let Some(prefix_text) = prefix_owned.as_deref() {
                     if !prefix_text.is_empty() && !reuse_kv {
-                        match LlamaCppBackend::tokenize(&model, prefix_text, true) {
-                            Ok(prefix_tokens) => {
-                                match LlamaCppBackend::decode_prompt(
-                                    &mut ctx,
-                                    &prefix_tokens,
-                                    false,
-                                ) {
-                                    Ok(n) => {
-                                        tracing::info!(
-                                            "[PrefixCache] prefill prefix: {} tokens (sin sampler)",
-                                            n
-                                        );
-                                        // Etapa 2 — snapshot del KV del prefix para
-                                        // reutilizar en conversaciones nuevas.
-                                        let key = PrefixKey::new(
-                                            model_path_s.clone(),
-                                            template_hash(chat_tpl.as_deref().unwrap_or("")),
-                                            content_hash(&[prefix_text]),
-                                            ctx_size,
-                                        );
-                                        let path = prefix_cache.snapshot_path(&key);
-                                        let path_str = path.to_string_lossy().to_string();
-                                        match LlamaCppBackend::save_state(&ctx, &path_str) {
-                                            Ok(bytes) => tracing::info!(
-                                                "[PrefixCache] snapshot OK: {} ({} bytes)",
-                                                path.display(),
-                                                bytes
-                                            ),
-                                            Err(e) => tracing::warn!(
-                                                "[PrefixCache] snapshot falló: {}",
-                                                e
-                                            ),
-                                        }
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!(
-                                            "[PrefixCache] prefill prefix falló ({}); continuando con prefill completo",
-                                            e
-                                        );
-                                        ctx.clear_kv_cache();
-                                    }
+                        let key = PrefixKey::new(
+                            model_path_s.clone(),
+                            template_hash(chat_tpl.as_deref().unwrap_or("")),
+                            content_hash(&[prefix_text]),
+                            ctx_size,
+                        );
+                        let mut needs_prefill = true;
+                        if prefix_cache.lookup(&key) == PrefixLookup::Hit {
+                            let path_str = prefix_cache
+                                .snapshot_path(&key)
+                                .to_string_lossy()
+                                .to_string();
+                            match LlamaCppBackend::load_state(&mut ctx, &path_str) {
+                                Ok(tokens) => {
+                                    tracing::info!(
+                                        "[PrefixCache] HIT: {} tokens del prefix restaurados",
+                                        tokens
+                                    );
+                                    needs_prefill = false;
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "[PrefixCache] restore falló ({}); prefill completo",
+                                        e
+                                    );
+                                    ctx.clear_kv_cache();
                                 }
                             }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "[PrefixCache] tokenize prefix falló ({}); continuando",
-                                    e
-                                );
+                        }
+                        if needs_prefill {
+                            // MISS o restore fallido: prefill + snapshot.
+                            match LlamaCppBackend::tokenize(&model, prefix_text, true) {
+                                Ok(prefix_tokens) => {
+                                    match LlamaCppBackend::decode_prompt(
+                                        &mut ctx,
+                                        &prefix_tokens,
+                                        false,
+                                    ) {
+                                        Ok(n) => {
+                                            tracing::info!(
+                                                "[PrefixCache] prefill prefix: {} tokens (sin sampler)",
+                                                n
+                                            );
+                                            let path = prefix_cache.snapshot_path(&key);
+                                            let path_str = path.to_string_lossy().to_string();
+                                            match LlamaCppBackend::save_state(&ctx, &path_str) {
+                                                Ok(bytes) => tracing::info!(
+                                                    "[PrefixCache] snapshot OK: {} ({} bytes)",
+                                                    path.display(),
+                                                    bytes
+                                                ),
+                                                Err(e) => tracing::warn!(
+                                                    "[PrefixCache] snapshot falló: {}",
+                                                    e
+                                                ),
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(
+                                                "[PrefixCache] prefill prefix falló ({}); continuando con prefill completo",
+                                                e
+                                            );
+                                            ctx.clear_kv_cache();
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "[PrefixCache] tokenize prefix falló ({}); continuando",
+                                        e
+                                    );
+                                }
                             }
                         }
                     }
