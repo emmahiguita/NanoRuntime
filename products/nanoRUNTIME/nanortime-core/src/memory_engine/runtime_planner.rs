@@ -180,6 +180,23 @@ pub enum ProfileConfidence {
     Unknown,
 }
 
+/// Decisión única de ejecución — el planner es la autoridad; Flutter no decide.
+/// Combina viabilidad (cabe / vale la pena) + backend recomendado + config
+/// recomendada. La UI solo traduce esto a RECOMENDADO/BALANCED/LENTO/EXPERIMENTAL.
+#[derive(Debug, Clone)]
+pub struct ExecutionDecision {
+    pub model_id: String,
+    pub backend: Backend,
+    pub viability: Viability,
+    pub can_run: bool,
+    pub should_run_interactive: bool,
+    pub predicted_decode_tok_s: f64,
+    pub threads: usize,
+    pub context_size: usize,
+    pub batch_size: usize,
+    pub reason: String,
+}
+
 /// Risk level of the resulting plan.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RiskLevel {
@@ -671,6 +688,49 @@ impl RuntimePlanner {
                 confidence: ProfileConfidence::Unknown,
                 reason: "NPU no detectado en este dispositivo".to_string(),
             },
+        }
+    }
+
+    /// Decisión de ejecución para un modelo+backend. Combina la viabilidad
+    /// (assess_viability) con el perfil del backend (backend_profile) y una
+    /// config recomendada. Si el backend no está recomendado, se degrada a CPU.
+    pub fn execution_decision(
+        &self,
+        model_id: &str,
+        model_size_mb: u64,
+        backend: Backend,
+        device: &DeviceProfile,
+    ) -> ExecutionDecision {
+        let v = self.assess_viability(model_size_mb, device);
+        let bp = self.backend_profile(backend);
+        let cpu_profile = self.backend_profile(Backend::Cpu);
+
+        // Si el backend pedido no está recomendado, degradar a CPU (siempre lo está).
+        let effective_backend = if bp.recommended { backend } else { Backend::Cpu };
+        let predicted = if effective_backend == Backend::Cpu {
+            cpu_profile
+                .measured_decode_tok_s
+                .unwrap_or(v.predicted_decode_tok_s)
+        } else {
+            bp.measured_decode_tok_s.unwrap_or(v.predicted_decode_tok_s)
+        };
+        let reason = if !bp.recommended && backend != Backend::Cpu {
+            format!("{}; usando CPU: {}", v.reason, bp.reason)
+        } else {
+            v.reason.clone()
+        };
+
+        ExecutionDecision {
+            model_id: model_id.to_string(),
+            backend: effective_backend,
+            viability: v.viability,
+            can_run: v.can_run,
+            should_run_interactive: v.should_run_interactive,
+            predicted_decode_tok_s: predicted,
+            threads: 4,
+            context_size: 4096,
+            batch_size: 256,
+            reason,
         }
     }
 
@@ -1249,5 +1309,22 @@ mod tests {
         let npu = planner.backend_profile(Backend::Npu);
         assert!(!npu.available);
         assert_eq!(npu.confidence, ProfileConfidence::Unknown);
+    }
+
+    #[test]
+    fn test_execution_decision_vulkan_degrades_to_cpu() {
+        let planner = RuntimePlanner::new();
+        let d = oppo();
+
+        // 1.5B en Vulkan → no recomendado (medido más lento) → degrada a CPU.
+        let dec = planner.execution_decision("qwen15", 1065, Backend::Vulkan, &d);
+        assert_eq!(dec.backend, Backend::Cpu, "Vulkan degrada a CPU en CPH2557");
+        assert!(dec.can_run);
+        assert!(dec.should_run_interactive);
+
+        // 9B en CPU → no interactivo (0.73 tok/s estimado).
+        let dec9 = planner.execution_decision("qwen9", 5512, Backend::Cpu, &d);
+        assert_eq!(dec9.backend, Backend::Cpu);
+        assert!(!dec9.should_run_interactive);
     }
 }
