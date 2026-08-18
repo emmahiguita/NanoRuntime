@@ -17,6 +17,64 @@ enum RecoveryIntent {
   restartEngine,
 }
 
+/// Estado de presión de memoria (P3), espejo del Rust `MemoryPressure`.
+enum MemoryPressureState { normal, pressure, critical, emergency }
+
+/// MemoryGuard con histéresis (P3): umbrales distintos para subir y bajar.
+/// Las acciones fuertes ocurren por TRANSICIÓN (newState != previous), no cada
+/// tick — evita `fallback → fallback → fallback` en EMERGENCY sostenido.
+class MemoryGuardState {
+  MemoryPressureState state = MemoryPressureState.normal;
+
+  final int enterPressureMb;
+  final int enterCriticalMb;
+  final int enterEmergencyMb;
+  final int hysteresisMb;
+
+  MemoryGuardState({
+    this.enterPressureMb = 1500,
+    this.enterCriticalMb = 800,
+    this.enterEmergencyMb = 400,
+    this.hysteresisMb = 200,
+  });
+
+  /// Actualiza el estado según MemAvailable. Subir es inmediato; bajar exige
+  /// margen extra (histéresis) para evitar oscilación.
+  MemoryPressureState update(int freeMemMb) {
+    if (freeMemMb < enterEmergencyMb) {
+      state = MemoryPressureState.emergency;
+    } else if (freeMemMb < enterCriticalMb) {
+      state = MemoryPressureState.critical;
+    } else if (freeMemMb < enterPressureMb) {
+      state = MemoryPressureState.pressure;
+    } else {
+      state = switch (state) {
+        MemoryPressureState.emergency
+            when freeMemMb > enterEmergencyMb + hysteresisMb =>
+          MemoryPressureState.critical,
+        MemoryPressureState.critical
+            when freeMemMb > enterCriticalMb + hysteresisMb =>
+          MemoryPressureState.pressure,
+        MemoryPressureState.pressure
+            when freeMemMb > enterPressureMb + hysteresisMb =>
+          MemoryPressureState.normal,
+        _ => state,
+      };
+    }
+    return state;
+  }
+
+  /// Intención de recuperación que corresponde al estado actual.
+  RecoveryIntent intent() {
+    return switch (state) {
+      MemoryPressureState.normal => RecoveryIntent.none,
+      MemoryPressureState.pressure => RecoveryIntent.trimCaches,
+      MemoryPressureState.critical => RecoveryIntent.cancelGeneration,
+      MemoryPressureState.emergency => RecoveryIntent.fallbackSafeModel,
+    };
+  }
+}
+
 class SupervisorPolicy {
   final int consecutiveFailuresBeforeAction;
   final int restartBackoffMs;

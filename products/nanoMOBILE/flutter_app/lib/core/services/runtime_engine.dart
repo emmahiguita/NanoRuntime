@@ -87,6 +87,14 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
   /// Android detectando el mismo problema ejecutan UNA sola recuperación.
   bool _recoveryInProgress = false;
 
+  /// MemoryGuard (P3): telemetría real → estado → intent, por transición.
+  final MemoryGuardState _memoryGuard = MemoryGuardState();
+  MemoryPressureState? _lastMemoryState;
+
+  /// Parada deliberada por memoria/térmica: el supervisor NO reinicia
+  /// inmediatamente (evita el loop MemoryGuard↔Supervisor).
+  bool _deliberateStop = false;
+
   /// Espera mÃ¡xima por el estado `ready` tras arrancar (poll 250ms).
   static const Duration startTimeout = Duration(seconds: 45);
 
@@ -281,6 +289,7 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     _healthTimer?.cancel();
     _healthTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       unawaited(_healthTick());
+      unawaited(_memoryTick());
     });
   }
 
@@ -297,10 +306,56 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     final intent = _supervisor.onHealthFail(
       nowMs: DateTime.now().millisecondsSinceEpoch,
       processAlive: processAlive,
+      deliberateStop: _deliberateStop,
     );
     if (intent != RecoveryIntent.none) {
       await _recover(intent);
     }
+  }
+
+  /// Muestreo de memoria (P3): MemAvailable → MemoryGuard.update → intent.
+  /// Las acciones fuertes ocurren por TRANSICIÓN (newState != previous), no
+  /// cada tick — evita fallback repetido en EMERGENCY sostenido.
+  Future<void> _memoryTick() async {
+    if (_recoveryInProgress) return;
+    final metrics = await _api.getMetrics();
+    if (metrics == null) return;
+    final freeMemMb = _extractFreeMemMb(metrics);
+    if (freeMemMb == null) return;
+
+    final newState = _memoryGuard.update(freeMemMb);
+    if (newState == _lastMemoryState) return; // sin transición: no actuar
+    _lastMemoryState = newState;
+    debugPrint(
+      '[engine] memory ${newState.name} (${freeMemMb}MB libre)',
+    );
+
+    if (newState == MemoryPressureState.normal) {
+      // Recuperado: permitir que el supervisor vuelva a actuar.
+      _deliberateStop = false;
+      return;
+    }
+    final intent = _memoryGuard.intent();
+    if (intent == RecoveryIntent.none) return;
+    // Escalada por transición: marcar parada deliberada para que el
+    // supervisor NO reinicie mientras la presión siga alta.
+    _deliberateStop = true;
+    await _recover(intent);
+  }
+
+  int? _extractFreeMemMb(Map<dynamic, dynamic> m) {
+    for (final k in [
+      'memAvailableMb',
+      'mem_available_mb',
+      'availableMb',
+      'available_mb',
+      'MemAvailable',
+      'freeMemMb',
+    ]) {
+      final v = m[k];
+      if (v is num) return v.toInt();
+    }
+    return null;
   }
 
   /// Ejecutor serializado: una sola recuperación a la vez, sin importar
