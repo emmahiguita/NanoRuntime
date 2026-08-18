@@ -570,8 +570,10 @@ impl Orchestrator {
         };
 
         // Step 3: Build augmented context
-        let augmented_prompt = self
-            .build_augmented_prompt(prompt, &rag_docs, &request)
+        // (prefix descartado aquí: el prefill separado solo aplica al
+        // camino streaming; execute_local usa generate no-streaming.)
+        let (augmented_prompt, _prefix) = self
+            .build_augmented_prompt_with_prefix(prompt, &rag_docs, &request)
             .await;
 
         // Cloud safety must be based on the exact prompt that may leave the
@@ -853,12 +855,15 @@ impl Orchestrator {
         text.chars().take(max_chars).collect()
     }
 
-    async fn build_augmented_prompt(
+    /// Construye el prompt aumentado + el prefix estático (V1.1 1B).
+    /// `prefix` = Some(static_prefix) solo para instruct models con system
+    /// separable; None para base models (o instruct sin system, p. ej. Gemma).
+    async fn build_augmented_prompt_with_prefix(
         &self,
         prompt: &str,
         rag_docs: &[crate::SourceDocument],
         request: &UserRequest,
-    ) -> String {
+    ) -> (String, Option<String>) {
         // Detectar instruct-ness por la metadata del GGUF cargado (señal
         // autoritativa: los modelos base no traen tokenizer.chat_template).
         // El nombre del archivo queda como fallback para modelos sin metadata.
@@ -874,7 +879,23 @@ impl Orchestrator {
 
         // ── Instruct model path: use proper chat template ──────────
         if is_instruct {
-            return self.build_instruct_prompt(prompt, rag_docs, request).await;
+            let parts = self
+                .build_instruct_prompt_parts(prompt, rag_docs, request)
+                .await;
+            // PrefixMeta expuesto para el gate de invalidación (Etapa 2).
+            tracing::debug!(
+                "[PrefixCache] prefix={}B turn={}B meta={:?}",
+                parts.static_prefix.len(),
+                parts.dynamic_turn.len(),
+                parts.prefix_meta
+            );
+            let full = format!("{}{}", parts.static_prefix, parts.dynamic_turn);
+            let prefix = if parts.static_prefix.is_empty() {
+                None
+            } else {
+                Some(parts.static_prefix)
+            };
+            return (full, prefix);
         }
 
         // ── Base model path: generic format ────────────────────────
@@ -976,10 +997,10 @@ impl Orchestrator {
             }
             budget_parts.push(format!("User: {}", prompt));
             budget_parts.push("Assistant:".to_string());
-            return budget_parts.join("\n");
+            return (budget_parts.join("\n"), None);
         }
 
-        joined
+        (joined, None)
     }
 
     /// Builds a prompt using the Qwen/Llama chat template for instruct models.
@@ -993,6 +1014,7 @@ impl Orchestrator {
     ///
     /// Uses `<|im_start|>/<|im_end|>` markers compatible with Qwen 2.x, Llama 3.x,
     /// and other modern instruct models.
+    #[cfg(test)]
     async fn build_instruct_prompt(
         &self,
         prompt: &str,
@@ -1249,8 +1271,8 @@ impl Orchestrator {
             vec![]
         };
 
-        let augmented_prompt = self
-            .build_augmented_prompt(prompt, &rag_docs, &request)
+        let (augmented_prompt, prefix) = self
+            .build_augmented_prompt_with_prefix(prompt, &rag_docs, &request)
             .await;
 
         // Generate with streaming — returns the token receiver immediately;
@@ -1265,6 +1287,7 @@ impl Orchestrator {
                     .unwrap_or(self.config.generation.max_tokens),
                 request.session_id.as_deref(),
                 request.temperature,
+                prefix.as_deref(),
             )
             .await?;
 

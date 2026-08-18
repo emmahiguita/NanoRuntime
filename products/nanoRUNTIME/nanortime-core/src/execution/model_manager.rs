@@ -1240,6 +1240,7 @@ impl ModelManager {
         max_tokens: usize,
         session_id: Option<&str>,
         temperature: Option<f32>,
+        prefix: Option<&str>,
     ) -> Result<(
         tokio::sync::oneshot::Receiver<
             Result<(String, Vec<f32>, crate::GenerationStats)>,
@@ -1247,7 +1248,7 @@ impl ModelManager {
         TokenReceiver,
     )> {
         #[cfg(feature = "simulated")]
-        let _ = (session_id, temperature);
+        let _ = (session_id, temperature, prefix);
         let (tokio_tx, tokio_rx) = tokio::sync::mpsc::channel(max_tokens.max(4096));
         let (res_tx, res_rx) = tokio::sync::oneshot::channel();
 
@@ -1277,6 +1278,7 @@ impl ModelManager {
         #[cfg(not(feature = "simulated"))]
         {
             let prompt_owned = prompt.to_string();
+            let prefix_owned = prefix.map(str::to_string);
             let session_id_owned = session_id.map(str::to_string);
             let gp = BackendGenerateParams {
                 max_tokens,
@@ -1286,7 +1288,7 @@ impl ModelManager {
                 stop_sequences: self.config.generation.stop_sequences.clone(),
             };
 
-            let (model, context, load_params, gen) = {
+            let (model, context, load_params, gen, reuse_kv) = {
                 let mut g = self.state.write().await;
                 let s = g.as_mut().ok_or_else(|| NanoError::Internal {
                     message: "No model loaded".to_string(),
@@ -1331,7 +1333,7 @@ impl ModelManager {
                     ));
                 }
                 let lp = s.load_params.clone();
-                (m, ctx, lp, gen)
+                (m, ctx, lp, gen, reuse_kv)
             };
 
             let state = Arc::clone(&self.state);
@@ -1361,6 +1363,44 @@ impl ModelManager {
                         }
                     },
                 };
+
+                // V1.1 1B — prefill separado del prefix estático.
+                // Si hay prefix y la sesión es nueva (reuse_kv=false, KV ya
+                // limpio), se prefillea SOLO el prefix con decode_prompt (sin
+                // sampler). Luego generate_streaming(prompt completo)
+                // reutiliza el prefix vía common_prefix y decodifica solo el
+                // turno. Sin prefix (Gemma o sin system) → camino V1.
+                if let Some(prefix_text) = prefix_owned.as_deref() {
+                    if !prefix_text.is_empty() && !reuse_kv {
+                        match LlamaCppBackend::tokenize(&model, prefix_text, true) {
+                            Ok(prefix_tokens) => {
+                                match LlamaCppBackend::decode_prompt(
+                                    &mut ctx,
+                                    &prefix_tokens,
+                                    false,
+                                ) {
+                                    Ok(n) => tracing::info!(
+                                        "[PrefixCache] prefill prefix: {} tokens (sin sampler)",
+                                        n
+                                    ),
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "[PrefixCache] prefill prefix falló ({}); continuando con prefill completo",
+                                            e
+                                        );
+                                        ctx.clear_kv_cache();
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "[PrefixCache] tokenize prefix falló ({}); continuando",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
 
                 // Baseline de métricas REALES antes de generar — sin él, el
                 // primer fault_rate no tendría delta contra el que comparar.

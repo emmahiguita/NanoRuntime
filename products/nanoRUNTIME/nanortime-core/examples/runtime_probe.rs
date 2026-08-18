@@ -78,7 +78,7 @@ async fn main() {
     // (latencia inter-token REAL) + snapshot post-gen [RuntimeMetrics]
     println!("\n═══ 3. Streaming real — callback de tokens ═══");
     match mgr
-        .generate_streaming("Say hi.", 16, Some("probe-session"), None)
+        .generate_streaming("Say hi.", 16, Some("probe-session"), None, None)
         .await
     {
         Ok((res_rx, mut tok_rx)) => {
