@@ -149,6 +149,37 @@ impl fmt::Display for Backend {
     }
 }
 
+/// Perfil de rendimiento de un backend en un dispositivo concreto.
+///
+/// `available` ≠ `recommended`: un backend puede estar disponible pero ser
+/// más lento que CPU. Medido en OPPO CPH2557 (Mali-G57 MC2, 1.5B):
+/// Vulkan decode 2.52 vs CPU 4.17 tok/s → disponible pero NO recomendado.
+/// El planner dice "Vulkan soportado pero más lento que CPU" en vez de
+/// "Vulkan soportado".
+#[derive(Debug, Clone)]
+pub struct BackendProfile {
+    pub backend: Backend,
+    pub available: bool,
+    pub recommended: bool,
+    /// Decode medido en este device (tok/s). None = no medido.
+    pub measured_decode_tok_s: Option<f64>,
+    /// Prefill medido en este device (tok/s). None = no medido.
+    pub measured_prefill_tok_s: Option<f64>,
+    pub confidence: ProfileConfidence,
+    pub reason: String,
+}
+
+/// Origen del dato de rendimiento del perfil.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileConfidence {
+    /// Medido en este dispositivo exacto (benchmark real).
+    Measured,
+    /// Estimado por heurística (tamaño de modelo / familia de GPU).
+    Heuristic,
+    /// Sin dato disponible.
+    Unknown,
+}
+
 /// Risk level of the resulting plan.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RiskLevel {
@@ -603,6 +634,43 @@ impl RuntimePlanner {
             viability,
             reason,
             predicted_decode_tok_s: predicted_decode,
+        }
+    }
+
+    /// Perfil de backend para este dispositivo. Codifica el dato medido real
+    /// (OPPO CPH2557, ver docs/benchmarks/oppo-cph2557-vulkan.md) como punto
+    /// de partida; en otro device el perfil se re-mide y sustituye la heurística.
+    pub fn backend_profile(&self, backend: Backend) -> BackendProfile {
+        match backend {
+            Backend::Cpu => BackendProfile {
+                backend,
+                available: true,
+                recommended: true,
+                measured_decode_tok_s: Some(4.17), // CPH2557 1.5B Q4_K_M
+                measured_prefill_tok_s: None,
+                confidence: ProfileConfidence::Measured,
+                reason: "CPU es la ruta por defecto y la referencia".to_string(),
+            },
+            Backend::Vulkan => BackendProfile {
+                backend,
+                available: true,
+                // Medido más lento que CPU en Mali-G57 MC2 (matrix cores: none).
+                // En Adreno/Mali alto el resultado puede invertirse → re-medir.
+                recommended: false,
+                measured_decode_tok_s: Some(2.52), // CPH2557 1.5B, gpu_layers=99
+                measured_prefill_tok_s: None,
+                confidence: ProfileConfidence::Measured,
+                reason: "más lento que CPU en Mali-G57 MC2 (sin matrix cores)".to_string(),
+            },
+            Backend::Npu => BackendProfile {
+                backend,
+                available: false,
+                recommended: false,
+                measured_decode_tok_s: None,
+                measured_prefill_tok_s: None,
+                confidence: ProfileConfidence::Unknown,
+                reason: "NPU no detectado en este dispositivo".to_string(),
+            },
         }
     }
 
@@ -1162,5 +1230,24 @@ mod tests {
     fn test_quant_display() {
         assert_eq!(QuantLevel::Q4.to_string(), "Q4_K_M");
         assert_eq!(QuantLevel::Q8.to_string(), "Q8_0");
+    }
+
+    #[test]
+    fn test_backend_profile_measured() {
+        let planner = RuntimePlanner::new();
+        let cpu = planner.backend_profile(Backend::Cpu);
+        assert!(cpu.available);
+        assert!(cpu.recommended);
+        assert_eq!(cpu.confidence, ProfileConfidence::Measured);
+
+        // Medido en OPPO CPH2557: Vulkan más lento que CPU en Mali-G57 MC2.
+        let vulkan = planner.backend_profile(Backend::Vulkan);
+        assert!(vulkan.available, "Vulkan está disponible");
+        assert!(!vulkan.recommended, "pero no recomendado (más lento que CPU)");
+        assert!(vulkan.measured_decode_tok_s.unwrap() < cpu.measured_decode_tok_s.unwrap());
+
+        let npu = planner.backend_profile(Backend::Npu);
+        assert!(!npu.available);
+        assert_eq!(npu.confidence, ProfileConfidence::Unknown);
     }
 }
