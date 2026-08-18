@@ -164,6 +164,25 @@ impl OomGuard {
         }
     }
 
+    /// Clasificacion pura del riesgo (sin I/O). Testeable de forma
+    /// determinista: sample() lee /proc y depende de la plataforma.
+    fn classify_risk(
+        score: i32,
+        medium_threshold: i32,
+        high_threshold: i32,
+        critical_threshold: i32,
+    ) -> OomRisk {
+        if score >= critical_threshold {
+            OomRisk::Critical
+        } else if score >= high_threshold {
+            OomRisk::High
+        } else if score >= medium_threshold {
+            OomRisk::Medium
+        } else {
+            OomRisk::Low
+        }
+    }
+
     /// Sample the current OOM state and return a snapshot.
     ///
     /// This is the main entry point. Called before each inference cycle
@@ -184,22 +203,19 @@ impl OomGuard {
         }
 
         // Classify risk
-        let risk = if oom_score >= self.critical_threshold {
-            OomRisk::Critical
-        } else if oom_score >= self.high_threshold {
-            OomRisk::High
-        } else if oom_score >= self.medium_threshold {
-            OomRisk::Medium
-        } else {
-            if oom_score < self.low_threshold {
-                tracing::trace!(
-                    "OOM score {} below low threshold {}",
-                    oom_score,
-                    self.low_threshold
-                );
-            }
-            OomRisk::Low
-        };
+        if oom_score < self.low_threshold {
+            tracing::trace!(
+                "OOM score {} below low threshold {}",
+                oom_score,
+                self.low_threshold
+            );
+        }
+        let risk = Self::classify_risk(
+            oom_score,
+            self.medium_threshold,
+            self.high_threshold,
+            self.critical_threshold,
+        );
 
         // Update high-risk counter
         match risk {
@@ -357,10 +373,22 @@ mod tests {
 
     #[test]
     fn test_risk_classification() {
-        let mut guard = OomGuard::with_thresholds(10, 20, 30, 40);
-        // Sample with default 0 score should be Low
-        let snap = guard.sample();
-        assert_eq!(snap.risk, OomRisk::Low);
+        // Clasificacion pura (determinista). El test anterior dependia de
+        // /proc/self/oom_score: en CI Linux el runner tiene score real > 0
+        // y el assert de Low fallaba; en Windows no existe /proc (0, Low).
+        let low = OomGuard::classify_risk(5, 20, 30, 40);
+        assert_eq!(low, OomRisk::Low);
+        let medium = OomGuard::classify_risk(25, 20, 30, 40);
+        assert_eq!(medium, OomRisk::Medium);
+        let high = OomGuard::classify_risk(35, 20, 30, 40);
+        assert_eq!(high, OomRisk::High);
+        let critical = OomGuard::classify_risk(50, 20, 30, 40);
+        assert_eq!(critical, OomRisk::Critical);
+        // Limites exactos
+        assert_eq!(OomGuard::classify_risk(10, 20, 30, 40), OomRisk::Low);
+        assert_eq!(OomGuard::classify_risk(20, 20, 30, 40), OomRisk::Medium);
+        assert_eq!(OomGuard::classify_risk(30, 20, 30, 40), OomRisk::High);
+        assert_eq!(OomGuard::classify_risk(40, 20, 30, 40), OomRisk::Critical);
     }
 
     #[test]

@@ -138,7 +138,7 @@ impl CacheAwareLoader {
         let page_size = self.detect_page_size();
         let aligned_start = (byte_start / page_size) * page_size;
         let aligned_size =
-            ((window_size + (byte_start - aligned_start) + page_size - 1) / page_size) * page_size;
+            (window_size + (byte_start - aligned_start)).div_ceil(page_size) * page_size;
         let ptr = unsafe {
             libc::mmap(
                 std::ptr::null_mut(),
@@ -152,7 +152,7 @@ impl CacheAwareLoader {
         if ptr == libc::MAP_FAILED {
             return Err(io::Error::last_os_error());
         }
-        self.mmap_base_offset = aligned_start as usize;
+        self.mmap_base_offset = aligned_start;
         if self.config.use_page_cache_hints {
             // MADV_SEQUENTIAL is advisory — failure degrades to default
             // kernel behavior and is not a hard error. Log for diagnostics.

@@ -259,9 +259,7 @@ fn detect_big_cores_linux(total_cores: u32) -> u32 {
     // Most Android SoCs have 2 big cores (2+6 or 2+4 configs).
     // Using big_cores = 2 avoids LITTLE-core cache thrashing.
     // Desktop/server with homogeneous cores gets total_cores / 2.
-    if total_cores >= 8 {
-        2
-    } else if total_cores >= 6 {
+    if total_cores >= 6 {
         2
     } else {
         total_cores.max(1)

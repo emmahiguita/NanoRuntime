@@ -163,12 +163,16 @@ pub extern "C" fn nanortime_streaming_can_run(
 ) -> std::os::raw::c_int {
     catch_unwind(std::panic::AssertUnwindSafe(|| {
         let bytes_per_layer = 140 * 1024 * 1024;
-        if can_stream_model(
+        // allow: c_ulong == u64 en targets 64-bit (cast redundante ahi) pero
+        // necesario en armv7 (32-bit, u32 -> u64). Adaptacion FFI intencional.
+        #[allow(clippy::unnecessary_cast)]
+        let streamable = can_stream_model(
             total_layers as usize,
             window_layers as usize,
             bytes_per_layer,
             ram_total_mb as u64,
-        ) {
+        );
+        if streamable {
             1
         } else {
             0
