@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'nano_runtime_api.dart';
 import 'llm_engine_client.dart';
@@ -75,7 +75,8 @@ class EngineStatus {
 ///
 /// El [client] es la interfaz de inferencia (SSE /completion) que consumen
 /// ChatNotifier y demÃ¡s: nadie crea LLMEngineClient directo.
-class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
+class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
+    with WidgetsBindingObserver {
   final NanoRuntimeApi _api;
   final LLMEngineClient _client;
 
@@ -102,7 +103,19 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
     : _client = LLMEngineClient(baseUrl: 'http://127.0.0.1:$port'),
       super(EngineStatus(port: port)) {
     _api.setEngineStateListener(_onEngineStateEvent);
+    WidgetsBinding.instance.addObserver(this);
     _startHealthMonitor();
+  }
+
+  /// Al volver a foreground, re-verificar el motor de inmediato: el timer de
+  /// health se pausa en background (Android suspende timers) y un crash durante
+  /// ese tiempo no se habría detectado. Cierra el gap de la prueba F.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    if (lifecycleState == AppLifecycleState.resumed) {
+      debugPrint('[engine] lifecycle resumed → health check inmediato');
+      unawaited(_healthTick());
+    }
   }
 
   /// Cliente HTTP de inferencia contra el motor. Ãšnico punto de acceso.
@@ -419,6 +432,7 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus> {
   @override
   void dispose() {
     _healthTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _api.clearEngineStateListener();
     _client.dispose();
     super.dispose();
