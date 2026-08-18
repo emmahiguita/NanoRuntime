@@ -39,8 +39,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Timer? _flushTimer;
   String _sessionId = _newSessionId();
 
+  /// Contador monótono: garantiza unicidad entre sesiones generadas en el
+  /// mismo microsegundo (rotación inmediata al cambiar de modelo).
+  static int _sessionSeq = 0;
+
   static String _newSessionId() =>
-      'chat-${DateTime.now().microsecondsSinceEpoch}';
+      'chat-${DateTime.now().microsecondsSinceEpoch}-${++_sessionSeq}';
+
+  /// Gate R5 — session_id activa. Visible para tests: verificar que cambiar
+  /// de modelo rota la sesión (el KV viejo nunca se reutiliza).
+  @visibleForTesting
+  String get sessionId => _sessionId;
 
   /// Tiempo maximo sin tokens antes de abortar el stream como fallo real.
   static const Duration _streamIdleTimeout = Duration(seconds: 45);
@@ -960,6 +969,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
         '[chat_provider] selectModel extreme ($name) sin confirmación — ignorado',
       );
       return;
+    }
+    // Gate R5 — rotar sesión al cambiar de modelo: garantiza que el KV viejo
+    // nunca se reutilice aunque el motor NO se reinicie (el core ya resetea la
+    // sesión en load_model, esto es defensa extra en el cliente).
+    if (name != state.activeModel) {
+      _sessionId = _newSessionId();
+      debugPrint('[chat_provider] modelo cambiado → nueva sesión $_sessionId');
     }
     // SELinux impide que la app rearranque el motor per-selección.
     state = state.copyWith(
