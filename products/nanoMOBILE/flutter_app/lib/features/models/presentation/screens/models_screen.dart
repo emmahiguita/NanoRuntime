@@ -192,6 +192,15 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       body: Stack(
         children: [
           const Positioned.fill(child: NanoAmbientBackground()),
+          if (!state.allFilesGranted)
+            Positioned(
+              top: 8,
+              left: 16,
+              right: 16,
+              child: _AllFilesBanner(
+                onGrant: () => notifier.requestAllFilesAccess(),
+              ),
+            ),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -1701,5 +1710,42 @@ String _statusLabel(ModelUiStatus status) {
       return 'ERROR';
     case ModelUiStatus.incompatible:
       return 'INCOMPATIBLE';
+  }
+}
+
+/// Banner de "conceder acceso a todos los archivos" (P7): en Android 11+
+/// escanear /storage/emulated/0 requiere MANAGE_EXTERNAL_STORAGE, que no se
+/// concede en runtime. Guía al usuario al ajuste exacto con un solo toque.
+class _AllFilesBanner extends StatelessWidget {
+  const _AllFilesBanner({required this.onGrant});
+
+  final VoidCallback onGrant;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return Material(
+      color: colors.warning.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(12),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Acceso al storage no concedido — no se detectan tus modelos.',
+                style: TextStyle(color: colors.warning, fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: onGrant,
+              child: const Text('Conceder'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
