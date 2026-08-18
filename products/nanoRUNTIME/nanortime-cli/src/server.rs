@@ -1002,6 +1002,12 @@ fn handle_http(
             handle_completion_sse(&mut stream, &body, runtime_slot, state)
         }
         ("POST", "/api/chat") => handle_chat_json(&mut stream, &body, runtime_slot),
+        ("POST", "/debug/kill") => {
+            // DEBUG/TEST: simula un crash real del server (proceso muere sin
+            // aviso). El watchdog de la app debe detectarlo y reiniciar.
+            tracing::warn!("DEBUG: /debug/kill — terminando proceso deliberadamente");
+            std::process::exit(1);
+        }
         _ => {
             tracing::info!("HTTP: no route for {} {} → 404", method, path);
             write_all_or_log(

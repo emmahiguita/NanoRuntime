@@ -182,6 +182,24 @@ class EngineSupervisor(
     }
 
     /**
+     * DEBUG/TEST: envía SIGKILL al proceso nanortime para simular un crash
+     * real. El proceso comparte UID con la app, así que Process.sendSignal
+     * funciona sin root. Sirve para la batería A-L del watchdog.
+     */
+    fun debugKillEngine(): Boolean {
+        val h = synchronized(lock) { handle } ?: return false
+        if (h.pid <= 0) return false
+        return try {
+            android.os.Process.sendSignal(h.pid, 9) // SIGKILL
+            Log.w(TAG, "debugKillEngine: SIGKILL enviado a PID ${h.pid}")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "debugKillEngine falló: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Arranca el motor. Idempotente: si el PID registrado sigue vivo devuelve
      * Ready sin re-spawn (la guarda del C mata duplicados por binario de
      * todos modos). `modelPath` null = server model-free (--no-model); en B5

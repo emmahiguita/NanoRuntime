@@ -41,6 +41,7 @@ class EngineChannelHandler(
             "state" -> handleVerifiedState(result)
             "health" -> handleHealth(result)
             "stop" -> handleStop(result)
+            "debugKill" -> result.success(engineSupervisor.debugKillEngine())
             "ensureExtracted" -> handleEnsureExtracted(result)
             else -> result.notImplemented()
         }

@@ -667,6 +667,17 @@ class NanoRuntimeApi {
     }
   }
 
+  /// DEBUG/TEST: SIGKILL del proceso nanortime para simular un crash real.
+  /// Devuelve true si se envió la señal (no espera a que muera).
+  Future<bool> debugKillEngine() async {
+    try {
+      return await _engine.invokeMethod<bool>('debugKill') == true;
+    } catch (e) {
+      debugPrint('[runtime] debugKillEngine error: $e');
+      return false;
+    }
+  }
+
   /// Extrae el PIE del APK a files/nano/engine/nanortime (idempotente).
   Future<Map<dynamic, dynamic>?> engineEnsureExtracted() async {
     try {
