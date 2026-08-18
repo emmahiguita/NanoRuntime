@@ -74,6 +74,39 @@ class ChatMessage {
 /// Sentinel para distinguir "no pasado" de "null explícito" en [copyWith].
 const Object _sentinel = Object();
 
+/// Gate R10 — métricas de latencia del último turno, medidas por el motor
+/// (nanortime-core) y propagadas en el frame SSE final como `timings`.
+/// Permiten a la UI responder con honestidad: por qué un turno fue lento
+/// (prefill largo vs decode lento vs cache miss) sin inventar métricas.
+class TurnMetrics {
+  /// Tiempo hasta el primer token (ms).
+  final int? ttftMs;
+  /// Tiempo de prefill puro (procesado del prompt), ms.
+  final int? prefillMs;
+  /// Tokens totales procesados (prompt + generados).
+  final int? promptProcessed;
+  /// Tokens/s de decode.
+  final double? decodeTokS;
+  /// Tokens generados en el turno.
+  final int? generatedTokens;
+
+  const TurnMetrics({
+    this.ttftMs,
+    this.prefillMs,
+    this.promptProcessed,
+    this.decodeTokS,
+    this.generatedTokens,
+  });
+
+  factory TurnMetrics.fromJson(Map<String, dynamic> j) => TurnMetrics(
+        ttftMs: (j['ttft_ms'] as num?)?.toInt(),
+        prefillMs: (j['prefill_ms'] as num?)?.toInt(),
+        promptProcessed: (j['total_tokens'] as num?)?.toInt(),
+        decodeTokS: (j['decode_tok_s'] as num?)?.toDouble(),
+        generatedTokens: (j['generated_tokens'] as num?)?.toInt(),
+      );
+}
+
 class ChatState {
   final List<ChatMessage> messages;
   final String input;
@@ -88,6 +121,9 @@ class ChatState {
   final bool showModelSelector;
   final bool engineOnline;
   final double? liveTps;
+
+  /// Gate R10 — métricas de latencia del último turno completado.
+  final TurnMetrics? lastTurnMetrics;
 
   /// Texto parcial de la generación streaming en curso. Vacío si no hay
   /// generación activa o si aún no llegó el primer token.
@@ -116,6 +152,7 @@ class ChatState {
     this.showModelSelector = false,
     this.engineOnline = false,
     this.liveTps,
+    this.lastTurnMetrics,
     this.streamingText = '',
     this.attachments = const [],
     this.pendingTool,
@@ -138,6 +175,7 @@ class ChatState {
     bool? showModelSelector,
     bool? engineOnline,
     Object? liveTps = _sentinel,
+    Object? lastTurnMetrics = _sentinel,
     String? streamingText,
     List<ChatAttachment>? attachments,
     Object? pendingTool = _sentinel,
@@ -155,6 +193,9 @@ class ChatState {
     showModelSelector: showModelSelector ?? this.showModelSelector,
     engineOnline: engineOnline ?? this.engineOnline,
     liveTps: liveTps == _sentinel ? this.liveTps : liveTps as double?,
+    lastTurnMetrics: lastTurnMetrics == _sentinel
+        ? this.lastTurnMetrics
+        : lastTurnMetrics as TurnMetrics?,
     streamingText: streamingText ?? this.streamingText,
     attachments: attachments ?? this.attachments,
     pendingTool: pendingTool == _sentinel

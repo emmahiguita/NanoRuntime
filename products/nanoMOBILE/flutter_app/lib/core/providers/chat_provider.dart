@@ -661,6 +661,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       final buffer = StringBuffer();
       double? finalTps;
+      TurnMetrics? turnMetrics;
       await for (final token in stream.timeout(
         _streamIdleTimeout,
         onTimeout: (sink) {
@@ -677,8 +678,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
           _streamClient = null;
           return;
         }
+        // Heartbeat de fase (R3): "model_loading" → chip CARGANDO honesto.
+        if (token.phase == 'model_loading') {
+          state = state.copyWith(connection: ModelConnectionState.loadingModel);
+        }
         if (token.stop) {
           finalTps = token.tps;
+          // Gate R10 — timings reales del turno desde el frame final.
+          if (token.timings != null) {
+            turnMetrics = TurnMetrics.fromJson(token.timings!);
+          }
           break;
         }
         buffer.write(token.content);
@@ -793,6 +802,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         connection: ModelConnectionState.ready,
         engineOnline: true,
         liveTps: finalTps ?? state.liveTps,
+        lastTurnMetrics: turnMetrics,
       );
       _persistMessages();
     } on LLMEngineException catch (e) {

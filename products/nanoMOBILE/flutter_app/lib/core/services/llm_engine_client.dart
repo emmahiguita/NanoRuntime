@@ -331,24 +331,39 @@ class LLMEngineClient {
           final content = map['content'] as String? ?? '';
           final stop = map['stop'] as bool? ?? false;
           double? tps;
+          Map<String, dynamic>? timings;
+          String? phase;
           if (stop) {
-            final timings = map['timings'];
-            if (timings is Map<String, dynamic>) {
-              final perSecond = timings['predicted_per_second'];
+            final t = map['timings'];
+            if (t is Map<String, dynamic>) {
+              timings = t;
+              final perSecond = t['predicted_per_second'];
               if (perSecond is num && perSecond > 0) {
                 tps = perSecond.toDouble();
               } else {
-                final perTokenMs = timings['predicted_per_token_ms'];
+                final perTokenMs = t['predicted_per_token_ms'];
                 if (perTokenMs is num && perTokenMs > 0) {
                   tps = 1000.0 / perTokenMs.toDouble();
                 }
               }
             }
           }
-          
+          // Heartbeat (Gate R3): frame sin content que informa la fase del
+          // motor (model_loading mientras el GGUF carga, generating en prefill
+          // largo). El cliente lo usa para mostrar "cargando/esperando".
+          if (map['heartbeat'] == true) {
+            phase = map['phase'] as String?;
+          }
+
           if (!controller.isClosed) {
             controller.add(
-              LLMStreamToken(content: content, stop: stop, tps: tps),
+              LLMStreamToken(
+                content: content,
+                stop: stop,
+                tps: tps,
+                timings: timings,
+                phase: phase,
+              ),
             );
             tokenCount++;
             if (tokenCount % 10 == 0) {
@@ -402,7 +417,17 @@ class LLMStreamToken {
   final String content;
   final bool stop;
   final double? tps;
-  const LLMStreamToken({required this.content, required this.stop, this.tps});
+  /// Gate R10 — timings del frame final (ttft_ms, prefill_ms, decode_tok_s...).
+  final Map<String, dynamic>? timings;
+  /// Gate R3 — fase del heartbeat (`model_loading` | `generating`), si aplica.
+  final String? phase;
+  const LLMStreamToken({
+    required this.content,
+    required this.stop,
+    this.tps,
+    this.timings,
+    this.phase,
+  });
 }
 
 class LLMResult {

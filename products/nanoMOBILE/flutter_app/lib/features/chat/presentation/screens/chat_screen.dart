@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
+import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -228,15 +230,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           const SizedBox(width: 4),
-          _EngineBadge(online: state.engineOnline),
+          _EngineBadge(
+            online: state.engineOnline,
+            loading: state.connection == ModelConnectionState.loadingModel,
+          ),
         ],
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 920),
-          child: Column(
+          child: Stack(
             children: [
-              Expanded(
+              // ── Lista de mensajes ────────────────────────────────────
+              Positioned.fill(
                 child: state.messages.isEmpty
                     ? _EmptyChat(
                         engineOnline: state.engineOnline,
@@ -249,7 +255,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                        // El padding inferior extra (100 px) evita que el
+                        // último mensaje quede oculto bajo la barra flotante.
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 110),
                         itemCount:
                             state.messages.length + (state.generating ? 1 : 0),
                         itemBuilder: (context, index) {
@@ -288,23 +296,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         },
                       ),
               ),
-              _Composer(
-                controller: _inputController,
-                enabled: state.canSend && !state.generating,
-                generating: state.generating,
-                listening: _listening,
-                attachments: state.attachments,
-                onRemoveAttachment: notifier.removeAttachment,
-                onAttach: _attachFile,
-                onMic: _toggleMic,
-                onSend: () {
-                  final text = _inputController.text.trim();
-                  if (text.isEmpty) return;
 
-                  notifier.send(text);
-                  _inputController.clear();
-                },
-                onStop: notifier.stop,
+              // ── Barra de escritura FLOTANTE ──────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: _Composer(
+                      controller: _inputController,
+                      enabled: state.canSend && !state.generating,
+                      generating: state.generating,
+                      listening: _listening,
+                      attachments: state.attachments,
+                      onRemoveAttachment: notifier.removeAttachment,
+                      onAttach: _attachFile,
+                      onMic: _toggleMic,
+                      onSend: () {
+                        final text = _inputController.text.trim();
+                        if (text.isEmpty) return;
+
+                        notifier.send(text);
+                        _inputController.clear();
+                      },
+                      onStop: notifier.stop,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -455,9 +475,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 /// Badge de estado del motor con pulso lento cuando está online. Detenido:
 /// sin animación (estado quieto, honesto — solo lo vivo respira).
 class _EngineBadge extends StatefulWidget {
-  const _EngineBadge({required this.online});
+  const _EngineBadge({required this.online, this.loading = false});
 
   final bool online;
+  final bool loading;
 
   @override
   State<_EngineBadge> createState() => _EngineBadgeState();
@@ -499,7 +520,8 @@ class _EngineBadgeState extends State<_EngineBadge>
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final online = widget.online;
-    final color = online ? colors.success : colors.warning;
+    final loading = widget.loading;
+    final color = online && !loading ? colors.success : colors.warning;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
@@ -544,7 +566,9 @@ class _EngineBadgeState extends State<_EngineBadge>
             ),
             const SizedBox(width: 8),
             Text(
-              online ? 'LOCAL' : 'DETENIDO',
+              loading
+                  ? 'CARGANDO'
+                  : (online ? 'LOCAL' : 'DETENIDO'),
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -722,128 +746,166 @@ class _MessageBubble extends StatelessWidget {
       ]);
     }
 
-    final bubbleColor = isUser
-        ? colors.accent.withValues(alpha: 0.15)
-        : colors.surface.withValues(alpha: 0.72);
+    final isDark = colors is NanoDarkColors;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    final borderColor = isUser
-        ? colors.accent.withValues(alpha: 0.3)
-        : colors.onSurface.withValues(alpha: 0.12);
+    final bubbleBorderRadius = isUser ? NanoShapes.userBubble : NanoShapes.aiBubble;
+
+    final bubbleDecoration = isUser
+        ? BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      colors.accent.withValues(alpha: 0.22),
+                      colors.accentMint.withValues(alpha: 0.12),
+                    ]
+                  : [
+                      colors.primary.withValues(alpha: 0.16),
+                      colors.accentSky.withValues(alpha: 0.08),
+                    ],
+            ),
+            borderRadius: bubbleBorderRadius,
+            border: Border.all(
+              color: isDark
+                  ? colors.accent.withValues(alpha: 0.45)
+                  : colors.primary.withValues(alpha: 0.35),
+              width: 1.0,
+            ),
+          )
+        : BoxDecoration(
+            gradient: NanoGlass.substrate(
+              colors,
+              opacity: isDark ? 0.75 : 0.85,
+            ),
+            borderRadius: bubbleBorderRadius,
+          );
+
+    Widget bubbleWidget = Container(
+      constraints: BoxConstraints(
+        maxWidth: isUser ? 680 : double.infinity,
+      ),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: bubbleDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (attachmentNames.isNotEmpty) ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: attachmentNames
+                  .map((name) => Chip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.attach_file_rounded,
+                              size: 14,
+                              color: colors.onSurface.withValues(alpha: 0.72),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              name,
+                              style: TextStyle(
+                                color: colors.onSurface.withValues(alpha: 0.72),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                        backgroundColor: colors.onSurface.withValues(alpha: 0.08),
+                        visualDensity: VisualDensity.compact,
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (isUser)
+            MarkdownBody(
+              data: text,
+              selectable: true,
+              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: isUser),
+            )
+          else
+            _buildAiBody(context, text),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(children: footerParts),
+              if (!isUser && !isError)
+                _MessageActions(
+                  text: text,
+                  model: model,
+                  timestamp: timestamp,
+                ),
+              if (onRetry != null)
+                GestureDetector(
+                  onTap: onRetry,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.refresh_rounded,
+                        size: 14,
+                        color: colors.accent,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Reintentar',
+                        style: TextStyle(
+                          color: colors.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (!isUser) {
+      bubbleWidget = Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          borderRadius: bubbleBorderRadius,
+          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(1.0),
+          decoration: BoxDecoration(
+            borderRadius: bubbleBorderRadius,
+            gradient: NanoBorders.specularChamfer(colors),
+          ),
+          child: ClipRRect(
+            borderRadius: bubbleBorderRadius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: reduceMotion ? 0.0 : 12.0,
+                sigmaY: reduceMotion ? 0.0 : 12.0,
+              ),
+              child: bubbleWidget,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: isUser ? 680 : double.infinity,
-        ),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor),
-          boxShadow: isUser
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (attachmentNames.isNotEmpty) ...[
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: attachmentNames
-                    .map((name) => Chip(
-                                          label: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.attach_file_rounded,
-                                                size: 14,
-                                                color: colors.onSurface.withValues(alpha: 0.72),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                name,
-                                                style: TextStyle(
-                                                  color: colors.onSurface.withValues(alpha: 0.72),
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          backgroundColor: colors.onSurface.withValues(alpha: 0.08),
-                                          visualDensity: VisualDensity.compact,
-                                        ))
-                                    .toList(),
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (isUser)
-              MarkdownBody(
-                data: text,
-                selectable: true,
-                styleSheet: _buildChatMarkdownStyleSheet(context, isUser: isUser),
-              )
-            else
-              _buildAiBody(context, text),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(children: footerParts),
-                if (!isUser && !isError)
-                  _MessageActions(
-                    text: text,
-                    model: model,
-                    timestamp: timestamp,
-                  ),
-                if (onRetry != null)
-                  GestureDetector(
-                    onTap: onRetry,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.refresh_rounded,
-                          size: 14,
-                          color: colors.accent,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Reintentar',
-                          style: TextStyle(
-                            color: colors.accent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      child: bubbleWidget,
     );
   }
 }
 
-// ================================================================
-// Helpers de cuerpo de mensaje AI
-// ================================================================
-
-/// Construye el cuerpo de un mensaje AI: separa el bloque de razonamiento
-/// (<thought>) del texto de respuesta principal, sin usar IIFE.
 Widget _buildAiBody(BuildContext context, String text) {
   final parsed = parseThought(text);
   final thought = parsed.thought;
@@ -859,9 +921,11 @@ Widget _buildAiBody(BuildContext context, String text) {
           selectable: true,
           styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
         )
-      else if (thought == null || thought.trim().isEmpty)
+      else if (thought != null && response.isEmpty)
+        const SizedBox.shrink()
+      else
         MarkdownBody(
-          data: text,
+          data: text.isEmpty ? '...' : text,
           selectable: true,
           styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
         ),
@@ -1384,17 +1448,21 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
                     color: colors.success.withValues(alpha: 0.8),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'Razonamiento del modelo',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: colors.success.withValues(alpha: 0.8),
-                      letterSpacing: 0.1,
+                  Expanded(
+                    child: Text(
+                      'Razonamiento del modelo',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: colors.success.withValues(alpha: 0.8),
+                        letterSpacing: 0.1,
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Icon(
                     _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                     size: 16,
@@ -1457,7 +1525,7 @@ class _SuggestionChip extends StatelessWidget {
   }
 }
 
-class _Composer extends StatelessWidget {
+class _Composer extends StatefulWidget {
   const _Composer({
     required this.controller,
     required this.enabled,
@@ -1483,109 +1551,321 @@ class _Composer extends StatelessWidget {
   final VoidCallback onStop;
 
   @override
+  State<_Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends State<_Composer> {
+  late final FocusNode _focusNode;
+  bool _isFocused = false;
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+    _hasText = widget.controller.text.trim().isNotEmpty;
+    widget.controller.addListener(_onTextChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted) {
+      setState(() => _isFocused = _focusNode.hasFocus);
+    }
+  }
+
+  void _onTextChange() {
+    final has = widget.controller.text.trim().isNotEmpty;
+    if (has != _hasText && mounted) {
+      setState(() => _hasText = has);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    widget.controller.removeListener(_onTextChange);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+
+    final colors2 = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.96),
-        border: Border(
-          top: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
+        // Gradiente sutil de fade hacia arriba para separar visualmente
+        // la barra del contenido sin usar un borde duro.
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            colors2.background.withValues(alpha: 0.0),
+            colors2.background.withValues(alpha: 0.85),
+          ],
+          stops: const [0.0, 0.35],
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (attachments.isNotEmpty)
-            Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: attachments.length,
-                itemBuilder: (context, index) {
-                  final attachment = attachments[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Chip(
-                      label: Text(
-                        attachment.name,
-                        style: TextStyle(
-                          color: colors.onSurface.withValues(alpha: 0.72),
-                          fontSize: 12,
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      child: NanoOpticalSurface(
+        geometry: NanoSurfaceGeometry.roundedRectangle,
+        borderRadius: 24,
+        blurSigma: 24.0,
+        borderStrength: _isFocused ? 1.0 : 0.80,
+        reflectionStrength: _isFocused ? 0.90 : 0.65,
+        depth: 1.15,
+        accent: _isFocused
+            ? (isDark ? colors.accent : colors.accentCyan)
+            : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.attachments.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 4, right: 4, bottom: 6, top: 2),
+                child: SizedBox(
+                  height: 30,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: widget.attachments.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (context, index) {
+                      final attachment = widget.attachments[index];
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colors.accent.withValues(alpha: isDark ? 0.18 : 0.10),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: colors.accent.withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.insert_drive_file_rounded,
+                              size: 13,
+                              color: colors.accent,
+                            ),
+                            const SizedBox(width: 5),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 130),
+                              child: Text(
+                                attachment.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: colors.onSurface.withValues(alpha: 0.90),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => widget.onRemoveAttachment(attachment.name),
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 13,
+                                  color: colors.onSurface.withValues(alpha: 0.65),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Botón Mic / Dictado
+                Tooltip(
+                  message: 'Dictado por voz',
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(99),
+                      onTap: widget.onMic,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: widget.listening
+                              ? colors.success.withValues(alpha: 0.22)
+                              : Colors.transparent,
+                          border: widget.listening
+                              ? Border.all(
+                                  color: colors.success.withValues(alpha: 0.65),
+                                  width: 1.2,
+                                )
+                              : null,
+                        ),
+                        child: Icon(
+                          widget.listening
+                              ? Icons.mic_rounded
+                              : Icons.mic_none_rounded,
+                          color: widget.listening
+                              ? colors.success
+                              : colors.onSurface.withValues(alpha: 0.58),
+                          size: 20,
                         ),
                       ),
-                      backgroundColor: colors.onSurface.withValues(alpha: 0.08),
-                      deleteIcon: Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: colors.onSurface.withValues(alpha: 0.48),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+
+                // Botón Adjuntar Archivo
+                Tooltip(
+                  message: 'Adjuntar archivo',
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(99),
+                      onTap: widget.onAttach,
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: Icon(
+                          Icons.attach_file_rounded,
+                          color: colors.onSurface.withValues(alpha: 0.58),
+                          size: 20,
+                        ),
                       ),
-                      onDeleted: () => onRemoveAttachment(attachment.name),
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+
+                // Campo de texto expandible con tipografía y padding uniforme
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: _focusNode,
+                      enabled: widget.enabled,
+                      maxLines: 5,
+                      minLines: 1,
+                      style: TextStyle(
+                        color: colors.onSurface,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w400,
+                        fontFamily: 'Inter',
+                        height: 1.35,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: widget.listening
+                            ? 'Escuchando voz...'
+                            : 'Escribe un mensaje...',
+                        hintStyle: TextStyle(
+                          color: colors.onSurfaceVariant.withValues(alpha: 0.52),
+                          fontFamily: 'Inter',
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // Botón Enviar / Detener con acabado de vidrio y gradiente dinámico
+                Tooltip(
+                  message: widget.generating ? 'Detener generación' : 'Enviar',
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(99),
+                      onTap: widget.generating
+                          ? widget.onStop
+                          : (_hasText && widget.enabled ? widget.onSend : null),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: widget.generating
+                              ? null
+                              : (_hasText && widget.enabled
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: isDark
+                                          ? [colors.accent, colors.accentMint]
+                                          : [colors.primary, colors.accentSky],
+                                    )
+                                  : null),
+                          color: widget.generating
+                              ? colors.danger.withValues(alpha: 0.18)
+                              : (_hasText && widget.enabled
+                                  ? null
+                                  : colors.onSurface.withValues(alpha: 0.08)),
+                          border: Border.all(
+                            color: widget.generating
+                                ? colors.danger.withValues(alpha: 0.65)
+                                : (_hasText && widget.enabled
+                                    ? Colors.white.withValues(alpha: 0.45)
+                                    : colors.onSurface.withValues(alpha: 0.12)),
+                            width: 0.9,
+                          ),
+                          boxShadow: _hasText && widget.enabled
+                              ? [
+                                  BoxShadow(
+                                    color: (isDark ? colors.accent : colors.primary)
+                                        .withValues(alpha: isDark ? 0.35 : 0.22),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            widget.generating
+                                ? Icons.stop_rounded
+                                : Icons.arrow_upward_rounded,
+                            size: 20,
+                            color: widget.generating
+                                ? colors.danger
+                                : (_hasText && widget.enabled
+                                    ? (isDark ? const Color(0xFF000000) : Colors.white)
+                                    : colors.onSurface.withValues(alpha: 0.30)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                  color: listening
-                      ? colors.success
-                      : colors.onSurface.withValues(alpha: 0.48),
-                ),
-                onPressed: onMic,
-                tooltip: 'Dictado por voz',
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.attach_file_rounded,
-                  color: colors.onSurface.withValues(alpha: 0.48),
-                ),
-                onPressed: onAttach,
-                tooltip: 'Adjuntar archivo',
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  enabled: enabled,
-                  maxLines: 4,
-                  minLines: 1,
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.92),
-                    fontSize: 15,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Escribe un mensaje...',
-                    hintStyle: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.3),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              if (generating)
-                IconButton(
-                  icon: const Icon(Icons.stop_rounded),
-                  color: colors.danger,
-                  onPressed: onStop,
-                  tooltip: 'Detener generación',
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.send_rounded),
-                  color: enabled
-                      ? colors.accent
-                      : colors.onSurface.withValues(alpha: 0.24),
-                  onPressed: enabled ? onSend : null,
-                  tooltip: 'Enviar',
-                ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
