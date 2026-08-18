@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
@@ -83,6 +84,7 @@ void main() {
       fileName: 'qwen-1.5b-$quant.gguf',
       description: 'Multilingüe, ligero',
       template: ChatTemplate.qwen,
+      tier: ModelTier.interactive,
       downloadState: downloadState,
       progress: progress,
       url: 'https://example.invalid/$id.gguf',

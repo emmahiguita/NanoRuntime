@@ -1,3 +1,4 @@
+import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 
 /// Estado de descarga real de un modelo GGUF local.
@@ -29,6 +30,9 @@ class LocalModel {
   final String fileName;
   final String description;
   final ChatTemplate template;
+  /// Gate R9 — tier de rendimiento (interactive/deep/extreme). EXTREME solo
+  /// con confirmación explícita del usuario en la UI.
+  final ModelTier tier;
   final ModelDownloadState downloadState;
   final double progress; // 0..1 durante downloading/verifying
   final String url;
@@ -48,6 +52,7 @@ class LocalModel {
     required this.fileName,
     required this.description,
     required this.template,
+    required this.tier,
     required this.downloadState,
     required this.progress,
     required this.url,
@@ -79,6 +84,7 @@ class LocalModel {
       fileName: fileName,
       description: description,
       template: template,
+      tier: tier,
       downloadState: downloadState ?? this.downloadState,
       progress: progress ?? this.progress,
       url: url,

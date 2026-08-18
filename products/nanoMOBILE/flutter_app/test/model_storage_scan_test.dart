@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
@@ -158,6 +159,7 @@ LocalModel _catalogModel(String fileName) {
     fileName: fileName,
     description: 'test',
     template: ChatTemplate.qwen,
+    tier: ModelTier.interactive,
     downloadState: ModelDownloadState.notInstalled,
     progress: 0,
     url: 'https://example.invalid/$fileName',

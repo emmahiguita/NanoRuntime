@@ -950,7 +950,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
   }
 
-  void selectModel(String name, {String? path}) {
+  void selectModel(String name, {String? path, bool confirmedExtreme = false}) {
+    // Gate R9 — EXTREME (9B+) requiere confirmación explícita: en móvil el
+    // chat quedaría lento (thrashing) y nunca debe seleccionarse por
+    // accidente. La UI muestra el diálogo ANTES de llamar con confirmación.
+    final tier = NeuralCatalog.entryOf(name).tier;
+    if (tier == ModelTier.extreme && !confirmedExtreme) {
+      debugPrint(
+        '[chat_provider] selectModel extreme ($name) sin confirmación — ignorado',
+      );
+      return;
+    }
     // SELinux impide que la app rearranque el motor per-selección.
     state = state.copyWith(
       activeModel: name,

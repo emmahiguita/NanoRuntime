@@ -188,7 +188,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// Si el GGUF no está instalado, no hay nada que cargar: la UI lo impide
   /// (botón de descarga primero). El path real del GGUF llega a ChatNotifier,
   /// que lo usa en el arranque del motor (--model <path>).
-  void loadModel(String id) {
+  void loadModel(String id, {bool confirmedExtreme = false}) {
     final item = state.models.firstWhere((model) => model.id == id);
     if (!item.installed || item.localPath == null) return;
     state = state.copyWith(
@@ -200,7 +200,11 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     );
     _ref
         .read(chatProvider.notifier)
-        .selectModel(item.name, path: item.localPath);
+        .selectModel(
+          item.name,
+          path: item.localPath,
+          confirmedExtreme: confirmedExtreme,
+        );
   }
 
   // ── Detección de modelos en storage SAF ────────────────────────────────

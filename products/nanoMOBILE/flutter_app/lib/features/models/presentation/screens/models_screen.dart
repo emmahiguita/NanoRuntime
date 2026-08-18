@@ -1,41 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
-import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:nanoai/core/widgets/nano_ambient_background.dart';
+import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
+import 'package:nanoai/features/models/data/model_source_registry.dart';
 import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
+import 'package:nanoai/features/models/presentation/providers/model_metadata_providers.dart';
+import 'package:nanoai/features/models/presentation/widgets/model_brand_logos.dart';
+import 'package:nanoai/features/models/presentation/widgets/model_detail_bottom_sheet.dart';
 
-/// Tokens locales Material 3 Expressive aplicados SOLO a este mÃ³dulo.
-///
-/// M3E: formas mÃ¡s grandes y pill-shaped (superficies de radio amplio,
-/// chips y botones stadium), color saturado en superficies de acciÃ³n
-/// (FilledButtons con accent + texto oscuro), tipografÃ­a con mÃ¡s peso y
-/// motion con Ã©nfasis (curvas con overshoot en entradas y cambios de estado).
+/// Tokens locales para el módulo de Modelos (White Optical Glass + M3E).
 class _M3 {
-  // Shape â€” radios mayores que M3 base, camino a squircle.
-  static const cardRadius = 24.0;
-  static const compactRadius = 22.0;
-  static const barRadius = 18.0;
-  static const iconRadius = 16.0;
+  static const cardRadius = NanoRadius.large;
+  static const compactRadius = NanoRadius.medium;
+  static const barRadius = NanoRadius.medium;
   static const chipRadius = BorderRadius.all(Radius.circular(999));
-
-  // Typography â€” display con mÃ¡s peso.
-  static const titleSize = 18.0;
-
-  // Motion â€” Ã©nfasis: overshoot sutil en entradas y cambios de estado.
-  static const pressScale = 0.94;
+  static const titleSize = 15.5;
 }
 
-/// Pantalla Modelos â€” identidad visual de Inicio (glassmorphism, sin AppBar).
-///
-/// Nombres reales del dominio: `LocalModel.quant`/`sizeGb`/`active`/
-/// `installed`/`downloadState`, `ModelsNotifier.loadModel`/`downloadModel`/
-/// `cancelDownload`. Sin datos simulados: compatibilidad RAM derivada de
-/// datos reales (ramGb del modelo vs ramFreeGb del dashboard) y pie con
-/// almacenamiento real del device.
+enum _ModelFilter {
+  all('Todos', Icons.apps_rounded),
+  gemma('Gemma', Icons.auto_awesome_rounded),
+  llama('LLaMA', Icons.all_inclusive_rounded),
+  qwen('Qwen', Icons.interests_rounded),
+  deepseek('DeepSeek', Icons.psychology_rounded),
+  phi('Phi', Icons.functions_rounded),
+  mistral('Mistral', Icons.air_rounded),
+  storage('En Memoria / SD', Icons.sd_storage_rounded),
+  installed('Instalados', Icons.download_done_rounded);
+
+  final String label;
+  final IconData icon;
+  const _ModelFilter(this.label, this.icon);
+}
+
+/// Pantalla Modelos — Gestión, descarga, inspección gráfica y ejecución de modelos GGUF.
 class ModelsScreen extends ConsumerStatefulWidget {
   const ModelsScreen({super.key});
 
@@ -44,11 +49,14 @@ class ModelsScreen extends ConsumerStatefulWidget {
 }
 
 class _ModelsScreenState extends ConsumerState<ModelsScreen>
-    with SingleTickerProviderStateMixin {
-  /// Entrada escalonada de las tarjetas: UN solo controller para toda la
-  /// lista (nunca uno por tarjeta). Cada tarjeta mapea su tramo con un
-  /// Interval; las primeras entran antes, las Ãºltimas terminan despuÃ©s.
+    with TickerProviderStateMixin {
   late final AnimationController _entryController;
+  late final AnimationController _reflectionController;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  String _searchQuery = '';
+  _ModelFilter _selectedFilter = _ModelFilter.all;
+  bool _isSearchExpanded = false;
   bool _entryStarted = false;
 
   @override
@@ -57,12 +65,14 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
     _entryController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 750),
+      duration: const Duration(milliseconds: 600),
     );
 
-    // Auto-escaneo al entrar: primero el de todo el storage (vÃ­a principal).
-    // Al terminar, si el acceso completo no estÃ¡ concedido, se intenta el
-    // auto-escaneo del Ã¡rbol SAF (maybeAutoScan se salta si scanAll cubriÃ³).
+    _reflectionController = AnimationController(
+      vsync: this,
+      duration: NanoMotionDurations.ambient,
+    )..repeat();
+
     final notifier = ref.read(modelsProvider.notifier);
     notifier.maybeAutoScanAll().then((_) {
       if (mounted) notifier.maybeAutoScan();
@@ -82,7 +92,23 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
   @override
   void dispose() {
     _entryController.dispose();
+    _reflectionController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearchExpanded = !_isSearchExpanded;
+      if (_isSearchExpanded) {
+        _searchFocusNode.requestFocus();
+      } else {
+        _searchQuery = '';
+        _searchController.clear();
+        _searchFocusNode.unfocus();
+      }
+    });
   }
 
   @override
@@ -90,11 +116,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final state = ref.watch(modelsProvider);
     final dashboard = ref.watch(dashboardProvider);
     final notifier = ref.read(modelsProvider.notifier);
+    final colors = NanoThemeExtension.of(context).colors;
 
-    // PolÃ­tica de lista: DESCARGADOS primero. Activo, instalados y
-    // descargas en curso arriba; disponible/incompatible abajo. El sort
-    // de Dart es estable â€” dentro de cada grupo se conserva el orden del
-    // catÃ¡logo.
     final catalogModels = List<LocalModel>.of(state.models)
       ..sort((a, b) => _listRank(a, dashboard).compareTo(_listRank(b, dashboard)));
 
@@ -109,224 +132,634 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
     final detected = state.detected;
 
-    return NanoScreenShell(
-      title: 'Modelos',
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // BUG-FIX orientaciÃ³n: maxWidth >= 640 marcaba "landscape" en
-          // portrait de phones anchos (1080px). La orientaciÃ³n real se mide
-          // comparando ancho contra alto.
-          final isLandscape = constraints.maxWidth > constraints.maxHeight;
-          final totalCount = catalogModels.length + detected.length;
+    // Filtrado interactivo por texto y categoría/familia
+    final query = _searchQuery.trim().toLowerCase();
 
-          Widget buildCardAt(int index) {
-            if (index >= catalogModels.length) {
-              // Modelo detectado en storage SAF: se usa directo desde su
-              // ubicaciÃ³n original (fd por Binder, cero copias).
-              final detectedModel = detected[index - catalogModels.length];
-              return _DetectedCard(
-                model: detectedModel,
-                loading:
-                    state.loadingDetectedUri ==
-                    (detectedModel.path ?? detectedModel.uri),
-                active: state.activeDetected == detectedModel.name,
-                onUse: () => notifier.useDetected(detectedModel),
-              );
-            }
+    // 1. Filtrar Detectados (SD / Storage Local)
+    final filteredDetected = detected.where((model) {
+      if (_selectedFilter == _ModelFilter.installed) return false;
+      if (_selectedFilter == _ModelFilter.gemma && !model.name.toLowerCase().contains('gemma')) return false;
+      if (_selectedFilter == _ModelFilter.llama && !model.name.toLowerCase().contains('llama')) return false;
+      if (_selectedFilter == _ModelFilter.qwen && !model.name.toLowerCase().contains('qwen')) return false;
+      if (_selectedFilter == _ModelFilter.deepseek &&
+          !model.name.toLowerCase().contains('deepseek') &&
+          !model.name.toLowerCase().contains('r1')) {
+        return false;
+      }
+      if (_selectedFilter == _ModelFilter.phi && !model.name.toLowerCase().contains('phi')) return false;
+      if (_selectedFilter == _ModelFilter.mistral && !model.name.toLowerCase().contains('mistral')) return false;
 
-            final model = catalogModels[index];
-            final status = _statusOf(model, dashboard);
+      if (query.isEmpty) return true;
+      return model.name.toLowerCase().contains(query) ||
+          model.format.name.toLowerCase().contains(query) ||
+          (model.path?.toLowerCase().contains(query) ?? false);
+    }).toList();
 
-            final card = _ModelCard(
-              name: model.name,
-              quantization: model.quant,
-              sizeGb: model.sizeGb,
-              description: model.description,
-              error: model.error,
-              status: status,
-              viability: _viabilityOf(model, dashboard),
-              ramNote: status == ModelUiStatus.incompatible
-                  ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
-                  : null,
-              progress: model.progress,
-              onUse: () => notifier.loadModel(model.id),
-              onDownload: () => notifier.downloadModel(model.id),
-              onCancel: notifier.cancelDownload,
-            );
+    // 2. Filtrar Catálogo
+    final filteredCatalog = catalogModels.where((model) {
+      if (_selectedFilter == _ModelFilter.storage) return false;
+      if (_selectedFilter == _ModelFilter.installed && !model.installed) return false;
+      if (_selectedFilter == _ModelFilter.gemma && !model.name.toLowerCase().contains('gemma')) return false;
+      if (_selectedFilter == _ModelFilter.llama && !model.name.toLowerCase().contains('llama')) return false;
+      if (_selectedFilter == _ModelFilter.qwen && !model.name.toLowerCase().contains('qwen')) return false;
+      if (_selectedFilter == _ModelFilter.deepseek &&
+          !model.name.toLowerCase().contains('deepseek') &&
+          !model.name.toLowerCase().contains('r1')) {
+        return false;
+      }
+      if (_selectedFilter == _ModelFilter.phi && !model.name.toLowerCase().contains('phi')) return false;
+      if (_selectedFilter == _ModelFilter.mistral && !model.name.toLowerCase().contains('mistral')) return false;
 
-            if (MediaQuery.disableAnimationsOf(context)) return card;
+      if (query.isEmpty) return true;
+      return model.name.toLowerCase().contains(query) ||
+          model.description.toLowerCase().contains(query) ||
+          model.quant.toLowerCase().contains(query);
+    }).toList();
 
-            // Tramo propio del controller compartido: entrada escalonada
-            // fade + slide + escala (M3E emphasis: overshoot sutil).
-            final start = (index * 0.08).clamp(0.0, 0.75);
-            final end = (start + 0.22).clamp(0.0, 1.0);
-            final entry = CurvedAnimation(
-              parent: _entryController,
-              curve: Interval(start, end, curve: Curves.easeOutBack),
-            );
+    // ORDEN: Detectados en SD primero, luego Catálogo
+    final List<_UnifiedModelItem> unifiedList = [
+      if (_selectedFilter != _ModelFilter.installed)
+        ...filteredDetected.map((d) => _UnifiedModelItem.detected(d)),
+      ...filteredCatalog.map((c) => _UnifiedModelItem.catalog(c)),
+    ];
 
-            return AnimatedBuilder(
-              animation: _entryController,
-              builder: (_, child) {
-                final value = entry.value;
-                return Opacity(
-                  // easeOutBack puede pasar de 1 en el rebote: clamp.
-                  opacity: value.clamp(0.0, 1.0),
-                  child: Transform.translate(
-                    offset: Offset(0, 14 * (1 - value.clamp(0.0, 1.0))),
-                    child: Transform.scale(
-                      scale: 0.94 + 0.06 * value,
-                      child: child,
+    final totalFilteredCount = unifiedList.length;
+    final totalCount = catalogModels.length + detected.length;
+    final totalInStorage = detected.length + installedModels.length;
+
+    return Scaffold(
+      backgroundColor: colors.backgroundPrimary,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: NanoAmbientBackground()),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isLandscape = constraints.maxWidth > constraints.maxHeight;
+
+                Widget buildCardAt(int index) {
+                  final item = unifiedList[index];
+
+                  final Widget card;
+                  if (item.isDetected) {
+                    final detectedModel = item.detected!;
+                    final isActive = state.activeDetected == detectedModel.name;
+                    card = _DetectedCard(
+                      model: detectedModel,
+                      loading: state.loadingDetectedUri ==
+                          (detectedModel.path ?? detectedModel.uri),
+                      active: isActive,
+                      reflectionController: _reflectionController,
+                      onTapDetails: () => _openModelDetails(
+                        name: detectedModel.name,
+                        quant: detectedModel.format.name.toUpperCase(),
+                        sizeGb: detectedModel.sizeBytes > 0
+                            ? detectedModel.sizeBytes / (1024 * 1024 * 1024)
+                            : 0,
+                        description: 'Modelo local detectado en almacenamiento SD / interno.',
+                        path: detectedModel.path ?? detectedModel.uri,
+                        isDetected: true,
+                        isActive: isActive,
+                        dashboard: dashboard,
+                        onAction: () => notifier.useDetected(detectedModel),
+                        actionLabel: 'Cargar Modelo',
+                      ),
+                      onUse: () => notifier.useDetected(detectedModel),
+                    );
+                  } else {
+                    final model = item.catalog!;
+                    final status = _statusOf(model, dashboard);
+
+                    card = _ModelCard(
+                      name: model.name,
+                      quantization: model.quant,
+                      sizeGb: model.sizeGb,
+                      description: model.description,
+                      error: model.error,
+                      status: status,
+                      viability: _viabilityOf(model, dashboard),
+                      tier: model.tier,
+                      ramNote: status == ModelUiStatus.incompatible
+                          ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
+                          : null,
+                      progress: model.progress,
+                      reflectionController: _reflectionController,
+                      onTapDetails: () => _openModelDetails(
+                        name: model.name,
+                        quant: model.quant,
+                        sizeGb: model.sizeGb,
+                        description: model.description,
+                        ramGb: model.ramGb,
+                        isDetected: false,
+                        isActive: status == ModelUiStatus.active,
+                        dashboard: dashboard,
+                        onAction: () {
+                          if (status == ModelUiStatus.installed) {
+                            _confirmAndUse(model);
+                          } else if (status == ModelUiStatus.available || status == ModelUiStatus.error) {
+                            notifier.downloadModel(model.id);
+                          }
+                        },
+                        actionLabel: status == ModelUiStatus.installed
+                            ? 'Cargar en Chat'
+                            : status == ModelUiStatus.active
+                                ? 'Modelo Activo'
+                                : 'Descargar GGUF',
+                      ),
+                      onUse: () => _confirmAndUse(model),
+                      onDownload: () => notifier.downloadModel(model.id),
+                      onCancel: notifier.cancelDownload,
+                    );
+                  }
+
+                  if (MediaQuery.disableAnimationsOf(context)) return card;
+
+                  final start = (index * 0.05).clamp(0.0, 0.75);
+                  final end = (start + 0.20).clamp(0.0, 1.0);
+                  final entry = CurvedAnimation(
+                    parent: _entryController,
+                    curve: Interval(start, end, curve: NanoMotionCurves.standardDecel),
+                  );
+
+                  return AnimatedBuilder(
+                    animation: _entryController,
+                    builder: (_, child) {
+                      final value = entry.value;
+                      return Opacity(
+                        opacity: value.clamp(0.0, 1.0),
+                        child: Transform.translate(
+                          offset: Offset(0, 10 * (1 - value.clamp(0.0, 1.0))),
+                          child: Transform.scale(
+                            scale: 0.96 + 0.04 * value,
+                            child: child,
+                          ),
+                        ),
+                      );
+                    },
+                    child: card,
+                  );
+                }
+
+                final hasAny = totalCount > 0;
+
+                // ==========================================
+                // TOP HEADER: NANOAI + SEARCH + FILTERS
+                // ==========================================
+                final topHeader = Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 42,
+                        child: Row(
+                          children: [
+                            // Marca oficial NanoAI
+                            ShaderMask(
+                              blendMode: BlendMode.srcIn,
+                              shaderCallback: (rect) {
+                                return LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  stops: const [0.0, 0.60, 0.85, 1.0],
+                                  colors: [
+                                    colors.textPrimary,
+                                    colors.textPrimary,
+                                    colors.accentCyan,
+                                    colors.accentLavender,
+                                  ],
+                                ).createShader(rect);
+                              },
+                              child: const Text(
+                                'NanoAI',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // Barra de búsqueda expandible
+                            Expanded(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                curve: Curves.easeOutCubic,
+                                height: 38,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  child: _isSearchExpanded
+                                      ? SizedBox(
+                                          key: const ValueKey('search_expanded'),
+                                          child: NanoOpticalSurface(
+                                            borderRadius: 12,
+                                            blurSigma: 12,
+                                            borderStrength: 0.80,
+                                            reflectionStrength: 0.65,
+                                            accent: colors.accentSky,
+                                            reflectionController: _reflectionController,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.search_rounded,
+                                                  size: 18,
+                                                  color: colors.accentSky,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: TextField(
+                                                    controller: _searchController,
+                                                    focusNode: _searchFocusNode,
+                                                    onChanged: (val) => setState(() => _searchQuery = val),
+                                                    style: TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: colors.textPrimary,
+                                                    ),
+                                                    decoration: InputDecoration(
+                                                      border: InputBorder.none,
+                                                      isDense: true,
+                                                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                                      hintText: 'Buscar (Gemma, LLaMA, Qwen, DeepSeek...)',
+                                                      hintStyle: TextStyle(
+                                                        fontFamily: 'Inter',
+                                                        fontSize: 12,
+                                                        color: colors.textSecondary.withValues(alpha: 0.70),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                GestureDetector(
+                                                  onTap: _toggleSearch,
+                                                  child: Icon(
+                                                    Icons.close_rounded,
+                                                    size: 18,
+                                                    color: colors.textSecondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      : Row(
+                                          key: const ValueKey('search_collapsed'),
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            if (totalInStorage > 0)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: colors.accentSky.withValues(alpha: 0.12),
+                                                  borderRadius: BorderRadius.circular(99),
+                                                  border: Border.all(
+                                                    color: colors.accentSky.withValues(alpha: 0.35),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  '$totalInStorage en memoria',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: colors.textSecondary,
+                                                  ),
+                                                ),
+                                              ),
+                                            const SizedBox(width: 6),
+                                            NanoOpticalSurface(
+                                              geometry: NanoSurfaceGeometry.circle,
+                                              blurSigma: 8,
+                                              borderStrength: 0.60,
+                                              reflectionStrength: 0.40,
+                                              accent: colors.accentSky,
+                                              onTap: _toggleSearch,
+                                              child: SizedBox(
+                                                width: 34,
+                                                height: 34,
+                                                child: Icon(
+                                                  Icons.search_rounded,
+                                                  size: 18,
+                                                  color: colors.accentSky,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            NanoOpticalSurface(
+                                              geometry: NanoSurfaceGeometry.circle,
+                                              blurSigma: 8,
+                                              borderStrength: 0.60,
+                                              reflectionStrength: 0.40,
+                                              accent: colors.accentSky,
+                                              onTap: notifier.scanStorageAll,
+                                              child: SizedBox(
+                                                width: 34,
+                                                height: 34,
+                                                child: Icon(
+                                                  state.scanning
+                                                      ? Icons.sync_rounded
+                                                      : Icons.refresh_rounded,
+                                                  size: 18,
+                                                  color: colors.accentSky,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Filtros Rápidos por Categoría y Familia de Modelos
+                      SizedBox(
+                        height: 32,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _ModelFilter.values.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 6),
+                          itemBuilder: (context, index) {
+                            final filter = _ModelFilter.values[index];
+                            final isSelected = filter == _selectedFilter;
+
+                            return NanoOpticalSurface(
+                              geometry: NanoSurfaceGeometry.capsule,
+                              blurSigma: 8,
+                              borderStrength: isSelected ? 0.85 : 0.45,
+                              reflectionStrength: isSelected ? 0.65 : 0.30,
+                              accent: isSelected ? colors.accentSky : colors.metalSilver,
+                              onTap: () => setState(() => _selectedFilter = filter),
+                              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    filter.icon,
+                                    size: 13,
+                                    color: isSelected ? colors.accentSky : colors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    filter.label,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11.5,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSelected ? colors.textPrimary : colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (isLandscape) {
+                  return Column(
+                    children: [
+                      topHeader,
+                      Expanded(
+                        child: !hasAny
+                            ? const _EmptyModels()
+                            : totalFilteredCount == 0
+                                ? _EmptySearchResults(
+                                    query: _searchQuery,
+                                    onClear: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = '';
+                                        _selectedFilter = _ModelFilter.all;
+                                      });
+                                    },
+                                  )
+                                : GridView.builder(
+                                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 10,
+                                      mainAxisExtent: 172,
+                                    ),
+                                    itemCount: totalFilteredCount,
+                                    itemBuilder: (context, index) => buildCardAt(index),
+                                  ),
+                      ),
+                    ],
+                  );
+                }
+
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      children: [
+                        topHeader,
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              final offset = Tween<Offset>(
+                                begin: const Offset(0, 0.035),
+                                end: Offset.zero,
+                              ).animate(animation);
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: offset,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey('${_selectedFilter.name}_${_searchQuery.trim()}'),
+                              child: !hasAny
+                                  ? const _EmptyModels()
+                                  : totalFilteredCount == 0
+                                      ? _EmptySearchResults(
+                                          query: _searchQuery,
+                                          onClear: () {
+                                            _searchController.clear();
+                                            setState(() {
+                                              _searchQuery = '';
+                                              _selectedFilter = _ModelFilter.all;
+                                            });
+                                          },
+                                        )
+                                      : ListView.builder(
+                                          physics: const BouncingScrollPhysics(),
+                                          padding: const EdgeInsets.fromLTRB(14, 2, 14, 20),
+                                          itemCount: totalFilteredCount + 1,
+                                          itemBuilder: (context, index) {
+                                            if (index == totalFilteredCount) {
+                                              return Padding(
+                                                padding: const EdgeInsets.only(top: 10),
+                                                child: _StorageUsage(
+                                                  usedGb: usedGb,
+                                                  storageTotalGb: dashboard.storageTotalGb,
+                                                  storageFreeGb: dashboard.storageFreeGb,
+                                                ),
+                                              );
+                                            }
+                                            return Padding(
+                                              padding: const EdgeInsets.only(bottom: 10),
+                                              child: buildCardAt(index),
+                                            );
+                                          },
+                                        ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
-              child: card,
-            );
-          }
-
-          // Resumen y pie SOLO cuando hay algo instalado: con 0 modelos son
-          // componentes estÃ¡ticos que repiten "0 Â· 0 GB" sin informaciÃ³n.
-          final hasInstalled = installedModels.isNotEmpty;
-          final hasAny = totalCount > 0;
-
-          final summary = _ModelsSummary(
-            installedCount: installedModels.length,
-            usedGb: usedGb,
-          );
-          final scanBar = _ScanBar(
-            scanning: state.scanning,
-            allFilesGranted: state.allFilesGranted,
-            treeGranted: state.treeGranted,
-            detectedCount: detected.length,
-            error: state.scanError,
-            onGrant: notifier.requestAllFilesAccess,
-            onPickTree: notifier.pickTreeAndScan,
-            onRescan: notifier.scanStorageAll,
-          );
-
-          if (isLandscape) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-                  child: Row(
-                    children: [
-                      if (hasInstalled) ...[
-                        Expanded(child: summary),
-                        const SizedBox(width: 10),
-                      ],
-                      Expanded(child: scanBar),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: hasAny
-                      ? GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: constraints.maxWidth >= 1000
-                                ? 3
-                                : 2,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            mainAxisExtent: 172,
-                          ),
-                          itemCount: totalCount,
-                          itemBuilder: (context, index) => buildCardAt(index),
-                        )
-                      : const _EmptyModels(),
-                ),
-                if (hasInstalled)
-                  _StorageUsage(
-                    usedGb: usedGb,
-                    storageTotalGb: dashboard.storageTotalGb,
-                    storageFreeGb: dashboard.storageFreeGb,
-                    compact: true,
-                  ),
-              ],
-            );
-          }
-
-          return Column(
-            children: [
-              if (hasInstalled) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
-                  child: summary,
-                ),
-                const SizedBox(height: 12),
-              ],
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
-                child: scanBar,
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: hasAny
-                    ? ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                        itemCount: totalCount,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 12),
-                        itemBuilder: (context, index) => buildCardAt(index),
-                      )
-                    : const _EmptyModels(),
-              ),
-              if (hasInstalled)
-                _StorageUsage(
-                  usedGb: usedGb,
-                  storageTotalGb: dashboard.storageTotalGb,
-                  storageFreeGb: dashboard.storageFreeGb,
-                ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  /// Estado visual derivado SOLO de campos reales del dominio.
-  /// El activo es `LocalModel.active`; el instalado, el getter `installed`
-  /// (downloadState == installed, GGUF verificado por el notifier).
-  /// El NO COMPATIBLE compara el requisito real del modelo (ramGb) contra
-  /// la RAM libre real reportada por el dashboard â€” sin inventar datos.
-  ModelUiStatus _statusOf(LocalModel model, DashboardState dashboard) {
-    if (model.downloadState == ModelDownloadState.failed) {
-      return ModelUiStatus.error;
+  void _openModelDetails({
+    required String name,
+    required String quant,
+    required double sizeGb,
+    required String description,
+    required bool isDetected,
+    required bool isActive,
+    required VoidCallback onAction,
+    required String actionLabel,
+    required DashboardState dashboard,
+    double? ramGb,
+    String? path,
+  }) {
+    final totalRam = dashboard.ramTotalGb > 0 ? dashboard.ramTotalGb : 8.0;
+    final repo = ref.read(modelMetadataRepositoryProvider);
+    final def = ModelSourceRegistry.definitionFor(name);
+
+    repo.refreshRemoteMetadata(def.quantizedRepo);
+    if (def.officialRepo != def.quantizedRepo) {
+      repo.refreshRemoteMetadata(def.officialRepo);
     }
-    if (model.downloadState == ModelDownloadState.downloading ||
-        model.downloadState == ModelDownloadState.verifying) {
-      return ModelUiStatus.downloading;
-    }
-    if (model.active) return ModelUiStatus.active;
-    if (model.installed) return ModelUiStatus.installed;
-    // Compara contra la RAM TOTAL del device (dato estable): con la RAM
-    // libre el estado INCOMPATIBLE parpadeaba segÃºn el uso del momento.
-    if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb) {
-      return ModelUiStatus.incompatible;
-    }
-    return ModelUiStatus.available;
+
+    final verifiedInfo = repo.getVerifiedModelInfo(
+      modelName: name,
+      phoneTotalRamGb: totalRam,
+      customRamGb: ramGb,
+      customSizeGb: sizeGb,
+      customQuant: quant,
+    );
+
+    ModelDetailBottomSheet.show(
+      context: context,
+      name: name,
+      quant: quant,
+      sizeGb: sizeGb,
+      description: description,
+      isDetected: isDetected,
+      isActive: isActive,
+      onAction: onAction,
+      actionLabel: actionLabel,
+      phoneTotalRamGb: totalRam,
+      verifiedInfo: verifiedInfo,
+      sourceDef: def,
+      ramGb: ramGb,
+      path: path,
+    );
   }
 
-  /// Prioridad de orden en la lista: descargados primero (activo arriba de
-  /// todo, luego instalados, luego descargas en curso); error y disponible
-  /// quedan al final.
+  /// Gate R9 — selección con confirmación para EXTREME (9B+). interactive y
+  /// deep se cargan directo; extreme exige diálogo explícito. Sin confirmación,
+  /// `selectModel` lo ignora (defensa en profundidad, no solo UI).
+  Future<void> _confirmAndUse(LocalModel model) async {
+    if (model.tier != ModelTier.extreme) {
+      ref.read(modelsProvider.notifier).loadModel(model.id);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modelo EXTREME'),
+        content: Text(
+          '${model.name} (${model.params}) excede la RAM típica de este '
+          'dispositivo y hará el chat lento (thrashing). Solo para '
+          'batch/experimental. ¿Continuar de todos modos?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Usar de todos modos'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      ref
+          .read(modelsProvider.notifier)
+          .loadModel(model.id, confirmedExtreme: true);
+    }
+  }
+
   int _listRank(LocalModel model, DashboardState dashboard) {
     if (model.active) return 0;
     if (model.installed) return 1;
-    if (model.downloadState == ModelDownloadState.downloading ||
-        model.downloadState == ModelDownloadState.verifying) {
-      return 2;
-    }
-    if (model.downloadState == ModelDownloadState.failed) return 3;
-    if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb) {
-      return 4;
-    }
-    return 5;
+    if (model.downloadState == ModelDownloadState.downloading) return 2;
+    if (model.downloadState == ModelDownloadState.verifying) return 3;
+    final viability = _viabilityOf(model, dashboard);
+    if (viability == ModelViability.fast) return 4;
+    if (viability == ModelViability.balanced) return 5;
+    if (viability == ModelViability.streaming) return 6;
+    return 7;
   }
+}
+
+class _UnifiedModelItem {
+  final DetectedModel? detected;
+  final LocalModel? catalog;
+
+  const _UnifiedModelItem.detected(this.detected) : catalog = null;
+  const _UnifiedModelItem.catalog(this.catalog) : detected = null;
+
+  bool get isDetected => detected != null;
+}
+
+ModelUiStatus _statusOf(LocalModel model, DashboardState dashboard) {
+  if (model.active) return ModelUiStatus.active;
+  if (model.downloadState == ModelDownloadState.downloading) {
+    return ModelUiStatus.downloading;
+  }
+  if (model.downloadState == ModelDownloadState.verifying) {
+    return ModelUiStatus.downloading;
+  }
+  if (model.downloadState == ModelDownloadState.failed) {
+    return ModelUiStatus.error;
+  }
+  if (model.installed) return ModelUiStatus.installed;
+  if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb * 2.0) {
+    return ModelUiStatus.incompatible;
+  }
+  return ModelUiStatus.available;
 }
 
 enum ModelUiStatus {
@@ -338,94 +771,115 @@ enum ModelUiStatus {
   incompatible,
 }
 
-/// Miniatura circular compartida por las barras (summary/scan/empty):
-/// misma identidad visual, un solo punto de mantenimiento.
+/// Gate R9 — etiqueta del tier de rendimiento para el badge de la tarjeta.
+String _tierLabel(ModelTier tier) => switch (tier) {
+      ModelTier.interactive => 'INTERACTIVE',
+      ModelTier.deep => 'DEEP',
+      ModelTier.extreme => 'EXTREME',
+    };
+
+/// Color del badge de tier: verde (interactive), ámbar (deep), rojo (extreme).
+Color _tierColor(ModelTier tier, NanoColors colors) => switch (tier) {
+      ModelTier.interactive => colors.accentMint,
+      ModelTier.deep => colors.warning,
+      ModelTier.extreme => colors.error,
+    };
+
+
+
+class _EmptySearchResults extends StatelessWidget {
+  final String query;
+  final VoidCallback onClear;
+
+  const _EmptySearchResults({
+    required this.query,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _MiniIcon(
+              icon: Icons.search_off_rounded,
+              color: colors.accentSky,
+              size: 52,
+              iconSize: 24,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Sin resultados',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              query.isEmpty
+                  ? 'No hay modelos que coincidan con el filtro seleccionado.'
+                  : 'No se encontraron modelos para "$query".',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: colors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _PillButton(
+              label: 'Restablecer filtros',
+              onPressed: onClear,
+              accent: colors.accentSky,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MiniIcon extends StatelessWidget {
   const _MiniIcon({
     required this.icon,
     required this.color,
     required this.size,
     required this.iconSize,
-    this.bgAlpha = 0.14,
-    this.borderAlpha = 0.4,
   });
 
   final IconData icon;
   final Color color;
   final double size;
   final double iconSize;
-  final double bgAlpha;
-  final double borderAlpha;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: bgAlpha),
-        shape: BoxShape.circle,
-        border: Border.all(color: color.withValues(alpha: borderAlpha)),
+    return NanoOpticalSurface(
+      geometry: NanoSurfaceGeometry.circle,
+      blurSigma: 8,
+      borderStrength: 0.60,
+      reflectionStrength: 0.40,
+      accent: color,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Icon(icon, size: iconSize, color: color),
       ),
-      child: Icon(icon, size: iconSize, color: color),
     );
   }
 }
 
-class _ModelsSummary extends StatelessWidget {
-  const _ModelsSummary({
-    required this.installedCount,
-    required this.usedGb,
-  });
-
-  final int installedCount;
-  final double usedGb;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isCompact = MediaQuery.of(context).size.width < 600;
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 12,
-        vertical: isCompact ? 6 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(isCompact ? 12 : _M3.barRadius),
-        border: Border.all(
-          color: colors.accent.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Miniatura: icono mÃ¡s pequeÃ±o y compacto
-          _MiniIcon(
-            icon: Icons.view_in_ar_rounded,
-            color: colors.accent,
-            size: isCompact ? 28 : 32,
-            iconSize: isCompact ? 15 : 17,
-            bgAlpha: 0.16,
-          ),
-          SizedBox(width: isCompact ? 8 : 10),
-          Expanded(
-            child: Text(
-              '$installedCount Â· ${usedGb <= 0 ? '0 GB' : formatGb(usedGb)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.onSurface,
-                fontWeight: FontWeight.w500,
-                fontSize: isCompact ? 12 : 13,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// =============================================================
+// MODEL CARD CON IDENTIDAD DE MARCA Y BADGES ORGANIZADOS
+// =============================================================
 
 class _ModelCard extends StatelessWidget {
   const _ModelCard({
@@ -436,8 +890,11 @@ class _ModelCard extends StatelessWidget {
     required this.error,
     required this.status,
     required this.viability,
+    required this.tier,
     required this.ramNote,
     required this.progress,
+    required this.reflectionController,
+    required this.onTapDetails,
     required this.onUse,
     required this.onDownload,
     required this.onCancel,
@@ -450,21 +907,23 @@ class _ModelCard extends StatelessWidget {
   final String? error;
   final ModelUiStatus status;
   final ModelViability viability;
+  final ModelTier tier;
   final String? ramNote;
   final double progress;
+  final AnimationController reflectionController;
+  final VoidCallback onTapDetails;
   final VoidCallback onUse;
   final VoidCallback onDownload;
   final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     final accent = _statusColor(status, colors);
 
-    // El icono del modelo activo flota Â±2px (FloatingModelIcon).
     final icon = FloatingModelIcon(
       active: status == ModelUiStatus.active,
-      child: _ModelIcon(name: name),
+      child: ModelBrandLogo(name: name),
     );
 
     return Semantics(
@@ -473,85 +932,71 @@ class _ModelCard extends StatelessWidget {
         active: status == ModelUiStatus.active,
         borderRadius: _M3.cardRadius,
         child: RepaintBoundary(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_M3.cardRadius),
-            child: ClipRect(
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: status == ModelUiStatus.active
-                      ? colors.success.withValues(alpha: 0.62)
-                      : colors.surface.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(_M3.cardRadius),
-                  border: Border.all(color: accent.withValues(alpha: 0.62)),
-                  boxShadow: status == ModelUiStatus.active
-                      ? [
-                          BoxShadow(
-                            color: accent.withValues(alpha: 0.16),
-                            blurRadius: 18,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // En pantallas angostas la acciÃ³n (botÃ³n/check) no cabe
-                    // junto al icono de 66px: baja a su propia fila.
-                    final compact = constraints.maxWidth < 310;
+          child: NanoOpticalSurface(
+            borderRadius: _M3.cardRadius,
+            blurSigma: status == ModelUiStatus.active ? 18 : 14,
+            borderStrength: status == ModelUiStatus.active ? 0.90 : 0.70,
+            reflectionStrength: status == ModelUiStatus.active ? 0.85 : 0.50,
+            accent: accent,
+            reflectionController: reflectionController,
+            onTap: onTapDetails,
+            padding: const EdgeInsets.all(13),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 310;
 
-                    final details = _ModelDetails(
-                      name: name,
-                      quantization: quantization,
-                      sizeGb: sizeGb,
-                      description: description,
-                      error: error,
-                      status: status,
-                      viability: viability,
-                      ramNote: ramNote,
-                      progress: progress,
-                      accent: accent,
-                    );
+                final details = _ModelDetails(
+                  name: name,
+                  quantization: quantization,
+                  sizeGb: sizeGb,
+                  description: description,
+                  error: error,
+                  status: status,
+                  viability: viability,
+                  tier: tier,
+                  ramNote: ramNote,
+                  progress: progress,
+                  accent: accent,
+                );
 
-                    final action = _ModelAction(
-                      status: status,
-                      onUse: onUse,
-                      onDownload: onDownload,
-                      onCancel: onCancel,
-                    );
+                final action = _ModelAction(
+                  status: status,
+                  onUse: onUse,
+                  onDownload: onDownload,
+                  onCancel: onCancel,
+                );
 
-                    if (compact) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              icon,
-                              const SizedBox(width: 14),
-                              Expanded(child: details),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: action,
-                          ),
+                          icon,
+                          const SizedBox(width: 12),
+                          Expanded(child: details),
                         ],
-                      );
-                    }
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: action,
+                      ),
+                    ],
+                  );
+                }
 
-                    return Row(
-                      children: [
-                        icon,
-                        const SizedBox(width: 14),
-                        Expanded(child: details),
-                        const SizedBox(width: 10),
-                        action,
-                      ],
-                    );
-                  },
-                ),
-              ),
+                return Row(
+                  children: [
+                    icon,
+                    const SizedBox(width: 12),
+                    Expanded(child: details),
+                    const SizedBox(width: 8),
+                    action,
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -560,61 +1005,10 @@ class _ModelCard extends StatelessWidget {
   }
 }
 
-class _ModelIcon extends StatelessWidget {
-  const _ModelIcon({required this.name});
-  final String name;
+// =============================================================
+// DETALLES Y BADGES EN MODEL CARD
+// =============================================================
 
-  /// Icono y accent por familia (M3E: color expresivo por identidad del
-  /// modelo, no blanco neutro).
-  static (IconData, Color) _styleFor(String name, NanoColors colors) {
-    final lowerName = name.toLowerCase();
-    if (lowerName.contains('deepseek') || lowerName.contains('r1')) {
-      return (Icons.psychology_rounded, colors.tertiary);
-    }
-    if (lowerName.contains('coder') || lowerName.contains('code')) {
-      return (Icons.code_rounded, colors.warning);
-    }
-    if (lowerName.contains('gemma')) {
-      return (Icons.diamond_rounded, colors.success);
-    }
-    if (lowerName.contains('llama')) {
-      return (Icons.smart_toy_rounded, colors.warning);
-    }
-    if (lowerName.contains('phi')) {
-      return (Icons.auto_awesome_rounded, colors.tertiary);
-    }
-    if (lowerName.contains('27b') || lowerName.contains('32b')) {
-      return (Icons.bolt_rounded, colors.accent);
-    }
-    if (lowerName.contains('qwen')) {
-      return (Icons.hub_rounded, colors.accent);
-    }
-    return (Icons.memory_rounded, colors.accent);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final (iconData, tint) = _styleFor(name, colors);
-
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(_M3.iconRadius),
-        border: Border.all(color: tint.withValues(alpha: 0.35)),
-      ),
-      child: Icon(
-        iconData,
-        color: tint,
-        size: 26,
-      ),
-    );
-  }
-}
-
-/// Columna informativa de la card (nombre, chips, tamaÃ±o, progreso).
 class _ModelDetails extends StatelessWidget {
   const _ModelDetails({
     required this.name,
@@ -624,6 +1018,7 @@ class _ModelDetails extends StatelessWidget {
     required this.error,
     required this.status,
     required this.viability,
+    required this.tier,
     required this.ramNote,
     required this.progress,
     required this.accent,
@@ -636,100 +1031,137 @@ class _ModelDetails extends StatelessWidget {
   final String? error;
   final ModelUiStatus status;
   final ModelViability viability;
+  final ModelTier tier;
   final String? ramNote;
   final double progress;
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
+    final (familyColor, familyLabel) = ModelBrandLogo.familyMetaFor(name, colors);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: colors.onSurface,
-            fontSize: _M3.titleSize,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-          ),
+        Row(
+          children: [
+            // Badge de Familia
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: familyColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: familyColor.withValues(alpha: 0.45), width: 0.7),
+              ),
+              child: Text(
+                familyLabel,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: familyColor,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: colors.textPrimary,
+                  fontSize: _M3.titleSize,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.info_outline_rounded, size: 14, color: colors.accentSky.withValues(alpha: 0.7)),
+          ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Wrap(
-          spacing: 7,
-          runSpacing: 6,
+          spacing: 6,
+          runSpacing: 4,
           children: [
             _StatusChip(label: _statusLabel(status), color: accent),
+            _StatusChip(label: _tierLabel(tier), color: _tierColor(tier, colors)),
             if (quantization.isNotEmpty)
-              _StatusChip(label: quantization, color: colors.accent),
+              _StatusChip(label: quantization, color: colors.accentSky),
             _StatusChip(
               label: _viabilityLabel(viability),
               color: _viabilityColor(viability, colors),
             ),
           ],
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 5),
         if (ramNote != null)
           Text(
             ramNote!,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: colors.warning, fontSize: 12),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: colors.warning,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+            ),
           )
         else if (status == ModelUiStatus.error && error != null)
           Text(
             error!,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: colors.danger, fontSize: 12),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: colors.error,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+            ),
           )
         else
           Text(
-            '${formatGb(sizeGb)} Â· $description',
+            '${formatGb(sizeGb)} · $description',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: colors.onSurface.withValues(alpha: 0.62),
-              fontSize: 12,
+              fontFamily: 'Inter',
+              color: colors.textSecondary,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w400,
             ),
           ),
-        if (viability == ModelViability.extreme) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Extremadamente lento en este dispositivo. Recomendado: LAN/Cloud.',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: colors.danger, fontSize: 12),
-          ),
-        ],
         if (status == ModelUiStatus.downloading) ...[
-          const SizedBox(height: 10),
-          if (MediaQuery.disableAnimationsOf(context))
-            LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              minHeight: 4,
-              color: accent,
-              backgroundColor: colors.onSurface.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(99),
-            )
-          else
-            TweenAnimationBuilder<double>(
-              // El progreso de descarga avanza con suavidad hacia cada
-              // nuevo valor real reportado por el notifier.
-              tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOut,
-              builder: (_, value, child) => LinearProgressIndicator(
-                value: value,
-                minHeight: 4,
-                color: accent,
-                backgroundColor: colors.onSurface.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(99),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: Container(
+              height: 5,
+              color: colors.metalSilver.withValues(alpha: 0.40),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 260),
+                curve: NanoMotionCurves.standardDecel,
+                builder: (_, value, child) => FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: value.clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      gradient: LinearGradient(
+                        colors: [accent, colors.accentCyan],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
+          ),
         ],
       ],
     );
@@ -746,34 +1178,34 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final chip = Container(
       key: ValueKey(label),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.15),
         borderRadius: _M3.chipRadius,
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 0.8),
       ),
       child: Text(
         label,
         style: TextStyle(
+          fontFamily: 'Inter',
           color: color,
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
         ),
       ),
     );
 
     if (MediaQuery.disableAnimationsOf(context)) return chip;
 
-    // Cambio de estado (INSTALADO â†’ ACTIVO, etc.) con fade + escala y
-    // overshoot (M3E emphasis motion).
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: Curves.easeOutBack,
+      duration: NanoMotionDurations.quick,
+      switchInCurve: NanoMotionCurves.standardDecel,
       switchOutCurve: Curves.easeIn,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.85, end: 1).animate(animation),
+          scale: Tween<double>(begin: 0.90, end: 1).animate(animation),
           child: child,
         ),
       ),
@@ -781,6 +1213,10 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
+
+// =============================================================
+// ACCIONES DE MODELO Y BOTONES
+// =============================================================
 
 class _ModelAction extends StatelessWidget {
   const _ModelAction({
@@ -797,32 +1233,25 @@ class _ModelAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     final accent = _statusColor(status, colors);
 
     switch (status) {
       case ModelUiStatus.active:
-        // M3E: estado resaltado con badge circular + glow, no icono suelto.
-        return Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: colors.success.withValues(alpha: 0.16),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: colors.success.withValues(alpha: 0.5),
+        return NanoOpticalSurface(
+          geometry: NanoSurfaceGeometry.circle,
+          blurSigma: 8,
+          borderStrength: 0.80,
+          reflectionStrength: 0.60,
+          accent: colors.accentMint,
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(
+              Icons.check_rounded,
+              color: colors.accentMint,
+              size: 20,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: colors.success.withValues(alpha: 0.35),
-                blurRadius: 12,
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.check_rounded,
-            color: colors.success,
-            size: 22,
           ),
         );
 
@@ -833,18 +1262,17 @@ class _ModelAction extends StatelessWidget {
         return _PillButton(label: 'Descargar', accent: accent, onPressed: onDownload);
 
       case ModelUiStatus.downloading:
-        return PressableScale(
-          pressedScale: _M3.pressScale,
-          child: IconButton(
-            tooltip: 'Cancelar descarga',
-            onPressed: onCancel,
-            style: IconButton.styleFrom(
-              backgroundColor: accent.withValues(alpha: 0.16),
-              foregroundColor: accent,
-              shape: const CircleBorder(),
-              side: BorderSide(color: accent.withValues(alpha: 0.5)),
-            ),
-            icon: const Icon(Icons.close_rounded),
+        return NanoOpticalSurface(
+          geometry: NanoSurfaceGeometry.circle,
+          blurSigma: 8,
+          borderStrength: 0.70,
+          reflectionStrength: 0.50,
+          accent: accent,
+          onTap: onCancel,
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(Icons.close_rounded, size: 18, color: accent),
           ),
         );
 
@@ -852,17 +1280,11 @@ class _ModelAction extends StatelessWidget {
         return _PillButton(label: 'Reintentar', accent: accent, onPressed: onDownload);
 
       case ModelUiStatus.incompatible:
-        // PolÃ­tica consistente con los detectados: se permite intentar.
-        // El ramNote naranja ya advierte el requisito de RAM real.
         return _PillButton(label: 'Descargar', accent: accent, onPressed: onDownload);
     }
   }
 }
 
-/// BotÃ³n principal pill (M3E): FilledButton stadium con accent saturado y
-/// texto onAccent (contraste correcto en claro Y oscuro, antes onSurface
-/// dejaba blanco sobre cyan). Compartido por _ModelAction y _DetectedCard â€”
-/// mismo estilo, un solo punto de mantenimiento.
 class _PillButton extends StatelessWidget {
   const _PillButton({
     required this.label,
@@ -872,302 +1294,182 @@ class _PillButton extends StatelessWidget {
 
   final String label;
   final VoidCallback onPressed;
-
-  /// Null â†’ accent del tema.
   final Color? accent;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return PressableScale(
-      pressedScale: _M3.pressScale,
-      child: FilledButton(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: accent ?? colors.accent,
-          foregroundColor: colors.onAccent,
-          shape: const StadiumBorder(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        ),
-        child: Text(label),
-      ),
-    );
-  }
-}
+    final colors = NanoThemeExtension.of(context).colors;
+    final buttonAccent = accent ?? colors.accentSky;
 
-/// Barra del scanner automÃ¡tico del storage. Estados honestos:
-/// scanning=true (ocupado), detectedCount>0 (resultados), error!=null
-/// (fallo SAF), allFilesGranted=false (falta permiso).
-class _ScanBar extends StatelessWidget {
-  const _ScanBar({
-    required this.scanning,
-    required this.allFilesGranted,
-    required this.treeGranted,
-    required this.detectedCount,
-    required this.error,
-    required this.onGrant,
-    required this.onPickTree,
-    required this.onRescan,
-  });
-
-  final bool scanning;
-  final bool allFilesGranted;
-  final bool treeGranted;
-  final int detectedCount;
-  final String? error;
-  final VoidCallback onGrant;
-  final VoidCallback onPickTree;
-  final VoidCallback onRescan;
-
-  /// BotÃ³n de acciÃ³n de la barra: pill con accent (M3E).
-  Widget _scanButton(String label, VoidCallback onPressed, NanoColors colors) {
-    return PressableScale(
-      pressedScale: _M3.pressScale,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: colors.accent,
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-        child: Text(label),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isCompact = MediaQuery.of(context).size.width < 600;
-    final accent = error != null ? colors.danger : colors.accent;
-
-    // En compact los botones de texto se ocultan y la barra entera se
-    // vuelve el gesto. "Conceder acceso" sin tap era un callejÃ³n muerto
-    // en phone. Con permiso concedido, el tap SIEMPRE reescanea (tambiÃ©n
-    // con detectados: la acciÃ³n debe seguir disponible).
-    final VoidCallback? tapAction = !allFilesGranted && !treeGranted
-        ? onGrant
-        : !allFilesGranted && treeGranted
-            ? onPickTree
-            : !scanning
-                ? onRescan
-                : null;
-
-    final content = Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 12,
-        vertical: isCompact ? 6 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(isCompact ? 12 : _M3.barRadius),
-        border: Border.all(
-          color: error != null
-              ? colors.danger.withValues(alpha: 0.45)
-              : colors.onSurface.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Miniatura: icono mÃ¡s pequeÃ±o y compacto
-          _MiniIcon(
-            icon: scanning
-                ? Icons.refresh_rounded
-                : detectedCount > 0
-                    ? Icons.folder_open_rounded
-                    : Icons.folder_off_rounded,
-            color: accent,
-            size: isCompact ? 26 : 30,
-            iconSize: isCompact ? 14 : 16,
+    return NanoOpticalSurface(
+      geometry: NanoSurfaceGeometry.capsule,
+      blurSigma: 10,
+      borderStrength: 0.75,
+      reflectionStrength: 0.60,
+      accent: buttonAccent,
+      onTap: onPressed,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+            letterSpacing: -0.2,
           ),
-          SizedBox(width: isCompact ? 8 : 10),
-          Expanded(
-            child: Text(
-              error ??
-                  (scanning
-                      ? 'Buscando...'
-                      : detectedCount > 0
-                          ? (detectedCount == 1
-                              ? '1 detectado'
-                              : '$detectedCount detectados')
-                          : allFilesGranted || treeGranted
-                              ? 'No hay modelos'
-                              : 'Conceder acceso'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: error != null
-                    ? colors.danger
-                    : colors.onSurface.withValues(alpha: 0.9),
-                fontSize: isCompact ? 11 : 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          if (!isCompact && !allFilesGranted && !treeGranted)
-            _scanButton('Dar permiso', onGrant, colors)
-          else if (!isCompact && !allFilesGranted && treeGranted)
-            _scanButton('Escanear', onPickTree, colors)
-          else if (!isCompact && !scanning)
-            _scanButton('Reescanear', onRescan, colors)
-          // Compact (phone): el anÃ¡lisis/reescaneo sigue VISIBLE como
-          // icono refresh tappable â€” la acciÃ³n no puede desaparecer.
-          // Solo con permiso concedido: sin permiso el texto dice
-          // "Conceder acceso" y un refresh confundirÃ­a la acciÃ³n.
-          else if (isCompact &&
-              !scanning &&
-              (allFilesGranted || treeGranted))
-            _MiniIcon(
-              icon: Icons.refresh_rounded,
-              color: colors.accent,
-              size: 24,
-              iconSize: 13,
-            ),
-        ],
-      ),
-    );
-
-    if (tapAction == null) return content;
-
-    final radius = BorderRadius.circular(isCompact ? 12 : _M3.barRadius);
-    return ClipRRect(
-      borderRadius: radius,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: tapAction,
-          borderRadius: radius,
-          splashColor: accent.withValues(alpha: 0.14),
-          highlightColor: colors.onSurface.withValues(alpha: 0.04),
-          child: content,
         ),
       ),
     );
   }
 }
 
-/// Card de modelo detectado en storage (sin instalaciÃ³n: uso directo desde su
-/// ubicaciÃ³n original). BotÃ³n CARGAR invoca `useDetected`. Misma identidad
-/// visual que `_ModelCard` (glassmorphism) + chips de formato y estado.
+// =============================================================
+// DETECTED CARD (LOCAL / SD CARD)
+// =============================================================
+
 class _DetectedCard extends StatelessWidget {
   const _DetectedCard({
     required this.model,
     required this.loading,
     required this.active,
+    required this.reflectionController,
+    required this.onTapDetails,
     required this.onUse,
   });
 
   final DetectedModel model;
   final bool loading;
   final bool active;
+  final AnimationController reflectionController;
+  final VoidCallback onTapDetails;
   final VoidCallback onUse;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
+
     return Semantics(
-      label: '${model.name}, detectado${active ? ', activo' : ''}',
+      label: '${model.name}, detectado en memoria${active ? ', activo' : ''}',
       child: AnimatedActiveBorder(
         active: active,
         borderRadius: _M3.compactRadius,
         child: RepaintBoundary(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_M3.compactRadius),
-            child: ClipRect(
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: active
-                      ? colors.success.withValues(alpha: 0.62)
-                      : colors.surface.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(_M3.compactRadius),
-                  border: Border.all(
-                    color: (active ? colors.success : colors.onSurface)
-                        .withValues(alpha: active ? 0.62 : 0.12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    _ModelIcon(name: model.name),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          child: NanoOpticalSurface(
+            borderRadius: _M3.compactRadius,
+            blurSigma: active ? 16 : 12,
+            borderStrength: active ? 0.85 : 0.65,
+            reflectionStrength: active ? 0.75 : 0.45,
+            accent: active ? colors.accentMint : colors.accentMint,
+            reflectionController: reflectionController,
+            onTap: onTapDetails,
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                ModelBrandLogo(name: model.name),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            model.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.onSurface,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              if (active)
-                                _StatusChip(
-                                  label: 'ACTIVO',
-                                  color: colors.success,
-                                ),
-                              _StatusChip(
-                                label: model.format.name.toUpperCase(),
-                                color: colors.accent,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            model.sizeBytes > 0
-                                ? formatBytes(model.sizeBytes)
-                                : 'TamaÃ±o desconocido',
-                            style: TextStyle(
-                              color: colors.onSurface.withValues(alpha: 0.5),
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (!model.usable) ...[
-                            const SizedBox(height: 4),
-                            // Aviso honesto en la tarjeta: el motor solo lee
-                            // GGUF con magic vÃ¡lido, pero se permite intentar.
-                            Text(
-                              model.format == DetectedModelFormat.gguf
-                                  ? 'Magic GGUF no verificado. Intentando cargar de todos modos.'
-                                  : 'Formato ${model.format.name}: el motor '
-                                      'solo lee GGUF. Intentando de todos '
-                                      'modos.',
-                              maxLines: 2,
+                          Expanded(
+                            child: Text(
+                              model.name,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: colors.warning,
-                                fontSize: 11,
+                                fontFamily: 'Inter',
+                                color: colors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
                               ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.info_outline_rounded, size: 14, color: colors.accentMint),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (loading)
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colors.accent,
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _StatusChip(
+                            label: 'MEMORIA SD',
+                            color: colors.accentMint,
+                          ),
+                          if (active)
+                            _StatusChip(
+                              label: 'ACTIVO',
+                              color: colors.accentSky,
+                            ),
+                          _StatusChip(
+                            label: model.format.name.toUpperCase(),
+                            color: colors.accentSky,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        model.sizeBytes > 0
+                            ? formatBytes(model.sizeBytes)
+                            : 'Archivo local en SD / almacenamiento',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: colors.textSecondary,
+                          fontSize: 11.5,
                         ),
-                      )
-                    else
-                      // M3E: acciÃ³n principal FilledButton pill.
-                      _PillButton(label: 'Cargar', onPressed: onUse),
-                  ],
+                      ),
+                      if (model.path != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          model.path!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'JetBrainsMono',
+                            color: colors.textSecondary.withValues(alpha: 0.65),
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                if (loading)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.accentMint,
+                    ),
+                  )
+                else if (active)
+                  NanoOpticalSurface(
+                    geometry: NanoSurfaceGeometry.circle,
+                    blurSigma: 8,
+                    borderStrength: 0.80,
+                    reflectionStrength: 0.60,
+                    accent: colors.accentMint,
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: colors.accentMint,
+                        size: 18,
+                      ),
+                    ),
+                  )
+                else
+                  _PillButton(label: 'Cargar', accent: colors.accentMint, onPressed: onUse),
+              ],
             ),
           ),
         ),
@@ -1176,41 +1478,43 @@ class _DetectedCard extends StatelessWidget {
   }
 }
 
-/// Estado vacÃ­o compacto: reemplaza la lista vacÃ­a gigante con un aviso
-/// honesto y mÃ­nimo. Sin barras, sin tarjetas fantasma.
+// =============================================================
+// ESTADO VACÍO & ALMACENAMIENTO
+// =============================================================
+
 class _EmptyModels extends StatelessWidget {
   const _EmptyModels();
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _MiniIcon(
             icon: Icons.folder_off_rounded,
-            color: colors.accent.withValues(alpha: 0.7),
+            color: colors.accentSky,
             size: 52,
             iconSize: 24,
-            bgAlpha: 0.1,
-            borderAlpha: 0.3,
           ),
           const SizedBox(height: 12),
           Text(
             'Sin modelos',
             style: TextStyle(
-              color: colors.onSurface,
+              fontFamily: 'Inter',
+              color: colors.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Concede acceso al storage o descarga un GGUF del catÃ¡logo.',
+            'Concede acceso al storage o descarga un GGUF del catálogo.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: colors.onSurface.withValues(alpha: 0.5),
+              fontFamily: 'Inter',
+              color: colors.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -1220,96 +1524,96 @@ class _EmptyModels extends StatelessWidget {
   }
 }
 
-/// Pie de la pantalla con uso de almacenamiento real del device.
-/// Solo se muestra cuando hay modelos instalados (usedGb > 0).
 class _StorageUsage extends StatelessWidget {
   const _StorageUsage({
     required this.usedGb,
     required this.storageTotalGb,
     required this.storageFreeGb,
-    this.compact = false,
   });
 
   final double usedGb;
   final double storageTotalGb;
   final double storageFreeGb;
 
-  /// Modo landscape: margen y padding reducidos para no robar alto.
-  final bool compact;
-
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     final usedPct = storageTotalGb > 0 ? usedGb / storageTotalGb : 0.0;
 
     return Container(
-      margin: compact
-          ? const EdgeInsets.fromLTRB(14, 0, 14, 10)
-          : const EdgeInsets.fromLTRB(18, 0, 18, 18),
-      padding: compact
-          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-          : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(_M3.barRadius),
-        border: Border.all(color: colors.onSurface.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  'Almacenamiento',
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.72),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: NanoOpticalSurface(
+        borderRadius: _M3.barRadius,
+        blurSigma: 12,
+        borderStrength: 0.60,
+        reflectionStrength: 0.40,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    'Almacenamiento',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.textPrimary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    '${formatGb(usedGb)} de ${formatGb(storageTotalGb)}',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.textSecondary,
+                      fontSize: 11.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                height: 5,
+                color: colors.metalSilver.withValues(alpha: 0.40),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: usedPct.clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      color: usedPct > 0.9
+                          ? colors.error
+                          : usedPct > 0.7
+                              ? colors.warning
+                              : colors.accentMint,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  '${formatGb(usedGb)} de ${formatGb(storageTotalGb)}',
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.72),
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: usedPct.clamp(0.0, 1.0),
-              minHeight: 6,
-              backgroundColor: colors.onSurface.withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                usedPct > 0.9
-                    ? colors.danger
-                    : usedPct > 0.7
-                        ? colors.warning
-                        : colors.success,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '${formatGb(storageFreeGb)} libres',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: colors.textSecondary,
+                fontSize: 10.5,
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${formatGb(storageFreeGb)} libres',
-            style: TextStyle(
-              color: colors.onSurface.withValues(alpha: 0.48),
-              fontSize: 11,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1329,10 +1633,6 @@ String formatBytes(int bytes) {
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
-/// Tier de viabilidad de un modelo en ESTE device â€” espejo Dart del
-/// `assess_viability` de NanoRuntime (Rust). Derivado de datos reales:
-/// ramGb del modelo vs RAM total del dispositivo. Distingue CanRun de
-/// ShouldRun: EXTREME "can_run" pero NO es interactivo.
 enum ModelViability { fast, balanced, streaming, extreme }
 
 ModelViability _viabilityOf(LocalModel model, DashboardState dashboard) {
@@ -1347,7 +1647,7 @@ ModelViability _viabilityOf(LocalModel model, DashboardState dashboard) {
 String _viabilityLabel(ModelViability v) {
   switch (v) {
     case ModelViability.fast:
-      return 'RÃPIDO';
+      return 'RÁPIDO';
     case ModelViability.balanced:
       return 'EQUILIBRADO';
     case ModelViability.streaming:
@@ -1360,28 +1660,28 @@ String _viabilityLabel(ModelViability v) {
 Color _viabilityColor(ModelViability v, NanoColors colors) {
   switch (v) {
     case ModelViability.fast:
-      return colors.success;
+      return colors.accentMint;
     case ModelViability.balanced:
-      return colors.accent;
+      return colors.accentSky;
     case ModelViability.streaming:
       return colors.warning;
     case ModelViability.extreme:
-      return colors.danger;
+      return colors.error;
   }
 }
 
 Color _statusColor(ModelUiStatus status, NanoColors colors) {
   switch (status) {
     case ModelUiStatus.active:
-      return colors.success;
+      return colors.accentMint;
     case ModelUiStatus.installed:
-      return colors.accent;
+      return colors.accentSky;
     case ModelUiStatus.available:
-      return colors.tertiary;
+      return colors.accentLavender;
     case ModelUiStatus.downloading:
       return colors.warning;
     case ModelUiStatus.error:
-      return colors.danger;
+      return colors.error;
     case ModelUiStatus.incompatible:
       return colors.warning;
   }

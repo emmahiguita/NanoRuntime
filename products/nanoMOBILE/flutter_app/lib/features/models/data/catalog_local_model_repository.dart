@@ -46,6 +46,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       fileName: entry.file,
       description: _descriptionFor(entry.name),
       template: entry.template,
+      tier: entry.tier,
       downloadState: installed
           ? ModelDownloadState.installed
           : ModelDownloadState.notInstalled,
