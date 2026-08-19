@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/features/models/application/models_state.dart';
 import 'package:nanoai/features/models/data/catalog_local_model_repository.dart';
 import 'package:nanoai/features/models/data/channel_model_storage_repository.dart';
@@ -82,7 +85,16 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// Estados: notInstalled → downloading (progress) → verifying → installed,
   /// o failed con mensaje honesto. Cancelable con [cancelDownload].
   Future<void> downloadModel(String id) async {
-    final item = state.models.firstWhere((model) => model.id == id);
+    // firstWhere sin orElse lanza StateError si el catálogo aún no cargó
+    // (race de arranque) o el id no existe; guardamos en vez de tirar.
+    LocalModel? item;
+    for (final model in state.models) {
+      if (model.id == id) {
+        item = model;
+        break;
+      }
+    }
+    if (item == null) return;
     if (item.installed) return;
     if (_downloadingId != null) return; // una descarga a la vez
 
@@ -189,8 +201,14 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// (botón de descarga primero). El path real del GGUF llega a ChatNotifier,
   /// que lo usa en el arranque del motor (--model <path>).
   void loadModel(String id, {bool confirmedExtreme = false}) {
-    final item = state.models.firstWhere((model) => model.id == id);
-    if (!item.installed || item.localPath == null) return;
+    LocalModel? item;
+    for (final model in state.models) {
+      if (model.id == id) {
+        item = model;
+        break;
+      }
+    }
+    if (item == null || !item.installed || item.localPath == null) return;
     state = state.copyWith(
       models: [
         for (final model in state.models)
@@ -417,14 +435,25 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     final directPath = model.path;
     state = state.copyWith(loadingDetectedUri: directPath ?? model.uri);
     if (directPath != null) {
+      // El storage externo (FUSE) es lento para el acceso random de pesos
+      // (mmap + dequant por token). Copiar al storage interno de la app antes
+      // de cargar: el mismo modelo pasa de lento a ~5 tok/s.
+      final internalPath = await _copyToInternal(directPath, model.name);
       if (!mounted) return;
+      if (internalPath == null) {
+        state = state.copyWith(
+          loadingDetectedUri: null,
+          scanError: 'No se pudo copiar ${model.name} al storage interno.',
+        );
+        return;
+      }
       state = state.copyWith(
         loadingDetectedUri: null,
         activeDetected: model.name,
       );
       _ref
           .read(chatProvider.notifier)
-          .selectModel(model.name, path: directPath);
+          .selectModel(model.name, path: internalPath);
       return;
     }
     try {
@@ -448,6 +477,31 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         loadingDetectedUri: null,
         scanError: 'No se pudo abrir ${model.name}: $e',
       );
+    }
+  }
+
+  /// Copia un GGUF del storage externo al interno de la app (files/nano/models/).
+  /// El externo vía FUSE es lento para el acceso random de pesos; el interno
+  /// permite mmap rápido. Idempotente: si ya existe con el mismo tamaño, no
+  /// recopia.
+  Future<String?> _copyToInternal(String srcPath, String name) async {
+    try {
+      final filesDir = await NanoRuntimeApi.instance.getFilesDir();
+      if (filesDir == null) return null;
+      final destDir = '$filesDir/models';
+      await Directory(destDir).create(recursive: true);
+      final dest = '$destDir/$name';
+      final destFile = File(dest);
+      final srcFile = File(srcPath);
+      if (await destFile.exists() &&
+          await destFile.length() == await srcFile.length()) {
+        return dest;
+      }
+      await srcFile.copy(dest);
+      return dest;
+    } catch (e) {
+      debugPrint('[models] copy to internal falló: $e');
+      return null;
     }
   }
 
