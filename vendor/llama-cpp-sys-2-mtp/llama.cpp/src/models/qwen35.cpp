@@ -38,8 +38,20 @@ void llama_model_qwen35::load_arch_tensors(llama_model_loader & ml) {
     LLAMA_LOAD_LOCALS;
 
     const bool mtp_only = (hparams.n_layer_nextn > 0) && (ml.get_weight("blk.0.attn_norm.weight") == nullptr);
+    // Trunk-only GGUF: la metadata declara nextn_predict_layers > 0 pero el
+    // archivo no trae los tensores MTP (convertido sin --mtp), o el runtime
+    // pidió no cargar MTP (load_mtp=false). Degradar a trunk puro: sin esto,
+    // graph_mtp aserta nextn.eh_proj y aborta el motor (y con él el chat).
+    const std::string mtp_probe = "blk." + std::to_string(n_layer) + ".nextn.eh_proj.weight";
+    const bool trunk_only = (hparams.n_layer_nextn > 0) && (ml.get_weight(mtp_probe.c_str()) == nullptr);
+    if (trunk_only || !ml.load_mtp) {
+        const uint32_t n_layer_trunk = hparams.n_layer(); // antes de degradar: capas trunk reales
+        hparams.n_layer_nextn = 0;
+        hparams.n_layer_all = n_layer_trunk;
+        LLAMA_LOG_WARN("%s: GGUF declara nextn_predict_layers>0 pero sin tensores MTP cargados — usando trunk-only (%u capas)\n", __func__, n_layer_trunk);
+    }
     const int trunk_flags = mtp_only ? TENSOR_NOT_REQUIRED : 0;
-    int mtp_flags = !ml.load_mtp ? TENSOR_SKIP : 0;
+    int mtp_flags = hparams.n_layer_nextn == 0 ? TENSOR_SKIP : 0;
 
     tok_embd = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, "weight"), { n_embd, n_vocab }, 0);
 
