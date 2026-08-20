@@ -263,7 +263,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: isCompactLandscape ? 1280 : 1120,
+            // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
+            // márgenes muertos); se mantiene una cota por legibilidad.
+            maxWidth: isCompactLandscape ? 1440 : 1400,
           ),
           child: Stack(
             children: [

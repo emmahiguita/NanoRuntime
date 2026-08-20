@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 
 import 'nano_home_models.dart';
@@ -129,21 +128,8 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
     super.dispose();
   }
 
-  Color _activeAccentForPage(int page, NanoColors colors) {
-    switch (page) {
-      case 0:
-        return colors.accentLavender;
-      case 1:
-        return colors.accentCyan;
-      case 2:
-      default:
-        return colors.accentBlue;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
     final media = MediaQuery.of(context);
 
     final terminalSub =
@@ -156,7 +142,6 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
           KaliStatus.starting => 'Preparando Linux',
         };
     final chatSub = widget.chatSubtitle ?? 'Habla con';
-    final activeAccent = _activeAccentForPage(_currentPage, colors);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -180,10 +165,10 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                       4.0 -
                       telemetryRowHeight -
                       12.0;
-                  final carouselHeight = availableForCarousel.clamp(
-                    150.0,
-                    260.0,
-                  );
+                  // Sin mínimo forzado: el clamp(150, …) desbordaba el Column
+                  // en ventanas paisaje muy bajas (altura < ~238px). La card
+                  // escala al espacio real disponible, nunca fuerza overflow.
+                  final carouselHeight = availableForCarousel.clamp(0.0, 260.0);
 
                   return Center(
                     child: ConstrainedBox(
@@ -709,11 +694,10 @@ class _FeatureCarousel extends StatelessWidget {
 
                     final reduceMotion = NanoMotion.reduceMotion(context);
 
-                    // Parallax y rotación en perspectiva física 3D suave
+                    // Parallax 2D (sin rotateY ni perspectiva): la rotación 3D
+                    // en el carousel producía texto sub-píxel (bordes borrosos
+                    // en las cards adyacentes). Solo escala + traslación + opacidad.
                     final scale = reduceMotion ? 1.0 : (1.0 - distance * 0.06);
-                    final rotationY = reduceMotion
-                        ? 0.0
-                        : -delta * (6.0 * math.pi / 180);
                     final translationY = reduceMotion
                         ? distance * 2.0
                         : distance * 6.0;
@@ -723,13 +707,9 @@ class _FeatureCarousel extends StatelessWidget {
                     final specularDrift = -(page - page.roundToDouble()) * 0.22;
 
                     return Transform(
-                      alignment: delta > 0
-                          ? Alignment.centerLeft
-                          : Alignment.centerRight,
+                      alignment: Alignment.center,
                       transform: Matrix4.identity()
-                        ..setEntry(3, 2, reduceMotion ? 0.0 : 0.0008)
                         ..setTranslationRaw(translationX, translationY, 0.0)
-                        ..rotateY(rotationY)
                         ..scaleByDouble(scale, scale, 1.0, 1.0),
                       child: Opacity(
                         opacity: (1.0 - distance * 0.16).clamp(0.0, 1.0),
