@@ -620,27 +620,27 @@ impl RuntimePlanner {
     /// Clasifica la viabilidad de un modelo+dispositivo SIN cargar el modelo.
     ///
     /// Distingue `can_run` (liveness alcanzable) de `should_run_interactive`
-    /// (generaciÃ³n Ãºtil). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
-    /// "should_run_interactive" â€” la app lo usa para advertir o recomendar
+    /// (generaci?n ?til). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
+    /// "should_run_interactive" ? la app lo usa para advertir o recomendar
     /// un modelo menor en vez de arrancar algo inusable.
     pub fn assess_viability(&self, model_size_mb: u64, device: &DeviceProfile) -> ViabilityReport {
         let avail_mb = device.ram_available_mb.max(1) as f64;
         let ratio = model_size_mb as f64 / avail_mb;
 
-        // Predicción de decode en CPU (heurística calibrada con medición real).
+        // Predicci?n de decode en CPU (heur?stica calibrada con medici?n real).
         let predicted_decode = CPU_DECODE_CALIBRATION / model_size_mb.max(1) as f64;
 
         let (viability, interactive, reason) = if ratio <= 0.7 {
             (
                 Viability::Fast,
                 true,
-                "modelo cabe cómodamente en RAM".to_string(),
+                "modelo cabe c?modamente en RAM".to_string(),
             )
         } else if ratio <= 1.0 {
             (
                 Viability::Balanced,
                 true,
-                "modelo ≈ RAM disponible: residencia adaptativa".to_string(),
+                "modelo ? RAM disponible: residencia adaptativa".to_string(),
             )
         } else if ratio <= 2.0 {
             (
@@ -652,22 +652,33 @@ impl RuntimePlanner {
             (
                 Viability::Extreme,
                 false,
-                "modelo >> RAM: thrashing extremo, generación no interactiva".to_string(),
+                "modelo >> RAM: thrashing extremo, generaci?n no interactiva".to_string(),
             )
         };
 
         // Endurecimiento CPU: aunque "cabe" (streaming), un decode < 1 tok/s
         // no es una experiencia interactiva. El planner distingue "vale la
-        // pena ejecutarlo así" de "solo cabe" — memory liveness y interactive
+        // pena ejecutarlo as?" de "solo cabe" ? memory liveness y interactive
         // performance son objetivos distintos (medido en OPPO: 9B = 0.31 tok/s).
         let should_run_interactive = interactive && predicted_decode >= INTERACTIVE_MIN_TOK_S;
         let reason = if interactive && !should_run_interactive {
             format!(
-                "{}; decode CPU estimado {:.2} tok/s < 1.0 — no interactivo, requiere GPU/NPU",
+                "{}; decode CPU estimado {:.2} tok/s < 1.0 ? no interactivo, requiere GPU/NPU",
                 reason, predicted_decode
             )
         } else {
             reason
+        };
+
+        ViabilityReport {
+            can_run: true,
+            should_run_interactive,
+            viability,
+            reason,
+            predicted_decode_tok_s: predicted_decode,
+        }
+    }
+
     /// Perfil de backend para este dispositivo, resolviendo mediciones
     /// persistidas cuando existen.
     pub fn backend_profile(
@@ -727,18 +738,6 @@ impl RuntimePlanner {
                     None => "Vulkan disponible pero sin medici?n persistida".to_string(),
                 },
             },
-            Backend::Npu => BackendProfile {
-                backend,
-                available: false,
-                recommended: false,
-                measured_decode_tok_s: None,
-                measured_prefill_tok_s: None,
-                confidence: ProfileConfidence::Unknown,
-                reason: "NPU no detectado en este dispositivo".to_string(),
-            },
-        }
-    }
-
             Backend::Npu => BackendProfile {
                 backend,
                 available: false,
@@ -1095,6 +1094,7 @@ impl Default for RuntimePlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory_engine::{BENCHMARK_SCHEMA_VERSION, MeasuredExecutionProfile};
 
     fn samsung() -> DeviceProfile {
         DeviceProfile {
@@ -1353,19 +1353,83 @@ mod tests {
         assert_eq!(QuantLevel::Q8.to_string(), "Q8_0");
     }
 
+    fn benchmark_device() -> DeviceProfile {
+        oppo()
+    }
+
+    fn benchmark_model() -> ModelFingerprint {
+        ModelFingerprint {
+            architecture: "qwen2".to_string(),
+            parameter_count: 1_500_000_000,
+            block_count: 28,
+            file_size_bytes: 1_065 * 1024 * 1024,
+        }
+    }
+
+    fn benchmark_planner() -> RuntimePlanner {
+        let device = benchmark_device();
+        let model = benchmark_model();
+        let mut store = BenchmarkStore::in_memory();
+        let fp = DeviceFingerprint::from_device(&device);
+        store.upsert(MeasuredExecutionProfile {
+            schema_version: BENCHMARK_SCHEMA_VERSION,
+            device: fp.clone(),
+            model: model.clone(),
+            backend: "cpu".to_string(),
+            threads: 4,
+            context_tokens: 4096,
+            batch_size: 256,
+            ttft_ms: 400.0,
+            prefill_tok_s: 20.0,
+            decode_peak_tok_s: 4.17,
+            decode_sustained_tok_s: 3.75,
+            pss_peak_mb: 1500.0,
+            major_faults_per_second: 2.0,
+            temperature_start_c: 30.0,
+            temperature_peak_c: 42.0,
+            thermal_decay_pct: 0.1,
+            samples: 50,
+            measured_at: "2026-08-19T00:00:00Z".to_string(),
+        });
+        store.upsert(MeasuredExecutionProfile {
+            schema_version: BENCHMARK_SCHEMA_VERSION,
+            device: fp,
+            model,
+            backend: "vulkan".to_string(),
+            threads: 4,
+            context_tokens: 4096,
+            batch_size: 256,
+            ttft_ms: 480.0,
+            prefill_tok_s: 16.0,
+            decode_peak_tok_s: 2.52,
+            decode_sustained_tok_s: 2.20,
+            pss_peak_mb: 1600.0,
+            major_faults_per_second: 3.0,
+            temperature_start_c: 31.0,
+            temperature_peak_c: 44.0,
+            thermal_decay_pct: 0.12,
+            samples: 50,
+            measured_at: "2026-08-19T00:00:00Z".to_string(),
+        });
+        RuntimePlanner::with_benchmark_store(store)
+    }
+
     #[test]
     fn test_backend_profile_measured() {
-        let planner = RuntimePlanner::new();
+        let planner = benchmark_planner();
+        let d = benchmark_device();
+        let m = benchmark_model();
+
         let cpu = planner.backend_profile(Backend::Cpu, &d, &m);
         assert!(cpu.available);
         assert!(cpu.recommended);
         assert_eq!(cpu.confidence, ProfileConfidence::Measured);
+        assert!((cpu.measured_decode_tok_s.unwrap() - 3.75).abs() < 0.001);
 
-        // Medido en OPPO CPH2557: Vulkan más lento que CPU en Mali-G57 MC2.
         let vulkan = planner.backend_profile(Backend::Vulkan, &d, &m);
-        assert!(vulkan.available, "Vulkan está disponible");
-        assert!(!vulkan.recommended, "pero no recomendado (más lento que CPU)");
-        assert!(vulkan.measured_decode_tok_s.unwrap() < cpu.measured_decode_tok_s.unwrap());
+        assert!(vulkan.available, "Vulkan est? disponible");
+        assert!(!vulkan.recommended, "pero no recomendado (m?s lento que CPU)");
+        assert!((vulkan.measured_decode_tok_s.unwrap() - 2.20).abs() < 0.001);
 
         let npu = planner.backend_profile(Backend::Npu, &d, &m);
         assert!(!npu.available);
@@ -1374,16 +1438,17 @@ mod tests {
 
     #[test]
     fn test_execution_decision_vulkan_degrades_to_cpu() {
-        let planner = RuntimePlanner::new();
-        let d = oppo();
+        let planner = benchmark_planner();
+        let d = benchmark_device();
+        let m = benchmark_model();
 
-        // 1.5B en Vulkan → no recomendado (medido más lento) → degrada a CPU.
+        // 1.5B en Vulkan ? no recomendado (medido m?s lento) ? degrada a CPU.
         let dec = planner.execution_decision("qwen15", 1065, Backend::Vulkan, &d, &m);
         assert_eq!(dec.backend, Backend::Cpu, "Vulkan degrada a CPU en CPH2557");
         assert!(dec.can_run);
         assert!(dec.should_run_interactive);
 
-        // 9B en CPU → no interactivo (0.73 tok/s estimado).
+        // 9B en CPU ? no interactivo (0.73 tok/s estimado).
         let dec9 = planner.execution_decision("qwen9", 5512, Backend::Cpu, &d, &m);
         assert_eq!(dec9.backend, Backend::Cpu);
         assert!(!dec9.should_run_interactive);
