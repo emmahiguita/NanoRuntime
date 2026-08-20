@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/design_tokens.dart';
+import '../theme/nano_breakpoint.dart';
 import '../widgets/nano_ambient_background.dart';
 import '../widgets/navigation/nano_dock_controller.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
@@ -106,12 +107,27 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
             child: widget.shell,
           );
 
+          // Cota global de contenido: el contenido nunca se estira hasta el
+          // borde en desktop/ultrawide. El centro deja el panel dock en su
+          // lugar y el contenido acotado en medio (regla "Maximum useful
+          // width" de la auditoría). Las pantallas con cota interna menor
+          // (home/models/chat) siguen ganando porque su ConstrainedBox es
+          // más estrecho.
+          final boundedContent = Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: NanoBreakpoints.contentMaxWidth,
+              ),
+              child: shellContent,
+            ),
+          );
+
           Widget layoutContent;
           if (isTop) {
             layoutContent = Column(
               children: [
                 navPanel,
-                Expanded(child: shellContent),
+                Expanded(child: boundedContent),
               ],
             );
           } else {
@@ -119,7 +135,7 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (isLeft) navPanel,
-                Expanded(child: shellContent),
+                Expanded(child: boundedContent),
                 if (isRight) navPanel,
               ],
             );

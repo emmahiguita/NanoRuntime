@@ -346,9 +346,9 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                       style: NanoType.caption(colors.onSurfaceVariant),
                     ),
                     const SizedBox(height: NanoSpacing.md),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
+                    nanoAdaptivePrimary(
+                      context,
+                      OutlinedButton.icon(
                         onPressed: _permBusy ? null : _requestStorage,
                         icon: const Icon(Icons.folder_rounded, size: 18),
                         label: Text(

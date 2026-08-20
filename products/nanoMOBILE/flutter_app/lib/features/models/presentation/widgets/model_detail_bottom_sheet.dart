@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/widgets/live_animations.dart';
-import '../../../../core/widgets/nano_optical_surface.dart';
+import '../../../../core/widgets/nano_components.dart';
 import '../../data/model_source_registry.dart';
 import '../../domain/model_metadata_entities.dart';
 import '../../domain/model_viability.dart';
@@ -730,11 +730,13 @@ class ModelDetailBottomSheet extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      // Botón de Acción Principal
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: NanoOpticalSurface(
+                      // Botón de Acción Principal — full-width solo en compact
+                      // (mobile), content-sized en tablet/desktop.
+                      nanoAdaptivePrimary(
+                        context,
+                        SizedBox(
+                          height: 48,
+                          child: NanoOpticalSurface(
                           borderRadius: 14,
                           blurSigma: 12,
                           borderStrength: 0.85,
@@ -766,6 +768,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                               ],
                             ),
                           ),
+                        ),
                         ),
                       ),
                     ],

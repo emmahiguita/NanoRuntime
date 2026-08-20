@@ -164,9 +164,9 @@ class _NotificationAutomationSectionState
                 ),
                 const SizedBox(height: NanoSpacing.md),
                 if (!_status.accessGranted)
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
+                  nanoAdaptivePrimary(
+                    context,
+                    FilledButton.icon(
                       onPressed: _busy ? null : _requestAccess,
                       icon: const Icon(Icons.security_rounded),
                       label: const Text('Conceder acceso en Android'),
@@ -244,9 +244,9 @@ class _NotificationAutomationSectionState
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
+                  nanoAdaptivePrimary(
+                    context,
+                    FilledButton.icon(
                       onPressed: _busy ? null : _confirmReply,
                       icon: const Icon(Icons.send_rounded),
                       label: const Text('Revisar y enviar'),

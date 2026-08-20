@@ -182,9 +182,9 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
             children: [
               Text(_status, style: NanoType.body(colors.onSurface)),
               const SizedBox(height: NanoSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
+              nanoAdaptivePrimary(
+                context,
+                FilledButton.icon(
                   onPressed: _busy ? null : _probe,
                   icon: const Icon(Icons.visibility, size: 18),
                   label: Text(
