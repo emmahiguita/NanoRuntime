@@ -15,6 +15,7 @@ import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
+import 'package:nanoai/core/theme/app_theme.dart';
 import 'package:nanoai/features/chat/presentation/screens/chat_screen.dart';
 
 /// Tests del core del chat: adjuntos reales (chips + inyección al prompt
@@ -86,7 +87,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: overrides,
-        child: MaterialApp(home: screen),
+        child: MaterialApp(
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.dark,
+          home: screen,
+        ),
       ),
     );
     await tester.pump();
@@ -371,8 +377,8 @@ void main() {
       );
 
       expect(find.text('mira esto'), findsOneWidget);
-      expect(find.text('📎 notas.md'), findsOneWidget);
-      expect(find.text('📎 log.txt'), findsOneWidget);
+      expect(find.text('notas.md'), findsOneWidget);
+      expect(find.text('log.txt'), findsOneWidget);
     });
 
     testWidgets('adjuntar → enviar llega al motor con el contenido real', (
@@ -401,6 +407,9 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), 'analiza los datos');
+      // El composer habilita el envío con texto: un frame para que _hasText
+      // se refleje en el InkWell antes del tap.
+      await tester.pump();
       await tester.tap(find.byTooltip('Enviar'));
       for (var i = 0; i < 200; i++) {
         await tester.pump(const Duration(milliseconds: 20));
@@ -408,8 +417,10 @@ void main() {
 
       expect(fake.prompts.single, contains('42 es la respuesta'));
       expect(fake.prompts.single, contains('analiza los datos'));
-      // El chip se consumió tras el envío.
-      expect(find.text('datos.txt'), findsNothing);
+      // El chip del composer se consumió tras el envío; el nombre persiste
+      // en la burbuja del mensaje user (attachmentNames), no como adjunto
+      // pendiente.
+      expect(find.text('datos.txt'), findsOneWidget);
     });
   });
 }

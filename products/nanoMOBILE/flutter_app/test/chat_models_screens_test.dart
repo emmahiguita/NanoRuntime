@@ -147,11 +147,16 @@ void main() {
 
       expect(find.text('DETENIDO'), findsOneWidget);
       expect(find.text('Motor local detenido'), findsOneWidget);
-      // Botón de enviar desactivado sin motor.
-      final sendButton = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.send_rounded),
+      // Botón de enviar desactivado sin motor (composer usa InkWell, no
+      // IconButton: el tap está en null cuando no hay texto o el motor no
+      // permite enviar).
+      final sendButton = tester.widget<InkWell>(
+        find.ancestor(
+          of: find.byIcon(Icons.arrow_upward_rounded),
+          matching: find.byType(InkWell),
+        ),
       );
-      expect(sendButton.onPressed, isNull);
+      expect(sendButton.onTap, isNull);
     });
 
     testWidgets('motor conectado: badge LOCAL y compositor activo', (
@@ -170,10 +175,16 @@ void main() {
 
       expect(find.text('LOCAL'), findsOneWidget);
       expect(find.text('Chat local'), findsOneWidget);
-      final sendButton = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.send_rounded),
+      // El envío exige texto + motor listo: escribir habilita el botón.
+      await tester.enterText(find.byType(TextField), 'hola');
+      await tester.pump();
+      final sendButton = tester.widget<InkWell>(
+        find.ancestor(
+          of: find.byIcon(Icons.arrow_upward_rounded),
+          matching: find.byType(InkWell),
+        ),
       );
-      expect(sendButton.onPressed, isNotNull);
+      expect(sendButton.onTap, isNotNull);
     });
 
     testWidgets('enviar inserta el mensaje del usuario y detener para la '
@@ -195,19 +206,17 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), 'Cuéntame algo');
-      await tester.tap(
-        find.widgetWithIcon(IconButton, Icons.send_rounded),
-      );
+      // El composer habilita el envío cuando hay texto: hace falta un frame
+      // para que _hasText se refleje en el InkWell antes del tap.
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
       // El mensaje del usuario se insertó y la generación está en curso
       // (burbuja streaming + botón stop).
       expect(find.text('Cuéntame algo'), findsOneWidget);
-      expect(
-        find.widgetWithIcon(IconButton, Icons.stop_rounded),
-        findsOneWidget,
-      );
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
 
       // Token parcial visible en la burbuja streaming.
       fakeClient.emit(const LLMStreamToken(content: 'Claro,', stop: false));
@@ -215,9 +224,9 @@ void main() {
       expect(find.textContaining('Claro,'), findsOneWidget);
 
       // Detener con el botón stop real (notifier.stop).
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.stop_rounded));
+      await tester.tap(find.byIcon(Icons.stop_rounded));
       await tester.pump();
-      expect(find.widgetWithIcon(IconButton, Icons.stop_rounded), findsNothing);
+      expect(find.byIcon(Icons.stop_rounded), findsNothing);
 
       await fakeClient.close();
     });
@@ -262,8 +271,13 @@ void main() {
         const ChatScreen(),
         overrides: [
           chatProvider.overrideWith(
-            (ref) =>
-                ChatNotifier.fixed(ref, const ChatState(engineOnline: true)),
+            (ref) => ChatNotifier.fixed(
+              ref,
+              const ChatState(
+                engineOnline: true,
+                activeModelPath: '/storage/qwen.gguf',
+              ),
+            ),
           ),
         ],
       );
@@ -317,7 +331,7 @@ void main() {
         ],
       );
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -361,9 +375,7 @@ void main() {
         ],
       );
 
-      await tester.tap(
-        find.widgetWithIcon(IconButton, Icons.attach_file_rounded),
-      );
+      await tester.tap(find.byIcon(Icons.attach_file_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -397,7 +409,7 @@ void main() {
 
       expect(find.text('ACTIVO'), findsOneWidget);
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
-      expect(find.text('1 · 1.2 GB'), findsOneWidget);
+      expect(find.text('1.2 GB · Multilingüe, ligero'), findsOneWidget);
     });
 
     testWidgets('modelo instalado muestra INSTALADO y botón Usar', (
@@ -476,15 +488,15 @@ void main() {
       );
 
       expect(find.text('DESCARGANDO'), findsOneWidget);
-      // Dos barras: el progreso de la card (value > 0) y el pie de
-      // almacenamiento (value 0 con dashboard vacío).
-      final indicators = tester
-          .widgetList<LinearProgressIndicator>(
-            find.byType(LinearProgressIndicator),
+      // La barra de progreso de la card es un FractionallySizedBox animado
+      // (ya no LinearProgressIndicator): al menos una con widthFactor > 0
+      // (descarga al 40%). El pie de almacenamiento usa la misma primitiva.
+      final bars = tester
+          .widgetList<FractionallySizedBox>(
+            find.byType(FractionallySizedBox),
           )
           .toList();
-      expect(indicators.length, 2);
-      expect(indicators.any((i) => (i.value ?? 0) > 0), isTrue);
+      expect(bars.any((b) => (b.widthFactor ?? 0) > 0), isTrue);
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     });
 
@@ -578,10 +590,21 @@ void main() {
 
       // Scroll incremental hasta ver la card descargando: con la fuente de
       // prueba (métrica mayor que Inter) un drag fijo de -600 se pasaba y
-      // desmontaba la card buscada.
-      await tester.scrollUntilVisible(find.text('DESCARGANDO'), 120);
+      // desmontaba la card buscada. La pantalla tiene DOS scrollables (el
+      // filtro horizontal + la lista vertical de modelos): se apunta al
+      // último (la lista vertical).
+      final modelsScrollable = find.byType(Scrollable).last;
+      await tester.scrollUntilVisible(
+        find.text('DESCARGANDO'),
+        120,
+        scrollable: modelsScrollable,
+      );
       expect(find.text('DESCARGANDO'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('ERROR'), 120);
+      await tester.scrollUntilVisible(
+        find.text('ERROR'),
+        120,
+        scrollable: modelsScrollable,
+      );
       expect(find.text('ERROR'), findsOneWidget);
     });
 
@@ -689,7 +712,9 @@ void main() {
 
       expect(find.textContaining('1.2 GB de 256.0 GB'), findsOneWidget);
       expect(find.textContaining('209.0 GB libres'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      // Barra de almacenamiento: FractionallySizedBox (ya no
+      // LinearProgressIndicator).
+      expect(find.byType(FractionallySizedBox), findsWidgets);
     });
 
     testWidgets('sin barra de navegación inferior', (tester) async {

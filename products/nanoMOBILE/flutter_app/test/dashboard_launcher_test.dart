@@ -16,6 +16,8 @@ import 'package:nanoai/features/models/application/models_notifier.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
 import 'package:nanoai/features/models/application/models_state.dart';
 import 'package:nanoai/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:nanoai/features/home/nano_home_screen.dart';
+import 'package:nanoai/features/home/nano_home_models.dart';
 
 /// Pruebas del launcher NanoAI (DashboardScreen).
 void main() {
@@ -101,6 +103,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
   }
 
+  /// Anima el carousel hasta [page] y deja asentar el scroll.
+  ///
+  /// `animateToPage` usa un DrivenScrollActivity cuyo `shouldIgnorePointer`
+  /// es `true`: durante (y justo después de) la animación el viewport queda
+  /// envuelto en un `IgnorePointer` y las cards no reciben taps. La animación
+  /// de 300ms termina en el tercer frame (page exacta), pero la transición a
+  /// `IdleScrollActivity` (que restaura `shouldIgnorePointer=false`) ocurre en
+  /// el frame siguiente. Sin ese pump extra el tap cae sobre el Scrollable,
+  /// no sobre la card — reproduce el bug "Terminal funciona, Modelos no".
+  Future<void> settleToPage(WidgetTester tester, int page) async {
+    final pageView = tester.widget<PageView>(
+      find.byKey(const ValueKey('nano-home-carousel')),
+    );
+    pageView.controller!.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+
   // 1. Los 3 accesos se renderizan
   testWidgets('renders Terminal, Chat, and Modelos cards', (tester) async {
     await pumpDashboard(tester);
@@ -136,21 +162,28 @@ void main() {
   // 4. Navegaci\u00f3n de las 3 tarjetas
   testWidgets('Terminal navigates to /terminal', (tester) async {
     await pumpDashboard(tester);
-    await tester.tap(find.text('Terminal'));
+    await tester.tap(find.byKey(const ValueKey('nano-feature-terminal')));
     await tester.pumpAndSettle();
     expect(find.text('placeholder:terminal'), findsOneWidget);
   });
 
   testWidgets('Chat navigates to /chat', (tester) async {
     await pumpDashboard(tester);
-    await tester.tap(find.text('Chat'));
+    // Chat vive en la página 0 del carousel (página inicial = Terminal):
+    // anima a la página exacta y deja asentar el scroll antes del tap.
+    await settleToPage(tester, 0);
+    await tester.tap(find.byKey(const ValueKey('nano-feature-chat')));
+    // Tras navegar, la home se desmonta y la reflexión ambiental se libera:
+    // pumpAndSettle asienta la transición de ruta.
     await tester.pumpAndSettle();
     expect(find.text('placeholder:chat'), findsOneWidget);
   });
 
   testWidgets('Modelos navigates to /models', (tester) async {
     await pumpDashboard(tester);
-    await tester.tap(find.text('Modelos'));
+    await settleToPage(tester, 2);
+    await tester.tap(find.byKey(const ValueKey('nano-feature-models')));
+    // Tras navegar, la home se desmonta y la reflexión ambiental se libera.
     await tester.pumpAndSettle();
     // La ruta /models del harness es un placeholder: valida la navegación,
     // no el contenido real de la pantalla.
@@ -203,8 +236,10 @@ void main() {
         batteryPct: 100, isLive: true,
       ),
     );
-    // Los contadores animan desde 0 hasta el valor real.
-    await tester.pumpAndSettle();
+    // La reflexión ambiental repite en bucle: pumps finitos en vez de
+    // pumpAndSettle (que esperaría la animación infinita).
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('3.9 GB'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
     expect(find.text('35 \u00B0C'), findsOneWidget);
@@ -231,17 +266,18 @@ void main() {
           child: MaterialApp(
             theme: AppTheme.light,
             home: NanoHomeScreen(
-              ramFreeGb: null,
-              cpuCores: null,
-              temperatureC: null,
-              storageFreeGb: null,
-              batteryPercent: null,
-              linuxReady: ready,
-              onTerminal: () {},
-              onChat: () {},
-              onModels: () {},
-              onDesktop: () {},
-              onSettings: () {},
+              telemetry: const NanoTelemetryData(
+                ram: '—',
+                cpu: '—',
+                temperature: '—',
+                freeStorage: '—',
+                battery: '—',
+              ),
+              kaliStatus: ready ? KaliStatus.running : KaliStatus.notInitialized,
+              onTerminalTap: () {},
+              onChatTap: () {},
+              onModelsTap: () {},
+              onKaliTap: () {},
             ),
           ),
         );
@@ -257,13 +293,15 @@ void main() {
     expect(find.text('Linux listo'), findsOneWidget);
   });
 
-  // 12. Card Kali con layout propio: no comparte GlassActionCard con la
-  // card Terminal (solo Terminal + Chat/Modelos/Escritorio/Ajustes la usan).
+  // 12. Card Kali con layout propio: no comparte NanoFeatureCard con el
+  // carousel (Terminal + Chat + Modelos + Escritorio usan la card óptica;
+  // Kali usa su propio chip). El PageView.builder solo construye las páginas
+  // visibles: 3 cards (central + adyacentes), no las 4 del carousel.
   testWidgets('Kali card has its own layout, not GlassActionCard',
       (tester) async {
     await pumpDashboard(tester);
-    expect(find.byType(GlassActionCard), findsNWidgets(5),
-        reason: 'Terminal + 4 action cards; Kali usa su propio layout');
+    expect(find.byType(NanoFeatureCard), findsNWidgets(3),
+        reason: 'carousel: 3 cards construidas (central + adyacentes); Kali usa chip propio');
     expect(find.text('Kali'), findsOneWidget);
   });
 
@@ -283,17 +321,18 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light,
           home: NanoHomeScreen(
-            ramFreeGb: null,
-            cpuCores: null,
-            temperatureC: null,
-            storageFreeGb: null,
-            batteryPercent: null,
-            linuxReady: false,
-            onTerminal: () {},
-            onChat: () {},
-            onModels: () {},
-            onDesktop: () {},
-            onSettings: () {},
+            telemetry: const NanoTelemetryData(
+              ram: '—',
+              cpu: '—',
+              temperature: '—',
+              freeStorage: '—',
+              battery: '—',
+            ),
+            kaliStatus: KaliStatus.notInitialized,
+            onTerminalTap: () {},
+            onChatTap: () {},
+            onModelsTap: () {},
+            onKaliTap: () {},
           ),
         ),
       ),
@@ -323,12 +362,13 @@ void main() {
       ],
     );
 
-    await tester.scrollUntilVisible(
-      find.text('Escritorio'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Escritorio'));
+    // Escritorio vive en la página 3 (última) del carousel. settleToPage
+    // anima a la página exacta y deja asentar el scroll (el DrivenScrollActivity
+    // libera el IgnorePointer del viewport solo un frame después de terminar).
+    await settleToPage(tester, 3);
+    expect(find.text('Escritorio'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('nano-feature-desktop')));
+    // Tras navegar, la home se desmonta y la reflexión ambiental se libera.
     await tester.pumpAndSettle();
     expect(find.text('placeholder:desktop'), findsOneWidget,
         reason: 'atajo debe pasar por /desktop (arranque Xvnc), no VNC directo');

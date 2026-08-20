@@ -15,6 +15,10 @@ import 'package:nanoai/core/services/runtime_engine.dart';
 
 import 'fixtures.dart';
 
+/// Aplana un history (role/content) a un único string para asserts `contains`.
+String _historyText(List<Map<String, String>>? history) =>
+    (history ?? const []).map((m) => m['content'] ?? '').join('\n');
+
 /// Tests del tool-calling en ChatNotifier: comandos `@` interceptados sin
 /// motor y loop de herramientas con el LLM (fake engine + canal mockeado).
 void main() {
@@ -135,8 +139,11 @@ void main() {
         '{"tool":"tap","selector":"text=Bluetooth"}',
         'Listo, lo toque.',
       ]);
-      expect(fake.prompts[1], contains('Resultado de la herramienta'));
-      expect(fake.prompts[1], contains('tap en "Bluetooth" @(540,340)'));
+      expect(fake.prompts[1], contains('abre bluetooth'));
+      // El resultado de la herramienta viaja en el HISTORY (turno user) de la
+      // segunda ronda, no en el prompt (el prompt crudo es el texto del user).
+      expect(_historyText(fake.histories[1]), contains('Resultado de la herramienta'));
+      expect(_historyText(fake.histories[1]), contains('tap en "Bluetooth" @(540,340)'));
     },
   );
 
@@ -151,10 +158,11 @@ void main() {
     await notifier.send('saluda');
     await waitDone(notifier);
 
-    expect(fake.prompts.first, contains('{"tool":"screen"}'));
-    expect(fake.prompts.first, contains('{"tool":"tap","selector":"<sel>"}'));
-    expect(fake.prompts.first, contains('{"tool":"write"'));
-    expect(fake.prompts.first, contains('{"tool":"back"}'));
+    // El anuncio de herramientas viaja en el system prompt (context).
+    expect(fake.contexts.first, contains('{"tool":"screen"}'));
+    expect(fake.contexts.first, contains('{"tool":"tap","selector":"<sel>"}'));
+    expect(fake.contexts.first, contains('{"tool":"write"'));
+    expect(fake.contexts.first, contains('{"tool":"back"}'));
   });
 
   test(
@@ -190,7 +198,7 @@ void main() {
     await notifier.send('vuela');
     await waitDone(notifier);
 
-    expect(fake.prompts[1], contains('Herramienta desconocida "volar"'));
+    expect(_historyText(fake.histories[1]), contains('Herramienta desconocida "volar"'));
     expect(notifier.state.messages.last.text, 'No puedo volar.');
   });
 
@@ -212,7 +220,7 @@ void main() {
       await notifier.approvePendingTool();
       await waitDone(notifier);
 
-      expect(fake.prompts[1], contains('Selector inv'));
+      expect(_historyText(fake.histories[1]), contains('Selector inv'));
       expect(tapCalls, isEmpty);
       expect(
         notifier.state.messages.last.text,
@@ -255,6 +263,12 @@ class _LoopEngineClient extends LLMEngineClient {
   /// Prompts recibidos en orden de llamada.
   final List<String> prompts = [];
 
+  /// System prompt (context) recibido en cada ronda.
+  final List<String> contexts = [];
+
+  /// Historial (role/content) recibido en cada ronda.
+  final List<List<Map<String, String>>> histories = [];
+
   int rounds = 0;
 
   @override
@@ -270,6 +284,8 @@ class _LoopEngineClient extends LLMEngineClient {
     String? requestId,
   }) {
     prompts.add(prompt);
+    contexts.add(context ?? '');
+    histories.add(history ?? const []);
     final chunks = script[rounds < script.length ? rounds : script.length - 1];
     rounds++;
     late final StreamController<LLMStreamToken> controller;

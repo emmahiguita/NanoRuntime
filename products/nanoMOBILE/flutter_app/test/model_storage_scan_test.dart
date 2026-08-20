@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/models/catalog_models.dart';
@@ -126,7 +127,7 @@ class _RecordingChatNotifier extends ChatNotifier {
   final List<(String, String?)> selected = [];
 
   @override
-  void selectModel(String name, {String? path}) {
+  void selectModel(String name, {bool confirmedExtreme = false, String? path}) {
     selected.add((name, path));
   }
 }
@@ -187,6 +188,10 @@ ProviderContainer _container({
 }
 
 void main() {
+  // useDetected con path directo copia al storage interno vía getFilesDir:
+  // necesita el binding (messenger) aunque el resto sean tests de dominio.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Detección de modelos en storage SAF', () {
     test('maybeAutoScan sin árbol concedido: no escanea y marca treeGranted '
         'false', () async {
@@ -483,14 +488,29 @@ void main() {
       expect(state.scanError, contains('Acceso al storage no concedido'));
     });
 
-    test('useDetected con path directo: selecciona la ruta real sin abrir '
-        'fd (cero copias)', () async {
+    test('useDetected con path directo: copia al storage interno y selecciona '
+        'la ruta copiada (sin abrir fd)', () async {
+      final tmp = await Directory.systemTemp.createTemp('nano_scan_test');
+      addTearDown(() => tmp.delete(recursive: true));
+      final src = File('${tmp.path}/mistral.Q4_K_M.gguf');
+      await src.writeAsString('gguf-bytes');
+
+      // getFilesDir del runtime nativo → un filesDir temporal real, para que
+      // _copyToInternal copie el archivo y selectModel reciba la ruta interna.
+      const execChannel = MethodChannel('com.nanoai/exec_bin');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(execChannel, (call) async {
+        if (call.method == 'getFilesDir') return '${tmp.path}/files';
+        return null;
+      });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(execChannel, null),
+      );
+
       final storage = FakeStorageRepository(allFilesGranted: true);
       final container = _container(storage: storage);
-      final model = _detected(
-        'mistral.Q4_K_M.gguf',
-        path: '/storage/emulated/0/Download/mistral.Q4_K_M.gguf',
-      );
+      final model = _detected('mistral.Q4_K_M.gguf', path: src.path);
 
       await container.read(modelsProvider.notifier).useDetected(model);
 
@@ -500,7 +520,7 @@ void main() {
       expect(recording.selected, [
         (
           'mistral.Q4_K_M.gguf',
-          '/storage/emulated/0/Download/mistral.Q4_K_M.gguf',
+          '${tmp.path}/files/models/mistral.Q4_K_M.gguf',
         ),
       ]);
       final state = container.read(modelsProvider);

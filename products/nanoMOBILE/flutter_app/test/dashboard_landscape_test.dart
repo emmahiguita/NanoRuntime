@@ -57,15 +57,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 900));
       expect(tester.takeException(), isNull,
           reason: 'landscape sin overflow ni excepción');
-      // Las 6 entradas visibles también en horizontal.
+      // La home es un carousel: solo la tarjeta central (Terminal) y sus
+      // adyacentes se construyen; el resto se alcanza deslizando. Lo que
+      // debe estar presente en todo layout: identidad, estado Kali y la
+      // tarjeta central.
       expect(find.text('Terminal'), findsOneWidget);
       expect(find.text('Kali'), findsOneWidget);
-      expect(find.text('Chat'), findsOneWidget);
-      expect(find.text('Modelos'), findsOneWidget);
-      expect(find.text('Escritorio'), findsOneWidget);
-      // El acceso a Ajustes vive en el header como IconButton con tooltip
-      // (no Text visible) desde el rediseño compacto.
-      expect(find.byTooltip('Ajustes'), findsOneWidget);
+      expect(find.text('nanoai'), findsOneWidget);
     });
   }
 }
