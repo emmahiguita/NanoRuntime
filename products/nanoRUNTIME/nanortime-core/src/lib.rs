@@ -50,12 +50,13 @@ pub mod speculative_decoder; // speculative decoding (always available, export u
 use std::sync::Arc;
 
 use execution::{ModelManager, ToolExecutor, VectorEngine};
+use memory_engine::thermal_controller::ThermalController;
 use tracing::info;
 
 pub use config::manifest::Config;
 pub use config::tools::ToolDefinition;
 pub use error::NanoError;
-pub use execution::model_manager::{RuntimeStatus, ViabilityStatus};
+pub use execution::model_manager::{BenchmarkMeasurement, RuntimeStatus, ViabilityStatus};
 pub use memory_engine::NanoMemoryEngine;
 pub use orchestrator::Orchestrator;
 
@@ -131,6 +132,34 @@ pub struct GenerationStats {
     pub total_ms: u64,
 }
 
+/// Resultado observable de una configuración del micro-sweep CPU.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MicroBenchmarkCandidate {
+    pub threads: u32,
+    pub context_tokens: u32,
+    pub batch_size: u32,
+    pub decode_peak_tok_s: f64,
+    pub decode_short_sustained_tok_s: f64,
+    pub ttft_ms: f64,
+    pub prefill_tok_s: f64,
+    pub pss_peak_mb: f64,
+    pub major_faults_per_second: f64,
+    pub thermal_decay_pct: f64,
+    pub temperature_start_c: f64,
+    pub temperature_peak_c: f64,
+    pub temperature_available: bool,
+    pub thermal_penalty: f64,
+    pub utility: f64,
+    pub samples: u32,
+}
+
+/// Reporte del sweep; el ganador queda recargado y persistido al finalizar.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MicroBenchmarkReport {
+    pub winner: MicroBenchmarkCandidate,
+    pub candidates: Vec<MicroBenchmarkCandidate>,
+}
+
 /// Resultado de la ejecución de una herramienta.
 #[derive(Debug, Clone)]
 pub struct ToolCallResult {
@@ -174,6 +203,15 @@ impl NanoRuntime {
     /// Síncrono — lo consume el hilo del servidor HTTP.
     pub fn status(&self) -> RuntimeStatus {
         self.model_manager.status()
+    }
+
+    /// Evalúa un artefacto del catálogo con el mismo planner que gobierna la
+    /// carga real. Flutter no debe replicar umbrales de RAM.
+    pub fn assess_model_viability(
+        &self,
+        model_size_bytes: u64,
+    ) -> Result<ViabilityStatus, NanoError> {
+        self.model_manager.assess_model_viability(model_size_bytes)
     }
 
     /// Inicializa el runtime con la configuración proporcionada.
@@ -302,11 +340,13 @@ impl NanoRuntime {
         context_size: u32,
         batch_size: u32,
     ) -> Result<(), NanoError> {
-        let path = self.model_manager.current_model_path().await.ok_or_else(|| {
-            NanoError::ModelNotFound {
+        let path = self
+            .model_manager
+            .current_model_path()
+            .await
+            .ok_or_else(|| NanoError::ModelNotFound {
                 path: "<ningún modelo cargado>".to_string(),
-            }
-        })?;
+            })?;
         info!(
             "Reloading model with override: threads={} ctx={} batch={}",
             threads, context_size, batch_size
@@ -316,6 +356,170 @@ impl NanoRuntime {
         self.model_manager
             .load_model_with_params(&path, threads, context_size, batch_size)
             .await
+    }
+
+    /// Persiste el resultado agregado de una configuración ya medida sobre el
+    /// modelo activo. La identidad del perfil se deriva dentro del runtime.
+    pub async fn persist_benchmark_measurement(
+        &self,
+        measurement: BenchmarkMeasurement,
+    ) -> Result<(), NanoError> {
+        self.model_manager
+            .persist_benchmark_measurement(measurement)
+            .await
+    }
+
+    /// Ejecuta un micro-sweep CPU usando la inferencia real. Cada candidato
+    /// genera tres muestras cortas; la última representa steady-state corto.
+    /// Al terminar se recarga y persiste únicamente el ganador.
+    pub async fn run_micro_benchmark(&self) -> Result<MicroBenchmarkReport, NanoError> {
+        const CONTEXT_TOKENS: u32 = 4096;
+        const BATCH_SIZE: u32 = 256;
+        const TOKENS_PER_SAMPLE: usize = 32;
+        const THREAD_CANDIDATES: [u32; 4] = [2, 4, 6, 8];
+
+        let mut candidates = Vec::new();
+        for threads in THREAD_CANDIDATES {
+            self.reload_with_params(threads, CONTEXT_TOKENS, BATCH_SIZE)
+                .await?;
+
+            let mut stats = Vec::new();
+            let mut temperature_start_c = ThermalController::read_max_temp().map(f64::from);
+            let mut temperature_peak_c = temperature_start_c;
+            for sample in 0..3 {
+                let request = UserRequest {
+                    prompt: format!(
+                        "NanoRuntime deterministic performance probe {}. Continue with short plain text.",
+                        sample
+                    ),
+                    context: None,
+                    history: None,
+                    session_id: Some(format!("benchmark-{threads}-{sample}")),
+                    max_tokens: Some(TOKENS_PER_SAMPLE),
+                    temperature: Some(0.0),
+                };
+                let (response_rx, mut token_rx) = self.process_request_streaming(request).await?;
+                // Drenar siempre el stream: ningún benchmark puede introducir
+                // backpressure artificial en el backend que está midiendo.
+                let drain = tokio::spawn(async move { while token_rx.recv().await.is_some() {} });
+                let response = response_rx.await.map_err(|_| NanoError::Internal {
+                    message: "benchmark generation response channel closed".to_string(),
+                })?;
+                let _ = drain.await;
+                let generation = response.stats.ok_or_else(|| NanoError::Internal {
+                    message: "benchmark generation returned no statistics".to_string(),
+                })?;
+                if generation.generated_tokens == 0 || generation.decode_tok_s <= 0.0 {
+                    return Err(NanoError::InferenceError {
+                        reason: format!("benchmark produced no tokens with {threads} threads"),
+                    });
+                }
+                stats.push(generation);
+                if let Some(temp_c) = ThermalController::read_max_temp().map(f64::from) {
+                    temperature_start_c.get_or_insert(temp_c);
+                    temperature_peak_c =
+                        Some(temperature_peak_c.map_or(temp_c, |current| current.max(temp_c)));
+                }
+            }
+
+            let peak = stats
+                .iter()
+                .map(|sample| sample.decode_tok_s)
+                .fold(0.0_f64, f64::max);
+            let sustained = stats
+                .last()
+                .map(|sample| sample.decode_tok_s)
+                .unwrap_or(0.0);
+            let decay = if peak > 0.0 {
+                ((peak - sustained).max(0.0) / peak).clamp(0.0, 1.0)
+            } else {
+                1.0
+            };
+            let ttft_ms = stats
+                .iter()
+                .map(|sample| sample.ttft_ms as f64)
+                .sum::<f64>()
+                / stats.len() as f64;
+            let prefill_tok_s = stats
+                .iter()
+                .filter(|sample| sample.prefill_ms > 0)
+                .map(|sample| sample.cache_miss_tokens as f64 / (sample.prefill_ms as f64 / 1000.0))
+                .sum::<f64>()
+                / stats
+                    .iter()
+                    .filter(|sample| sample.prefill_ms > 0)
+                    .count()
+                    .max(1) as f64;
+            let status = self.status();
+            let pss_peak_mb = status.pss_mb.unwrap_or(0.0);
+            let fault_rate = status.fault_rate.max(0.0);
+            let temperature_available = temperature_peak_c.is_some();
+            let temperature_start_c = temperature_start_c.unwrap_or(0.0);
+            let temperature_peak_c = temperature_peak_c.unwrap_or(0.0);
+            // Penaliza tanto operar por encima del umbral caliente como el
+            // calentamiento producido por el candidato. Sin sensor no se
+            // inventa evidencia ni se castiga la configuración.
+            let hot_penalty = if temperature_available {
+                ((temperature_peak_c - 42.0) / 18.0).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let rise_penalty = if temperature_available {
+                ((temperature_peak_c - temperature_start_c) / 12.0).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let thermal_penalty = hot_penalty + rise_penalty;
+            // 20 major faults/s es el umbral de thrashing del runtime. La
+            // utilidad premia steady-state y penaliza decay, paginación y calor.
+            let utility = sustained / (1.0 + decay + fault_rate / 20.0 + thermal_penalty);
+            candidates.push(MicroBenchmarkCandidate {
+                threads,
+                context_tokens: CONTEXT_TOKENS,
+                batch_size: BATCH_SIZE,
+                decode_peak_tok_s: peak,
+                decode_short_sustained_tok_s: sustained,
+                ttft_ms,
+                prefill_tok_s,
+                pss_peak_mb,
+                major_faults_per_second: fault_rate,
+                thermal_decay_pct: decay,
+                temperature_start_c,
+                temperature_peak_c,
+                temperature_available,
+                thermal_penalty,
+                utility,
+                samples: stats.len() as u32,
+            });
+        }
+
+        let winner = candidates
+            .iter()
+            .max_by(|left, right| left.utility.total_cmp(&right.utility))
+            .cloned()
+            .ok_or_else(|| NanoError::Internal {
+                message: "micro benchmark produced no candidates".to_string(),
+            })?;
+        self.reload_with_params(winner.threads, winner.context_tokens, winner.batch_size)
+            .await?;
+        self.persist_benchmark_measurement(BenchmarkMeasurement {
+            threads: winner.threads,
+            context_tokens: winner.context_tokens,
+            batch_size: winner.batch_size,
+            ttft_ms: winner.ttft_ms,
+            prefill_tok_s: winner.prefill_tok_s,
+            decode_peak_tok_s: winner.decode_peak_tok_s,
+            decode_sustained_tok_s: winner.decode_short_sustained_tok_s,
+            pss_peak_mb: winner.pss_peak_mb,
+            major_faults_per_second: winner.major_faults_per_second,
+            temperature_start_c: winner.temperature_start_c,
+            temperature_peak_c: winner.temperature_peak_c,
+            thermal_decay_pct: winner.thermal_decay_pct,
+            samples: winner.samples,
+        })
+        .await?;
+
+        Ok(MicroBenchmarkReport { winner, candidates })
     }
 
     /// Aplica un adaptador LoRA al modelo activo.

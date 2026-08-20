@@ -2,7 +2,7 @@
 //!
 //! Crea contexto fresco por cada generación para evitar contaminación del KV cache.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 #[cfg(not(feature = "simulated"))]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -13,11 +13,11 @@ use tokio::sync::RwLock;
 
 use crate::config::manifest::Config;
 use crate::error::{NanoError, Result};
-#[cfg(not(feature = "simulated"))]
-use crate::execution::prefix_cache::{content_hash, PrefixKey, PrefixLookup};
 use crate::execution::prefix_cache::PrefixCache;
 #[cfg(not(feature = "simulated"))]
-use crate::execution::session::{NanoSession, SessionState, template_hash};
+use crate::execution::prefix_cache::{content_hash, PrefixKey, PrefixLookup};
+#[cfg(not(feature = "simulated"))]
+use crate::execution::session::{template_hash, NanoSession, SessionState};
 #[cfg(not(feature = "simulated"))]
 use crate::inference_backend::{
     BackendGenerateParams, BackendLoadParams, InferenceBackend, LlamaCppBackend,
@@ -108,6 +108,26 @@ pub struct LoadParamsOverride {
     pub batch_size: u32,
 }
 
+/// Resultado agregado de una configuración del micro/sustained benchmark.
+/// La identidad del device y del GGUF no viene del cliente: se deriva del
+/// modelo activo dentro de `ModelManager` antes de persistirlo.
+#[derive(Debug, Clone)]
+pub struct BenchmarkMeasurement {
+    pub threads: u32,
+    pub context_tokens: u32,
+    pub batch_size: u32,
+    pub ttft_ms: f64,
+    pub prefill_tok_s: f64,
+    pub decode_peak_tok_s: f64,
+    pub decode_sustained_tok_s: f64,
+    pub pss_peak_mb: f64,
+    pub major_faults_per_second: f64,
+    pub temperature_start_c: f64,
+    pub temperature_peak_c: f64,
+    pub thermal_decay_pct: f64,
+    pub samples: u32,
+}
+
 /// ADAPT — replanifica a partir de lo medido. Función libre para poder
 /// llamarse tanto desde `update_memory_engine_metrics` como desde el closure
 /// de `spawn_blocking` de streaming (donde `&self` no está disponible).
@@ -180,6 +200,9 @@ pub struct RuntimeStatus {
     /// Ventana residente W aplicada (capas en RAM).
     pub resident_window: usize,
     pub tok_s: f64,
+    /// Máxima temperatura física expuesta por thermal zones; None si el
+    /// kernel no permite leer ningún sensor.
+    pub temperature_c: Option<f64>,
     pub viability: Option<ViabilityStatus>,
 }
 
@@ -193,20 +216,49 @@ pub struct ViabilityStatus {
 }
 
 impl ModelManager {
+    /// Única autoridad de viabilidad para modelos del catálogo y el modelo
+    /// activo. El caller aporta bytes del artefacto; Rust deriva MiB y aplica
+    /// el mismo RuntimePlanner usado por la carga real.
+    pub fn assess_model_viability(&self, model_size_bytes: u64) -> Result<ViabilityStatus> {
+        if model_size_bytes == 0 {
+            return Err(NanoError::ConfigError {
+                reason: "model_size_bytes must be greater than zero".to_string(),
+            });
+        }
+        let model_size_mb = model_size_bytes.div_ceil(1_048_576);
+        let report = self.planner.assess_viability(model_size_mb, &self.device);
+        Ok(ViabilityStatus {
+            tier: report.viability.to_string(),
+            can_run: report.can_run,
+            should_run_interactive: report.should_run_interactive,
+            reason: report.reason,
+        })
+    }
+
     pub async fn new(config: Config) -> Result<Self> {
         let engine = crate::memory_engine::NanoMemoryEngine::new(32);
         let device = crate::memory_engine::profile_device();
-        let planner = crate::memory_engine::RuntimePlanner::new();
+        // El store pertenece al control plane, no al hot path. El host móvil
+        // puede fijar un directorio durable mediante NANORTIME_DATA_DIR;
+        // desktop/CI conservan el fallback local que ya usa PrefixCache.
+        let runtime_data_dir = std::env::var_os("NANORTIME_DATA_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| std::env::temp_dir().join("nanoai-runtime"));
+        let benchmark_path = runtime_data_dir.join("benchmark-store-v1.json");
+        let benchmark_store = crate::memory_engine::BenchmarkStore::load(&benchmark_path);
+        tracing::info!(
+            "[BenchmarkStore] loaded {} profile(s) from {}",
+            benchmark_store.len(),
+            benchmark_path.display()
+        );
+        let planner = crate::memory_engine::RuntimePlanner::with_benchmark_store(benchmark_store);
         let runtime_budget = crate::memory_engine::InferenceBudget {
             max_memory_mb: ((device.ram_available_mb as f64) * 0.6).max(512.0) as u64,
             ..crate::memory_engine::InferenceBudget::default()
         };
         // Startup housekeeping: limpiar .tmp huérfanos (kill durante snapshot)
         // y evictar .kv antiguos si exceden max_bytes (LRU por mtime).
-        let prefix_cache = PrefixCache::new(
-            std::env::temp_dir().join("nanoai-prefix-cache"),
-            true,
-        );
+        let prefix_cache = PrefixCache::new(std::env::temp_dir().join("nanoai-prefix-cache"), true);
         let cleaned = prefix_cache.housekeep();
         if cleaned > 0 {
             tracing::info!("[PrefixCache] housekeeping eliminó {} archivos", cleaned);
@@ -266,6 +318,83 @@ impl ModelManager {
         g.as_ref().map(|s| s.model_path.clone())
     }
 
+    /// Persiste una medición del modelo activo. El cliente solo puede aportar
+    /// resultados de ejecución: device, modelo, backend y schema se fijan
+    /// aquí para impedir perfiles aplicados a otro GGUF por accidente.
+    pub async fn persist_benchmark_measurement(
+        &self,
+        measurement: BenchmarkMeasurement,
+    ) -> Result<()> {
+        let finite = [
+            measurement.ttft_ms,
+            measurement.prefill_tok_s,
+            measurement.decode_peak_tok_s,
+            measurement.decode_sustained_tok_s,
+            measurement.pss_peak_mb,
+            measurement.major_faults_per_second,
+            measurement.temperature_start_c,
+            measurement.temperature_peak_c,
+            measurement.thermal_decay_pct,
+        ]
+        .iter()
+        .all(|value| value.is_finite() && *value >= 0.0);
+        if !finite
+            || measurement.threads == 0
+            || measurement.context_tokens == 0
+            || measurement.samples == 0
+        {
+            return Err(NanoError::ConfigError {
+                reason: "benchmark measurement contains invalid metrics or load parameters"
+                    .to_string(),
+            });
+        }
+
+        let path = self
+            .current_model_path()
+            .await
+            .ok_or_else(|| NanoError::ModelNotFound {
+                path: "<ningún modelo cargado>".to_string(),
+            })?;
+        let file_size_bytes = std::fs::metadata(&path)?.len();
+        let index = crate::memory_engine::NanoModelIndex::analyze(Path::new(&path), 32).map_err(
+            |error| NanoError::ModelLoadFailed {
+                path: path.clone(),
+                reason: format!("cannot fingerprint active GGUF: {error:?}"),
+            },
+        )?;
+        let profile = crate::memory_engine::MeasuredExecutionProfile {
+            schema_version: crate::memory_engine::BENCHMARK_SCHEMA_VERSION,
+            device: crate::memory_engine::DeviceFingerprint::from_device(&self.device),
+            model: crate::memory_engine::ModelFingerprint::from_metadata(
+                &index.metadata,
+                file_size_bytes,
+            ),
+            backend: "cpu".to_string(),
+            threads: measurement.threads,
+            context_tokens: measurement.context_tokens,
+            batch_size: measurement.batch_size,
+            ttft_ms: measurement.ttft_ms,
+            prefill_tok_s: measurement.prefill_tok_s,
+            decode_peak_tok_s: measurement.decode_peak_tok_s,
+            decode_sustained_tok_s: measurement.decode_sustained_tok_s,
+            pss_peak_mb: measurement.pss_peak_mb,
+            major_faults_per_second: measurement.major_faults_per_second,
+            temperature_start_c: measurement.temperature_start_c,
+            temperature_peak_c: measurement.temperature_peak_c,
+            thermal_decay_pct: measurement.thermal_decay_pct,
+            samples: measurement.samples,
+            measured_at: format!(
+                "unix:{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+            ),
+        };
+        self.planner.persist_measured_profile(profile)?;
+        Ok(())
+    }
+
     pub fn status(&self) -> RuntimeStatus {
         // Modelo cargado (ruta, tamaño, contexto) — sin bloquear si el lock
         // está envenenado.
@@ -283,6 +412,7 @@ impl ModelManager {
                         thrashing: false,
                         resident_window: 0,
                         tok_s: 0.0,
+                        temperature_c: None,
                         viability: None,
                     }
                 }
@@ -330,16 +460,12 @@ impl ModelManager {
             .unwrap_or(0);
 
         let viability = if model_loaded && model_size_mb > 0 {
-            let r = self.planner.assess_viability(model_size_mb, &self.device);
-            Some(ViabilityStatus {
-                tier: r.viability.to_string(),
-                can_run: r.can_run,
-                should_run_interactive: r.should_run_interactive,
-                reason: r.reason,
-            })
+            self.assess_model_viability(model_size_mb.saturating_mul(1_048_576))
+                .ok()
         } else {
             None
         };
+        let temperature_c = crate::memory_engine::ThermalController::read_max_temp().map(f64::from);
 
         RuntimeStatus {
             model_loaded,
@@ -351,6 +477,7 @@ impl ModelManager {
             thrashing,
             resident_window,
             tok_s,
+            temperature_c,
             viability,
         }
     }
@@ -456,9 +583,30 @@ impl ModelManager {
         // El ExecutionPlanner/auto_configure_v2 queda como referencia legacy
         // (deprecated): antes dos fuentes calculaban el mismo número.
         // Un override explícito (sweep de auto-benchmark) salta el plan.
-        let file_size_mb = std::fs::metadata(path)
-            .map(|m| m.len() / (1024 * 1024))
-            .unwrap_or(0);
+        let file_size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        let file_size_mb = file_size_bytes / (1024 * 1024);
+
+        // El fingerprint se deriva del header real antes de crear el contexto.
+        // Si el header no se puede leer mantenemos el fallback heurístico: una
+        // medición nunca debe bloquear una carga que antes funcionaba.
+        let estimated_layers = ((file_size_mb as f64 / 140.0).round() as usize).clamp(1, 128);
+        let model_fingerprint =
+            crate::memory_engine::NanoModelIndex::analyze(Path::new(path), estimated_layers)
+                .map(|index| {
+                    crate::memory_engine::ModelFingerprint::from_metadata(
+                        &index.metadata,
+                        file_size_bytes,
+                    )
+                })
+                .map_err(|e| {
+                    tracing::warn!(
+                        "[BenchmarkStore] GGUF fingerprint unavailable for {}: {:?}",
+                        path,
+                        e
+                    );
+                    e
+                })
+                .ok();
 
         let mut adapted_config = self.config.local_model.clone();
         if let Some(o) = override_params {
@@ -471,9 +619,26 @@ impl ModelManager {
             adapted_config.threads = o.threads as usize;
             adapted_config.context_size = o.context_size as usize;
             adapted_config.batch_size = o.batch_size as usize;
+        } else if let Some((profile, level)) = model_fingerprint.as_ref().and_then(|fingerprint| {
+            self.planner.measured_profile(
+                crate::memory_engine::Backend::Cpu,
+                &self.device,
+                fingerprint,
+            )
+        }) {
+            adapted_config.threads = profile.threads as usize;
+            adapted_config.context_size = profile.context_tokens as usize;
+            adapted_config.batch_size = profile.batch_size as usize;
+            tracing::info!(
+                "[BenchmarkStore] applying {:?} CPU profile: threads={} ctx={} batch={} sustained={:.2} tok/s",
+                level,
+                profile.threads,
+                profile.context_tokens,
+                profile.batch_size,
+                profile.decode_sustained_tok_s,
+            );
         } else {
             // Estimación de capas pre-load (el nº real viene del GGUF tras cargar).
-            let est_layers = ((file_size_mb as f64 / 140.0).round() as usize).clamp(1, 128);
             let obs = crate::memory_engine::Observations {
                 device: self.device.clone(),
                 runtime: {
@@ -489,7 +654,7 @@ impl ModelManager {
             };
             let plan = self.planner.plan_for_model(
                 file_size_mb,
-                est_layers,
+                estimated_layers,
                 8192, // target context (config)
                 &self.runtime_budget,
                 &obs,
@@ -523,7 +688,7 @@ impl ModelManager {
             let mut g = self.state.write().await;
             *g = Some(ModelState {
                 model_path: path.into(),
-                context_size: self.config.local_model.context_size,
+                context_size: adapted_config.context_size,
                 is_simulated: true,
                 generation: 0,
             });
@@ -1321,9 +1486,7 @@ impl ModelManager {
         temperature: Option<f32>,
         prefix: Option<&str>,
     ) -> Result<(
-        tokio::sync::oneshot::Receiver<
-            Result<(String, Vec<f32>, crate::GenerationStats)>,
-        >,
+        tokio::sync::oneshot::Receiver<Result<(String, Vec<f32>, crate::GenerationStats)>>,
         TokenReceiver,
     )> {
         #[cfg(feature = "simulated")]
@@ -1758,9 +1921,7 @@ impl ModelManager {
                             ttft_ms: first_token_ms.load(Ordering::Relaxed),
                             prefill_ms: r.prefill_ms,
                             cache_hit_tokens: r.cache_hit_tokens,
-                            cache_miss_tokens: r
-                                .total_tokens
-                                .saturating_sub(r.cache_hit_tokens),
+                            cache_miss_tokens: r.total_tokens.saturating_sub(r.cache_hit_tokens),
                             total_tokens: r.total_tokens,
                             generated_tokens: r.token_probabilities.len(),
                             decode_tok_s: r.token_probabilities.len() as f64 / decode_secs,

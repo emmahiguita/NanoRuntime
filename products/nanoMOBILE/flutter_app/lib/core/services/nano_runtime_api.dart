@@ -14,6 +14,8 @@ abstract final class NanoRuntimeChannels {
   static const agent = 'com.nanoai/agent';
   static const engine = 'com.nanoai/engine';
   static const modelStorage = 'com.nanoai/model_storage';
+  static const notifications = 'com.nanoai/notifications';
+  static const devicePermissions = 'com.nanoai/device_permissions';
 }
 
 /// Resultado del handshake de runtime.
@@ -72,6 +74,12 @@ class NanoRuntimeApi {
   static const _metrics = MethodChannel(NanoRuntimeChannels.deviceMetrics);
   static const _agent = MethodChannel(NanoRuntimeChannels.agent);
   static const _engine = MethodChannel(NanoRuntimeChannels.engine);
+  static const _notifications = MethodChannel(
+    NanoRuntimeChannels.notifications,
+  );
+  static const _devicePermissions = MethodChannel(
+    NanoRuntimeChannels.devicePermissions,
+  );
 
   Future<RuntimeInfo>? _handshake;
 
@@ -490,8 +498,10 @@ class NanoRuntimeApi {
 
   /// Nodos cuyo texto/desc contiene [query]. maxResults limita el volcado
   /// (default 10) — el agente LLM solo necesita los mejores candidatos.
-  @Deprecated('Usa NanoAgentExecutor / NanoSelectorEngine: resuelve con '
-      'puntuación ponderada y aborta en ambigüedad.')
+  @Deprecated(
+    'Usa NanoAgentExecutor / NanoSelectorEngine: resuelve con '
+    'puntuación ponderada y aborta en ambigüedad.',
+  )
   Future<List<dynamic>> agentFindText(
     String query, {
     int maxResults = 10,
@@ -510,8 +520,10 @@ class NanoRuntimeApi {
 
   /// Tap sobre el nodo cuyo texto/desc contiene [text] (bounds reales del
   /// nodo, no coordenadas adivinadas).
-  @Deprecated('Peligroso: coge el primer nodo con contains sin unicidad ni '
-      'estado. Usa NanoAgentExecutor.tap() con NanoSelector.')
+  @Deprecated(
+    'Peligroso: coge el primer nodo con contains sin unicidad ni '
+    'estado. Usa NanoAgentExecutor.tap() con NanoSelector.',
+  )
   Future<bool> agentTapOnText(String text) async {
     try {
       return await _agent.invokeMethod<bool>('tapOnText', {'text': text}) ==
@@ -687,6 +699,100 @@ class NanoRuntimeApi {
     } catch (e) {
       debugPrint('[runtime] engineEnsureExtracted error: $e');
       return null;
+    }
+  }
+
+  // ── Permisos del dispositivo ──
+
+  Future<Map<dynamic, dynamic>> devicePermissionStatus() async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'status',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] devicePermissionStatus error: $e');
+      return const {};
+    }
+  }
+
+  Future<bool> requestRuntimePermissions() =>
+      _invokePermissionAction('requestRuntime');
+
+  Future<bool> openAccessibilitySettings() =>
+      _invokePermissionAction('openAccessibility');
+
+  Future<bool> openNotificationAccessSettings() =>
+      _invokePermissionAction('openNotificationAccess');
+
+  Future<bool> openAllFilesAccessSettings() =>
+      _invokePermissionAction('openAllFilesAccess');
+
+  Future<bool> openAppPermissionSettings() =>
+      _invokePermissionAction('openAppDetails');
+
+  Future<bool> _invokePermissionAction(String method) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>(method) == true;
+    } catch (e) {
+      debugPrint('[runtime] $method error: $e');
+      return false;
+    }
+  }
+
+  // ── Automatización local de notificaciones ──
+
+  Future<Map<dynamic, dynamic>> notificationStatus() async {
+    try {
+      return await _notifications.invokeMethod<Map<dynamic, dynamic>>(
+            'status',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] notificationStatus error: $e');
+      return const {};
+    }
+  }
+
+  Future<bool> requestNotificationAccess() async {
+    try {
+      return await _notifications.invokeMethod<bool>('requestAccess') == true;
+    } catch (e) {
+      debugPrint('[runtime] requestNotificationAccess error: $e');
+      return false;
+    }
+  }
+
+  Future<List<dynamic>> listActiveNotifications({int limit = 30}) async {
+    try {
+      return await _notifications.invokeListMethod<dynamic>('list', {
+            'limit': limit.clamp(1, 100),
+          }) ??
+          const [];
+    } catch (e) {
+      debugPrint('[runtime] listActiveNotifications error: $e');
+      return const [];
+    }
+  }
+
+  Future<Map<dynamic, dynamic>> replyToNotification({
+    required String key,
+    required String text,
+    required bool confirmed,
+  }) async {
+    if (!confirmed) {
+      return const {'ok': false, 'code': 'CONFIRMATION_REQUIRED'};
+    }
+    try {
+      return await _notifications.invokeMethod<Map<dynamic, dynamic>>('reply', {
+            'key': key,
+            'text': text,
+            'confirmed': true,
+          }) ??
+          const {'ok': false, 'code': 'EMPTY_RESPONSE'};
+    } catch (e) {
+      debugPrint('[runtime] replyToNotification error: $e');
+      return {'ok': false, 'code': e.toString()};
     }
   }
 }

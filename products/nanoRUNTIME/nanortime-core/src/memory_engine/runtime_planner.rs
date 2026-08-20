@@ -25,11 +25,12 @@
 //! Todo usa seÃ±ales reales del OS. Nada fabricado.
 
 use std::fmt;
+use std::sync::{Arc, Mutex};
 
 use crate::memory_engine::auto_config::{KvCompression, PageStrategy};
 use crate::memory_engine::battery_guardian::{BatteryGuardian, BatteryMode};
 use crate::memory_engine::benchmark_store::{
-    BenchmarkStore, DeviceFingerprint, ModelFingerprint, ResolutionLevel,
+    BenchmarkStore, DeviceFingerprint, MeasuredExecutionProfile, ModelFingerprint, ResolutionLevel,
 };
 use crate::memory_engine::hardware_hal::{profile_device, DeviceProfile, DeviceTier};
 use crate::memory_engine::memory_model::MemoryModel;
@@ -161,7 +162,6 @@ impl Backend {
         }
     }
 }
-
 
 /// Perfil de rendimiento de un backend en un dispositivo concreto.
 ///
@@ -401,7 +401,7 @@ const INTERACTIVE_MIN_TOK_S: f64 = 1.0;
 pub struct RuntimePlanner {
     catalog: Vec<ModelCandidate>,
     model: MemoryModel,
-    benchmark_store: BenchmarkStore,
+    benchmark_store: Arc<Mutex<BenchmarkStore>>,
 }
 
 impl RuntimePlanner {
@@ -410,7 +410,7 @@ impl RuntimePlanner {
         Self {
             catalog: Self::default_catalog(),
             model: MemoryModel::default(),
-            benchmark_store: BenchmarkStore::in_memory(),
+            benchmark_store: Arc::new(Mutex::new(BenchmarkStore::in_memory())),
         }
     }
 
@@ -419,7 +419,7 @@ impl RuntimePlanner {
         Self {
             catalog: Self::default_catalog(),
             model: MemoryModel::default(),
-            benchmark_store,
+            benchmark_store: Arc::new(Mutex::new(benchmark_store)),
         }
     }
 
@@ -690,7 +690,9 @@ impl RuntimePlanner {
         let device_fp = DeviceFingerprint::from_device(device);
         let resolved = self
             .benchmark_store
-            .resolve(&device_fp, model, backend.as_str());
+            .lock()
+            .ok()
+            .and_then(|store| store.resolve(&device_fp, model, backend.as_str()));
         match backend {
             Backend::Cpu => BackendProfile {
                 backend,
@@ -750,6 +752,42 @@ impl RuntimePlanner {
         }
     }
 
+    /// Devuelve el perfil medido que debe gobernar una carga concreta.
+    ///
+    /// La selección (exacto -> mismo tier) vive aquí, junto al planner: el
+    /// caller no debe volver a implementar matching de fingerprints. El
+    /// perfil incluye los parámetros de carga ganadores (threads/context/batch)
+    /// además de las métricas que usa `backend_profile` para explicar la
+    /// decisión.
+    pub fn measured_profile(
+        &self,
+        backend: Backend,
+        device: &DeviceProfile,
+        model: &ModelFingerprint,
+    ) -> Option<(MeasuredExecutionProfile, ResolutionLevel)> {
+        self.benchmark_store.lock().ok().and_then(|store| {
+            store.resolve(
+                &DeviceFingerprint::from_device(device),
+                model,
+                backend.as_str(),
+            )
+        })
+    }
+
+    /// Guarda atómicamente un perfil ya validado por el runtime. Compartir el
+    /// store entre clones del planner permite que una medición se use sin
+    /// reiniciar el proceso ni recrear ModelManager.
+    pub fn persist_measured_profile(
+        &self,
+        profile: MeasuredExecutionProfile,
+    ) -> std::io::Result<()> {
+        let mut store = self.benchmark_store.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "benchmark store lock poisoned")
+        })?;
+        store.upsert(profile);
+        store.save()
+    }
+
     /// Decisión de ejecución para un modelo+backend. Combina la viabilidad
     /// (assess_viability) con el perfil del backend (backend_profile) y una
     /// config recomendada. Si el backend no está recomendado, se degrada a CPU.
@@ -766,7 +804,11 @@ impl RuntimePlanner {
         let cpu_profile = self.backend_profile(Backend::Cpu, device, model);
 
         // Si el backend pedido no está recomendado, degradar a CPU (siempre lo está).
-        let effective_backend = if bp.recommended { backend } else { Backend::Cpu };
+        let effective_backend = if bp.recommended {
+            backend
+        } else {
+            Backend::Cpu
+        };
         let predicted = if effective_backend == Backend::Cpu {
             cpu_profile
                 .measured_decode_tok_s
@@ -1094,7 +1136,7 @@ impl Default for RuntimePlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memory_engine::{BENCHMARK_SCHEMA_VERSION, MeasuredExecutionProfile};
+    use crate::memory_engine::{MeasuredExecutionProfile, BENCHMARK_SCHEMA_VERSION};
 
     fn samsung() -> DeviceProfile {
         DeviceProfile {
@@ -1426,9 +1468,21 @@ mod tests {
         assert_eq!(cpu.confidence, ProfileConfidence::Measured);
         assert!((cpu.measured_decode_tok_s.unwrap() - 3.75).abs() < 0.001);
 
+        let (stored, resolution) = planner
+            .measured_profile(Backend::Cpu, &d, &m)
+            .expect("el perfil CPU exacto debe estar disponible para la carga");
+        assert_eq!(resolution, ResolutionLevel::Exact);
+        assert_eq!(
+            (stored.threads, stored.context_tokens, stored.batch_size),
+            (4, 4096, 256)
+        );
+
         let vulkan = planner.backend_profile(Backend::Vulkan, &d, &m);
         assert!(vulkan.available, "Vulkan est? disponible");
-        assert!(!vulkan.recommended, "pero no recomendado (m?s lento que CPU)");
+        assert!(
+            !vulkan.recommended,
+            "pero no recomendado (m?s lento que CPU)"
+        );
         assert!((vulkan.measured_decode_tok_s.unwrap() - 2.20).abs() < 0.001);
 
         let npu = planner.backend_profile(Backend::Npu, &d, &m);
