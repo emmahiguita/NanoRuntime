@@ -22,6 +22,7 @@ class NanoHomeScreen extends StatefulWidget {
   final VoidCallback onChatTap;
   final VoidCallback onModelsTap;
   final VoidCallback? onDesktopTap;
+  final VoidCallback? onAutomationTap;
   final VoidCallback onKaliTap;
 
   const NanoHomeScreen({
@@ -34,6 +35,7 @@ class NanoHomeScreen extends StatefulWidget {
     required this.onChatTap,
     required this.onModelsTap,
     this.onDesktopTap,
+    this.onAutomationTap,
     required this.onKaliTap,
   });
 
@@ -223,6 +225,7 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                     onTerminal: widget.onTerminalTap,
                                     onModels: widget.onModelsTap,
                                     onDesktop: widget.onDesktopTap,
+                    onAutomation: widget.onAutomationTap ?? () {},
                                     isLandscape: true,
                                   ),
                                 ),
@@ -308,6 +311,7 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                 onTerminal: widget.onTerminalTap,
                                 onModels: widget.onModelsTap,
                                 onDesktop: widget.onDesktopTap,
+                    onAutomation: widget.onAutomationTap ?? () {},
                                 isLandscape: false,
                               ),
                             ),
@@ -602,6 +606,7 @@ class _FeatureCarousel extends StatelessWidget {
   final VoidCallback onTerminal;
   final VoidCallback onModels;
   final VoidCallback? onDesktop;
+  final VoidCallback? onAutomation;
   final bool isLandscape;
 
   const _FeatureCarousel({
@@ -615,6 +620,7 @@ class _FeatureCarousel extends StatelessWidget {
     required this.onTerminal,
     required this.onModels,
     this.onDesktop,
+    this.onAutomation,
     this.isLandscape = false,
   });
 
@@ -662,6 +668,16 @@ class _FeatureCarousel extends StatelessWidget {
         accent: colors.accentMint,
         secondaryAccent: colors.accentSky,
         onTap: onDesktop ?? () {},
+      ),
+      NanoFeatureData(
+        id: 'automation',
+        title: 'Automatización',
+        line1: 'Agente que',
+        line2: 'ejecuta acciones',
+        icon: Icons.auto_awesome_rounded,
+        accent: colors.accentLavender,
+        secondaryAccent: colors.accentMint,
+        onTap: onAutomation ?? () {},
       ),
     ];
 
