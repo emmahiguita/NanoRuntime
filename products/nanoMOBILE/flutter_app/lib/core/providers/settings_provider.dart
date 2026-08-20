@@ -3,33 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-enum AgentAutomationMode {
-  manual,
-  assisted,
-  autonomous;
-
-  static AgentAutomationMode fromName(String? name) {
-    for (final mode in AgentAutomationMode.values) {
-      if (mode.name == name) return mode;
-    }
-    return AgentAutomationMode.assisted;
-  }
-
-  String get label => switch (this) {
-    AgentAutomationMode.manual => 'Manual',
-    AgentAutomationMode.assisted => 'Asistido',
-    AgentAutomationMode.autonomous => 'Autónomo',
-  };
-
-  String get description => switch (this) {
-    AgentAutomationMode.manual => 'Toda acción del LLM pide confirmación.',
-    AgentAutomationMode.assisted =>
-      'Lectura automática; tocar, atrás y escribir piden confirmación.',
-    AgentAutomationMode.autonomous =>
-      'Lectura, tocar y atrás automáticos; escribir siempre pide confirmación.',
-  };
-}
+import 'package:nanoai/features/automation/domain/automation_policy.dart';
 
 // ================================================================
 // Settings Repository (real persistence)

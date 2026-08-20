@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/theme/app_theme.dart';
-import 'package:nanoai/features/settings/presentation/widgets/agent_console_section.dart';
+import 'package:nanoai/features/automation/presentation/agent_console_section.dart';
 
 import 'fixtures.dart';
 

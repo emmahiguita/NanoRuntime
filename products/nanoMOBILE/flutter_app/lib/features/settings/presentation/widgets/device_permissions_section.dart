@@ -3,7 +3,7 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 
-import 'settings_widgets.dart';
+import 'package:nanoai/core/widgets/nano_section.dart';
 
 /// Centro honesto de permisos: Android siempre conserva la decisión final.
 class DevicePermissionsSection extends StatefulWidget {

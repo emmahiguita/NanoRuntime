@@ -11,6 +11,7 @@ import '../services/runtime_engine.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
+import 'package:nanoai/features/automation/domain/automation_policy.dart';
 
 // ================================================================
 // Chat State and Notifier
@@ -627,21 +628,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _flushTimer = null;
   }
 
-  bool _requiresAutonomousToolConfirmation(ToolCall call) {
-    final mode = _ref.read(settingsProvider).agentAutomationMode;
-    return switch (mode) {
-      AgentAutomationMode.manual =>
-        call.tool != 'screen' && call.tool != 'resolve',
-      AgentAutomationMode.assisted =>
-        call.tool == 'tap' || call.tool == 'back' || call.tool == 'write',
-      AgentAutomationMode.autonomous => call.tool == 'write',
-    };
-  }
+  bool _requiresAutonomousToolConfirmation(ToolCall call) =>
+      _policy.requiresConfirmation(call.tool);
 
-  String _toolConfirmationDescription(ToolCall call) {
-    final mode = _ref.read(settingsProvider).agentAutomationMode;
-    return '[policy] "${call.tool}" requiere confirmación en modo ${mode.label} antes de actuar sobre el dispositivo.';
-  }
+  String _toolConfirmationDescription(ToolCall call) =>
+      _policy.confirmationDescription(call.tool);
+
+  AutomationPolicy get _policy =>
+      AutomationPolicy(_ref.read(settingsProvider).agentAutomationMode);
 
   Future<void> _generate(String text, List<ChatAttachment> attachments) =>
       _generateRound(text, const <String>[], attachments);

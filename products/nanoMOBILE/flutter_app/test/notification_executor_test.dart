@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
-import 'package:nanoai/core/services/notification_automation_service.dart';
+import 'package:nanoai/features/automation/executors/notification_executor.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +22,7 @@ void main() {
           },
           {'key': '', 'title': 'inválida'},
         ];
-      final service = NotificationAutomationService(
+      final service = NotificationExecutor(
         runtime: runtime,
         engine: _FakeEngine('Claro, llego a las seis.'),
       );
@@ -39,7 +39,7 @@ void main() {
     'borrador usa modelo local y trata notificación como contenido',
     () async {
       final engine = _FakeEngine('Sí, te confirmo en unos minutos.');
-      final service = NotificationAutomationService(
+      final service = NotificationExecutor(
         runtime: _FakeRuntime(),
         engine: engine,
       );
@@ -58,7 +58,7 @@ void main() {
     'respuesta exige texto válido y llega al puente como confirmada',
     () async {
       final runtime = _FakeRuntime();
-      final service = NotificationAutomationService(
+      final service = NotificationExecutor(
         runtime: runtime,
         engine: _FakeEngine('ok'),
       );

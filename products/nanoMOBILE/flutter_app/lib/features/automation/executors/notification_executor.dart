@@ -1,5 +1,5 @@
-import 'llm_engine_client.dart';
-import 'nano_runtime_api.dart';
+import 'package:nanoai/core/services/llm_engine_client.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 class DeviceNotification {
   final String key;
@@ -44,14 +44,14 @@ class NotificationAccessStatus {
   });
 }
 
-/// Caso de uso completo: lectura nativa, borrador exclusivamente local y
-/// envío confirmado. El texto de la notificación se trata como dato no fiable
-/// y nunca se interpreta como una instrucción o llamada de herramienta.
-class NotificationAutomationService {
+/// Executor de notificaciones: lectura nativa, borrador exclusivamente local
+/// y envío confirmado. El texto de la notificación se trata como dato no
+/// fiable y nunca se interpreta como una instrucción o llamada de herramienta.
+class NotificationExecutor {
   final NanoRuntimeApi _runtime;
   final LLMEngineClient _engine;
 
-  NotificationAutomationService({
+  NotificationExecutor({
     required NanoRuntimeApi runtime,
     required LLMEngineClient engine,
   }) : _runtime = runtime,

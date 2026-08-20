@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/services/notification_automation_service.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
-
-import 'settings_widgets.dart';
+import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:nanoai/features/automation/executors/notification_executor.dart';
 
 class NotificationAutomationSection extends ConsumerStatefulWidget {
   const NotificationAutomationSection({super.key});
@@ -29,7 +28,7 @@ class _NotificationAutomationSectionState
   bool _busy = false;
   String? _message;
 
-  NotificationAutomationService get _service => NotificationAutomationService(
+  NotificationExecutor get _service => NotificationExecutor(
     runtime: NanoRuntimeApi.instance,
     engine: ref.read(runtimeEngineProvider.notifier).client,
   );
