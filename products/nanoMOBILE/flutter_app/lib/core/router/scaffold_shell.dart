@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/nano_ambient_background.dart';
+import '../widgets/nano_living_background.dart';
 import '../widgets/navigation/nano_dock_controller.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 
@@ -125,22 +127,28 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
           }
 
           return Scaffold(
-            backgroundColor: colors.background,
-            body: SafeArea(
-              child: Stack(
-                children: [
-                  Positioned.fill(child: layoutContent),
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                const Positioned.fill(child: NanoAmbientBackground()),
+                SafeArea(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: layoutContent),
 
-                  // Indicador visual de zona magnética al arrastrar el dock
-                  if (_dockController.isDragging &&
-                      _dockController.activeDropZone != DockDropZone.none)
-                    _buildDropZoneIndicator(
-                      context,
-                      colors,
-                      _dockController.activeDropZone,
-                    ),
-                ],
-              ),
+                      // Indicador visual de zona magnética al arrastrar el dock
+                      if (_dockController.isDragging &&
+                          _dockController.activeDropZone != DockDropZone.none)
+                        _buildDropZoneIndicator(
+                          context,
+                          colors,
+                          _dockController.activeDropZone,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           );
         },

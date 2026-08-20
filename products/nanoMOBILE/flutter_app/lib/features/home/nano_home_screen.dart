@@ -159,17 +159,9 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
     final activeAccent = _activeAccentForPage(_currentPage, colors);
 
     return Scaffold(
-      backgroundColor: colors.backgroundPrimary,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: NanoAmbientBackground(
-              animated: true,
-              activeAccent: activeAccent,
-            ),
-          ),
-          SafeArea(
-            bottom: false,
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        bottom: false,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final maxWidth = constraints.maxWidth;
@@ -344,8 +336,6 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
               },
             ),
           ),
-        ],
-      ),
     );
   }
 }

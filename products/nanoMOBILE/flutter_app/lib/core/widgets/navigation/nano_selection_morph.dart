@@ -189,12 +189,12 @@ class _TabChipState extends State<_TabChip> {
         : colors.textSecondary.withValues(alpha: 0.90);
 
     return AnimatedScale(
-      scale: _isPressed ? 0.92 : (isSelected ? 1.03 : 1.0),
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOutCubic,
+      scale: _isPressed ? NanoPressResponse.scaleDown : (isSelected ? 1.025 : 1.0),
+      duration: _isPressed ? NanoMotionDurations.press : NanoMotionDurations.quick,
+      curve: _isPressed ? NanoMotionCurves.press : NanoMotionCurves.glassSpring,
       child: AnimatedContainer(
         duration: NanoMotionDurations.quick,
-        curve: NanoMotionCurves.emphasized,
+        curve: NanoMotionCurves.glassSpring,
         decoration: BoxDecoration(
           borderRadius: NanoShapes.full,
           boxShadow: isSelected

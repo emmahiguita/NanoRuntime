@@ -4,30 +4,223 @@ import '../theme/design_tokens.dart';
 
 /// Gestor y contenedor de Fragment Shaders con precarga, warm-up y fallback transparente.
 class NanoShaderHost {
-  static FragmentProgram? _program;
+  static FragmentProgram? _opticalProgram;
+  static FragmentProgram? _fluidProgram;
+  static FragmentProgram? _livingProgram;
   static bool _isLoaded = false;
   static bool _hasError = false;
 
-  static bool get isSupported => _isLoaded && _program != null && !_hasError;
+  static bool get isSupported => _isLoaded && _opticalProgram != null && !_hasError;
+  static bool get isFluidSupported => _isLoaded && _fluidProgram != null && !_hasError;
+  static bool get isLivingSupported => _isLoaded && _livingProgram != null && !_hasError;
 
-  /// Precarga del shader en el arranque de la aplicación (warm-up).
+  /// Precarga de los shaders en el arranque de la aplicación (warm-up).
   static Future<void> preload() async {
     if (_isLoaded) return;
     try {
-      _program = await FragmentProgram.fromAsset('shaders/nano_optical.frag');
+      final futures = await Future.wait([
+        FragmentProgram.fromAsset('shaders/nano_optical.frag'),
+        FragmentProgram.fromAsset('shaders/nano_fluid_background.frag'),
+        FragmentProgram.fromAsset('shaders/nano_living_background.frag'),
+      ]);
+      _opticalProgram = futures[0];
+      _fluidProgram = futures[1];
+      _livingProgram = futures[2];
       _isLoaded = true;
       _hasError = false;
     } catch (e) {
-      _hasError = true;
+      // Intenta cargar individualmente si uno falla
+      try {
+        _opticalProgram ??= await FragmentProgram.fromAsset('shaders/nano_optical.frag');
+      } catch (_) {}
+      try {
+        _fluidProgram ??= await FragmentProgram.fromAsset('shaders/nano_fluid_background.frag');
+      } catch (_) {}
+      try {
+        _livingProgram ??= await FragmentProgram.fromAsset('shaders/nano_living_background.frag');
+      } catch (_) {}
       _isLoaded = true;
-      debugPrint('[NanoShaderHost] Fallback a renderizado por software/Canvas: $e');
+      _hasError = _opticalProgram == null && _fluidProgram == null && _livingProgram == null;
+      debugPrint('[NanoShaderHost] Shader preload state: optical=${_opticalProgram != null}, living=${_livingProgram != null} ($e)');
     }
   }
 
-  /// Crea una instancia del shader listo para pintar si está soportado.
+  /// Crea una instancia del shader óptico listo para pintar si está soportado.
   static FragmentShader? createShader() {
     if (!isSupported) return null;
-    return _program?.fragmentShader();
+    return _opticalProgram?.fragmentShader();
+  }
+
+  /// Crea una instancia del shader de fondo de fluido cósmico en tiempo real.
+  static FragmentShader? createFluidShader() {
+    if (isLivingSupported) {
+      return _livingProgram?.fragmentShader();
+    }
+    if (isFluidSupported) {
+      return _fluidProgram?.fragmentShader();
+    }
+    return null;
+  }
+
+  /// Crea una instancia del shader de fondo Liquid Glass hiperrealista.
+  static FragmentShader? createLivingShader() {
+    if (!isLivingSupported) return createFluidShader();
+    return _livingProgram?.fragmentShader();
+  }
+}
+
+/// CustomPainter que ejecuta el shader Liquid Glass hiperrealista en GPU.
+class NanoLivingBackgroundPainter extends CustomPainter {
+  NanoLivingBackgroundPainter({
+    required this.shader,
+    required this.time,
+    required this.pointer,
+    required this.pointerVelocity,
+    required this.pointerEnergy,
+    required this.systemEnergy,
+    required this.qualityLevel,
+    required this.colors,
+    this.accentPrimary,
+    this.accentSecondary,
+  });
+
+  final FragmentShader shader;
+  final double time;
+  final Offset pointer;
+  final Offset pointerVelocity;
+  final double pointerEnergy;
+  final double systemEnergy;
+  final double qualityLevel;
+  final NanoColors colors;
+  final Color? accentPrimary;
+  final Color? accentSecondary;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 0: uResolution (vec2)
+    shader.setFloat(0, size.width);
+    shader.setFloat(1, size.height);
+
+    // 2: uTime (float)
+    shader.setFloat(2, time);
+
+    // 3: uPointer (vec2)
+    shader.setFloat(3, pointer.dx);
+    shader.setFloat(4, pointer.dy);
+
+    // 5: uPointerVelocity (vec2)
+    shader.setFloat(5, pointerVelocity.dx);
+    shader.setFloat(6, pointerVelocity.dy);
+
+    // 7: uPointerEnergy (float)
+    shader.setFloat(7, pointerEnergy);
+
+    // 8: uSystemEnergy (float)
+    shader.setFloat(8, systemEnergy);
+
+    // 9: uQualityLevel (float)
+    shader.setFloat(9, qualityLevel);
+
+    // 10: uAccentPrimary (vec4)
+    final pAccent = accentPrimary ?? colors.accentCyan;
+    shader.setFloat(10, pAccent.r);
+    shader.setFloat(11, pAccent.g);
+    shader.setFloat(12, pAccent.b);
+    shader.setFloat(13, pAccent.a);
+
+    // 14: uAccentSecondary (vec4)
+    final sAccent = accentSecondary ?? colors.accentLavender;
+    shader.setFloat(14, sAccent.r);
+    shader.setFloat(15, sAccent.g);
+    shader.setFloat(16, sAccent.b);
+    shader.setFloat(17, sAccent.a);
+
+    final paint = Paint()..shader = shader;
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant NanoLivingBackgroundPainter oldDelegate) {
+    return oldDelegate.time != time ||
+        oldDelegate.pointer != pointer ||
+        oldDelegate.pointerVelocity != pointerVelocity ||
+        oldDelegate.pointerEnergy != pointerEnergy ||
+        oldDelegate.systemEnergy != systemEnergy ||
+        oldDelegate.qualityLevel != qualityLevel ||
+        oldDelegate.colors != colors ||
+        oldDelegate.accentPrimary != accentPrimary ||
+        oldDelegate.accentSecondary != accentSecondary;
+  }
+}
+
+/// CustomPainter que ejecuta el shader de fluido cósmico / plasma en GPU.
+class NanoFluidBackgroundPainter extends CustomPainter {
+  NanoFluidBackgroundPainter({
+    required this.shader,
+    required this.time,
+    required this.pointer,
+    required this.pointerEnergy,
+    required this.colors,
+    this.intensity = 1.0,
+    this.accentPrimary,
+    this.accentSecondary,
+  });
+
+  final FragmentShader shader;
+  final double time;
+  final Offset pointer;
+  final double pointerEnergy;
+  final NanoColors colors;
+  final double intensity;
+  final Color? accentPrimary;
+  final Color? accentSecondary;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 0: uResolution (vec2)
+    shader.setFloat(0, size.width);
+    shader.setFloat(1, size.height);
+
+    // 2: uTime (float)
+    shader.setFloat(2, time);
+
+    // 3: uPointer (vec2)
+    shader.setFloat(3, pointer.dx);
+    shader.setFloat(4, pointer.dy);
+
+    // 5: uPointerEnergy (float)
+    shader.setFloat(5, pointerEnergy);
+
+    // 6: uIntensity (float)
+    shader.setFloat(6, intensity);
+
+    // 7: uAccentPrimary (vec4)
+    final pAccent = accentPrimary ?? colors.accentCyan;
+    shader.setFloat(7, pAccent.r);
+    shader.setFloat(8, pAccent.g);
+    shader.setFloat(9, pAccent.b);
+    shader.setFloat(10, pAccent.a);
+
+    // 11: uAccentSecondary (vec4)
+    final sAccent = accentSecondary ?? colors.accentLavender;
+    shader.setFloat(11, sAccent.r);
+    shader.setFloat(12, sAccent.g);
+    shader.setFloat(13, sAccent.b);
+    shader.setFloat(14, sAccent.a);
+
+    final paint = Paint()..shader = shader;
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant NanoFluidBackgroundPainter oldDelegate) {
+    return oldDelegate.time != time ||
+        oldDelegate.pointer != pointer ||
+        oldDelegate.pointerEnergy != pointerEnergy ||
+        oldDelegate.intensity != intensity ||
+        oldDelegate.colors != colors ||
+        oldDelegate.accentPrimary != accentPrimary ||
+        oldDelegate.accentSecondary != accentSecondary;
   }
 }
 
