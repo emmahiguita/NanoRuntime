@@ -287,6 +287,14 @@ class EngineSupervisor(
                     homeDir.mkdirs()
                     Log.i(TAG, "creado directorio home: ${homeDir.absolutePath}")
                 }
+                // Estado durable del control plane nativo: BenchmarkStore usa
+                // esta ruta para sobrevivir reinicios del proceso y del motor.
+                // Nunca va a cacheDir: Android puede purgarlo bajo presión.
+                val runtimeDataDir = File(appFilesDir, "nano")
+                if (!runtimeDataDir.exists() && !runtimeDataDir.mkdirs()) {
+                    failIfCurrent(gen, onState, "no se pudo crear runtime data dir: ${runtimeDataDir.absolutePath}")
+                    return@launch
+                }
                 
                 val envp = listOf(
                     "LD_LIBRARY_PATH=$nativeLibDir:$nanoUsrLib:/system/lib64",
@@ -294,6 +302,7 @@ class EngineSupervisor(
                     "HOME=${homeDir.absolutePath}",
                     "TMPDIR=${tmpDir.absolutePath}",
                     "NANO_ROOTFS=$nanoUsr",
+                    "NANORTIME_DATA_DIR=${runtimeDataDir.absolutePath}",
                 )
                 val taskId = "engine-$gen-${System.currentTimeMillis()}"
                 

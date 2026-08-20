@@ -11,10 +11,12 @@ import 'fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('com.nanoai/agent');
+  const notificationsChannel = MethodChannel('com.nanoai/notifications');
 
   final methodCalls = <String>[];
   final tapCalls = <List<int>>[];
   final inputCalls = <String>[];
+  final notificationReplies = <Map<dynamic, dynamic>>[];
   var dumpProvider = () => snapshotAjustes();
   var focused = false;
 
@@ -38,6 +40,7 @@ void main() {
     methodCalls.clear();
     tapCalls.clear();
     inputCalls.clear();
+    notificationReplies.clear();
     dumpProvider = () => snapshotAjustes();
     focused = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -59,11 +62,33 @@ void main() {
               return null;
           }
         });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, (call) async {
+          switch (call.method) {
+            case 'list':
+              return [
+                {
+                  'key': 'notification-key-1',
+                  'package': 'com.example.chat',
+                  'title': 'Ana',
+                  'text': '¿Llegas pronto?',
+                  'canReply': true,
+                },
+              ];
+            case 'reply':
+              notificationReplies.add(call.arguments as Map);
+              return {'ok': true};
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, null);
   });
 
   group('isToolCommand', () {
@@ -177,6 +202,16 @@ void main() {
       expect(call.text, 'wifi');
     });
 
+    test('reply_notification conserva key y texto', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"reply_notification","key":"notification-key-1","text":"Sí"}',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'reply_notification');
+      expect(call.key, 'notification-key-1');
+      expect(call.text, 'Sí');
+    });
+
     test('respuesta normal de texto → null', () {
       expect(
         AgentToolProtocol.extractToolCall('No necesito herramientas.'),
@@ -234,10 +269,53 @@ void main() {
       expect(r, contains('Pantalla "com.android.settings"'));
     });
 
+    test('notifications → lectura real marcada como no confiable', () async {
+      final r = await dispatcher.runTool(const ToolCall(tool: 'notifications'));
+      expect(r, startsWith('[notifications untrusted_data=true]'));
+      expect(r, contains('notification-key-1'));
+      expect(r, contains('¿Llegas pronto?'));
+      expect(notificationReplies, isEmpty);
+    });
+
+    test('reply_notification no envía sin confirmación', () async {
+      dispatcher.resetTurn();
+      final outcome = await dispatcher.runToolGuarded(
+        const ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Sí, en cinco minutos.',
+        ),
+      );
+      expect(outcome.needsConfirmation, isTrue);
+      expect(notificationReplies, isEmpty);
+    });
+
+    test('reply_notification aprobada envía confirmed=true', () async {
+      dispatcher.resetTurn();
+      final outcome = await dispatcher.runToolGuarded(
+        const ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Sí, en cinco minutos.',
+        ),
+        confirmed: true,
+      );
+      expect(outcome.feedback, '[notificationReply] Respuesta enviada.');
+      expect(notificationReplies, hasLength(1));
+      expect(notificationReplies.single['key'], 'notification-key-1');
+      expect(notificationReplies.single['text'], 'Sí, en cinco minutos.');
+      expect(notificationReplies.single['confirmed'], isTrue);
+    });
+
     test('tool desconocida → denied con lista para corregirse', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'teletransport'));
       expect(r, contains('[policy] Herramienta desconocida "teletransport"'));
-      expect(r, contains('Disponibles: screen, resolve, tap, back, write'));
+      expect(
+        r,
+        contains(
+          'Disponibles: screen, resolve, tap, back, write, notifications, reply_notification',
+        ),
+      );
     });
   });
 }
