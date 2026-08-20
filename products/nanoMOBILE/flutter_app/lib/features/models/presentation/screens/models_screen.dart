@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
+import 'package:nanoai/core/services/llm_engine_client.dart';
+import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
@@ -60,6 +62,11 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
   bool _isSearchExpanded = false;
   bool _entryStarted = false;
 
+  /// Veredicto del RuntimePlanner (Rust) por modelo — autoridad primaria.
+  /// `viabilityFor` es solo el fallback offline hasta que esto se rellena.
+  final Map<String, ViabilityStatus> _viabilityByModel = {};
+  final Set<String> _viabilityFetching = {};
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +117,51 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
         _searchFocusNode.unfocus();
       }
     });
+  }
+
+  /// Viabilidad de un modelo: veredicto del motor (Rust) si está cacheado;
+  /// si no, dispara el fetch y cae al fallback síncrono offline.
+  ModelViability _modelViability(LocalModel model, DashboardState dashboard) {
+    final cached = _viabilityByModel[model.id];
+    if (cached != null) return _viabilityFromStatus(cached, model, dashboard);
+    _fetchViability(model);
+    return viabilityFor(model.ramGb, dashboard.ramTotalGb);
+  }
+
+  /// POST /api/viability → RuntimePlanner. Fire-and-forget: si el motor no
+  /// responde (offline), queda el fallback y se permite reintentar.
+  void _fetchViability(LocalModel model) {
+    if (_viabilityFetching.contains(model.id)) return;
+    if (model.sizeGb <= 0) return;
+    _viabilityFetching.add(model.id);
+    final sizeBytes = (model.sizeGb * 1024 * 1024 * 1024).round();
+    final client = ref.read(runtimeEngineProvider.notifier).client;
+    client.assessModelViability(sizeBytes).then((status) {
+      if (mounted) setState(() => _viabilityByModel[model.id] = status);
+    }).catchError((_) {
+      // offline: queda el fallback síncrono. El modelo permanece en
+      // _viabilityFetching para NO reintentar en esta sesión (evita bucle
+      // fetch→fail→rebuild→fetch). El veredicto se consulta al re-entrar.
+    });
+  }
+
+  ModelViability _viabilityFromStatus(
+    ViabilityStatus status,
+    LocalModel model,
+    DashboardState dashboard,
+  ) {
+    switch (status.tier) {
+      case 'FAST':
+        return ModelViability.fast;
+      case 'BALANCED':
+        return ModelViability.balanced;
+      case 'STREAMING':
+        return ModelViability.streaming;
+      case 'EXTREME':
+        return ModelViability.extreme;
+      default:
+        return viabilityFor(model.ramGb, dashboard.ramTotalGb);
+    }
   }
 
   @override
@@ -274,7 +326,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                         description: model.description,
                         error: model.error,
                         status: status,
-                        viability: viabilityFor(model.ramGb, dashboard.ramTotalGb),
+                        viability: _modelViability(model, dashboard),
                         tier: model.tier,
                         ramNote: status == ModelUiStatus.incompatible
                             ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
@@ -847,7 +899,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     if (model.installed) return 1;
     if (model.downloadState == ModelDownloadState.downloading) return 2;
     if (model.downloadState == ModelDownloadState.verifying) return 3;
-    final viability = viabilityFor(model.ramGb, dashboard.ramTotalGb);
+    final viability = _modelViability(model, dashboard);
     if (viability == ModelViability.fast) return 4;
     if (viability == ModelViability.balanced) return 5;
     if (viability == ModelViability.streaming) return 6;
