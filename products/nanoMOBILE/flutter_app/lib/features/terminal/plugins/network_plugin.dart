@@ -9,7 +9,7 @@ class NetworkPlugin {
     bool sanitizeNetworkArgs(List<String> args) {
       for (final arg in args) {
         // Bloquear caracteres peligrosos
-        if (arg.contains('\n') || arg.contains('\r') || arg.contains('\0')) {
+        if (arg.contains('\n') || arg.contains('\r') || arg.contains('\x00')) {
           return false;
         }
         // Bloquear intentos de command chaining

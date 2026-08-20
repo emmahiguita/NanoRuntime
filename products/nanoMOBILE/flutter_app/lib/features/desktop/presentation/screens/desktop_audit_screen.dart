@@ -1,12 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/providers/kali_provider.dart';
 import '../../../../core/services/package_service.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
-import '../../../../core/widgets/nano_components.dart';
+import '../../../../core/widgets/nano_ambient_background.dart';
+import '../../../../core/widgets/nano_optical_surface.dart';
 
 class DesktopAuditScreen extends ConsumerStatefulWidget {
   const DesktopAuditScreen({super.key});
@@ -20,17 +20,12 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
   bool _busy = false;
   String? _message;
 
-  // Apps esenciales del escritorio — trim 2026-08-14: fuera chromium (no
-  // estaba en DESKTOP_PACKAGES — botón instalaba algo que el repos no
-  // tenía), firefox, thunar y xfce4-terminal (redundantes: pcmanfm y
-  // lxterminal ya cubren archivos y terminal, y ya no se instalan por
-  // defecto). El appId coincide con la allowlist real del manager.
   static const List<_DesktopAppSpec> _desktopApps = [
     _DesktopAppSpec(
       packageName: 'lxterminal',
       appId: 'lxterminal',
       label: 'LXTerminal',
-      role: 'Terminal grafica',
+      role: 'Terminal gráfica',
       icon: Icons.terminal_rounded,
     ),
     _DesktopAppSpec(
@@ -58,14 +53,14 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
       packageName: 'file-roller',
       appId: 'file-roller',
       label: 'File Roller',
-      role: 'Compresor grafico',
+      role: 'Compresor gráfico',
       icon: Icons.unarchive_rounded,
     ),
     _DesktopAppSpec(
       packageName: 'feh',
       appId: 'feh',
       label: 'feh',
-      role: 'Imagenes y fondo',
+      role: 'Imágenes y fondo',
       icon: Icons.image_rounded,
     ),
   ];
@@ -86,7 +81,7 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
   }
 
   Future<void> _installGraphical() {
-    return _run('Instalacion grafica NanoAI', _pkg.installGraphical);
+    return _run('Instalación gráfica NanoAI', _pkg.installGraphical);
   }
 
   Future<void> _installPackage(String packageName) {
@@ -110,48 +105,77 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
         final graphicalReady = status?.graphicalExtras == true;
 
         return Scaffold(
-          backgroundColor: colors.background,
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Header(
-                    onBack: () => context.go('/dashboard'),
-                    onDesktop: () => context.go('/desktop'),
-                  ),
-                  const SizedBox(height: 12),
-                  _StatusCard(
-                    status: status,
-                    busy: _busy,
-                    onInstallGraphical: _installGraphical,
-                  ),
-                  const SizedBox(height: 12),
-                  _KaliCard(
-                    installed: kali?.isInstalled == true,
-                    summary: kali == null ? 'Kali no disponible.' : kali.coverageSummary(),
-                    missingCount: missing.length,
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: _AppsPanel(
-                      apps: _desktopApps,
-                      installedApps: status?.apps ?? const {},
-                      busy: _busy,
-                      desktopReady: desktopReady,
-                      graphicalReady: graphicalReady,
-                      onInstall: _installPackage,
-                      onLaunch: _launchApp,
+          backgroundColor: colors.backgroundPrimary,
+          body: Stack(
+            children: [
+              const Positioned.fill(
+                child: NanoAmbientBackground(),
+              ),
+              SafeArea(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: CustomScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _Header(
+                                  onBack: () => context.go('/dashboard'),
+                                  onDesktop: () => context.go('/desktop'),
+                                ),
+                                const SizedBox(height: 12),
+                                _StatusCard(
+                                  status: status,
+                                  busy: _busy,
+                                  onInstallGraphical: _installGraphical,
+                                ),
+                                const SizedBox(height: 12),
+                                _KaliCard(
+                                  installed: kali?.isInstalled == true,
+                                  summary: kali == null ? 'Kali no disponible.' : kali.coverageSummary(),
+                                  missingCount: missing.length,
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: _AppsPanel(
+                              apps: _desktopApps,
+                              installedApps: status?.apps ?? const {},
+                              busy: _busy,
+                              desktopReady: desktopReady,
+                              graphicalReady: graphicalReady,
+                              onInstall: _installPackage,
+                              onLaunch: _launchApp,
+                            ),
+                          ),
+                          if (_message != null)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(
+                                  _message!,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    color: colors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  if (_message != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_message!, style: TextStyle(color: colors.onSurfaceVariant)),
-                  ],
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -186,24 +210,70 @@ class _Header extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     return Row(
       children: [
-        IconButton(
-          tooltip: 'Inicio',
-          onPressed: onBack,
-          icon: const Icon(Icons.arrow_back_rounded),
-          color: colors.onSurface,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'NanoAI - Escritorio Linux',
-            style: NanoType.display(colors.onSurface),
+        NanoOpticalSurface(
+          geometry: NanoSurfaceGeometry.circle,
+          blurSigma: 10,
+          borderStrength: 0.65,
+          reflectionStrength: 0.50,
+          accent: colors.accentSky,
+          onTap: onBack,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(
+              Icons.arrow_back_rounded,
+              size: 20,
+              color: colors.textPrimary,
+            ),
           ),
         ),
-        IconButton(
-          tooltip: 'Abrir escritorio',
-          onPressed: onDesktop,
-          icon: const Icon(Icons.desktop_windows_rounded),
-          color: colors.onSurface,
+        const SizedBox(width: 12),
+        Expanded(
+          child: ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (rect) {
+              return LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                stops: const [0.0, 0.65, 0.85, 1.0],
+                colors: [
+                  colors.textPrimary,
+                  colors.textPrimary,
+                  colors.accentSky,
+                  colors.accentCyan,
+                ],
+              ).createShader(rect);
+            },
+            child: const Text(
+              'Auditoría Escritorio',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        NanoOpticalSurface(
+          geometry: NanoSurfaceGeometry.circle,
+          blurSigma: 10,
+          borderStrength: 0.65,
+          reflectionStrength: 0.50,
+          accent: colors.accentSky,
+          onTap: onDesktop,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(
+              Icons.desktop_windows_rounded,
+              size: 20,
+              color: colors.textPrimary,
+            ),
+          ),
         ),
       ],
     );
@@ -223,21 +293,42 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     final text = status == null
         ? 'Leyendo estado real del runtime.'
         : status!.installed
             ? status!.graphicalExtras
-                ? 'Rootfs y escritorio grafico instalados. Stage: ${status!.stage}.'
-                : 'Rootfs instalado, faltan extras graficos. Stage: ${status!.stage}.'
-            : 'Rootfs grafico pendiente. Stage: ${status!.stage}.';
+                ? 'Rootfs y escritorio gráfico instalados. Stage: ${status!.stage}.'
+                : 'Rootfs instalado, faltan extras gráficos. Stage: ${status!.stage}.'
+            : 'Rootfs gráfico pendiente. Stage: ${status!.stage}.';
 
     return _InfoCard(
       title: 'Estado NanoAI',
       body: text,
-      trailing: TextButton.icon(
-        onPressed: busy ? null : onInstallGraphical,
-        icon: const Icon(Icons.build_rounded),
-        label: Text(busy ? 'Procesando' : 'Reparar'),
+      trailing: NanoOpticalSurface(
+        borderRadius: NanoRadius.small,
+        blurSigma: 10,
+        borderStrength: 0.60,
+        reflectionStrength: 0.40,
+        accent: colors.accentSky,
+        onTap: busy ? null : onInstallGraphical,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.build_rounded, size: 14, color: colors.accentSky),
+            const SizedBox(width: 4),
+            Text(
+              busy ? 'Procesando' : 'Reparar',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -258,13 +349,27 @@ class _KaliCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     return _InfoCard(
-      title: 'Kali / rootfs',
+      title: 'Kali / Rootfs',
       body: missingCount == 0 ? summary : '$summary. Faltan $missingCount herramientas auditadas.',
-      trailing: Text(
-        installed ? 'INSTALADO' : 'NO INSTALADO',
-        style: TextStyle(
-          color: installed ? colors.success : colors.warning,
-          fontWeight: FontWeight.w600,
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(99),
+          color: (installed ? colors.accentMint : colors.warning).withValues(alpha: 0.15),
+          border: Border.all(
+            color: installed ? colors.accentMint : colors.warning,
+            width: 0.8,
+          ),
+        ),
+        child: Text(
+          installed ? 'INSTALADO' : 'NO INSTALADO',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: installed ? colors.accentMint : colors.warning,
+            fontWeight: FontWeight.w600,
+            fontSize: 10.5,
+            letterSpacing: 0.3,
+          ),
         ),
       ),
     );
@@ -283,8 +388,6 @@ class _AppsPanel extends StatelessWidget {
   });
 
   final List<_DesktopAppSpec> apps;
-
-  /// appId → binario presente en disco (verdad real del backend).
   final Map<String, bool> installedApps;
   final bool busy;
   final bool desktopReady;
@@ -295,11 +398,13 @@ class _AppsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoCard(
-      title: 'Apps reales del escritorio',
+      title: 'Apps del Escritorio',
       bodyWidget: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 720 ? 2 : 1;
+          final columns = constraints.maxWidth >= 600 ? 2 : 1;
           return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: apps.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
@@ -348,16 +453,16 @@ class _AppTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.success.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.success.withValues(alpha: 0.2)),
-      ),
+    return NanoOpticalSurface(
+      borderRadius: NanoRadius.small,
+      blurSigma: 12,
+      borderStrength: 0.65,
+      reflectionStrength: 0.45,
+      accent: installed ? colors.accentMint : colors.accentSky,
+      padding: const EdgeInsets.all(10),
       child: Row(
         children: [
-          Icon(app.icon, color: colors.success),
+          Icon(app.icon, color: installed ? colors.accentMint : colors.accentSky, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -367,24 +472,32 @@ class _AppTile extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(app.label,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        app.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.5,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 6),
                     if (installed)
-                      Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
+                      Icon(Icons.check_circle_rounded, size: 14, color: colors.accentMint),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(installed ? 'Instalado' : app.role,
-                    style: TextStyle(
-                      color: installed
-                          ? colors.success
-                          : colors.onSurface.withValues(alpha: 0.6),
-                      fontSize: 12,
-                      fontWeight: installed ? FontWeight.w600 : FontWeight.w400,
-                    )),
+                const SizedBox(height: 3),
+                Text(
+                  installed ? 'Instalado' : app.role,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: installed ? colors.accentMint : colors.textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: installed ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ],
             ),
           ),
@@ -392,14 +505,14 @@ class _AppTile extends StatelessWidget {
             IconButton(
               tooltip: 'Instalar paquete ${app.packageName}',
               onPressed: busy ? null : () => onInstall(app.packageName),
-              icon: const Icon(Icons.download_rounded),
-              color: colors.onSurfaceVariant,
+              icon: const Icon(Icons.download_rounded, size: 20),
+              color: colors.accentSky,
             ),
           IconButton(
             tooltip: graphicalReady ? 'Abrir ${app.label}' : 'Instala el escritorio primero',
             onPressed: busy || !desktopReady || !graphicalReady ? null : () => onLaunch(app.appId),
-            icon: const Icon(Icons.open_in_new_rounded),
-            color: colors.onSurfaceVariant,
+            icon: const Icon(Icons.open_in_new_rounded, size: 20),
+            color: colors.textPrimary,
           ),
         ],
       ),
@@ -418,10 +531,15 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return NanoCard(
-      padding: const EdgeInsets.all(16),
+    return NanoOpticalSurface(
+      borderRadius: NanoRadius.medium,
+      blurSigma: 16,
+      borderStrength: 0.70,
+      reflectionStrength: 0.50,
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -429,20 +547,30 @@ class _InfoCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: colors.onSurface,
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ),
               if (trailing != null) trailing!,
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (bodyWidget != null)
-            Expanded(child: bodyWidget!)
+            bodyWidget!
           else
-            Text(body ?? '', style: NanoType.body(colors.onSurfaceVariant)),
+            Text(
+              body ?? '',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: colors.textSecondary,
+                fontSize: 12.5,
+                height: 1.35,
+              ),
+            ),
         ],
       ),
     );

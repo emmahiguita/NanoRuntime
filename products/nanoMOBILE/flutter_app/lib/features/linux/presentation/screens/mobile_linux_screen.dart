@@ -7,13 +7,10 @@ import '../../../../core/linux/linux_distribution_registry.dart';
 import '../../../../core/linux/linux_init.dart';
 import '../../../../core/providers/kali_provider.dart';
 import '../../../../core/theme/design_tokens.dart';
+import '../../../../core/widgets/nano_ambient_background.dart';
+import '../../../../core/widgets/nano_optical_surface.dart';
 
-/// Dashboard nativo Mobile Linux Mode.
-///
-/// Esta pantalla proporciona una interfaz 100% Flutter nativa para
-/// gestionar distribuciones Linux sin depender de VNC. Es el punto
-/// de entrada principal para usuarios que prefieren una experiencia
-/// mobile optimizada en lugar del escritorio VNC completo.
+/// Dashboard nativo Mobile Linux Mode (White Optical Glass).
 class MobileLinuxScreen extends ConsumerStatefulWidget {
   const MobileLinuxScreen({super.key});
 
@@ -28,7 +25,6 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
   @override
   void initState() {
     super.initState();
-    // Registrar Kali cuando el provider esté disponible
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _registerKaliIfNeeded();
     });
@@ -47,57 +43,131 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Intentar registrar Kali en cada build si aún no está registrado
     if (!_kaliRegistered) {
       _registerKaliIfNeeded();
     }
 
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
+
     return Scaffold(
-      backgroundColor: colors.background,
-      appBar: _buildAppBar(context),
-      body: _buildBody(context),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return AppBar(
-      backgroundColor: colors.surface,
-      elevation: 0,
-      title: Text(
-        'Nano Linux',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: colors.onSurface,
-        ),
+      backgroundColor: colors.backgroundPrimary,
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: NanoAmbientBackground(),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(context, colors),
+                Expanded(child: _buildBody(context, colors)),
+              ],
+            ),
+          ),
+        ],
       ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.desktop_windows_rounded, color: colors.onSurface),
-          onPressed: () => context.push('/desktop'),
-          tooltip: 'Modo Desktop',
-        ),
-        IconButton(
-          icon: Icon(Icons.settings_rounded, color: colors.onSurface),
-          onPressed: () => context.push('/settings'),
-          tooltip: 'Ajustes',
-        ),
-      ],
     );
   }
 
-  Widget _buildBody(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+  Widget _buildHeader(BuildContext context, NanoColors colors) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (rect) {
+                    return LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      stops: const [0.0, 0.65, 0.85, 1.0],
+                      colors: [
+                        colors.textPrimary,
+                        colors.textPrimary,
+                        colors.accentCyan,
+                        colors.accentLavender,
+                      ],
+                    ).createShader(rect);
+                  },
+                  child: const Text(
+                    'nanoai',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Nano Linux',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textPrimary,
+                    letterSpacing: -0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          NanoOpticalSurface(
+            geometry: NanoSurfaceGeometry.circle,
+            blurSigma: 10,
+            borderStrength: 0.65,
+            reflectionStrength: 0.50,
+            accent: colors.accentSky,
+            onTap: () => context.push('/desktop'),
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(
+                Icons.desktop_windows_rounded,
+                size: 20,
+                color: colors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          NanoOpticalSurface(
+            geometry: NanoSurfaceGeometry.circle,
+            blurSigma: 10,
+            borderStrength: 0.65,
+            reflectionStrength: 0.50,
+            accent: colors.accentCyan,
+            onTap: () => context.push('/settings'),
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(
+                Icons.settings_rounded,
+                size: 20,
+                color: colors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, NanoColors colors) {
     final distributions = _registry.getAllDistributions();
 
     if (distributions.isEmpty) {
       return Center(
         child: Text(
           'No hay distribuciones disponibles',
-          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: colors.textSecondary,
+          ),
         ),
       );
     }
@@ -106,16 +176,22 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
       onRefresh: () async {
         setState(() {});
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: distributions.length,
-        itemBuilder: (context, index) {
-          final dist = distributions[index];
-          return _DistributionCard(
-            distribution: dist,
-            onTap: () => _handleDistributionTap(dist),
-          );
-        },
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: ListView.builder(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: distributions.length,
+            itemBuilder: (context, index) {
+              final dist = distributions[index];
+              return _DistributionCard(
+                distribution: dist,
+                onTap: () => _handleDistributionTap(dist),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -130,20 +206,26 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
   }
 
   void _showInstallDialog(LinuxDistribution dist) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.backgroundElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Instalar ${dist.name}',
-          style: TextStyle(color: colors.onSurface),
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         content: Text(
           'Se descargará el rootfs de ${dist.name} (${dist.architecture}). '
           'Esto requiere conexión a internet.',
           style: TextStyle(
-            color: colors.onSurface.withValues(alpha: 0.7),
+            fontFamily: 'Inter',
+            color: colors.textSecondary,
           ),
         ),
         actions: [
@@ -152,7 +234,8 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
             child: Text(
               'Cancelar',
               style: TextStyle(
-                color: colors.onSurface.withValues(alpha: 0.7),
+                fontFamily: 'Inter',
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -162,8 +245,8 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
               _installDistribution(dist);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: colors.primary,
-              foregroundColor: colors.onSurface,
+              backgroundColor: colors.accentCyan,
+              foregroundColor: colors.textPrimary,
             ),
             child: const Text('Instalar'),
           ),
@@ -173,15 +256,15 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
   }
 
   void _showDistributionOptions(LinuxDistribution dist) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: colors.backgroundElevated,
           borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(20),
+            top: Radius.circular(24),
           ),
         ),
         padding: const EdgeInsets.all(20),
@@ -194,7 +277,6 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
               title: 'Abrir Terminal',
               onTap: () {
                 Navigator.pop(context);
-                // Si es Kali, inyectar comando "kali shell"
                 if (dist.id == 'kali') {
                   context.push('/terminal?cmd=kali shell');
                 } else {
@@ -227,6 +309,7 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
             _OptionTile(
               icon: Icons.delete_rounded,
               title: 'Desinstalar',
+              isDestructive: true,
               onTap: () {
                 Navigator.pop(context);
                 _confirmUninstall(dist);
@@ -239,14 +322,19 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
   }
 
   void _showDistributionInfo(LinuxDistribution dist, LinuxDistributionInfo info) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.backgroundElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           dist.name,
-          style: TextStyle(color: colors.onSurface),
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -266,7 +354,8 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
             child: Text(
               'Cerrar',
               style: TextStyle(
-                color: colors.onSurface.withValues(alpha: 0.7),
+                fontFamily: 'Inter',
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -276,20 +365,26 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
   }
 
   void _confirmUninstall(LinuxDistribution dist) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.backgroundElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Desinstalar ${dist.name}',
-          style: TextStyle(color: colors.onSurface),
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         content: Text(
           'Esto eliminará todos los archivos de ${dist.name}. '
           'La acción no se puede deshacer.',
           style: TextStyle(
-            color: colors.onSurface.withValues(alpha: 0.7),
+            fontFamily: 'Inter',
+            color: colors.textSecondary,
           ),
         ),
         actions: [
@@ -298,7 +393,8 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
             child: Text(
               'Cancelar',
               style: TextStyle(
-                color: colors.onSurface.withValues(alpha: 0.7),
+                fontFamily: 'Inter',
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -309,7 +405,7 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.error,
-              foregroundColor: colors.onSurface,
+              foregroundColor: colors.textPrimary,
             ),
             child: const Text('Desinstalar'),
           ),
@@ -322,25 +418,22 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
     try {
       await dist.install(
         onProgress: (stage, pct) {
-          // TODO: Mostrar progreso en UI
           debugPrint('[install] $stage: $pct%');
         },
       );
       if (mounted) {
         setState(() {});
-        final colors =
-            Theme.of(context).extension<NanoThemeExtension>()!.colors;
+        final colors = NanoThemeExtension.of(context).colors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${dist.name} instalado correctamente'),
-            backgroundColor: colors.primary,
+            backgroundColor: colors.accentMint,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        final colors =
-            Theme.of(context).extension<NanoThemeExtension>()!.colors;
+        final colors = NanoThemeExtension.of(context).colors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al instalar ${dist.name}: $e'),
@@ -356,19 +449,17 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
       await dist.uninstall();
       if (mounted) {
         setState(() {});
-        final colors =
-            Theme.of(context).extension<NanoThemeExtension>()!.colors;
+        final colors = NanoThemeExtension.of(context).colors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${dist.name} desinstalado'),
-            backgroundColor: colors.primary,
+            backgroundColor: colors.accentSky,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        final colors =
-            Theme.of(context).extension<NanoThemeExtension>()!.colors;
+        final colors = NanoThemeExtension.of(context).colors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al desinstalar ${dist.name}: $e'),
@@ -391,58 +482,54 @@ class _DistributionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     return FutureBuilder<bool>(
       future: distribution.isInstalled(),
       builder: (context, snapshot) {
         final isInstalled = snapshot.data ?? false;
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          color: colors.surfaceVariant,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: colors.onSurface.withValues(alpha: 0.1),
-            ),
-          ),
-          child: InkWell(
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: NanoOpticalSurface(
+            borderRadius: NanoRadius.large,
+            blurSigma: 16,
+            borderStrength: 0.70,
+            reflectionStrength: 0.50,
+            accent: isInstalled ? colors.accentMint : colors.accentSky,
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _DistributionIcon(isInstalled: isInstalled),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          distribution.name,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: colors.onSurface,
-                          ),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                _DistributionIcon(isInstalled: isInstalled),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        distribution.name,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                          letterSpacing: -0.2,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${distribution.architecture} • ${distribution.packageBackend}',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 13,
-                            color: colors.onSurface.withValues(alpha: 0.54),
-                          ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${distribution.architecture} • ${distribution.packageBackend}',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12.5,
+                          color: colors.textSecondary,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  _StatusBadge(isInstalled: isInstalled),
-                ],
-              ),
+                ),
+                _StatusBadge(isInstalled: isInstalled),
+              ],
             ),
           ),
         );
@@ -458,21 +545,21 @@ class _DistributionIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: isInstalled
-            ? colors.primary.withValues(alpha: 0.2)
-            : colors.onSurface.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(
-        isInstalled ? Icons.check_circle_rounded : Icons.download_rounded,
-        color:
-            isInstalled ? colors.primary : colors.onSurface.withValues(alpha: 0.54),
-        size: 24,
+    final colors = NanoThemeExtension.of(context).colors;
+    return NanoOpticalSurface(
+      geometry: NanoSurfaceGeometry.circle,
+      blurSigma: 10,
+      borderStrength: 0.65,
+      reflectionStrength: 0.50,
+      accent: isInstalled ? colors.accentMint : colors.accentSky,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Icon(
+          isInstalled ? Icons.check_circle_rounded : Icons.download_rounded,
+          color: isInstalled ? colors.accentMint : colors.accentSky,
+          size: 22,
+        ),
       ),
     );
   }
@@ -485,29 +572,24 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isInstalled
-            ? colors.primary.withValues(alpha: 0.2)
-            : colors.onSurface.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
+        color: (isInstalled ? colors.accentMint : colors.metalSilver).withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(99),
         border: Border.all(
-          color: isInstalled
-              ? colors.primary.withValues(alpha: 0.5)
-              : colors.onSurface.withValues(alpha: 0.2),
+          color: isInstalled ? colors.accentMint : colors.metalSilver,
+          width: 0.8,
         ),
       ),
       child: Text(
         isInstalled ? 'Instalado' : 'No instalado',
         style: TextStyle(
           fontFamily: 'Inter',
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: isInstalled
-              ? colors.primary
-              : colors.onSurface.withValues(alpha: 0.7),
+          color: isInstalled ? colors.accentMint : colors.textSecondary,
         ),
       ),
     );
@@ -517,32 +599,37 @@ class _StatusBadge extends StatelessWidget {
 class _OptionTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final bool isDestructive;
   final VoidCallback onTap;
 
   const _OptionTile({
     required this.icon,
     required this.title,
+    this.isDestructive = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
+    final color = isDestructive ? colors.error : colors.textPrimary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
           children: [
-            Icon(icon, color: colors.onSurface.withValues(alpha: 0.7), size: 20),
-            const SizedBox(width: 16),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 14),
             Text(
               title,
               style: TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 15,
-                color: colors.onSurface,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w500,
+                color: color,
               ),
             ),
           ],
@@ -560,20 +647,20 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 110,
             child: Text(
               '$label:',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
-                color: colors.onSurface.withValues(alpha: 0.7),
+                color: colors.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -584,7 +671,7 @@ class _InfoRow extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
-                color: colors.onSurface,
+                color: colors.textPrimary,
               ),
             ),
           ),

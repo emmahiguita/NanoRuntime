@@ -78,6 +78,9 @@ class ModelDownloader {
     }
 
     // Verificación SHA256 obligatoria — sin hash correcto no hay instalación.
+    // Notifica el estado "verifying" ANTES del hash: hasta ahora el callback
+    // estaba cableado en el notifier pero nunca se invocaba (estado muerto).
+    onVerifying?.call();
     final actual = await _sha256Of(part);
     if (actual.toLowerCase() != expectedSha256.toLowerCase()) {
       await part.delete();

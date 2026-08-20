@@ -23,6 +23,9 @@ dependencies:
   printing: ^5.13.2
   path_provider: ^2.1.4
   share_plus: ^12.0.2
+  url_launcher: ^6.3.0
+  flutter_animate: ^4.5.2
+  google_fonts: ^6.2.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

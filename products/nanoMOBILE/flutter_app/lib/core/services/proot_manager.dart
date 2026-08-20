@@ -115,7 +115,7 @@ class ProotManager {
       final src = parts.first;
 
       // Validar contra path traversal
-      if (src.contains('..') || src.contains('\0') || src.contains('\n')) {
+      if (src.contains('..') || src.contains('\x00') || src.contains('\n')) {
         onErr?.call('Security: bind mount contiene caracteres de control: "$src"');
         return 127;
       }

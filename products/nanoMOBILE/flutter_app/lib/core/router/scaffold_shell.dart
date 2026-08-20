@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,16 +45,19 @@ class ScaffoldShell extends ConsumerWidget {
     final idx = shell.currentIndex;
     final dash = ref.watch(dashboardProvider);
     final wide = MediaQuery.sizeOf(context).width > 600;
-    // Dashboard (index 0) completamente limpio: sin AppBar ni nav inferior
-    // (diseño de referencia 2026-08-13). La navegación vuelve en las demás
-    // pestañas; desde Inicio se sale por los cards Terminal/Chat/Modelos.
-    final isHome = shell.currentIndex == 0;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final isDark = colors is NanoDarkColors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: isHome
-          ? null
-          : AppBar(
+    return PopScope(
+      canPop: idx == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && idx != 0) {
+          shell.goBranch(0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
               titleSpacing: 16,
               leadingWidth: 0,
               leading: const SizedBox.shrink(),
@@ -62,17 +67,32 @@ class ScaffoldShell extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _tabs[idx].label,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        color: colors.onSurface,
-                        letterSpacing: -0.3,
+                    ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (rect) {
+                        return LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          stops: const [0.0, 0.65, 0.85, 1.0],
+                          colors: [
+                            colors.textPrimary,
+                            colors.textPrimary,
+                            colors.accentCyan,
+                            colors.accentLavender,
+                          ],
+                        ).createShader(rect);
+                      },
+                      child: const Text(
+                        'NanoAI',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 12),
                     for (var i = 0; i < _tabs.length; i++) ...[
                       _navChip(
                         label: _tabs[i].label,
@@ -80,8 +100,6 @@ class ScaffoldShell extends ConsumerWidget {
                         selectedIcon: _tabs[i].sel,
                         selected: i == idx,
                         colors: colors,
-                        // Teléfono (≤600dp): solo icono — con etiqueta la
-                        // fila desborda y "Ajustes" queda cortada del borde.
                         iconOnly: !wide,
                         onTap: () =>
                             shell.goBranch(i, initialLocation: i == idx),
@@ -91,8 +109,31 @@ class ScaffoldShell extends ConsumerWidget {
                   ],
                 ),
               ),
-              backgroundColor: colors.surface,
+              backgroundColor: Colors.transparent,
               elevation: 0,
+              flexibleSpace: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: reduceMotion ? 0.0 : 16.0,
+                    sigmaY: reduceMotion ? 0.0 : 16.0,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? colors.backgroundPrimary.withValues(alpha: 0.82)
+                          : colors.surface.withValues(alpha: 0.86),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: colors.borderSecondaryColor.withValues(
+                            alpha: isDark ? 0.15 : 0.35,
+                          ),
+                          width: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               actions: [
                 IconButton(
                   tooltip: 'Escritorio Linux',
@@ -128,6 +169,7 @@ class ScaffoldShell extends ConsumerWidget {
               ],
             ),
       body: shell,
+      ),
     );
   }
 
@@ -140,46 +182,89 @@ class ScaffoldShell extends ConsumerWidget {
     required VoidCallback onTap,
     bool iconOnly = false,
   }) {
-    // M3: el chip activo usa el contenedor primario en claro (verde claro
-    // + texto verde oscuro, contraste alto); en oscuro primary neón + negro.
-    final bg = selected
-        ? (colors is NanoDarkColors
-            ? colors.primary
-            : colors.primaryContainer)
-        : colors.surfaceVariant;
-    final fg = selected
-        ? (colors is NanoDarkColors
-            ? const Color(0xFF000000)
-            : colors.onPrimaryContainer)
-        : colors.onSurface;
-    return Material(
-      color: bg.withValues(alpha: selected ? 1 : 0.16),
-      borderRadius: NanoShapes.full,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: NanoShapes.full,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: iconOnly ? 12 : 10,
-            vertical: 7,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(selected ? selectedIcon : icon, size: 15, color: fg),
-              if (!iconOnly) ...[
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: fg,
-                  ),
-                ),
-              ],
+    final isDark = colors is NanoDarkColors;
+    final bgGradient = selected
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    colors.primary.withValues(alpha: 0.95),
+                    colors.accentMint.withValues(alpha: 0.85),
+                  ]
+                : [
+                    colors.primary,
+                    colors.accentSky,
+                  ],
+          )
+        : null;
+
+    final borderGradient = selected
+        ? NanoBorders.metallicRim(colors, accent: colors.primary)
+        : LinearGradient(
+            colors: [
+              colors.borderSecondaryColor.withValues(alpha: isDark ? 0.12 : 0.25),
+              colors.borderSecondaryColor.withValues(alpha: isDark ? 0.06 : 0.10),
             ],
+          );
+
+    final fg = selected
+        ? (isDark ? const Color(0xFF000000) : Colors.white)
+        : colors.onSurfaceVariant;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: NanoShapes.full,
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: isDark ? 0.35 : 0.20),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(1.0),
+        decoration: BoxDecoration(
+          borderRadius: NanoShapes.full,
+          gradient: borderGradient,
+        ),
+        child: Material(
+          color: selected ? Colors.transparent : (isDark ? colors.surfaceVariant.withValues(alpha: 0.4) : colors.surfaceVariant.withValues(alpha: 0.6)),
+          borderRadius: NanoShapes.full,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: NanoShapes.full,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: NanoShapes.full,
+                gradient: bgGradient,
+              ),
+              padding: EdgeInsets.symmetric(
+                horizontal: iconOnly ? 12 : 10,
+                vertical: 7,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(selected ? selectedIcon : icon, size: 15, color: fg),
+                  if (!iconOnly) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: fg,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 import 'nano_ambient_background.dart';
 
-/// Shell compartido de las pantallas Chat y Modelos.
+/// Shell compartido de las pantallas secundarias (Chat, Modelos, Settings, etc.).
 ///
-/// Identidad visual de la pantalla Inicio: fondo azul marino casi negro con
-/// reflejos ambientales, header con marca pequeña `nanoai` + título grande,
-/// sin AppBar tradicional ni menú inferior.
+/// Refleja la estética de alta gama de la Home: fondo translúcido blanco/ice,
+/// tipografía con gradiente para la marca `nanoai`, títulos claros en Slate 900
+/// y compatibilidad total con modo claro y oscuro.
 class NanoScreenShell extends StatelessWidget {
   const NanoScreenShell({
     super.key,
@@ -23,8 +23,6 @@ class NanoScreenShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    // Header adaptativo: en landscape el título grande (40px) roba el alto
-    // que las listas/grids necesitan — se compacta a la mitad.
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
 
@@ -40,38 +38,64 @@ class NanoScreenShell extends StatelessWidget {
               children: [
                 Padding(
                   padding: isLandscape
-                      ? const EdgeInsets.fromLTRB(18, 6, 18, 8)
-                      : const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                      ? const EdgeInsets.fromLTRB(16, 4, 16, 6)
+                      : const EdgeInsets.fromLTRB(18, 4, 18, 6),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'nanoai',
-                              style: TextStyle(
-                                color: colors.onSurface.withValues(alpha: 0.92),
-                                fontSize: isLandscape ? 14 : 19,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            SizedBox(height: isLandscape ? 2 : 6),
-                            Text(
-                              title,
-                              style: TextStyle(
-                                color: colors.onSurface,
-                                fontSize: isLandscape ? 24 : 40,
-                                height: 1,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: isLandscape ? -0.6 : -1.2,
-                              ),
-                            ),
-                          ],
+                      ShaderMask(
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (rect) {
+                          return LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            stops: const [0.0, 0.65, 0.85, 1.0],
+                            colors: [
+                              colors.textPrimary,
+                              colors.textPrimary,
+                              colors.accentCyan,
+                              colors.accentLavender,
+                            ],
+                          ).createShader(rect);
+                        },
+                        child: const Text(
+                          'NanoAI',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
+                          ),
                         ),
                       ),
-                      if (trailing != null) trailing!,
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 3.5,
+                        height: 3.5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.textSecondary.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: colors.textSecondary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                      if (trailing != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(flex: 2, child: trailing!),
+                      ],
                     ],
                   ),
                 ),
@@ -84,4 +108,3 @@ class NanoScreenShell extends StatelessWidget {
     );
   }
 }
-

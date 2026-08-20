@@ -61,7 +61,7 @@ class SettingsRepository {
         oomGuard: m['oomGuard'] as bool? ?? true,
         thermalLimit: (m['thermalLimit'] as num?)?.toDouble() ?? 42,
         batteryMode: m['batteryMode'] as String? ?? 'Balanced',
-        maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
+        maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 2048,
         vncPassword: m['vncPassword'] as String? ?? '',
         desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
         agentAutomationMode: AgentAutomationMode.fromName(
@@ -117,7 +117,7 @@ class SettingsState {
     this.oomGuard = true,
     this.thermalLimit = 42,
     this.batteryMode = 'Balanced',
-    this.maxTokens = 512,
+    this.maxTokens = 2048,
     this.vncPassword = '',
     this.desktopMobileMode = false,
     this.agentAutomationMode = AgentAutomationMode.assisted,

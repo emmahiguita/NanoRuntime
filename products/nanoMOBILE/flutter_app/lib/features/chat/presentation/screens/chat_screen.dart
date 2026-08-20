@@ -215,7 +215,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return NanoScreenShell(
       title: 'Chat',
       trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         children: [
           if (state.messages.isNotEmpty)
             IconButton(
@@ -230,9 +230,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           const SizedBox(width: 4),
-          _EngineBadge(
-            online: state.engineOnline,
-            loading: state.connection == ModelConnectionState.loadingModel,
+          Flexible(
+            child: _EngineBadge(
+              online: state.engineOnline,
+              loading: state.connection == ModelConnectionState.loadingModel,
+            ),
           ),
         ],
       ),
@@ -534,8 +536,8 @@ class _EngineBadgeState extends State<_EngineBadge>
               : 0.10 + _controller.value * 0.18;
 
           return Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 13),
+            constraints: const BoxConstraints(minHeight: 44, maxWidth: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: colors.surfaceVariant.withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(14),
@@ -551,7 +553,8 @@ class _EngineBadgeState extends State<_EngineBadge>
           );
         },
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: 9,
@@ -565,14 +568,18 @@ class _EngineBadgeState extends State<_EngineBadge>
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              loading
-                  ? 'CARGANDO'
-                  : (online ? 'LOCAL' : 'DETENIDO'),
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            Flexible(
+              child: Text(
+                loading
+                    ? 'CARGANDO'
+                    : (online ? 'LOCAL' : 'DETENIDO'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

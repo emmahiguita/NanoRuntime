@@ -265,7 +265,12 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                         onAction: () {
                           if (status == ModelUiStatus.installed) {
                             _confirmAndUse(model);
-                          } else if (status == ModelUiStatus.available || status == ModelUiStatus.error) {
+                          } else if (status == ModelUiStatus.available ||
+                              status == ModelUiStatus.error ||
+                              status == ModelUiStatus.incompatible) {
+                            // incompatible también descarga: la ficha mostrada en
+                            // la sábana no debe diferir de la tarjeta (que sí
+                            // ofrece "Descargar" para modelos grandes).
                             notifier.downloadModel(model.id);
                           }
                         },
@@ -333,8 +338,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                   colors: [
                                     colors.textPrimary,
                                     colors.textPrimary,
-                                    colors.accentCyan,
-                                    colors.accentLavender,
+                                    NanoTextColors.forText(colors.accentCyan, colors),
+                                    NanoTextColors.forText(colors.accentLavender, colors),
                                   ],
                                 ).createShader(rect);
                               },
@@ -420,23 +425,27 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                           mainAxisAlignment: MainAxisAlignment.end,
                                           children: [
                                             if (totalInStorage > 0)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: colors.accentSky.withValues(alpha: 0.12),
-                                                  borderRadius: BorderRadius.circular(99),
-                                                  border: Border.all(
-                                                    color: colors.accentSky.withValues(alpha: 0.35),
-                                                    width: 0.8,
+                                              Flexible(
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: colors.accentSky.withValues(alpha: 0.12),
+                                                    borderRadius: BorderRadius.circular(99),
+                                                    border: Border.all(
+                                                      color: colors.accentSky.withValues(alpha: 0.35),
+                                                      width: 0.8,
+                                                    ),
                                                   ),
-                                                ),
-                                                child: Text(
-                                                  '$totalInStorage en memoria',
-                                                  style: TextStyle(
-                                                    fontFamily: 'Inter',
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: colors.textSecondary,
+                                                  child: Text(
+                                                    '$totalInStorage en memoria',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: colors.textSecondary,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -765,7 +774,10 @@ ModelUiStatus _statusOf(LocalModel model, DashboardState dashboard) {
     return ModelUiStatus.error;
   }
   if (model.installed) return ModelUiStatus.installed;
-  if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb * 2.0) {
+  // D1 — se compara contra RAM TOTAL del device (dato estable). Un modelo
+  // cuyo footprint estimado supera la RAM total no cabe ni con streaming:
+  // marcarlo incompatible evita descargar algo condenado a OOM.
+  if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb) {
     return ModelUiStatus.incompatible;
   }
   return ModelUiStatus.available;
@@ -1067,7 +1079,7 @@ class _ModelDetails extends StatelessWidget {
                 familyLabel,
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  color: familyColor,
+                  color: NanoTextColors.forText(familyColor, colors),
                   fontSize: 8.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.3,
@@ -1116,7 +1128,7 @@ class _ModelDetails extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Inter',
-              color: colors.warning,
+              color: NanoTextColors.forText(colors.warning, colors),
               fontSize: 11.5,
               fontWeight: FontWeight.w500,
             ),
@@ -1128,7 +1140,7 @@ class _ModelDetails extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Inter',
-              color: colors.error,
+              color: NanoTextColors.forText(colors.error, colors),
               fontSize: 11.5,
               fontWeight: FontWeight.w500,
             ),
@@ -1185,6 +1197,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     final chip = Container(
       key: ValueKey(label),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
@@ -1197,7 +1210,7 @@ class _StatusChip extends StatelessWidget {
         label,
         style: TextStyle(
           fontFamily: 'Inter',
-          color: color,
+          color: NanoTextColors.forText(color, colors),
           fontSize: 9.5,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
@@ -1735,7 +1748,10 @@ class _AllFilesBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 'Acceso al storage no concedido — no se detectan tus modelos.',
-                style: TextStyle(color: colors.warning, fontSize: 13),
+                style: TextStyle(
+                  color: NanoTextColors.forText(colors.warning, colors),
+                  fontSize: 13,
+                ),
               ),
             ),
             const SizedBox(width: 8),

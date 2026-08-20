@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../theme/nano_motion.dart';
+import '../theme/nano_transitions.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/models/presentation/screens/models_screen.dart';
@@ -31,7 +33,7 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/dashboard',
-                pageBuilder: (_, __) => _fadeSlide(const DashboardScreen()),
+                pageBuilder: (_, __) => _glassMorph(const DashboardScreen()),
               ),
             ],
           ),
@@ -39,7 +41,7 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/chat',
-                pageBuilder: (_, __) => _fadeSlide(const ChatScreen()),
+                pageBuilder: (_, __) => _glassMorph(const ChatScreen()),
               ),
             ],
           ),
@@ -47,7 +49,7 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/models',
-                pageBuilder: (_, __) => _fadeSlide(const ModelsScreen()),
+                pageBuilder: (_, __) => _glassMorph(const ModelsScreen()),
               ),
             ],
           ),
@@ -58,7 +60,7 @@ class AppRouter {
                 pageBuilder: (_, state) {
                   // Comando inyectado por la UI: /terminal?cmd=kali%20shell
                   final cmd = state.uri.queryParameters['cmd'];
-                  return _fadeSlide(TerminalTabScreen(initialCommand: cmd));
+                  return _glassMorph(TerminalTabScreen(initialCommand: cmd));
                 },
               ),
             ],
@@ -67,7 +69,7 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/settings',
-                pageBuilder: (_, __) => _fadeSlide(const SettingsScreen()),
+                pageBuilder: (_, __) => _expressiveSlide(const SettingsScreen()),
               ),
             ],
           ),
@@ -75,7 +77,7 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/linux',
-                pageBuilder: (_, __) => _fadeSlide(const MobileLinuxScreen()),
+                pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
               ),
             ],
           ),
@@ -84,18 +86,17 @@ class AppRouter {
       // /desktop → pantalla de lanzamiento (instala + arranca Xvnc + espera TCP)
       GoRoute(
         path: '/desktop',
-        pageBuilder: (_, __) =>
-            const MaterialPage(child: DesktopLaunchScreen()),
+        pageBuilder: (_, __) => _expressiveSlide(const DesktopLaunchScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',
-        pageBuilder: (_, __) => const MaterialPage(child: DesktopAuditScreen()),
+        pageBuilder: (_, __) => _expressiveSlide(const DesktopAuditScreen()),
       ),
       // /desktop/vnc → cliente RFB real (requiere el puerto activo; ?port=5901)
       GoRoute(
         path: '/desktop/vnc',
-        pageBuilder: (context, state) => MaterialPage(
-          child: VncScreen(
+        pageBuilder: (context, state) => _expressiveSlide(
+          VncScreen(
             port: int.tryParse(state.uri.queryParameters['port'] ?? '') ?? 5901,
           ),
         ),
@@ -103,27 +104,29 @@ class AppRouter {
     ],
   );
 
-  /// Transición rápida por pestaña: fade + slide-up sutil y muy ágil.
-  /// Corta (~180ms) y con curva easeOutCubic para que se sienta vivaz,
-  /// no flotante. El indexedStack conserva el estado de cada pestaña.
-  static Page<void> _fadeSlide(Widget child) => CustomTransitionPage<void>(
-    transitionDuration: const Duration(milliseconds: 180),
-    reverseTransitionDuration: const Duration(milliseconds: 140),
-    transitionsBuilder: (_, animation, __, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
+  /// Transición Principal de Navegación (Glass Morph Transition)
+  static Page<void> _glassMorph(Widget child) => CustomTransitionPage<void>(
+    transitionDuration: NanoMotionDurations.navigation,
+    reverseTransitionDuration: NanoMotionDurations.navigation,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return NanoGlassMorphTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
       );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.03),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
+    },
+    child: child,
+  );
+
+  /// Transición Secundaria (Expressive Slide)
+  static Page<void> _expressiveSlide(Widget child) => CustomTransitionPage<void>(
+    transitionDuration: NanoMotionDurations.standard,
+    reverseTransitionDuration: NanoMotionDurations.standard,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return NanoExpressiveSlideTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
       );
     },
     child: child,

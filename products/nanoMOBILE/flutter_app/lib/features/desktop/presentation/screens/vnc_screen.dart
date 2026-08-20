@@ -1029,36 +1029,53 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      // FAB radial circular minimalista para apps del escritorio.
-      floatingActionButton: _RadialFab(
-        isOpen: _fabOpen,
-        onToggle: () => setState(() => _fabOpen = !_fabOpen),
-        onOpenApps: _openAppsSheet,
-        onToggleKeyboard: _toggleKeyboard,
-        showKeyboard: _showKeyboard,
-      ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // U-7: layout en franjas. Los controles persistentes (barra
-            // superior y barra de mouse) ocupan franjas PROPIAS del Column —
-            // ya no flotan sobre la pantalla proyectada. El framebuffer se
-            // reparte el espacio restante con Expanded y se ve completo:
-            // ningún control tapa ni "interviene" la imagen del escritorio.
-            Column(
-              children: [
-                // Franja superior: estado + conexión + teclado + modo toggle.
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                  child: _FloatingControlBar(
-                    status: _status,
-                    connected: _connected,
-                    busy: _busy,
-                    showKeyboard: _showKeyboard,
-                    isMobileMode: _isMobileMode,
-                    onBack: () => context.pop(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/desktop');
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colors.background,
+        // FAB radial circular minimalista para apps del escritorio.
+        floatingActionButton: _RadialFab(
+          isOpen: _fabOpen,
+          onToggle: () => setState(() => _fabOpen = !_fabOpen),
+          onOpenApps: _openAppsSheet,
+          onToggleKeyboard: _toggleKeyboard,
+          showKeyboard: _showKeyboard,
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // U-7: layout en franjas. Los controles persistentes (barra
+              // superior y barra de mouse) ocupan franjas PROPIAS del Column —
+              // ya no flotan sobre la pantalla proyectada. El framebuffer se
+              // reparte el espacio restante con Expanded y se ve completo:
+              // ningún control tapa ni "interviene" la imagen del escritorio.
+              Column(
+                children: [
+                  // Franja superior: estado + conexión + teclado + modo toggle.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                    child: _FloatingControlBar(
+                      status: _status,
+                      connected: _connected,
+                      busy: _busy,
+                      showKeyboard: _showKeyboard,
+                      isMobileMode: _isMobileMode,
+                      onBack: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/desktop');
+                        }
+                      },
                     onRefresh: () {
                       _reconnectAttempts = 0;
                       _connect();
@@ -1156,6 +1173,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'design_tokens.dart';
 import 'adaptive_theme.dart';
 
@@ -20,85 +21,116 @@ class AppTheme {
     labelSmall: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w500),
   );
 
-  static ThemeData _base(NanoColors c) => ThemeData(
-    useMaterial3: true,
-    brightness: c is NanoDarkColors ? Brightness.dark : Brightness.light,
-    colorSchemeSeed: c.primary,
-    scaffoldBackgroundColor: c.background,
-    textTheme: _textTheme.copyWith(
-      // Mejorar contraste de textos en modo claro sobre glassmorphism
-      bodyLarge: _textTheme.bodyLarge?.copyWith(
-        color: c.onSurface,
-        fontWeight: FontWeight.w500, // Más peso para mejor legibilidad
-      ),
-      bodyMedium: _textTheme.bodyMedium?.copyWith(
-        color: c.onSurface,
-        fontWeight: FontWeight.w500,
-      ),
-      bodySmall: _textTheme.bodySmall?.copyWith(
-        color: c.onSurfaceVariant,
-        fontWeight: FontWeight.w500,
-      ),
-      titleLarge: _textTheme.titleLarge?.copyWith(
-        color: c.onSurface,
-        fontWeight: FontWeight.bold,
-      ),
-      titleMedium: _textTheme.titleMedium?.copyWith(
-        color: c.onSurface,
-        fontWeight: FontWeight.w600,
-      ),
-      headlineLarge: _textTheme.headlineLarge?.copyWith(
-        color: c.onSurface,
-        fontWeight: FontWeight.bold,
-      ),
-      headlineMedium: _textTheme.headlineMedium?.copyWith(
-        color: c.onSurface,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-    iconTheme: IconThemeData(
-      color: c.onSurface,
-      size: 24,
-    ),
-    cardTheme: CardThemeData(
-      elevation: 2,
-      shadowColor: c is NanoDarkColors 
-        ? const Color(0xFF000000).withValues(alpha: 0.3)
-        : const Color(0xFF000000).withValues(alpha: 0.06),
-      color: c is NanoDarkColors ? c.surface : c.glassSurface, // Glassmorphism en modo claro
-      shape: RoundedRectangleBorder(
-        borderRadius: NanoShapes.medium,
-        side: BorderSide(
-          color: c is NanoDarkColors 
-            ? c.outlineVariant.withValues(alpha: 0.5)
-            : c.glassBorder, // Borde cristal en modo claro
-          width: 1
+  static ThemeData _base(NanoColors c) {
+    final isDark = c is NanoDarkColors;
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      colorScheme: isDark
+          ? ColorScheme.dark(
+              primary: c.primary,
+              onPrimary: c.onAccent,
+              primaryContainer: c.primaryContainer,
+              onPrimaryContainer: c.onPrimaryContainer,
+              secondary: c.secondary,
+              secondaryContainer: c.secondaryContainer,
+              surface: c.surface,
+              surfaceContainer: c.surfaceVariant,
+              onSurface: c.onSurface,
+              onSurfaceVariant: c.onSurfaceVariant,
+              outline: c.outline,
+              outlineVariant: c.outlineVariant,
+              error: c.error,
+            )
+          : ColorScheme.light(
+              primary: c.accent,
+              onPrimary: c.onAccent,
+              primaryContainer: c.primaryContainer,
+              onPrimaryContainer: c.onPrimaryContainer,
+              secondary: c.secondary,
+              secondaryContainer: c.secondaryContainer,
+              surface: c.surface,
+              surfaceContainer: c.surfaceVariant,
+              surfaceContainerLow: c.backgroundPrimary,
+              onSurface: c.onSurface,
+              onSurfaceVariant: c.onSurfaceVariant,
+              outline: c.outline,
+              outlineVariant: c.outlineVariant,
+              tertiary: c.tertiary,
+              error: c.error,
+            ),
+      scaffoldBackgroundColor: c.background,
+      textTheme: _textTheme.copyWith(
+        bodyLarge: _textTheme.bodyLarge?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        bodyMedium: _textTheme.bodyMedium?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        bodySmall: _textTheme.bodySmall?.copyWith(
+          color: c.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+        titleLarge: _textTheme.titleLarge?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+        titleMedium: _textTheme.titleMedium?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        headlineLarge: _textTheme.headlineLarge?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+        headlineMedium: _textTheme.headlineMedium?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.w600,
         ),
       ),
-      margin: EdgeInsets.zero,
-    ),
-    appBarTheme: AppBarTheme(
-      centerTitle: false,
-      elevation: 0,
-      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, // Glassmorphism en modo claro
-      titleTextStyle: _textTheme.titleMedium?.copyWith(
+      iconTheme: IconThemeData(
         color: c.onSurface,
-        fontWeight: FontWeight.w600,
+        size: 24,
       ),
-      iconTheme: IconThemeData(color: c.onSurface),
-      // Sombra sutil en modo claro para profundidad
-      shadowColor: c is NanoDarkColors 
-        ? Colors.transparent 
-        : const Color(0xFF000000).withValues(alpha: 0.05),
-    ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: isDark ? c.surface : c.glassSurface, 
+        surfaceTintColor: c.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: NanoShapes.large,
+          side: BorderSide(
+            color: isDark ? Colors.transparent : c.glassBorder,
+            width: 1,
+          ),
+        ),
+        margin: EdgeInsets.zero,
+      ),
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 3,
+        backgroundColor: isDark ? c.background : c.glassSurface, 
+        surfaceTintColor: c.primary,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: isDark ? c.background : c.backgroundPrimary,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
+        titleTextStyle: _textTheme.titleMedium?.copyWith(
+          color: c.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        iconTheme: IconThemeData(color: c.onSurface),
+      ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, // Glassmorphism en modo claro
+      backgroundColor: c is NanoDarkColors ? c.surfaceVariant.withValues(alpha: 0.5) : c.glassSurface, 
       indicatorColor: c.primaryContainer,
-      elevation: 8,
-      shadowColor: c is NanoDarkColors 
-        ? const Color(0xFF000000).withValues(alpha: 0.4)
-        : const Color(0xFF000000).withValues(alpha: 0.10),
-      surfaceTintColor: c.primary.withValues(alpha: 0.05),
+      elevation: 0,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -108,124 +140,111 @@ class AppTheme {
       }),
     ),
     dividerTheme: DividerThemeData(
-      color: c.outlineVariant, 
+      color: c.outlineVariant.withValues(alpha: 0.5), 
       thickness: 1, 
       space: 0,
     ),
-    // Mejorar contraste en listas y tiles
     listTileTheme: ListTileThemeData(
       iconColor: c.onSurfaceVariant,
       textColor: c.onSurface,
-      tileColor: c.surfaceVariant.withValues(alpha: c is NanoDarkColors ? 0.3 : 0.5),
+      tileColor: Colors.transparent,
       selectedTileColor: c.primaryContainer.withValues(alpha: 0.3),
       selectedColor: c.primary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: NanoShapes.medium,
+      ),
     ),
-    // Mejorar contraste en botones elevated
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: c.primary,
-        foregroundColor: c is NanoDarkColors ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
-        elevation: 2,
-        shadowColor: c is NanoDarkColors 
-          ? Colors.transparent 
-          : const Color(0xFF000000).withValues(alpha: 0.15),
-        shape: const RoundedRectangleBorder(
-          borderRadius: NanoShapes.medium,
-        ),
+        foregroundColor: c.onAccent,
+        elevation: 0, // M3 fully expressive buttons are flat by default
+        shape: const StadiumBorder(), // M3 standard pill shape
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
     ),
-    // Mejorar contraste en botones outlined
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: c.primary,
+        foregroundColor: NanoTextColors.forText(c.primary, c),
         side: BorderSide(
-          color: c.primary.withValues(alpha: c is NanoDarkColors ? 0.5 : 0.7),
+          color: c.outlineVariant,
           width: 1.5,
         ),
-        shape: const RoundedRectangleBorder(
-          borderRadius: NanoShapes.medium,
-        ),
+        shape: const StadiumBorder(),
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
     ),
-    // Mejorar botones de texto
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: c.primary,
+        foregroundColor: NanoTextColors.forText(c.primary, c),
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     ),
-    // Floating Action Button con sombra profesional
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: c.primary,
-      foregroundColor: c is NanoDarkColors ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
-      elevation: 6,
+      backgroundColor: c.primaryContainer,
+      foregroundColor: c.onPrimaryContainer,
+      elevation: 3,
       shape: const RoundedRectangleBorder(
-        borderRadius: NanoShapes.extraLarge,
+        borderRadius: NanoShapes.extraLarge, // Large organic corner
       ),
     ),
-    // Input decoration para campos de texto
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: c is NanoDarkColors
-        ? c.surfaceVariant.withValues(alpha: 0.3)
-        : c.surfaceVariant.withValues(alpha: 0.7), // Slate-50 casi opaco: el
-        // glassSurface al 43% dejaba el campo confundido con el fondo blanco
+      fillColor: c is NanoDarkColors ? c.surfaceVariant : c.glassSurface,
       border: OutlineInputBorder(
-        borderRadius: NanoShapes.medium,
-        borderSide: BorderSide(color: c.outline), // borde cyan (claro) / slate (oscuro)
+        borderRadius: NanoShapes.extraLarge,
+        borderSide: BorderSide(
+          color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: NanoShapes.medium,
-        borderSide: BorderSide(color: c.outline),
+        borderRadius: NanoShapes.extraLarge,
+        borderSide: BorderSide(
+          color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: NanoShapes.medium,
+        borderRadius: NanoShapes.extraLarge,
         borderSide: BorderSide(color: c.primary, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       labelStyle: TextStyle(color: c.onSurfaceVariant),
       hintStyle: TextStyle(color: c.onSurfaceVariant.withValues(alpha: 0.7)),
     ),
-    // Switch personalizado
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return c.primary;
-        }
+        if (states.contains(WidgetState.selected)) return c.onPrimaryContainer;
         return c.outline;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return c.primary.withValues(alpha: 0.5);
-        }
-        return c.outlineVariant;
+        if (states.contains(WidgetState.selected)) return c.primaryContainer;
+        return c.surfaceVariant;
       }),
     ),
-    // Slider personalizado
     sliderTheme: SliderThemeData(
       activeTrackColor: c.primary,
-      inactiveTrackColor: c.outlineVariant,
+      inactiveTrackColor: c.surfaceVariant,
       thumbColor: c.primary,
       overlayColor: c.primary.withValues(alpha: 0.1),
     ),
-    // Chip personalizado
     chipTheme: ChipThemeData(
-      backgroundColor: c is NanoDarkColors ? c.surfaceVariant : c.glassSurface, // Glassmorphism en modo claro
+      backgroundColor: c is NanoDarkColors ? c.surfaceVariant : c.glassSurface, 
       selectedColor: c.primaryContainer,
       labelStyle: TextStyle(
         color: c.onSurface,
         fontWeight: FontWeight.w500,
       ),
-      side: BorderSide.none,
-      shape: const RoundedRectangleBorder(
-        borderRadius: NanoShapes.full,
+      side: BorderSide(
+        color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
       ),
+      shape: const StadiumBorder(),
     ),
-    // SnackBar personalizado con Glassmorphism
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, // Glassmorphism en modo claro
+      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface,
       contentTextStyle: TextStyle(
         color: c.onSurface,
         fontWeight: FontWeight.w500,
@@ -237,36 +256,38 @@ class AppTheme {
         ),
       ),
       behavior: SnackBarBehavior.floating,
-      elevation: 4,
+      elevation: 2,
     ),
-    // Dialog personalizado con Glassmorphism
     dialogTheme: DialogThemeData(
-      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, // Glassmorphism en modo claro
+      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, 
+      surfaceTintColor: c.primary, // Tonal elevation
       shape: RoundedRectangleBorder(
         borderRadius: NanoShapes.large,
         side: BorderSide(
           color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
         ),
       ),
-      elevation: 8,
+      elevation: 4,
       titleTextStyle: TextStyle(
         color: c.onSurface,
         fontWeight: FontWeight.bold,
+        fontSize: 24, // Expressive typography
       ),
       contentTextStyle: TextStyle(
-        color: c.onSurface,
+        color: c.onSurfaceVariant,
+        fontSize: 16,
       ),
     ),
-    // BottomSheet personalizado con Glassmorphism
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, // Glassmorphism en modo claro
+      backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface, 
+      surfaceTintColor: c.primary,
       shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)), // Very organic top corners
         side: BorderSide(
           color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
         ),
       ),
-      elevation: 8,
+      elevation: 2,
     ),
     // Transición de página consistente y ágil para cualquier push/route,
     // además de la transición custom por-pestaña definida en AppRouter.
@@ -275,11 +296,9 @@ class AppTheme {
       TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
     }),
     extensions: [NanoThemeExtension(colors: c)],
-  );
+    );
+  }
 
-  /// Temas claro y oscuro. Estaban dentro de _AdaptivePageTransitionBuilder
-  /// (llave mal cerrada en el refactor) — main.dart los llama AppTheme.light
-  /// y AppTheme.dark, así que viven en AppTheme.
   static final light = _base(NanoLightColors());
   static final dark = _base(NanoDarkColors());
 }

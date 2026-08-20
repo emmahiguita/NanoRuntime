@@ -130,10 +130,8 @@ class _S extends State<TerminalTabScreen> {
   Widget build(BuildContext context) {
     final c = NanoThemeExtension.of(context).colors;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    // Identidad nanoai local al módulo (tokens globales intactos):
-    // azul noche #020611 de fondo, chrome #07192B y verde #21F2B2.
-    final bg = dark ? const Color(0xFF020611) : const Color(0xFFF0F0F5);
-    final chrome = dark ? const Color(0xFF07192B) : const Color(0xFFE0E0EC);
+    final bg = dark ? const Color(0xFF020611) : c.backgroundPrimary;
+    final chrome = dark ? const Color(0xFF07192B) : c.surfaceVariant;
     final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
 
     return Container(

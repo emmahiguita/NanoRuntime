@@ -1310,15 +1310,21 @@ class _TermState extends State<NanoTerminal> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    _ps1,
-                    style: TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: fg,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(
+                      _ps1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: fg,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: CallbackShortcuts(
                       bindings: {
