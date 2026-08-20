@@ -33,6 +33,7 @@
 pub mod adaptive_scheduler;
 pub mod auto_config;
 pub mod battery_guardian;
+pub mod benchmark_store;
 pub mod cache_aware_loader;
 pub mod execution_planner;
 pub mod hardware_hal;
@@ -78,6 +79,10 @@ pub mod utility;
 // ── Public API (primary exports used by orchestrator & model_manager) ──
 pub use auto_config::{KvCompression, PageStrategy, RuntimeConfig};
 pub use battery_guardian::{BatteryConfig, BatteryGuardian, BatteryMode};
+pub use benchmark_store::{
+    BenchmarkStore, DeviceFingerprint, MeasuredExecutionProfile, ModelFingerprint,
+    ResolutionLevel, BENCHMARK_SCHEMA_VERSION,
+};
 pub use cache_aware_loader::{can_stream_model, CacheAwareLoader, StreamingConfig};
 #[allow(deprecated)]
 pub use execution_planner::{ExecutionPlanner, PlanResult};
@@ -97,8 +102,8 @@ pub use adaptive_scheduler::{
 pub use battery_guardian::BatteryStatus;
 pub use cache_aware_loader::{estimate_vma_bytes, LoadResult};
 pub use gguf_layout::{
-    GgufError, LayerInfo, NanoModelIndex, PageSizeInfo, QuantizationType, TensorInfo,
-    WorkingSetEstimate,
+    GgufError, GgufMetadata, GgufValue, LayerInfo, NanoModelIndex, PageSizeInfo,
+    QuantizationType, TensorInfo, WorkingSetEstimate,
 };
 pub use hardware_hal::StorageBench;
 pub use hardware_profiler::{DeviceClass, HardwareProfile, HardwareProfiler, ThermalState};
