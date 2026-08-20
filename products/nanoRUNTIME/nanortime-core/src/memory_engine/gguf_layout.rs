@@ -19,6 +19,8 @@ use std::path::Path;
 
 use thiserror::Error;
 
+use super::model_profile::{ArchitectureType, ModelProfile};
+
 #[derive(Error, Debug)]
 pub enum GgufError {
     #[error("IO Error: {0}")]
@@ -424,6 +426,17 @@ impl GgufMetadata {
     pub fn is_embedding(&self) -> bool {
         self.embedding_length.is_some()
     }
+
+    /// Deriva el tipo de arquitectura (Dense/MoE) desde la metadata. Es la
+    /// pieza que el planner consume sin depender de `ModelProfile` construido
+    /// a mano.
+    pub fn architecture_type(&self) -> ArchitectureType {
+        if self.is_moe() {
+            ArchitectureType::MixtureOfExperts
+        } else {
+            ArchitectureType::Dense
+        }
+    }
 }
 
 impl NanoModelIndex {
@@ -600,6 +613,30 @@ impl NanoModelIndex {
             gguf_version: version,
             metadata,
         })
+    }
+
+    /// Deriva un `ModelProfile` (para planificación física) desde el índice.
+    /// La arquitectura sale de `metadata.architecture_type()`; el tamaño del
+    /// archivo es el proxy del footprint de pesos; el número de capas sale de
+    /// los tensores. Para MoE, el tamaño activo se estima por la fracción
+    /// `expert_used_count / expert_count`.
+    pub fn to_model_profile(&self) -> ModelProfile {
+        let total_mb = (self.file_size / (1024 * 1024)) as u64;
+        let n_layers = self.layers.len();
+        match self.metadata.architecture_type() {
+            ArchitectureType::MixtureOfExperts => {
+                let active_frac = match (
+                    self.metadata.expert_count,
+                    self.metadata.expert_used_count,
+                ) {
+                    (Some(total), Some(used)) if total > 0 => used as f64 / total as f64,
+                    _ => 0.25,
+                };
+                let active_mb = ((total_mb as f64) * active_frac.max(0.01)) as u64;
+                ModelProfile::new_moe(total_mb, active_mb.max(1), n_layers)
+            }
+            ArchitectureType::Dense => ModelProfile::new_dense(total_mb, n_layers),
+        }
     }
 
     /// Group tensors into logical layers.
@@ -1326,5 +1363,29 @@ mod tests {
         assert_eq!(GgufValue::U64(8192).as_u64(), Some(8192));
         assert_eq!(GgufValue::U8(7).as_u64(), Some(7));
         assert_eq!(GgufValue::String("x".into()).as_u64(), None);
+    }
+
+    #[test]
+    fn test_gguf_metadata_architecture_type() {
+        let dense = GgufMetadata {
+            architecture: Some("qwen2".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(dense.architecture_type(), ArchitectureType::Dense);
+
+        let moe = GgufMetadata {
+            architecture: Some("qwen3moe".to_string()),
+            expert_count: Some(128),
+            ..Default::default()
+        };
+        assert_eq!(moe.architecture_type(), ArchitectureType::MixtureOfExperts);
+    }
+
+    #[test]
+    fn test_to_model_profile_dense() {
+        let index = NanoModelIndex::mock_index(4, 256);
+        let profile = index.to_model_profile();
+        assert_eq!(profile.architecture, ArchitectureType::Dense);
+        assert_eq!(profile.n_layers, 4);
     }
 }
