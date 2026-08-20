@@ -99,6 +99,67 @@ pub fn best_window(points: &[SweepPoint], weights: &UtilityWeights) -> Option<us
         .map(|p| p.w)
 }
 
+/// Umbral de thrashing compartido con el runtime: 20 major faults/s. Un
+/// fault se resuelve en ~1ms en flash móvil; >20/s significa que el working
+/// set excede RAM y el kernel vive paginando (I/O-bound, no compute-bound).
+pub const THRASH_FAULT_RATE: f64 = 20.0;
+
+/// Utilidad de benchmark DESCOMPUESTA: los componentes de la penalización
+/// viajan separados para que la decisión del planner sea explicable. P.ej.
+/// "8 threads dio 5.2 tok/s iniciales pero perdió frente a 4 threads por
+/// temperatura + decay + faults" — no una caja negra.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BenchmarkUtility {
+    pub raw_decode_tps: f64,
+    pub sustained_decode_tps: f64,
+    /// (raw - sustained) / raw, 0..1 — castigo por pérdida térmica de tok/s.
+    pub decay_penalty: f64,
+    /// major_fault_rate / THRASH_FAULT_RATE, ≥0.
+    pub fault_penalty: f64,
+    /// hot + rise, ≥0 (0 si no hay sensor).
+    pub thermal_penalty: f64,
+    /// PSI memoria normalizado, ≥0 (0 si /proc/pressure no está expuesto).
+    pub memory_penalty: f64,
+    /// sustained / (1 + decay + fault + thermal + memory).
+    pub final_utility: f64,
+}
+
+/// Fórmula ÚNICA de utilidad para el auto-benchmark (sweep de threads).
+/// Es la autoridad: el sweep y el planner consumen esta, no una fórmula
+/// inline duplicada. Los componentes se exponen por separado.
+pub fn benchmark_utility(
+    raw_decode_tps: f64,
+    sustained_decode_tps: f64,
+    major_fault_rate: f64,
+    thermal_penalty: f64,
+    memory_penalty: f64,
+) -> BenchmarkUtility {
+    let decay = if raw_decode_tps > 0.0 {
+        ((raw_decode_tps - sustained_decode_tps).max(0.0) / raw_decode_tps).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let fault = (major_fault_rate / THRASH_FAULT_RATE).max(0.0);
+    let thermal = thermal_penalty.max(0.0);
+    let memory = memory_penalty.max(0.0);
+    let denominator = 1.0 + decay + fault + thermal + memory;
+    let final_utility = if denominator > 0.0 {
+        sustained_decode_tps / denominator
+    } else {
+        0.0
+    };
+    BenchmarkUtility {
+        raw_decode_tps,
+        sustained_decode_tps,
+        decay_penalty: decay,
+        fault_penalty: fault,
+        thermal_penalty: thermal,
+        memory_penalty: memory,
+        final_utility,
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,5 +232,30 @@ mod tests {
     fn test_no_live_points() {
         let points = vec![point(2, 0.3, 10.0, (0, 5))];
         assert_eq!(best_window(&points, &UtilityWeights::default()), None);
+    }
+
+    #[test]
+    fn test_benchmark_utility_prefers_sustained_over_cold_peak() {
+        // 8 threads: pico 6.0 pero cae a 3.8 por temperatura (thermal=1.0).
+        let t8 = benchmark_utility(6.0, 3.8, 0.0, 1.0, 0.0);
+        // 4 threads: pico menor 5.2 pero sostenido 4.8 sin penalización.
+        let t4 = benchmark_utility(5.2, 4.8, 0.0, 0.0, 0.0);
+        // 4 threads gana aunque pierda el benchmark de 10 segundos.
+        assert!(t4.final_utility > t8.final_utility);
+        // Componentes auditables: decay + thermal castigan a 8 threads.
+        assert!(t8.decay_penalty > t4.decay_penalty);
+        assert!(t8.thermal_penalty > t4.thermal_penalty);
+    }
+
+    #[test]
+    fn test_benchmark_utility_components_sum() {
+        let u = benchmark_utility(6.0, 3.0, 20.0, 0.5, 0.5);
+        // decay=(6-3)/6=0.5, fault=20/20=1.0, thermal=0.5, memory=0.5
+        assert!((u.decay_penalty - 0.5).abs() < 1e-9);
+        assert!((u.fault_penalty - 1.0).abs() < 1e-9);
+        assert!((u.thermal_penalty - 0.5).abs() < 1e-9);
+        assert!((u.memory_penalty - 0.5).abs() < 1e-9);
+        // final = 3.0 / (1 + 0.5 + 1.0 + 0.5 + 0.5) = 3.0 / 3.5
+        assert!((u.final_utility - 3.0 / 3.5).abs() < 1e-9);
     }
 }

@@ -430,11 +430,6 @@ impl NanoRuntime {
                 .last()
                 .map(|sample| sample.decode_tok_s)
                 .unwrap_or(0.0);
-            let decay = if peak > 0.0 {
-                ((peak - sustained).max(0.0) / peak).clamp(0.0, 1.0)
-            } else {
-                1.0
-            };
             let ttft_ms = stats
                 .iter()
                 .map(|sample| sample.ttft_ms as f64)
@@ -470,9 +465,16 @@ impl NanoRuntime {
                 0.0
             };
             let thermal_penalty = hot_penalty + rise_penalty;
-            // 20 major faults/s es el umbral de thrashing del runtime. La
-            // utilidad premia steady-state y penaliza decay, paginación y calor.
-            let utility = sustained / (1.0 + decay + fault_rate / 20.0 + thermal_penalty);
+            // Fórmula ÚNICA de utilidad (utility.rs): componentes separados
+            // para telemetría. memory_penalty = 0 — /proc/pressure no se
+            // expone en ColorOS, no se inventa evidencia.
+            let benchmark = crate::memory_engine::benchmark_utility(
+                peak,
+                sustained,
+                fault_rate,
+                thermal_penalty,
+                0.0,
+            );
             candidates.push(MicroBenchmarkCandidate {
                 threads,
                 context_tokens: CONTEXT_TOKENS,
@@ -483,12 +485,12 @@ impl NanoRuntime {
                 prefill_tok_s,
                 pss_peak_mb,
                 major_faults_per_second: fault_rate,
-                thermal_decay_pct: decay,
+                thermal_decay_pct: benchmark.decay_penalty,
                 temperature_start_c,
                 temperature_peak_c,
                 temperature_available,
                 thermal_penalty,
-                utility,
+                utility: benchmark.final_utility,
                 samples: stats.len() as u32,
             });
         }

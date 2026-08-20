@@ -152,8 +152,8 @@ pub use residency_manager::{
 };
 pub use storage_manager::{MmapConfig, OffloadCompression, StorageManager};
 pub use utility::{
-    best_window, liveness_rate, pressure_penalty, useful_throughput, utility, SweepPoint,
-    UtilityWeights,
+    benchmark_utility, best_window, liveness_rate, pressure_penalty, useful_throughput, utility,
+    BenchmarkUtility, SweepPoint, UtilityWeights, THRASH_FAULT_RATE,
 };
 
 // ── Facade ─────────────────────────────────────────────────────────────
