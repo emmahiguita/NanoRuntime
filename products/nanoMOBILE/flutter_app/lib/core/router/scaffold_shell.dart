@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/nano_ambient_background.dart';
-import '../widgets/nano_living_background.dart';
 import '../widgets/navigation/nano_dock_controller.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 

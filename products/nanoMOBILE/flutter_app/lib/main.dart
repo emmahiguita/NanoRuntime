@@ -10,7 +10,6 @@ import 'core/router/app_router.dart';
 import 'core/services/boot_orchestrator.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/nano_motion.dart';
-import 'core/widgets/nano_shader_host.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -21,11 +20,7 @@ Future<void> main() async {
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
 
-  // El shader debe estar listo antes de construir la navegación. Si se carga
-  // en segundo plano, NanoNavigationPanel puede pedirlo primero y conservar
-  // el fallback durante toda la sesión aunque la compilación termine después.
   initializeLinuxDistributions();
-  await NanoShaderHost.preload();
 
   runApp(const ProviderScope(child: NanoPlatformApp()));
   _listenSystemNavigation();

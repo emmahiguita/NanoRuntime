@@ -6,7 +6,6 @@ import '../theme/nano_type.dart';
 import 'nano_optical_surface.dart';
 
 export 'nano_optical_surface.dart';
-export 'nano_thinking_orb.dart';
 
 /// ── Componentes de tema compartidos ──
 ///
