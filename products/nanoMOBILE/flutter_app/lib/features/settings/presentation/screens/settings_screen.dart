@@ -10,10 +10,8 @@ import 'package:nanoai/core/theme/nano_motion.dart';
   import 'package:nanoai/core/theme/nano_type.dart';
   import 'package:nanoai/core/widgets/nano_components.dart';
   import 'package:nanoai/core/widgets/nano_section.dart';
-import 'package:nanoai/features/automation/domain/automation_policy.dart';
-import 'package:nanoai/features/automation/presentation/agent_console_section.dart';
-import 'package:nanoai/features/automation/presentation/notification_automation_section.dart';
-import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
+  import 'package:nanoai/features/automation/domain/automation_policy.dart';
+  import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
 
 /// Opciones disponibles para el modo de tema.
 const _themeOptions = [
@@ -83,10 +81,6 @@ class SettingsScreen extends ConsumerWidget {
               ],
               const SizedBox(height: NanoSpacing.xl),
               const DevicePermissionsSection(),
-              const SizedBox(height: NanoSpacing.xl),
-              const AgentConsoleSection(),
-              const SizedBox(height: NanoSpacing.xl),
-              const NotificationAutomationSection(),
               const SizedBox(height: NanoSpacing.xl),
               const _DesktopSection(),
             ],

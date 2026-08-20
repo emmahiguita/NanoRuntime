@@ -12,6 +12,7 @@ import '../../features/linux/presentation/screens/mobile_linux_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_launch_screen.dart';
 import '../../features/desktop/presentation/screens/vnc_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
+import '../../features/automation/presentation/screens/automation_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -89,6 +90,11 @@ class AppRouter {
       GoRoute(
         path: '/desktop',
         pageBuilder: (_, __) => _expressiveSlide(const DesktopLaunchScreen()),
+      ),
+      // /automation → apartado dedicado (NO vive en Ajustes)
+      GoRoute(
+        path: '/automation',
+        pageBuilder: (_, __) => _expressiveSlide(const AutomationScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',

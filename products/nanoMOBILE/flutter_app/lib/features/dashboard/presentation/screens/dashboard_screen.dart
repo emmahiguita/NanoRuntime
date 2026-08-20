@@ -56,7 +56,7 @@ class DashboardScreen extends ConsumerWidget {
       onChatTap: () => context.go('/chat'),
       onModelsTap: () => context.go('/models'),
       onDesktopTap: () => context.go('/desktop'),
-    onAutomationTap: () => context.go('/settings'),
+    onAutomationTap: () => context.go('/automation'),
       onKaliTap: () => context.go('/terminal/shell?cmd=kali%20shell'),
     );
   }
