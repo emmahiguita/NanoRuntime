@@ -98,6 +98,16 @@ pub struct ModelManager {
 /// RAM y el kernel vive paginando (I/O-bound, no compute-bound).
 const THRASH_MAJFAULT_RATE: f64 = 20.0;
 
+/// Parámetros de carga explícitos que saltan el RuntimePlanner. Es la
+/// palanca del sweep de auto-benchmark: medir configuraciones concretas
+/// (threads × contexto × batch) en vez de la auto-config por hardware.
+#[derive(Debug, Clone, Copy)]
+pub struct LoadParamsOverride {
+    pub threads: u32,
+    pub context_size: u32,
+    pub batch_size: u32,
+}
+
 /// ADAPT — replanifica a partir de lo medido. Función libre para poder
 /// llamarse tanto desde `update_memory_engine_metrics` como desde el closure
 /// de `spawn_blocking` de streaming (donde `&self` no está disponible).
@@ -250,6 +260,12 @@ impl ModelManager {
 
     /// Estado completo para la API HTTP: telemetría real + viabilidad.
     /// Síncrono (lo consume el hilo del servidor HTTP). Nada fabricado.
+    /// Ruta del modelo activo (None si no hay modelo cargado).
+    pub async fn current_model_path(&self) -> Option<String> {
+        let g = self.state.read().await;
+        g.as_ref().map(|s| s.model_path.clone())
+    }
+
     pub fn status(&self) -> RuntimeStatus {
         // Modelo cargado (ruta, tamaño, contexto) — sin bloquear si el lock
         // está envenenado.
@@ -340,6 +356,35 @@ impl ModelManager {
     }
 
     pub async fn load_model(&self, path: &str) -> Result<()> {
+        self.load_model_inner(path, None).await
+    }
+
+    /// Carga (o recarga) el modelo con parámetros EXPLÍCITOS, saltándose el
+    /// RuntimePlanner. Palanca del sweep de auto-benchmark: mide
+    /// configuraciones concretas en vez de la auto-config por hardware.
+    pub async fn load_model_with_params(
+        &self,
+        path: &str,
+        threads: u32,
+        context_size: u32,
+        batch_size: u32,
+    ) -> Result<()> {
+        self.load_model_inner(
+            path,
+            Some(LoadParamsOverride {
+                threads,
+                context_size,
+                batch_size,
+            }),
+        )
+        .await
+    }
+
+    async fn load_model_inner(
+        &self,
+        path: &str,
+        override_params: Option<LoadParamsOverride>,
+    ) -> Result<()> {
         if path.is_empty() {
             return Err(NanoError::ModelNotFound {
                 path: path.to_string(),
@@ -410,37 +455,51 @@ impl ModelManager {
         // ── Planificador ÚNICO: RuntimePlanner decide ctx/threads/W ──
         // El ExecutionPlanner/auto_configure_v2 queda como referencia legacy
         // (deprecated): antes dos fuentes calculaban el mismo número.
+        // Un override explícito (sweep de auto-benchmark) salta el plan.
         let file_size_mb = std::fs::metadata(path)
             .map(|m| m.len() / (1024 * 1024))
             .unwrap_or(0);
-        // Estimación de capas pre-load (el nº real viene del GGUF tras cargar).
-        let est_layers = ((file_size_mb as f64 / 140.0).round() as usize).clamp(1, 128);
-        let obs = crate::memory_engine::Observations {
-            device: self.device.clone(),
-            runtime: {
-                let mut c = crate::memory_engine::RuntimeMetricsCollector::new();
-                c.collect()
-            },
-            thermal: {
-                let mut tc = crate::memory_engine::ThermalController::new();
-                tc.sample().state
-            },
-            battery: crate::memory_engine::BatteryGuardian::new().determine_mode(),
-            thrashing: crate::memory_engine::ThrashingState::None,
-        };
-        let plan = self.planner.plan_for_model(
-            file_size_mb,
-            est_layers,
-            8192, // target context (config)
-            &self.runtime_budget,
-            &obs,
-        );
 
-        // Override config con los valores del plan (única fuente aplicada).
         let mut adapted_config = self.config.local_model.clone();
-        adapted_config.context_size = plan.model.context_tokens;
-        adapted_config.batch_size = plan.model.context_tokens.min(512) as usize;
-        adapted_config.threads = plan.compute.threads;
+        if let Some(o) = override_params {
+            tracing::info!(
+                "load override (sweep): threads={} ctx={} batch={}",
+                o.threads,
+                o.context_size,
+                o.batch_size
+            );
+            adapted_config.threads = o.threads as usize;
+            adapted_config.context_size = o.context_size as usize;
+            adapted_config.batch_size = o.batch_size as usize;
+        } else {
+            // Estimación de capas pre-load (el nº real viene del GGUF tras cargar).
+            let est_layers = ((file_size_mb as f64 / 140.0).round() as usize).clamp(1, 128);
+            let obs = crate::memory_engine::Observations {
+                device: self.device.clone(),
+                runtime: {
+                    let mut c = crate::memory_engine::RuntimeMetricsCollector::new();
+                    c.collect()
+                },
+                thermal: {
+                    let mut tc = crate::memory_engine::ThermalController::new();
+                    tc.sample().state
+                },
+                battery: crate::memory_engine::BatteryGuardian::new().determine_mode(),
+                thrashing: crate::memory_engine::ThrashingState::None,
+            };
+            let plan = self.planner.plan_for_model(
+                file_size_mb,
+                est_layers,
+                8192, // target context (config)
+                &self.runtime_budget,
+                &obs,
+            );
+
+            // Override config con los valores del plan (única fuente aplicada).
+            adapted_config.context_size = plan.model.context_tokens;
+            adapted_config.batch_size = plan.model.context_tokens.min(512) as usize;
+            adapted_config.threads = plan.compute.threads;
+        }
 
         // ── Hierarchical KV: estimate compression potential (informational only) ──
         // NOTE: The HierarchicalKvCache estimator is a planning tool — it does NOT

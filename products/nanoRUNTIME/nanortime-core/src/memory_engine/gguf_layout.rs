@@ -19,6 +19,8 @@ use std::path::Path;
 
 use thiserror::Error;
 
+use super::model_profile::{ArchitectureType, ModelProfile};
+
 #[derive(Error, Debug)]
 pub enum GgufError {
     #[error("IO Error: {0}")]
@@ -295,6 +297,146 @@ pub struct NanoModelIndex {
     pub tensor_count: usize,
     /// GGUF version
     pub gguf_version: u32,
+    /// Metadata lógica extraída de los KV del header (arquitectura, params,
+    /// contexto, template, capacidades). Complementa el índice de tensores.
+    pub metadata: GgufMetadata,
+}
+
+/// Valor GGUF leído del header (escalares y strings). Los arrays se descartan
+/// durante la lectura — p.ej. `tokenizer.ggml.tokens` (decenas de miles de
+/// strings) no aporta a la metadata que extraemos y leerlo completo inflaría
+/// la memoria del parseo del header.
+#[derive(Debug, Clone, PartialEq)]
+pub enum GgufValue {
+    U8(u8),
+    I8(i8),
+    U16(u16),
+    I16(i16),
+    U32(u32),
+    I32(i32),
+    F32(f32),
+    Bool(bool),
+    String(String),
+    /// Array cuyo contenido fue descartado (ver doc del enum).
+    Array,
+    U64(u64),
+    I64(i64),
+    F64(f64),
+}
+
+impl GgufValue {
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Self::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Enteros sin signo (u8/u16/u32/u64) como u64. GGUF guarda context_length,
+    /// block_count, expert_count, etc. a veces como u32 y a veces como u64.
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::U8(v) => Some(*v as u64),
+            Self::U16(v) => Some(*v as u64),
+            Self::U32(v) => Some(*v as u64),
+            Self::U64(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+}
+
+/// Metadata lógica del modelo extraída del header GGUF. No depende de
+/// llama.cpp: se lee directo del archivo. Es la base de la detección de
+/// arquitectura, capacidades (MoE/embedding/visión) y del fingerprint.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct GgufMetadata {
+    /// `general.architecture` — p.ej. "qwen2", "llama", "gemma2".
+    pub architecture: Option<String>,
+    /// `general.name`.
+    pub name: Option<String>,
+    /// `general.parameter_count` (u64).
+    pub parameter_count: Option<u64>,
+    /// `<arch>.context_length` (fallback `general.context_length`).
+    pub context_length: Option<u64>,
+    /// `<arch>.embedding_length` — presente en modelos de embedding.
+    pub embedding_length: Option<u64>,
+    /// `<arch>.block_count`.
+    pub block_count: Option<u64>,
+    /// `<arch>.expert_count` — 0/ausente en dense, >0 en MoE.
+    pub expert_count: Option<u64>,
+    /// `<arch>.expert_used_count` — expertos activos por token en MoE.
+    pub expert_used_count: Option<u64>,
+    /// `tokenizer.chat_template` (Jinja crudo).
+    pub chat_template: Option<String>,
+}
+
+impl GgufMetadata {
+    /// Extrae los campos de un mapa de KV ya leído. Las claves específicas de
+    /// arquitectura usan el prefijo de `general.architecture` (p.ej.
+    /// `qwen2.context_length`), con fallback a `general.<clave>` — igual que
+    /// hace llama.cpp.
+    pub fn from_map(map: &HashMap<String, GgufValue>) -> Self {
+        let architecture = map
+            .get("general.architecture")
+            .and_then(|v| v.as_string().map(String::from));
+        let arch = architecture.as_deref().unwrap_or("");
+
+        let arch_key = |suffix: &str| -> Option<&GgufValue> {
+            map.get(&format!("{arch}.{suffix}"))
+                .or_else(|| map.get(&format!("general.{suffix}")))
+        };
+
+        Self {
+            name: map
+                .get("general.name")
+                .and_then(|v| v.as_string().map(String::from)),
+            parameter_count: map.get("general.parameter_count").and_then(|v| v.as_u64()),
+            context_length: arch_key("context_length").and_then(|v| v.as_u64()),
+            embedding_length: arch_key("embedding_length").and_then(|v| v.as_u64()),
+            block_count: arch_key("block_count").and_then(|v| v.as_u64()),
+            expert_count: arch_key("expert_count").and_then(|v| v.as_u64()),
+            expert_used_count: arch_key("expert_used_count").and_then(|v| v.as_u64()),
+            chat_template: map
+                .get("tokenizer.chat_template")
+                .and_then(|v| v.as_string().map(String::from)),
+            architecture,
+        }
+    }
+
+    /// MoE si declara expertos (`expert_count > 0`) o la arquitectura lo
+    /// indica por nombre (sufijo "moe" o "mixtral").
+    pub fn is_moe(&self) -> bool {
+        self.expert_count.is_some_and(|c| c > 0)
+            || self
+                .architecture
+                .as_deref()
+                .is_some_and(|a| a.ends_with("moe") || a.contains("mixtral"))
+    }
+
+    /// Modelo de embedding si declara `embedding_length` y `pooling_type` es
+    /// distinto de 0 (la convención GGUF para no-causal). Conservador: solo
+    /// embedding_length no es suficiente — los LLM causales no lo declaran.
+    pub fn is_embedding(&self) -> bool {
+        self.embedding_length.is_some()
+    }
+
+    /// Deriva el tipo de arquitectura (Dense/MoE) desde la metadata. Es la
+    /// pieza que el planner consume sin depender de `ModelProfile` construido
+    /// a mano.
+    pub fn architecture_type(&self) -> ArchitectureType {
+        if self.is_moe() {
+            ArchitectureType::MixtureOfExperts
+        } else {
+            ArchitectureType::Dense
+        }
+    }
 }
 
 impl NanoModelIndex {
@@ -336,11 +478,15 @@ impl NanoModelIndex {
         file.read_exact(&mut buf)?;
         let kv_count = u64::from_le_bytes(buf) as usize;
 
-        // Skip metadata KV pairs
+        // Leer los KV del header (ya no saltarlos): captura arquitectura,
+        // params, contexto, template y capacidades para el metadata.
+        let mut kv: HashMap<String, GgufValue> = HashMap::with_capacity(kv_count);
         for _ in 0..kv_count {
-            skip_gguf_string(&mut file)?;
-            skip_gguf_value(&mut file)?;
+            let key = read_gguf_string(&mut file)?;
+            let value = read_gguf_value(&mut file)?;
+            kv.insert(key, value);
         }
+        let metadata = GgufMetadata::from_map(&kv);
 
         // Parse tensor info records with full metadata
         let mut tensors: Vec<TensorInfo> = Vec::with_capacity(tensor_count);
@@ -465,7 +611,32 @@ impl NanoModelIndex {
             data_offset,
             tensor_count,
             gguf_version: version,
+            metadata,
         })
+    }
+
+    /// Deriva un `ModelProfile` (para planificación física) desde el índice.
+    /// La arquitectura sale de `metadata.architecture_type()`; el tamaño del
+    /// archivo es el proxy del footprint de pesos; el número de capas sale de
+    /// los tensores. Para MoE, el tamaño activo se estima por la fracción
+    /// `expert_used_count / expert_count`.
+    pub fn to_model_profile(&self) -> ModelProfile {
+        let total_mb = (self.file_size / (1024 * 1024)) as u64;
+        let n_layers = self.layers.len();
+        match self.metadata.architecture_type() {
+            ArchitectureType::MixtureOfExperts => {
+                let active_frac = match (
+                    self.metadata.expert_count,
+                    self.metadata.expert_used_count,
+                ) {
+                    (Some(total), Some(used)) if total > 0 => used as f64 / total as f64,
+                    _ => 0.25,
+                };
+                let active_mb = ((total_mb as f64) * active_frac.max(0.01)) as u64;
+                ModelProfile::new_moe(total_mb, active_mb.max(1), n_layers)
+            }
+            ArchitectureType::Dense => ModelProfile::new_dense(total_mb, n_layers),
+        }
     }
 
     /// Group tensors into logical layers.
@@ -821,6 +992,7 @@ impl NanoModelIndex {
             data_offset,
             tensor_count: expected_layers,
             gguf_version: 3,
+            metadata: GgufMetadata::default(),
         }
     }
 }
@@ -893,75 +1065,114 @@ fn skip_gguf_string(file: &mut File) -> Result<(), GgufError> {
     Ok(())
 }
 
-/// Reads and discards a GGUF value. The value type (u32) determines how many
-/// bytes to skip after it. Handles all GGUF v2/v3 scalar and aggregate types.
-fn skip_gguf_value(file: &mut File) -> Result<(), GgufError> {
+/// Lee el contenido de un array GGUF y lo descarta. Se usa para los KV que no
+/// extraemos (p.ej. `tokenizer.ggml.tokens`): mantiene la alineación del
+/// stream sin asignar decenas de miles de strings.
+fn skip_gguf_array_contents(file: &mut File) -> Result<(), GgufError> {
+    let mut elem_type_buf = [0u8; 4];
+    file.read_exact(&mut elem_type_buf)?;
+    let elem_type = u32::from_le_bytes(elem_type_buf);
+
+    let mut count_buf = [0u8; 8];
+    file.read_exact(&mut count_buf)?;
+    let count = u64::from_le_bytes(count_buf);
+
+    if count > 1_000_000 {
+        return Err(GgufError::Malformed);
+    }
+
+    if elem_type == 8 {
+        for _ in 0..count {
+            skip_gguf_string(file)?;
+        }
+    } else if elem_type <= 12 {
+        // GGUF spec: arrays solo de tipos primitivos 0..=12 (los arrays
+        // anidados no existen en el formato). bool (7) = 1 byte.
+        let elem_size: i64 = match elem_type {
+            0 | 1 => 1,
+            2 | 3 => 2,
+            4..=6 => 4,
+            7 => 1,
+            10..=12 => 8,
+            _ => unreachable!(),
+        };
+        file.seek(SeekFrom::Current(elem_size * count as i64))?;
+    } else {
+        return Err(GgufError::Malformed);
+    }
+    Ok(())
+}
+
+/// Lee un valor GGUF (escalar o string). Los arrays se descartan (ver
+/// `skip_gguf_array_contents`). El tipo (u32) determina cuántos bytes leer.
+fn read_gguf_value(file: &mut File) -> Result<GgufValue, GgufError> {
     let mut type_buf = [0u8; 4];
     file.read_exact(&mut type_buf)?;
     let value_type = u32::from_le_bytes(type_buf);
 
     match value_type {
-        // Fixed-size scalars: 1, 2, 4, or 8 bytes
-        0..=7 => {
-            let size = match value_type {
-                0 | 1 => 1, // u8, i8
-                2 | 3 => 2, // u16, i16
-                4..=6 => 4, // u32, i32, f32
-                7 => 1,     // bool — la spec GGUF dice 1 byte (antes se
-                // saltaban 4: desalineaba el stream en archivos con bools,
-                // e.g. tokenizer.ggml.add_bos_token en qwen2.5)
-                _ => unreachable!(),
-            };
-            file.seek(SeekFrom::Current(size))?;
+        0 => {
+            let mut b = [0u8; 1];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::U8(b[0]))
         }
-        // String: u64 length + bytes
-        8 => {
-            skip_gguf_string(file)?;
+        1 => {
+            let mut b = [0u8; 1];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::I8(b[0] as i8))
         }
-        // Array: element type (u32) + count (u64) + items
+        2 => {
+            let mut b = [0u8; 2];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::U16(u16::from_le_bytes(b)))
+        }
+        3 => {
+            let mut b = [0u8; 2];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::I16(i16::from_le_bytes(b)))
+        }
+        4 => {
+            let mut b = [0u8; 4];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::U32(u32::from_le_bytes(b)))
+        }
+        5 => {
+            let mut b = [0u8; 4];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::I32(i32::from_le_bytes(b)))
+        }
+        6 => {
+            let mut b = [0u8; 4];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::F32(f32::from_le_bytes(b)))
+        }
+        7 => {
+            let mut b = [0u8; 1];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::Bool(b[0] != 0))
+        }
+        8 => Ok(GgufValue::String(read_gguf_string(file)?)),
         9 => {
-            let mut elem_type_buf = [0u8; 4];
-            file.read_exact(&mut elem_type_buf)?;
-            let elem_type = u32::from_le_bytes(elem_type_buf);
-
-            let mut count_buf = [0u8; 8];
-            file.read_exact(&mut count_buf)?;
-            let count = u64::from_le_bytes(count_buf);
-
-            if count > 1_000_000 {
-                return Err(GgufError::Malformed);
-            }
-
-            if elem_type == 8 {
-                for _ in 0..count {
-                    skip_gguf_string(file)?;
-                }
-            } else if elem_type <= 12 {
-                // GGUF spec: arrays solo de tipos primitivos 0..=12
-                // (los arrays anidados no existen en el formato).
-                // bool (7) = 1 byte, igual que en los escalares.
-                let elem_size: i64 = match elem_type {
-                    0 | 1 => 1,
-                    2 | 3 => 2,
-                    4..=6 => 4,
-                    7 => 1,
-                    10..=12 => 8,
-                    _ => unreachable!(),
-                };
-                file.seek(SeekFrom::Current(elem_size * count as i64))?;
-            } else {
-                return Err(GgufError::Malformed);
-            }
+            skip_gguf_array_contents(file)?;
+            Ok(GgufValue::Array)
         }
-        10..=12 => {
-            file.seek(SeekFrom::Current(8))?;
+        10 => {
+            let mut b = [0u8; 8];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::U64(u64::from_le_bytes(b)))
         }
-        _ => {
-            return Err(GgufError::Malformed);
+        11 => {
+            let mut b = [0u8; 8];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::I64(i64::from_le_bytes(b)))
         }
+        12 => {
+            let mut b = [0u8; 8];
+            file.read_exact(&mut b)?;
+            Ok(GgufValue::F64(f64::from_le_bytes(b)))
+        }
+        _ => Err(GgufError::Malformed),
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -1082,5 +1293,99 @@ mod tests {
 
         assert!(total_bytes > 0);
         assert!((total_mb - (total_bytes as f64 / (1024.0 * 1024.0))).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_gguf_metadata_from_map_dense() {
+        let mut map = HashMap::new();
+        map.insert(
+            "general.architecture".to_string(),
+            GgufValue::String("qwen2".to_string()),
+        );
+        map.insert(
+            "general.parameter_count".to_string(),
+            GgufValue::U64(1_500_000_000),
+        );
+        map.insert("qwen2.context_length".to_string(), GgufValue::U32(32768));
+        map.insert("qwen2.block_count".to_string(), GgufValue::U32(28));
+        map.insert(
+            "tokenizer.chat_template".to_string(),
+            GgufValue::String("<|im_start|>".to_string()),
+        );
+
+        let meta = GgufMetadata::from_map(&map);
+        assert_eq!(meta.architecture.as_deref(), Some("qwen2"));
+        assert_eq!(meta.parameter_count, Some(1_500_000_000));
+        assert_eq!(meta.context_length, Some(32768));
+        assert_eq!(meta.block_count, Some(28));
+        assert_eq!(meta.chat_template.as_deref(), Some("<|im_start|>"));
+        assert!(!meta.is_moe());
+        assert!(!meta.is_embedding());
+    }
+
+    #[test]
+    fn test_gguf_metadata_from_map_moe() {
+        let mut map = HashMap::new();
+        map.insert(
+            "general.architecture".to_string(),
+            GgufValue::String("qwen3moe".to_string()),
+        );
+        map.insert("qwen3moe.expert_count".to_string(), GgufValue::U32(128));
+        map.insert(
+            "qwen3moe.expert_used_count".to_string(),
+            GgufValue::U32(8),
+        );
+
+        let meta = GgufMetadata::from_map(&map);
+        assert!(meta.is_moe());
+        assert_eq!(meta.expert_count, Some(128));
+        assert_eq!(meta.expert_used_count, Some(8));
+    }
+
+    #[test]
+    fn test_gguf_metadata_fallback_general_prefix() {
+        // Algunos GGUF usan `general.context_length` en vez de
+        // `<arch>.context_length`: el fallback debe resolver igual.
+        let mut map = HashMap::new();
+        map.insert(
+            "general.architecture".to_string(),
+            GgufValue::String("llama".to_string()),
+        );
+        map.insert("general.context_length".to_string(), GgufValue::U32(4096));
+
+        let meta = GgufMetadata::from_map(&map);
+        assert_eq!(meta.context_length, Some(4096));
+    }
+
+    #[test]
+    fn test_gguf_value_as_u64() {
+        assert_eq!(GgufValue::U32(4096).as_u64(), Some(4096));
+        assert_eq!(GgufValue::U64(8192).as_u64(), Some(8192));
+        assert_eq!(GgufValue::U8(7).as_u64(), Some(7));
+        assert_eq!(GgufValue::String("x".into()).as_u64(), None);
+    }
+
+    #[test]
+    fn test_gguf_metadata_architecture_type() {
+        let dense = GgufMetadata {
+            architecture: Some("qwen2".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(dense.architecture_type(), ArchitectureType::Dense);
+
+        let moe = GgufMetadata {
+            architecture: Some("qwen3moe".to_string()),
+            expert_count: Some(128),
+            ..Default::default()
+        };
+        assert_eq!(moe.architecture_type(), ArchitectureType::MixtureOfExperts);
+    }
+
+    #[test]
+    fn test_to_model_profile_dense() {
+        let index = NanoModelIndex::mock_index(4, 256);
+        let profile = index.to_model_profile();
+        assert_eq!(profile.architecture, ArchitectureType::Dense);
+        assert_eq!(profile.n_layers, 4);
     }
 }

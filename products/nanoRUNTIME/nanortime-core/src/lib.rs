@@ -293,6 +293,31 @@ impl NanoRuntime {
         self.model_manager.load_model(model_path).await
     }
 
+    /// Recarga el modelo activo con parámetros EXPLÍCITOS (threads/contexto/
+    /// batch), saltándose el RuntimePlanner. Palanca del sweep de
+    /// auto-benchmark: mide configuraciones concretas sin reiniciar el proceso.
+    pub async fn reload_with_params(
+        &self,
+        threads: u32,
+        context_size: u32,
+        batch_size: u32,
+    ) -> Result<(), NanoError> {
+        let path = self.model_manager.current_model_path().await.ok_or_else(|| {
+            NanoError::ModelNotFound {
+                path: "<ningún modelo cargado>".to_string(),
+            }
+        })?;
+        info!(
+            "Reloading model with override: threads={} ctx={} batch={}",
+            threads, context_size, batch_size
+        );
+        // El cache del modelo viejo queda stale tras recargar con otra config.
+        self.orchestrator.invalidate_caches().await;
+        self.model_manager
+            .load_model_with_params(&path, threads, context_size, batch_size)
+            .await
+    }
+
     /// Aplica un adaptador LoRA al modelo activo.
     ///
     /// Permite especializar el modelo sin recargarlo completamente.
