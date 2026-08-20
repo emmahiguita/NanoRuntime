@@ -115,13 +115,26 @@ void main() {
       expect(tapCalls, isEmpty);
     });
 
-    test('@tap → ok con coordenadas del centro', () async {
+    test('@tap → ok con coordenadas del centro y postcondición verificada',
+        () async {
+      // Tras el gesto real (tapCalls no vacío) la pantalla cambia — el
+      // verifier debe confirmar el cambio de snapshot.
+      dumpProvider = () =>
+          tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
       final r = await dispatcher.runCommand('@tap text=Bluetooth');
-      expect(r, 'tap en "Bluetooth" @(540,340)');
+      expect(r, 'tap en "Bluetooth" @(540,340) · verificado');
       expect(tapCalls, [
         [540, 340],
       ]);
       expect(methodCalls, isNot(contains('tapOnText')));
+    });
+
+    test('@tap sin cambio de pantalla → gesto ok pero verify falla', () async {
+      // dispatchGesture devolvió true pero la pantalla no cambió: NO se
+      // reporta éxito limpio — el sufijo [verify:*] hace visible la sospecha.
+      final r = await dispatcher.runCommand('@tap text=Bluetooth');
+      expect(r, startsWith('tap en "Bluetooth" @(540,340) [verify:'));
+      expect(tapCalls, hasLength(1));
     });
 
     test('@tap ambiguo → FAIL tipado sin gesto', () async {
@@ -131,17 +144,30 @@ void main() {
       expect(tapCalls, isEmpty);
     });
 
-    test('@escribir → ok y inputText con el texto exacto', () async {
+    test('@escribir → ok, inputText exacto y texto visible verificado',
+        () async {
       focused = true;
-      dumpProvider = ajustesFocused;
+      // Antes del input el campo está sin foco/vacío; después del
+      // inputText el texto "wifi" es visible → postcondición verificada.
+      dumpProvider = () {
+        final raw = ajustesFocused();
+        if (inputCalls.isNotEmpty) {
+          ((raw['nodes'] as List)[5] as Map)['text'] = inputCalls.last;
+        }
+        return raw;
+      };
       final r = await dispatcher.runCommand('@escribir wifi | editable=true');
       expect(r, contains('"wifi" escrito en'));
+      expect(r, contains('· verificado'));
       expect(inputCalls, ['wifi']);
     });
 
-    test('@back → globalAction', () async {
+    test('@back → globalAction con cambio de pantalla verificado', () async {
+      dumpProvider = () => methodCalls.contains('globalAction')
+          ? snapshotDobleAceptar()
+          : snapshotAjustes();
       final r = await dispatcher.runCommand('@back');
-      expect(r, 'Botón atrás ejecutado.');
+      expect(r, 'Botón atrás ejecutado. · verificado');
       expect(methodCalls, contains('globalAction'));
     });
 
@@ -227,6 +253,17 @@ void main() {
       final call = AgentToolProtocol.extractToolCall('{"tool":"back"');
       expect(call, isNotNull);
       expect(call!.tool, 'back');
+    });
+
+    test('expect del LLM: postcondiciones declaradas se conservan', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"tap","selector":"text=Bluetooth",'
+        '"expect":{"package":"com.android.settings","appear":"text=Bluetooth"}}',
+      );
+      expect(call, isNotNull);
+      expect(call!.expect, isNotNull);
+      expect(call.expect!['package'], 'com.android.settings');
+      expect(call.expect!['appear'], 'text=Bluetooth');
     });
   });
 
