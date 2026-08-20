@@ -30,6 +30,9 @@ pub enum ThermalCondition {
 pub struct ThermalReading {
     /// Maximum temperature across all thermal zones (°C).
     pub max_temp_c: f32,
+    /// Whether `max_temp_c` came from a physical sensor. A value of `0.0`
+    /// must not be interpreted as a real temperature when this is false.
+    pub sensor_available: bool,
     /// Whether the device is currently throttling.
     pub is_throttling: bool,
     /// Current thermal state.
@@ -65,46 +68,52 @@ impl Default for ThermalController {
 }
 
 impl ThermalController {
+    fn normalize_temp(raw: f32) -> Option<f32> {
+        if !raw.is_finite() {
+            return None;
+        }
+        // Linux thermal zones normally expose milli-degrees, while a few
+        // Android kernels expose degrees directly.
+        let temp_c = if raw.abs() >= 1_000.0 {
+            raw / 1_000.0
+        } else {
+            raw
+        };
+        (-20.0..=150.0).contains(&temp_c).then_some(temp_c)
+    }
+
     /// Read all thermal zones and return the maximum temperature.
     pub fn read_max_temp() -> Option<f32> {
-        let mut max_temp = 0.0f32;
+        let mut max_temp: Option<f32> = None;
 
         for i in 0..20 {
             let path = format!("/sys/class/thermal/thermal_zone{}/temp", i);
             if let Ok(content) = fs::read_to_string(&path) {
                 if let Ok(temp_milli) = content.trim().parse::<f32>() {
-                    let temp_c = temp_milli / 1000.0;
-                    if temp_c > max_temp {
-                        max_temp = temp_c;
+                    if let Some(temp_c) = Self::normalize_temp(temp_milli) {
+                        max_temp = Some(max_temp.map_or(temp_c, |current| current.max(temp_c)));
                     }
                 }
             }
-
-            // Also try type file to filter by zone type
-            let type_path = format!("/sys/class/thermal/thermal_zone{}/type", i);
-            if let Ok(zone_type) = fs::read_to_string(&type_path) {
-                let _ = zone_type; // Could filter for cpu-thermal, soc-thermal only
-            }
         }
-
-        if max_temp > 0.0 {
-            Some(max_temp)
-        } else {
-            None
-        }
+        max_temp
     }
 
     /// Sample the current thermal state.
     pub fn sample(&mut self) -> ThermalReading {
-        let temp = Self::read_max_temp().unwrap_or(35.0);
+        let measured_temp = Self::read_max_temp();
+        let temp = measured_temp.unwrap_or(0.0);
 
-        // Track history
-        self.temp_history.push(temp);
-        if self.temp_history.len() > 30 {
-            self.temp_history.remove(0);
-        }
-        if temp > self.max_observed {
-            self.max_observed = temp;
+        // Missing permissions/sensors must not inject a fictional sample into
+        // trend or throttling decisions.
+        if measured_temp.is_some() {
+            self.temp_history.push(temp);
+            if self.temp_history.len() > 30 {
+                self.temp_history.remove(0);
+            }
+            if temp > self.max_observed {
+                self.max_observed = temp;
+            }
         }
 
         // Classify state
@@ -142,6 +151,7 @@ impl ThermalController {
 
         ThermalReading {
             max_temp_c: temp,
+            sensor_available: measured_temp.is_some(),
             is_throttling,
             state,
             cooldown_count: self.cooldown_count,
@@ -217,6 +227,7 @@ mod tests {
         tc.temp_history = vec![30.0, 31.0, 32.0, 33.0, 34.0];
         let reading = ThermalReading {
             max_temp_c: 33.0,
+            sensor_available: true,
             is_throttling: false,
             state: ThermalCondition::Cool,
             cooldown_count: 0,
@@ -230,6 +241,7 @@ mod tests {
         let tc = ThermalController::new();
         let reading = ThermalReading {
             max_temp_c: 50.0,
+            sensor_available: true,
             is_throttling: true,
             state: ThermalCondition::Critical,
             cooldown_count: 0,
@@ -244,5 +256,13 @@ mod tests {
         tc.temp_history = vec![30.0; 5]; // Older: 30
         tc.temp_history.extend(vec![35.0; 5]); // Recent: 35
         assert!(tc.is_trending_hot());
+    }
+
+    #[test]
+    fn normalizes_kernel_temperature_units_and_rejects_invalid_values() {
+        assert_eq!(ThermalController::normalize_temp(42_500.0), Some(42.5));
+        assert_eq!(ThermalController::normalize_temp(42.5), Some(42.5));
+        assert_eq!(ThermalController::normalize_temp(999_999.0), None);
+        assert_eq!(ThermalController::normalize_temp(f32::NAN), None);
     }
 }

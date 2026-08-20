@@ -65,6 +65,8 @@ class ToolRegistry {
       'resolver': 'resolve',
       'tocar': 'tap',
       'escribir': 'write',
+      'notificaciones': 'notifications',
+      'responder_notificacion': 'reply_notification',
       'atras': 'back',
       'atrás': 'back',
     },
@@ -97,6 +99,17 @@ class ToolRegistry {
       risk: ToolRisk.externalWrite,
       requiresConfirmation: true,
       description: 'Escribir texto en un campo de una aplicación',
+    ),
+    ToolDefinition(
+      name: 'notifications',
+      risk: ToolRisk.read,
+      description: 'Leer las notificaciones activas del dispositivo',
+    ),
+    ToolDefinition(
+      name: 'reply_notification',
+      risk: ToolRisk.externalWrite,
+      requiresConfirmation: true,
+      description: 'Responder una notificación en una aplicación externa',
     ),
   ];
 

@@ -33,6 +33,8 @@ class RuntimeChannelHandler : MethodChannel.MethodCallHandler {
             "pty",      // ptySpawn / ptyWrite / ptyRead / ptyResize / ptyKill / ptyClose
             "agent",    // AgentAccessibilityService: dumpScreen / findText / tap / swipe / inputText
             "engine",   // EngineSupervisor: start / state / health / stop / ensureExtracted
+            "notifications", // NotificationListener: leer y responder con confirmación
+            "device-permissions", // estado y paneles de permisos usados por la app
         )
     }
 

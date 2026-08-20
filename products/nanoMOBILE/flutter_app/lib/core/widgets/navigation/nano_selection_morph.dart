@@ -83,12 +83,12 @@ class _NanoSelectionMorphBarState extends State<NanoSelectionMorphBar>
       end: Alignment.bottomRight,
       colors: isDark
           ? [
-              colors.accentCyan.withValues(alpha: 0.95),
-              colors.accentMint.withValues(alpha: 0.90),
+              colors.accentCyan.withValues(alpha: 0.28),
+              colors.accentSky.withValues(alpha: 0.12),
             ]
           : [
-              colors.primary,
-              colors.accentSky,
+              colors.primary.withValues(alpha: 0.20),
+              colors.accentSky.withValues(alpha: 0.10),
             ],
     );
 
@@ -185,7 +185,7 @@ class _TabChipState extends State<_TabChip> {
     final isSelected = widget.isSelected;
 
     final fg = isSelected
-        ? (isDark ? const Color(0xFF001524) : Colors.white)
+        ? (isDark ? colors.accentCyan : colors.primary)
         : colors.textSecondary.withValues(alpha: 0.90);
 
     return AnimatedScale(
@@ -201,8 +201,8 @@ class _TabChipState extends State<_TabChip> {
               ? [
                   BoxShadow(
                     color: (isDark ? colors.accentCyan : colors.primary)
-                        .withValues(alpha: isDark ? 0.40 : 0.25),
-                    blurRadius: 12,
+                        .withValues(alpha: isDark ? 0.18 : 0.12),
+                    blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
                 ]

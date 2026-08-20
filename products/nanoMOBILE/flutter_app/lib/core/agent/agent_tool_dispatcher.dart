@@ -26,7 +26,8 @@ class ToolCall {
   final String tool;
   final String? selector;
   final String? text;
-  const ToolCall({required this.tool, this.selector, this.text});
+  final String? key;
+  const ToolCall({required this.tool, this.selector, this.text, this.key});
 }
 
 /// Parseo tolerante del bloque JSON de herramientas en texto generado.
@@ -76,8 +77,9 @@ abstract final class AgentToolProtocol {
         }
       }
     }
-    final candidate =
-        end >= 0 ? cleaned.substring(start, end + 1) : cleaned.substring(start);
+    final candidate = end >= 0
+        ? cleaned.substring(start, end + 1)
+        : cleaned.substring(start);
     try {
       final map = jsonDecodeTolerant(candidate);
       final tool = map['tool'] as String?;
@@ -86,6 +88,7 @@ abstract final class AgentToolProtocol {
         tool: tool.trim().toLowerCase(),
         selector: map['selector'] as String?,
         text: map['text'] as String?,
+        key: map['key'] as String?,
       );
     } catch (_) {
       // Fallback por regex campo a campo.
@@ -95,6 +98,7 @@ abstract final class AgentToolProtocol {
         tool: tool.toLowerCase(),
         selector: _field(candidate, 'selector'),
         text: _field(candidate, 'text'),
+        key: _field(candidate, 'key'),
       );
     }
   }
@@ -137,8 +141,8 @@ class AgentToolDispatcher {
     NanoAgentExecutor? executor,
     ToolRegistry? registry,
     PolicyEngine? policy,
-  })  : _executor = executor ?? NanoAgentExecutor(),
-        _policy = policy ?? PolicyEngine(registry: registry);
+  }) : _executor = executor ?? NanoAgentExecutor(),
+       _policy = policy ?? PolicyEngine(registry: registry);
 
   final NanoAgentExecutor _executor;
   final PolicyEngine _policy;
@@ -202,8 +206,11 @@ class AgentToolDispatcher {
       case 'atras':
       case 'atrás':
         call = const ToolCall(tool: 'back');
+      case 'notificaciones':
+      case 'notifications':
+        call = const ToolCall(tool: 'notifications');
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @back.';
+        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @back.';
     }
     return (await runToolGuarded(call, humanInitiated: true)).feedback;
   }
@@ -232,17 +239,15 @@ class AgentToolDispatcher {
         final names = _policy.registry.all.map((t) => t.name).join(', ');
         feedback += ' Disponibles: $names.';
       }
-      return ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback: feedback,
-      );
+      return ToolOutcome(verdict: PolicyVerdict.denied, feedback: feedback);
     }
     if (decision.needsConfirmation) {
       final tool = decision.tool!;
       return ToolOutcome(
         verdict: PolicyVerdict.needsConfirmation,
         pendingCall: call,
-        feedback: '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
+        feedback:
+            '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
       );
     }
     return ToolOutcome(
@@ -271,7 +276,8 @@ class AgentToolDispatcher {
     try {
       return await _executeTool(call).timeout(
         tool.timeout,
-        onTimeout: () => '[timeout] "${tool.name}" excedió ${tool.timeout.inSeconds}s — acción cancelada.',
+        onTimeout: () =>
+            '[timeout] "${tool.name}" excedió ${tool.timeout.inSeconds}s — acción cancelada.',
       );
     } catch (e) {
       return '[error] "${tool.name}" falló: $e';
@@ -300,8 +306,20 @@ class AgentToolDispatcher {
         return _write('${call.text ?? ''} | ${call.selector}');
       case 'back':
         return _back();
+      case 'notifications':
+        return _notifications();
+      case 'reply_notification':
+        final key = call.key?.trim() ?? '';
+        final text = call.text?.trim() ?? '';
+        if (key.isEmpty) {
+          return '[tool] reply_notification requiere "key".';
+        }
+        if (text.isEmpty) {
+          return '[tool] reply_notification requiere "text".';
+        }
+        return _replyNotification(key: key, text: text);
       default:
-        return '[tool] Herramienta desconocida "${call.tool}". Disponibles: screen, tap, write, back.';
+        return '[tool] Herramienta desconocida "${call.tool}".';
     }
   }
 
@@ -316,8 +334,13 @@ class AgentToolDispatcher {
       return '[snapshotEmpty] Sin ventana activa (rebind en curso).';
     }
     final visible = snap.visibleNodes;
-    final top = visible.take(10).map((n) => '${n.depth} ${n.label} '
-        '@(${n.bounds.centerX.round()},${n.bounds.centerY.round()})');
+    final top = visible
+        .take(10)
+        .map(
+          (n) =>
+              '${n.depth} ${n.label} '
+              '@(${n.bounds.centerX.round()},${n.bounds.centerY.round()})',
+        );
     return 'Pantalla "${snap.package}" · ${snap.nodes.length} nodos '
         '(${visible.length} visibles). Top visibles:\n${top.join('\n')}';
   }
@@ -329,7 +352,9 @@ class AgentToolDispatcher {
     if (!outcome.isResolved) {
       return '[${outcome.status.name}] ${outcome.reason}';
     }
-    final top = outcome.candidates.take(5).map(
+    final top = outcome.candidates
+        .take(5)
+        .map(
           (e) =>
               '• "${e.node.label}" — ${e.score} pts [${e.matchedCriteria.join(',')}]',
         );
@@ -365,6 +390,49 @@ class AgentToolDispatcher {
   Future<String> _back() async {
     final ok = await NanoRuntimeApi.instance.agentGlobalAction('back');
     return ok ? 'Botón atrás ejecutado.' : '[gestureFailed] Back falló.';
+  }
+
+  Future<String> _notifications() async {
+    final rows = await NanoRuntimeApi.instance.listActiveNotifications(
+      limit: 20,
+    );
+    if (rows.isEmpty) {
+      return '[notifications] No hay notificaciones activas o el acceso no está habilitado.';
+    }
+
+    final notifications = rows
+        .map((raw) {
+          final row = raw is Map ? raw : const <dynamic, dynamic>{};
+          return <String, dynamic>{
+            'key': '${row['key'] ?? ''}',
+            'package': '${row['package'] ?? ''}',
+            'title': '${row['title'] ?? ''}',
+            'text': '${row['text'] ?? ''}',
+            'canReply': row['canReply'] == true,
+          };
+        })
+        .toList(growable: false);
+
+    return '[notifications untrusted_data=true] ${jsonEncode(notifications)}';
+  }
+
+  Future<String> _replyNotification({
+    required String key,
+    required String text,
+  }) async {
+    if (text.length > 2000) {
+      return '[tool] reply_notification excede 2000 caracteres.';
+    }
+    final result = await NanoRuntimeApi.instance.replyToNotification(
+      key: key,
+      text: text,
+      confirmed: true,
+    );
+    if (result['ok'] == true) {
+      return '[notificationReply] Respuesta enviada.';
+    }
+    final code = result['code'] ?? 'UNKNOWN';
+    return '[notificationReply:$code] No se pudo enviar la respuesta.';
   }
 
   /// Parseo con error legible: (selector, null) o (null, motivo).

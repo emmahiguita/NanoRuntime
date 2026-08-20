@@ -21,11 +21,13 @@ class LLMEngineClient {
 
   LLMEngineClient({
     this.baseUrl = 'http://127.0.0.1:8080',
-    this.timeout = const Duration(seconds: 120), // Aumentado de 60 a 120 segundos para dar más tiempo al motor
+    this.timeout = const Duration(
+      seconds: 120,
+    ), // Aumentado de 60 a 120 segundos para dar más tiempo al motor
     http.Client? client,
     http.Client Function()? streamClientFactory,
-  })  : _client = client ?? http.Client(),
-        _streamClientFactory = streamClientFactory;
+  }) : _client = client ?? http.Client(),
+       _streamClientFactory = streamClientFactory;
 
   /// Genera un request_id único para correlacionar la cancelación
   /// (POST /cancel) con la generación en curso. El server lo usa para cortar
@@ -64,7 +66,9 @@ class LLMEngineClient {
         }
       } catch (e) {
         if (i == attempts - 1) {
-          debugPrint('[llm] health check failed después de $attempts intentos: $e');
+          debugPrint(
+            '[llm] health check failed después de $attempts intentos: $e',
+          );
           return false;
         }
         // Backoff exponencial: 500ms, 1s, 2s, 4s.
@@ -103,6 +107,26 @@ class LLMEngineClient {
     }
     final map = jsonDecode(r.body) as Map<String, dynamic>;
     return RuntimeStatus.fromJson(map);
+  }
+
+  /// Veredicto autoritativo del RuntimePlanner para un artefacto del catálogo.
+  /// No replica umbrales de RAM en Dart.
+  Future<ViabilityStatus> assessModelViability(int modelSizeBytes) async {
+    if (modelSizeBytes <= 0) {
+      throw LLMEngineException('modelSizeBytes debe ser mayor que cero');
+    }
+    final r = await _client
+        .post(
+          Uri.parse('$baseUrl/api/viability'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'model_size_bytes': modelSizeBytes}),
+        )
+        .timeout(const Duration(seconds: 5));
+    if (r.statusCode != 200) {
+      throw LLMEngineException('HTTP ${r.statusCode}: ${r.body}');
+    }
+    final map = jsonDecode(r.body) as Map<String, dynamic>;
+    return ViabilityStatus.fromJson(map);
   }
 
   /// Genera una respuesta contra /completion (modo no-stream).
@@ -168,27 +192,39 @@ class LLMEngineClient {
         debugPrint('[llm] generate success: ${text.length} chars, tps=$tps');
         return LLMResult(text: text, tps: tps);
       } on TimeoutException {
-        debugPrint('[llm] generate timeout attempt ${attempt + 1}/$maxAttempts');
+        debugPrint(
+          '[llm] generate timeout attempt ${attempt + 1}/$maxAttempts',
+        );
         if (attempt == maxAttempts - 1) {
-          throw LLMEngineException('Timeout al generar la respuesta tras $maxAttempts intentos');
+          throw LLMEngineException(
+            'Timeout al generar la respuesta tras $maxAttempts intentos',
+          );
         }
         // Backoff progresivo: 1s, 2s
-        await Future<void>.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
+        await Future<void>.delayed(
+          Duration(milliseconds: 1000 * (attempt + 1)),
+        );
       } on http.ClientException catch (e) {
-        debugPrint('[llm] generate connection error attempt ${attempt + 1}/$maxAttempts: ${e.message}');
+        debugPrint(
+          '[llm] generate connection error attempt ${attempt + 1}/$maxAttempts: ${e.message}',
+        );
         if (attempt == maxAttempts - 1) {
           throw LLMEngineException(
             'No se pudo contactar al motor tras $maxAttempts intentos: $e.message',
           );
         }
-        await Future<void>.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
+        await Future<void>.delayed(
+          Duration(milliseconds: 1000 * (attempt + 1)),
+        );
       } on FormatException catch (e) {
         debugPrint('[llm] generate JSON decode error: $e');
         throw LLMEngineException('Respuesta inválida del motor: ${e.message}');
       }
       // LLMEngineException (HTTP error) se propaga sin retry.
     }
-    throw LLMEngineException('No se pudo generar la respuesta tras $maxAttempts intentos');
+    throw LLMEngineException(
+      'No se pudo generar la respuesta tras $maxAttempts intentos',
+    );
   }
 
   /// Genera respuesta streaming contra /completion (modo SSE token-por-token).
@@ -204,7 +240,7 @@ class LLMEngineClient {
   /// el llamador pueda cerrarlo (cancelación) y el [String] `requestId`
   /// correlacionado con este turno (autogenerado si no se pasa).
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,
@@ -216,8 +252,9 @@ class LLMEngineClient {
   }) {
     final client = _streamClientFactory?.call() ?? http.Client();
     final controller = StreamController<LLMStreamToken>();
-    final effectiveRequestId =
-        (requestId != null && requestId.isNotEmpty) ? requestId : newRequestId();
+    final effectiveRequestId = (requestId != null && requestId.isNotEmpty)
+        ? requestId
+        : newRequestId();
 
     // Lanzamos la petición en background y puenteamos los tokens al controller.
     // Esto permite cancelar cerrando el client sin esperar al future del stream.
@@ -261,7 +298,9 @@ class LLMEngineClient {
       debugPrint('[llm] cancel $requestId -> HTTP ${r.statusCode}');
       return ok;
     } catch (e) {
-      debugPrint('[llm] cancel falló (el cierre de socket sigue como fallback): $e');
+      debugPrint(
+        '[llm] cancel falló (el cierre de socket sigue como fallback): $e',
+      );
       return false;
     }
   }
@@ -279,7 +318,9 @@ class LLMEngineClient {
     String? requestId,
   }) async {
     try {
-      debugPrint('[llm] startStreamRequest sessionId=${sessionId ?? ''} prompt_len=${prompt.length}');
+      debugPrint(
+        '[llm] startStreamRequest sessionId=${sessionId ?? ''} prompt_len=${prompt.length}',
+      );
       final request = http.Request('POST', Uri.parse('$baseUrl/completion'));
       request.headers['Content-Type'] = 'application/json';
       // El prompt viaja CRUDO (sin template): el motor nanortime aplica el
@@ -323,7 +364,7 @@ class LLMEngineClient {
       int tokenCount = 0;
       await for (final line in lines) {
         if (controller.isClosed) break;
-        
+
         if (line.isEmpty || !line.startsWith('data: ')) continue;
         final jsonStr = line.substring(6); // quitar prefijo "data: "
         try {
@@ -370,7 +411,7 @@ class LLMEngineClient {
               debugPrint('[llm] streaming... tokens: $tokenCount');
             }
           }
-          
+
           if (stop) {
             debugPrint('[llm] stream complete: $tokenCount tokens, tps=$tps');
             break;
@@ -417,8 +458,10 @@ class LLMStreamToken {
   final String content;
   final bool stop;
   final double? tps;
+
   /// Gate R10 — timings del frame final (ttft_ms, prefill_ms, decode_tok_s...).
   final Map<String, dynamic>? timings;
+
   /// Gate R3 — fase del heartbeat (`model_loading` | `generating`), si aplica.
   final String? phase;
   const LLMStreamToken({
@@ -455,6 +498,10 @@ class RuntimeStatus {
   final bool thrashing;
   final int residentWindow;
   final double tokS;
+
+  /// `null` significa sensor no expuesto; nunca se sustituye por un valor
+  /// térmico inventado.
+  final double? temperatureC;
   final ViabilityStatus? viability;
 
   const RuntimeStatus({
@@ -467,23 +514,25 @@ class RuntimeStatus {
     required this.thrashing,
     required this.residentWindow,
     required this.tokS,
+    required this.temperatureC,
     required this.viability,
   });
 
   factory RuntimeStatus.fromJson(Map<String, dynamic> j) => RuntimeStatus(
-        modelLoaded: j['model_loaded'] as bool? ?? false,
-        modelSizeMb: (j['model_size_mb'] as num?)?.toInt() ?? 0,
-        contextSize: (j['context_size'] as num?)?.toInt() ?? 0,
-        faultRate: (j['fault_rate'] as num?)?.toDouble() ?? 0,
-        pssMb: (j['pss_mb'] as num?)?.toDouble(),
-        pressureRatio: (j['pressure_ratio'] as num?)?.toDouble() ?? 0,
-        thrashing: j['thrashing'] as bool? ?? false,
-        residentWindow: (j['resident_window'] as num?)?.toInt() ?? 0,
-        tokS: (j['tok_s'] as num?)?.toDouble() ?? 0,
-        viability: j['viability'] is Map<String, dynamic>
-            ? ViabilityStatus.fromJson(j['viability'] as Map<String, dynamic>)
-            : null,
-      );
+    modelLoaded: j['model_loaded'] as bool? ?? false,
+    modelSizeMb: (j['model_size_mb'] as num?)?.toInt() ?? 0,
+    contextSize: (j['context_size'] as num?)?.toInt() ?? 0,
+    faultRate: (j['fault_rate'] as num?)?.toDouble() ?? 0,
+    pssMb: (j['pss_mb'] as num?)?.toDouble(),
+    pressureRatio: (j['pressure_ratio'] as num?)?.toDouble() ?? 0,
+    thrashing: j['thrashing'] as bool? ?? false,
+    residentWindow: (j['resident_window'] as num?)?.toInt() ?? 0,
+    tokS: (j['tok_s'] as num?)?.toDouble() ?? 0,
+    temperatureC: (j['temperature_c'] as num?)?.toDouble(),
+    viability: j['viability'] is Map<String, dynamic>
+        ? ViabilityStatus.fromJson(j['viability'] as Map<String, dynamic>)
+        : null,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -498,12 +547,23 @@ class RuntimeStatus {
           thrashing == other.thrashing &&
           residentWindow == other.residentWindow &&
           tokS == other.tokS &&
+          temperatureC == other.temperatureC &&
           viability == other.viability;
 
   @override
-  int get hashCode => Object.hash(modelLoaded, modelSizeMb, contextSize,
-      faultRate, pssMb, pressureRatio, thrashing, residentWindow, tokS,
-      viability);
+  int get hashCode => Object.hash(
+    modelLoaded,
+    modelSizeMb,
+    contextSize,
+    faultRate,
+    pssMb,
+    pressureRatio,
+    thrashing,
+    residentWindow,
+    tokS,
+    temperatureC,
+    viability,
+  );
 }
 
 /// Verdicto de viabilidad (CanRun vs ShouldRun) — espejo de `ViabilityStatus`.
@@ -521,11 +581,11 @@ class ViabilityStatus {
   });
 
   factory ViabilityStatus.fromJson(Map<String, dynamic> j) => ViabilityStatus(
-        tier: j['tier'] as String? ?? 'UNKNOWN',
-        canRun: j['can_run'] as bool? ?? false,
-        shouldRunInteractive: j['should_run_interactive'] as bool? ?? false,
-        reason: j['reason'] as String? ?? '',
-      );
+    tier: j['tier'] as String? ?? 'UNKNOWN',
+    canRun: j['can_run'] as bool? ?? false,
+    shouldRunInteractive: j['should_run_interactive'] as bool? ?? false,
+    reason: j['reason'] as String? ?? '',
+  );
 
   @override
   bool operator ==(Object other) =>

@@ -22,11 +22,7 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
       sel: Icons.dashboard_rounded,
       label: 'Inicio',
     ),
-    (
-      icon: Icons.chat_outlined,
-      sel: Icons.chat_rounded,
-      label: 'Chat',
-    ),
+    (icon: Icons.chat_outlined, sel: Icons.chat_rounded, label: 'Chat'),
     (
       icon: Icons.extension_outlined,
       sel: Icons.extension_rounded,
@@ -36,11 +32,6 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
       icon: Icons.terminal_outlined,
       sel: Icons.terminal_rounded,
       label: 'Terminal',
-    ),
-    (
-      icon: Icons.computer_outlined,
-      sel: Icons.computer_rounded,
-      label: 'Linux',
     ),
     (
       icon: Icons.settings_outlined,
@@ -54,9 +45,7 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
   @override
   void initState() {
     super.initState();
-    _dockController = NanoDockController(
-      initialPosition: NavPosition.left,
-    );
+    _dockController = NanoDockController(initialPosition: NavPosition.left);
   }
 
   @override
@@ -84,9 +73,13 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
           final screenWide = screenSize.width > 600;
 
           // Sincronizar estado compacto si la pantalla es estrecha en vertical
-          if (!screenWide && !_dockController.isMinimized && !_dockController.isHorizontal) {
+          if (!screenWide &&
+              !_dockController.isMinimized &&
+              !_dockController.isHorizontal) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_dockController.isMinimized && !_dockController.isHorizontal) {
+              if (mounted &&
+                  !_dockController.isMinimized &&
+                  !_dockController.isHorizontal) {
                 _dockController.setMinimized(true);
               }
             });
@@ -139,8 +132,13 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
                   Positioned.fill(child: layoutContent),
 
                   // Indicador visual de zona magnética al arrastrar el dock
-                  if (_dockController.isDragging && _dockController.activeDropZone != DockDropZone.none)
-                    _buildDropZoneIndicator(context, colors, _dockController.activeDropZone),
+                  if (_dockController.isDragging &&
+                      _dockController.activeDropZone != DockDropZone.none)
+                    _buildDropZoneIndicator(
+                      context,
+                      colors,
+                      _dockController.activeDropZone,
+                    ),
                 ],
               ),
             ),
@@ -150,7 +148,11 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
     );
   }
 
-  Widget _buildDropZoneIndicator(BuildContext context, NanoColors colors, DockDropZone zone) {
+  Widget _buildDropZoneIndicator(
+    BuildContext context,
+    NanoColors colors,
+    DockDropZone zone,
+  ) {
     Alignment alignment;
     double? width;
     double? height;
@@ -184,7 +186,10 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
           margin: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.primary.withValues(alpha: 0.6), width: 2),
+            border: Border.all(
+              color: colors.primary.withValues(alpha: 0.6),
+              width: 2,
+            ),
             color: colors.primary.withValues(alpha: 0.12),
           ),
         ),

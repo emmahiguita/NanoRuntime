@@ -147,6 +147,18 @@ void main() {
 
       expect(find.text('DETENIDO'), findsOneWidget);
       expect(find.text('Motor local detenido'), findsOneWidget);
+      final badgeSize = tester.getSize(
+        find.byKey(const ValueKey('chat_engine_status_badge')),
+      );
+      expect(badgeSize.width, lessThanOrEqualTo(86));
+      expect(badgeSize.height, lessThanOrEqualTo(28));
+      final retryButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey('chat_retry_button')),
+      );
+      expect(
+        retryButton.style?.backgroundColor?.resolve({}),
+        Colors.transparent,
+      );
       // Botón de enviar desactivado sin motor (composer usa InkWell, no
       // IconButton: el tap está en null cuando no hay texto o el motor no
       // permite enviar).
@@ -175,6 +187,13 @@ void main() {
 
       expect(find.text('LOCAL'), findsOneWidget);
       expect(find.text('Chat local'), findsOneWidget);
+      final composerField = tester.widget<TextField>(find.byType(TextField));
+      expect(
+        composerField.decoration?.filled,
+        isFalse,
+        reason: 'el campo debe conservar el cristal sin un bloque opaco',
+      );
+      expect(composerField.decoration?.fillColor, Colors.transparent);
       // El envío exige texto + motor listo: escribir habilita el botón.
       await tester.enterText(find.byType(TextField), 'hola');
       await tester.pump();
@@ -185,6 +204,31 @@ void main() {
         ),
       );
       expect(sendButton.onTap, isNotNull);
+    });
+
+    testWidgets('el compositor desaparece y puede recuperarse', (tester) async {
+      await pumpScreen(
+        tester,
+        const ChatScreen(),
+        overrides: [
+          chatProvider.overrideWith(
+            (ref) =>
+                ChatNotifier.fixed(ref, const ChatState(engineOnline: true)),
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const ValueKey('chat_composer_minimize')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byKey(const ValueKey('minimized_bubble')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('minimized_bubble')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(TextField), findsOneWidget);
     });
 
     testWidgets('enviar inserta el mensaje del usuario y detener para la '
@@ -265,6 +309,130 @@ void main() {
       expect(find.text('LOCAL'), findsOneWidget);
     });
 
+    testWidgets('640x360 horizontal sin overflow', (tester) async {
+      await pumpScreen(
+        tester,
+        const ChatScreen(),
+        physicalSize: const Size(1920, 1080),
+        overrides: [
+          chatProvider.overrideWith(
+            (ref) => ChatNotifier.fixed(
+              ref,
+              ChatState(
+                engineOnline: true,
+                messages: [
+                  ChatMessage(
+                    id: 'landscape-message',
+                    sender: MessageSender.ai,
+                    text: 'Respuesta local visible en horizontal.',
+                    timestamp: DateTime(2026, 8, 19),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+      expect(tester.takeException(), isNull, reason: 'sin overflow a 640x360');
+      expect(find.text('LOCAL'), findsOneWidget);
+      expect(
+        find.text('Respuesta local visible en horizontal.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'modo lectura amplía respuestas en horizontal y permite salir',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          const ChatScreen(),
+          physicalSize: const Size(1920, 1080),
+          overrides: [
+            chatProvider.overrideWith(
+              (ref) => ChatNotifier.fixed(
+                ref,
+                ChatState(
+                  engineOnline: true,
+                  messages: [
+                    ChatMessage(
+                      id: 'reading-message',
+                      sender: MessageSender.ai,
+                      text: 'Respuesta extensa para lectura.',
+                      timestamp: DateTime(2026, 8, 20),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+
+        final normalHeight = tester.getSize(find.byType(ListView).first).height;
+        await tester.tap(
+          find.byKey(const ValueKey('chat_reading_mode_toggle')),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+
+        final readingHeight = tester
+            .getSize(find.byType(ListView).first)
+            .height;
+        expect(readingHeight, greaterThan(normalHeight));
+        expect(find.byType(TextField), findsNothing);
+        expect(find.text('LOCAL'), findsNothing);
+        expect(find.text('Respuesta extensa para lectura.'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat_reading_mode_exit')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.byKey(const ValueKey('chat_reading_mode_exit')));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byType(TextField), findsOneWidget);
+        expect(find.text('LOCAL'), findsOneWidget);
+      },
+    );
+
+    testWidgets('modo lectura amplía respuestas en vertical sin overflow', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const ChatScreen(),
+        physicalSize: const Size(960, 1704),
+        overrides: [
+          chatProvider.overrideWith(
+            (ref) => ChatNotifier.fixed(
+              ref,
+              ChatState(
+                engineOnline: true,
+                messages: [
+                  ChatMessage(
+                    id: 'vertical-reading-message',
+                    sender: MessageSender.ai,
+                    text: 'Respuesta vertical para lectura.',
+                    timestamp: DateTime(2026, 8, 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+      final normalHeight = tester.getSize(find.byType(ListView).first).height;
+      await tester.tap(find.byKey(const ValueKey('chat_reading_mode_toggle')));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final readingHeight = tester.getSize(find.byType(ListView).first).height;
+      expect(readingHeight, greaterThan(normalHeight));
+      expect(find.text('Respuesta vertical para lectura.'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('estado vacío no muestra mensajes simulados', (tester) async {
       await pumpScreen(
         tester,
@@ -284,7 +452,10 @@ void main() {
 
       // Sin burbujas: el texto de sugerencia existe, pero ningún mensaje.
       expect(find.text('Hola'), findsNothing);
-      expect(find.textContaining('Escribe un mensaje para comenzar'), findsOneWidget);
+      expect(
+        find.textContaining('Escribe un mensaje para comenzar'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('sin barra de navegación inferior', (tester) async {
@@ -492,9 +663,7 @@ void main() {
       // (ya no LinearProgressIndicator): al menos una con widthFactor > 0
       // (descarga al 40%). El pie de almacenamiento usa la misma primitiva.
       final bars = tester
-          .widgetList<FractionallySizedBox>(
-            find.byType(FractionallySizedBox),
-          )
+          .widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox))
           .toList();
       expect(bars.any((b) => (b.widthFactor ?? 0) > 0), isTrue);
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
@@ -606,6 +775,62 @@ void main() {
         scrollable: modelsScrollable,
       );
       expect(find.text('ERROR'), findsOneWidget);
+    });
+
+    testWidgets('aviso de acceso al storage no solapa Modelos en vertical', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const ModelsScreen(),
+        physicalSize: const Size(960, 1704),
+        overrides: [
+          modelsProvider.overrideWith(
+            (ref) => ModelsNotifier.fixed(ref, ModelsState(models: [model()])),
+          ),
+          dashboardProvider.overrideWith(
+            (ref) => DashboardNotifier.fixed(ref, const DashboardState()),
+          ),
+        ],
+      );
+
+      final banner = find.textContaining('Acceso al storage no concedido');
+      final title = find.text('Modelos');
+      expect(banner, findsOneWidget);
+      expect(title, findsOneWidget);
+      expect(
+        tester.getRect(banner).bottom,
+        lessThanOrEqualTo(tester.getRect(title).top),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('aviso de acceso al storage no solapa Modelos en horizontal', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const ModelsScreen(),
+        physicalSize: const Size(1920, 1080),
+        overrides: [
+          modelsProvider.overrideWith(
+            (ref) => ModelsNotifier.fixed(ref, ModelsState(models: [model()])),
+          ),
+          dashboardProvider.overrideWith(
+            (ref) => DashboardNotifier.fixed(ref, const DashboardState()),
+          ),
+        ],
+      );
+
+      final banner = find.textContaining('Acceso al storage no concedido');
+      final title = find.text('Modelos');
+      expect(banner, findsOneWidget);
+      expect(title, findsOneWidget);
+      expect(
+        tester.getRect(banner).bottom,
+        lessThanOrEqualTo(tester.getRect(title).top),
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('modelo no compatible por RAM real: chip y sin descarga', (
@@ -748,7 +973,7 @@ class _FakeEngineClient extends LLMEngineClient {
 
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

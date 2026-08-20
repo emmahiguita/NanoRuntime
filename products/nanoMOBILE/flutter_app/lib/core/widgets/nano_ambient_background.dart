@@ -100,78 +100,13 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
           final activeColor = widget.activeAccent ?? (isDark ? colors.accent : colors.accentCyan);
 
           if (!isDark) {
-            // Modo Claro: Canvas Blanco Hielo Puro + Resplandores Radiales Cristalinos
-            return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFFCFDFF),
-                    Color(0xFFF6F9FD),
-                    Color(0xFFF1F6FB),
-                    Color(0xFFF8FAFD),
-                  ],
-                ),
-              ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Positioned(
-                    left: -100 + ox1,
-                    top: 140 + oy1,
-                    child: const _Glow(
-                      size: 420,
-                      color: Color(0xFFC4B5FD), // Lavanda hielo puro
-                      alpha: 0.16,
-                    ),
-                  ),
-                  Positioned(
-                    right: -100 + ox2,
-                    top: 280 + oy2,
-                    child: const _Glow(
-                      size: 460,
-                      color: Color(0xFF7DD3FC), // Cian celestial puro
-                      alpha: 0.20,
-                    ),
-                  ),
-                  Positioned(
-                    left: 40 + ox3,
-                    bottom: 60 + oy3,
-                    child: const _Glow(
-                      size: 380,
-                      color: Color(0xFF93C5FD), // Azul zafiro suave
-                      alpha: 0.14,
-                    ),
-                  ),
-                  if (widget.activeAccent != null)
-                    Positioned(
-                      top: 180 + oy3,
-                      right: 40 + ox1,
-                      child: _Glow(
-                        size: 300,
-                        color: activeColor,
-                        alpha: 0.15,
-                      ),
-                    ),
-                ],
-              ),
-            );
+            return ColoredBox(color: colors.backgroundPrimary);
           }
 
-          // Modo Oscuro: Sustrato Deep Navy + Resplandores Vivos
-          final gradient = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colors.bgTop,
-              colors.bgMiddle,
-              colors.bgBottom,
-            ],
-          );
-
-          return DecoratedBox(
-            decoration: BoxDecoration(gradient: gradient),
+          // Modo oscuro uniforme: el cristal aporta la profundidad. Evita la
+          // franja turquesa inferior que competía con tarjetas y textos.
+          return ColoredBox(
+            color: colors.backgroundPrimary,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -181,7 +116,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
                   child: _Glow(
                     size: 420,
                     color: Color.lerp(colors.nanoBlue, activeColor, 0.35)!,
-                    alpha: 0.16,
+                    alpha: 0.055,
                   ),
                 ),
                 Positioned(
@@ -190,7 +125,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
                   child: _Glow(
                     size: 520,
                     color: Color.lerp(colors.nanoCyan, activeColor, 0.45)!,
-                    alpha: 0.16,
+                    alpha: 0.040,
                   ),
                 ),
                 if (widget.activeAccent != null)
@@ -200,7 +135,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
                     child: _Glow(
                       size: 260,
                       color: widget.activeAccent!,
-                      alpha: 0.08,
+                      alpha: 0.035,
                     ),
                   ),
               ],
@@ -213,58 +148,12 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
 
   Widget _buildStaticBackground(NanoColors colors, bool isDark) {
     if (!isDark) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFCFDFF),
-              Color(0xFFF6F9FD),
-              Color(0xFFF1F6FB),
-              Color(0xFFF8FAFD),
-            ],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(
-              left: -100,
-              top: 160,
-              child: _Glow(
-                size: 400,
-                color: Color(0xFFC4B5FD),
-                alpha: 0.15,
-              ),
-            ),
-            Positioned(
-              right: -100,
-              top: 300,
-              child: _Glow(
-                size: 440,
-                color: Color(0xFF7DD3FC),
-                alpha: 0.18,
-              ),
-            ),
-          ],
-        ),
-      );
+      return ColoredBox(color: colors.backgroundPrimary);
     }
 
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        colors.bgTop,
-        colors.bgMiddle,
-        colors.bgBottom,
-      ],
-    );
-
     return RepaintBoundary(
-      child: DecoratedBox(
-        decoration: BoxDecoration(gradient: gradient),
+      child: ColoredBox(
+        color: colors.backgroundPrimary,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -274,7 +163,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
               child: _Glow(
                 size: 400,
                 color: colors.nanoBlue,
-                alpha: 0.15,
+                alpha: 0.05,
               ),
             ),
             Positioned(
@@ -283,7 +172,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
               child: _Glow(
                 size: 500,
                 color: colors.nanoCyan,
-                alpha: 0.15,
+                alpha: 0.04,
               ),
             ),
           ],

@@ -5,11 +5,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 
 /// Geometría de superficie óptica permitida en NanoAI (Regla 13).
-enum NanoSurfaceGeometry {
-  roundedRectangle,
-  capsule,
-  circle,
-}
+enum NanoSurfaceGeometry { roundedRectangle, capsule, circle }
 
 /// Superficie Óptica Central (NanoOpticalSurface).
 /// Arquitectura multicapa:
@@ -80,6 +76,8 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     with SingleTickerProviderStateMixin {
   late AnimationController _pressController;
   late Animation<double> _scaleAnimation;
+  bool _isPointerInside = false;
+  Alignment _pointerLight = Alignment.center;
 
   @override
   void initState() {
@@ -88,16 +86,14 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
       vsync: this,
       duration: NanoMotionDurations.press,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: NanoPressResponse.scaleDown,
-    ).animate(
-      CurvedAnimation(
-        parent: _pressController,
-        curve: NanoMotionCurves.press,
-        reverseCurve: NanoMotionCurves.glassSpring,
-      ),
-    );
+    _scaleAnimation =
+        Tween<double>(begin: 1.0, end: NanoPressResponse.scaleDown).animate(
+          CurvedAnimation(
+            parent: _pressController,
+            curve: NanoMotionCurves.press,
+            reverseCurve: NanoMotionCurves.glassSpring,
+          ),
+        );
   }
 
   @override
@@ -130,6 +126,31 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     }
   }
 
+  void _handlePointerHover(PointerHoverEvent event) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final size = renderBox?.size;
+    if (size == null || size.isEmpty) return;
+
+    final nextLight = Alignment(
+      (event.localPosition.dx / size.width * 2 - 1).clamp(-1.0, 1.0).toDouble(),
+      (event.localPosition.dy / size.height * 2 - 1)
+          .clamp(-1.0, 1.0)
+          .toDouble(),
+    );
+    if (!_isPointerInside ||
+        (nextLight.x - _pointerLight.x).abs() > 0.035 ||
+        (nextLight.y - _pointerLight.y).abs() > 0.035) {
+      setState(() {
+        _isPointerInside = true;
+        _pointerLight = nextLight;
+      });
+    }
+  }
+
+  void _handlePointerExit(PointerExitEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
@@ -143,10 +164,16 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     } else if (widget.geometry == NanoSurfaceGeometry.capsule) {
       resolvedRadius = BorderRadius.circular(100);
     } else {
-      resolvedRadius = widget.customBorderRadius ?? BorderRadius.circular(widget.borderRadius);
+      resolvedRadius =
+          widget.customBorderRadius ??
+          BorderRadius.circular(widget.borderRadius);
     }
 
-    final effectiveAccent = widget.accent ?? (widget.isActive ? (isDark ? colors.accent : colors.accentCyan) : (isDark ? colors.accent : colors.accentCyan));
+    final effectiveAccent =
+        widget.accent ??
+        (widget.isActive
+            ? (isDark ? colors.accent : colors.accentCyan)
+            : (isDark ? colors.accent : colors.accentCyan));
 
     final Widget surface;
     if (widget.onTap != null || widget.onLongPress != null) {
@@ -177,6 +204,7 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                   resolvedRadius,
                   effectiveAccent,
                   pressed,
+                  _isPointerInside && !reduceMotion ? _pointerLight : null,
                 ),
               ),
             );
@@ -192,11 +220,16 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
           resolvedRadius,
           effectiveAccent,
           0.0,
+          null,
         ),
       );
     }
 
-    return surface;
+    return MouseRegion(
+      onHover: reduceMotion ? null : _handlePointerHover,
+      onExit: _handlePointerExit,
+      child: surface,
+    );
   }
 
   Widget _buildSurface(
@@ -206,30 +239,39 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     BorderRadius resolvedRadius,
     Color effectiveAccent,
     double pressed,
+    Alignment? pointerLight,
   ) {
     // Respuesta física del press (Regla 23): sombra -15%, bisel +7%,
     // destello desplazado 3–5px. Todo deriva del mismo _pressProgress.
-    final shadowPressFactor = 1.0 - (1.0 - NanoPressResponse.shadowScale) * pressed;
-    final effectiveBorderStrength = widget.borderStrength * (1.0 + 0.07 * pressed);
+    final shadowPressFactor =
+        1.0 - (1.0 - NanoPressResponse.shadowScale) * pressed;
+    final effectiveBorderStrength =
+        widget.borderStrength * (1.0 + 0.07 * pressed);
     final effectiveSpecularDrift = widget.specularDrift + pressed * 0.015;
 
     // 1. Sombras multicapa (ambiental + contacto + resplandor sutil)
     final shadows = [
       BoxShadow(
         color: (isDark ? const Color(0xFF020711) : const Color(0xFF7F9AB5))
-            .withValues(alpha: (isDark ? 0.40 : 0.08 * widget.depth) * shadowPressFactor),
+            .withValues(
+              alpha: (isDark ? 0.40 : 0.08 * widget.depth) * shadowPressFactor,
+            ),
         blurRadius: 32,
         spreadRadius: -6,
         offset: const Offset(0, 12),
       ),
       BoxShadow(
-        color: effectiveAccent.withValues(alpha: (isDark ? 0.12 : 0.04) * widget.depth * shadowPressFactor),
+        color: effectiveAccent.withValues(
+          alpha: (isDark ? 0.12 : 0.04) * widget.depth * shadowPressFactor,
+        ),
         blurRadius: 24,
         spreadRadius: -5,
       ),
       if (widget.isActive)
         BoxShadow(
-          color: effectiveAccent.withValues(alpha: (isDark ? 0.35 : 0.22) * shadowPressFactor),
+          color: effectiveAccent.withValues(
+            alpha: (isDark ? 0.35 : 0.22) * shadowPressFactor,
+          ),
           blurRadius: 20,
           spreadRadius: -2,
         ),
@@ -240,18 +282,32 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
       colors: isDark
           ? [
               Colors.white.withValues(alpha: 0.30 * effectiveBorderStrength),
-              colors.metalSilver.withValues(alpha: 0.20 * effectiveBorderStrength),
+              colors.metalSilver.withValues(
+                alpha: 0.20 * effectiveBorderStrength,
+              ),
               colors.accent.withValues(alpha: 0.50 * effectiveBorderStrength),
-              colors.accentSky.withValues(alpha: 0.30 * effectiveBorderStrength),
-              colors.accentLavender.withValues(alpha: 0.25 * effectiveBorderStrength),
+              colors.accentSky.withValues(
+                alpha: 0.30 * effectiveBorderStrength,
+              ),
+              colors.accentLavender.withValues(
+                alpha: 0.25 * effectiveBorderStrength,
+              ),
               Colors.white.withValues(alpha: 0.30 * effectiveBorderStrength),
             ]
           : [
               Colors.white.withValues(alpha: 0.95 * effectiveBorderStrength),
-              colors.metalSilver.withValues(alpha: 0.70 * effectiveBorderStrength),
-              colors.iceReflection.withValues(alpha: 0.60 * effectiveBorderStrength),
-              colors.accentCyan.withValues(alpha: 0.40 * effectiveBorderStrength),
-              colors.accentLavender.withValues(alpha: 0.30 * effectiveBorderStrength),
+              colors.metalSilver.withValues(
+                alpha: 0.70 * effectiveBorderStrength,
+              ),
+              colors.iceReflection.withValues(
+                alpha: 0.60 * effectiveBorderStrength,
+              ),
+              colors.accentCyan.withValues(
+                alpha: 0.40 * effectiveBorderStrength,
+              ),
+              colors.accentLavender.withValues(
+                alpha: 0.30 * effectiveBorderStrength,
+              ),
               Colors.white.withValues(alpha: 0.95 * effectiveBorderStrength),
             ],
     );
@@ -276,8 +332,12 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             end: Alignment.bottomRight,
             colors: [
               Colors.white.withValues(alpha: colors.glassOpaque * opacityScale),
-              colors.glassSecondary.withValues(alpha: colors.glassStrong * opacityScale),
-              colors.glassGraphite.withValues(alpha: colors.glassMedium * opacityScale),
+              colors.glassSecondary.withValues(
+                alpha: colors.glassStrong * opacityScale,
+              ),
+              colors.glassGraphite.withValues(
+                alpha: colors.glassMedium * opacityScale,
+              ),
               Colors.white.withValues(alpha: colors.glassStrong * opacityScale),
             ],
             stops: const [0.0, 0.32, 0.72, 1.0],
@@ -308,8 +368,12 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    effectiveAccent.withValues(alpha: (isDark ? 0.22 : 0.16) * widget.reflectionStrength),
-                    colors.accentBlue.withValues(alpha: (isDark ? 0.12 : 0.08) * widget.reflectionStrength),
+                    effectiveAccent.withValues(
+                      alpha: (isDark ? 0.22 : 0.16) * widget.reflectionStrength,
+                    ),
+                    colors.accentBlue.withValues(
+                      alpha: (isDark ? 0.12 : 0.08) * widget.reflectionStrength,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -330,7 +394,9 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    colors.accentLavender.withValues(alpha: (isDark ? 0.15 : 0.10) * widget.reflectionStrength),
+                    colors.accentLavender.withValues(
+                      alpha: (isDark ? 0.15 : 0.10) * widget.reflectionStrength,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -351,8 +417,12 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    Colors.white.withValues(alpha: (isDark ? 0.35 : 0.90) * widget.reflectionStrength),
-                    Colors.white.withValues(alpha: (isDark ? 0.05 : 0.12) * widget.reflectionStrength),
+                    Colors.white.withValues(
+                      alpha: (isDark ? 0.35 : 0.90) * widget.reflectionStrength,
+                    ),
+                    Colors.white.withValues(
+                      alpha: (isDark ? 0.05 : 0.12) * widget.reflectionStrength,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -370,6 +440,28 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
               specularDrift: effectiveSpecularDrift,
               warmColor: colors.warmReflection,
               cyanColor: colors.accentCyan,
+            ),
+          ),
+
+        // Luz especular local: acompaña el puntero dentro del material sin
+        // alterar texto, iconos o el layout de la pantalla.
+        if (pointerLight != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: pointerLight,
+                    radius: 0.72,
+                    colors: [
+                      Colors.white.withValues(alpha: isDark ? 0.14 : 0.26),
+                      effectiveAccent.withValues(alpha: isDark ? 0.055 : 0.035),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.30, 1.0],
+                  ),
+                ),
+              ),
             ),
           ),
 
@@ -460,12 +552,18 @@ class _AnimatedReflection extends StatelessWidget {
             animation: controller,
             builder: (context, child) {
               final t = Curves.easeInOutSine.transform(controller.value);
-              final x = (-constraints.maxWidth * 0.8 + constraints.maxWidth * 1.8 * t) + (specularDrift * constraints.maxWidth * 0.15);
+              final x =
+                  (-constraints.maxWidth * 0.8 +
+                      constraints.maxWidth * 1.8 * t) +
+                  (specularDrift * constraints.maxWidth * 0.15);
 
               // Curva cáustica: misma inclinación, fase desplazada +0.35,
               // opacidad muy baja (luz interna del vidrio, no línea fija).
               final tCaustic = (t + 0.35) % 1.0;
-              final xCaustic = (-constraints.maxWidth * 0.8 + constraints.maxWidth * 1.8 * tCaustic) + (specularDrift * constraints.maxWidth * 0.15);
+              final xCaustic =
+                  (-constraints.maxWidth * 0.8 +
+                      constraints.maxWidth * 1.8 * tCaustic) +
+                  (specularDrift * constraints.maxWidth * 0.15);
 
               Widget band(Widget child, double xOffset) {
                 return Transform.translate(
@@ -555,7 +653,9 @@ class NanoGlassButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = colors is NanoDarkColors;
-    final effectiveAccent = accent ?? (isPrimary ? (isDark ? colors.accent : colors.accentCyan) : null);
+    final effectiveAccent =
+        accent ??
+        (isPrimary ? (isDark ? colors.accent : colors.accentCyan) : null);
 
     return NanoOpticalSurface(
       geometry: NanoSurfaceGeometry.roundedRectangle,

@@ -28,7 +28,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -44,6 +44,7 @@ pub struct ServerState {
     /// correcta tras una cancelación (Gate R6). Entry eliminada al consumirse.
     session_registry: Mutex<HashMap<String, String>>,
     next_request_id: AtomicU64,
+    benchmark_active: AtomicBool,
     started_at: Instant,
 }
 
@@ -53,6 +54,7 @@ impl ServerState {
             cancel_registry: Mutex::new(HashMap::new()),
             session_registry: Mutex::new(HashMap::new()),
             next_request_id: AtomicU64::new(1),
+            benchmark_active: AtomicBool::new(false),
             started_at: Instant::now(),
         }
     }
@@ -205,11 +207,7 @@ pub fn run_server(runtime_slot: Arc<RwLock<RuntimeSlot>>, bind_addr: &str, port:
 
 /// Accept loop. Separated from `run_server` so tests can drive it on an
 /// ephemeral port with the same code path as production.
-fn serve(
-    listener: TcpListener,
-    runtime_slot: Arc<RwLock<RuntimeSlot>>,
-    state: &Arc<ServerState>,
-) {
+fn serve(listener: TcpListener, runtime_slot: Arc<RwLock<RuntimeSlot>>, state: &Arc<ServerState>) {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -280,10 +278,7 @@ fn model_ready_timeout() -> Duration {
 
 /// Espera a que el runtime esté disponible (modelo cargado) o devuelve el
 /// error honesto de timeout/fallo. Se usa en /completion y /api/chat.
-fn wait_runtime(
-    slot: &RwLock<RuntimeSlot>,
-    timeout: Duration,
-) -> Result<Arc<NanoRuntime>, String> {
+fn wait_runtime(slot: &RwLock<RuntimeSlot>, timeout: Duration) -> Result<Arc<NanoRuntime>, String> {
     let deadline = Instant::now() + timeout;
     loop {
         if let Ok(guard) = slot.read() {
@@ -588,7 +583,10 @@ fn handle_completion_sse(
                 send_json(
                     stream,
                     "503 Service Unavailable",
-                    &format!(r#"{{"error":{{"code":"runtime_unavailable","message":"{}"}}}}"#, msg),
+                    &format!(
+                        r#"{{"error":{{"code":"runtime_unavailable","message":"{}"}}}}"#,
+                        msg
+                    ),
                 );
                 return;
             }
@@ -660,7 +658,10 @@ fn handle_completion_sse(
                 match &*guard {
                     RuntimeSlot::Ready(rt) => Some(Arc::clone(rt)),
                     RuntimeSlot::Failed(reason) => {
-                        return Err(format!("runtime_unavailable: la carga del modelo falló — {}", reason));
+                        return Err(format!(
+                            "runtime_unavailable: la carga del modelo falló — {}",
+                            reason
+                        ));
                     }
                     RuntimeSlot::Loading => None,
                 }
@@ -820,11 +821,7 @@ fn handle_completion_sse(
 }
 
 /// POST /api/chat — Legacy JSON API.
-fn handle_chat_json(
-    stream: &mut TcpStream,
-    body: &[u8],
-    runtime_slot: &RwLock<RuntimeSlot>,
-) {
+fn handle_chat_json(stream: &mut TcpStream, body: &[u8], runtime_slot: &RwLock<RuntimeSlot>) {
     #[derive(serde::Deserialize)]
     #[allow(dead_code)]
     struct ChatReq {
@@ -862,7 +859,10 @@ fn handle_chat_json(
             send_json(
                 stream,
                 "503 Service Unavailable",
-                &format!(r#"{{"error":{{"code":"runtime_unavailable","message":"{}"}}}}"#, msg),
+                &format!(
+                    r#"{{"error":{{"code":"runtime_unavailable","message":"{}"}}}}"#,
+                    msg
+                ),
             );
             return;
         }
@@ -957,6 +957,7 @@ fn handle_status(
                 "thrashing": st.thrashing,
                 "resident_window": st.resident_window,
                 "tok_s": st.tok_s,
+                "temperature_c": st.temperature_c,
                 "viability": st.viability.map(|v| serde_json::json!({
                     "tier": v.tier,
                     "can_run": v.can_run,
@@ -1073,6 +1074,242 @@ fn handle_reload(stream: &mut TcpStream, body: &[u8], runtime_slot: &RwLock<Runt
     }
 }
 
+/// POST /api/viability — veredicto Rust para un artefacto del catálogo.
+/// Body: `{ "model_size_bytes": 123 }`.
+fn handle_viability(stream: &mut TcpStream, body: &[u8], runtime_slot: &RwLock<RuntimeSlot>) {
+    #[derive(serde::Deserialize)]
+    struct ViabilityReq {
+        model_size_bytes: u64,
+    }
+
+    let req: ViabilityReq = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(error) => {
+            send_json(
+                stream,
+                "400 Bad Request",
+                &serde_json::json!({
+                    "error": { "code": "bad_request", "message": error.to_string() }
+                })
+                .to_string(),
+            );
+            return;
+        }
+    };
+    let runtime = match runtime_slot.read() {
+        Ok(guard) => match &*guard {
+            RuntimeSlot::Ready(runtime) => Arc::clone(runtime),
+            RuntimeSlot::Loading | RuntimeSlot::Failed(_) => {
+                send_json(
+                    stream,
+                    "503 Service Unavailable",
+                    r#"{"error":{"code":"runtime_unavailable","message":"planner no disponible"}}"#,
+                );
+                return;
+            }
+        },
+        Err(_) => {
+            send_json(
+                stream,
+                "500 Internal Server Error",
+                r#"{"error":{"code":"lock_poisoned"}}"#,
+            );
+            return;
+        }
+    };
+
+    match runtime.assess_model_viability(req.model_size_bytes) {
+        Ok(verdict) => match serde_json::to_string(&verdict) {
+            Ok(json) => send_json(stream, "200 OK", &json),
+            Err(error) => send_json(
+                stream,
+                "500 Internal Server Error",
+                &serde_json::json!({
+                    "error": { "code": "serialization_failed", "message": error.to_string() }
+                })
+                .to_string(),
+            ),
+        },
+        Err(error) => send_json(
+            stream,
+            "400 Bad Request",
+            &serde_json::json!({
+                "error": { "code": "invalid_model", "message": error.to_string() }
+            })
+            .to_string(),
+        ),
+    }
+}
+
+/// POST /benchmark/profile — persiste una medición agregada del modelo activo.
+/// La ruta es local-only (el servidor siempre se enlaza a 127.0.0.1); el
+/// runtime deriva fingerprints y backend, por lo que el caller no puede
+/// registrar resultados contra otro dispositivo o GGUF.
+fn handle_benchmark_profile(
+    stream: &mut TcpStream,
+    body: &[u8],
+    runtime_slot: &RwLock<RuntimeSlot>,
+) {
+    #[derive(serde::Deserialize)]
+    struct BenchmarkReq {
+        threads: u32,
+        context_tokens: u32,
+        batch_size: u32,
+        ttft_ms: f64,
+        prefill_tok_s: f64,
+        decode_peak_tok_s: f64,
+        decode_sustained_tok_s: f64,
+        pss_peak_mb: f64,
+        major_faults_per_second: f64,
+        temperature_start_c: f64,
+        temperature_peak_c: f64,
+        thermal_decay_pct: f64,
+        samples: u32,
+    }
+
+    let req: BenchmarkReq = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(error) => {
+            send_json(
+                stream,
+                "400 Bad Request",
+                &serde_json::json!({
+                    "error": { "code": "bad_request", "message": error.to_string() }
+                })
+                .to_string(),
+            );
+            return;
+        }
+    };
+    let rt = match runtime_slot.read() {
+        Ok(guard) => match &*guard {
+            RuntimeSlot::Ready(runtime) => std::sync::Arc::clone(runtime),
+            RuntimeSlot::Loading | RuntimeSlot::Failed(_) => {
+                send_json(
+                    stream,
+                    "503 Service Unavailable",
+                    r#"{"error":{"code":"runtime_unavailable","message":"modelo no disponible"}}"#,
+                );
+                return;
+            }
+        },
+        Err(_) => {
+            send_json(
+                stream,
+                "500 Internal Server Error",
+                r#"{"error":{"code":"lock_poisoned"}}"#,
+            );
+            return;
+        }
+    };
+    let measurement = nanortime_core::BenchmarkMeasurement {
+        threads: req.threads,
+        context_tokens: req.context_tokens,
+        batch_size: req.batch_size,
+        ttft_ms: req.ttft_ms,
+        prefill_tok_s: req.prefill_tok_s,
+        decode_peak_tok_s: req.decode_peak_tok_s,
+        decode_sustained_tok_s: req.decode_sustained_tok_s,
+        pss_peak_mb: req.pss_peak_mb,
+        major_faults_per_second: req.major_faults_per_second,
+        temperature_start_c: req.temperature_start_c,
+        temperature_peak_c: req.temperature_peak_c,
+        thermal_decay_pct: req.thermal_decay_pct,
+        samples: req.samples,
+    };
+    match run_async(rt.persist_benchmark_measurement(measurement)) {
+        Ok(()) => send_json(stream, "200 OK", r#"{"status":"persisted"}"#),
+        Err(error) => send_json(
+            stream,
+            "400 Bad Request",
+            &serde_json::json!({
+                "error": { "code": "invalid_benchmark", "message": error.to_string() }
+            })
+            .to_string(),
+        ),
+    }
+}
+
+/// POST /benchmark/run — micro-sweep CPU completo. Es deliberadamente
+/// síncrono para que una sola llamada sea dueña del modelo durante reloads y
+/// mediciones; el servidor atiende cada conexión en su propio hilo.
+fn handle_benchmark_run(
+    stream: &mut TcpStream,
+    runtime_slot: &RwLock<RuntimeSlot>,
+    state: &ServerState,
+) {
+    if state.active_requests() > 0 {
+        send_json(
+            stream,
+            "409 Conflict",
+            r#"{"error":{"code":"runtime_busy","message":"hay inferencias activas"}}"#,
+        );
+        return;
+    }
+    if state
+        .benchmark_active
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        send_json(
+            stream,
+            "409 Conflict",
+            r#"{"error":{"code":"benchmark_active","message":"ya hay un benchmark en curso"}}"#,
+        );
+        return;
+    }
+    struct BenchmarkGuard<'a>(&'a AtomicBool);
+    impl Drop for BenchmarkGuard<'_> {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::Release);
+        }
+    }
+    let _guard = BenchmarkGuard(&state.benchmark_active);
+
+    let rt = match runtime_slot.read() {
+        Ok(guard) => match &*guard {
+            RuntimeSlot::Ready(runtime) => std::sync::Arc::clone(runtime),
+            RuntimeSlot::Loading | RuntimeSlot::Failed(_) => {
+                send_json(
+                    stream,
+                    "503 Service Unavailable",
+                    r#"{"error":{"code":"runtime_unavailable","message":"modelo no disponible"}}"#,
+                );
+                return;
+            }
+        },
+        Err(_) => {
+            send_json(
+                stream,
+                "500 Internal Server Error",
+                r#"{"error":{"code":"lock_poisoned"}}"#,
+            );
+            return;
+        }
+    };
+    match run_async(rt.run_micro_benchmark()) {
+        Ok(report) => match serde_json::to_string(&report) {
+            Ok(json) => send_json(stream, "200 OK", &json),
+            Err(error) => send_json(
+                stream,
+                "500 Internal Server Error",
+                &serde_json::json!({
+                    "error": { "code": "serialization_failed", "message": error.to_string() }
+                })
+                .to_string(),
+            ),
+        },
+        Err(error) => send_json(
+            stream,
+            "500 Internal Server Error",
+            &serde_json::json!({
+                "error": { "code": "benchmark_failed", "message": error.to_string() }
+            })
+            .to_string(),
+        ),
+    }
+}
+
 /// `runtime_slot` is shared so the model can finish loading while the socket
 /// already answers /health. Model-dependent routes wait via [wait_runtime].
 fn handle_http(
@@ -1119,10 +1356,13 @@ fn handle_http(
         ("GET", "/readiness") => handle_readiness(&mut stream, runtime_slot, state),
         ("POST", "/cancel") => handle_cancel(&mut stream, &body, runtime_slot, state),
         ("GET", "/api/status") => handle_status(&mut stream, runtime_slot, state),
+        ("POST", "/api/viability") => handle_viability(&mut stream, &body, runtime_slot),
         ("POST", "/reload") => handle_reload(&mut stream, &body, runtime_slot),
-        ("POST", "/completion") => {
-            handle_completion_sse(&mut stream, &body, runtime_slot, state)
+        ("POST", "/benchmark/run") => handle_benchmark_run(&mut stream, runtime_slot, state),
+        ("POST", "/benchmark/profile") => {
+            handle_benchmark_profile(&mut stream, &body, runtime_slot)
         }
+        ("POST", "/completion") => handle_completion_sse(&mut stream, &body, runtime_slot, state),
         ("POST", "/api/chat") => handle_chat_json(&mut stream, &body, runtime_slot),
         ("POST", "/debug/kill") => {
             // DEBUG/TEST: simula un crash real del server (proceso muere sin
@@ -1239,11 +1479,7 @@ mod tests {
     fn readiness_loading_returns_503() {
         // Slot Loading → 503 MODEL_LOADING (Gate R2).
         let (status, body) = drive(&http_request("GET", "/readiness", ""));
-        assert!(
-            status.starts_with("HTTP/1.1 503"),
-            "status was: {}",
-            status
-        );
+        assert!(status.starts_with("HTTP/1.1 503"), "status was: {}", status);
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(json["state"], "MODEL_LOADING");
     }
@@ -1277,6 +1513,34 @@ mod tests {
         // Sin modelo cargado (slot Loading) el reload falla de inmediato —
         // no puede recargar lo que aún no está listo, y no debe esperar.
         let (status, body) = drive(&http_request("POST", "/reload", r#"{"threads":4}"#));
+        assert!(status.starts_with("HTTP/1.1 503"), "status was: {}", status);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["error"]["code"], "runtime_unavailable");
+    }
+
+    #[test]
+    fn benchmark_run_without_runtime_returns_503_fast() {
+        let (status, body) = drive(&http_request("POST", "/benchmark/run", ""));
+        assert!(status.starts_with("HTTP/1.1 503"), "status was: {}", status);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["error"]["code"], "runtime_unavailable");
+    }
+
+    #[test]
+    fn viability_invalid_json_returns_400() {
+        let (status, body) = drive(&http_request("POST", "/api/viability", "not json!"));
+        assert!(status.starts_with("HTTP/1.1 400"), "status was: {}", status);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["error"]["code"], "bad_request");
+    }
+
+    #[test]
+    fn viability_without_runtime_returns_503_fast() {
+        let (status, body) = drive(&http_request(
+            "POST",
+            "/api/viability",
+            r#"{"model_size_bytes":1073741824}"#,
+        ));
         assert!(status.starts_with("HTTP/1.1 503"), "status was: {}", status);
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(json["error"]["code"], "runtime_unavailable");
@@ -1389,16 +1653,16 @@ mod tests {
     #[cfg(feature = "simulated")]
     fn simulated_runtime() -> Arc<NanoRuntime> {
         let runtime = run_async(async {
-            let dir = std::env::temp_dir().join(format!(
-                "nano-simulated-test-{}",
-                std::process::id()
-            ));
+            let dir =
+                std::env::temp_dir().join(format!("nano-simulated-test-{}", std::process::id()));
             std::fs::create_dir_all(&dir).expect("crear dir temporal");
             let model_path = dir.join("dummy.gguf");
             std::fs::write(&model_path, b"dummy gguf content").expect("escribir dummy");
             let mut config = nanortime_core::Config::default_config();
             config.local_model.path = model_path.to_string_lossy().to_string();
-            nanortime_core::NanoRuntime::new(config).await.expect("runtime simulado")
+            nanortime_core::NanoRuntime::new(config)
+                .await
+                .expect("runtime simulado")
         });
         Arc::new(runtime)
     }
@@ -1412,8 +1676,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         let state = Arc::new(ServerState::new());
         let state2 = Arc::clone(&state);
-        let slot: Arc<RwLock<RuntimeSlot>> =
-            Arc::new(RwLock::new(RuntimeSlot::Ready(runtime)));
+        let slot: Arc<RwLock<RuntimeSlot>> = Arc::new(RwLock::new(RuntimeSlot::Ready(runtime)));
         let slot2 = Arc::clone(&slot);
         let handle = std::thread::spawn(move || {
             if let Ok((stream, _)) = listener.accept() {
@@ -1429,7 +1692,9 @@ mod tests {
 
         let mut buf = Vec::new();
         let mut reader = BufReader::new(&mut client);
-        reader.read_to_end(&mut buf).expect("leer respuesta completa");
+        reader
+            .read_to_end(&mut buf)
+            .expect("leer respuesta completa");
         handle.join().unwrap();
 
         let raw = String::from_utf8_lossy(&buf).to_string();

@@ -5,6 +5,7 @@ import '../theme/nano_transitions.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/models/presentation/screens/models_screen.dart';
+import '../../features/terminal/presentation/screens/terminal_hub_screen.dart';
 import '../../features/terminal/presentation/screens/terminal_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/linux/presentation/screens/mobile_linux_screen.dart';
@@ -57,16 +58,16 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/terminal',
+                pageBuilder: (_, __) => _glassMorph(const TerminalHubScreen()),
+              ),
+              GoRoute(
+                path: '/terminal/shell',
                 pageBuilder: (_, state) {
-                  // Comando inyectado por la UI: /terminal?cmd=kali%20shell
+                  // Comando inyectado por la UI: /terminal/shell?cmd=kali%20shell
                   final cmd = state.uri.queryParameters['cmd'];
                   return _glassMorph(TerminalTabScreen(initialCommand: cmd));
                 },
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
               GoRoute(
                 path: '/linux',
                 pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
@@ -77,7 +78,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/settings',
-                pageBuilder: (_, __) => _expressiveSlide(const SettingsScreen()),
+                pageBuilder: (_, __) =>
+                    _expressiveSlide(const SettingsScreen()),
               ),
             ],
           ),
@@ -119,16 +121,17 @@ class AppRouter {
   );
 
   /// Transición Secundaria (Expressive Slide)
-  static Page<void> _expressiveSlide(Widget child) => CustomTransitionPage<void>(
-    transitionDuration: NanoMotionDurations.standard,
-    reverseTransitionDuration: NanoMotionDurations.standard,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return NanoExpressiveSlideTransition(
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
+  static Page<void> _expressiveSlide(Widget child) =>
+      CustomTransitionPage<void>(
+        transitionDuration: NanoMotionDurations.standard,
+        reverseTransitionDuration: NanoMotionDurations.standard,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return NanoExpressiveSlideTransition(
+            animation: animation,
+            secondaryAnimation: secondaryAnimation,
+            child: child,
+          );
+        },
         child: child,
       );
-    },
-    child: child,
-  );
 }

@@ -119,7 +119,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final colors = NanoThemeExtension.of(context).colors;
 
     final catalogModels = List<LocalModel>.of(state.models)
-      ..sort((a, b) => _listRank(a, dashboard).compareTo(_listRank(b, dashboard)));
+      ..sort(
+        (a, b) => _listRank(a, dashboard).compareTo(_listRank(b, dashboard)),
+      );
 
     final installedModels = catalogModels
         .where((model) => model.installed)
@@ -138,16 +140,26 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     // 1. Filtrar Detectados (SD / Storage Local)
     final filteredDetected = detected.where((model) {
       if (_selectedFilter == _ModelFilter.installed) return false;
-      if (_selectedFilter == _ModelFilter.gemma && !model.name.toLowerCase().contains('gemma')) return false;
-      if (_selectedFilter == _ModelFilter.llama && !model.name.toLowerCase().contains('llama')) return false;
-      if (_selectedFilter == _ModelFilter.qwen && !model.name.toLowerCase().contains('qwen')) return false;
+      if (_selectedFilter == _ModelFilter.gemma &&
+          !model.name.toLowerCase().contains('gemma'))
+        return false;
+      if (_selectedFilter == _ModelFilter.llama &&
+          !model.name.toLowerCase().contains('llama'))
+        return false;
+      if (_selectedFilter == _ModelFilter.qwen &&
+          !model.name.toLowerCase().contains('qwen'))
+        return false;
       if (_selectedFilter == _ModelFilter.deepseek &&
           !model.name.toLowerCase().contains('deepseek') &&
           !model.name.toLowerCase().contains('r1')) {
         return false;
       }
-      if (_selectedFilter == _ModelFilter.phi && !model.name.toLowerCase().contains('phi')) return false;
-      if (_selectedFilter == _ModelFilter.mistral && !model.name.toLowerCase().contains('mistral')) return false;
+      if (_selectedFilter == _ModelFilter.phi &&
+          !model.name.toLowerCase().contains('phi'))
+        return false;
+      if (_selectedFilter == _ModelFilter.mistral &&
+          !model.name.toLowerCase().contains('mistral'))
+        return false;
 
       if (query.isEmpty) return true;
       return model.name.toLowerCase().contains(query) ||
@@ -158,17 +170,28 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     // 2. Filtrar Catálogo
     final filteredCatalog = catalogModels.where((model) {
       if (_selectedFilter == _ModelFilter.storage) return false;
-      if (_selectedFilter == _ModelFilter.installed && !model.installed) return false;
-      if (_selectedFilter == _ModelFilter.gemma && !model.name.toLowerCase().contains('gemma')) return false;
-      if (_selectedFilter == _ModelFilter.llama && !model.name.toLowerCase().contains('llama')) return false;
-      if (_selectedFilter == _ModelFilter.qwen && !model.name.toLowerCase().contains('qwen')) return false;
+      if (_selectedFilter == _ModelFilter.installed && !model.installed)
+        return false;
+      if (_selectedFilter == _ModelFilter.gemma &&
+          !model.name.toLowerCase().contains('gemma'))
+        return false;
+      if (_selectedFilter == _ModelFilter.llama &&
+          !model.name.toLowerCase().contains('llama'))
+        return false;
+      if (_selectedFilter == _ModelFilter.qwen &&
+          !model.name.toLowerCase().contains('qwen'))
+        return false;
       if (_selectedFilter == _ModelFilter.deepseek &&
           !model.name.toLowerCase().contains('deepseek') &&
           !model.name.toLowerCase().contains('r1')) {
         return false;
       }
-      if (_selectedFilter == _ModelFilter.phi && !model.name.toLowerCase().contains('phi')) return false;
-      if (_selectedFilter == _ModelFilter.mistral && !model.name.toLowerCase().contains('mistral')) return false;
+      if (_selectedFilter == _ModelFilter.phi &&
+          !model.name.toLowerCase().contains('phi'))
+        return false;
+      if (_selectedFilter == _ModelFilter.mistral &&
+          !model.name.toLowerCase().contains('mistral'))
+        return false;
 
       if (query.isEmpty) return true;
       return model.name.toLowerCase().contains(query) ||
@@ -190,448 +213,548 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     return Stack(
       children: [
         const Positioned.fill(child: NanoAmbientBackground()),
-        if (!state.allFilesGranted)
-          Positioned(
-            top: 8,
-            left: 16,
-            right: 16,
-            child: _AllFilesBanner(
-              onGrant: () => notifier.requestAllFilesAccess(),
-            ),
-          ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isLandscape = constraints.maxWidth > constraints.maxHeight;
+        Column(
+          children: [
+            if (!state.allFilesGranted)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: _AllFilesBanner(
+                  onGrant: () => notifier.requestAllFilesAccess(),
+                ),
+              ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isLandscape =
+                      constraints.maxWidth > constraints.maxHeight;
+                  final compactLandscape =
+                      isLandscape && constraints.maxHeight < 520;
 
-                Widget buildCardAt(int index) {
-                  final item = unifiedList[index];
+                  Widget buildCardAt(int index) {
+                    final item = unifiedList[index];
 
-                  final Widget card;
-                  if (item.isDetected) {
-                    final detectedModel = item.detected!;
-                    final isActive = state.activeDetected == detectedModel.name;
-                    card = _DetectedCard(
-                      model: detectedModel,
-                      loading: state.loadingDetectedUri ==
-                          (detectedModel.path ?? detectedModel.uri),
-                      active: isActive,
-                      reflectionController: _reflectionController,
-                      onTapDetails: () => _openModelDetails(
-                        name: detectedModel.name,
-                        quant: detectedModel.format.name.toUpperCase(),
-                        sizeGb: detectedModel.sizeBytes > 0
-                            ? detectedModel.sizeBytes / (1024 * 1024 * 1024)
-                            : 0,
-                        description: 'Modelo local detectado en almacenamiento SD / interno.',
-                        path: detectedModel.path ?? detectedModel.uri,
-                        isDetected: true,
-                        isActive: isActive,
-                        dashboard: dashboard,
-                        onAction: () => notifier.useDetected(detectedModel),
-                        actionLabel: 'Cargar Modelo',
-                      ),
-                      onUse: () => notifier.useDetected(detectedModel),
-                    );
-                  } else {
-                    final model = item.catalog!;
-                    final status = _statusOf(model, dashboard);
+                    final Widget card;
+                    if (item.isDetected) {
+                      final detectedModel = item.detected!;
+                      final isActive =
+                          state.activeDetected == detectedModel.name;
+                      card = _DetectedCard(
+                        model: detectedModel,
+                        loading:
+                            state.loadingDetectedUri ==
+                            (detectedModel.path ?? detectedModel.uri),
+                        active: isActive,
+                        reflectionController: _reflectionController,
+                        onTapDetails: () => _openModelDetails(
+                          name: detectedModel.name,
+                          quant: detectedModel.format.name.toUpperCase(),
+                          sizeGb: detectedModel.sizeBytes > 0
+                              ? detectedModel.sizeBytes / (1024 * 1024 * 1024)
+                              : 0,
+                          description:
+                              'Modelo local detectado en almacenamiento SD / interno.',
+                          path: detectedModel.path ?? detectedModel.uri,
+                          isDetected: true,
+                          isActive: isActive,
+                          dashboard: dashboard,
+                          onAction: () => notifier.useDetected(detectedModel),
+                          actionLabel: 'Cargar Modelo',
+                        ),
+                        onUse: () => notifier.useDetected(detectedModel),
+                      );
+                    } else {
+                      final model = item.catalog!;
+                      final status = _statusOf(model, dashboard);
 
-                    card = _ModelCard(
-                      name: model.name,
-                      quantization: model.quant,
-                      sizeGb: model.sizeGb,
-                      description: model.description,
-                      error: model.error,
-                      status: status,
-                      viability: _viabilityOf(model, dashboard),
-                      tier: model.tier,
-                      ramNote: status == ModelUiStatus.incompatible
-                          ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
-                          : null,
-                      progress: model.progress,
-                      reflectionController: _reflectionController,
-                      onTapDetails: () => _openModelDetails(
+                      card = _ModelCard(
                         name: model.name,
-                        quant: model.quant,
+                        quantization: model.quant,
                         sizeGb: model.sizeGb,
                         description: model.description,
-                        ramGb: model.ramGb,
-                        isDetected: false,
-                        isActive: status == ModelUiStatus.active,
-                        dashboard: dashboard,
-                        onAction: () {
-                          if (status == ModelUiStatus.installed) {
-                            _confirmAndUse(model);
-                          } else if (status == ModelUiStatus.available ||
-                              status == ModelUiStatus.error ||
-                              status == ModelUiStatus.incompatible) {
-                            // incompatible también descarga: la ficha mostrada en
-                            // la sábana no debe diferir de la tarjeta (que sí
-                            // ofrece "Descargar" para modelos grandes).
-                            notifier.downloadModel(model.id);
-                          }
-                        },
-                        actionLabel: status == ModelUiStatus.installed
-                            ? 'Cargar en Chat'
-                            : status == ModelUiStatus.active
-                                ? 'Modelo Activo'
-                                : 'Descargar GGUF',
+                        error: model.error,
+                        status: status,
+                        viability: _viabilityOf(model, dashboard),
+                        tier: model.tier,
+                        ramNote: status == ModelUiStatus.incompatible
+                            ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
+                            : null,
+                        progress: model.progress,
+                        reflectionController: _reflectionController,
+                        onTapDetails: () => _openModelDetails(
+                          name: model.name,
+                          quant: model.quant,
+                          sizeGb: model.sizeGb,
+                          description: model.description,
+                          ramGb: model.ramGb,
+                          isDetected: false,
+                          isActive: status == ModelUiStatus.active,
+                          dashboard: dashboard,
+                          onAction: () {
+                            if (status == ModelUiStatus.installed) {
+                              _confirmAndUse(model);
+                            } else if (status == ModelUiStatus.available ||
+                                status == ModelUiStatus.error ||
+                                status == ModelUiStatus.incompatible) {
+                              // incompatible también descarga: la ficha mostrada en
+                              // la sábana no debe diferir de la tarjeta (que sí
+                              // ofrece "Descargar" para modelos grandes).
+                              notifier.downloadModel(model.id);
+                            }
+                          },
+                          actionLabel: status == ModelUiStatus.installed
+                              ? 'Cargar en Chat'
+                              : status == ModelUiStatus.active
+                              ? 'Modelo Activo'
+                              : 'Descargar GGUF',
+                        ),
+                        onUse: () => _confirmAndUse(model),
+                        onDownload: () => notifier.downloadModel(model.id),
+                        onCancel: notifier.cancelDownload,
+                      );
+                    }
+
+                    if (MediaQuery.disableAnimationsOf(context)) return card;
+
+                    final start = (index * 0.05).clamp(0.0, 0.75);
+                    final end = (start + 0.20).clamp(0.0, 1.0);
+                    final entry = CurvedAnimation(
+                      parent: _entryController,
+                      curve: Interval(
+                        start,
+                        end,
+                        curve: NanoMotionCurves.standardDecel,
                       ),
-                      onUse: () => _confirmAndUse(model),
-                      onDownload: () => notifier.downloadModel(model.id),
-                      onCancel: notifier.cancelDownload,
+                    );
+
+                    return AnimatedBuilder(
+                      animation: _entryController,
+                      builder: (_, child) {
+                        final value = entry.value;
+                        return Opacity(
+                          opacity: value.clamp(0.0, 1.0),
+                          child: Transform.translate(
+                            offset: Offset(0, 10 * (1 - value.clamp(0.0, 1.0))),
+                            child: Transform.scale(
+                              scale: 0.96 + 0.04 * value,
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                      child: card,
                     );
                   }
 
-                  if (MediaQuery.disableAnimationsOf(context)) return card;
+                  final hasAny = totalCount > 0;
 
-                  final start = (index * 0.05).clamp(0.0, 0.75);
-                  final end = (start + 0.20).clamp(0.0, 1.0);
-                  final entry = CurvedAnimation(
-                    parent: _entryController,
-                    curve: Interval(start, end, curve: NanoMotionCurves.standardDecel),
-                  );
-
-                  return AnimatedBuilder(
-                    animation: _entryController,
-                    builder: (_, child) {
-                      final value = entry.value;
-                      return Opacity(
-                        opacity: value.clamp(0.0, 1.0),
-                        child: Transform.translate(
-                          offset: Offset(0, 10 * (1 - value.clamp(0.0, 1.0))),
-                          child: Transform.scale(
-                            scale: 0.96 + 0.04 * value,
-                            child: child,
-                          ),
-                        ),
-                      );
-                    },
-                    child: card,
-                  );
-                }
-
-                final hasAny = totalCount > 0;
-
-                // ==========================================
-                // TOP HEADER: NANOAI + SEARCH + FILTERS
-                // ==========================================
-                final topHeader = Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 42,
-                        child: Row(
-                          children: [
-                            Text(
-                              'Modelos',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.4,
-                                color: colors.textPrimary,
+                  // ==========================================
+                  // TOP HEADER: NANOAI + SEARCH + FILTERS
+                  // ==========================================
+                  final topHeader = Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 42,
+                          child: Row(
+                            children: [
+                              Text(
+                                'Modelos',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.4,
+                                  color: colors.textPrimary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
+                              const SizedBox(width: 8),
 
-                            // Barra de búsqueda expandible
-                            Expanded(
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeOutCubic,
-                                height: 38,
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeInCubic,
-                                  child: _isSearchExpanded
-                                      ? SizedBox(
-                                          key: const ValueKey('search_expanded'),
-                                          child: NanoOpticalSurface(
-                                            borderRadius: 12,
-                                            blurSigma: 12,
-                                            borderStrength: 0.80,
-                                            reflectionStrength: 0.65,
-                                            accent: colors.accentSky,
-                                            reflectionController: _reflectionController,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.search_rounded,
-                                                  size: 18,
-                                                  color: colors.accentSky,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: TextField(
-                                                    controller: _searchController,
-                                                    focusNode: _searchFocusNode,
-                                                    onChanged: (val) => setState(() => _searchQuery = val),
-                                                    style: TextStyle(
-                                                      fontFamily: 'Inter',
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: colors.textPrimary,
-                                                    ),
-                                                    decoration: InputDecoration(
-                                                      border: InputBorder.none,
-                                                      isDense: true,
-                                                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                                                      hintText: 'Buscar (Gemma, LLaMA, Qwen, DeepSeek...)',
-                                                      hintStyle: TextStyle(
+                              // Barra de búsqueda expandible
+                              Expanded(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOutCubic,
+                                  height: 38,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    switchInCurve: Curves.easeOutCubic,
+                                    switchOutCurve: Curves.easeInCubic,
+                                    child: _isSearchExpanded
+                                        ? SizedBox(
+                                            key: const ValueKey(
+                                              'search_expanded',
+                                            ),
+                                            child: NanoOpticalSurface(
+                                              borderRadius: 12,
+                                              blurSigma: 12,
+                                              borderStrength: 0.80,
+                                              reflectionStrength: 0.65,
+                                              accent: colors.accentSky,
+                                              reflectionController:
+                                                  _reflectionController,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.search_rounded,
+                                                    size: 18,
+                                                    color: colors.accentSky,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          _searchController,
+                                                      focusNode:
+                                                          _searchFocusNode,
+                                                      onChanged: (val) =>
+                                                          setState(
+                                                            () => _searchQuery =
+                                                                val,
+                                                          ),
+                                                      style: TextStyle(
                                                         fontFamily: 'Inter',
-                                                        fontSize: 12,
-                                                        color: colors.textSecondary.withValues(alpha: 0.70),
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            colors.textPrimary,
+                                                      ),
+                                                      decoration: InputDecoration(
+                                                        border:
+                                                            InputBorder.none,
+                                                        isDense: true,
+                                                        contentPadding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 8,
+                                                            ),
+                                                        hintText:
+                                                            'Buscar (Gemma, LLaMA, Qwen, DeepSeek...)',
+                                                        hintStyle: TextStyle(
+                                                          fontFamily: 'Inter',
+                                                          fontSize: 12,
+                                                          color: colors
+                                                              .textSecondary
+                                                              .withValues(
+                                                                alpha: 0.70,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  GestureDetector(
+                                                    onTap: _toggleSearch,
+                                                    child: Icon(
+                                                      Icons.close_rounded,
+                                                      size: 18,
+                                                      color:
+                                                          colors.textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                        : Row(
+                                            key: const ValueKey(
+                                              'search_collapsed',
+                                            ),
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            children: [
+                                              if (totalInStorage > 0)
+                                                Flexible(
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: colors.accentSky
+                                                          .withValues(
+                                                            alpha: 0.12,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            99,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: colors.accentSky
+                                                            .withValues(
+                                                              alpha: 0.35,
+                                                            ),
+                                                        width: 0.8,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      '$totalInStorage en memoria',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        fontFamily: 'Inter',
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: colors
+                                                            .textSecondary,
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                                GestureDetector(
-                                                  onTap: _toggleSearch,
+                                              const SizedBox(width: 6),
+                                              NanoOpticalSurface(
+                                                geometry:
+                                                    NanoSurfaceGeometry.circle,
+                                                blurSigma: 8,
+                                                borderStrength: 0.60,
+                                                reflectionStrength: 0.40,
+                                                accent: colors.accentSky,
+                                                onTap: _toggleSearch,
+                                                child: SizedBox(
+                                                  width: 34,
+                                                  height: 34,
                                                   child: Icon(
-                                                    Icons.close_rounded,
+                                                    Icons.search_rounded,
                                                     size: 18,
-                                                    color: colors.textSecondary,
+                                                    color: colors.accentSky,
                                                   ),
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              NanoOpticalSurface(
+                                                geometry:
+                                                    NanoSurfaceGeometry.circle,
+                                                blurSigma: 8,
+                                                borderStrength: 0.60,
+                                                reflectionStrength: 0.40,
+                                                accent: colors.accentSky,
+                                                onTap: notifier.scanStorageAll,
+                                                child: SizedBox(
+                                                  width: 34,
+                                                  height: 34,
+                                                  child: Icon(
+                                                    state.scanning
+                                                        ? Icons.sync_rounded
+                                                        : Icons.refresh_rounded,
+                                                    size: 18,
+                                                    color: colors.accentSky,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        )
-                                      : Row(
-                                          key: const ValueKey('search_collapsed'),
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            if (totalInStorage > 0)
-                                              Flexible(
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: colors.accentSky.withValues(alpha: 0.12),
-                                                    borderRadius: BorderRadius.circular(99),
-                                                    border: Border.all(
-                                                      color: colors.accentSky.withValues(alpha: 0.35),
-                                                      width: 0.8,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    '$totalInStorage en memoria',
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      fontFamily: 'Inter',
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: colors.textSecondary,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            const SizedBox(width: 6),
-                                            NanoOpticalSurface(
-                                              geometry: NanoSurfaceGeometry.circle,
-                                              blurSigma: 8,
-                                              borderStrength: 0.60,
-                                              reflectionStrength: 0.40,
-                                              accent: colors.accentSky,
-                                              onTap: _toggleSearch,
-                                              child: SizedBox(
-                                                width: 34,
-                                                height: 34,
-                                                child: Icon(
-                                                  Icons.search_rounded,
-                                                  size: 18,
-                                                  color: colors.accentSky,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            NanoOpticalSurface(
-                                              geometry: NanoSurfaceGeometry.circle,
-                                              blurSigma: 8,
-                                              borderStrength: 0.60,
-                                              reflectionStrength: 0.40,
-                                              accent: colors.accentSky,
-                                              onTap: notifier.scanStorageAll,
-                                              child: SizedBox(
-                                                width: 34,
-                                                height: 34,
-                                                child: Icon(
-                                                  state.scanning
-                                                      ? Icons.sync_rounded
-                                                      : Icons.refresh_rounded,
-                                                  size: 18,
-                                                  color: colors.accentSky,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 8),
 
-                      // Filtros Rápidos por Categoría y Familia de Modelos
-                      SizedBox(
-                        height: 32,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: _ModelFilter.values.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (context, index) {
-                            final filter = _ModelFilter.values[index];
-                            final isSelected = filter == _selectedFilter;
+                        // Filtros Rápidos por Categoría y Familia de Modelos
+                        SizedBox(
+                          height: 32,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: _ModelFilter.values.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 6),
+                            itemBuilder: (context, index) {
+                              final filter = _ModelFilter.values[index];
+                              final isSelected = filter == _selectedFilter;
 
-                            return NanoOpticalSurface(
-                              geometry: NanoSurfaceGeometry.capsule,
-                              blurSigma: 8,
-                              borderStrength: isSelected ? 0.85 : 0.45,
-                              reflectionStrength: isSelected ? 0.65 : 0.30,
-                              accent: isSelected ? colors.accentSky : colors.metalSilver,
-                              onTap: () => setState(() => _selectedFilter = filter),
-                              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    filter.icon,
-                                    size: 13,
-                                    color: isSelected ? colors.accentSky : colors.textSecondary,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    filter.label,
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 11.5,
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                      color: isSelected ? colors.textPrimary : colors.textSecondary,
+                              return NanoOpticalSurface(
+                                geometry: NanoSurfaceGeometry.capsule,
+                                blurSigma: 8,
+                                borderStrength: isSelected ? 0.85 : 0.45,
+                                reflectionStrength: isSelected ? 0.65 : 0.30,
+                                accent: isSelected
+                                    ? colors.accentSky
+                                    : colors.metalSilver,
+                                onTap: () =>
+                                    setState(() => _selectedFilter = filter),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 5,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      filter.icon,
+                                      size: 13,
+                                      color: isSelected
+                                          ? colors.accentSky
+                                          : colors.textSecondary,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (isLandscape) {
-                  return Column(
-                    children: [
-                      topHeader,
-                      Expanded(
-                        child: !hasAny
-                            ? const _EmptyModels()
-                            : totalFilteredCount == 0
-                                ? _EmptySearchResults(
-                                    query: _searchQuery,
-                                    onClear: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchQuery = '';
-                                        _selectedFilter = _ModelFilter.all;
-                                      });
-                                    },
-                                  )
-                                : GridView.builder(
-                                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                      mainAxisExtent: 196,
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      filter.label,
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 11.5,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? colors.textPrimary
+                                            : colors.textSecondary,
+                                      ),
                                     ),
-                                    itemCount: totalFilteredCount,
-                                    itemBuilder: (context, index) => buildCardAt(index),
-                                  ),
-                      ),
-                    ],
-                  );
-                }
-
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Column(
-                      children: [
-                        topHeader,
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 220),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (child, animation) {
-                              final offset = Tween<Offset>(
-                                begin: const Offset(0, 0.035),
-                                end: Offset.zero,
-                              ).animate(animation);
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: offset,
-                                  child: child,
+                                  ],
                                 ),
                               );
                             },
-                            child: KeyedSubtree(
-                              key: ValueKey('${_selectedFilter.name}_${_searchQuery.trim()}'),
-                              child: !hasAny
-                                  ? const _EmptyModels()
-                                  : totalFilteredCount == 0
-                                      ? _EmptySearchResults(
-                                          query: _searchQuery,
-                                          onClear: () {
-                                            _searchController.clear();
-                                            setState(() {
-                                              _searchQuery = '';
-                                              _selectedFilter = _ModelFilter.all;
-                                            });
-                                          },
-                                        )
-                                      : ListView.builder(
-                                          physics: const BouncingScrollPhysics(),
-                                          padding: const EdgeInsets.fromLTRB(14, 2, 14, 20),
-                                          itemCount: totalFilteredCount + 1,
-                                          itemBuilder: (context, index) {
-                                            if (index == totalFilteredCount) {
-                                              return Padding(
-                                                padding: const EdgeInsets.only(top: 10),
-                                                child: _StorageUsage(
-                                                  usedGb: usedGb,
-                                                  storageTotalGb: dashboard.storageTotalGb,
-                                                  storageFreeGb: dashboard.storageFreeGb,
-                                                ),
-                                              );
-                                            }
-                                            return Padding(
-                                              padding: const EdgeInsets.only(bottom: 10),
-                                              child: buildCardAt(index),
-                                            );
-                                          },
-                                        ),
-                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
+                  );
+
+                  if (isLandscape) {
+                    return Column(
+                      children: [
+                        topHeader,
+                        Expanded(
+                          child: !hasAny
+                              ? const _EmptyModels()
+                              : totalFilteredCount == 0
+                              ? _EmptySearchResults(
+                                  query: _searchQuery,
+                                  onClear: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                      _selectedFilter = _ModelFilter.all;
+                                    });
+                                  },
+                                )
+                              : GridView.builder(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    4,
+                                    12,
+                                    12,
+                                  ),
+                                  gridDelegate: compactLandscape
+                                      ? SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount:
+                                              constraints.maxWidth >= 560
+                                              ? 3
+                                              : 2,
+                                          crossAxisSpacing: 8,
+                                          mainAxisSpacing: 8,
+                                          mainAxisExtent: 146,
+                                        )
+                                      : const SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: 360,
+                                          crossAxisSpacing: 8,
+                                          mainAxisSpacing: 8,
+                                          mainAxisExtent: 174,
+                                        ),
+                                  itemCount: totalFilteredCount,
+                                  itemBuilder: (context, index) =>
+                                      buildCardAt(index),
+                                ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        children: [
+                          topHeader,
+                          Expanded(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) {
+                                final offset = Tween<Offset>(
+                                  begin: const Offset(0, 0.035),
+                                  end: Offset.zero,
+                                ).animate(animation);
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: offset,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: KeyedSubtree(
+                                key: ValueKey(
+                                  '${_selectedFilter.name}_${_searchQuery.trim()}',
+                                ),
+                                child: !hasAny
+                                    ? const _EmptyModels()
+                                    : totalFilteredCount == 0
+                                    ? _EmptySearchResults(
+                                        query: _searchQuery,
+                                        onClear: () {
+                                          _searchController.clear();
+                                          setState(() {
+                                            _searchQuery = '';
+                                            _selectedFilter = _ModelFilter.all;
+                                          });
+                                        },
+                                      )
+                                    : ListView.builder(
+                                        physics: const BouncingScrollPhysics(),
+                                        padding: const EdgeInsets.fromLTRB(
+                                          14,
+                                          2,
+                                          14,
+                                          20,
+                                        ),
+                                        itemCount: totalFilteredCount + 1,
+                                        itemBuilder: (context, index) {
+                                          if (index == totalFilteredCount) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 10,
+                                              ),
+                                              child: _StorageUsage(
+                                                usedGb: usedGb,
+                                                storageTotalGb:
+                                                    dashboard.storageTotalGb,
+                                                storageFreeGb:
+                                                    dashboard.storageFreeGb,
+                                              ),
+                                            );
+                                          }
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 10,
+                                            ),
+                                            child: buildCardAt(index),
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-        ],
-      );
+          ],
+        ),
+      ],
+    );
   }
 
   void _openModelDetails({
@@ -773,28 +896,23 @@ enum ModelUiStatus {
 
 /// Gate R9 — etiqueta del tier de rendimiento para el badge de la tarjeta.
 String _tierLabel(ModelTier tier) => switch (tier) {
-      ModelTier.interactive => 'INTERACTIVE',
-      ModelTier.deep => 'DEEP',
-      ModelTier.extreme => 'EXTREME',
-    };
+  ModelTier.interactive => 'INTERACTIVE',
+  ModelTier.deep => 'DEEP',
+  ModelTier.extreme => 'EXTREME',
+};
 
 /// Color del badge de tier: verde (interactive), ámbar (deep), rojo (extreme).
 Color _tierColor(ModelTier tier, NanoColors colors) => switch (tier) {
-      ModelTier.interactive => colors.accentMint,
-      ModelTier.deep => colors.warning,
-      ModelTier.extreme => colors.error,
-    };
-
-
+  ModelTier.interactive => colors.accentMint,
+  ModelTier.deep => colors.warning,
+  ModelTier.extreme => colors.error,
+};
 
 class _EmptySearchResults extends StatelessWidget {
   final String query;
   final VoidCallback onClear;
 
-  const _EmptySearchResults({
-    required this.query,
-    required this.onClear,
-  });
+  const _EmptySearchResults({required this.query, required this.onClear});
 
   @override
   Widget build(BuildContext context) {
@@ -898,6 +1016,7 @@ class _ModelCard extends StatelessWidget {
     required this.onUse,
     required this.onDownload,
     required this.onCancel,
+    this.dense = false,
   });
 
   final String name;
@@ -915,10 +1034,14 @@ class _ModelCard extends StatelessWidget {
   final VoidCallback onUse;
   final VoidCallback onDownload;
   final VoidCallback onCancel;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final mediaSize = MediaQuery.sizeOf(context);
+    final denseLandscape =
+        mediaSize.width > mediaSize.height && mediaSize.height < 520;
     final accent = _statusColor(status, colors);
 
     final icon = FloatingModelIcon(
@@ -935,12 +1058,13 @@ class _ModelCard extends StatelessWidget {
           child: NanoOpticalSurface(
             borderRadius: _M3.cardRadius,
             blurSigma: status == ModelUiStatus.active ? 18 : 14,
+            hasBackdropBlur: false,
             borderStrength: status == ModelUiStatus.active ? 0.90 : 0.70,
             reflectionStrength: status == ModelUiStatus.active ? 0.85 : 0.50,
             accent: accent,
             reflectionController: reflectionController,
             onTap: onTapDetails,
-            padding: const EdgeInsets.all(13),
+            padding: EdgeInsets.all(denseLandscape ? 8 : 13),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 310;
@@ -957,6 +1081,7 @@ class _ModelCard extends StatelessWidget {
                   ramNote: ramNote,
                   progress: progress,
                   accent: accent,
+                  dense: denseLandscape,
                 );
 
                 final action = _ModelAction(
@@ -964,7 +1089,31 @@ class _ModelCard extends StatelessWidget {
                   onUse: onUse,
                   onDownload: onDownload,
                   onCancel: onCancel,
+                  dense: denseLandscape,
                 );
+
+                if (denseLandscape) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox.square(
+                              dimension: 34,
+                              child: FittedBox(child: icon),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(child: details),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Align(alignment: Alignment.centerRight, child: action),
+                    ],
+                  );
+                }
 
                 if (compact) {
                   return Column(
@@ -979,10 +1128,7 @@ class _ModelCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: action,
-                      ),
+                      Align(alignment: Alignment.centerRight, child: action),
                     ],
                   );
                 }
@@ -1022,6 +1168,7 @@ class _ModelDetails extends StatelessWidget {
     required this.ramNote,
     required this.progress,
     required this.accent,
+    this.dense = false,
   });
 
   final String name;
@@ -1035,11 +1182,15 @@ class _ModelDetails extends StatelessWidget {
   final String? ramNote;
   final double progress;
   final Color accent;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final (familyColor, familyLabel) = ModelBrandLogo.familyMetaFor(name, colors);
+    final (familyColor, familyLabel) = ModelBrandLogo.familyMetaFor(
+      name,
+      colors,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1052,20 +1203,23 @@ class _ModelDetails extends StatelessWidget {
               decoration: BoxDecoration(
                 color: familyColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: familyColor.withValues(alpha: 0.45), width: 0.7),
+                border: Border.all(
+                  color: familyColor.withValues(alpha: 0.45),
+                  width: 0.7,
+                ),
               ),
               child: Text(
                 familyLabel,
                 style: TextStyle(
                   fontFamily: 'Inter',
                   color: NanoTextColors.forText(familyColor, colors),
-                  fontSize: 8.5,
+                  fontSize: dense ? 7 : 8.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.3,
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: dense ? 3 : 6),
             Expanded(
               child: Text(
                 name,
@@ -1074,53 +1228,70 @@ class _ModelDetails extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   color: colors.textPrimary,
-                  fontSize: _M3.titleSize,
+                  fontSize: dense ? 11.5 : _M3.titleSize,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
                 ),
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.info_outline_rounded, size: 14, color: colors.accentSky.withValues(alpha: 0.7)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          children: [
-            _StatusChip(label: _statusLabel(status), color: accent),
-            _StatusChip(label: _tierLabel(tier), color: _tierColor(tier, colors)),
-            if (quantization.isNotEmpty)
-              _StatusChip(label: quantization, color: colors.accentSky),
-            _StatusChip(
-              label: _viabilityLabel(viability),
-              color: _viabilityColor(viability, colors),
+            SizedBox(width: dense ? 2 : 4),
+            Icon(
+              Icons.info_outline_rounded,
+              size: dense ? 11 : 14,
+              color: colors.accentSky.withValues(alpha: 0.7),
             ),
           ],
         ),
-        const SizedBox(height: 5),
+        SizedBox(height: dense ? 2 : 4),
+        Wrap(
+          spacing: dense ? 3 : 6,
+          runSpacing: dense ? 2 : 4,
+          children: [
+            _StatusChip(
+              label: _statusLabel(status),
+              color: accent,
+              dense: dense,
+            ),
+            _StatusChip(
+              label: _tierLabel(tier),
+              color: _tierColor(tier, colors),
+              dense: dense,
+            ),
+            if (quantization.isNotEmpty)
+              _StatusChip(
+                label: quantization,
+                color: colors.accentSky,
+                dense: dense,
+              ),
+            _StatusChip(
+              label: _viabilityLabel(viability),
+              color: _viabilityColor(viability, colors),
+              dense: dense,
+            ),
+          ],
+        ),
+        SizedBox(height: dense ? 2 : 5),
         if (ramNote != null)
           Text(
             ramNote!,
-            maxLines: 2,
+            maxLines: dense ? 1 : 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Inter',
               color: NanoTextColors.forText(colors.warning, colors),
-              fontSize: 11.5,
+              fontSize: dense ? 8.5 : 11.5,
               fontWeight: FontWeight.w500,
             ),
           )
         else if (status == ModelUiStatus.error && error != null)
           Text(
             error!,
-            maxLines: 2,
+            maxLines: dense ? 1 : 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Inter',
               color: NanoTextColors.forText(colors.error, colors),
-              fontSize: 11.5,
+              fontSize: dense ? 8.5 : 11.5,
               fontWeight: FontWeight.w500,
             ),
           )
@@ -1132,16 +1303,16 @@ class _ModelDetails extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Inter',
               color: colors.textSecondary,
-              fontSize: 11.5,
+              fontSize: dense ? 8.5 : 11.5,
               fontWeight: FontWeight.w400,
             ),
           ),
         if (status == ModelUiStatus.downloading) ...[
-          const SizedBox(height: 6),
+          SizedBox(height: dense ? 3 : 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: Container(
-              height: 5,
+              height: dense ? 3 : 5,
               color: colors.metalSilver.withValues(alpha: 0.40),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
@@ -1169,17 +1340,25 @@ class _ModelDetails extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label, required this.color});
+  const _StatusChip({
+    required this.label,
+    required this.color,
+    this.dense = false,
+  });
 
   final String label;
   final Color color;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final chip = Container(
       key: ValueKey(label),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? 4 : 7,
+        vertical: dense ? 1 : 2.5,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         borderRadius: _M3.chipRadius,
@@ -1190,7 +1369,7 @@ class _StatusChip extends StatelessWidget {
         style: TextStyle(
           fontFamily: 'Inter',
           color: NanoTextColors.forText(color, colors),
-          fontSize: 9.5,
+          fontSize: dense ? 7.5 : 9.5,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
         ),
@@ -1246,21 +1425,31 @@ class _ModelAction extends StatelessWidget {
           reflectionStrength: 0.60,
           accent: colors.accentMint,
           child: SizedBox(
-            width: 36,
-            height: 36,
+            width: dense ? 28 : 36,
+            height: dense ? 28 : 36,
             child: Icon(
               Icons.check_rounded,
               color: colors.accentMint,
-              size: 20,
+              size: dense ? 16 : 20,
             ),
           ),
         );
 
       case ModelUiStatus.installed:
-        return _PillButton(label: 'Usar', accent: accent, onPressed: onUse);
+        return _PillButton(
+          label: 'Usar',
+          accent: accent,
+          onPressed: onUse,
+          dense: dense,
+        );
 
       case ModelUiStatus.available:
-        return _PillButton(label: 'Descargar', accent: accent, onPressed: onDownload);
+        return _PillButton(
+          label: 'Descargar',
+          accent: accent,
+          onPressed: onDownload,
+          dense: dense,
+        );
 
       case ModelUiStatus.downloading:
         return NanoOpticalSurface(
@@ -1271,17 +1460,31 @@ class _ModelAction extends StatelessWidget {
           accent: accent,
           onTap: onCancel,
           child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(Icons.close_rounded, size: 18, color: accent),
+            width: dense ? 28 : 36,
+            height: dense ? 28 : 36,
+            child: Icon(
+              Icons.close_rounded,
+              size: dense ? 15 : 18,
+              color: accent,
+            ),
           ),
         );
 
       case ModelUiStatus.error:
-        return _PillButton(label: 'Reintentar', accent: accent, onPressed: onDownload);
+        return _PillButton(
+          label: 'Reintentar',
+          accent: accent,
+          onPressed: onDownload,
+          dense: dense,
+        );
 
       case ModelUiStatus.incompatible:
-        return _PillButton(label: 'Descargar', accent: accent, onPressed: onDownload);
+        return _PillButton(
+          label: 'Descargar',
+          accent: accent,
+          onPressed: onDownload,
+          dense: dense,
+        );
     }
   }
 }
@@ -1291,11 +1494,13 @@ class _PillButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.accent,
+    this.dense = false,
   });
 
   final String label;
   final VoidCallback onPressed;
   final Color? accent;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -1309,13 +1514,16 @@ class _PillButton extends StatelessWidget {
       reflectionStrength: 0.60,
       accent: buttonAccent,
       onTap: onPressed,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? 9 : 14,
+        vertical: dense ? 4 : 7,
+      ),
       child: Center(
         child: Text(
           label,
           style: TextStyle(
             fontFamily: 'Inter',
-            fontSize: 12,
+            fontSize: dense ? 9.5 : 12,
             fontWeight: FontWeight.w600,
             color: colors.textPrimary,
             letterSpacing: -0.2,
@@ -1350,6 +1558,9 @@ class _DetectedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final mediaSize = MediaQuery.sizeOf(context);
+    final denseLandscape =
+        mediaSize.width > mediaSize.height && mediaSize.height < 520;
 
     return Semantics(
       label: '${model.name}, detectado en memoria${active ? ', activo' : ''}',
@@ -1360,16 +1571,20 @@ class _DetectedCard extends StatelessWidget {
           child: NanoOpticalSurface(
             borderRadius: _M3.compactRadius,
             blurSigma: active ? 16 : 12,
+            hasBackdropBlur: false,
             borderStrength: active ? 0.85 : 0.65,
             reflectionStrength: active ? 0.75 : 0.45,
             accent: active ? colors.accentMint : colors.accentMint,
             reflectionController: reflectionController,
             onTap: onTapDetails,
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(denseLandscape ? 8 : 12),
             child: Row(
               children: [
-                ModelBrandLogo(name: model.name),
-                const SizedBox(width: 12),
+                SizedBox.square(
+                  dimension: denseLandscape ? 34 : 48,
+                  child: FittedBox(child: ModelBrandLogo(name: model.name)),
+                ),
+                SizedBox(width: denseLandscape ? 6 : 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1384,37 +1599,44 @@ class _DetectedCard extends StatelessWidget {
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 color: colors.textPrimary,
-                                fontSize: 15,
+                                fontSize: denseLandscape ? 11.5 : 15,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: -0.2,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.info_outline_rounded, size: 14, color: colors.accentMint),
+                          SizedBox(width: denseLandscape ? 2 : 4),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: denseLandscape ? 11 : 14,
+                            color: colors.accentMint,
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: denseLandscape ? 2 : 4),
                       Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
+                        spacing: denseLandscape ? 3 : 6,
+                        runSpacing: denseLandscape ? 2 : 4,
                         children: [
                           _StatusChip(
                             label: 'MEMORIA SD',
                             color: colors.accentMint,
+                            dense: denseLandscape,
                           ),
                           if (active)
                             _StatusChip(
                               label: 'ACTIVO',
                               color: colors.accentSky,
+                              dense: denseLandscape,
                             ),
                           _StatusChip(
                             label: model.format.name.toUpperCase(),
                             color: colors.accentSky,
+                            dense: denseLandscape,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: denseLandscape ? 2 : 4),
                       Text(
                         model.sizeBytes > 0
                             ? formatBytes(model.sizeBytes)
@@ -1422,7 +1644,7 @@ class _DetectedCard extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: 'Inter',
                           color: colors.textSecondary,
-                          fontSize: 11.5,
+                          fontSize: denseLandscape ? 8.5 : 11.5,
                         ),
                       ),
                       if (model.path != null) ...[
@@ -1434,14 +1656,14 @@ class _DetectedCard extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'JetBrainsMono',
                             color: colors.textSecondary.withValues(alpha: 0.65),
-                            fontSize: 9.5,
+                            fontSize: denseLandscape ? 8 : 9.5,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: denseLandscape ? 4 : 8),
                 if (loading)
                   SizedBox(
                     width: 20,
@@ -1459,17 +1681,22 @@ class _DetectedCard extends StatelessWidget {
                     reflectionStrength: 0.60,
                     accent: colors.accentMint,
                     child: SizedBox(
-                      width: 34,
-                      height: 34,
+                      width: denseLandscape ? 28 : 34,
+                      height: denseLandscape ? 28 : 34,
                       child: Icon(
                         Icons.check_rounded,
                         color: colors.accentMint,
-                        size: 18,
+                        size: denseLandscape ? 15 : 18,
                       ),
                     ),
                   )
                 else
-                  _PillButton(label: 'Cargar', accent: colors.accentMint, onPressed: onUse),
+                  _PillButton(
+                    label: 'Cargar',
+                    accent: colors.accentMint,
+                    onPressed: onUse,
+                    dense: denseLandscape,
+                  ),
               ],
             ),
           ),
@@ -1597,8 +1824,8 @@ class _StorageUsage extends StatelessWidget {
                       color: usedPct > 0.9
                           ? colors.error
                           : usedPct > 0.7
-                              ? colors.warning
-                              : colors.accentMint,
+                          ? colors.warning
+                          : colors.accentMint,
                     ),
                   ),
                 ),
@@ -1630,7 +1857,8 @@ String formatGb(double gb) {
 String formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  if (bytes < 1024 * 1024 * 1024)
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
@@ -1734,10 +1962,7 @@ class _AllFilesBanner extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton(
-              onPressed: onGrant,
-              child: const Text('Conceder'),
-            ),
+            FilledButton(onPressed: onGrant, child: const Text('Conceder')),
           ],
         ),
       ),

@@ -8,11 +8,7 @@ import 'nano_dock_handle.dart';
 import 'nano_panel_controls.dart';
 import 'nano_selection_morph.dart';
 
-typedef NavTabSpec = ({
-  IconData icon,
-  IconData sel,
-  String label,
-});
+typedef NavTabSpec = ({IconData icon, IconData sel, String label});
 
 /// Panel de navegación interactivo con física, arrastre dinámico y estética líquida óptica flotante.
 class NanoNavigationPanel extends StatefulWidget {
@@ -82,10 +78,7 @@ class _NanoNavigationPanelState extends State<NanoNavigationPanel>
       innerContent = Row(
         mainAxisSize: MainAxisSize.max,
         children: [
-          NanoDockHandle(
-            colors: colors,
-            dockController: widget.dockController,
-          ),
+          NanoDockHandle(colors: colors, dockController: widget.dockController),
           const SizedBox(width: 4),
           Expanded(
             child: NanoSelectionMorphBar(
@@ -108,33 +101,40 @@ class _NanoNavigationPanelState extends State<NanoNavigationPanel>
         ],
       );
     } else {
-      innerContent = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 6),
-          NanoDockHandle(
-            colors: colors,
-            dockController: widget.dockController,
-          ),
-          const SizedBox(height: 6),
-          NanoSelectionMorphBar(
-            tabs: widget.tabs,
-            selectedIndex: currentIdx,
-            colors: colors,
-            position: widget.dockController.position,
-            isMinimized: isMinimized,
-            onTabSelected: (idx) => widget.shell.goBranch(
-              idx,
-              initialLocation: idx == currentIdx,
+      // En horizontal la altura útil puede ser menor que la suma de las cinco
+      // pestañas, el asa y los controles. El dock conserva todas las acciones
+      // accesibles mediante desplazamiento en vez de desbordar el RenderFlex.
+      innerContent = SingleChildScrollView(
+        primary: false,
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 6),
+            NanoDockHandle(
+              colors: colors,
+              dockController: widget.dockController,
             ),
-          ),
-          const SizedBox(height: 4),
-          NanoPanelControls(
-            colors: colors,
-            dockController: widget.dockController,
-          ),
-          const SizedBox(height: 6),
-        ],
+            const SizedBox(height: 6),
+            NanoSelectionMorphBar(
+              tabs: widget.tabs,
+              selectedIndex: currentIdx,
+              colors: colors,
+              position: widget.dockController.position,
+              isMinimized: isMinimized,
+              onTabSelected: (idx) => widget.shell.goBranch(
+                idx,
+                initialLocation: idx == currentIdx,
+              ),
+            ),
+            const SizedBox(height: 4),
+            NanoPanelControls(
+              colors: colors,
+              dockController: widget.dockController,
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
       );
     }
 
@@ -152,7 +152,8 @@ class _NanoNavigationPanelState extends State<NanoNavigationPanel>
 
     return GestureDetector(
       onPanStart: widget.dockController.onDragStart,
-      onPanUpdate: (details) => widget.dockController.onDragUpdate(details, screenSize),
+      onPanUpdate: (details) =>
+          widget.dockController.onDragUpdate(details, screenSize),
       onPanEnd: widget.dockController.onDragEnd,
       behavior: HitTestBehavior.translucent,
       child: Transform.translate(
@@ -162,7 +163,9 @@ class _NanoNavigationPanelState extends State<NanoNavigationPanel>
           child: MouseRegion(
             onHover: _onPointerHover,
             child: AnimatedContainer(
-              duration: isDragging ? Duration.zero : const Duration(milliseconds: 260),
+              duration: isDragging
+                  ? Duration.zero
+                  : const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
               width: isTop ? null : width,
               height: height,
@@ -220,14 +223,24 @@ class _NanoNavigationPanelState extends State<NanoNavigationPanel>
                                   end: Alignment.bottomRight,
                                   colors: isDark
                                       ? [
-                                          colors.backgroundPrimary.withValues(alpha: 0.88),
-                                          colors.surface.withValues(alpha: 0.70),
-                                          colors.surfaceVariant.withValues(alpha: 0.50),
+                                          colors.backgroundPrimary.withValues(
+                                            alpha: 0.88,
+                                          ),
+                                          colors.surface.withValues(
+                                            alpha: 0.70,
+                                          ),
+                                          colors.surfaceVariant.withValues(
+                                            alpha: 0.50,
+                                          ),
                                         ]
                                       : [
                                           Colors.white.withValues(alpha: 0.88),
-                                          colors.surface.withValues(alpha: 0.75),
-                                          colors.surfaceVariant.withValues(alpha: 0.60),
+                                          colors.surface.withValues(
+                                            alpha: 0.75,
+                                          ),
+                                          colors.surfaceVariant.withValues(
+                                            alpha: 0.60,
+                                          ),
                                         ],
                                 ),
                                 border: Border.all(

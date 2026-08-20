@@ -161,7 +161,13 @@ impl BenchmarkStore {
         let profiles = std::fs::read_to_string(&path)
             .ok()
             .and_then(|s| serde_json::from_str::<Vec<MeasuredExecutionProfile>>(&s).ok())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            // Un perfil producido por otro esquema o por kernels/vendor con
+            // semántica incompatible no puede influir en una decisión actual.
+            // El store es una cache de mediciones, no una base histórica.
+            .filter(|profile| profile.schema_version == BENCHMARK_SCHEMA_VERSION)
+            .collect();
         Self { path, profiles }
     }
 
@@ -181,11 +187,7 @@ impl BenchmarkStore {
 
     /// Inserta o reemplaza un perfil por su clave (device+modelo+backend).
     pub fn upsert(&mut self, profile: MeasuredExecutionProfile) {
-        if let Some(existing) = self
-            .profiles
-            .iter_mut()
-            .find(|p| p.key() == profile.key())
-        {
+        if let Some(existing) = self.profiles.iter_mut().find(|p| p.key() == profile.key()) {
             *existing = profile;
         } else {
             self.profiles.push(profile);
@@ -271,7 +273,11 @@ mod tests {
         }
     }
 
-    fn profile(device: &DeviceFingerprint, model: &ModelFingerprint, tok_s: f64) -> MeasuredExecutionProfile {
+    fn profile(
+        device: &DeviceFingerprint,
+        model: &ModelFingerprint,
+        tok_s: f64,
+    ) -> MeasuredExecutionProfile {
         MeasuredExecutionProfile {
             schema_version: BENCHMARK_SCHEMA_VERSION,
             device: device.clone(),
@@ -341,7 +347,8 @@ mod tests {
 
     #[test]
     fn save_load_roundtrip() {
-        let dir = std::env::temp_dir().join(format!("nano_bench_store_test_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("nano_bench_store_test_{}", std::process::id()));
         let path = dir.join("benchmark-store-v1.json");
         let d = device("MidRange", 8192, 8);
         let m = model("qwen2", 1_500_000_000);
@@ -361,7 +368,8 @@ mod tests {
 
     #[test]
     fn corrupt_file_loads_empty() {
-        let dir = std::env::temp_dir().join(format!("nano_bench_store_corrupt_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("nano_bench_store_corrupt_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("benchmark-store-v1.json");
         std::fs::write(&path, "not json").unwrap();
@@ -369,6 +377,22 @@ mod tests {
         let store = BenchmarkStore::load(&path);
         assert!(store.is_empty());
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn obsolete_schema_profiles_are_discarded() {
+        let dir =
+            std::env::temp_dir().join(format!("nano_bench_store_schema_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("benchmark-store-v1.json");
+        let d = device("MidRange", 8192, 8);
+        let m = model("qwen2", 1_500_000_000);
+        let mut stale = profile(&d, &m, 4.2);
+        stale.schema_version = BENCHMARK_SCHEMA_VERSION - 1;
+        std::fs::write(&path, serde_json::to_string(&vec![stale]).unwrap()).unwrap();
+
+        assert!(BenchmarkStore::load(&path).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

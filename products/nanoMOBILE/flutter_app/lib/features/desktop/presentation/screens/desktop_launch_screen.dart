@@ -206,7 +206,8 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
             setState(() {
               _progress = 0.0;
               _status = 'Fallo en la instalación';
-              _detail = 'No se pudo instalar el rootfs. Revisa el espacio libre.';
+              _detail =
+                  'No se pudo instalar el rootfs. Revisa el espacio libre.';
             });
           }
           return;
@@ -328,9 +329,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
         backgroundColor: colors.backgroundPrimary,
         body: Stack(
           children: [
-            const Positioned.fill(
-              child: NanoAmbientBackground(),
-            ),
+            const Positioned.fill(child: NanoAmbientBackground()),
             SafeArea(
               child: Center(
                 child: ConstrainedBox(
@@ -349,60 +348,60 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
                           }
                         },
                       ),
-                    const SizedBox(height: 16),
-                    _HeroCard(
-                      colors: colors,
-                      busy: _busy,
-                      vncReady: _desktopReady,
-                      status: _status,
-                      detail: _detail,
-                      stageLabel: _stageLabel,
-                      progress: _progress,
-                      formattedTime: _formattedTime,
-                      reflectionController: _reflectionController,
-                      onEnter: _prepareStartAndEnter,
-                      onDirectVisor: _openVisor,
-                    ),
-                    const SizedBox(height: 14),
-                    if (_killedByOs) ...[
-                      _KillRestoreBanner(colors: colors),
-                      const SizedBox(height: 14),
-                    ],
-                    if (!mobileMode)
-                      _StatusBadges(
+                      const SizedBox(height: 16),
+                      _HeroCard(
                         colors: colors,
-                        rootfsReady: _rootfsReady,
+                        busy: _busy,
                         vncReady: _desktopReady,
-                        port: _port,
+                        status: _status,
+                        detail: _detail,
+                        stageLabel: _stageLabel,
+                        progress: _progress,
                         formattedTime: _formattedTime,
-                        busy: _busy,
-                      ),
-                    const SizedBox(height: 14),
-                    if (!mobileMode)
-                      _ActionGrid(
-                        colors: colors,
-                        busy: _busy,
-                        vncReady: _desktopReady,
+                        reflectionController: _reflectionController,
                         onEnter: _prepareStartAndEnter,
                         onDirectVisor: _openVisor,
-                        onStop: _stop,
-                        onTerminal: () => context.go('/terminal'),
                       ),
-                    const SizedBox(height: 14),
-                    _InfoSection(colors: colors),
-                    if (mobileMode) ...[
                       const SizedBox(height: 14),
-                      _CompactMobileHint(colors: colors),
+                      if (_killedByOs) ...[
+                        _KillRestoreBanner(colors: colors),
+                        const SizedBox(height: 14),
+                      ],
+                      if (!mobileMode)
+                        _StatusBadges(
+                          colors: colors,
+                          rootfsReady: _rootfsReady,
+                          vncReady: _desktopReady,
+                          port: _port,
+                          formattedTime: _formattedTime,
+                          busy: _busy,
+                        ),
+                      const SizedBox(height: 14),
+                      if (!mobileMode)
+                        _ActionGrid(
+                          colors: colors,
+                          busy: _busy,
+                          vncReady: _desktopReady,
+                          onEnter: _prepareStartAndEnter,
+                          onDirectVisor: _openVisor,
+                          onStop: _stop,
+                          onTerminal: () => context.go('/terminal'),
+                        ),
+                      const SizedBox(height: 14),
+                      _InfoSection(colors: colors),
+                      if (mobileMode) ...[
+                        const SizedBox(height: 14),
+                        _CompactMobileHint(colors: colors),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -552,7 +551,9 @@ class _HeroCard extends StatelessWidget {
                     child: Icon(
                       vncReady
                           ? Icons.desktop_windows_rounded
-                          : (busy ? Icons.sync_rounded : Icons.computer_rounded),
+                          : (busy
+                                ? Icons.sync_rounded
+                                : Icons.computer_rounded),
                       color: accentColor,
                       size: 24,
                     ),
@@ -725,18 +726,20 @@ class _HeroCard extends StatelessWidget {
                         color: colors.textPrimary,
                       ),
                     const SizedBox(width: 8),
-                    Text(
-                      vncReady
-                          ? 'Entrar al Escritorio Linux'
-                          : 'Arrancar e Iniciar Escritorio',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                        letterSpacing: -0.2,
+                    Flexible(
+                      child: Text(
+                        vncReady
+                            ? 'Entrar al Escritorio Linux'
+                            : 'Arrancar e Iniciar Escritorio',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ),
                   ],
@@ -905,11 +908,18 @@ class _ActionGrid extends StatelessWidget {
                 reflectionStrength: 0.50,
                 accent: colors.accentSky,
                 onTap: onDirectVisor,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.open_in_new_rounded, size: 18, color: colors.textPrimary),
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      size: 18,
+                      color: colors.textPrimary,
+                    ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
@@ -937,11 +947,18 @@ class _ActionGrid extends StatelessWidget {
                 reflectionStrength: 0.50,
                 accent: colors.error,
                 onTap: busy ? null : onStop,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.power_settings_new_rounded, size: 18, color: colors.error),
+                    Icon(
+                      Icons.power_settings_new_rounded,
+                      size: 18,
+                      color: colors.error,
+                    ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
@@ -974,7 +991,11 @@ class _ActionGrid extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.terminal_rounded, size: 18, color: colors.textSecondary),
+              Icon(
+                Icons.terminal_rounded,
+                size: 18,
+                color: colors.textSecondary,
+              ),
               const SizedBox(width: 6),
               Text(
                 'Ir a Terminal CLI',
