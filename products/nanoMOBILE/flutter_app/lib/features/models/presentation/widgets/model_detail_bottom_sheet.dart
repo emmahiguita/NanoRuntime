@@ -9,7 +9,7 @@ import '../../../../core/widgets/live_animations.dart';
 import '../../../../core/widgets/nano_optical_surface.dart';
 import '../../data/model_source_registry.dart';
 import '../../domain/model_metadata_entities.dart';
-import '../../domain/usecases/ram_compatibility_evaluator.dart';
+import '../../domain/model_viability.dart';
 import 'model_brand_logos.dart';
 
 class ModelDetailBottomSheet extends StatelessWidget {
@@ -91,24 +91,36 @@ class ModelDetailBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final modelRam = verifiedInfo.estimatedRamGb.value ?? (isDetected ? 2.5 : 3.0);
-    final compat = RamCompatibilityEvaluator.evaluate(
-      requiredRamGb: modelRam,
-      deviceTotalRamGb: phoneTotalRamGb,
-    );
+    final deviceTotalRamGb = phoneTotalRamGb > 0 ? phoneTotalRamGb : 8.0;
+    final ramRatio = (modelRam / deviceTotalRamGb).clamp(0.0, 1.0);
+    // Verdicto alineado con el RuntimePlanner (Rust, umbrales 0.7/1.0/2.0).
+    // Fallback síncrono offline; la autoridad real es /api/viability cuando
+    // el motor está vivo.
+    final viability = viabilityFor(modelRam, deviceTotalRamGb);
 
     final Color compatibilityColor;
-    switch (compat.level) {
-      case CompatibilityLevel.optimal:
+    final String compatibilityLabel;
+    final String compatibilityDescription;
+    switch (viability) {
+      case ModelViability.fast:
         compatibilityColor = colors.accentMint;
+        compatibilityLabel = 'RÁPIDO';
+        compatibilityDescription = '✓ Ejecución rápida y ligera en este dispositivo.';
         break;
-      case CompatibilityLevel.viable:
+      case ModelViability.balanced:
         compatibilityColor = colors.accentSky;
+        compatibilityLabel = 'EQUILIBRADO';
+        compatibilityDescription = '✓ Inferencia viable con residencia adaptativa.';
         break;
-      case CompatibilityLevel.tight:
+      case ModelViability.streaming:
         compatibilityColor = colors.warning;
+        compatibilityLabel = 'STREAMING';
+        compatibilityDescription = '⚠ Modelo mayor que la RAM: streaming de capas, lento.';
         break;
-      case CompatibilityLevel.oomRisk:
+      case ModelViability.extreme:
         compatibilityColor = colors.error;
+        compatibilityLabel = 'EXTREMO';
+        compatibilityDescription = '⛔ Thrashing extremo: no interactivo.';
         break;
     }
 
@@ -407,7 +419,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                               border: Border.all(color: compatibilityColor.withValues(alpha: 0.35)),
                             ),
                             child: Text(
-                              compat.label,
+                              compatibilityLabel,
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 9.5,
@@ -459,13 +471,13 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Total: ${compat.deviceTotalRamGb.toStringAsFixed(1)} GB (${(compat.ramRatio * 100).toStringAsFixed(0)}%)',
+                                  'Total: ${deviceTotalRamGb.toStringAsFixed(1)} GB (${(ramRatio * 100).toStringAsFixed(0)}%)',
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
                                     color: NanoTextColors.forText(
-                                      compat.ramRatio > 0.85
+                                      ramRatio > 0.85
                                           ? colors.error
                                           : colors.accentSky,
                                       colors,
@@ -482,14 +494,14 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                 color: colors.metalSilver.withValues(alpha: 0.35),
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
-                                  widthFactor: compat.ramRatio,
+                                  widthFactor: ramRatio,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(6),
                                       gradient: LinearGradient(
-                                        colors: compat.ramRatio > 0.85
+                                        colors: ramRatio > 0.85
                                             ? [colors.warning, colors.error]
-                                            : compat.ramRatio > 0.65
+                                            : ramRatio > 0.65
                                                 ? [colors.accentSky, colors.warning]
                                                 : [colors.accentMint, colors.accentCyan],
                                       ),
@@ -500,7 +512,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              compat.description,
+                              compatibilityDescription,
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 11,

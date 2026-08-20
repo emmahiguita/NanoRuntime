@@ -11,6 +11,7 @@ import 'package:nanoai/features/models/application/models_provider.dart';
 import 'package:nanoai/features/models/data/model_source_registry.dart';
 import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
+import 'package:nanoai/features/models/domain/model_viability.dart';
 import 'package:nanoai/features/models/presentation/providers/model_metadata_providers.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_brand_logos.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_detail_bottom_sheet.dart';
@@ -273,7 +274,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                         description: model.description,
                         error: model.error,
                         status: status,
-                        viability: _viabilityOf(model, dashboard),
+                        viability: viabilityFor(model.ramGb, dashboard.ramTotalGb),
                         tier: model.tier,
                         ramNote: status == ModelUiStatus.incompatible
                             ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
@@ -651,13 +652,13 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                               : 2,
                                           crossAxisSpacing: 8,
                                           mainAxisSpacing: 8,
-                                          mainAxisExtent: 146,
+                                          mainAxisExtent: 162,
                                         )
                                       : const SliverGridDelegateWithMaxCrossAxisExtent(
                                           maxCrossAxisExtent: 360,
                                           crossAxisSpacing: 8,
                                           mainAxisSpacing: 8,
-                                          mainAxisExtent: 174,
+                                          mainAxisExtent: 188,
                                         ),
                                   itemCount: totalFilteredCount,
                                   itemBuilder: (context, index) =>
@@ -846,7 +847,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     if (model.installed) return 1;
     if (model.downloadState == ModelDownloadState.downloading) return 2;
     if (model.downloadState == ModelDownloadState.verifying) return 3;
-    final viability = _viabilityOf(model, dashboard);
+    final viability = viabilityFor(model.ramGb, dashboard.ramTotalGb);
     if (viability == ModelViability.fast) return 4;
     if (viability == ModelViability.balanced) return 5;
     if (viability == ModelViability.streaming) return 6;
@@ -1068,6 +1069,7 @@ class _ModelCard extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 310;
+                final isDense = denseLandscape || compact;
 
                 final details = _ModelDetails(
                   name: name,
@@ -1081,7 +1083,7 @@ class _ModelCard extends StatelessWidget {
                   ramNote: ramNote,
                   progress: progress,
                   accent: accent,
-                  dense: denseLandscape,
+                  dense: isDense,
                 );
 
                 final action = _ModelAction(
@@ -1089,7 +1091,7 @@ class _ModelCard extends StatelessWidget {
                   onUse: onUse,
                   onDownload: onDownload,
                   onCancel: onCancel,
-                  dense: denseLandscape,
+                  dense: isDense,
                 );
 
                 if (denseLandscape) {
@@ -1118,16 +1120,20 @@ class _ModelCard extends StatelessWidget {
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          icon,
-                          const SizedBox(width: 12),
+                          SizedBox.square(
+                            dimension: isDense ? 36 : 44,
+                            child: FittedBox(child: icon),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(child: details),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
                       Align(alignment: Alignment.centerRight, child: action),
                     ],
                   );
@@ -1404,12 +1410,14 @@ class _ModelAction extends StatelessWidget {
     required this.onUse,
     required this.onDownload,
     required this.onCancel,
+    this.dense = false,
   });
 
   final ModelUiStatus status;
   final VoidCallback onUse;
   final VoidCallback onDownload;
   final VoidCallback onCancel;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -1578,126 +1586,160 @@ class _DetectedCard extends StatelessWidget {
             reflectionController: reflectionController,
             onTap: onTapDetails,
             padding: EdgeInsets.all(denseLandscape ? 8 : 12),
-            child: Row(
-              children: [
-                SizedBox.square(
-                  dimension: denseLandscape ? 34 : 48,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 310;
+                final isDense = denseLandscape || compact;
+
+                final iconWidget = SizedBox.square(
+                  dimension: isDense ? 34 : 48,
                   child: FittedBox(child: ModelBrandLogo(name: model.name)),
-                ),
-                SizedBox(width: denseLandscape ? 6 : 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              model.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: colors.textPrimary,
-                                fontSize: denseLandscape ? 11.5 : 15,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                              ),
+                );
+
+                final detailsWidget = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            model.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: colors.textPrimary,
+                              fontSize: isDense ? 11.5 : 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                          SizedBox(width: denseLandscape ? 2 : 4),
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: denseLandscape ? 11 : 14,
-                            color: colors.accentMint,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: denseLandscape ? 2 : 4),
-                      Wrap(
-                        spacing: denseLandscape ? 3 : 6,
-                        runSpacing: denseLandscape ? 2 : 4,
-                        children: [
-                          _StatusChip(
-                            label: 'MEMORIA SD',
-                            color: colors.accentMint,
-                            dense: denseLandscape,
-                          ),
-                          if (active)
-                            _StatusChip(
-                              label: 'ACTIVO',
-                              color: colors.accentSky,
-                              dense: denseLandscape,
-                            ),
-                          _StatusChip(
-                            label: model.format.name.toUpperCase(),
-                            color: colors.accentSky,
-                            dense: denseLandscape,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: denseLandscape ? 2 : 4),
-                      Text(
-                        model.sizeBytes > 0
-                            ? formatBytes(model.sizeBytes)
-                            : 'Archivo local en SD / almacenamiento',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: colors.textSecondary,
-                          fontSize: denseLandscape ? 8.5 : 11.5,
                         ),
-                      ),
-                      if (model.path != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          model.path!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            color: colors.textSecondary.withValues(alpha: 0.65),
-                            fontSize: denseLandscape ? 8 : 9.5,
-                          ),
+                        SizedBox(width: isDense ? 2 : 4),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: isDense ? 11 : 14,
+                          color: colors.accentMint,
                         ),
                       ],
-                    ],
-                  ),
-                ),
-                SizedBox(width: denseLandscape ? 4 : 8),
-                if (loading)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colors.accentMint,
                     ),
-                  )
-                else if (active)
-                  NanoOpticalSurface(
-                    geometry: NanoSurfaceGeometry.circle,
-                    blurSigma: 8,
-                    borderStrength: 0.80,
-                    reflectionStrength: 0.60,
-                    accent: colors.accentMint,
-                    child: SizedBox(
-                      width: denseLandscape ? 28 : 34,
-                      height: denseLandscape ? 28 : 34,
-                      child: Icon(
-                        Icons.check_rounded,
-                        color: colors.accentMint,
-                        size: denseLandscape ? 15 : 18,
+                    SizedBox(height: isDense ? 2 : 4),
+                    Wrap(
+                      spacing: isDense ? 3 : 6,
+                      runSpacing: isDense ? 2 : 4,
+                      children: [
+                        _StatusChip(
+                          label: 'MEMORIA SD',
+                          color: colors.accentMint,
+                          dense: isDense,
+                        ),
+                        if (active)
+                          _StatusChip(
+                            label: 'ACTIVO',
+                            color: colors.accentSky,
+                            dense: isDense,
+                          ),
+                        _StatusChip(
+                          label: model.format.name.toUpperCase(),
+                          color: colors.accentSky,
+                          dense: isDense,
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: isDense ? 2 : 4),
+                    Text(
+                      model.sizeBytes > 0
+                          ? formatBytes(model.sizeBytes)
+                          : 'Archivo local en SD / almacenamiento',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: colors.textSecondary,
+                        fontSize: isDense ? 8.5 : 11.5,
                       ),
                     ),
-                  )
-                else
-                  _PillButton(
-                    label: 'Cargar',
-                    accent: colors.accentMint,
-                    onPressed: onUse,
-                    dense: denseLandscape,
-                  ),
-              ],
+                    if (model.path != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        model.path!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'JetBrainsMono',
+                          color: colors.textSecondary.withValues(alpha: 0.65),
+                          fontSize: isDense ? 8 : 9.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+
+                final actionWidget = loading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.accentMint,
+                        ),
+                      )
+                    : active
+                    ? NanoOpticalSurface(
+                        geometry: NanoSurfaceGeometry.circle,
+                        blurSigma: 8,
+                        borderStrength: 0.80,
+                        reflectionStrength: 0.60,
+                        accent: colors.accentMint,
+                        child: SizedBox(
+                          width: isDense ? 28 : 34,
+                          height: isDense ? 28 : 34,
+                          child: Icon(
+                            Icons.check_rounded,
+                            color: colors.accentMint,
+                            size: isDense ? 15 : 18,
+                          ),
+                        ),
+                      )
+                    : _PillButton(
+                        label: 'Cargar',
+                        accent: colors.accentMint,
+                        onPressed: onUse,
+                        dense: isDense,
+                      );
+
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          iconWidget,
+                          const SizedBox(width: 8),
+                          Expanded(child: detailsWidget),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: actionWidget,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    iconWidget,
+                    SizedBox(width: isDense ? 6 : 12),
+                    Expanded(child: detailsWidget),
+                    SizedBox(width: isDense ? 4 : 8),
+                    actionWidget,
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -1860,17 +1902,6 @@ String formatBytes(int bytes) {
   if (bytes < 1024 * 1024 * 1024)
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-}
-
-enum ModelViability { fast, balanced, streaming, extreme }
-
-ModelViability _viabilityOf(LocalModel model, DashboardState dashboard) {
-  if (dashboard.ramTotalGb <= 0) return ModelViability.fast;
-  final ratio = model.ramGb / dashboard.ramTotalGb;
-  if (ratio <= 0.7) return ModelViability.fast;
-  if (ratio <= 1.0) return ModelViability.balanced;
-  if (ratio <= 2.0) return ModelViability.streaming;
-  return ModelViability.extreme;
 }
 
 String _viabilityLabel(ModelViability v) {
