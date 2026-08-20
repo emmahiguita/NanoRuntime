@@ -154,9 +154,18 @@ class VerificationOutcome {
   String toString() => 'VerificationOutcome(${status.name}: $reason)';
 }
 
+/// Contrato mínimo del verificador de postcondiciones (DIP): lo que
+/// [AgentLoop] necesita. [ActionVerifier] lo implementa.
+abstract interface class AgentVerifier {
+  Future<VerificationOutcome> verify(
+    ActionExpectation expectation, {
+    NanoSnapshot? preSnapshot,
+  });
+}
+
 /// Verificador de postcondiciones. Sondea snapshots hasta satisfacer la
 /// expectativa o vencer el plazo.
-class ActionVerifier {
+class ActionVerifier implements AgentVerifier {
   ActionVerifier({
     required Future<NanoSnapshot?> Function() snapshotFn,
     NanoSelectorEngine? engine,
@@ -168,6 +177,7 @@ class ActionVerifier {
 
   /// Verifica [expectation]. [preSnapshot] solo se usa para
   /// [ActionExpectation.mustChangeSnapshot].
+  @override
   Future<VerificationOutcome> verify(
     ActionExpectation expectation, {
     NanoSnapshot? preSnapshot,

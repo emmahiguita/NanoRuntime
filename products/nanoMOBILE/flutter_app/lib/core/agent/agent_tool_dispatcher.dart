@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import '../services/nano_runtime_api.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
+import 'agent_loop.dart';
 import 'nano_selector.dart';
 import 'nano_snapshot.dart' as nano_snapshot;
 import 'tool_registry.dart';
@@ -169,6 +170,14 @@ class AgentToolDispatcher {
   /// executor). null en tests que no verifican.
   ActionVerifier get verifier =>
       _verifier ??= ActionVerifier(snapshotFn: _executor.snapshot);
+
+  /// Loop de ejecución orquestado (lazy): reutiliza el executor + verifier
+  /// existentes — añade retry transitorio + verificación entre intentos a
+  /// las acciones de ACT (tap/write) con postcondición. Es la lógica real
+  /// inyectada (AgentLoop), no un dispatch single-attempt.
+  AgentLoop? _loop;
+
+  AgentLoop get loop => _loop ??= AgentLoop(executor: _executor, verifier: verifier);
 
   /// Pasos ejecutados en el turno actual (lo incrementa cada ejecución real).
   /// El chat lo resetea con [resetTurn] en cada envío del usuario.
@@ -388,19 +397,33 @@ class AgentToolDispatcher {
   Future<String> _tap(ToolCall call) async {
     final (selector, err) = _tryParse(call.selector!);
     if (selector == null) return err!;
-    // Pre-snapshot para la postcondición por defecto (mustChangeSnapshot):
-    // un tap que no cambia nada en pantalla es sospechoso aunque el gesto
-    // devuelva true.
-    final pre = await _executor.snapshot();
-    final r = await _executor.tap(selector);
-    if (!r.ok) return '[${r.errorCode!.name}] ${r.reason}';
-    final b = r.targetNode!.bounds;
-    final base =
-        'tap en "${r.targetNode!.label}" @(${b.centerX.round()},${b.centerY.round()})';
+    // Postcondición por defecto: la pantalla debe cambiar (un tap que no
+    // cambia nada es sospechoso aunque el gesto devuelva true).
     final expectation = _expectationFor(call).copyWith(
       mustChangeSnapshot: true,
     );
-    return '$base${await _verifySuffix(expectation, preSnapshot: pre)}';
+    // AgentLoop orquestado: ejecuta + verifica. maxAttempts=1 para un tap:
+    // reintentar un gesto podría ser doble-tap (la verificación se reporta).
+    final result = await loop.run([
+      AgentStep(
+        id: 'tap(${call.selector})',
+        selector: selector,
+        action: AgentAction.tap,
+        expectation: expectation,
+        maxAttempts: 1,
+      ),
+    ]);
+    final sr = result.steps.first;
+    if (!sr.execution.ok) {
+      return '[${sr.execution.errorCode!.name}] ${sr.execution.reason}';
+    }
+    final b = sr.execution.targetNode!.bounds;
+    final base =
+        'tap en "${sr.execution.targetNode!.label}" '
+        '@(${b.centerX.round()},${b.centerY.round()})';
+    if (result.completed) return base;
+    return '$base [verify:${sr.verification?.status.name}] '
+        '${sr.verification?.reason}';
   }
 
   Future<String> _write(ToolCall call) async {
@@ -410,12 +433,27 @@ class AgentToolDispatcher {
     }
     final (selector, err) = _tryParse(call.selector!);
     if (selector == null) return err!;
-    final r = await _executor.setText(selector, text);
-    if (!r.ok) return '[${r.errorCode!.name}] ${r.reason}';
-    final base = '"$text" escrito en "${r.targetNode!.label}"';
-    // Postcondición por defecto: el texto escrito debe ser visible.
+    // AgentLoop orquestado: el texto escrito debe ser visible (verificación
+    // + retry; reescribir es idempotente, maxAttempts=3 es seguro).
     final expectation = _expectationFor(call).copyWith(expectedText: text);
-    return '$base${await _verifySuffix(expectation)}';
+    final result = await loop.run([
+      AgentStep(
+        id: 'write(${call.selector})',
+        selector: selector,
+        action: AgentAction.setText,
+        text: text,
+        expectation: expectation,
+        maxAttempts: 3,
+      ),
+    ]);
+    final sr = result.steps.first;
+    if (!sr.execution.ok) {
+      return '[${sr.execution.errorCode!.name}] ${sr.execution.reason}';
+    }
+    final base = '"$text" escrito en "${sr.execution.targetNode!.label}"';
+    if (result.completed) return base;
+    return '$base [verify:${sr.verification?.status.name}] '
+        '${sr.verification?.reason}';
   }
 
   Future<String> _back(ToolCall call) async {

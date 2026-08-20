@@ -20,9 +20,17 @@ import 'nano_selector.dart';
 import 'nano_snapshot.dart';
 import 'selector_engine.dart';
 
+/// Contrato mínimo del ejecutor (DIP): lo que [AgentLoop] necesita.
+/// [NanoAgentExecutor] lo implementa; los tests usan fakes.
+abstract interface class AgentExecutor {
+  Future<NanoSnapshot?> snapshot();
+  Future<AgentExecutionResult> tap(NanoSelector selector);
+  Future<AgentExecutionResult> setText(NanoSelector selector, String text);
+}
+
 /// Ejecutor de alto nivel. Puro en su lógica (motores inyectables) — el único
 /// punto de contacto con el canal es [NanoRuntimeApi].
-class NanoAgentExecutor {
+class NanoAgentExecutor implements AgentExecutor {
   NanoAgentExecutor({
     NanoRuntimeApi? api,
     NanoSelectorEngine? engine,
@@ -45,6 +53,7 @@ class NanoAgentExecutor {
   /// Snapshot con retry de rebind. null = canal muerto (servicio off o error
   /// de plataforma); snapshot con [NanoSnapshot.isEmpty] = canal vivo pero
   /// sin ventana activa (rebind largo).
+  @override
   Future<NanoSnapshot?> snapshot() async {
     Map<dynamic, dynamic>? lastRaw;
     for (var attempt = 1; attempt <= snapshotMaxAttempts; attempt++) {
@@ -86,6 +95,7 @@ class NanoAgentExecutor {
 
   /// Tap seguro sobre [selector]: snapshot → resolve → actionability →
   /// estabilidad → tapAt(centro del bounds).
+  @override
   Future<AgentExecutionResult> tap(NanoSelector selector) async {
     final snap = await snapshot();
     if (snap == null) {
@@ -157,6 +167,7 @@ class NanoAgentExecutor {
   /// Escribe [text] en el campo de [selector]. Si el campo no tiene foco,
   /// primero hace [tap] (foco verificado contra re-snapshot — si sigue sin
   /// foco, aborta con notActionable).
+  @override
   Future<AgentExecutionResult> setText(
     NanoSelector selector,
     String text,

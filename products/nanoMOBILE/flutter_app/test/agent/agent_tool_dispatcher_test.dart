@@ -122,7 +122,9 @@ void main() {
       dumpProvider = () =>
           tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
       final r = await dispatcher.runCommand('@tap text=Bluetooth');
-      expect(r, 'tap en "Bluetooth" @(540,340) · verificado');
+      // AgentLoop verificado: completa limpio (sin sufijo [verify:]) porque
+      // la postcondición (cambio de snapshot) se satisfizo.
+      expect(r, 'tap en "Bluetooth" @(540,340)');
       expect(tapCalls, [
         [540, 340],
       ]);
@@ -158,7 +160,6 @@ void main() {
       };
       final r = await dispatcher.runCommand('@escribir wifi | editable=true');
       expect(r, contains('"wifi" escrito en'));
-      expect(r, contains('· verificado'));
       expect(inputCalls, ['wifi']);
     });
 

@@ -29,10 +29,22 @@ class FakeAgentApi extends NanoRuntimeApi {
   final List<String> inputs = [];
   final List<String> globalActions = [];
 
+  /// Simula el efecto visible de una escritura: el texto queda en el nodo
+  /// editable enfocado → la verificación del AgentLoop pasa en el 1er intento.
+  String? visibleText;
+
   @override
   Future<Map<dynamic, dynamic>?> agentDumpSnapshot() async {
     if (snapshotFuture != null) return snapshotFuture;
-    return snapshotRaw;
+    if (visibleText == null || snapshotRaw == null) return snapshotRaw;
+    final nodes = (snapshotRaw!['nodes'] as List).map((n) {
+      final m = Map<String, dynamic>.from(n as Map);
+      if (m['editable'] == true && m['focused'] == true) {
+        m['text'] = visibleText;
+      }
+      return m;
+    }).toList();
+    return {'package': snapshotRaw!['package'], 'nodes': nodes};
   }
 
   @override
@@ -44,6 +56,7 @@ class FakeAgentApi extends NanoRuntimeApi {
   @override
   Future<bool> agentInputText(String text) async {
     inputs.add(text);
+    visibleText = text;
     return true;
   }
 
