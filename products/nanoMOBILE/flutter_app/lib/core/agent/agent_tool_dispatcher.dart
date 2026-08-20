@@ -17,8 +17,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../services/nano_runtime_api.dart';
+import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'nano_selector.dart';
+import 'nano_snapshot.dart' as nano_snapshot;
 import 'tool_registry.dart';
 
 /// Llamada a herramienta extraída de una respuesta del LLM.
@@ -27,7 +29,17 @@ class ToolCall {
   final String? selector;
   final String? text;
   final String? key;
-  const ToolCall({required this.tool, this.selector, this.text, this.key});
+
+  /// Postcondiciones declaradas por el llamador (LLM o comando @):
+  /// `{package, appear, disappear, text, forbidden}` — ver [ActionVerifier].
+  final Map<String, dynamic>? expect;
+  const ToolCall({
+    required this.tool,
+    this.selector,
+    this.text,
+    this.key,
+    this.expect,
+  });
 }
 
 /// Parseo tolerante del bloque JSON de herramientas en texto generado.
@@ -89,6 +101,9 @@ abstract final class AgentToolProtocol {
         selector: map['selector'] as String?,
         text: map['text'] as String?,
         key: map['key'] as String?,
+        expect: map['expect'] is Map
+            ? (map['expect'] as Map).cast<String, dynamic>()
+            : null,
       );
     } catch (_) {
       // Fallback por regex campo a campo.
@@ -141,11 +156,19 @@ class AgentToolDispatcher {
     NanoAgentExecutor? executor,
     ToolRegistry? registry,
     PolicyEngine? policy,
+    ActionVerifier? verifier,
   }) : _executor = executor ?? NanoAgentExecutor(),
-       _policy = policy ?? PolicyEngine(registry: registry);
+       _policy = policy ?? PolicyEngine(registry: registry),
+       _verifier = verifier;
 
   final NanoAgentExecutor _executor;
   final PolicyEngine _policy;
+  ActionVerifier? _verifier;
+
+  /// Verificador de postcondiciones (lazy: comparte el snapshot del
+  /// executor). null en tests que no verifican.
+  ActionVerifier get verifier =>
+      _verifier ??= ActionVerifier(snapshotFn: _executor.snapshot);
 
   /// Pasos ejecutados en el turno actual (lo incrementa cada ejecución real).
   /// El chat lo resetea con [resetTurn] en cada envío del usuario.
@@ -298,14 +321,14 @@ class AgentToolDispatcher {
         if (call.selector == null || call.selector!.isEmpty) {
           return '[tool] tap requiere "selector".';
         }
-        return _tap(call.selector!);
+        return _tap(call);
       case 'write':
         if (call.selector == null || call.selector!.isEmpty) {
           return '[tool] write requiere "selector".';
         }
-        return _write('${call.text ?? ''} | ${call.selector}');
+        return _write(call);
       case 'back':
-        return _back();
+        return _back(call);
       case 'notifications':
         return _notifications();
       case 'reply_notification':
@@ -362,34 +385,100 @@ class AgentToolDispatcher {
         '(${outcome.best!.score} pts).\n${top.join('\n')}';
   }
 
-  Future<String> _tap(String expr) async {
-    final (selector, err) = _tryParse(expr);
+  Future<String> _tap(ToolCall call) async {
+    final (selector, err) = _tryParse(call.selector!);
     if (selector == null) return err!;
+    // Pre-snapshot para la postcondición por defecto (mustChangeSnapshot):
+    // un tap que no cambia nada en pantalla es sospechoso aunque el gesto
+    // devuelva true.
+    final pre = await _executor.snapshot();
     final r = await _executor.tap(selector);
     if (!r.ok) return '[${r.errorCode!.name}] ${r.reason}';
     final b = r.targetNode!.bounds;
-    return 'tap en "${r.targetNode!.label}" @(${b.centerX.round()},${b.centerY.round()})';
+    final base =
+        'tap en "${r.targetNode!.label}" @(${b.centerX.round()},${b.centerY.round()})';
+    final expectation = _expectationFor(call).copyWith(
+      mustChangeSnapshot: true,
+    );
+    return '$base${await _verifySuffix(expectation, preSnapshot: pre)}';
   }
 
-  Future<String> _write(String rest) async {
-    // Sintaxis: `texto | selector` (el texto puede contener espacios).
-    final sep = rest.lastIndexOf(' | ');
-    if (sep < 0) {
-      return 'Sintaxis: @escribir <texto> | <selector>. Ej: @escribir wifi | editable=true';
+  Future<String> _write(ToolCall call) async {
+    final text = (call.text ?? '').trim();
+    if (text.isEmpty) {
+      return 'Texto vacío en @escribir.';
     }
-    final text = rest.substring(0, sep).trim();
-    final expr = rest.substring(sep + 3).trim();
-    if (text.isEmpty) return 'Texto vacío en @escribir.';
-    final (selector, err) = _tryParse(expr);
+    final (selector, err) = _tryParse(call.selector!);
     if (selector == null) return err!;
     final r = await _executor.setText(selector, text);
     if (!r.ok) return '[${r.errorCode!.name}] ${r.reason}';
-    return '"$text" escrito en "${r.targetNode!.label}"';
+    final base = '"$text" escrito en "${r.targetNode!.label}"';
+    // Postcondición por defecto: el texto escrito debe ser visible.
+    final expectation = _expectationFor(call).copyWith(expectedText: text);
+    return '$base${await _verifySuffix(expectation)}';
   }
 
-  Future<String> _back() async {
+  Future<String> _back(ToolCall call) async {
+    final pre = await _executor.snapshot();
     final ok = await NanoRuntimeApi.instance.agentGlobalAction('back');
-    return ok ? 'Botón atrás ejecutado.' : '[gestureFailed] Back falló.';
+    if (!ok) return '[gestureFailed] Back falló.';
+    // Postcondición por defecto: la pantalla debe cambiar.
+    final expectation = _expectationFor(call).copyWith(
+      mustChangeSnapshot: true,
+    );
+    return 'Botón atrás ejecutado.'
+        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+  }
+
+  // ── Verificación de postcondiciones ───────────────────────────────────────
+
+  /// Construye la expectativa declarada en `call.expect`
+  /// (`{package, appear, disappear, text, forbidden}`). Selectores inválidos
+  /// se ignoran con warning en el feedback — no rompen la acción.
+  ActionExpectation _expectationFor(ToolCall call) {
+    final e = call.expect;
+    if (e == null) return const ActionExpectation();
+    NanoSelector? parse(Object? raw) {
+      if (raw is! String || raw.trim().isEmpty) return null;
+      try {
+        return NanoSelector.parse(raw);
+      } on SelectorFormatException {
+        return null;
+      }
+    }
+
+    String? str(String key) {
+      final v = e[key];
+      return v is String && v.trim().isNotEmpty ? v.trim() : null;
+    }
+
+    return ActionExpectation(
+      expectedPackage: str('package'),
+      mustAppear: parse(e['appear']),
+      mustDisappear: parse(e['disappear']),
+      expectedText: str('text'),
+      forbiddenText: str('forbidden'),
+    );
+  }
+
+  /// Sufijo de feedback con el resultado de la verificación. Vacío si está
+  /// verificada; `[verify:<status>] motivo` si no — el éxito del gesto NO se
+  /// reporta sin la postcondición.
+  Future<String> _verifySuffix(
+    ActionExpectation expectation, {
+    nano_snapshot.NanoSnapshot? preSnapshot,
+  }) async {
+    if (!expectation.hasCriteria) return '';
+    try {
+      final out = await verifier.verify(
+        expectation,
+        preSnapshot: preSnapshot,
+      );
+      if (out.isVerified) return ' · verificado';
+      return ' [verify:${out.status.name}] ${out.reason}';
+    } catch (e) {
+      return ' [verify:error] $e';
+    }
   }
 
   Future<String> _notifications() async {
