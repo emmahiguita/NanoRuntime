@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/core/widgets/nano_section.dart';
+  import 'package:nanoai/core/theme/nano_type.dart';
+  import 'package:nanoai/core/widgets/nano_components.dart';
+  import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/automation/executors/notification_executor.dart';
 
 class NotificationAutomationSection extends ConsumerStatefulWidget {
@@ -149,10 +150,9 @@ class _NotificationAutomationSectionState
           Icons.notifications_active_rounded,
           colors: colors,
         ),
-        SettingsCard(
-          shadow: NanoShadows.card(colors),
-          colors: colors,
-          child: Padding(
+          NanoCard(
+            padding: EdgeInsets.zero,
+            child: Padding(
             padding: const EdgeInsets.all(NanoSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

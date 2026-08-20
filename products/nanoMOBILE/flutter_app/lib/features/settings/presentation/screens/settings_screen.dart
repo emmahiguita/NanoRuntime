@@ -7,8 +7,9 @@ import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
-import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/core/widgets/nano_section.dart';
+  import 'package:nanoai/core/theme/nano_type.dart';
+  import 'package:nanoai/core/widgets/nano_components.dart';
+  import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/presentation/agent_console_section.dart';
 import 'package:nanoai/features/automation/presentation/notification_automation_section.dart';
@@ -29,8 +30,7 @@ class SettingsScreen extends ConsumerWidget {
     final state = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final colors = NanoThemeExtension.of(context).colors;
-    final shadow = NanoShadows.card(colors);
-
+    
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return TweenAnimationBuilder<double>(
@@ -50,11 +50,11 @@ class SettingsScreen extends ConsumerWidget {
               ? NanoSpacing.xl
               : NanoSpacing.md;
           final primary = <Widget>[
-            _themeSection(state, notifier, colors, shadow),
+            _themeSection(state, notifier, colors),
           ];
           final secondary = <Widget>[
-            _inferenceSection(state, notifier, colors, shadow),
-            _agentSection(state, notifier, colors, shadow),
+            _inferenceSection(state, notifier, colors),
+            _agentSection(state, notifier, colors),
           ];
 
           return ListView(
@@ -100,15 +100,14 @@ class SettingsScreen extends ConsumerWidget {
     required String title,
     required IconData icon,
     required NanoColors colors,
-    required List<BoxShadow> shadow,
-    required Widget child,
+        required Widget child,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: NanoSpacing.lg),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(title, icon, colors: colors),
-        SettingsCard(shadow: shadow, colors: colors, child: child),
+          NanoCard(padding: EdgeInsets.zero, child: child),
       ],
     ),
   );
@@ -117,13 +116,11 @@ class SettingsScreen extends ConsumerWidget {
     SettingsState state,
     SettingsNotifier notifier,
     NanoColors colors,
-    List<BoxShadow> shadow,
-  ) => _section(
+      ) => _section(
     title: 'Apariencia',
     icon: Icons.palette_rounded,
     colors: colors,
-    shadow: shadow,
-    child: _ChoiceGroup(
+        child: _ChoiceGroup(
       label: 'Tema de la interfaz',
       description: 'Se aplica al instante y respeta el modo del sistema.',
       options: _themeOptions,
@@ -137,13 +134,11 @@ class SettingsScreen extends ConsumerWidget {
     SettingsState state,
     SettingsNotifier notifier,
     NanoColors colors,
-    List<BoxShadow> shadow,
-  ) => _section(
+      ) => _section(
     title: 'Generación de IA',
     icon: Icons.psychology_rounded,
     colors: colors,
-    shadow: shadow,
-    child: Column(
+        child: Column(
       children: [
         _SliderRow(
           label: 'Creatividad',
@@ -182,13 +177,11 @@ class SettingsScreen extends ConsumerWidget {
     SettingsState state,
     SettingsNotifier notifier,
     NanoColors colors,
-    List<BoxShadow> shadow,
-  ) => _section(
+      ) => _section(
     title: 'Agente de chat',
     icon: Icons.smart_toy_rounded,
     colors: colors,
-    shadow: shadow,
-    child: _ChoiceGroup(
+        child: _ChoiceGroup(
       label: 'Nivel de automatización',
       description: state.agentAutomationMode.description,
       options: const [
@@ -409,8 +402,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final shadow = NanoShadows.card(colors);
-    final vncProtected = ref.watch(settingsProvider).vncPassword.isNotEmpty;
+        final vncProtected = ref.watch(settingsProvider).vncPassword.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,10 +412,9 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
           Icons.desktop_windows,
           colors: colors,
         ),
-        SettingsCard(
-          shadow: shadow,
-          colors: colors,
-          child: Column(
+          NanoCard(
+            padding: EdgeInsets.zero,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(

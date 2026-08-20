@@ -3,8 +3,9 @@ import 'package:nanoai/core/agent/agent_executor.dart';
 import 'package:nanoai/core/agent/nano_selector.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/core/widgets/nano_section.dart';
+  import 'package:nanoai/core/theme/nano_type.dart';
+  import 'package:nanoai/core/widgets/nano_components.dart';
+  import 'package:nanoai/core/widgets/nano_section.dart';
 
 /// Consola del agente de UI — consumidor real del Selector Engine.
 ///
@@ -169,16 +170,14 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final shadow = NanoShadows.card(colors);
-    return Column(
+      final colors = NanoThemeExtension.of(context).colors;
+      return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader('Agente de UI', Icons.smart_toy, colors: colors),
-        SettingsCard(
-          shadow: shadow,
-          colors: colors,
-          child: Column(
+          NanoCard(
+            padding: EdgeInsets.zero,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(_status, style: NanoType.body(colors.onSurface)),
