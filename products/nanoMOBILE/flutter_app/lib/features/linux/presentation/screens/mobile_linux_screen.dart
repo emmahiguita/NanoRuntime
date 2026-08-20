@@ -49,69 +49,47 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
 
     final colors = NanoThemeExtension.of(context).colors;
 
-    return Scaffold(
-      backgroundColor: colors.backgroundPrimary,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: NanoAmbientBackground(),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context, colors),
-                Expanded(child: _buildBody(context, colors)),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: NanoAmbientBackground(),
+        ),
+        Column(
+          children: [
+            _buildHeader(context, colors),
+            Expanded(child: _buildBody(context, colors)),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildHeader(BuildContext context, NanoColors colors) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (rect) {
-                    return LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      stops: const [0.0, 0.65, 0.85, 1.0],
-                      colors: [
-                        colors.textPrimary,
-                        colors.textPrimary,
-                        colors.accentCyan,
-                        colors.accentLavender,
-                      ],
-                    ).createShader(rect);
-                  },
-                  child: const Text(
-                    'nanoai',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
                 Text(
                   'Nano Linux',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                     color: colors.textPrimary,
-                    letterSpacing: -0.8,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  'Entorno y contenedores locales',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colors.textSecondary,
                   ),
                 ),
               ],

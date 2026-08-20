@@ -68,16 +68,16 @@ class AppRouter {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/settings',
-                pageBuilder: (_, __) => _expressiveSlide(const SettingsScreen()),
+                path: '/linux',
+                pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/linux',
-                pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
+                path: '/settings',
+                pageBuilder: (_, __) => _expressiveSlide(const SettingsScreen()),
               ),
             ],
           ),

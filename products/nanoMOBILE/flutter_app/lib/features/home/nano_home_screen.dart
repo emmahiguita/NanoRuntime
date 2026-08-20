@@ -206,29 +206,6 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Flexible + FittedBox: el conjunto identidad+Kali
-                                // nunca desborda la fila (pantallas angostas y
-                                // fuentes fallback de test).
-                                const Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: _IdentityHeader(compact: true),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _KaliChip(
-                                  status: widget.kaliStatus,
-                                  onTap: widget.onKaliTap,
-                                  compact: true,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
                             AnimatedCrossFade(
                               duration: const Duration(milliseconds: 240),
                               crossFadeState: _showTelemetry
@@ -240,6 +217,8 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                 temperature: widget.telemetry.temperature,
                                 storage: widget.telemetry.freeStorage,
                                 battery: widget.telemetry.battery,
+                                kaliStatus: widget.kaliStatus,
+                                onKaliTap: widget.onKaliTap,
                                 compact: true,
                                 onCollapse: () =>
                                     setState(() => _showTelemetry = false),
@@ -284,8 +263,8 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                 // COMPOSICIÓN PORTRAIT MOBILE-FIRST
                 // ─────────────────────────────────────────────
                 final carouselHeight =
-                    (_showTelemetry ? (maxHeight * 0.65) : (maxHeight * 0.78))
-                        .clamp(300.0, 520.0);
+                    (_showTelemetry ? (maxHeight * 0.70) : (maxHeight * 0.82))
+                        .clamp(300.0, 540.0);
                 final horizontalPadding = maxWidth < 360
                     ? 12.0
                     : (maxWidth < 430 ? 16.0 : 20.0);
@@ -296,26 +275,13 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
                         horizontalPadding,
-                        10,
+                        4,
                         horizontalPadding,
-                        math.max(16, media.padding.bottom + 12),
+                        math.max(12, media.padding.bottom + 8),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _AnimatedEntrance(
-                            controller: _entryController,
-                            begin: 0.0,
-                            end: 0.30,
-                            slideOffset: const Offset(0, -6),
-                            child: const _IdentityHeader(),
-                          ),
-                          const SizedBox(height: 6),
-                          _KaliChip(
-                            status: widget.kaliStatus,
-                            onTap: widget.onKaliTap,
-                          ),
-                          const SizedBox(height: 10),
                           AnimatedCrossFade(
                             duration: const Duration(milliseconds: 240),
                             crossFadeState: _showTelemetry
@@ -325,13 +291,15 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                               controller: _entryController,
                               begin: 0.05,
                               end: 0.40,
-                              slideOffset: const Offset(0, -10),
+                              slideOffset: const Offset(0, -8),
                               child: _TelemetryGlass(
                                 ram: widget.telemetry.ram,
                                 cpu: widget.telemetry.cpu,
                                 temperature: widget.telemetry.temperature,
                                 storage: widget.telemetry.freeStorage,
                                 battery: widget.telemetry.battery,
+                                kaliStatus: widget.kaliStatus,
+                                onKaliTap: widget.onKaliTap,
                                 compact: true,
                                 onCollapse: () =>
                                     setState(() => _showTelemetry = false),
@@ -385,67 +353,33 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
 // =============================================================
 // IDENTIDAD NANOAI + SUPERFICIE KALI (chip honesto de estado)
 // =============================================================
+// TELEMETRY CON MICRO-MEDIDORES Y TRANSICIONES SUAVES
+// =============================================================
 
-class _IdentityHeader extends StatelessWidget {
+class _TelemetryGlass extends StatelessWidget {
+  final String ram;
+  final String cpu;
+  final String temperature;
+  final String storage;
+  final String battery;
+  final KaliStatus? kaliStatus;
+  final VoidCallback? onKaliTap;
   final bool compact;
+  final VoidCallback? onCollapse;
 
-  const _IdentityHeader({this.compact = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    // Compacto bajo 400 lógicos (360 con padding 16: 'nanoai local
-    // intelligence' a 24px desbordaría la fila en 328px disponibles).
-    final compact = this.compact || MediaQuery.sizeOf(context).width <= 400;
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'nanoai',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: compact ? 18 : 24,
-              height: 1.0,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.8,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Text(
-              'local intelligence',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: compact ? 10 : 12,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.4,
-                color: colors.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _KaliChip extends StatelessWidget {
-  final KaliStatus status;
-  final VoidCallback onTap;
-  final bool compact;
-
-  const _KaliChip({
-    required this.status,
-    required this.onTap,
+  const _TelemetryGlass({
+    required this.ram,
+    required this.cpu,
+    required this.temperature,
+    required this.storage,
+    required this.battery,
+    this.kaliStatus,
+    this.onKaliTap,
     this.compact = false,
+    this.onCollapse,
   });
 
-  Color _statusColor(NanoColors colors) {
+  Color _statusColor(KaliStatus status, NanoColors colors) {
     switch (status) {
       case KaliStatus.running:
         return colors.accentMint;
@@ -459,91 +393,6 @@ class _KaliChip extends StatelessWidget {
         return colors.textSecondary;
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-
-    return NanoOpticalSurface(
-      geometry: NanoSurfaceGeometry.capsule,
-      blurSigma: 10,
-      borderStrength: 0.60,
-      reflectionStrength: 0.45,
-      onTap: onTap,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 12,
-        vertical: compact ? 2 : 4,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.terminal_rounded,
-            size: compact ? 11 : 13,
-            color: colors.accentCyan,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Kali',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: compact ? 10 : 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            width: 1,
-            height: 10,
-            color: colors.metalSilver.withValues(alpha: 0.50),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            status.label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: compact ? 9 : 10.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-              color: _statusColor(colors),
-            ),
-          ),
-          const SizedBox(width: 2),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: compact ? 10 : 12,
-            color: colors.textSecondary.withValues(alpha: 0.70),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================
-// TELEMETRY CON MICRO-MEDIDORES Y TRANSICIONES SUAVES
-// =============================================================
-
-class _TelemetryGlass extends StatelessWidget {
-  final String ram;
-  final String cpu;
-  final String temperature;
-  final String storage;
-  final String battery;
-  final bool compact;
-  final VoidCallback? onCollapse;
-
-  const _TelemetryGlass({
-    required this.ram,
-    required this.cpu,
-    required this.temperature,
-    required this.storage,
-    required this.battery,
-    this.compact = false,
-    this.onCollapse,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -565,6 +414,13 @@ class _TelemetryGlass extends StatelessWidget {
         Icons.battery_full_rounded,
         colors.accentMint,
       ),
+      if (kaliStatus != null)
+        _MetricData(
+          'LINUX',
+          kaliStatus!.label,
+          Icons.terminal_rounded,
+          _statusColor(kaliStatus!, colors),
+        ),
     ];
 
     return RepaintBoundary(
@@ -577,7 +433,15 @@ class _TelemetryGlass extends StatelessWidget {
         child: Row(
           children: [
             for (int i = 0; i < metrics.length; i++) ...[
-              Expanded(child: _Metric(data: metrics[i], compact: true)),
+              Expanded(
+                child: metrics[i].label == 'LINUX' && onKaliTap != null
+                    ? InkWell(
+                        onTap: onKaliTap,
+                        borderRadius: BorderRadius.circular(6),
+                        child: _Metric(data: metrics[i], compact: true),
+                      )
+                    : _Metric(data: metrics[i], compact: true),
+              ),
               if (i < metrics.length - 1)
                 Container(
                   width: 0.8,
@@ -832,6 +696,7 @@ class _FeatureCarousel extends StatelessWidget {
           Expanded(
             child: PageView.builder(
               key: const ValueKey('nano-home-carousel'),
+              clipBehavior: Clip.none,
               controller: controller,
               itemCount: items.length,
               onPageChanged: (index) {
@@ -854,15 +719,15 @@ class _FeatureCarousel extends StatelessWidget {
 
                     final reduceMotion = NanoMotion.reduceMotion(context);
 
-                    // Parallax y rotación en perspectiva física 3D
-                    final scale = reduceMotion ? 1.0 : (1.0 - distance * 0.08);
+                    // Parallax y rotación en perspectiva física 3D suave
+                    final scale = reduceMotion ? 1.0 : (1.0 - distance * 0.06);
                     final rotationY = reduceMotion
                         ? 0.0
-                        : -delta * (8.5 * math.pi / 180);
+                        : -delta * (6.0 * math.pi / 180);
                     final translationY = reduceMotion
-                        ? distance * 4.0
-                        : distance * 12.0;
-                    final translationX = reduceMotion ? 0.0 : -delta * 6.0;
+                        ? distance * 2.0
+                        : distance * 6.0;
+                    final translationX = reduceMotion ? 0.0 : -delta * 4.0;
 
                     // Desplazamiento cáustico inercial reactivo al gesto
                     final specularDrift = -(page - page.roundToDouble()) * 0.22;
@@ -872,7 +737,7 @@ class _FeatureCarousel extends StatelessWidget {
                           ? Alignment.centerLeft
                           : Alignment.centerRight,
                       transform: Matrix4.identity()
-                        ..setEntry(3, 2, reduceMotion ? 0.0 : 0.0012)
+                        ..setEntry(3, 2, reduceMotion ? 0.0 : 0.0008)
                         ..setTranslationRaw(translationX, translationY, 0.0)
                         ..rotateY(rotationY)
                         ..scaleByDouble(scale, scale, 1.0, 1.0),
@@ -968,7 +833,7 @@ class NanoFeatureCard extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: isLandscape ? 1.05 : 0.82,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: NanoOpticalSurface(
             borderRadius: NanoRadius.large,
             blurSigma: 18,

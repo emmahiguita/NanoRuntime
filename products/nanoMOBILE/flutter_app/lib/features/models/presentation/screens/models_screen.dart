@@ -187,24 +187,21 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final totalCount = catalogModels.length + detected.length;
     final totalInStorage = detected.length + installedModels.length;
 
-    return Scaffold(
-      backgroundColor: colors.backgroundPrimary,
-      body: Stack(
-        children: [
-          const Positioned.fill(child: NanoAmbientBackground()),
-          if (!state.allFilesGranted)
-            Positioned(
-              top: 8,
-              left: 16,
-              right: 16,
-              child: _AllFilesBanner(
-                onGrant: () => notifier.requestAllFilesAccess(),
-              ),
+    return Stack(
+      children: [
+        const Positioned.fill(child: NanoAmbientBackground()),
+        if (!state.allFilesGranted)
+          Positioned(
+            top: 8,
+            left: 16,
+            right: 16,
+            child: _AllFilesBanner(
+              onGrant: () => notifier.requestAllFilesAccess(),
             ),
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isLandscape = constraints.maxWidth > constraints.maxHeight;
+          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isLandscape = constraints.maxWidth > constraints.maxHeight;
 
                 Widget buildCardAt(int index) {
                   final item = unifiedList[index];
@@ -327,30 +324,14 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                         height: 42,
                         child: Row(
                           children: [
-                            // Marca oficial NanoAI
-                            ShaderMask(
-                              blendMode: BlendMode.srcIn,
-                              shaderCallback: (rect) {
-                                return LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  stops: const [0.0, 0.60, 0.85, 1.0],
-                                  colors: [
-                                    colors.textPrimary,
-                                    colors.textPrimary,
-                                    NanoTextColors.forText(colors.accentCyan, colors),
-                                    NanoTextColors.forText(colors.accentLavender, colors),
-                                  ],
-                                ).createShader(rect);
-                              },
-                              child: const Text(
-                                'NanoAI',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.6,
-                                ),
+                            Text(
+                              'Modelos',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                                color: colors.textPrimary,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -570,7 +551,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                       crossAxisCount: constraints.maxWidth >= 1000 ? 3 : 2,
                                       crossAxisSpacing: 10,
                                       mainAxisSpacing: 10,
-                                      mainAxisExtent: 172,
+                                      mainAxisExtent: 196,
                                     ),
                                     itemCount: totalFilteredCount,
                                     itemBuilder: (context, index) => buildCardAt(index),
@@ -649,10 +630,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                 );
               },
             ),
-          ),
         ],
-      ),
-    );
+      );
   }
 
   void _openModelDetails({

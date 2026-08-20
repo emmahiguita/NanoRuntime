@@ -37,16 +37,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // Dictado por voz real (speech_to_text) y adjunto de archivos real
   // (file_picker → SAF de Android). Ambos fallan a mensaje honesto,
   // nunca a excepción suelta.
-  final SpeechToText _speech = SpeechToText();
-  bool _speechReady = false;
+  late final SpeechToText _speech;
+  bool _speechEnabled = false;
   bool _listening = false;
+  bool _isComposerMinimized = false;
 
   /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
 
   @override
+  void initState() {
+    super.initState();
+    _speech = SpeechToText();
+  }
+
+  @override
   void dispose() {
-    if (_speechReady && _speech.isListening) {
+    if (_speechEnabled && _speech.isListening) {
       _speech.stop();
     }
     _inputController.dispose();
@@ -71,9 +78,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Inicializa el motor de voz una sola vez (pide permiso RECORD_AUDIO
   /// en el primer uso) y alterna escucha con resultados al input.
   Future<void> _toggleMic() async {
-    if (!_speechReady) {
+    if (!_speechEnabled) {
       try {
-        _speechReady = await _speech.initialize(
+        _speechEnabled = await _speech.initialize(
           onStatus: (status) {
             if (!mounted) return;
             setState(() => _listening = status == 'listening');
@@ -85,12 +92,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           },
         );
       } catch (e) {
-        _speechReady = false;
+        _speechEnabled = false;
         if (!mounted) return;
         _showHonestError('Micrófono no disponible: $e');
         return;
       }
-      if (!_speechReady) {
+      if (!_speechEnabled) {
         if (!mounted) return;
         _showHonestError(
           'Reconocimiento de voz no disponible en este '
@@ -142,7 +149,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final text = utf8.decode(bytes, allowMalformed: true);
 
       // Heurística honesta: si el contenido no es texto imprimible, no sirve.
-      if (text.trim().isEmpty || text.contains('�') || _looksBinary(text)) {
+      if (text.trim().isEmpty || text.contains('') || _looksBinary(text)) {
         _showHonestError(
           'El archivo no parece texto legible; adjunta '
           'archivos .txt/.md/.log.',
@@ -214,8 +221,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
+      hideHeaderInPortrait: true,
       trailing: Row(
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (state.messages.isNotEmpty)
             IconButton(
@@ -230,21 +238,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           const SizedBox(width: 4),
-          Flexible(
-            child: _EngineBadge(
-              online: state.engineOnline,
-              loading: state.connection == ModelConnectionState.loadingModel,
-            ),
+          _EngineBadge(
+            online: state.engineOnline,
+            loading: state.connection == ModelConnectionState.loadingModel,
           ),
         ],
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 920),
-          child: Stack(
+          child: Column(
             children: [
               // ── Lista de mensajes ────────────────────────────────────
-              Positioned.fill(
+              Expanded(
                 child: state.messages.isEmpty
                     ? _EmptyChat(
                         engineOnline: state.engineOnline,
@@ -257,9 +263,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        // El padding inferior extra (100 px) evita que el
-                        // último mensaje quede oculto bajo la barra flotante.
-                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 110),
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
                         itemCount:
                             state.messages.length + (state.generating ? 1 : 0),
                         itemBuilder: (context, index) {
@@ -292,6 +297,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 onRetry: isError && !state.generating
                                     ? () => notifier.retry(message.id)
                                     : null,
+                                onDelete: state.generating
+                                    ? null
+                                    : () => _showDeleteDialog(notifier, message),
                               ),
                             ),
                           );
@@ -299,33 +307,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
               ),
 
-              // ── Barra de escritura FLOTANTE ──────────────────────────
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                    child: _Composer(
-                      controller: _inputController,
-                      enabled: state.canSend && !state.generating,
-                      generating: state.generating,
-                      listening: _listening,
-                      attachments: state.attachments,
-                      onRemoveAttachment: notifier.removeAttachment,
-                      onAttach: _attachFile,
-                      onMic: _toggleMic,
-                      onSend: () {
-                        final text = _inputController.text.trim();
-                        if (text.isEmpty) return;
+              // ── Barra de escritura FLOTANTE con Liquid Glass Water Morphing ──────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _isComposerMinimized
+                      ? Align(
+                          alignment: Alignment.centerRight,
+                          child: _MinimizedComposerBubble(
+                            key: const ValueKey('minimized_bubble'),
+                            onExpand: () => setState(() => _isComposerMinimized = false),
+                            hasAttachments: state.attachments.isNotEmpty,
+                            listening: _listening,
+                          ),
+                        )
+                      : _Composer(
+                          key: const ValueKey('expanded_composer'),
+                          controller: _inputController,
+                          enabled: state.canSend && !state.generating,
+                          generating: state.generating,
+                          listening: _listening,
+                          attachments: state.attachments,
+                          onRemoveAttachment: notifier.removeAttachment,
+                          onAttach: _attachFile,
+                          onMic: _toggleMic,
+                          onMinimize: () => setState(() => _isComposerMinimized = true),
+                          onSend: () {
+                            final text = _inputController.text.trim();
+                            if (text.isEmpty) return;
 
-                        notifier.send(text);
-                        _inputController.clear();
-                      },
-                      onStop: notifier.stop,
-                    ),
-                  ),
+                            notifier.send(text);
+                            _inputController.clear();
+                          },
+                          onStop: notifier.stop,
+                        ),
                 ),
               ),
             ],
@@ -693,6 +711,7 @@ class _MessageBubble extends StatelessWidget {
     this.attachmentNames = const [],
     this.tps,
     this.onRetry,
+    this.onDelete,
   });
 
   final String text;
@@ -706,6 +725,9 @@ class _MessageBubble extends StatelessWidget {
 
   /// Callback para reintentar el envío tras un error.
   final VoidCallback? onRetry;
+
+  /// Callback para eliminar el mensaje.
+  final VoidCallback? onDelete;
 
   /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
   /// el contenido se inyectó al prompt y no se persiste).
@@ -765,26 +787,34 @@ class _MessageBubble extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: isDark
                   ? [
-                      colors.accent.withValues(alpha: 0.22),
-                      colors.accentMint.withValues(alpha: 0.12),
+                      colors.primary.withValues(alpha: 0.35),
+                      colors.accentCyan.withValues(alpha: 0.20),
                     ]
                   : [
-                      colors.primary.withValues(alpha: 0.16),
-                      colors.accentSky.withValues(alpha: 0.08),
+                      colors.primary.withValues(alpha: 0.18),
+                      colors.accentSky.withValues(alpha: 0.10),
                     ],
             ),
             borderRadius: bubbleBorderRadius,
             border: Border.all(
               color: isDark
-                  ? colors.accent.withValues(alpha: 0.45)
+                  ? colors.accentCyan.withValues(alpha: 0.50)
                   : colors.primary.withValues(alpha: 0.35),
               width: 1.0,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: (isDark ? colors.accentCyan : colors.primary)
+                    .withValues(alpha: isDark ? 0.20 : 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
           )
         : BoxDecoration(
             gradient: NanoGlass.substrate(
               colors,
-              opacity: isDark ? 0.75 : 0.85,
+              opacity: isDark ? 0.78 : 0.88,
             ),
             borderRadius: bubbleBorderRadius,
           );
@@ -849,6 +879,7 @@ class _MessageBubble extends StatelessWidget {
                   text: text,
                   model: model,
                   timestamp: timestamp,
+                  onDelete: onDelete,
                 ),
               if (onRetry != null)
                 GestureDetector(
@@ -951,11 +982,13 @@ class _MessageActions extends StatelessWidget {
     required this.text,
     required this.model,
     required this.timestamp,
+    this.onDelete,
   });
 
   final String text;
   final String model;
   final DateTime timestamp;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -996,6 +1029,10 @@ class _MessageActions extends StatelessWidget {
             await SharePlus.instance.share(
               ShareParams(text: text, subject: 'Respuesta NanoAI — $model'),
             );
+            break;
+
+          case 'delete':
+            if (onDelete != null) onDelete!();
             break;
 
           case 'export_pdf':
@@ -1060,6 +1097,27 @@ class _MessageActions extends StatelessWidget {
             ],
           ),
         ),
+        if (onDelete != null)
+          PopupMenuItem<String>(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: colors.danger,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Eliminar',
+                  style: TextStyle(
+                    color: colors.danger,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
         // ── Divisor ────────────────────────────────────────────
         const PopupMenuDivider(
           height: 1,
@@ -1534,6 +1592,7 @@ class _SuggestionChip extends StatelessWidget {
 
 class _Composer extends StatefulWidget {
   const _Composer({
+    super.key,
     required this.controller,
     required this.enabled,
     required this.generating,
@@ -1542,6 +1601,7 @@ class _Composer extends StatefulWidget {
     required this.onRemoveAttachment,
     required this.onAttach,
     required this.onMic,
+    required this.onMinimize,
     required this.onSend,
     required this.onStop,
   });
@@ -1554,6 +1614,7 @@ class _Composer extends StatefulWidget {
   final void Function(String) onRemoveAttachment;
   final VoidCallback onAttach;
   final VoidCallback onMic;
+  final VoidCallback onMinimize;
   final VoidCallback onSend;
   final VoidCallback onStop;
 
@@ -1601,37 +1662,21 @@ class _ComposerState extends State<_Composer> {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = colors is NanoDarkColors;
 
-    final colors2 = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Container(
-      decoration: BoxDecoration(
-        // Gradiente sutil de fade hacia arriba para separar visualmente
-        // la barra del contenido sin usar un borde duro.
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colors2.background.withValues(alpha: 0.0),
-            colors2.background.withValues(alpha: 0.85),
-          ],
-          stops: const [0.0, 0.35],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      child: NanoOpticalSurface(
-        geometry: NanoSurfaceGeometry.roundedRectangle,
-        borderRadius: 24,
-        blurSigma: 24.0,
-        borderStrength: _isFocused ? 1.0 : 0.80,
-        reflectionStrength: _isFocused ? 0.90 : 0.65,
-        depth: 1.15,
-        accent: _isFocused
-            ? (isDark ? colors.accent : colors.accentCyan)
-            : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return NanoOpticalSurface(
+      geometry: NanoSurfaceGeometry.roundedRectangle,
+      borderRadius: 24,
+      blurSigma: 24.0,
+      borderStrength: _isFocused ? 1.0 : 0.80,
+      reflectionStrength: _isFocused ? 0.90 : 0.65,
+      depth: 1.15,
+      accent: _isFocused
+          ? (isDark ? colors.accent : colors.accentCyan)
+          : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             if (widget.attachments.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(left: 4, right: 4, bottom: 6, top: 2),
@@ -1700,6 +1745,29 @@ class _ComposerState extends State<_Composer> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // Botón Minimizar con efecto suave
+                Tooltip(
+                  message: 'Minimizar barra',
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(99),
+                      onTap: widget.onMinimize,
+                      child: SizedBox(
+                        width: 30,
+                        height: 36,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: colors.onSurface.withValues(alpha: 0.52),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+
                 // Botón Mic / Dictado
                 Tooltip(
                   message: 'Dictado por voz',
@@ -1873,7 +1941,100 @@ class _ComposerState extends State<_Composer> {
             ),
           ],
         ),
+      );
+  }
+}
+
+/// Cápsula líquida flotante que se muestra cuando la barra de chat está encogida/minimizada.
+class _MinimizedComposerBubble extends StatelessWidget {
+  const _MinimizedComposerBubble({
+    super.key,
+    required this.onExpand,
+    required this.hasAttachments,
+    required this.listening,
+  });
+
+  final VoidCallback onExpand;
+  final bool hasAttachments;
+  final bool listening;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+
+    return GestureDetector(
+      onTap: onExpand,
+      child: NanoOpticalSurface(
+        geometry: NanoSurfaceGeometry.capsule,
+        borderRadius: 999,
+        blurSigma: 20.0,
+        borderStrength: 0.85,
+        reflectionStrength: 0.75,
+        depth: 1.2,
+        accent: isDark ? colors.accentCyan : colors.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    colors.accentCyan.withValues(alpha: isDark ? 0.95 : 0.85),
+                    colors.accentMint.withValues(alpha: isDark ? 0.95 : 0.85),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.accentCyan.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  listening ? Icons.mic_rounded : Icons.edit_note_rounded,
+                  size: 16,
+                  color: const Color(0xFF001524),
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Text(
+              'Escribir mensaje...',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
+            if (hasAttachments) ...[
+              const SizedBox(width: 6),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.accentLavender,
+                ),
+              ),
+            ],
+            const SizedBox(width: 8),
+            Icon(
+              Icons.unfold_more_rounded,
+              size: 16,
+              color: colors.textSecondary.withValues(alpha: 0.75),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+

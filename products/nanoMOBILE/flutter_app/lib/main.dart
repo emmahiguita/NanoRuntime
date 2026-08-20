@@ -11,6 +11,7 @@ import 'core/services/boot_orchestrator.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/design_tokens.dart';
 import 'core/theme/adaptive_theme.dart';
+import 'core/widgets/nano_shader_host.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -21,8 +22,9 @@ void main() {
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
 
-  // Inicializar registry de distribuciones Linux
+  // Inicializar registry de distribuciones Linux y precarga de shaders GPU
   initializeLinuxDistributions();
+  unawaited(NanoShaderHost.preload());
 
   runApp(const ProviderScope(child: NanoPlatformApp()));
   _listenSystemNavigation();
