@@ -8,16 +8,16 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
   import 'package:nanoai/core/theme/nano_type.dart';
+  import 'package:nanoai/core/widgets/nano_choice_group.dart';
   import 'package:nanoai/core/widgets/nano_components.dart';
   import 'package:nanoai/core/widgets/nano_section.dart';
-  import 'package:nanoai/features/automation/domain/automation_policy.dart';
   import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
 
 /// Opciones disponibles para el modo de tema.
 const _themeOptions = [
-  _ChoiceOption('Sistema', 'Sistema', Icons.brightness_auto_rounded),
-  _ChoiceOption('Oscuro', 'Oscuro', Icons.dark_mode_rounded),
-  _ChoiceOption('Claro', 'Claro', Icons.light_mode_rounded),
+  ChoiceOption('Sistema', 'Sistema', Icons.brightness_auto_rounded),
+  ChoiceOption('Oscuro', 'Oscuro', Icons.dark_mode_rounded),
+  ChoiceOption('Claro', 'Claro', Icons.light_mode_rounded),
 ];
 
 class SettingsScreen extends ConsumerWidget {
@@ -52,7 +52,6 @@ class SettingsScreen extends ConsumerWidget {
           ];
           final secondary = <Widget>[
             _inferenceSection(state, notifier, colors),
-            _agentSection(state, notifier, colors),
           ];
 
           return ListView(
@@ -114,7 +113,7 @@ class SettingsScreen extends ConsumerWidget {
     title: 'Apariencia',
     icon: Icons.palette_rounded,
     colors: colors,
-        child: _ChoiceGroup(
+        child: ChoiceGroup(
       label: 'Tema de la interfaz',
       description: 'Se aplica al instante y respeta el modo del sistema.',
       options: _themeOptions,
@@ -167,35 +166,6 @@ class SettingsScreen extends ConsumerWidget {
     ),
   );
 
-  Widget _agentSection(
-    SettingsState state,
-    SettingsNotifier notifier,
-    NanoColors colors,
-      ) => _section(
-    title: 'Agente de chat',
-    icon: Icons.smart_toy_rounded,
-    colors: colors,
-        child: _ChoiceGroup(
-      label: 'Nivel de automatización',
-      description: state.agentAutomationMode.description,
-      options: const [
-        _ChoiceOption('manual', 'Manual', Icons.pan_tool_alt_rounded),
-        _ChoiceOption('assisted', 'Asistido', Icons.assistant_rounded),
-        _ChoiceOption('autonomous', 'Autónomo', Icons.auto_awesome_rounded),
-      ],
-      selectedValue: state.agentAutomationMode.name,
-      onSelected: (value) =>
-          notifier.setAgentAutomationMode(AgentAutomationMode.fromName(value)),
-      colors: colors,
-    ),
-  );
-}
-
-class _ChoiceOption {
-  const _ChoiceOption(this.value, this.label, this.icon);
-  final String value;
-  final String label;
-  final IconData icon;
 }
 
 class _SettingsIntro extends StatelessWidget {
@@ -261,80 +231,6 @@ class _SettingsIntro extends StatelessWidget {
   );
 }
 
-class _ChoiceGroup extends StatelessWidget {
-  const _ChoiceGroup({
-    required this.label,
-    required this.description,
-    required this.options,
-    required this.selectedValue,
-    required this.onSelected,
-    required this.colors,
-  });
-
-  final String label;
-  final String description;
-  final List<_ChoiceOption> options;
-  final String selectedValue;
-  final ValueChanged<String> onSelected;
-  final NanoColors colors;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: NanoType.body(colors.onSurface)),
-      const SizedBox(height: NanoSpacing.xs),
-      AnimatedSize(
-        duration: NanoMotion.adapt(context, NanoMotionDurations.standard),
-        curve: NanoMotionCurves.emphasized,
-        alignment: Alignment.topLeft,
-        child: Text(
-          description,
-          key: ValueKey(description),
-          style: NanoType.caption(colors.onSurfaceVariant),
-        ),
-      ),
-      const SizedBox(height: NanoSpacing.md),
-      Wrap(
-        spacing: NanoSpacing.sm,
-        runSpacing: NanoSpacing.sm,
-        children: [
-          for (final option in options)
-            ChoiceChip(
-              avatar: Icon(
-                option.icon,
-                size: 17,
-                color: selectedValue == option.value
-                    ? colors.primary
-                    : colors.onSurfaceVariant,
-              ),
-              label: Text(option.label),
-              labelStyle: NanoType.caption(
-                selectedValue == option.value
-                    ? colors.primary
-                    : colors.onSurface,
-              ),
-              selected: selectedValue == option.value,
-              onSelected: (_) => onSelected(option.value),
-              selectedColor: colors.primaryContainer,
-              backgroundColor: colors.surface.withValues(alpha: 0.52),
-              side: BorderSide(
-                color: selectedValue == option.value
-                    ? colors.primary.withValues(alpha: 0.28)
-                    : colors.outlineVariant.withValues(alpha: 0.55),
-              ),
-              shape: const RoundedRectangleBorder(
-                borderRadius: NanoShapes.full,
-              ),
-              showCheckmark: false,
-            ),
-        ],
-      ),
-    ],
-  );
-}
-
-// â”€â”€ Escritorio Linux (protección VNC + almacenamiento compartido) â”€â”€
 class _DesktopSection extends ConsumerStatefulWidget {
   const _DesktopSection();
 
