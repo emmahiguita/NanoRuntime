@@ -43,7 +43,8 @@
         android:description="@string/app_settings_description"
         android:settingsActivity=".MainActivity"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:extractNativeLibs="true">
+        android:extractNativeLibs="true"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

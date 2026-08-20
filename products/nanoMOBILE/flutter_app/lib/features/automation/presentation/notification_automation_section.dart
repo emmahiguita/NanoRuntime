@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_transitions.dart';
   import 'package:nanoai/core/theme/nano_type.dart';
   import 'package:nanoai/core/widgets/nano_components.dart';
   import 'package:nanoai/core/widgets/nano_section.dart';
@@ -101,7 +102,7 @@ class _NotificationAutomationSectionState
     final selected = _selected;
     final text = _draftController.text.trim();
     if (selected == null || text.isEmpty) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showNanoModalDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar respuesta'),

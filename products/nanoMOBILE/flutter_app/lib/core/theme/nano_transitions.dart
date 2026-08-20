@@ -149,9 +149,32 @@ class NanoExpressiveSlideTransition extends StatelessWidget {
   }
 }
 
+/// Muestra un diálogo/modal con la transición de cristal óptico
+/// ([NanoModalGlassTransition]) en lugar de la FadeUpwards de Material.
+///
+/// Misma semántica que [showDialog]: barrera, dismiss, root navigator y
+/// resultado tipado vía `T`. Respeta `disableAnimations` (reduce-motion)
+/// internamente en [NanoModalGlassTransition].
+Future<T?> showNanoModalDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black54,
+    transitionDuration: NanoMotionDurations.standard,
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return NanoModalGlassTransition(animation: animation, child: child);
+    },
+  );
+}
+
 /// Transición para modales y diálogos de cristal óptico.
-class NanoModalGlassTransition extends StatelessWidget {
-  final Animation<double> animation;
+class NanoModalGlassTransition extends StatelessWidget {  final Animation<double> animation;
   final Widget child;
 
   const NanoModalGlassTransition({

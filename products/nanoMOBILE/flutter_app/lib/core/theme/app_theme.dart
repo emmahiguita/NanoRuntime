@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'design_tokens.dart';
-import 'adaptive_theme.dart';
+import 'nano_transitions.dart';
 
 class AppTheme {
   /// Inter desde ASSETS locales (offline-first). No usa GoogleFonts: con
@@ -289,10 +289,14 @@ class AppTheme {
       ),
       elevation: 2,
     ),
-    // Transición de página consistente y ágil para cualquier push/route,
-    // además de la transición custom por-pestaña definida en AppRouter.
+    // Transición de página unificada del sistema Nano (glass morph + gesto
+    // predictivo de back en Android 14+). Antes dependía del tema (dark usaba
+    // FadeForwards M3, light un fade+slide propio): la MISMA navegación
+    // animaba distinto según modo claro/oscuro. Ahora es independiente del
+    // tema. Las rutas de go_router usan CustomTransitionPage (AppRouter) —
+    // este theme aplica al resto (rutas sueltas, preview de predictive back).
     pageTransitionsTheme: PageTransitionsTheme(builders: {
-      TargetPlatform.android: _AdaptivePageTransitionBuilder(),
+      TargetPlatform.android: const NanoPredictiveBackPageTransitionsBuilder(),
       TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
     }),
     extensions: [NanoThemeExtension(colors: c)],
@@ -301,46 +305,5 @@ class AppTheme {
 
   static final light = _base(NanoLightColors());
   static final dark = _base(NanoDarkColors());
-}
-
-/// Custom page transition builder adaptativo para modo claro con glassmorphism
-class _AdaptivePageTransitionBuilder extends PageTransitionsBuilder {
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T>? route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()?.colors;
-    final isLight = colors is NanoLightColors;
-    final isLandscape = AdaptiveTheme.isLandscape(context);
-
-    if (!isLight) {
-      return const FadeForwardsPageTransitionsBuilder().buildTransitions(
-        route,
-        context,
-        animation,
-        secondaryAnimation,
-        child,
-      );
-    }
-
-    // Adaptar animación según orientación
-    return FadeTransition(
-      opacity: animation,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: Offset(0, isLandscape ? 0.05 : 0.1),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: animation,
-          curve: NanoCurves.easeOut,
-        )),
-        child: child,
-      ),
-    );
-  }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/linux/linux_distribution_registry.dart';
 import '../../../../core/linux/linux_init.dart';
 import '../../../../core/providers/kali_provider.dart';
+import '../../../../core/theme/nano_transitions.dart';
 
 /// Pantalla de prueba para verificar el sistema multi-distro.
 ///
@@ -80,7 +81,7 @@ class _LinuxTestScreenState extends ConsumerState<LinuxTestScreen> {
                             onPressed: () async {
                               final info = await dist.getInfo();
                               if (!context.mounted) return;
-                              showDialog(
+                              showNanoModalDialog(
                                 context: context,
                                   builder: (context) => AlertDialog(
                                     title: const Text('Info'),

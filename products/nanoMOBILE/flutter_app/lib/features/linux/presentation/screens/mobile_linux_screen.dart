@@ -7,6 +7,7 @@ import '../../../../core/linux/linux_distribution_registry.dart';
 import '../../../../core/linux/linux_init.dart';
 import '../../../../core/providers/kali_provider.dart';
 import '../../../../core/theme/design_tokens.dart';
+import '../../../../core/theme/nano_transitions.dart';
 import '../../../../core/widgets/nano_ambient_background.dart';
 import '../../../../core/widgets/nano_optical_surface.dart';
 
@@ -181,7 +182,7 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
 
   void _showInstallDialog(LinuxDistribution dist) {
     final colors = NanoThemeExtension.of(context).colors;
-    showDialog(
+    showNanoModalDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.backgroundElevated,
@@ -295,7 +296,7 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
     LinuxDistributionInfo info,
   ) {
     final colors = NanoThemeExtension.of(context).colors;
-    showDialog(
+    showNanoModalDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.backgroundElevated,
@@ -338,7 +339,7 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
 
   void _confirmUninstall(LinuxDistribution dist) {
     final colors = NanoThemeExtension.of(context).colors;
-    showDialog(
+    showNanoModalDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.backgroundElevated,

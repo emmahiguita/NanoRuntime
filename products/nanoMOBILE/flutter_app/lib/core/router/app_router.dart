@@ -79,8 +79,10 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/settings',
-                pageBuilder: (_, __) =>
-                    _expressiveSlide(const SettingsScreen()),
+                // Misma transición primaria que el resto de pestañas: la
+                // navegación entre tabs debe sentirse uniforme (antes usaba
+                // _expressiveSlide y rompía la consistencia del glass morph).
+                pageBuilder: (_, __) => _glassMorph(const SettingsScreen()),
               ),
             ],
           ),

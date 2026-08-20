@@ -12,6 +12,7 @@ import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
@@ -415,7 +416,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Diálogo de confirmación para limpiar todo el historial.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showNanoModalDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: colors.surface,
@@ -455,7 +456,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ChatMessage message,
   ) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showNanoModalDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: colors.surface,
@@ -500,7 +501,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final approved = await showDialog<bool>(
+    final approved = await showNanoModalDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(

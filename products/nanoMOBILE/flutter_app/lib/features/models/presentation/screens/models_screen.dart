@@ -6,6 +6,7 @@ import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
+import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
@@ -866,7 +867,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       ref.read(modelsProvider.notifier).loadModel(model.id);
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showNanoModalDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Modelo EXTREME'),
