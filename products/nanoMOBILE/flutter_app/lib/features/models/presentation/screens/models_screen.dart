@@ -705,13 +705,16 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                               : 2,
                                           crossAxisSpacing: 8,
                                           mainAxisSpacing: 8,
-                                          mainAxisExtent: 162,
+                                          mainAxisExtent: 178,
                                         )
                                       : const SliverGridDelegateWithMaxCrossAxisExtent(
                                           maxCrossAxisExtent: 360,
                                           crossAxisSpacing: 8,
                                           mainAxisSpacing: 8,
-                                          mainAxisExtent: 188,
+                                          // Altura reservada para nombre en
+                                          // 2 líneas + descripción en 2 (sin
+                                          // overflow al envolver texto).
+                                          mainAxisExtent: 212,
                                         ),
                                   itemCount: totalFilteredCount,
                                   itemBuilder: (context, index) =>
@@ -1282,7 +1285,9 @@ class _ModelDetails extends StatelessWidget {
             Expanded(
               child: Text(
                 name,
-                maxLines: 1,
+                // Nombre del modelo: 2 líneas — un título no debe cortarse
+                // (el grid reserva altura para el wrap, ver mainAxisExtent).
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'Inter',
@@ -1357,7 +1362,8 @@ class _ModelDetails extends StatelessWidget {
         else
           Text(
             '${formatGb(sizeGb)} · $description',
-            maxLines: 1,
+            // Descripción: 2 líneas — información, no label corto.
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Inter',
@@ -1657,7 +1663,7 @@ class _DetectedCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             model.name,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontFamily: 'Inter',

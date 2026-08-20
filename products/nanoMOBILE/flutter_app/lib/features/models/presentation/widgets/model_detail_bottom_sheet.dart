@@ -730,13 +730,11 @@ class ModelDetailBottomSheet extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      // Botón de Acción Principal — full-width solo en compact
-                      // (mobile), content-sized en tablet/desktop.
-                      nanoAdaptivePrimary(
-                        context,
-                        SizedBox(
-                          height: 48,
-                          child: NanoOpticalSurface(
+                      // Botón de Acción Principal — content-sized (el CTA
+                      // nunca se estira al ancho de la sábana/pantalla).
+                      SizedBox(
+                        height: 48,
+                        child: NanoOpticalSurface(
                           borderRadius: 14,
                           blurSigma: 12,
                           borderStrength: 0.85,
@@ -768,7 +766,6 @@ class ModelDetailBottomSheet extends StatelessWidget {
                               ],
                             ),
                           ),
-                        ),
                         ),
                       ),
                     ],

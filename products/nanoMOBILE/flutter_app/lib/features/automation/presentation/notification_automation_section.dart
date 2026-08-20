@@ -164,13 +164,10 @@ class _NotificationAutomationSectionState
                 ),
                 const SizedBox(height: NanoSpacing.md),
                 if (!_status.accessGranted)
-                  nanoAdaptivePrimary(
-                    context,
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _requestAccess,
-                      icon: const Icon(Icons.security_rounded),
-                      label: const Text('Conceder acceso en Android'),
-                    ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _requestAccess,
+                    icon: const Icon(Icons.security_rounded),
+                    label: const Text('Conceder acceso en Android'),
                   )
                 else if (!_status.connected)
                   Text(
@@ -244,13 +241,10 @@ class _NotificationAutomationSectionState
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  nanoAdaptivePrimary(
-                    context,
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _confirmReply,
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('Revisar y enviar'),
-                    ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _confirmReply,
+                    icon: const Icon(Icons.send_rounded),
+                    label: const Text('Revisar y enviar'),
                   ),
                 ],
                 if (_busy) ...[

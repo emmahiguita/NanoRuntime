@@ -64,24 +64,44 @@ class SettingsScreen extends ConsumerWidget {
             ),
             children: [
               _SettingsIntro(colors: colors, themeMode: state.themeMode),
-              const SizedBox(height: NanoSpacing.xl),
+              // En wide: 2x2 balanceado (Apariencia|Generación, Permisos|
+              // Escritorio) — las 4 cards aprovechan el ancho en vez de
+              // apilarse dejando la mitad vacía. En compact: columna única
+              // con gaps reducidos (antes xl=24, desperdiciaba vertical).
               if (useColumns)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Column(children: primary)),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          ...primary,
+                          const SizedBox(height: NanoSpacing.md),
+                          const DevicePermissionsSection(),
+                        ],
+                      ),
+                    ),
                     const SizedBox(width: NanoSpacing.lg),
-                    Expanded(child: Column(children: secondary)),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          ...secondary,
+                          const SizedBox(height: NanoSpacing.md),
+                          const _DesktopSection(),
+                        ],
+                      ),
+                    ),
                   ],
                 )
               else ...[
                 ...primary,
+                const SizedBox(height: NanoSpacing.md),
                 ...secondary,
+                const SizedBox(height: NanoSpacing.md),
+                const DevicePermissionsSection(),
+                const SizedBox(height: NanoSpacing.md),
+                const _DesktopSection(),
               ],
-              const SizedBox(height: NanoSpacing.xl),
-              const DevicePermissionsSection(),
-              const SizedBox(height: NanoSpacing.xl),
-              const _DesktopSection(),
             ],
           );
         },
@@ -346,22 +366,19 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
                       style: NanoType.caption(colors.onSurfaceVariant),
                     ),
                     const SizedBox(height: NanoSpacing.md),
-                    nanoAdaptivePrimary(
-                      context,
-                      OutlinedButton.icon(
-                        onPressed: _permBusy ? null : _requestStorage,
-                        icon: const Icon(Icons.folder_rounded, size: 18),
-                        label: Text(
-                          _permBusy
-                              ? 'Solicitando…'
-                              : 'Permitir acceso a archivos',
-                          style: NanoType.body(colors.onSurface),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colors.primary,
-                          side: BorderSide(
-                            color: colors.primary.withValues(alpha: 0.5),
-                          ),
+                    OutlinedButton.icon(
+                      onPressed: _permBusy ? null : _requestStorage,
+                      icon: const Icon(Icons.folder_rounded, size: 18),
+                      label: Text(
+                        _permBusy
+                            ? 'Solicitando…'
+                            : 'Permitir acceso a archivos',
+                        style: NanoType.body(colors.onSurface),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colors.primary,
+                        side: BorderSide(
+                          color: colors.primary.withValues(alpha: 0.5),
                         ),
                       ),
                     ),

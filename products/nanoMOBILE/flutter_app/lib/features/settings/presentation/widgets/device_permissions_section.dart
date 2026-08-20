@@ -176,13 +176,10 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
                     onTap: _busy ? null : () => _openSingle(entry.key),
                   ),
                 const SizedBox(height: NanoSpacing.sm),
-                nanoAdaptivePrimary(
-                  context,
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _grantAll,
-                    icon: const Icon(Icons.verified_user_rounded),
-                    label: Text(_busy ? 'Verificando…' : 'Conceder pendientes'),
-                  ),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _grantAll,
+                  icon: const Icon(Icons.verified_user_rounded),
+                  label: Text(_busy ? 'Verificando…' : 'Conceder pendientes'),
                 ),
                 if (_message != null) ...[
                   const SizedBox(height: NanoSpacing.sm),

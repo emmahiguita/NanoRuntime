@@ -180,23 +180,27 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_status, style: NanoType.body(colors.onSurface)),
+              Text(
+                _status,
+                style: NanoType.body(colors.onSurface),
+                softWrap: true,
+              ),
               const SizedBox(height: NanoSpacing.md),
-              nanoAdaptivePrimary(
-                context,
-                FilledButton.icon(
-                  onPressed: _busy ? null : _probe,
-                  icon: const Icon(Icons.visibility, size: 18),
-                  label: Text(
-                    _busy ? 'Leyendo árbol…' : 'Leer pantalla actual',
-                    style: NanoType.body(colors.onSurface),
+              // Acción de herramienta: botón compacto (content-sized) — nunca
+              // se estira al ancho de la card ni de la pantalla.
+              FilledButton.icon(
+                onPressed: _busy ? null : _probe,
+                icon: const Icon(Icons.visibility, size: 18),
+                label: Text(
+                  _busy ? 'Leyendo árbol…' : 'Leer pantalla actual',
+                  style: NanoType.body(colors.onSurface),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  disabledBackgroundColor: colors.primary.withValues(
+                    alpha: 0.4,
                   ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    disabledBackgroundColor: colors.primary.withValues(
-                      alpha: 0.4,
-                    ),
-                  ),
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
               if (_nodes.isNotEmpty) ...[
@@ -207,7 +211,9 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
                     child: Text(
                       n,
                       style: NanoType.caption(colors.onSurfaceVariant),
-                      maxLines: 1,
+                      // Info descriptiva del debugger: 2 líneas (las
+                      // coordenadas @(x,y) no deben perderse en un ellipsis).
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -265,7 +271,7 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
                     child: Text(
                       c,
                       style: NanoType.caption(colors.onSurfaceVariant),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

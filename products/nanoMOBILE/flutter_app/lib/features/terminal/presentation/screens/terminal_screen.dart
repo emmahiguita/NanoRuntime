@@ -152,6 +152,23 @@ class _S extends State<TerminalTabScreen> {
               ),
               child: Row(
                 children: [
+                  // Retroceso: /terminal/shell es ruta empujada — sin esto no
+                  // hay forma visible de volver (solo el gesto del sistema).
+                  IconButton(
+                    tooltip: 'Atrás',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 34,
+                      minHeight: 34,
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      size: 18,
+                      color: fg,
+                    ),
+                  ),
                   Expanded(
                     child: ListView(
                       scrollDirection: Axis.horizontal,

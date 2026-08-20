@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
-import 'nano_ambient_background.dart';
 
 /// Shell compartido de las pantallas secundarias (Chat, Modelos, Settings, etc.).
 ///
@@ -15,6 +14,7 @@ class NanoScreenShell extends StatelessWidget {
     this.trailing,
     this.hideHeaderInPortrait = false,
     this.hideHeader = false,
+    this.showBack,
   });
 
   final String title;
@@ -22,6 +22,12 @@ class NanoScreenShell extends StatelessWidget {
   final Widget? trailing;
   final bool hideHeaderInPortrait;
   final bool hideHeader;
+
+  /// Muestra botón de retroceso. Por defecto (null): automático — visible
+  /// solo si hay una ruta a la que volver (`Navigator.canPop`). Las rutas
+  /// top-level empujadas (p.ej. /automation, /terminal/shell) lo muestran;
+  /// las pestañas del shell no (el back del sistema cambia de pestaña).
+  final bool? showBack;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +38,7 @@ class NanoScreenShell extends StatelessWidget {
     final isCompactLandscape = isLandscape && screenSize.height < 520;
 
     final showHeader = !hideHeader && (isLandscape || !hideHeaderInPortrait);
+    final back = showBack ?? Navigator.of(context).canPop();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -49,6 +56,19 @@ class NanoScreenShell extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  if (back) ...[
+                    IconButton(
+                      tooltip: 'Atrás',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: Icon(
+                        Icons.arrow_back_rounded,
+                        size: isCompactLandscape ? 18 : 20,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   // Título limpio de la pantalla sin redundancia de marca
                   Expanded(
                     child: Text(
