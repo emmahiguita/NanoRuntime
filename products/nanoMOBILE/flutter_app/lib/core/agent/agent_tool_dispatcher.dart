@@ -93,8 +93,65 @@ abstract final class AgentToolProtocol {
     final candidate = end >= 0
         ? cleaned.substring(start, end + 1)
         : cleaned.substring(start);
+    return _parseToolObject(candidate);
+  }
+
+  static Map<String, dynamic> jsonDecodeTolerant(String s) =>
+      (jsonDecode(s) as Map).cast<String, dynamic>();
+
+  /// Extrae TODAS las llamadas a herramienta de la respuesta: un array JSON
+  /// (`[{"tool":"tap",...},{"tool":"back"}]`) o un objeto único. Devuelve la
+  /// lista vacía si no hay ninguna. Mantiene el contrato single de
+  /// [extractToolCall] (este método devuelve esa misma llamada como lista).
+  static List<ToolCall> extractToolCalls(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return const [];
+
+    var cleaned = trimmed;
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7).trim();
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
+      }
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3).trim();
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
+      }
+    }
+
+    // ¿Array JSON de tools?
+    final arrayStart = cleaned.indexOf('[');
+    if (arrayStart >= 0) {
+      // No interpretar prosa con un [ fuera de contexto: el array debe
+      // contener "tool" como primera clave de un objeto.
+      final probe = cleaned.substring(arrayStart);
+      if (RegExp(r'\[[^\[\]]*"tool"\s*:').hasMatch(probe)) {
+        final arrayEnd = _findBalanced(cleaned, arrayStart, '[', ']');
+        if (arrayEnd > arrayStart) {
+          final inner = cleaned.substring(arrayStart + 1, arrayEnd);
+          final calls = <ToolCall>[];
+          for (final part in _splitTopLevel(inner)) {
+            final call = _parseToolObject(part);
+            if (call != null) calls.add(call);
+          }
+          if (calls.isNotEmpty) return calls;
+        }
+      }
+    }
+
+    // Fallback: objeto único (contrato original).
+    final single = extractToolCall(text);
+    return single == null ? const [] : [single];
+  }
+
+  /// Parsea un objeto JSON de herramienta a [ToolCall]; null si no tiene
+  /// clave "tool" válida.
+  static ToolCall? _parseToolObject(String candidate) {
+    final trimmed = candidate.trim();
+    if (trimmed.isEmpty) return null;
     try {
-      final map = jsonDecodeTolerant(candidate);
+      final map = jsonDecodeTolerant(trimmed);
       final tool = map['tool'] as String?;
       if (tool == null || tool.isEmpty) return null;
       return ToolCall(
@@ -107,20 +164,51 @@ abstract final class AgentToolProtocol {
             : null,
       );
     } catch (_) {
-      // Fallback por regex campo a campo.
-      final tool = _field(candidate, 'tool');
+      final tool = _field(trimmed, 'tool');
       if (tool == null) return null;
       return ToolCall(
         tool: tool.toLowerCase(),
-        selector: _field(candidate, 'selector'),
-        text: _field(candidate, 'text'),
-        key: _field(candidate, 'key'),
+        selector: _field(trimmed, 'selector'),
+        text: _field(trimmed, 'text'),
+        key: _field(trimmed, 'key'),
       );
     }
   }
 
-  static Map<String, dynamic> jsonDecodeTolerant(String s) =>
-      (jsonDecode(s) as Map).cast<String, dynamic>();
+  /// Encuentra el índice del cierre balanceado de [open]/[close] a partir de
+  /// [start] (que apunta al carácter abierto). -1 si no cierra.
+  static int _findBalanced(String s, int start, String open, String close) {
+    var depth = 0;
+    for (var i = start; i < s.length; i++) {
+      final c = s[i];
+      if (c == open) {
+        depth++;
+      } else if (c == close) {
+        depth--;
+        if (depth == 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  /// Divide el interior de un array JSON en sus objetos top-level.
+  static List<String> _splitTopLevel(String inner) {
+    final parts = <String>[];
+    var depth = 0;
+    var start = 0;
+    for (var i = 0; i < inner.length; i++) {
+      final c = inner[i];
+      if (c == '{') depth++;
+      if (c == '}') depth--;
+      if (c == ',' && depth == 0) {
+        parts.add(inner.substring(start, i));
+        start = i + 1;
+      }
+    }
+    final tail = inner.substring(start).trim();
+    if (tail.isNotEmpty) parts.add(tail);
+    return parts;
+  }
 
   static String? _field(String s, String key) {
     final m = RegExp('"$key"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"').firstMatch(s);
@@ -144,6 +232,28 @@ class ToolOutcome {
   final ToolCall? pendingCall;
 
   bool get needsConfirmation => verdict == PolicyVerdict.needsConfirmation;
+}
+
+/// Resultado de ejecutar un plan multi-paso ([AgentToolDispatcher.runPlanGuarded]).
+///
+/// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]
+/// (un paso pidió confirmación humana — el plan queda en pausa y se reanuda
+/// desde ahí con `confirmed: true`), o fallo tipado (política denegada o paso
+/// no verificado → el plan se aborta).
+class PlanOutcome {
+  final bool completed;
+  final List<ToolOutcome> steps;
+  final int? pauseIndex;
+  final ToolCall? pauseCall;
+  final String summary;
+
+  const PlanOutcome({
+    required this.completed,
+    required this.steps,
+    this.pauseIndex,
+    this.pauseCall,
+    required this.summary,
+  });
 }
 
 /// Ejecutor de comandos `@` y de [ToolCall] del LLM.
@@ -286,6 +396,68 @@ class AgentToolDispatcher {
       verdict: PolicyVerdict.allow,
       feedback: await _executeWithTimeout(call, decision.tool!),
     );
+  }
+
+  /// Resultado de ejecutar un plan multi-paso ([runPlanGuarded]).
+  ///
+  /// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]
+  /// (el primer paso sensible pidió confirmación humana — el plan queda en
+  /// pausa y el caller reanuda desde ahí con `confirmed: true`), o fallo
+  /// tipado (política denegada o paso no verificado → el plan se aborta).
+  Future<PlanOutcome> runPlanGuarded(
+    List<ToolCall> plan, {
+    bool humanInitiated = false,
+    bool confirmed = false,
+  }) async {
+    final outcomes = <ToolOutcome>[];
+    final feedbacks = <String>[];
+    final total = plan.length;
+
+    for (var i = 0; i < total; i++) {
+      final call = plan[i];
+      // `confirmed` autoriza el plan COMPLETO (el usuario aprobó ejecutar
+      // este plan): ningún paso vuelve a pedir confirmación.
+      final outcome = await runToolGuarded(
+        call,
+        humanInitiated: humanInitiated,
+        confirmed: confirmed,
+      );
+      outcomes.add(outcome);
+
+      if (outcome.needsConfirmation) {
+        return PlanOutcome(
+          completed: false,
+          steps: outcomes,
+          pauseIndex: i,
+          pauseCall: call,
+          summary: feedbacks.join('\n'),
+        );
+      }
+      feedbacks.add('${i + 1}/$total ${outcome.feedback}');
+      if (outcome.verdict != PolicyVerdict.allow || _isFailedFeedback(outcome.feedback)) {
+        // Denegado por política o fallo de ejecución/verificación → abortar.
+        return PlanOutcome(
+          completed: false,
+          steps: outcomes,
+          summary: feedbacks.join('\n'),
+        );
+      }
+    }
+
+    return PlanOutcome(
+      completed: true,
+      steps: outcomes,
+      summary: feedbacks.join('\n'),
+    );
+  }
+
+  /// Un feedback de ejecución que no representa éxito. El contrato visible
+  /// del dispatcher es tipado: cualquier feedback que ARRANCA con un código
+  /// entre corchetes (`[notFound]`, `[verify:...]`, `[policy]`, `[timeout]`,
+  /// `[tool]`, `[ambiguousTarget]`, `[serviceOff]`, ...) es un fallo o
+  /// denegación. Los éxitos nunca empiezan con `[`.
+  static bool _isFailedFeedback(String feedback) {
+    return RegExp(r'^\[[a-zA-Z]+(:|\])').hasMatch(feedback);
   }
 
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
