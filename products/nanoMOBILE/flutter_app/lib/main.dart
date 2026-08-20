@@ -9,20 +9,23 @@ import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/services/boot_orchestrator.dart';
 import 'core/theme/app_theme.dart';
-import 'core/theme/design_tokens.dart';
-import 'core/theme/adaptive_theme.dart';
+import 'core/theme/nano_motion.dart';
+import 'core/widgets/nano_shader_host.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
 const _kNavChannel = MethodChannel('com.nanoai/navigation');
 
-void main() {
+Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
 
-  // Inicializar registry de distribuciones Linux
+  // El shader debe estar listo antes de construir la navegación. Si se carga
+  // en segundo plano, NanoNavigationPanel puede pedirlo primero y conservar
+  // el fallback durante toda la sesión aunque la compilación termine después.
   initializeLinuxDistributions();
+  await NanoShaderHost.preload();
 
   runApp(const ProviderScope(child: NanoPlatformApp()));
   _listenSystemNavigation();
@@ -71,22 +74,16 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      themeAnimationDuration:
+          WidgetsBinding
+              .instance
+              .platformDispatcher
+              .accessibilityFeatures
+              .disableAnimations
+          ? Duration.zero
+          : NanoMotionDurations.emphasized,
+      themeAnimationCurve: NanoMotionCurves.emphasized,
       routerConfig: AppRouter.router,
-      // Animación de transición de tema suave (dark↔light).
-      builder: (context, child) {
-        return AnimatedSwitcher(
-          duration: AdaptiveTheme.getThemeTransitionDuration(context),
-          switchInCurve: NanoCurves.easeInOut,
-          switchOutCurve: NanoCurves.easeInOut,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          child: child,
-        );
-      },
     );
   }
 }

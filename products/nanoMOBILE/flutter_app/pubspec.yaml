@@ -38,6 +38,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  shaders:
+    - shaders/nano_optical.frag
+    - shaders/nano_fluid_background.frag
+    - shaders/nano_living_background.frag
   assets:
     - assets/bin/
     - assets/exe/

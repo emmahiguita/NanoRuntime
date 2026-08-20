@@ -26,10 +26,12 @@ class DashboardScreen extends ConsumerWidget {
     final rootfs = ref.watch(rootfsProvider);
     final chat = ref.watch(chatProvider);
 
-    final chatSubtitle =
-        chat.engineOnline ? null : 'Motor apagado — elige modelo';
-    final terminalSubtitle =
-        rootfs.isInstalled ? 'Linux listo' : 'Preparando Linux';
+    final chatSubtitle = chat.engineOnline
+        ? null
+        : 'Motor apagado — elige modelo';
+    final terminalSubtitle = rootfs.isInstalled
+        ? 'Linux listo'
+        : 'Preparando Linux';
 
     return NanoHomeScreen(
       telemetry: NanoTelemetryData(
@@ -37,8 +39,9 @@ class DashboardScreen extends ConsumerWidget {
             ? '${dashboard.ramFreeGb.toStringAsFixed(1)} GB'
             : '—',
         cpu: dashboard.cpuCores > 0 ? '${dashboard.cpuCores}' : '—',
-        temperature:
-            dashboard.tempC > 0 ? '${dashboard.tempC.round()} °C' : '—',
+        temperature: dashboard.tempC > 0
+            ? '${dashboard.tempC.round()} °C'
+            : '—',
         freeStorage: dashboard.storageTotalGb > 0
             ? '${dashboard.storageFreeGb.round()} GB'
             : '—',
@@ -53,7 +56,7 @@ class DashboardScreen extends ConsumerWidget {
       onChatTap: () => context.go('/chat'),
       onModelsTap: () => context.go('/models'),
       onDesktopTap: () => context.go('/desktop'),
-      onKaliTap: () => context.go('/terminal?cmd=kali%20shell'),
+      onKaliTap: () => context.go('/terminal/shell?cmd=kali%20shell'),
     );
   }
 }

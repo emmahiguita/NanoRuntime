@@ -250,20 +250,44 @@ class _S extends State<TerminalTabScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => context.push('/desktop'),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      margin: const EdgeInsets.only(right: 2),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        color: fg.withValues(alpha: 0.06),
+                  Tooltip(
+                    message: 'Centro Terminal',
+                    child: GestureDetector(
+                      onTap: () => context.go('/terminal'),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          color: fg.withValues(alpha: 0.06),
+                        ),
+                        child: Icon(
+                          Icons.apps_rounded,
+                          size: 16,
+                          color: fg.withValues(alpha: 0.5),
+                        ),
                       ),
-                      child: Icon(
-                        Icons.desktop_windows,
-                        size: 16,
-                        color: fg.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Visor Linux',
+                    child: GestureDetector(
+                      onTap: () => context.push('/desktop'),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          color: fg.withValues(alpha: 0.06),
+                        ),
+                        child: Icon(
+                          Icons.desktop_windows_rounded,
+                          size: 16,
+                          color: fg.withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                   ),

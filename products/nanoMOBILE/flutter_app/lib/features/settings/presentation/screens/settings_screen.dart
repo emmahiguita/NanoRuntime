@@ -6,15 +6,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/settings/presentation/widgets/agent_console_section.dart';
+import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
+import 'package:nanoai/features/settings/presentation/widgets/notification_automation_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/settings_widgets.dart';
 
 /// Opciones disponibles para el modo de tema.
-const _themeOptions = ['Sistema', 'Oscuro', 'Claro'];
-
-/// Modos de ahorro de batería.
-const _batteryModes = ['Eco', 'Balanced', 'Survival'];
+const _themeOptions = [
+  _ChoiceOption('Sistema', 'Sistema', Icons.brightness_auto_rounded),
+  _ChoiceOption('Oscuro', 'Oscuro', Icons.dark_mode_rounded),
+  _ChoiceOption('Claro', 'Claro', Icons.light_mode_rounded),
+];
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -26,211 +30,320 @@ class SettingsScreen extends ConsumerWidget {
     final colors = NanoThemeExtension.of(context).colors;
     final shadow = NanoShadows.card(colors);
 
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 560),
-      curve: Curves.easeOutCubic,
+      duration: reduceMotion ? Duration.zero : NanoMotionDurations.navigation,
+      curve: NanoMotionCurves.standardDecel,
       builder: (context, t, child) {
         return Transform.translate(
           offset: Offset(0, 10 * (1 - t)),
           child: Opacity(opacity: t, child: child),
         );
       },
-      child: ListView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: NanoSpacing.md,
-          vertical: NanoSpacing.md,
-        ),
-        children: [
-          SectionHeader('General', Icons.tune, colors: colors),
-          SettingsCard(
-            shadow: shadow,
-            colors: colors,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final useColumns = constraints.maxWidth >= 600;
+          final pagePadding = constraints.maxWidth >= 900
+              ? NanoSpacing.xl
+              : NanoSpacing.md;
+          final primary = <Widget>[
+            _themeSection(state, notifier, colors, shadow),
+          ];
+          final secondary = <Widget>[
+            _inferenceSection(state, notifier, colors, shadow),
+            _agentSection(state, notifier, colors, shadow),
+          ];
+
+          return ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              pagePadding,
+              NanoSpacing.md,
+              pagePadding,
+              NanoSpacing.xxxl,
+            ),
+            children: [
+              _SettingsIntro(colors: colors, themeMode: state.themeMode),
+              const SizedBox(height: NanoSpacing.xl),
+              if (useColumns)
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.brightness_6,
-                      size: NanoIcons.small,
-                      color: colors.primary,
-                    ),
-                    const SizedBox(width: NanoSpacing.sm),
-                    Text('Tema', style: NanoType.body(colors.onSurface)),
+                    Expanded(child: Column(children: primary)),
+                    const SizedBox(width: NanoSpacing.lg),
+                    Expanded(child: Column(children: secondary)),
                   ],
-                ),
-                const SizedBox(height: NanoSpacing.md),
-                Wrap(
-                  spacing: NanoSpacing.sm,
-                  runSpacing: NanoSpacing.sm,
-                  children: [
-                    for (final o in _themeOptions)
-                      ChoiceChip(
-                        label: Text(
-                          o,
-                          style: NanoType.caption(colors.onSurface),
-                        ),
-                        selected: state.themeMode == o,
-                        onSelected: (_) => notifier.setThemeMode(o),
-                        selectedColor: colors.primaryContainer,
-                        side: BorderSide.none,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: NanoShapes.full,
-                        ),
-                      ),
-                  ],
-                ),
+                )
+              else ...[
+                ...primary,
+                ...secondary,
               ],
-            ),
-          ),
-          const SizedBox(height: NanoSpacing.md),
-          SectionHeader('Memoria RAM', Icons.memory, colors: colors),
-          SettingsCard(
-            shadow: shadow,
-            colors: colors,
-            child: Column(
-              children: [
-                _SwitchRow(
-                  title: 'madvise Layer Streaming',
-                  subtitle: 'Descarga por capa (VMA < 1GB)',
-                  value: state.madvise,
-                  onChanged: notifier.toggleMadvise,
-                  colors: colors,
-                ),
-                const Divider(height: 1),
-                _SwitchRow(
-                  title: 'OOM Guard System',
-                  subtitle: 'Modo supervivencia pre-crash',
-                  value: state.oomGuard,
-                  onChanged: notifier.toggleOom,
-                  colors: colors,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: NanoSpacing.md),
-          SectionHeader('Control Térmico', Icons.thermostat, colors: colors),
-          SettingsCard(
-            shadow: shadow,
-            colors: colors,
-            child: _SliderRow(
-              label: 'Límite Temperatura Max',
-              value: state.thermalLimit,
-              min: 35,
-              max: 50,
-              unit: '°C',
-              onChanged: notifier.setThermalLimit,
-              colors: colors,
-            ),
-          ),
-          const SizedBox(height: NanoSpacing.md),
-          SectionHeader('Inferencia LLM', Icons.psychology, colors: colors),
-          SettingsCard(
-            shadow: shadow,
-            colors: colors,
-            child: Column(
-              children: [
-                _SliderRow(
-                  label: 'Temperatura (Creatividad)',
-                  value: state.temperature,
-                  min: 0.1,
-                  max: 1.5,
-                  onChanged: notifier.setTemperature,
-                  colors: colors,
-                ),
-                _SliderRow(
-                  label: 'Top-P Sampling',
-                  value: state.topP,
-                  min: 0.1,
-                  max: 1.0,
-                  onChanged: notifier.setTopP,
-                  colors: colors,
-                ),
-                _SliderRow(
-                  label: 'Tokens máximos',
-                  value: state.maxTokens.toDouble(),
-                  min: 64,
-                  max: 512,
-                  onChanged: (v) => notifier.setMaxTokens(v.round()),
-                  colors: colors,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: NanoSpacing.md),
-          SectionHeader('Agente de Chat', Icons.smart_toy, colors: colors),
-          SettingsCard(
-            shadow: shadow,
-            colors: colors,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Automatización de tools JSON',
-                  style: NanoType.body(colors.onSurface),
-                ),
-                const SizedBox(height: NanoSpacing.xs),
-                Text(
-                  state.agentAutomationMode.description,
-                  style: NanoType.caption(colors.onSurfaceVariant),
-                ),
-                const SizedBox(height: NanoSpacing.md),
-                Wrap(
-                  spacing: NanoSpacing.sm,
-                  runSpacing: NanoSpacing.sm,
-                  children: [
-                    for (final mode in AgentAutomationMode.values)
-                      ChoiceChip(
-                        label: Text(
-                          mode.label,
-                          style: NanoType.caption(colors.onSurface),
-                        ),
-                        selected: state.agentAutomationMode == mode,
-                        onSelected: (_) =>
-                            notifier.setAgentAutomationMode(mode),
-                        selectedColor: colors.primaryContainer,
-                        side: BorderSide.none,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: NanoShapes.full,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: NanoSpacing.md),
-          SectionHeader('Batería', Icons.battery_std, colors: colors),
-          SettingsCard(
-            shadow: shadow,
-            colors: colors,
-            child: Wrap(
-              spacing: NanoSpacing.sm,
-              runSpacing: NanoSpacing.sm,
-              children: [
-                for (final o in _batteryModes)
-                  ChoiceChip(
-                    label: Text(o, style: NanoType.caption(colors.onSurface)),
-                    selected: state.batteryMode == o,
-                    onSelected: (_) => notifier.setBatteryMode(o),
-                    selectedColor: colors.primaryContainer,
-                    side: BorderSide.none,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: NanoShapes.full,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: NanoSpacing.xxxl),
-          const AgentConsoleSection(),
-          const _DesktopSection(),
-          const SizedBox(height: NanoSpacing.xxxl),
-        ],
+              const SizedBox(height: NanoSpacing.xl),
+              const DevicePermissionsSection(),
+              const SizedBox(height: NanoSpacing.xl),
+              const AgentConsoleSection(),
+              const SizedBox(height: NanoSpacing.xl),
+              const NotificationAutomationSection(),
+              const SizedBox(height: NanoSpacing.xl),
+              const _DesktopSection(),
+            ],
+          );
+        },
       ),
     );
   }
+
+  Widget _section({
+    required String title,
+    required IconData icon,
+    required NanoColors colors,
+    required List<BoxShadow> shadow,
+    required Widget child,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: NanoSpacing.lg),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title, icon, colors: colors),
+        SettingsCard(shadow: shadow, colors: colors, child: child),
+      ],
+    ),
+  );
+
+  Widget _themeSection(
+    SettingsState state,
+    SettingsNotifier notifier,
+    NanoColors colors,
+    List<BoxShadow> shadow,
+  ) => _section(
+    title: 'Apariencia',
+    icon: Icons.palette_rounded,
+    colors: colors,
+    shadow: shadow,
+    child: _ChoiceGroup(
+      label: 'Tema de la interfaz',
+      description: 'Se aplica al instante y respeta el modo del sistema.',
+      options: _themeOptions,
+      selectedValue: state.themeMode,
+      onSelected: notifier.setThemeMode,
+      colors: colors,
+    ),
+  );
+
+  Widget _inferenceSection(
+    SettingsState state,
+    SettingsNotifier notifier,
+    NanoColors colors,
+    List<BoxShadow> shadow,
+  ) => _section(
+    title: 'Generación de IA',
+    icon: Icons.psychology_rounded,
+    colors: colors,
+    shadow: shadow,
+    child: Column(
+      children: [
+        _SliderRow(
+          label: 'Creatividad',
+          value: state.temperature,
+          min: 0.1,
+          max: 1.5,
+          divisions: 14,
+          onChanged: notifier.setTemperature,
+          colors: colors,
+        ),
+        _SliderRow(
+          label: 'Diversidad de respuesta',
+          value: state.topP,
+          min: 0.1,
+          max: 1.0,
+          divisions: 9,
+          onChanged: notifier.setTopP,
+          colors: colors,
+        ),
+        _SliderRow(
+          label: 'Longitud máxima',
+          value: state.maxTokens.toDouble(),
+          min: 64,
+          max: 4096,
+          divisions: 63,
+          fractionDigits: 0,
+          unit: 'tokens',
+          onChanged: (v) => notifier.setMaxTokens(v.round()),
+          colors: colors,
+        ),
+      ],
+    ),
+  );
+
+  Widget _agentSection(
+    SettingsState state,
+    SettingsNotifier notifier,
+    NanoColors colors,
+    List<BoxShadow> shadow,
+  ) => _section(
+    title: 'Agente de chat',
+    icon: Icons.smart_toy_rounded,
+    colors: colors,
+    shadow: shadow,
+    child: _ChoiceGroup(
+      label: 'Nivel de automatización',
+      description: state.agentAutomationMode.description,
+      options: const [
+        _ChoiceOption('manual', 'Manual', Icons.pan_tool_alt_rounded),
+        _ChoiceOption('assisted', 'Asistido', Icons.assistant_rounded),
+        _ChoiceOption('autonomous', 'Autónomo', Icons.auto_awesome_rounded),
+      ],
+      selectedValue: state.agentAutomationMode.name,
+      onSelected: (value) =>
+          notifier.setAgentAutomationMode(AgentAutomationMode.fromName(value)),
+      colors: colors,
+    ),
+  );
+}
+
+class _ChoiceOption {
+  const _ChoiceOption(this.value, this.label, this.icon);
+  final String value;
+  final String label;
+  final IconData icon;
+}
+
+class _SettingsIntro extends StatelessWidget {
+  const _SettingsIntro({required this.colors, required this.themeMode});
+
+  final NanoColors colors;
+  final String themeMode;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colors.primary.withValues(alpha: 0.24),
+                colors.accentCyan.withValues(alpha: 0.10),
+              ],
+            ),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.22)),
+          ),
+          child: Icon(Icons.tune_rounded, color: colors.primary),
+        ),
+        const SizedBox(width: NanoSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Ajustes', style: NanoType.title(colors.onSurface)),
+              const SizedBox(height: NanoSpacing.xs),
+              Text(
+                'Personaliza el rendimiento, la IA y la apariencia.',
+                style: NanoType.caption(colors.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: NanoMotion.adapt(context, NanoMotionDurations.standard),
+          child: Container(
+            key: ValueKey(themeMode),
+            padding: const EdgeInsets.symmetric(
+              horizontal: NanoSpacing.md,
+              vertical: NanoSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.10),
+              borderRadius: NanoShapes.full,
+            ),
+            child: Text(themeMode, style: NanoType.caption(colors.primary)),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ChoiceGroup extends StatelessWidget {
+  const _ChoiceGroup({
+    required this.label,
+    required this.description,
+    required this.options,
+    required this.selectedValue,
+    required this.onSelected,
+    required this.colors,
+  });
+
+  final String label;
+  final String description;
+  final List<_ChoiceOption> options;
+  final String selectedValue;
+  final ValueChanged<String> onSelected;
+  final NanoColors colors;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: NanoType.body(colors.onSurface)),
+      const SizedBox(height: NanoSpacing.xs),
+      AnimatedSize(
+        duration: NanoMotion.adapt(context, NanoMotionDurations.standard),
+        curve: NanoMotionCurves.emphasized,
+        alignment: Alignment.topLeft,
+        child: Text(
+          description,
+          key: ValueKey(description),
+          style: NanoType.caption(colors.onSurfaceVariant),
+        ),
+      ),
+      const SizedBox(height: NanoSpacing.md),
+      Wrap(
+        spacing: NanoSpacing.sm,
+        runSpacing: NanoSpacing.sm,
+        children: [
+          for (final option in options)
+            ChoiceChip(
+              avatar: Icon(
+                option.icon,
+                size: 17,
+                color: selectedValue == option.value
+                    ? colors.primary
+                    : colors.onSurfaceVariant,
+              ),
+              label: Text(option.label),
+              labelStyle: NanoType.caption(
+                selectedValue == option.value
+                    ? colors.primary
+                    : colors.onSurface,
+              ),
+              selected: selectedValue == option.value,
+              onSelected: (_) => onSelected(option.value),
+              selectedColor: colors.primaryContainer,
+              backgroundColor: colors.surface.withValues(alpha: 0.52),
+              side: BorderSide(
+                color: selectedValue == option.value
+                    ? colors.primary.withValues(alpha: 0.28)
+                    : colors.outlineVariant.withValues(alpha: 0.55),
+              ),
+              shape: const RoundedRectangleBorder(
+                borderRadius: NanoShapes.full,
+              ),
+              showCheckmark: false,
+            ),
+        ],
+      ),
+    ],
+  );
 }
 
 // â”€â”€ Escritorio Linux (protección VNC + almacenamiento compartido) â”€â”€
@@ -296,8 +409,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final shadow = NanoShadows.card(colors);
-    final vncEnabled = ref.watch(settingsProvider).vncPassword.isNotEmpty;
-    final notifier = ref.read(settingsProvider.notifier);
+    final vncProtected = ref.watch(settingsProvider).vncPassword.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,58 +425,28 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SwitchListTile(
-                value: vncEnabled,
-                onChanged: (on) {
-                  if (on) {
-                    // Activar con el contenido actual del campo (si vacío,
-                    // la auth queda pendiente hasta escribirla).
-                    notifier.setVncPassword(_pwController.text);
-                  } else {
-                    _pwController.clear();
-                    notifier.setVncPassword('');
-                  }
-                },
-                title: Text(
-                  'Protección por contraseña',
-                  style: NanoType.body(colors.onSurface),
-                ),
-                subtitle: Text(
-                  'VNC Auth al conectarse al escritorio',
-                  style: NanoType.caption(colors.onSurfaceVariant),
-                ),
-                activeTrackColor: colors.primary,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              if (vncEnabled) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _pwController,
-                    obscureText: true,
-                    maxLength: 8,
-                    inputFormatters: [
-                      // ASCII imprimible únicamente: el DES del cliente y el
-                      // archivo vncpasswd operan sobre BYTES, y Dart codeUnits
-                      // (UTF-16) â‰  bytes UTF-8 para caracteres no ASCII → claves
-                      // divergentes entre app y servidor. Con ASCII ambos
-                      // coinciden byte a byte.
-                      FilteringTextInputFormatter.allow(RegExp(r'[\x20-\x7E]')),
-                    ],
-                    onChanged: _applyPassword,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña (máx. 8 caracteres)',
-                      helperText:
-                          'Se aplica al iniciar el escritorio; reinícialo si lo cambias.',
-                      counterText: '',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _pwController,
+                  obscureText: true,
+                  maxLength: 8,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\x20-\x7E]')),
+                  ],
+                  onChanged: _applyPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Contraseña de VNC (opcional, máx. 8)',
+                    helperText: vncProtected
+                        ? 'Protección activa; se aplica al iniciar el escritorio.'
+                        : 'Sin contraseña, VNC inicia sin protección.',
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
-                const SizedBox(height: NanoSpacing.sm),
-              ],
+              ),
               Divider(height: 1, color: colors.outlineVariant),
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -423,49 +505,13 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
   }
 }
 
-// ── Switch Row ──
-class _SwitchRow extends StatelessWidget {
-  final String title, subtitle;
-  final bool value;
-  final Function(bool) onChanged;
-  final NanoColors colors;
-  const _SwitchRow({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: NanoSpacing.sm),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: NanoType.body(colors.onSurface)),
-              Text(subtitle, style: NanoType.caption(colors.onSurfaceVariant)),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: colors.primary.withValues(alpha: 0.4),
-        ),
-      ],
-    ),
-  );
-}
-
 // â”€â”€ Slider Row â”€â”€
 class _SliderRow extends StatelessWidget {
   final String label;
   final double value, min, max;
   final String? unit;
+  final int? divisions;
+  final int fractionDigits;
   final Function(double) onChanged;
   final NanoColors colors;
   const _SliderRow({
@@ -474,30 +520,41 @@ class _SliderRow extends StatelessWidget {
     required this.min,
     required this.max,
     this.unit,
+    this.divisions,
+    this.fractionDigits = 1,
     required this.onChanged,
     required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
+    final safeValue = value.clamp(min, max).toDouble();
     final display =
-        '${value.toStringAsFixed(1)}${unit != null ? ' $unit' : ''}';
+        '${safeValue.toStringAsFixed(fractionDigits)}${unit != null ? ' $unit' : ''}';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: NanoSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: NanoType.body(colors.onSurface)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: NanoType.body(colors.onSurface),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: NanoSpacing.sm),
               Text(display, style: NanoType.subtitle(colors.primary)),
             ],
           ),
           Slider(
-            value: value,
+            value: safeValue,
             min: min,
             max: max,
+            divisions: divisions,
             onChanged: onChanged,
             activeColor: colors.primary,
             inactiveColor: colors.outlineVariant.withValues(alpha: 0.5),
