@@ -20,9 +20,18 @@ import 'nano_selector.dart';
 import 'nano_snapshot.dart';
 import 'selector_engine.dart';
 
+/// Contrato mínimo del ejecutor (DIP): lo que [AgentLoop] necesita.
+/// [NanoAgentExecutor] lo implementa; los tests usan fakes. No incluye
+/// `resolve`: el loop no resuelve — el ejecutor lo hace internamente.
+abstract interface class AgentExecutor {
+  Future<NanoSnapshot?> snapshot();
+  Future<AgentExecutionResult> tap(NanoSelector selector);
+  Future<AgentExecutionResult> setText(NanoSelector selector, String text);
+}
+
 /// Ejecutor de alto nivel. Puro en su lógica (motores inyectables) — el único
 /// punto de contacto con el canal es [NanoRuntimeApi].
-class NanoAgentExecutor {
+class NanoAgentExecutor implements AgentExecutor {
   NanoAgentExecutor({
     NanoRuntimeApi? api,
     NanoSelectorEngine? engine,
