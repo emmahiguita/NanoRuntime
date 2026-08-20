@@ -57,10 +57,6 @@ class SettingsRepository {
         themeMode: m['themeMode'] as String? ?? 'Sistema',
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
-        madvise: m['madvise'] as bool? ?? true,
-        oomGuard: m['oomGuard'] as bool? ?? true,
-        thermalLimit: (m['thermalLimit'] as num?)?.toDouble() ?? 42,
-        batteryMode: m['batteryMode'] as String? ?? 'Balanced',
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 2048,
         vncPassword: m['vncPassword'] as String? ?? '',
         desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
@@ -81,10 +77,6 @@ class SettingsRepository {
         'themeMode': s.themeMode,
         'temperature': s.temperature,
         'topP': s.topP,
-        'madvise': s.madvise,
-        'oomGuard': s.oomGuard,
-        'thermalLimit': s.thermalLimit,
-        'batteryMode': s.batteryMode,
         'maxTokens': s.maxTokens,
         'vncPassword': s.vncPassword,
         'desktopMobileMode': s.desktopMobileMode,
@@ -101,9 +93,6 @@ final settingsRepoProvider = Provider<SettingsRepository>(
 class SettingsState {
   final String themeMode;
   final double temperature, topP;
-  final bool madvise, oomGuard;
-  final double thermalLimit;
-  final String batteryMode;
   final int maxTokens;
   final String vncPassword;
   final bool desktopMobileMode;
@@ -113,10 +102,6 @@ class SettingsState {
     this.themeMode = 'Sistema',
     this.temperature = 0.7,
     this.topP = 0.9,
-    this.madvise = true,
-    this.oomGuard = true,
-    this.thermalLimit = 42,
-    this.batteryMode = 'Balanced',
     this.maxTokens = 2048,
     this.vncPassword = '',
     this.desktopMobileMode = false,
@@ -127,10 +112,6 @@ class SettingsState {
     String? themeMode,
     double? temperature,
     double? topP,
-    bool? madvise,
-    bool? oomGuard,
-    double? thermalLimit,
-    String? batteryMode,
     int? maxTokens,
     String? vncPassword,
     bool? desktopMobileMode,
@@ -139,10 +120,6 @@ class SettingsState {
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
     topP: topP ?? this.topP,
-    madvise: madvise ?? this.madvise,
-    oomGuard: oomGuard ?? this.oomGuard,
-    thermalLimit: thermalLimit ?? this.thermalLimit,
-    batteryMode: batteryMode ?? this.batteryMode,
     maxTokens: maxTokens ?? this.maxTokens,
     vncPassword: vncPassword ?? this.vncPassword,
     desktopMobileMode: desktopMobileMode ?? this.desktopMobileMode,
@@ -181,10 +158,6 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   void setTemperature(double v) => _persist(state.copyWith(temperature: v));
   void setTopP(double v) => _persist(state.copyWith(topP: v));
-  void toggleMadvise(bool v) => _persist(state.copyWith(madvise: v));
-  void toggleOom(bool v) => _persist(state.copyWith(oomGuard: v));
-  void setThermalLimit(double v) => _persist(state.copyWith(thermalLimit: v));
-  void setBatteryMode(String v) => _persist(state.copyWith(batteryMode: v));
   void setMaxTokens(int v) => _persist(state.copyWith(maxTokens: v));
   void setVncPassword(String v) => _persist(state.copyWith(vncPassword: v));
   void setDesktopMobileMode(bool v) =>
