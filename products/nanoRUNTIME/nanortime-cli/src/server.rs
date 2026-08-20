@@ -197,6 +197,7 @@ pub fn run_server(runtime_slot: Arc<RwLock<RuntimeSlot>>, bind_addr: &str, port:
     println!("  Cancel:           POST /cancel");
     println!("  Chat API:         POST /api/chat");
     println!("  Status:           GET  /api/status");
+    println!("  Reload:           POST /reload");
 
     let state = Arc::new(ServerState::new());
     serve(listener, runtime_slot, &state);
@@ -969,6 +970,109 @@ fn handle_status(
     }
 }
 
+/// POST /reload — Recarga el modelo activo con parámetros EXPLÍCITOS
+/// (threads/context/batch), saltándose el RuntimePlanner. Palanca del sweep
+/// de auto-benchmark: mide configuraciones concretas sin reiniciar el proceso.
+/// Body: `{"threads":4,"context_tokens":4096,"batch_size":256}`.
+fn handle_reload(stream: &mut TcpStream, body: &[u8], runtime_slot: &RwLock<RuntimeSlot>) {
+    #[derive(serde::Deserialize)]
+    struct ReloadReq {
+        threads: u32,
+        #[serde(default)]
+        context_tokens: Option<u32>,
+        #[serde(default)]
+        batch_size: Option<u32>,
+    }
+
+    let req: ReloadReq = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(e) => {
+            send_json(
+                stream,
+                "400 Bad Request",
+                &serde_json::json!({
+                    "error": { "code": "bad_request", "message": e.to_string() }
+                })
+                .to_string(),
+            );
+            return;
+        }
+    };
+
+    // El reload es destructivo (descarga + recarga): solo con modelo ya
+    // listo. No se espera (wait_runtime): si aún carga o falló, se responde
+    // 503 de inmediato — el sweep solo recarga entre benchmarks, con el
+    // modelo cargado.
+    let rt = match runtime_slot.read() {
+        Ok(guard) => match &*guard {
+            RuntimeSlot::Ready(rt) => std::sync::Arc::clone(rt),
+            RuntimeSlot::Loading => {
+                send_json(
+                    stream,
+                    "503 Service Unavailable",
+                    r#"{"error":{"code":"runtime_unavailable","message":"modelo aún cargando"}}"#,
+                );
+                return;
+            }
+            RuntimeSlot::Failed(reason) => {
+                send_json(
+                    stream,
+                    "503 Service Unavailable",
+                    &serde_json::json!({
+                        "error": { "code": "runtime_unavailable", "message": reason }
+                    })
+                    .to_string(),
+                );
+                return;
+            }
+        },
+        Err(_) => {
+            send_json(
+                stream,
+                "500 Internal Server Error",
+                r#"{"error":{"code":"lock_poisoned","message":"runtime slot poisoned"}}"#,
+            );
+            return;
+        }
+    };
+
+    let context_tokens = req.context_tokens.unwrap_or(8192);
+    let batch_size = req.batch_size.unwrap_or(256);
+
+    tracing::info!(
+        "reload: threads={} context_tokens={} batch_size={}",
+        req.threads,
+        context_tokens,
+        batch_size
+    );
+
+    match run_async(rt.reload_with_params(req.threads, context_tokens, batch_size)) {
+        Ok(()) => {
+            send_json(
+                stream,
+                "200 OK",
+                &serde_json::json!({
+                    "status": "reloaded",
+                    "threads": req.threads,
+                    "context_tokens": context_tokens,
+                    "batch_size": batch_size,
+                })
+                .to_string(),
+            );
+        }
+        Err(e) => {
+            send_json(
+                stream,
+                "500 Internal Server Error",
+                &serde_json::json!({
+                    "error": { "code": "reload_failed", "message": e.to_string() }
+                })
+                .to_string(),
+            );
+        }
+    }
+}
+
 /// `runtime_slot` is shared so the model can finish loading while the socket
 /// already answers /health. Model-dependent routes wait via [wait_runtime].
 fn handle_http(
@@ -1015,6 +1119,7 @@ fn handle_http(
         ("GET", "/readiness") => handle_readiness(&mut stream, runtime_slot, state),
         ("POST", "/cancel") => handle_cancel(&mut stream, &body, runtime_slot, state),
         ("GET", "/api/status") => handle_status(&mut stream, runtime_slot, state),
+        ("POST", "/reload") => handle_reload(&mut stream, &body, runtime_slot),
         ("POST", "/completion") => {
             handle_completion_sse(&mut stream, &body, runtime_slot, state)
         }
@@ -1157,6 +1262,24 @@ mod tests {
         assert!(status.starts_with("HTTP/1.1 400"), "status was: {}", status);
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(json["error"]["code"], "invalid_json");
+    }
+
+    #[test]
+    fn reload_invalid_json_returns_400() {
+        let (status, body) = drive(&http_request("POST", "/reload", "not json!"));
+        assert!(status.starts_with("HTTP/1.1 400"), "status was: {}", status);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["error"]["code"], "bad_request");
+    }
+
+    #[test]
+    fn reload_without_runtime_returns_503_fast() {
+        // Sin modelo cargado (slot Loading) el reload falla de inmediato —
+        // no puede recargar lo que aún no está listo, y no debe esperar.
+        let (status, body) = drive(&http_request("POST", "/reload", r#"{"threads":4}"#));
+        assert!(status.starts_with("HTTP/1.1 503"), "status was: {}", status);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["error"]["code"], "runtime_unavailable");
     }
 
     #[test]
