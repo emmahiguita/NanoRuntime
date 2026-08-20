@@ -14,59 +14,79 @@ class NanoScreenShell extends StatelessWidget {
     required this.body,
     this.trailing,
     this.hideHeaderInPortrait = false,
+    this.hideHeader = false,
   });
 
   final String title;
   final Widget body;
   final Widget? trailing;
   final bool hideHeaderInPortrait;
+  final bool hideHeader;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final screenSize = MediaQuery.sizeOf(context);
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    final isCompactLandscape = isLandscape && screenSize.height < 520;
 
-    final showHeader = isLandscape || !hideHeaderInPortrait;
+    final showHeader = !hideHeader && (isLandscape || !hideHeaderInPortrait);
 
-    return Stack(
-      children: [
-        const Positioned.fill(child: NanoAmbientBackground()),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showHeader)
-              Padding(
-                padding: isLandscape
-                    ? const EdgeInsets.fromLTRB(16, 6, 16, 6)
-                    : const EdgeInsets.fromLTRB(18, 8, 18, 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Título limpio de la pantalla sin redundancia de marca
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: colors.textPrimary,
-                        fontSize: isLandscape ? 16 : 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: NanoAmbientBackground()),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showHeader)
+                Padding(
+                  padding: isCompactLandscape
+                      ? const EdgeInsets.fromLTRB(12, 4, 12, 4)
+                      : isLandscape
+                      ? const EdgeInsets.fromLTRB(16, 6, 16, 6)
+                      : const EdgeInsets.fromLTRB(18, 8, 18, 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Título limpio de la pantalla sin redundancia de marca
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: colors.textPrimary,
+                            fontSize: isCompactLandscape
+                                ? 15
+                                : (isLandscape ? 16 : 18),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (trailing != null) ...[
-                      const Spacer(),
-                      trailing!,
+                      if (trailing != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: trailing!,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            Expanded(child: body),
-          ],
-        ),
-      ],
+              Expanded(child: body),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
