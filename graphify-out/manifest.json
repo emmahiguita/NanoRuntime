@@ -2,7 +2,7 @@
   "nano.manifest.json": {
     "mtime": 1786449558.3498263,
     "ast_hash": "79e53a6c83bffe5891a2f05e4edd8a56",
-    "semantic_hash": ""
+    "semantic_hash": "79e53a6c83bffe5891a2f05e4edd8a56"
   },
   "scripts/evaluate_model.py": {
     "mtime": 1786449558.9603014,
@@ -212,132 +212,132 @@
   "scripts/_compare_results.py": {
     "mtime": 1786449558.9252586,
     "ast_hash": "b693e6887fab26ba272a6472fcea219c",
-    "semantic_hash": ""
+    "semantic_hash": "b693e6887fab26ba272a6472fcea219c"
   },
   "scripts/ab_test_edge_vs_cloud.py": {
     "mtime": 1786449558.9357874,
     "ast_hash": "8ef3ddd4d05158b1b22ce579e4524232",
-    "semantic_hash": ""
+    "semantic_hash": "8ef3ddd4d05158b1b22ce579e4524232"
   },
   "scripts/ablation_baseline.ps1": {
     "mtime": 1786449558.937786,
     "ast_hash": "f1ddf6a6f538d8bf815213d8156a438e",
-    "semantic_hash": ""
+    "semantic_hash": "f1ddf6a6f538d8bf815213d8156a438e"
   },
   "scripts/ablation_baseline.py": {
     "mtime": 1786449558.9407845,
     "ast_hash": "eab1085e1997802b2d022033fff6c074",
-    "semantic_hash": ""
+    "semantic_hash": "eab1085e1997802b2d022033fff6c074"
   },
   "scripts/android_stress_test.py": {
     "mtime": 1786449558.9427855,
     "ast_hash": "15de34faab32f3f98ecca6d86ea038c3",
-    "semantic_hash": ""
+    "semantic_hash": "15de34faab32f3f98ecca6d86ea038c3"
   },
   "scripts/benchmark.sh": {
     "mtime": 1786449558.9452896,
     "ast_hash": "13772c076476b53ec322ceec37754986",
-    "semantic_hash": ""
+    "semantic_hash": "13772c076476b53ec322ceec37754986"
   },
   "scripts/benchmark_memory.sh": {
     "mtime": 1786449558.947298,
     "ast_hash": "c409f23e6828b76a53ef32f17d89599b",
-    "semantic_hash": ""
+    "semantic_hash": "c409f23e6828b76a53ef32f17d89599b"
   },
   "scripts/benchmark_routing.py": {
     "mtime": 1786449558.94932,
     "ast_hash": "570ac5c3bc896f4026d68533fd492b6d",
-    "semantic_hash": ""
+    "semantic_hash": "570ac5c3bc896f4026d68533fd492b6d"
   },
   "scripts/dual_theme_analysis.py": {
     "mtime": 1786449558.9572973,
     "ast_hash": "48e9c0612f97dd63682c79507b3ca818",
-    "semantic_hash": ""
+    "semantic_hash": "48e9c0612f97dd63682c79507b3ca818"
   },
   "scripts/eval_harness.py": {
     "mtime": 1786449558.958297,
     "ast_hash": "78bd2baa22b55a595d2c679c452474bd",
-    "semantic_hash": ""
+    "semantic_hash": "78bd2baa22b55a595d2c679c452474bd"
   },
   "scripts/fill_paper_todos.py": {
     "mtime": 1786449558.9658391,
     "ast_hash": "9bd24dc45ed3d5d451c2592ed68208d8",
-    "semantic_hash": ""
+    "semantic_hash": "9bd24dc45ed3d5d451c2592ed68208d8"
   },
   "scripts/generate_final_graphs.py": {
     "mtime": 1786449558.9698365,
     "ast_hash": "3628fd96155ae4bb4e4d392cde7d06e8",
-    "semantic_hash": ""
+    "semantic_hash": "3628fd96155ae4bb4e4d392cde7d06e8"
   },
   "scripts/generate_hallucination_dataset.py": {
     "mtime": 1786449558.971837,
     "ast_hash": "f2ced9422317e22d5f38a26cd7c767e4",
-    "semantic_hash": ""
+    "semantic_hash": "f2ced9422317e22d5f38a26cd7c767e4"
   },
   "scripts/generate_memory_stability_graph.py": {
     "mtime": 1786449558.972837,
     "ast_hash": "c39d3fc4de31437cbdb34af38437e2ee",
-    "semantic_hash": ""
+    "semantic_hash": "c39d3fc4de31437cbdb34af38437e2ee"
   },
   "scripts/generate_professional_figures.py": {
     "mtime": 1786449558.9748385,
     "ast_hash": "6566f47102fc05d5138b423392a565dc",
-    "semantic_hash": ""
+    "semantic_hash": "6566f47102fc05d5138b423392a565dc"
   },
   "scripts/pc_ablation.py": {
     "mtime": 1786449558.9860556,
     "ast_hash": "3251f8c52e95379ecc37ebbe59fb4527",
-    "semantic_hash": ""
+    "semantic_hash": "3251f8c52e95379ecc37ebbe59fb4527"
   },
   "scripts/professional_analysis.py": {
     "mtime": 1786449558.989056,
     "ast_hash": "455b25f15b01a127b6a4b2a6cd05f3fa",
-    "semantic_hash": ""
+    "semantic_hash": "455b25f15b01a127b6a4b2a6cd05f3fa"
   },
   "scripts/statistical_analysis.py": {
     "mtime": 1786449558.9975832,
     "ast_hash": "b72b585cf4c0c53cc0cb220aeca45664",
-    "semantic_hash": ""
+    "semantic_hash": "b72b585cf4c0c53cc0cb220aeca45664"
   },
   "scripts/stress_test.py": {
     "mtime": 1786449558.9985836,
     "ast_hash": "259626cf34c59f840c93d89c74cab15a",
-    "semantic_hash": ""
+    "semantic_hash": "259626cf34c59f840c93d89c74cab15a"
   },
   "scripts/systematic_benchmark.py": {
     "mtime": 1786449559.0045805,
     "ast_hash": "1c6c918e8e297d90c056c29ca481eb90",
-    "semantic_hash": ""
+    "semantic_hash": "1c6c918e8e297d90c056c29ca481eb90"
   },
   "scripts/train_bert_classifier.py": {
     "mtime": 1786449559.0120912,
     "ast_hash": "fc0608743ae84de7297becc44297944f",
-    "semantic_hash": ""
+    "semantic_hash": "fc0608743ae84de7297becc44297944f"
   },
   "scripts/train_classifier.py": {
     "mtime": 1786449559.0131016,
     "ast_hash": "780233ed6dccca09cf767abca9edfc78",
-    "semantic_hash": ""
+    "semantic_hash": "780233ed6dccca09cf767abca9edfc78"
   },
   "scripts/transfer_model.ps1": {
     "mtime": 1786449559.0151014,
     "ast_hash": "e649286f71233b8f4c58dca177056a3e",
-    "semantic_hash": ""
+    "semantic_hash": "e649286f71233b8f4c58dca177056a3e"
   },
   "server/main.py": {
     "mtime": 1786449559.0166147,
     "ast_hash": "fb5e4fe0580d94894c537a61ead2eb2b",
-    "semantic_hash": ""
+    "semantic_hash": "fb5e4fe0580d94894c537a61ead2eb2b"
   },
   "tools/caveman.json": {
     "mtime": 1786449559.0391488,
     "ast_hash": "e06f9de2de1327101168a2ea78fa9603",
-    "semantic_hash": ""
+    "semantic_hash": "e06f9de2de1327101168a2ea78fa9603"
   },
   "tools/graphify.json": {
     "mtime": 1786449559.040146,
     "ast_hash": "d3067fe33fc81f14312275a5f24ab67b",
-    "semantic_hash": ""
+    "semantic_hash": "d3067fe33fc81f14312275a5f24ab67b"
   },
   ".github/workflows/build.yml": {
     "mtime": 1786449558.1922066,
@@ -1017,47 +1017,47 @@
   "generate_scirp_docx.py": {
     "mtime": 1786449558.3478277,
     "ast_hash": "f42b8565d32ad881e103ff64549436a4",
-    "semantic_hash": ""
+    "semantic_hash": "f42b8565d32ad881e103ff64549436a4"
   },
   "scripts/_analyze_stress.py": {
     "mtime": 1786449558.9232616,
     "ast_hash": "a45cab8effbb52a57f18caf74ca3d846",
-    "semantic_hash": ""
+    "semantic_hash": "a45cab8effbb52a57f18caf74ca3d846"
   },
   "scripts/_verify_claims.py": {
     "mtime": 1786449558.9327853,
     "ast_hash": "bd1fc54b1e472fc81ccccf3ded8f4b39",
-    "semantic_hash": ""
+    "semantic_hash": "bd1fc54b1e472fc81ccccf3ded8f4b39"
   },
   "scripts/check_completeness.py": {
     "mtime": 1786449558.9543002,
     "ast_hash": "bfeaed70dab776ae8e12dca254f6414e",
-    "semantic_hash": ""
+    "semantic_hash": "bfeaed70dab776ae8e12dca254f6414e"
   },
   "scripts/check_docx.py": {
     "mtime": 1786449558.9562979,
     "ast_hash": "4ac592f31fd9c4fc5f4b5b8b6563a5ab",
-    "semantic_hash": ""
+    "semantic_hash": "4ac592f31fd9c4fc5f4b5b8b6563a5ab"
   },
   "scripts/export_docx.py": {
     "mtime": 1786449558.962826,
     "ast_hash": "b590cf6f9f645dd3c3a19062743c2fb3",
-    "semantic_hash": ""
+    "semantic_hash": "b590cf6f9f645dd3c3a19062743c2fb3"
   },
   "scripts/export_docx_v2.py": {
     "mtime": 1786449558.963836,
     "ast_hash": "db7b63e88d1c513e94ba54dddd795aa4",
-    "semantic_hash": ""
+    "semantic_hash": "db7b63e88d1c513e94ba54dddd795aa4"
   },
   "tests/client_sync_test.js": {
     "mtime": 1786449559.023628,
     "ast_hash": "5a8c4a1c9945f2e8ba968466e67093f3",
-    "semantic_hash": ""
+    "semantic_hash": "5a8c4a1c9945f2e8ba968466e67093f3"
   },
   "tests/server_tests.py": {
     "mtime": 1786449559.0341508,
     "ast_hash": "737f73844ae41c86c799ef17414a0fbb",
-    "semantic_hash": ""
+    "semantic_hash": "737f73844ae41c86c799ef17414a0fbb"
   },
   "NANORUNTIME_INFORME_FINAL.md": {
     "mtime": 1786449558.225774,
@@ -1157,22 +1157,22 @@
   "tests/live_logic_test.mjs": {
     "mtime": 1786449559.0256255,
     "ast_hash": "4619f7c6bb37599560d8650a2cc14cbc",
-    "semantic_hash": ""
+    "semantic_hash": "4619f7c6bb37599560d8650a2cc14cbc"
   },
   "tests/logic_tests.mjs": {
     "mtime": 1786449559.0301507,
     "ast_hash": "c814e2598bb7249fe9ab3dbaced0dec4",
-    "semantic_hash": ""
+    "semantic_hash": "c814e2598bb7249fe9ab3dbaced0dec4"
   },
   "vendor/llama-cpp-sys-2/.cargo_vcs_info.json": {
     "mtime": 1786449559.046675,
     "ast_hash": "69be3061664dead0c0b9280a814c2a13",
-    "semantic_hash": ""
+    "semantic_hash": "69be3061664dead0c0b9280a814c2a13"
   },
   "vendor/llama-cpp-sys-2/build.rs": {
     "mtime": 1786894151.2848828,
     "ast_hash": "82f9eb1a9f50bfd036f5fb6b6b6ba4a2",
-    "semantic_hash": ""
+    "semantic_hash": "82f9eb1a9f50bfd036f5fb6b6b6ba4a2"
   },
   "vendor/llama-cpp-sys-2/llama.cpp/common/arg.cpp": {
     "mtime": 1153704088.0,
@@ -4672,32 +4672,32 @@
   "vendor/llama-cpp-sys-2/src/lib.rs": {
     "mtime": 1786449559.0566845,
     "ast_hash": "c1ff60631ebedcf10ca06368a8e80a83",
-    "semantic_hash": ""
+    "semantic_hash": "c1ff60631ebedcf10ca06368a8e80a83"
   },
   "vendor/llama-cpp-sys-2/wrapper.h": {
     "mtime": 1786449559.0586853,
     "ast_hash": "af2afaca8da2cad7c83ceb7e4ffd275b",
-    "semantic_hash": ""
+    "semantic_hash": "af2afaca8da2cad7c83ceb7e4ffd275b"
   },
   "vendor/llama-cpp-sys-2/wrapper_common.cpp": {
     "mtime": 1786449559.0606844,
     "ast_hash": "00b88b61b28ec235f2a15ccd3eda2ae5",
-    "semantic_hash": ""
+    "semantic_hash": "00b88b61b28ec235f2a15ccd3eda2ae5"
   },
   "vendor/llama-cpp-sys-2/wrapper_common.h": {
     "mtime": 1786449559.061686,
     "ast_hash": "c6df845a76ccf03eaf710fe48be2456c",
-    "semantic_hash": ""
+    "semantic_hash": "c6df845a76ccf03eaf710fe48be2456c"
   },
   "vendor/llama-cpp-sys-2/wrapper_mtmd.h": {
     "mtime": 1786449559.0629022,
     "ast_hash": "b4c3ffddb3054678f7642148556d7790",
-    "semantic_hash": ""
+    "semantic_hash": "b4c3ffddb3054678f7642148556d7790"
   },
   "vendor/llama-cpp-sys-2/wrapper_utils.h": {
     "mtime": 1786449559.064904,
     "ast_hash": "780709e539c9af0684c88d75adefd4ce",
-    "semantic_hash": ""
+    "semantic_hash": "780709e539c9af0684c88d75adefd4ce"
   },
   "vendor/llama-cpp-sys-2/README.md": {
     "mtime": 1786449559.0536847,
@@ -4812,12 +4812,12 @@
   "tests/llama_baseline.py": {
     "mtime": 1786449559.0286262,
     "ast_hash": "7563ce36726b8ae780511a93e25502fb",
-    "semantic_hash": ""
+    "semantic_hash": "7563ce36726b8ae780511a93e25502fb"
   },
   "tests/pc_benchmark.py": {
     "mtime": 1786449559.0321517,
     "ast_hash": "a8c0824e0a91eac6aef867789582f99d",
-    "semantic_hash": ""
+    "semantic_hash": "a8c0824e0a91eac6aef867789582f99d"
   },
   "docs/ADR_2026-08-01.md": {
     "mtime": 1786449558.3119762,
@@ -4852,7 +4852,7 @@
   "tests/thermal_experiment.py": {
     "mtime": 1786449559.0361528,
     "ast_hash": "e36393ae6bf54ccf169a2cd0dfc369c0",
-    "semantic_hash": ""
+    "semantic_hash": "e36393ae6bf54ccf169a2cd0dfc369c0"
   },
   "docs/review_doom_mode.md": {
     "mtime": 1786449558.34129,
@@ -4862,112 +4862,112 @@
   "build_tools/check_deps.py": {
     "mtime": 1786449558.2594001,
     "ast_hash": "1b2ed24f99ab69b0e1d28c210f32a426",
-    "semantic_hash": ""
+    "semantic_hash": "1b2ed24f99ab69b0e1d28c210f32a426"
   },
   "fix_names.sh": {
     "mtime": 1786449558.3452926,
     "ast_hash": "52877422fe03c29f3f03af6858579d99",
-    "semantic_hash": ""
+    "semantic_hash": "52877422fe03c29f3f03af6858579d99"
   },
   "patch_bin.py": {
     "mtime": 1786449558.3681996,
     "ast_hash": "779d606c3cb6b6379b62f830820932d3",
-    "semantic_hash": ""
+    "semantic_hash": "779d606c3cb6b6379b62f830820932d3"
   },
   "patch_vnc.sh": {
     "mtime": 1786449558.3702023,
     "ast_hash": "bfa0d27160b02762cc3a61126e37d259",
-    "semantic_hash": ""
+    "semantic_hash": "bfa0d27160b02762cc3a61126e37d259"
   },
   "scripts/_docx_builder.py": {
     "mtime": 1786449558.9272616,
     "ast_hash": "084ddb371588946bd17552f8c3488e00",
-    "semantic_hash": ""
+    "semantic_hash": "084ddb371588946bd17552f8c3488e00"
   },
   "scripts/_nanostats.py": {
     "mtime": 1786449558.9307885,
     "ast_hash": "6229551d5026ebc735a0d376f7c952a3",
-    "semantic_hash": ""
+    "semantic_hash": "6229551d5026ebc735a0d376f7c952a3"
   },
   "scripts/_verify_all_claims.py": {
     "mtime": 1786449558.931787,
     "ast_hash": "1737f4b26a88cda0cc3c9516fea24d8e",
-    "semantic_hash": ""
+    "semantic_hash": "1737f4b26a88cda0cc3c9516fea24d8e"
   },
   "scripts/adb_wifi.ps1": {
     "mtime": 1786449558.9417834,
     "ast_hash": "4f4a0c81fbe881b6c9415325177ed538",
-    "semantic_hash": ""
+    "semantic_hash": "4f4a0c81fbe881b6c9415325177ed538"
   },
   "scripts/auto_test.py": {
     "mtime": 1786449558.9437833,
     "ast_hash": "f51e40ed7f1903276a0ab17ee98d02a9",
-    "semantic_hash": ""
+    "semantic_hash": "f51e40ed7f1903276a0ab17ee98d02a9"
   },
   "scripts/benchmark_speculative.sh": {
     "mtime": 1786449558.9503,
     "ast_hash": "254688c85a716fa937f4890f798a15e5",
-    "semantic_hash": ""
+    "semantic_hash": "254688c85a716fa937f4890f798a15e5"
   },
   "scripts/build_streaming_arm64.sh": {
     "mtime": 1786449558.9533002,
     "ast_hash": "d1155e4378612f5adab01750efd8b21f",
-    "semantic_hash": ""
+    "semantic_hash": "d1155e4378612f5adab01750efd8b21f"
   },
   "scripts/nanoai.sh": {
     "mtime": 1786449558.981364,
     "ast_hash": "a97f1001ba12e6b0f46e29b8fee18311",
-    "semantic_hash": ""
+    "semantic_hash": "a97f1001ba12e6b0f46e29b8fee18311"
   },
   "scripts/patch_llamacpp_streaming.py": {
     "mtime": 1786449558.9850578,
     "ast_hash": "258a50fd4a8b83fbf35d1aad5fc406b1",
-    "semantic_hash": ""
+    "semantic_hash": "258a50fd4a8b83fbf35d1aad5fc406b1"
   },
   "scripts/script_utils.py": {
     "mtime": 1786449558.9920547,
     "ast_hash": "5cfef0a808a0ba0bde4fcf0d8fc5a7c2",
-    "semantic_hash": ""
+    "semantic_hash": "5cfef0a808a0ba0bde4fcf0d8fc5a7c2"
   },
   "scripts/smaps_quick.py": {
     "mtime": 1786449558.993054,
     "ast_hash": "eadb6f7f1166c5813a91f13ab2926767",
-    "semantic_hash": ""
+    "semantic_hash": "eadb6f7f1166c5813a91f13ab2926767"
   },
   "scripts/smaps_validator.py": {
     "mtime": 1786449558.9950554,
     "ast_hash": "e5516d75ad220d0c3a2126b8e7546f83",
-    "semantic_hash": ""
+    "semantic_hash": "e5516d75ad220d0c3a2126b8e7546f83"
   },
   "scripts/test_streaming.c": {
     "mtime": 1786449559.0075822,
     "ast_hash": "b3505f36fef5a15d52a7ff2fdb59ef09",
-    "semantic_hash": ""
+    "semantic_hash": "b3505f36fef5a15d52a7ff2fdb59ef09"
   },
   "scripts/test_streaming_standalone.py": {
     "mtime": 1786449559.009582,
     "ast_hash": "77c8f5e883d4d12eb860bca6f9f7e5cf",
-    "semantic_hash": ""
+    "semantic_hash": "77c8f5e883d4d12eb860bca6f9f7e5cf"
   },
   "start_vnc.sh": {
     "mtime": 1786449559.0186267,
     "ast_hash": "d4a188e72016616169ca07ca807491f7",
-    "semantic_hash": ""
+    "semantic_hash": "d4a188e72016616169ca07ca807491f7"
   },
   "test_py.py": {
     "mtime": 1786449559.0196266,
     "ast_hash": "8e918c5d66798b2c480dc55ac052d8a3",
-    "semantic_hash": ""
+    "semantic_hash": "8e918c5d66798b2c480dc55ac052d8a3"
   },
   "xkbcomp.sh": {
     "mtime": 1786449559.0669048,
     "ast_hash": "8c2e6f703d2f1c198fe5e849bd026a17",
-    "semantic_hash": ""
+    "semantic_hash": "8c2e6f703d2f1c198fe5e849bd026a17"
   },
   "xkbcomp_wrapper.sh": {
     "mtime": 1786449559.067905,
     "ast_hash": "81225e37e88769b82dce390730510220",
-    "semantic_hash": ""
+    "semantic_hash": "81225e37e88769b82dce390730510220"
   },
   ".github/workflows/build_android_arm64.yml": {
     "mtime": 1786449558.1932077,
@@ -5012,7 +5012,7 @@
   "scripts/pre-commit-secrets.sh": {
     "mtime": 1786449558.9880557,
     "ast_hash": "0750a9ee113d4a9b6885be35c9ec1a04",
-    "semantic_hash": ""
+    "semantic_hash": "0750a9ee113d4a9b6885be35c9ec1a04"
   },
   "AUDITORIA_TECNICA_NANOAI.html": {
     "mtime": 1786222054.8001254,
@@ -5062,7 +5062,7 @@
   "scripts/install_desktop_pkgs.py": {
     "mtime": 1786449558.976836,
     "ast_hash": "f32b40eba583e52e3e59ae8fbd657bb0",
-    "semantic_hash": ""
+    "semantic_hash": "f32b40eba583e52e3e59ae8fbd657bb0"
   },
   "docs/ARCHITECTURE.md": {
     "mtime": 1786449558.3135004,
@@ -5077,912 +5077,912 @@
   "products/nanoMOBILE/flutter_app/android/app/build.gradle.kts": {
     "mtime": 1786636399.3733482,
     "ast_hash": "8cee62bf944ffd312d0b243604911a00",
-    "semantic_hash": ""
+    "semantic_hash": "8cee62bf944ffd312d0b243604911a00"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/jni_cstr_array.c": {
     "mtime": 1786449558.3937254,
     "ast_hash": "3c5eedc4d609efe2944fed3a6c8b9bf6",
-    "semantic_hash": ""
+    "semantic_hash": "3c5eedc4d609efe2944fed3a6c8b9bf6"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/jni_cstr_array.h": {
     "mtime": 1786449558.3937254,
     "ast_hash": "1c325e0fb0b3ea2a21eba6a9648dc7d7",
-    "semantic_hash": ""
+    "semantic_hash": "1c325e0fb0b3ea2a21eba6a9648dc7d7"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/nanoroot.c": {
     "mtime": 1786656949.342217,
     "ast_hash": "3cdd445023cdf1fb184043b21c2c90c1",
-    "semantic_hash": ""
+    "semantic_hash": "3cdd445023cdf1fb184043b21c2c90c1"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/nanoshell.c": {
     "mtime": 1786731448.1184945,
     "ast_hash": "5f6d6a31e27eb745fc7ac19eac821036",
-    "semantic_hash": ""
+    "semantic_hash": "5f6d6a31e27eb745fc7ac19eac821036"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/pty.c": {
     "mtime": 1786449558.402256,
     "ast_hash": "84659d3a19d618764deb658748255a87",
-    "semantic_hash": ""
+    "semantic_hash": "84659d3a19d618764deb658748255a87"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/pty.h": {
     "mtime": 1786449558.4032557,
     "ast_hash": "a7cbc5997db517861297c74b53cbb9f1",
-    "semantic_hash": ""
+    "semantic_hash": "a7cbc5997db517861297c74b53cbb9f1"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/pty_jni.c": {
     "mtime": 1786825272.7444594,
     "ast_hash": "0e3e00cee2c0c1e7d90a49bb473b5d68",
-    "semantic_hash": ""
+    "semantic_hash": "0e3e00cee2c0c1e7d90a49bb473b5d68"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/pty_session_registry.c": {
     "mtime": 1786636586.6009972,
     "ast_hash": "7ce7d4e07a96b7bac6fdf13b74bb2504",
-    "semantic_hash": ""
+    "semantic_hash": "7ce7d4e07a96b7bac6fdf13b74bb2504"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/pty_session_registry.h": {
     "mtime": 1786449558.4072533,
     "ast_hash": "4ae1a24a4ee1842bfd43969914924eb8",
-    "semantic_hash": ""
+    "semantic_hash": "4ae1a24a4ee1842bfd43969914924eb8"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/util.c": {
     "mtime": 1786449558.4092524,
     "ast_hash": "42671056058419fcea4cf90cd3333448",
-    "semantic_hash": ""
+    "semantic_hash": "42671056058419fcea4cf90cd3333448"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/util.h": {
     "mtime": 1786449558.410252,
     "ast_hash": "f899ef463b41e1384fadd99114854783",
-    "semantic_hash": ""
+    "semantic_hash": "f899ef463b41e1384fadd99114854783"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/worker_jni.c": {
     "mtime": 1786827128.7351627,
     "ast_hash": "6f488d6f9d649f3890cab4aa9defc3eb",
-    "semantic_hash": ""
+    "semantic_hash": "6f488d6f9d649f3890cab4aa9defc3eb"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java": {
-    "mtime": 1787027901.377636,
-    "ast_hash": "a9e2131377519c8b529f9f8371d78577",
-    "semantic_hash": ""
+    "mtime": 1787186034.3390355,
+    "ast_hash": "f466c50252c4b4534ff4113fc1d8e06d",
+    "semantic_hash": "f466c50252c4b4534ff4113fc1d8e06d"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt": {
     "mtime": 1786686668.7707222,
     "ast_hash": "ad98d308f4f6171757ca479f03040280",
-    "semantic_hash": ""
+    "semantic_hash": "ad98d308f4f6171757ca479f03040280"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt": {
     "mtime": 1786751027.9018636,
     "ast_hash": "234d276318c5f7bd557d76f6486f5443",
-    "semantic_hash": ""
+    "semantic_hash": "234d276318c5f7bd557d76f6486f5443"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellBridge.kt": {
     "mtime": 1786827101.7654998,
     "ast_hash": "e0a694f55258fd0ad95b939e3aa963c0",
-    "semantic_hash": ""
+    "semantic_hash": "e0a694f55258fd0ad95b939e3aa963c0"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellWorkerService.kt": {
     "mtime": 1786827112.6625464,
     "ast_hash": "2d99bdf54b56f4d5a88158078a97b3b7",
-    "semantic_hash": ""
+    "semantic_hash": "2d99bdf54b56f4d5a88158078a97b3b7"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NativeRuntimeSupervisor.kt": {
     "mtime": 1786647015.5354521,
     "ast_hash": "11aecdb9f2e13e754691a995e246e3dd",
-    "semantic_hash": ""
+    "semantic_hash": "11aecdb9f2e13e754691a995e246e3dd"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/SecurePathPolicy.kt": {
     "mtime": 1786449558.4913769,
     "ast_hash": "f6bc340ad0b70530f8fc751f83810d22",
-    "semantic_hash": ""
+    "semantic_hash": "f6bc340ad0b70530f8fc751f83810d22"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt": {
     "mtime": 1786449558.4923775,
     "ast_hash": "4c7dbee81ee3c66e898e6517ff404f1b",
-    "semantic_hash": ""
+    "semantic_hash": "4c7dbee81ee3c66e898e6517ff404f1b"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt": {
     "mtime": 1786827121.5481524,
     "ast_hash": "7103db208fb4f0983b8b9e5ee60aaf00",
-    "semantic_hash": ""
+    "semantic_hash": "7103db208fb4f0983b8b9e5ee60aaf00"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/XzDecoder.kt": {
     "mtime": 1786556575.2162814,
     "ast_hash": "39ffec69219d619bf50e9b1fa2aa92e2",
-    "semantic_hash": ""
+    "semantic_hash": "39ffec69219d619bf50e9b1fa2aa92e2"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ChannelHandlers.kt": {
     "mtime": 1786751027.900847,
     "ast_hash": "b26bc3abf908469703e1d875d12e11c7",
-    "semantic_hash": ""
+    "semantic_hash": "b26bc3abf908469703e1d875d12e11c7"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DeviceMetricsChannelHandler.kt": {
     "mtime": 1786636641.765689,
     "ast_hash": "46f7a586fb1343b4dca555eeb4e6e1c0",
-    "semantic_hash": ""
+    "semantic_hash": "46f7a586fb1343b4dca555eeb4e6e1c0"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt": {
     "mtime": 1786672137.485571,
     "ast_hash": "d4b375d4c6b34304f72b60fab4fe772a",
-    "semantic_hash": ""
+    "semantic_hash": "d4b375d4c6b34304f72b60fab4fe772a"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NavigationChannelHandler.kt": {
     "mtime": 1786449558.5026524,
     "ast_hash": "fbf22c8555bd61f1f80d2e3d91736984",
-    "semantic_hash": ""
+    "semantic_hash": "fbf22c8555bd61f1f80d2e3d91736984"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/PtyChannelHandler.kt": {
     "mtime": 1786449558.5036497,
     "ast_hash": "4859897ba048bbd7f4c2ce35a2cced91",
-    "semantic_hash": ""
+    "semantic_hash": "4859897ba048bbd7f4c2ce35a2cced91"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/PackageInstallController.kt": {
     "mtime": 1786449558.504654,
     "ast_hash": "b76ac073ca32ca970acae90c0e4a98ef",
-    "semantic_hash": ""
+    "semantic_hash": "b76ac073ca32ca970acae90c0e4a98ef"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/WorkerController.kt": {
     "mtime": 1786449558.507652,
     "ast_hash": "03c80f5620ae755dd1a3ff7497dcdbd4",
-    "semantic_hash": ""
+    "semantic_hash": "03c80f5620ae755dd1a3ff7497dcdbd4"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DeviceMetricsProvider.kt": {
     "mtime": 1786449558.5096526,
     "ast_hash": "318e7ed691577c25ab435d698832c396",
-    "semantic_hash": ""
+    "semantic_hash": "318e7ed691577c25ab435d698832c396"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DownloadService.kt": {
     "mtime": 1786449558.5106535,
     "ast_hash": "f79b08fa51a46415904caccc7035839d",
-    "semantic_hash": ""
+    "semantic_hash": "f79b08fa51a46415904caccc7035839d"
   },
   "products/nanoMOBILE/flutter_app/android/build.gradle.kts": {
     "mtime": 1786449558.5312283,
     "ast_hash": "803fe22651fbe96ed401eb0b66a492d1",
-    "semantic_hash": ""
+    "semantic_hash": "803fe22651fbe96ed401eb0b66a492d1"
   },
   "products/nanoMOBILE/flutter_app/android/gradlew": {
     "mtime": 1785901826.723527,
     "ast_hash": "7f1cd7eb3f75a1dc85cd37753972a6e2",
-    "semantic_hash": ""
+    "semantic_hash": "7f1cd7eb3f75a1dc85cd37753972a6e2"
   },
   "products/nanoMOBILE/flutter_app/android/settings.gradle.kts": {
     "mtime": 1786449558.537227,
     "ast_hash": "f276a44edd917afd836899357fdae60e",
-    "semantic_hash": ""
+    "semantic_hash": "f276a44edd917afd836899357fdae60e"
   },
   "products/nanoMOBILE/flutter_app/assets/config/allowed_binaries.json": {
     "mtime": 1786449558.5813518,
     "ast_hash": "13dcb957202404c5e08ad76dbb7dbb49",
-    "semantic_hash": ""
+    "semantic_hash": "13dcb957202404c5e08ad76dbb7dbb49"
   },
   "products/nanoMOBILE/flutter_app/assets/exe/libandroid-shmem.c": {
     "mtime": 1786449558.5883505,
     "ast_hash": "ad9999730f2fb3a74a3f43403688ddc9",
-    "semantic_hash": ""
+    "semantic_hash": "ad9999730f2fb3a74a3f43403688ddc9"
   },
   "products/nanoMOBILE/flutter_app/integration_test/chat_engine_test.dart": {
     "mtime": 1786760174.8809566,
     "ast_hash": "036dc7b350344b6d59cfdbcb664aa27d",
-    "semantic_hash": ""
+    "semantic_hash": "036dc7b350344b6d59cfdbcb664aa27d"
   },
   "products/nanoMOBILE/flutter_app/integration_test/doom_stress_test.dart": {
     "mtime": 1786760182.9136684,
     "ast_hash": "9822c64bfd76847acc6388e4643024c6",
-    "semantic_hash": ""
+    "semantic_hash": "9822c64bfd76847acc6388e4643024c6"
   },
   "products/nanoMOBILE/flutter_app/integration_test/full_app_test.dart": {
     "mtime": 1786449558.6144135,
     "ast_hash": "ed5bd62e37dbec29231a1a069e4c444d",
-    "semantic_hash": ""
+    "semantic_hash": "ed5bd62e37dbec29231a1a069e4c444d"
   },
   "products/nanoMOBILE/flutter_app/integration_test/offline_degradation_test.dart": {
     "mtime": 1786449558.6159272,
     "ast_hash": "638f77e1de687888da0f88ab2a2cbcd3",
-    "semantic_hash": ""
+    "semantic_hash": "638f77e1de687888da0f88ab2a2cbcd3"
   },
   "products/nanoMOBILE/flutter_app/integration_test/pty_real_test.dart": {
     "mtime": 1786449558.624941,
     "ast_hash": "a3636be3b961d42f38bc4a4304a58e83",
-    "semantic_hash": ""
+    "semantic_hash": "a3636be3b961d42f38bc4a4304a58e83"
   },
   "products/nanoMOBILE/flutter_app/integration_test/terminal_linux_test.dart": {
     "mtime": 1786449558.6269417,
     "ast_hash": "af26b389b2972098f85bb370dde0f1b9",
-    "semantic_hash": ""
+    "semantic_hash": "af26b389b2972098f85bb370dde0f1b9"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/app_providers.dart": {
     "mtime": 1786813795.6083806,
     "ast_hash": "8cf95bed8dd533def9cd611ec31f30e6",
-    "semantic_hash": ""
+    "semantic_hash": "8cf95bed8dd533def9cd611ec31f30e6"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/chat_provider.dart": {
-    "mtime": 1787024803.8699455,
-    "ast_hash": "cfd08c69b12e31ce1de1ca8cc735b89f",
-    "semantic_hash": ""
+    "mtime": 1787186972.9948199,
+    "ast_hash": "0fa96efd11a21e238340d4964c573000",
+    "semantic_hash": "0fa96efd11a21e238340d4964c573000"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/dashboard_provider.dart": {
     "mtime": 1786924598.783642,
     "ast_hash": "0ed9e526b55c0ffc82d83883de5a178e",
-    "semantic_hash": ""
+    "semantic_hash": "0ed9e526b55c0ffc82d83883de5a178e"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/rootfs_provider.dart": {
     "mtime": 1786449558.635234,
     "ast_hash": "0ec3bd33db7305454bd53c3d847bd0d2",
-    "semantic_hash": ""
+    "semantic_hash": "0ec3bd33db7305454bd53c3d847bd0d2"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/settings_provider.dart": {
-    "mtime": 1787016642.569577,
+    "mtime": 1787186972.9963236,
     "ast_hash": "b3d41dcfde69bdd89442487ebf0698da",
-    "semantic_hash": ""
+    "semantic_hash": "b3d41dcfde69bdd89442487ebf0698da"
   },
   "products/nanoMOBILE/flutter_app/lib/core/router/app_router.dart": {
-    "mtime": 1787008840.7330377,
+    "mtime": 1787186972.9963236,
     "ast_hash": "11de8861cc42c1bfbce64ea4110c8e55",
-    "semantic_hash": ""
+    "semantic_hash": "11de8861cc42c1bfbce64ea4110c8e55"
   },
   "products/nanoMOBILE/flutter_app/lib/core/router/scaffold_shell.dart": {
-    "mtime": 1787018787.549219,
-    "ast_hash": "c327e7ee2b8447114525516335227299",
-    "semantic_hash": ""
+    "mtime": 1787188473.8948207,
+    "ast_hash": "c137a4dcfcf7761fb0f8535b07af8ee2",
+    "semantic_hash": "c137a4dcfcf7761fb0f8535b07af8ee2"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/allowed_binaries.dart": {
     "mtime": 1786666542.419724,
     "ast_hash": "961e7a0381a14007b90e6cf76dbc5c1e",
-    "semantic_hash": ""
+    "semantic_hash": "961e7a0381a14007b90e6cf76dbc5c1e"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/device_info.dart": {
     "mtime": 1786666542.419724,
     "ast_hash": "d8019c664cbcb5b33d2290ae8025f57b",
-    "semantic_hash": ""
+    "semantic_hash": "d8019c664cbcb5b33d2290ae8025f57b"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/device_metrics.dart": {
     "mtime": 1786666542.419724,
     "ast_hash": "fdc0c049dd422c40f2b06a79287de238",
-    "semantic_hash": ""
+    "semantic_hash": "fdc0c049dd422c40f2b06a79287de238"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/docker_manager.dart": {
     "mtime": 1786666542.4309723,
     "ast_hash": "74a89cf71df0ff7a932de91f85d31cdb",
-    "semantic_hash": ""
+    "semantic_hash": "74a89cf71df0ff7a932de91f85d31cdb"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/hardware_info_service.dart": {
     "mtime": 1786825549.3438318,
     "ast_hash": "598bf78806b71893ec505563175eb658",
-    "semantic_hash": ""
+    "semantic_hash": "598bf78806b71893ec505563175eb658"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/kali_manager.dart": {
     "mtime": 1786671896.171646,
     "ast_hash": "55cebc7004a073fb8ef95949533ebbc8",
-    "semantic_hash": ""
+    "semantic_hash": "55cebc7004a073fb8ef95949533ebbc8"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/llm_engine_client.dart": {
-    "mtime": 1787024648.8700695,
-    "ast_hash": "e92f381a1905897984fee542f29dd2de",
-    "semantic_hash": ""
+    "mtime": 1787186973.0003574,
+    "ast_hash": "0650df66c2fa40947c2e13e1373d2c12",
+    "semantic_hash": "0650df66c2fa40947c2e13e1373d2c12"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/nanoshell_ffi.dart": {
     "mtime": 1786675921.1327336,
     "ast_hash": "c34890f24cc7aef3d49a4c4254041ab6",
-    "semantic_hash": ""
+    "semantic_hash": "c34890f24cc7aef3d49a4c4254041ab6"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/package_service.dart": {
     "mtime": 1786686430.9243777,
     "ast_hash": "3614a67e92b78dbf72ee71eef723dc1a",
-    "semantic_hash": ""
+    "semantic_hash": "3614a67e92b78dbf72ee71eef723dc1a"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/proc_fs.dart": {
     "mtime": 1786675979.6585882,
     "ast_hash": "7d0fd5d0ddce9c6b03f83963e0beb563",
-    "semantic_hash": ""
+    "semantic_hash": "7d0fd5d0ddce9c6b03f83963e0beb563"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/proot_manager.dart": {
-    "mtime": 1787008042.7761135,
+    "mtime": 1787186973.0041115,
     "ast_hash": "b0458d250da158000d4ce917741e55f6",
-    "semantic_hash": ""
+    "semantic_hash": "b0458d250da158000d4ce917741e55f6"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/pty_shell.dart": {
     "mtime": 1786666542.4393532,
     "ast_hash": "fde0b64987c8220b53c2eda32f936865",
-    "semantic_hash": ""
+    "semantic_hash": "fde0b64987c8220b53c2eda32f936865"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/rootfs_env.dart": {
     "mtime": 1786666542.4399126,
     "ast_hash": "5df857f3291dcaaee58e9cbe4ba894d3",
-    "semantic_hash": ""
+    "semantic_hash": "5df857f3291dcaaee58e9cbe4ba894d3"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/rootfs_manager.dart": {
     "mtime": 1786828681.526842,
     "ast_hash": "db5dd813e71dd8b324c6252e790bd578",
-    "semantic_hash": ""
+    "semantic_hash": "db5dd813e71dd8b324c6252e790bd578"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/shell_executor.dart": {
     "mtime": 1786825731.505309,
     "ast_hash": "a2df5fc6f42985abcc73e15d963684ee",
-    "semantic_hash": ""
+    "semantic_hash": "a2df5fc6f42985abcc73e15d963684ee"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/terminal_audit_logger.dart": {
     "mtime": 1786825302.1347022,
     "ast_hash": "c8d89653bffd28a1edb56536bdf08118",
-    "semantic_hash": ""
+    "semantic_hash": "c8d89653bffd28a1edb56536bdf08118"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/terminal_dependencies.dart": {
     "mtime": 1786676269.6206794,
     "ast_hash": "d7a18af429720416eb66169da41039d2",
-    "semantic_hash": ""
+    "semantic_hash": "d7a18af429720416eb66169da41039d2"
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/app_theme.dart": {
-    "mtime": 1787008667.4828868,
-    "ast_hash": "7917055adeb1ef8c0f418e76241a6888",
-    "semantic_hash": ""
+    "mtime": 1787186973.0081346,
+    "ast_hash": "4e0772fcdd026d433efe1a30a20e5f85",
+    "semantic_hash": "4e0772fcdd026d433efe1a30a20e5f85"
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/design_tokens.dart": {
-    "mtime": 1787008914.7018936,
-    "ast_hash": "fefa056bb8dcad79c13af6487ff263fe",
-    "semantic_hash": ""
+    "mtime": 1787186973.0091379,
+    "ast_hash": "e13cffc2bd2488d9570db673cd49a003",
+    "semantic_hash": "e13cffc2bd2488d9570db673cd49a003"
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/nano_type.dart": {
     "mtime": 1786675921.1377673,
     "ast_hash": "277bd89c7270feac1051afc6a7fda4d1",
-    "semantic_hash": ""
+    "semantic_hash": "277bd89c7270feac1051afc6a7fda4d1"
   },
   "products/nanoMOBILE/flutter_app/lib/features/chat/presentation/screens/chat_screen.dart": {
-    "mtime": 1787028222.9534957,
-    "ast_hash": "971261015cfc32b8c36bfb2e9aaf7e33",
-    "semantic_hash": ""
+    "mtime": 1787188511.0715592,
+    "ast_hash": "7d65cab10d802f400a6afeba5d781c3f",
+    "semantic_hash": "7d65cab10d802f400a6afeba5d781c3f"
   },
   "products/nanoMOBILE/flutter_app/lib/features/settings/presentation/screens/settings_screen.dart": {
     "mtime": 1786830955.2875242,
     "ast_hash": "4bdcb23380d9e1f70f9ba819e1a968c7",
-    "semantic_hash": ""
+    "semantic_hash": "4bdcb23380d9e1f70f9ba819e1a968c7"
   },
   "products/nanoMOBILE/flutter_app/lib/features/settings/settings_screen.dart": {
     "mtime": 1786449558.6772833,
     "ast_hash": "10858fee6f7d4a8805b8ca4978e9fbb3",
-    "semantic_hash": ""
+    "semantic_hash": "10858fee6f7d4a8805b8ca4978e9fbb3"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/ai_plugin.dart": {
     "mtime": 1786666542.4500277,
     "ast_hash": "191373f1ec73103f90b2e82b2e6b87f0",
-    "semantic_hash": ""
+    "semantic_hash": "191373f1ec73103f90b2e82b2e6b87f0"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/ansi_parser.dart": {
     "mtime": 1786666542.4500277,
     "ast_hash": "7122e0f942f8e04d660f323c35ba42ae",
-    "semantic_hash": ""
+    "semantic_hash": "7122e0f942f8e04d660f323c35ba42ae"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/ansi_terminal.dart": {
     "mtime": 1786679350.151969,
     "ast_hash": "200258a5844864f66ab6a077c33c1baf",
-    "semantic_hash": ""
+    "semantic_hash": "200258a5844864f66ab6a077c33c1baf"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/command_dispatcher.dart": {
     "mtime": 1786474786.7153676,
     "ast_hash": "4e1522d9039366b011767e20580fc622",
-    "semantic_hash": ""
+    "semantic_hash": "4e1522d9039366b011767e20580fc622"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/command_executor.dart": {
     "mtime": 1786666542.4584,
     "ast_hash": "5ea8f868bb034b9bf475a792c0bfc1b5",
-    "semantic_hash": ""
+    "semantic_hash": "5ea8f868bb034b9bf475a792c0bfc1b5"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/command_tagger.dart": {
     "mtime": 1786666542.4604793,
     "ast_hash": "bb3bfd73f17412fba8dc2c83eab54664",
-    "semantic_hash": ""
+    "semantic_hash": "bb3bfd73f17412fba8dc2c83eab54664"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/cron_scheduler.dart": {
     "mtime": 1786666542.4625301,
     "ast_hash": "156f21f69dd4b3cea94d72bcf1f395b2",
-    "semantic_hash": ""
+    "semantic_hash": "156f21f69dd4b3cea94d72bcf1f395b2"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/i_bin_executor.dart": {
     "mtime": 1786666542.4625301,
     "ast_hash": "3cfcbcb8129d18c57e7c6f369e0b47ba",
-    "semantic_hash": ""
+    "semantic_hash": "3cfcbcb8129d18c57e7c6f369e0b47ba"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/keyboard_mapper.dart": {
     "mtime": 1786636824.1871772,
     "ast_hash": "909ba6e29543a014a7458c0f4d4e642e",
-    "semantic_hash": ""
+    "semantic_hash": "909ba6e29543a014a7458c0f4d4e642e"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/noar_panel.dart": {
     "mtime": 1786675921.1604533,
     "ast_hash": "ae531e03021a83d084f17f005227e31d",
-    "semantic_hash": ""
+    "semantic_hash": "ae531e03021a83d084f17f005227e31d"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/noar_persistence.dart": {
     "mtime": 1786449558.6979885,
     "ast_hash": "4ed120ff6a2900e7753b8458839eacea",
-    "semantic_hash": ""
+    "semantic_hash": "4ed120ff6a2900e7753b8458839eacea"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/dashboard_plugin.dart": {
     "mtime": 1786666542.4698353,
     "ast_hash": "d9068bbba6c24bed55f60c496788c41d",
-    "semantic_hash": ""
+    "semantic_hash": "d9068bbba6c24bed55f60c496788c41d"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/devops_plugin.dart": {
     "mtime": 1786676597.8371933,
     "ast_hash": "0ef3a7517feede8198a9a94656194e4d",
-    "semantic_hash": ""
+    "semantic_hash": "0ef3a7517feede8198a9a94656194e4d"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/monitor_plugin.dart": {
     "mtime": 1786666542.4698353,
     "ast_hash": "9b25eacdba453d4919168afcc9d14045",
-    "semantic_hash": ""
+    "semantic_hash": "9b25eacdba453d4919168afcc9d14045"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/network_plugin.dart": {
-    "mtime": 1787008046.2180827,
+    "mtime": 1787186973.03461,
     "ast_hash": "c64d74f625d274be55fe9ca16cf50447",
-    "semantic_hash": ""
+    "semantic_hash": "c64d74f625d274be55fe9ca16cf50447"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/pkg_plugin.dart": {
     "mtime": 1786666542.4809682,
     "ast_hash": "4ed4a4c9b06bce94fb6375f29c87ba96",
-    "semantic_hash": ""
+    "semantic_hash": "4ed4a4c9b06bce94fb6375f29c87ba96"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/process_plugin.dart": {
     "mtime": 1786666542.483529,
     "ast_hash": "3fb80592e2362a15b014a01d119863b5",
-    "semantic_hash": ""
+    "semantic_hash": "3fb80592e2362a15b014a01d119863b5"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/plugins/system_plugin.dart": {
     "mtime": 1786666542.486506,
     "ast_hash": "de4852ca7efcd80e4abfc983bbed7465",
-    "semantic_hash": ""
+    "semantic_hash": "de4852ca7efcd80e4abfc983bbed7465"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/presentation/screens/terminal_screen.dart": {
-    "mtime": 1787008639.509544,
-    "ast_hash": "6d1301b89c7ef59878fee6fc45250372",
-    "semantic_hash": ""
+    "mtime": 1787186973.0361147,
+    "ast_hash": "685b3d95748cfb22d6d5b5482a657160",
+    "semantic_hash": "685b3d95748cfb22d6d5b5482a657160"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/pty_manager.dart": {
     "mtime": 1786676177.4782364,
     "ast_hash": "f8c3c0ba199db68e2c5a25de9cad127e",
-    "semantic_hash": ""
+    "semantic_hash": "f8c3c0ba199db68e2c5a25de9cad127e"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/term_screen.dart": {
     "mtime": 1786676003.6813676,
     "ast_hash": "3baa0dbfd7726b89a96a21d6ebb2474e",
-    "semantic_hash": ""
+    "semantic_hash": "3baa0dbfd7726b89a96a21d6ebb2474e"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_core.dart": {
-    "mtime": 1787001063.7050602,
+    "mtime": 1787186973.0371213,
     "ast_hash": "dd0cef5ff20edf34dc3daea05085993b",
-    "semantic_hash": ""
+    "semantic_hash": "dd0cef5ff20edf34dc3daea05085993b"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_modifier_bar.dart": {
     "mtime": 1786666542.4940343,
     "ast_hash": "6f901b1a10e29a3360d0e970a59e2d37",
-    "semantic_hash": ""
+    "semantic_hash": "6f901b1a10e29a3360d0e970a59e2d37"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_plugin.dart": {
     "mtime": 1786449558.721043,
     "ast_hash": "11bd5dda4feb757f2dd31a8530773d22",
-    "semantic_hash": ""
+    "semantic_hash": "11bd5dda4feb757f2dd31a8530773d22"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_screen.dart": {
     "mtime": 1786449558.7220435,
     "ast_hash": "2d4c5f14c43712a96f9d973012400828",
-    "semantic_hash": ""
+    "semantic_hash": "2d4c5f14c43712a96f9d973012400828"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_types.dart": {
     "mtime": 1786666542.4940343,
     "ast_hash": "a5789c9fe0e261ed5d068e342ac08ac2",
-    "semantic_hash": ""
+    "semantic_hash": "a5789c9fe0e261ed5d068e342ac08ac2"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_workspace.dart": {
     "mtime": 1786666542.4976497,
     "ast_hash": "786c52e2a55e55f1d09291f5febf2d34",
-    "semantic_hash": ""
+    "semantic_hash": "786c52e2a55e55f1d09291f5febf2d34"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminalservices.dart": {
     "mtime": 1786666542.500194,
     "ast_hash": "e92e2f56030818ff98a2c7b461d0ab78",
-    "semantic_hash": ""
+    "semantic_hash": "e92e2f56030818ff98a2c7b461d0ab78"
   },
   "products/nanoMOBILE/flutter_app/lib/main.dart": {
     "mtime": 1786922214.3537073,
     "ast_hash": "3e4d255946a6dfb94b8857e6b638e9fd",
-    "semantic_hash": ""
+    "semantic_hash": "3e4d255946a6dfb94b8857e6b638e9fd"
   },
   "products/nanoMOBILE/flutter_app/test/ansi_parser_test.dart": {
     "mtime": 1786449558.7355843,
     "ast_hash": "20e621cc0fd9a4a9e2b0a4e2127bb0c3",
-    "semantic_hash": ""
+    "semantic_hash": "20e621cc0fd9a4a9e2b0a4e2127bb0c3"
   },
   "products/nanoMOBILE/flutter_app/test/terminal/ansi_terminal_test.dart": {
     "mtime": 1786449558.736585,
     "ast_hash": "01eb8e2ed47d30296b45694ca5f6c6a8",
-    "semantic_hash": ""
+    "semantic_hash": "01eb8e2ed47d30296b45694ca5f6c6a8"
   },
   "products/nanoMOBILE/flutter_app/test/terminal/command_dispatcher_test.dart": {
     "mtime": 1786449558.7385833,
     "ast_hash": "b546797ccc60c16f11727932bb6ab366",
-    "semantic_hash": ""
+    "semantic_hash": "b546797ccc60c16f11727932bb6ab366"
   },
   "products/nanoMOBILE/flutter_app/test/terminal/terminal_screen_test.dart": {
     "mtime": 1786449558.741583,
     "ast_hash": "082748e9b2481b8142ed455f7a892866",
-    "semantic_hash": ""
+    "semantic_hash": "082748e9b2481b8142ed455f7a892866"
   },
   "products/nanoMOBILE/flutter_app/test/vnc_client_test.dart": {
     "mtime": 1786449558.7425847,
     "ast_hash": "16a9c986308ef8c7a1a1f4a0f8ccaae2",
-    "semantic_hash": ""
+    "semantic_hash": "16a9c986308ef8c7a1a1f4a0f8ccaae2"
   },
   "products/nanoMOBILE/flutter_app/test/widget_test.dart": {
     "mtime": 1786664567.609019,
     "ast_hash": "3ab782c28148245f409afd1449856968",
-    "semantic_hash": ""
+    "semantic_hash": "3ab782c28148245f409afd1449856968"
   },
   "products/nanoRUNTIME/nanortime-cli/src/main.rs": {
-    "mtime": 1787028641.749587,
-    "ast_hash": "7d9e3722575b5b21fd313c4c92c9ec1a",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "9937a8d86d6700e47fb5e9cbcfaa4585",
+    "semantic_hash": "9937a8d86d6700e47fb5e9cbcfaa4585"
   },
   "products/nanoRUNTIME/nanortime-cli/src/platform.rs": {
     "mtime": 1786642788.6736772,
     "ast_hash": "d72acd86cdb9b3ab07d631496cd5f2df",
-    "semantic_hash": ""
+    "semantic_hash": "d72acd86cdb9b3ab07d631496cd5f2df"
   },
   "products/nanoRUNTIME/nanortime-cli/src/server.rs": {
-    "mtime": 1787024630.6435437,
-    "ast_hash": "726aa98f2241f9d03c9c7d1e6ca82358",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "bf6926dc322805f34d2469111f4e85ec",
+    "semantic_hash": "bf6926dc322805f34d2469111f4e85ec"
   },
   "products/nanoRUNTIME/nanortime-core/benches/benchmark_ram.rs": {
     "mtime": 1786824420.1306913,
     "ast_hash": "aef78ca4cd7d0dcdb397f2947b870a36",
-    "semantic_hash": ""
+    "semantic_hash": "aef78ca4cd7d0dcdb397f2947b870a36"
   },
   "products/nanoRUNTIME/nanortime-core/examples/test_suite.rs": {
     "mtime": 1786818919.7729268,
     "ast_hash": "7b80d5b7053fde0b7c67c59224f22779",
-    "semantic_hash": ""
+    "semantic_hash": "7b80d5b7053fde0b7c67c59224f22779"
   },
   "products/nanoRUNTIME/nanortime-core/examples/validate.rs": {
     "mtime": 1786818922.0313456,
     "ast_hash": "cc3a26832b5abdc6b333be8bc847b3ab",
-    "semantic_hash": ""
+    "semantic_hash": "cc3a26832b5abdc6b333be8bc847b3ab"
   },
   "products/nanoRUNTIME/nanortime-core/examples/verify_real.rs": {
     "mtime": 1786828180.5298133,
     "ast_hash": "dd1f03f7c782080701cfe92f639eaffc",
-    "semantic_hash": ""
+    "semantic_hash": "dd1f03f7c782080701cfe92f639eaffc"
   },
   "products/nanoRUNTIME/nanortime-core/include/nanortime_streaming.h": {
     "mtime": 1786449558.765647,
     "ast_hash": "5b8a4e175574a2b6f694ac2fdba0cbe2",
-    "semantic_hash": ""
+    "semantic_hash": "5b8a4e175574a2b6f694ac2fdba0cbe2"
   },
   "products/nanoRUNTIME/nanortime-core/include/nanortime_streaming_patch.h": {
     "mtime": 1786449558.7676446,
     "ast_hash": "2288ba6d85322311a384eba4c554c691",
-    "semantic_hash": ""
+    "semantic_hash": "2288ba6d85322311a384eba4c554c691"
   },
   "products/nanoRUNTIME/nanortime-core/include/nanortime_streaming_stub.c": {
     "mtime": 1786449558.7706435,
     "ast_hash": "786c788b541ef99485413594b614d608",
-    "semantic_hash": ""
+    "semantic_hash": "786c788b541ef99485413594b614d608"
   },
   "products/nanoRUNTIME/nanortime-core/src/cli_inference_bridge.rs": {
     "mtime": 1786818600.0789468,
     "ast_hash": "cbec2cabfaf42122a9ed79f7730f913d",
-    "semantic_hash": ""
+    "semantic_hash": "cbec2cabfaf42122a9ed79f7730f913d"
   },
   "products/nanoRUNTIME/nanortime-core/src/config/manifest.rs": {
     "mtime": 1786468800.4896538,
     "ast_hash": "3c284bce9f12bf2ca9878e48b6b32b65",
-    "semantic_hash": ""
+    "semantic_hash": "3c284bce9f12bf2ca9878e48b6b32b65"
   },
   "products/nanoRUNTIME/nanortime-core/src/config/mod.rs": {
     "mtime": 1786449558.777648,
     "ast_hash": "c00f3a12f4ade06ec260908ae87b7937",
-    "semantic_hash": ""
+    "semantic_hash": "c00f3a12f4ade06ec260908ae87b7937"
   },
   "products/nanoRUNTIME/nanortime-core/src/config/tools.rs": {
     "mtime": 1786468800.4901922,
     "ast_hash": "430b458d7c9cb3fc1fe38410f9f619a2",
-    "semantic_hash": ""
+    "semantic_hash": "430b458d7c9cb3fc1fe38410f9f619a2"
   },
   "products/nanoRUNTIME/nanortime-core/src/error.rs": {
     "mtime": 1786449558.7808323,
     "ast_hash": "17057da040ff3f0ec1ba16d098e78c31",
-    "semantic_hash": ""
+    "semantic_hash": "17057da040ff3f0ec1ba16d098e78c31"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/lan_executor.rs": {
     "mtime": 1786468800.4952717,
     "ast_hash": "8926871534fb059184c590b1ee7d5fe7",
-    "semantic_hash": ""
+    "semantic_hash": "8926871534fb059184c590b1ee7d5fe7"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/memory_manager.rs": {
-    "mtime": 1787009431.4788618,
-    "ast_hash": "d917c5ea0fbd450aaa57ab6ac23d98f7",
-    "semantic_hash": ""
+    "mtime": 1787186973.058098,
+    "ast_hash": "3cd37a65c8b6d429d1585d7a01741f35",
+    "semantic_hash": "3cd37a65c8b6d429d1585d7a01741f35"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/mod.rs": {
-    "mtime": 1786468800.5022376,
-    "ast_hash": "ba1d38a049e442d467c6c7e16b858b9e",
-    "semantic_hash": ""
+    "mtime": 1787186973.058098,
+    "ast_hash": "24b0624015c83b323b55b55cd4757ce9",
+    "semantic_hash": "24b0624015c83b323b55b55cd4757ce9"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/model_manager.rs": {
-    "mtime": 1787028596.436498,
-    "ast_hash": "636cdb87f69df8faf993962157cf1a2c",
-    "semantic_hash": ""
+    "mtime": 1787186973.058098,
+    "ast_hash": "047c9512989b8816476fb4eee9e2e89e",
+    "semantic_hash": "047c9512989b8816476fb4eee9e2e89e"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/prompt_cache.rs": {
     "mtime": 1786468800.5306165,
     "ast_hash": "e0681f8484cac4e530fef12ff81b34b2",
-    "semantic_hash": ""
+    "semantic_hash": "e0681f8484cac4e530fef12ff81b34b2"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/rate_limiter.rs": {
     "mtime": 1786468800.5344856,
     "ast_hash": "b7834d14c71366e53b1ff103fc1678f8",
-    "semantic_hash": ""
+    "semantic_hash": "b7834d14c71366e53b1ff103fc1678f8"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/tool_executor.rs": {
     "mtime": 1786469405.801623,
     "ast_hash": "23eeed7f9950650ec3c56e652489199c",
-    "semantic_hash": ""
+    "semantic_hash": "23eeed7f9950650ec3c56e652489199c"
   },
   "products/nanoRUNTIME/nanortime-core/src/execution/vector_engine.rs": {
     "mtime": 1786469219.6008215,
     "ast_hash": "4297f4a9440c268a810c5bb60852e35f",
-    "semantic_hash": ""
+    "semantic_hash": "4297f4a9440c268a810c5bb60852e35f"
   },
   "products/nanoRUNTIME/nanortime-core/src/hybrid_router.rs": {
     "mtime": 1786468800.558313,
     "ast_hash": "c19967385ddd30e1d73a918aa57ebfa0",
-    "semantic_hash": ""
+    "semantic_hash": "c19967385ddd30e1d73a918aa57ebfa0"
   },
   "products/nanoRUNTIME/nanortime-core/src/inference/grammar.rs": {
     "mtime": 1786468800.5612705,
     "ast_hash": "90adb21e93246c7db05bad36e40605b8",
-    "semantic_hash": ""
+    "semantic_hash": "90adb21e93246c7db05bad36e40605b8"
   },
   "products/nanoRUNTIME/nanortime-core/src/inference/mod.rs": {
     "mtime": 1786468800.5612705,
     "ast_hash": "6afaae1c7aadc6ca5e3dc70141596292",
-    "semantic_hash": ""
+    "semantic_hash": "6afaae1c7aadc6ca5e3dc70141596292"
   },
   "products/nanoRUNTIME/nanortime-core/src/inference/research/hallucination_detector.rs": {
     "mtime": 1786469235.196344,
     "ast_hash": "7119c79207530de3de5b7d22081103cc",
-    "semantic_hash": ""
+    "semantic_hash": "7119c79207530de3de5b7d22081103cc"
   },
   "products/nanoRUNTIME/nanortime-core/src/inference/research/mod.rs": {
     "mtime": 1786449558.8032496,
     "ast_hash": "d5fe2842caf5d419698dbc7c889a6220",
-    "semantic_hash": ""
+    "semantic_hash": "d5fe2842caf5d419698dbc7c889a6220"
   },
   "products/nanoRUNTIME/nanortime-core/src/inference/token_stream.rs": {
     "mtime": 1786449558.8062506,
     "ast_hash": "4ef26e3c71d6880c043bbbd766229913",
-    "semantic_hash": ""
+    "semantic_hash": "4ef26e3c71d6880c043bbbd766229913"
   },
   "products/nanoRUNTIME/nanortime-core/src/inference_backend.rs": {
-    "mtime": 1787025730.7515223,
-    "ast_hash": "464407c00a61768ab97574e7c5f5f42a",
-    "semantic_hash": ""
+    "mtime": 1787186973.0602458,
+    "ast_hash": "da7c82eba8bd623273a673db5de582b6",
+    "semantic_hash": "da7c82eba8bd623273a673db5de582b6"
   },
   "products/nanoRUNTIME/nanortime-core/src/lib.rs": {
-    "mtime": 1787025757.3087068,
-    "ast_hash": "7a8807dbc6a83ac19cde9694b8b183e4",
-    "semantic_hash": ""
+    "mtime": 1787186973.0602458,
+    "ast_hash": "7b80bf46b229d18fb16d4e8a2f64a4da",
+    "semantic_hash": "7b80bf46b229d18fb16d4e8a2f64a4da"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/adaptive_scheduler.rs": {
     "mtime": 1786468800.5718849,
     "ast_hash": "68c02d6e97c8785fc5b18f3d3f6bda80",
-    "semantic_hash": ""
+    "semantic_hash": "68c02d6e97c8785fc5b18f3d3f6bda80"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/auto_config.rs": {
     "mtime": 1786824170.8683395,
     "ast_hash": "773091c4b983e0a93364ecd9d6754ca0",
-    "semantic_hash": ""
+    "semantic_hash": "773091c4b983e0a93364ecd9d6754ca0"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/battery_guardian.rs": {
     "mtime": 1786469405.8300545,
     "ast_hash": "e448cb4b903c7bb215d0e2e7db35f8c1",
-    "semantic_hash": ""
+    "semantic_hash": "e448cb4b903c7bb215d0e2e7db35f8c1"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/cache_aware_loader.rs": {
-    "mtime": 1787015486.5140173,
-    "ast_hash": "2dd94150a7e706aefde808590176ec0a",
-    "semantic_hash": ""
+    "mtime": 1787186973.0661604,
+    "ast_hash": "db32491ecef72894abf7fe636c431830",
+    "semantic_hash": "db32491ecef72894abf7fe636c431830"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/execution_planner.rs": {
     "mtime": 1786925920.0974703,
     "ast_hash": "fcd1c75d46c09168b655d85cd53faec9",
-    "semantic_hash": ""
+    "semantic_hash": "fcd1c75d46c09168b655d85cd53faec9"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/gguf_layout.rs": {
-    "mtime": 1787000614.9450853,
-    "ast_hash": "857cb8fb5352e5fc7b4ed174c5a4eae2",
-    "semantic_hash": ""
+    "mtime": 1787186973.0661604,
+    "ast_hash": "d8ad1ec5372c98b66627150e72d67f4f",
+    "semantic_hash": "d8ad1ec5372c98b66627150e72d67f4f"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/hardware_hal.rs": {
-    "mtime": 1787015437.0607967,
-    "ast_hash": "df4511bf00daf2a2350c9b23de934d3b",
-    "semantic_hash": ""
+    "mtime": 1787186973.0682342,
+    "ast_hash": "29a1d69539a845087c60d943311169d0",
+    "semantic_hash": "29a1d69539a845087c60d943311169d0"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/hardware_profiler.rs": {
     "mtime": 1786468800.5902312,
     "ast_hash": "90710d8fcab55fc3acc63be6835c895f",
-    "semantic_hash": ""
+    "semantic_hash": "90710d8fcab55fc3acc63be6835c895f"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/hierarchical_kv.rs": {
     "mtime": 1786468800.5902312,
     "ast_hash": "d9047ef52855e11cf975503725962256",
-    "semantic_hash": ""
+    "semantic_hash": "d9047ef52855e11cf975503725962256"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/kv_cache_optimizer.rs": {
     "mtime": 1786469362.6802697,
     "ast_hash": "b88f61b4944f35827a52e2c7716d0797",
-    "semantic_hash": ""
+    "semantic_hash": "b88f61b4944f35827a52e2c7716d0797"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/memory_model.rs": {
     "mtime": 1786832370.8241994,
     "ast_hash": "18940caa8344a14b1df6fd396061b286",
-    "semantic_hash": ""
+    "semantic_hash": "18940caa8344a14b1df6fd396061b286"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/memory_predictor.rs": {
     "mtime": 1786820537.8330297,
     "ast_hash": "adea1894e3886fbb4e1526a0ecc1dbf6",
-    "semantic_hash": ""
+    "semantic_hash": "adea1894e3886fbb4e1526a0ecc1dbf6"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/mod.rs": {
-    "mtime": 1787000614.9635425,
-    "ast_hash": "290c70d2b61178bed44fe9a578f11feb",
-    "semantic_hash": ""
+    "mtime": 1787186973.0682342,
+    "ast_hash": "5b79754ddc4b349eeb420eeded8b5ad1",
+    "semantic_hash": "5b79754ddc4b349eeb420eeded8b5ad1"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/model_profile.rs": {
     "mtime": 1786449558.8528953,
     "ast_hash": "6576571df6a30e0082cc3aa2a9f687fb",
-    "semantic_hash": ""
+    "semantic_hash": "6576571df6a30e0082cc3aa2a9f687fb"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/oom_guard.rs": {
-    "mtime": 1787014282.7582524,
+    "mtime": 1787186973.0702374,
     "ast_hash": "6766186cb3216799e4279bea3140f40e",
-    "semantic_hash": ""
+    "semantic_hash": "6766186cb3216799e4279bea3140f40e"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/os_paginator.rs": {
-    "mtime": 1787000614.9727304,
-    "ast_hash": "c1e88ce40211d5623fae24a42841010b",
-    "semantic_hash": ""
+    "mtime": 1787186973.0722399,
+    "ast_hash": "daade92eee0105ae1eaf62b18adb510e",
+    "semantic_hash": "daade92eee0105ae1eaf62b18adb510e"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/policy_engine.rs": {
     "mtime": 1786823884.814576,
     "ast_hash": "eec09a49b66cefc75abde4514909b57d",
-    "semantic_hash": ""
+    "semantic_hash": "eec09a49b66cefc75abde4514909b57d"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/quality_preserver.rs": {
     "mtime": 1786468800.6139503,
     "ast_hash": "78a41bb6ec91bad6e60a70a79c55e824",
-    "semantic_hash": ""
+    "semantic_hash": "78a41bb6ec91bad6e60a70a79c55e824"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/storage_manager.rs": {
     "mtime": 1786821454.9906297,
     "ast_hash": "542c913d898d92999f3009c156658088",
-    "semantic_hash": ""
+    "semantic_hash": "542c913d898d92999f3009c156658088"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/streaming_ffi.rs": {
-    "mtime": 1787015451.088493,
-    "ast_hash": "663d21df502da36980dfee50c8d4c6da",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "dfeeb99eb40e488247a5eac4df4bae51",
+    "semantic_hash": "dfeeb99eb40e488247a5eac4df4bae51"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/thermal_controller.rs": {
     "mtime": 1786469405.9042616,
     "ast_hash": "b627ee58b37870e500169e2094f66ebf",
-    "semantic_hash": ""
+    "semantic_hash": "b627ee58b37870e500169e2094f66ebf"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/traits.rs": {
     "mtime": 1786468800.6271362,
     "ast_hash": "ed03a8f48e4daf181b2ae2dd620a2caa",
-    "semantic_hash": ""
+    "semantic_hash": "ed03a8f48e4daf181b2ae2dd620a2caa"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/weight_cache_aware.rs": {
     "mtime": 1786468800.6271362,
     "ast_hash": "098fc6ccad8d4773f29f4efad4eadcc2",
-    "semantic_hash": ""
+    "semantic_hash": "098fc6ccad8d4773f29f4efad4eadcc2"
   },
   "products/nanoRUNTIME/nanortime-core/src/nano_session.rs": {
     "mtime": 1786820608.3291564,
     "ast_hash": "cc95e841586e2996e707184f44f5160e",
-    "semantic_hash": ""
+    "semantic_hash": "cc95e841586e2996e707184f44f5160e"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/cloud.rs": {
-    "mtime": 1787028589.1801252,
-    "ast_hash": "dacd5a141d1fa3c16bdd4152f12cd2cf",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "61895ad4867630f60ac9c9b28bab1bb0",
+    "semantic_hash": "61895ad4867630f60ac9c9b28bab1bb0"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/cloud_provider.rs": {
     "mtime": 1786468540.9219172,
     "ast_hash": "08d8d867d8a8fa9f091527e3a01beb0a",
-    "semantic_hash": ""
+    "semantic_hash": "08d8d867d8a8fa9f091527e3a01beb0a"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/confidence.rs": {
     "mtime": 1786449558.8784275,
     "ast_hash": "573932ba9b0532af1c7285a4d4990d87",
-    "semantic_hash": ""
+    "semantic_hash": "573932ba9b0532af1c7285a4d4990d87"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/mod.rs": {
-    "mtime": 1787028592.8964896,
-    "ast_hash": "1cf78674d66756667d021422f7fc1a69",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "c21c328f2855ebe84d9142b52c441950",
+    "semantic_hash": "c21c328f2855ebe84d9142b52c441950"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/privacy.rs": {
     "mtime": 1786449558.880946,
     "ast_hash": "de229b2865205cfa2675d36bb0023f27",
-    "semantic_hash": ""
+    "semantic_hash": "de229b2865205cfa2675d36bb0023f27"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/router.rs": {
     "mtime": 1786449558.8819487,
     "ast_hash": "1a7d3bb703fd114ceaa50ee5040017ac",
-    "semantic_hash": ""
+    "semantic_hash": "1a7d3bb703fd114ceaa50ee5040017ac"
   },
   "products/nanoRUNTIME/nanortime-core/src/orchestrator/tool_parser.rs": {
     "mtime": 1786449558.8836868,
     "ast_hash": "8019332348314142512af13000b3f3b8",
-    "semantic_hash": ""
+    "semantic_hash": "8019332348314142512af13000b3f3b8"
   },
   "products/nanoRUNTIME/nanortime-core/src/speculative_decoder.rs": {
-    "mtime": 1786995007.071478,
-    "ast_hash": "852f9f58db4a05f65b3990afc8c551a8",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "6c211c4ab2bbd725c7e93270b354a32c",
+    "semantic_hash": "6c211c4ab2bbd725c7e93270b354a32c"
   },
   "products/nanoRUNTIME/nanortime-core/tests/integration_test.rs": {
     "mtime": 1786818918.6728745,
     "ast_hash": "30daf8b2ba77c7974af28d5addf833e7",
-    "semantic_hash": ""
+    "semantic_hash": "30daf8b2ba77c7974af28d5addf833e7"
   },
   "products/nanoRUNTIME/nanortime-core/tests/memory_engine_test.rs": {
     "mtime": 1786824109.6024673,
     "ast_hash": "491419ab995e57fb72dae6defef03732",
-    "semantic_hash": ""
+    "semantic_hash": "491419ab995e57fb72dae6defef03732"
   },
   "products/nanoRUNTIME/nanortime-core/tests/model_test_cases.json": {
     "mtime": 1786449558.8897011,
     "ast_hash": "2dec62393df794ce106cd071ff50c547",
-    "semantic_hash": ""
+    "semantic_hash": "2dec62393df794ce106cd071ff50c547"
   },
   "products/nanoRUNTIME/nanortime-core/tests/oppo_a7_validation.rs": {
-    "mtime": 1787000615.0762365,
-    "ast_hash": "9bc601c8df4bccb4695e08e46767840c",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "227c0a51e29fec977bdf154fa54a2d66",
+    "semantic_hash": "227c0a51e29fec977bdf154fa54a2d66"
   },
   "products/nanoRUNTIME/nanortime-ffi/bindings/kotlin/NanoRuntime.kt": {
-    "mtime": 1786995212.743297,
-    "ast_hash": "1e8e0ae4a13b8500a4b1e4f56b90a07e",
-    "semantic_hash": ""
+    "mtime": 1787186973.08609,
+    "ast_hash": "c197ea417aa257678d38497370357adc",
+    "semantic_hash": "c197ea417aa257678d38497370357adc"
   },
   "products/nanoRUNTIME/nanortime-ffi/build.rs": {
     "mtime": 1786449558.8962252,
     "ast_hash": "6b8a5a8e36f24e7c41626e6ee3f1c647",
-    "semantic_hash": ""
+    "semantic_hash": "6b8a5a8e36f24e7c41626e6ee3f1c647"
   },
   "products/nanoRUNTIME/nanortime-ffi/examples/test_batch.rs": {
     "mtime": 1786469091.75663,
     "ast_hash": "8833c1bfe46547a5eb5969ade1a07f84",
-    "semantic_hash": ""
+    "semantic_hash": "8833c1bfe46547a5eb5969ade1a07f84"
   },
   "products/nanoRUNTIME/nanortime-ffi/include/nanortime_ffi.h": {
     "mtime": 1786449558.9002244,
     "ast_hash": "df79b4bd9fef4e64763419093b5a3bf5",
-    "semantic_hash": ""
+    "semantic_hash": "df79b4bd9fef4e64763419093b5a3bf5"
   },
   "products/nanoRUNTIME/nanortime-ffi/src/jni_bridge.rs": {
-    "mtime": 1786995144.4250505,
-    "ast_hash": "254bb714f7ab50afc1b4b411d196c4d8",
-    "semantic_hash": ""
+    "mtime": 1787186973.08609,
+    "ast_hash": "730eb718b638e083867908ab9f785e09",
+    "semantic_hash": "730eb718b638e083867908ab9f785e09"
   },
   "products/nanoRUNTIME/nanortime-ffi/src/lib.rs": {
-    "mtime": 1787025703.773471,
-    "ast_hash": "95a36242fbe529cad817149fe974797c",
-    "semantic_hash": ""
+    "mtime": 1787186973.08609,
+    "ast_hash": "a8f25fc46283e22db596b3a53088ed29",
+    "semantic_hash": "a8f25fc46283e22db596b3a53088ed29"
   },
   "products/nanoRUNTIME/nanortime-web/src/main.rs": {
     "mtime": 1786820576.0013802,
     "ast_hash": "6dddca1bdb338842bc282128e17d2ecf",
-    "semantic_hash": ""
+    "semantic_hash": "6dddca1bdb338842bc282128e17d2ecf"
   },
   "products/README.md": {
     "mtime": 1786449558.372203,
@@ -6062,42 +6062,42 @@
   "products/nanoMOBILE/flutter_app/lib/core/services/boot_orchestrator.dart": {
     "mtime": 1786686679.5261633,
     "ast_hash": "070596f32667927047f95b7d81169970",
-    "semantic_hash": ""
+    "semantic_hash": "070596f32667927047f95b7d81169970"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt": {
     "mtime": 1786827078.4783967,
     "ast_hash": "03011eee0394a7837d1c44a0ffb63f36",
-    "semantic_hash": ""
+    "semantic_hash": "03011eee0394a7837d1c44a0ffb63f36"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/RuntimeChannelHandler.kt": {
     "mtime": 1786647115.5720203,
     "ast_hash": "eae47eefc6e798d97a925060e1f7191d",
-    "semantic_hash": ""
+    "semantic_hash": "eae47eefc6e798d97a925060e1f7191d"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/DesktopController.kt": {
     "mtime": 1786827084.9081557,
     "ast_hash": "a57786643110c0d8b63ba19b753f0179",
-    "semantic_hash": ""
+    "semantic_hash": "a57786643110c0d8b63ba19b753f0179"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/XServerBackend.kt": {
     "mtime": 1786827093.9245121,
     "ast_hash": "5d605936f59d5b32694659616c3638ea",
-    "semantic_hash": ""
+    "semantic_hash": "5d605936f59d5b32694659616c3638ea"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/nano_runtime_api.dart": {
-    "mtime": 1786696039.907509,
-    "ast_hash": "3229efbfceb3a3e62f990867dc9b35aa",
-    "semantic_hash": ""
+    "mtime": 1787186973.002364,
+    "ast_hash": "0dc40b6e21c256966163bcadc6c72208",
+    "semantic_hash": "0dc40b6e21c256966163bcadc6c72208"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/noar_builtin_commands.dart": {
     "mtime": 1786475148.544965,
     "ast_hash": "1188c1d3d145b12c604d04446ba43d9f",
-    "semantic_hash": ""
+    "semantic_hash": "1188c1d3d145b12c604d04446ba43d9f"
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/real_fs_shell.dart": {
     "mtime": 1786665852.0576146,
     "ast_hash": "f84b392a72612e06e8d2a7fababeb61a",
-    "semantic_hash": ""
+    "semantic_hash": "f84b392a72612e06e8d2a7fababeb61a"
   },
   "products/nanoMOBILE/flutter_app/docs/audit/2026-08-12-auditoria-integral.md": {
     "mtime": 1786554692.6617,
@@ -6117,691 +6117,681 @@
   ".devin/config.local.json": {
     "mtime": 1786820046.654869,
     "ast_hash": "f54560c60b942f2732efc6e990546fe8",
-    "semantic_hash": ""
+    "semantic_hash": "f54560c60b942f2732efc6e990546fe8"
   },
   "products/.github/modernize/java-upgrade/hooks/scripts/recordToolUse.ps1": {
     "mtime": 1786988941.5130208,
     "ast_hash": "9ecf230451dfd20ff4e0a2a01e80a4e6",
-    "semantic_hash": ""
+    "semantic_hash": "9ecf230451dfd20ff4e0a2a01e80a4e6"
   },
   "products/.github/modernize/java-upgrade/hooks/scripts/recordToolUse.sh": {
     "mtime": 1786988941.5279777,
     "ast_hash": "e25ae501603ce6bf738198f5ce32ba83",
-    "semantic_hash": ""
+    "semantic_hash": "e25ae501603ce6bf738198f5ce32ba83"
   },
   "products/nanoMOBILE/flutter_app/.repo-guardian/knowledge.json": {
     "mtime": 1786680025.787655,
     "ast_hash": "99f963d3501cefc0cdeddfc313aaa575",
-    "semantic_hash": ""
+    "semantic_hash": "99f963d3501cefc0cdeddfc313aaa575"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt": {
-    "mtime": 1786817042.2895355,
-    "ast_hash": "4fa536cb106d23f4acb9b57eafea24a2",
-    "semantic_hash": ""
+    "mtime": 1787186972.728386,
+    "ast_hash": "54e2a037b7156ef6fd97c0f0d2348c34",
+    "semantic_hash": "54e2a037b7156ef6fd97c0f0d2348c34"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/RuntimeHeartbeat.kt": {
     "mtime": 1786658075.974125,
     "ast_hash": "9a27f06b14ad1bb5e6351a7f657ef0b1",
-    "semantic_hash": ""
+    "semantic_hash": "9a27f06b14ad1bb5e6351a7f657ef0b1"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt": {
     "mtime": 1786676838.378723,
     "ast_hash": "24ecdfe76e09613426dcc31821300712",
-    "semantic_hash": ""
+    "semantic_hash": "24ecdfe76e09613426dcc31821300712"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/EngineChannelHandler.kt": {
-    "mtime": 1786647192.1954796,
-    "ast_hash": "8da156e7571173294cf70c1fb393a2bf",
-    "semantic_hash": ""
+    "mtime": 1787186972.728386,
+    "ast_hash": "15d36b179ce4c61b851e7db85258f08b",
+    "semantic_hash": "15d36b179ce4c61b851e7db85258f08b"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt": {
     "mtime": 1786813710.3506591,
     "ast_hash": "8a1256d0814d32503520ee99a4abda5f",
-    "semantic_hash": ""
+    "semantic_hash": "8a1256d0814d32503520ee99a4abda5f"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ShareChannelHandler.kt": {
     "mtime": 1786751027.8998463,
     "ast_hash": "25840f7798f220a5822a470e950d32fb",
-    "semantic_hash": ""
+    "semantic_hash": "25840f7798f220a5822a470e950d32fb"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt": {
     "mtime": 1786676729.9559743,
     "ast_hash": "29b88825f88027dc346aea831adbf064",
-    "semantic_hash": ""
+    "semantic_hash": "29b88825f88027dc346aea831adbf064"
   },
   "products/nanoMOBILE/flutter_app/assets/exe/hud.py": {
     "mtime": 1786667694.9680254,
     "ast_hash": "2ec7f6a0001e94e7b78fba88f9b9f22e",
-    "semantic_hash": ""
+    "semantic_hash": "2ec7f6a0001e94e7b78fba88f9b9f22e"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/actionability_engine.dart": {
     "mtime": 1786677166.4521146,
     "ast_hash": "9ef5e8692aa0c52ed9b04cd5ccebfa57",
-    "semantic_hash": ""
+    "semantic_hash": "9ef5e8692aa0c52ed9b04cd5ccebfa57"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/agent_executor.dart": {
     "mtime": 1786678180.3914132,
     "ast_hash": "0640097278c30aa4360b2168bf3ea091",
-    "semantic_hash": ""
+    "semantic_hash": "0640097278c30aa4360b2168bf3ea091"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/agent_result.dart": {
     "mtime": 1786676995.582835,
     "ast_hash": "448b3b81a587f4435734158da9747a75",
-    "semantic_hash": ""
+    "semantic_hash": "448b3b81a587f4435734158da9747a75"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/agent_tool_dispatcher.dart": {
     "mtime": 1786774642.9236472,
     "ast_hash": "23558955376f2b5fb984bc3b2bbb1e24",
-    "semantic_hash": ""
+    "semantic_hash": "23558955376f2b5fb984bc3b2bbb1e24"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/nano_selector.dart": {
     "mtime": 1786678136.5026784,
     "ast_hash": "3874afa94c47cedaaec38088777d247e",
-    "semantic_hash": ""
+    "semantic_hash": "3874afa94c47cedaaec38088777d247e"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/nano_snapshot.dart": {
     "mtime": 1786676927.5948575,
     "ast_hash": "55cb6387cb8cb6a1e4e0f8b947ea05a8",
-    "semantic_hash": ""
+    "semantic_hash": "55cb6387cb8cb6a1e4e0f8b947ea05a8"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/selector_engine.dart": {
     "mtime": 1786677432.5369115,
     "ast_hash": "d522002aa3c0539a09db23c6df5cc05b",
-    "semantic_hash": ""
+    "semantic_hash": "d522002aa3c0539a09db23c6df5cc05b"
   },
   "products/nanoMOBILE/flutter_app/lib/core/agent/tool_registry.dart": {
     "mtime": 1786748785.0221393,
     "ast_hash": "78f64cde2b5ce2c6a2e958d03e2540b5",
-    "semantic_hash": ""
+    "semantic_hash": "78f64cde2b5ce2c6a2e958d03e2540b5"
   },
   "products/nanoMOBILE/flutter_app/lib/core/linux/distributions/kali_distribution.dart": {
     "mtime": 1786759424.6455112,
     "ast_hash": "dc053a1bf5ddd318c177f4bc0f6f1be1",
-    "semantic_hash": ""
+    "semantic_hash": "dc053a1bf5ddd318c177f4bc0f6f1be1"
   },
   "products/nanoMOBILE/flutter_app/lib/core/linux/distributions/termux_distribution.dart": {
     "mtime": 1786758111.434611,
     "ast_hash": "79ca1bd824139f587035d0a6c0f0ecbe",
-    "semantic_hash": ""
+    "semantic_hash": "79ca1bd824139f587035d0a6c0f0ecbe"
   },
   "products/nanoMOBILE/flutter_app/lib/core/linux/distributions/ubuntu_distribution.dart": {
     "mtime": 1786830547.2102964,
     "ast_hash": "2fd40cd631c2c1f49e75900af3b28272",
-    "semantic_hash": ""
+    "semantic_hash": "2fd40cd631c2c1f49e75900af3b28272"
   },
   "products/nanoMOBILE/flutter_app/lib/core/linux/linux_distribution.dart": {
     "mtime": 1786758012.7945414,
     "ast_hash": "2ab78fe1688c09db06e79ec779553f50",
-    "semantic_hash": ""
+    "semantic_hash": "2ab78fe1688c09db06e79ec779553f50"
   },
   "products/nanoMOBILE/flutter_app/lib/core/linux/linux_distribution_registry.dart": {
     "mtime": 1786758021.1593695,
     "ast_hash": "ebaf5cfa525d26c1497b23a5eb98fd30",
-    "semantic_hash": ""
+    "semantic_hash": "ebaf5cfa525d26c1497b23a5eb98fd30"
   },
   "products/nanoMOBILE/flutter_app/lib/core/linux/linux_init.dart": {
     "mtime": 1786759761.5175235,
     "ast_hash": "44cb3710e2f34fc2d638e67546fdc274",
-    "semantic_hash": ""
+    "semantic_hash": "44cb3710e2f34fc2d638e67546fdc274"
   },
   "products/nanoMOBILE/flutter_app/lib/core/models/catalog_models.dart": {
-    "mtime": 1787024251.6635883,
-    "ast_hash": "254327bc5ee772f2cdf9c23f2cac450c",
-    "semantic_hash": ""
+    "mtime": 1787186972.9928057,
+    "ast_hash": "ae9f8f4a38c069782dd4a3bb271b615d",
+    "semantic_hash": "ae9f8f4a38c069782dd4a3bb271b615d"
   },
   "products/nanoMOBILE/flutter_app/lib/core/models/chat_models.dart": {
-    "mtime": 1786812748.9334805,
-    "ast_hash": "21056980be17e559bf54d887c43628c3",
-    "semantic_hash": ""
+    "mtime": 1787186972.9928057,
+    "ast_hash": "e6b472064d1465802cfccb071ae2cd1e",
+    "semantic_hash": "e6b472064d1465802cfccb071ae2cd1e"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/kali_provider.dart": {
     "mtime": 1786676269.617528,
     "ast_hash": "a35aec7ca64d6c7e902ac35a45361c85",
-    "semantic_hash": ""
+    "semantic_hash": "a35aec7ca64d6c7e902ac35a45361c85"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/pdf_report_service.dart": {
     "mtime": 1786772125.0036697,
     "ast_hash": "cc192d6e8aed4add84f08f19ebbe6b91",
-    "semantic_hash": ""
+    "semantic_hash": "cc192d6e8aed4add84f08f19ebbe6b91"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/runtime_engine.dart": {
-    "mtime": 1786747696.6539676,
-    "ast_hash": "30ce0701333d0a9ed5ee9ee69a1678ad",
-    "semantic_hash": ""
+    "mtime": 1787186973.0061178,
+    "ast_hash": "b5bc09cc508e5d2c5bb99305fd9fe822",
+    "semantic_hash": "b5bc09cc508e5d2c5bb99305fd9fe822"
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/runtime_telemetry.dart": {
     "mtime": 1786924567.3013818,
     "ast_hash": "f9535f6359f645720f9c9944da93c834",
-    "semantic_hash": ""
+    "semantic_hash": "f9535f6359f645720f9c9944da93c834"
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/adaptive_theme.dart": {
     "mtime": 1786835777.3236153,
     "ast_hash": "48521718eeb3a5d62469a0565aa1f2fb",
-    "semantic_hash": ""
+    "semantic_hash": "48521718eeb3a5d62469a0565aa1f2fb"
   },
   "products/nanoMOBILE/flutter_app/lib/core/utils/security_utils.dart": {
     "mtime": 1786825518.421949,
     "ast_hash": "2cda6f8f468e92b413a600436da99e73",
-    "semantic_hash": ""
+    "semantic_hash": "2cda6f8f468e92b413a600436da99e73"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/live_animations.dart": {
     "mtime": 1786831792.4000387,
     "ast_hash": "cde572d8ad8377e6e48d0c637a65a289",
-    "semantic_hash": ""
+    "semantic_hash": "cde572d8ad8377e6e48d0c637a65a289"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/nano_ambient_background.dart": {
-    "mtime": 1787007919.046806,
-    "ast_hash": "7048785d3cd5143cbd7ebe5bd588b389",
-    "semantic_hash": ""
+    "mtime": 1787186973.0091379,
+    "ast_hash": "e4e583b795ab42cdcc643d8a4ad6a0ee",
+    "semantic_hash": "e4e583b795ab42cdcc643d8a4ad6a0ee"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/nano_components.dart": {
-    "mtime": 1787000660.7797585,
+    "mtime": 1787186973.011149,
     "ast_hash": "e604d13c83bfc4a50317a8157717dd03",
-    "semantic_hash": ""
+    "semantic_hash": "e604d13c83bfc4a50317a8157717dd03"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/nano_screen_shell.dart": {
-    "mtime": 1787028144.9249823,
-    "ast_hash": "beaf5808f4faecb3b867ec291113f372",
-    "semantic_hash": ""
+    "mtime": 1787188491.1312244,
+    "ast_hash": "55d4b1ca8f4e5a0cd52194ae5bedb565",
+    "semantic_hash": "55d4b1ca8f4e5a0cd52194ae5bedb565"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/runtime_health_monitor.dart": {
     "mtime": 1786924579.5151567,
     "ast_hash": "789b785131a26a040fdf1b7fd4af3e0a",
-    "semantic_hash": ""
+    "semantic_hash": "789b785131a26a040fdf1b7fd4af3e0a"
   },
   "products/nanoMOBILE/flutter_app/lib/features/dashboard/dashboard_screen.dart": {
     "mtime": 1786446213.1394536,
     "ast_hash": "32e5e029fd8198b0f5b1a1165bd1bec1",
-    "semantic_hash": ""
+    "semantic_hash": "32e5e029fd8198b0f5b1a1165bd1bec1"
   },
   "products/nanoMOBILE/flutter_app/lib/features/dashboard/presentation/screens/dashboard_screen.dart": {
-    "mtime": 1787007069.7456422,
-    "ast_hash": "b4ba4fb0102ffb0709b27555bae5de13",
-    "semantic_hash": ""
+    "mtime": 1787186973.0131516,
+    "ast_hash": "b055608b22749a3445a2b346bba1f6c9",
+    "semantic_hash": "b055608b22749a3445a2b346bba1f6c9"
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/screens/desktop_audit_screen.dart": {
-    "mtime": 1787028298.9589238,
-    "ast_hash": "6ff299a1e40e6143a45129a1f64a050a",
-    "semantic_hash": ""
+    "mtime": 1787186973.0151546,
+    "ast_hash": "1c69ce8f12d57cb0fe9b47d9e47eabbd",
+    "semantic_hash": "1c69ce8f12d57cb0fe9b47d9e47eabbd"
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/screens/desktop_launch_screen.dart": {
-    "mtime": 1787028327.5382297,
-    "ast_hash": "7a1914c93f909e2f68e43e8ae2135ca1",
-    "semantic_hash": ""
+    "mtime": 1787186973.016158,
+    "ast_hash": "c161e834e7c43a4ac4614f435122ee0e",
+    "semantic_hash": "c161e834e7c43a4ac4614f435122ee0e"
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/screens/vnc_screen.dart": {
-    "mtime": 1787018801.748117,
+    "mtime": 1787186973.016158,
     "ast_hash": "38a88f03e21741adf5170687a29833bb",
-    "semantic_hash": ""
+    "semantic_hash": "38a88f03e21741adf5170687a29833bb"
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/vnc_client.dart": {
     "mtime": 1786825245.820425,
     "ast_hash": "ea3912eb1e60ce7a7d5cce2a39bfbf08",
-    "semantic_hash": ""
+    "semantic_hash": "ea3912eb1e60ce7a7d5cce2a39bfbf08"
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/vnc_des.dart": {
     "mtime": 1786666542.4467883,
     "ast_hash": "3b4357d239d2dfbc09e2524f2eb3de3e",
-    "semantic_hash": ""
+    "semantic_hash": "3b4357d239d2dfbc09e2524f2eb3de3e"
   },
   "products/nanoMOBILE/flutter_app/lib/features/home/nano_home_models.dart": {
-    "mtime": 1786994662.678639,
-    "ast_hash": "8ba7a6bae2d32ce0009d1d58c7a39097",
-    "semantic_hash": ""
+    "mtime": 1787186973.016158,
+    "ast_hash": "c3fd4a2935893b047bf9d0a931f991b7",
+    "semantic_hash": "c3fd4a2935893b047bf9d0a931f991b7"
   },
   "products/nanoMOBILE/flutter_app/lib/features/home/nano_home_screen.dart": {
-    "mtime": 1787028175.6314268,
-    "ast_hash": "3385e56a2504e3c9ce7ca8957e9fc7aa",
-    "semantic_hash": ""
+    "mtime": 1787186973.0182188,
+    "ast_hash": "b33d8e5a0307607f6021aabafe43dd38",
+    "semantic_hash": "b33d8e5a0307607f6021aabafe43dd38"
   },
   "products/nanoMOBILE/flutter_app/lib/features/linux/presentation/screens/linux_test_screen.dart": {
     "mtime": 1786835887.0715904,
     "ast_hash": "b13f1000cd0a429ffcf2e28fffe57df5",
-    "semantic_hash": ""
+    "semantic_hash": "b13f1000cd0a429ffcf2e28fffe57df5"
   },
   "products/nanoMOBILE/flutter_app/lib/features/linux/presentation/screens/mobile_linux_screen.dart": {
-    "mtime": 1787009471.7553363,
-    "ast_hash": "24a998c946188632f1a1311a04b3e441",
-    "semantic_hash": ""
+    "mtime": 1787186973.0182188,
+    "ast_hash": "4f2d149633cef82f0b50eafed144d1bc",
+    "semantic_hash": "4f2d149633cef82f0b50eafed144d1bc"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/application/models_notifier.dart": {
-    "mtime": 1786813589.813501,
-    "ast_hash": "a775f57c3c3ffd0cd349b8b6cfd49f75",
-    "semantic_hash": ""
+    "mtime": 1787186973.0216346,
+    "ast_hash": "7f24022a237fcfb2fb65e99bbace0eff",
+    "semantic_hash": "7f24022a237fcfb2fb65e99bbace0eff"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/application/models_provider.dart": {
     "mtime": 1786671105.750513,
     "ast_hash": "47ecead391d452fa4094218465dfe4f0",
-    "semantic_hash": ""
+    "semantic_hash": "47ecead391d452fa4094218465dfe4f0"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/application/models_state.dart": {
     "mtime": 1786813559.6185205,
     "ast_hash": "3a06b079ddcf8180e8ac21e2663e3c32",
-    "semantic_hash": ""
+    "semantic_hash": "3a06b079ddcf8180e8ac21e2663e3c32"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/detected_model.dart": {
     "mtime": 1786684471.3721552,
     "ast_hash": "ac704e296e7e063bf59e46c9015fb884",
-    "semantic_hash": ""
+    "semantic_hash": "ac704e296e7e063bf59e46c9015fb884"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/local_model.dart": {
-    "mtime": 1786665851.816213,
-    "ast_hash": "d2cb89231e86a43948aab7cabb973478",
-    "semantic_hash": ""
+    "mtime": 1787186973.0274367,
+    "ast_hash": "ce181330e6dba4486eb83d2ad94789bb",
+    "semantic_hash": "ce181330e6dba4486eb83d2ad94789bb"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/local_model_repository.dart": {
     "mtime": 1786647979.973436,
     "ast_hash": "07e55f6f9ba05ceeef1f3b3df7a4392b",
-    "semantic_hash": ""
+    "semantic_hash": "07e55f6f9ba05ceeef1f3b3df7a4392b"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/model_storage_repository.dart": {
     "mtime": 1786684471.7827964,
     "ast_hash": "aed2275446d543ea9a57d2428204aa96",
-    "semantic_hash": ""
+    "semantic_hash": "aed2275446d543ea9a57d2428204aa96"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/screens/models_screen.dart": {
-    "mtime": 1787018566.5334008,
-    "ast_hash": "8798c6977003e7be60a7444252207c2f",
-    "semantic_hash": ""
+    "mtime": 1787186973.032611,
+    "ast_hash": "485ccbf7b53911f5edfd56160eead3ea",
+    "semantic_hash": "485ccbf7b53911f5edfd56160eead3ea"
   },
   "products/nanoMOBILE/flutter_app/lib/features/settings/presentation/widgets/agent_console_section.dart": {
     "mtime": 1786677958.9161355,
     "ast_hash": "5e24e4415fd5dfd56708bbfe5bbcf13d",
-    "semantic_hash": ""
+    "semantic_hash": "5e24e4415fd5dfd56708bbfe5bbcf13d"
   },
   "products/nanoMOBILE/flutter_app/lib/features/settings/presentation/widgets/settings_widgets.dart": {
-    "mtime": 1786999020.5056782,
-    "ast_hash": "d91b1930e1ab20a122c60b6269debb1d",
-    "semantic_hash": ""
+    "mtime": 1787186973.03461,
+    "ast_hash": "1dd13a467a091cf49e8e55c4b76d4b7a",
+    "semantic_hash": "1dd13a467a091cf49e8e55c4b76d4b7a"
   },
   "products/nanoMOBILE/flutter_app/test/agent/actionability_test.dart": {
     "mtime": 1786678178.4401765,
     "ast_hash": "935b233ae89a63e351ddbf08da80ff86",
-    "semantic_hash": ""
+    "semantic_hash": "935b233ae89a63e351ddbf08da80ff86"
   },
   "products/nanoMOBILE/flutter_app/test/agent/agent_executor_test.dart": {
     "mtime": 1786677853.1408556,
     "ast_hash": "8ed44b44743081bd7aa84939ff829ce6",
-    "semantic_hash": ""
+    "semantic_hash": "8ed44b44743081bd7aa84939ff829ce6"
   },
   "products/nanoMOBILE/flutter_app/test/agent/agent_tool_dispatcher_test.dart": {
     "mtime": 1786922707.4303222,
     "ast_hash": "6c581ad1a2d603fb8080a55fb97c839f",
-    "semantic_hash": ""
+    "semantic_hash": "6c581ad1a2d603fb8080a55fb97c839f"
   },
   "products/nanoMOBILE/flutter_app/test/agent/chat_tool_loop_test.dart": {
-    "mtime": 1787024865.2825372,
-    "ast_hash": "e007372b09d4d30807d1c69d471a15eb",
-    "semantic_hash": ""
+    "mtime": 1787186973.038782,
+    "ast_hash": "711733c0169f134383f1ddac7f331092",
+    "semantic_hash": "711733c0169f134383f1ddac7f331092"
   },
   "products/nanoMOBILE/flutter_app/test/agent/fixtures.dart": {
     "mtime": 1786677602.3559844,
     "ast_hash": "cb46d20f5567d451845deac1c37ff25c",
-    "semantic_hash": ""
+    "semantic_hash": "cb46d20f5567d451845deac1c37ff25c"
   },
   "products/nanoMOBILE/flutter_app/test/agent/selector_engine_test.dart": {
     "mtime": 1786677457.8281486,
     "ast_hash": "1eefff1c8f8363df0919b3fd9da70cb6",
-    "semantic_hash": ""
+    "semantic_hash": "1eefff1c8f8363df0919b3fd9da70cb6"
   },
   "products/nanoMOBILE/flutter_app/test/agent/tool_registry_test.dart": {
     "mtime": 1786749335.9175916,
     "ast_hash": "cded8d3f40d0929c5571a65ff302da49",
-    "semantic_hash": ""
+    "semantic_hash": "cded8d3f40d0929c5571a65ff302da49"
   },
   "products/nanoMOBILE/flutter_app/test/agent/widget_agent_console_test.dart": {
     "mtime": 1786678614.561698,
     "ast_hash": "577e9e092a1c6409097da979d5e370b8",
-    "semantic_hash": ""
+    "semantic_hash": "577e9e092a1c6409097da979d5e370b8"
   },
   "products/nanoMOBILE/flutter_app/test/chat_attachments_test.dart": {
-    "mtime": 1787024885.4447794,
-    "ast_hash": "a4cc0b464a9e8283c4afc48f830267df",
-    "semantic_hash": ""
+    "mtime": 1787186973.038782,
+    "ast_hash": "33928a62136457a3d3cdf58b7af9f73a",
+    "semantic_hash": "33928a62136457a3d3cdf58b7af9f73a"
   },
   "products/nanoMOBILE/flutter_app/test/chat_concurrency_fixes_test.dart": {
     "mtime": 1786835865.8103604,
     "ast_hash": "9efa82dad2e089efbed842299e15e178",
-    "semantic_hash": ""
+    "semantic_hash": "9efa82dad2e089efbed842299e15e178"
   },
   "products/nanoMOBILE/flutter_app/test/chat_models_screens_test.dart": {
-    "mtime": 1787024897.422318,
-    "ast_hash": "a09fc67945cf6611b1aede73b9476379",
-    "semantic_hash": ""
+    "mtime": 1787186973.0402856,
+    "ast_hash": "435934aee52ef03904b33929eb1579ee",
+    "semantic_hash": "435934aee52ef03904b33929eb1579ee"
   },
   "products/nanoMOBILE/flutter_app/test/dashboard_landscape_test.dart": {
-    "mtime": 1786836352.5193846,
-    "ast_hash": "2d40ddcef4a1fdb59bcceacb730831a0",
-    "semantic_hash": ""
+    "mtime": 1787186973.043483,
+    "ast_hash": "dffdc0837e44abc9cd6ad284d42081cf",
+    "semantic_hash": "dffdc0837e44abc9cd6ad284d42081cf"
   },
   "products/nanoMOBILE/flutter_app/test/dashboard_launcher_test.dart": {
-    "mtime": 1786996716.761725,
-    "ast_hash": "f169e18680c062c0f50e0b117775eac1",
-    "semantic_hash": ""
+    "mtime": 1787186973.0444944,
+    "ast_hash": "7c671e35443f6b27436e1fdd3bb73b0c",
+    "semantic_hash": "7c671e35443f6b27436e1fdd3bb73b0c"
   },
   "products/nanoMOBILE/flutter_app/test/model_downloader_test.dart": {
     "mtime": 1786728747.2028084,
     "ast_hash": "781a5e0268226835267cb5b05c38f736",
-    "semantic_hash": ""
+    "semantic_hash": "781a5e0268226835267cb5b05c38f736"
   },
   "products/nanoMOBILE/flutter_app/test/model_storage_scan_test.dart": {
-    "mtime": 1786813291.4338684,
-    "ast_hash": "407d9f340b1281d8dd607b8f6f868b37",
-    "semantic_hash": ""
+    "mtime": 1787186973.0444944,
+    "ast_hash": "6c329323ccfa079cfc68e1e1e988c41c",
+    "semantic_hash": "6c329323ccfa079cfc68e1e1e988c41c"
   },
   "products/nanoRUNTIME/build_android.sh": {
     "mtime": 1786646265.6890056,
     "ast_hash": "aeeffbbbbc901491aba63c4d022f737f",
-    "semantic_hash": ""
+    "semantic_hash": "aeeffbbbbc901491aba63c4d022f737f"
   },
   "products/nanoRUNTIME/deploy_final_test.ps1": {
     "mtime": 1786901048.3059256,
     "ast_hash": "18a9db27746b0aec9cf20929d26f3439",
-    "semantic_hash": ""
+    "semantic_hash": "18a9db27746b0aec9cf20929d26f3439"
   },
   "products/nanoRUNTIME/nanortime-core/examples/gguf_probe.rs": {
-    "mtime": 1787000614.7172546,
-    "ast_hash": "2b0632dca36e2b74ad190ed70189d40d",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "32b97ceb549e9ce09a48fa82f9108a42",
+    "semantic_hash": "32b97ceb549e9ce09a48fa82f9108a42"
   },
   "products/nanoRUNTIME/nanortime-core/examples/load_unload_gate.rs": {
-    "mtime": 1787000614.7226722,
-    "ast_hash": "60b96ee92545d6158ce9add33b6b2f31",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "3637da0bdc21957486af18de0a5b4099",
+    "semantic_hash": "3637da0bdc21957486af18de0a5b4099"
   },
   "products/nanoRUNTIME/nanortime-core/examples/mmap_probe.rs": {
-    "mtime": 1787000614.724671,
-    "ast_hash": "39348ff3517a07278ded17cbd196a1a9",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "e3547a31aac2f075aa30faaab771caaf",
+    "semantic_hash": "e3547a31aac2f075aa30faaab771caaf"
   },
   "products/nanoRUNTIME/nanortime-core/examples/mtp_bench.rs": {
-    "mtime": 1787009652.8849134,
+    "mtime": 1787186973.0460393,
     "ast_hash": "e558e7f64a3f09e1f17844239537ec36",
-    "semantic_hash": ""
+    "semantic_hash": "e558e7f64a3f09e1f17844239537ec36"
   },
   "products/nanoRUNTIME/nanortime-core/examples/mtp_drive.rs": {
-    "mtime": 1787009708.566028,
-    "ast_hash": "25372076ba0e95038a0c2264fdf07bf3",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "c4de14aca3977601dd368700ecf7a06d",
+    "semantic_hash": "c4de14aca3977601dd368700ecf7a06d"
   },
   "products/nanoRUNTIME/nanortime-core/examples/mtp_probe.rs": {
-    "mtime": 1787000614.737803,
-    "ast_hash": "e93d44916f6a2f689f6776a739b60c91",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "2b344285080f2a34854e4518d7950f60",
+    "semantic_hash": "2b344285080f2a34854e4518d7950f60"
   },
   "products/nanoRUNTIME/nanortime-core/examples/planner_probe.rs": {
-    "mtime": 1787000614.739792,
-    "ast_hash": "76bbade94c50e4dc09bb0b4bb746d758",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "7d1fe31828d8c56bb62e3c7e11ed07e3",
+    "semantic_hash": "7d1fe31828d8c56bb62e3c7e11ed07e3"
   },
   "products/nanoRUNTIME/nanortime-core/examples/residency_probe.rs": {
     "mtime": 1786892761.0310988,
     "ast_hash": "f7bfc580b5d318d2867f5a38e31b3a7e",
-    "semantic_hash": ""
+    "semantic_hash": "f7bfc580b5d318d2867f5a38e31b3a7e"
   },
   "products/nanoRUNTIME/nanortime-core/examples/runtime_probe.rs": {
-    "mtime": 1787000614.7447896,
-    "ast_hash": "c49cd4038b00e97bfebec761805bd5b2",
-    "semantic_hash": ""
+    "mtime": 1787186973.0460393,
+    "ast_hash": "ac5411817ab2930bf69505b39ec577a8",
+    "semantic_hash": "ac5411817ab2930bf69505b39ec577a8"
   },
   "products/nanoRUNTIME/nanortime-core/examples/sweep_analyze.rs": {
-    "mtime": 1787000614.7487922,
-    "ast_hash": "c724df0d06d7c0418e9208962a03bd08",
-    "semantic_hash": ""
+    "mtime": 1787186973.0560825,
+    "ast_hash": "f968f1be503fb135b253e0456dd71692",
+    "semantic_hash": "f968f1be503fb135b253e0456dd71692"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/adaptive_kv_policy.rs": {
-    "mtime": 1787000614.9058807,
-    "ast_hash": "bdaf422ec734df4f2372d68fe122bf74",
-    "semantic_hash": ""
+    "mtime": 1787186973.0602458,
+    "ast_hash": "613d9e5f9b4b1a21628a78be81b06e23",
+    "semantic_hash": "613d9e5f9b4b1a21628a78be81b06e23"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/async_prefetch.rs": {
-    "mtime": 1787000614.9172087,
-    "ast_hash": "c5deb3e6382caa0e8a8acd20fe39f460",
-    "semantic_hash": ""
+    "mtime": 1787186973.0602458,
+    "ast_hash": "19e9f02f638bd787f52976ebb3873632",
+    "semantic_hash": "19e9f02f638bd787f52976ebb3873632"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/ngram_scheduler_integration.rs": {
-    "mtime": 1787000614.9664233,
-    "ast_hash": "41cdf5d10c087b16609d6ac3106f559a",
-    "semantic_hash": ""
+    "mtime": 1787186973.0702374,
+    "ast_hash": "8726983689c5f7e36c5157dcd9d9b340",
+    "semantic_hash": "8726983689c5f7e36c5157dcd9d9b340"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/residency_manager.rs": {
-    "mtime": 1787000614.9837668,
-    "ast_hash": "2877f42ab4553f6d7df327d4365cccd6",
-    "semantic_hash": ""
+    "mtime": 1787186973.0722399,
+    "ast_hash": "e7ba1f5f363121dc06d59e85db66102f",
+    "semantic_hash": "e7ba1f5f363121dc06d59e85db66102f"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/runtime_metrics.rs": {
-    "mtime": 1787000614.9941976,
-    "ast_hash": "59ca042dc083f61aef5d3aca99ce2baf",
-    "semantic_hash": ""
+    "mtime": 1787186973.0742424,
+    "ast_hash": "a958434b41f7a5caa11184b18455de01",
+    "semantic_hash": "a958434b41f7a5caa11184b18455de01"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/runtime_planner.rs": {
-    "mtime": 1787009708.888323,
-    "ast_hash": "90642be52610c7272edc72f02f9eb43e",
-    "semantic_hash": ""
+    "mtime": 1787186973.0742424,
+    "ast_hash": "23066b75c11b1e6b323a407ca878886e",
+    "semantic_hash": "23066b75c11b1e6b323a407ca878886e"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/types.rs": {
-    "mtime": 1787000615.0109324,
-    "ast_hash": "22ecf6bc98765f242891fcffd4a69330",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "1609fb08e8ffa3ab4e61f14fb856cba3",
+    "semantic_hash": "1609fb08e8ffa3ab4e61f14fb856cba3"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/utility.rs": {
     "mtime": 1786915608.083826,
     "ast_hash": "d3a9c5fbb1c0ea983c131eb30ff58bab",
-    "semantic_hash": ""
+    "semantic_hash": "d3a9c5fbb1c0ea983c131eb30ff58bab"
   },
   "products/nanoRUNTIME/nanortime-core/src/memory_engine/working_set_estimator.rs": {
-    "mtime": 1787000615.0149355,
-    "ast_hash": "284fb4f7c42e0ed32aa763432a3d659f",
-    "semantic_hash": ""
+    "mtime": 1787186973.0762525,
+    "ast_hash": "aaaa571b2d1da02487137840cbb215e0",
+    "semantic_hash": "aaaa571b2d1da02487137840cbb215e0"
   },
   "products/nanoRUNTIME/nanortime-ffi/examples/test_mtp_ffi.rs": {
-    "mtime": 1787009345.2793162,
-    "ast_hash": "acbf63400a768ff24d996fa8f1ae83d4",
-    "semantic_hash": ""
+    "mtime": 1787186973.08609,
+    "ast_hash": "24d841fd3ad48cab0eb83621210ff037",
+    "semantic_hash": "24d841fd3ad48cab0eb83621210ff037"
   },
   "products/nanoRUNTIME/v1_benchmark.ps1": {
     "mtime": 1786917206.906696,
     "ast_hash": "21e096ba7ca877456f451b9428dcac60",
-    "semantic_hash": ""
+    "semantic_hash": "21e096ba7ca877456f451b9428dcac60"
   },
   "products/nanoRUNTIME/w_sweep.ps1": {
     "mtime": 1786910586.9608903,
     "ast_hash": "b32c954b39d87f65e65b5978f89a156a",
-    "semantic_hash": ""
+    "semantic_hash": "b32c954b39d87f65e65b5978f89a156a"
   },
   "products/nanoRUNTIME/w_sweep_clean.ps1": {
     "mtime": 1786916593.7959895,
     "ast_hash": "253da92c794ffff7eb4417707ab14730",
-    "semantic_hash": ""
+    "semantic_hash": "253da92c794ffff7eb4417707ab14730"
   },
   "vendor/llama-cpp-2/.cargo_vcs_info.json": {
     "mtime": 1153704088.0,
     "ast_hash": "dbff371d7d8b5b25b9d98a1daa00b4a8",
-    "semantic_hash": ""
+    "semantic_hash": "dbff371d7d8b5b25b9d98a1daa00b4a8"
   },
   "vendor/llama-cpp-2/build.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "2063977b6b6ae9cd83b3fbaa82773055",
-    "semantic_hash": ""
+    "semantic_hash": "2063977b6b6ae9cd83b3fbaa82773055"
   },
   "vendor/llama-cpp-2/src/context.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "1aa8e417fa9851f6558606cabddb323b",
-    "semantic_hash": ""
+    "semantic_hash": "1aa8e417fa9851f6558606cabddb323b"
   },
   "vendor/llama-cpp-2/src/context/kv_cache.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "d7949c4ecd3557bf33fa9d623c039f1c",
-    "semantic_hash": ""
+    "semantic_hash": "d7949c4ecd3557bf33fa9d623c039f1c"
   },
   "vendor/llama-cpp-2/src/context/params.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "04e19ca19c225cc37f611c441c404e77",
-    "semantic_hash": ""
+    "semantic_hash": "04e19ca19c225cc37f611c441c404e77"
   },
   "vendor/llama-cpp-2/src/context/params/get_set.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "3f50b0aee87e402a580b8a7b6cb9cfb2",
-    "semantic_hash": ""
+    "semantic_hash": "3f50b0aee87e402a580b8a7b6cb9cfb2"
   },
   "vendor/llama-cpp-2/src/context/session.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "ce698e66cddbf4c83ff7b478da038ee7",
-    "semantic_hash": ""
+    "semantic_hash": "ce698e66cddbf4c83ff7b478da038ee7"
   },
   "vendor/llama-cpp-2/src/gguf/mod.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "d4c709c5a51eb91c3c80caf3cf9f633d",
-    "semantic_hash": ""
+    "semantic_hash": "d4c709c5a51eb91c3c80caf3cf9f633d"
   },
   "vendor/llama-cpp-2/src/gguf/tests.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "cc56dd6b95d21e0ad4119c6c3b4a31c5",
-    "semantic_hash": ""
+    "semantic_hash": "cc56dd6b95d21e0ad4119c6c3b4a31c5"
   },
   "vendor/llama-cpp-2/src/grammar/tests.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "48441c6b4f77d82c8646cd711e66c508",
-    "semantic_hash": ""
+    "semantic_hash": "48441c6b4f77d82c8646cd711e66c508"
   },
   "vendor/llama-cpp-2/src/lib.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "416d5e636db5aeb5a3100cc71edb4b82",
-    "semantic_hash": ""
+    "semantic_hash": "416d5e636db5aeb5a3100cc71edb4b82"
   },
   "vendor/llama-cpp-2/src/llama_backend.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "ada6dcc22c8603434b3883562bf00233",
-    "semantic_hash": ""
+    "semantic_hash": "ada6dcc22c8603434b3883562bf00233"
   },
   "vendor/llama-cpp-2/src/llama_batch.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "2303b3fb5bb1cb608503de93eeda0856",
-    "semantic_hash": ""
+    "semantic_hash": "2303b3fb5bb1cb608503de93eeda0856"
   },
   "vendor/llama-cpp-2/src/llguidance_sampler.rs": {
-    "mtime": 1787000615.2326367,
-    "ast_hash": "fb1fba372ab7fbcfb0be2592b7541307",
-    "semantic_hash": ""
+    "mtime": 1787186973.0905643,
+    "ast_hash": "317fc811e89ffc1f48048e5aaeb30a29",
+    "semantic_hash": "317fc811e89ffc1f48048e5aaeb30a29"
   },
   "vendor/llama-cpp-2/src/log.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "0e2b9582cfd12613ebc7a41f726986bc",
-    "semantic_hash": ""
+    "semantic_hash": "0e2b9582cfd12613ebc7a41f726986bc"
   },
   "vendor/llama-cpp-2/src/model.rs": {
-    "mtime": 1787009196.1636286,
-    "ast_hash": "e944dcabff46c1664e1a1632a5552f3c",
-    "semantic_hash": ""
+    "mtime": 1787186973.0905643,
+    "ast_hash": "cc15d65421386f48eacac77994b12913",
+    "semantic_hash": "cc15d65421386f48eacac77994b12913"
   },
   "vendor/llama-cpp-2/src/model/params.rs": {
-    "mtime": 1786981506.9735935,
-    "ast_hash": "6f653475498912367d541c95b1044363",
-    "semantic_hash": ""
+    "mtime": 1787186973.0923102,
+    "ast_hash": "2eb8df0f01a357512942981b1ebf0796",
+    "semantic_hash": "2eb8df0f01a357512942981b1ebf0796"
   },
   "vendor/llama-cpp-2/src/model/params/kv_overrides.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "592cb506d8ba8582e4248cf066e59f90",
-    "semantic_hash": ""
+    "semantic_hash": "592cb506d8ba8582e4248cf066e59f90"
   },
   "vendor/llama-cpp-2/src/mtmd.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "f5551d246113992f4f54aee53d44c045",
-    "semantic_hash": ""
+    "semantic_hash": "f5551d246113992f4f54aee53d44c045"
   },
   "vendor/llama-cpp-2/src/sampling.rs": {
-    "mtime": 1786982488.923965,
-    "ast_hash": "ea1595864bba750613fa72d940302647",
-    "semantic_hash": ""
+    "mtime": 1787186973.0931275,
+    "ast_hash": "2bd8f1375767a9fda941362babd70742",
+    "semantic_hash": "2bd8f1375767a9fda941362babd70742"
   },
   "vendor/llama-cpp-2/src/speculative.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "3a2b309e2ffe5cfec3746d95cb3bf280",
-    "semantic_hash": ""
+    "semantic_hash": "3a2b309e2ffe5cfec3746d95cb3bf280"
   },
   "vendor/llama-cpp-2/src/timing.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "eba2fe4847171ad904031e30736595f7",
-    "semantic_hash": ""
+    "semantic_hash": "eba2fe4847171ad904031e30736595f7"
   },
   "vendor/llama-cpp-2/src/token.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "5a8b0a45cd22d56a3d87c92634478a60",
-    "semantic_hash": ""
+    "semantic_hash": "5a8b0a45cd22d56a3d87c92634478a60"
   },
   "vendor/llama-cpp-2/src/token/data.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "d736789c185f6b320b758bf73be16c0c",
-    "semantic_hash": ""
+    "semantic_hash": "d736789c185f6b320b758bf73be16c0c"
   },
   "vendor/llama-cpp-2/src/token/data_array.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "ca407c4f86668ee56dc8a211687ed582",
-    "semantic_hash": ""
+    "semantic_hash": "ca407c4f86668ee56dc8a211687ed582"
   },
   "vendor/llama-cpp-2/src/token/logit_bias.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "07a60a1ce906ceff92eadd1ce4ad5111",
-    "semantic_hash": ""
+    "semantic_hash": "07a60a1ce906ceff92eadd1ce4ad5111"
   },
   "vendor/llama-cpp-2/src/token_type.rs": {
     "mtime": 1153704088.0,
     "ast_hash": "f53ddefa4aafd34789c21df9edccaa76",
-    "semantic_hash": ""
+    "semantic_hash": "f53ddefa4aafd34789c21df9edccaa76"
   },
   "vendor/llama-cpp-sys-2-mtp/.cargo_vcs_info.json": {
-    "mtime": 1786449559.046675,
-    "ast_hash": "69be3061664dead0c0b9280a814c2a13",
-    "semantic_hash": ""
+    "mtime": 1787186973.0931275,
+    "ast_hash": "99d83903a4b400865c0042d02a8e6e00",
+    "semantic_hash": "99d83903a4b400865c0042d02a8e6e00"
   },
   "vendor/llama-cpp-sys-2-mtp/build.rs": {
-    "mtime": 1786894151.2848828,
-    "ast_hash": "82f9eb1a9f50bfd036f5fb6b6b6ba4a2",
-    "semantic_hash": ""
+    "mtime": 1787186973.0961344,
+    "ast_hash": "255975427dc9311202a0c2808e88bdf5",
+    "semantic_hash": "255975427dc9311202a0c2808e88bdf5"
   },
   "vendor/llama-cpp-sys-2-mtp/src/lib.rs": {
-    "mtime": 1786449559.0566845,
-    "ast_hash": "c1ff60631ebedcf10ca06368a8e80a83",
-    "semantic_hash": ""
+    "mtime": 1787186975.1692908,
+    "ast_hash": "04c4dd25508498a9ccc738505c4002f1",
+    "semantic_hash": "04c4dd25508498a9ccc738505c4002f1"
   },
   "vendor/llama-cpp-sys-2-mtp/wrapper.h": {
-    "mtime": 1786449559.0586853,
-    "ast_hash": "af2afaca8da2cad7c83ceb7e4ffd275b",
-    "semantic_hash": ""
+    "mtime": 1787186975.1692908,
+    "ast_hash": "1887f544ec1f8ad92bfa7c01b281e214",
+    "semantic_hash": "1887f544ec1f8ad92bfa7c01b281e214"
   },
   "vendor/llama-cpp-sys-2-mtp/wrapper_common.cpp": {
-    "mtime": 1786449559.0606844,
-    "ast_hash": "00b88b61b28ec235f2a15ccd3eda2ae5",
-    "semantic_hash": ""
+    "mtime": 1787186975.1692908,
+    "ast_hash": "e3fd1cbbeb312e9614fc835d0ca5e732",
+    "semantic_hash": "e3fd1cbbeb312e9614fc835d0ca5e732"
   },
   "vendor/llama-cpp-sys-2-mtp/wrapper_common.h": {
-    "mtime": 1786449559.061686,
-    "ast_hash": "c6df845a76ccf03eaf710fe48be2456c",
-    "semantic_hash": ""
+    "mtime": 1787186975.1692908,
+    "ast_hash": "aba5c21c8de201e55478191156a1ead1",
+    "semantic_hash": "aba5c21c8de201e55478191156a1ead1"
   },
   "vendor/llama-cpp-sys-2-mtp/wrapper_mtmd.h": {
-    "mtime": 1786449559.0629022,
-    "ast_hash": "b4c3ffddb3054678f7642148556d7790",
-    "semantic_hash": ""
+    "mtime": 1787186975.1692908,
+    "ast_hash": "50b20de2e4a052b76a6e7511e3f93735",
+    "semantic_hash": "50b20de2e4a052b76a6e7511e3f93735"
   },
   "vendor/llama-cpp-sys-2-mtp/wrapper_utils.h": {
-    "mtime": 1786449559.064904,
-    "ast_hash": "780709e539c9af0684c88d75adefd4ce",
-    "semantic_hash": ""
+    "mtime": 1787186975.1692908,
+    "ast_hash": "881e114360ef1e8fe3d3c056f4b5df27",
+    "semantic_hash": "881e114360ef1e8fe3d3c056f4b5df27"
   },
   "docs/superpowers/specs/2026-08-13-chat-acciones-deadlock-design.md": {
     "mtime": 1786683368.5968251,
     "ast_hash": "8a8f242e2dbdfd1437d52bef1cf42624",
-    "semantic_hash": ""
-  },
-  "mtp_log.txt": {
-    "mtime": 1786988350.1106622,
-    "ast_hash": "c86f4bd72151f39731976c8659ffe3a3",
-    "semantic_hash": ""
-  },
-  "products/.devin/skills/caveman/SKILL.md": {
-    "mtime": 1786817348.7394998,
-    "ast_hash": "3a73dafb585af334251916f0887cae03",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/.superpowers/brainstorm/308-1786716706/content/visor-overlay.html": {
@@ -6849,16 +6839,6 @@
     "ast_hash": "dbf8d51245b61b27916885b150786084",
     "semantic_hash": ""
   },
-  "products/nanoMOBILE/logcat_val4.txt": {
-    "mtime": 1786829100.5410182,
-    "ast_hash": "9c08bb2daf567ab633a6b1f68963964c",
-    "semantic_hash": ""
-  },
-  "products/nanoRUNTIME/gate_g5_log.txt": {
-    "mtime": 1786914771.854913,
-    "ast_hash": "4e5e4fa81fb57ff09376c4ae4eb47dff",
-    "semantic_hash": ""
-  },
   "vendor/llama-cpp-2/README.md": {
     "mtime": 1153704088.0,
     "ast_hash": "c2c64c3a727dc9547410ed2d37e803ba",
@@ -6879,170 +6859,55 @@
     "ast_hash": "6e864d04f08c23a40810f255ed43b63e",
     "semantic_hash": ""
   },
-  "products/nanoMOBILE/screen1.png": {
-    "mtime": 1786828768.9304438,
-    "ast_hash": "4044fee761dece0121ff78f4bd5f010f",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen10.png": {
-    "mtime": 1786829968.7326298,
-    "ast_hash": "894212fa39910c137fc3e8e9e7b2805e",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen10_2x.png": {
-    "mtime": 1786829979.196951,
-    "ast_hash": "c85b898429ec540524bc88c0183a7d33",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen11.png": {
-    "mtime": 1786830001.6430442,
-    "ast_hash": "eca2325a6a4249e38aff56eddf14119c",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen11_2x.png": {
-    "mtime": 1786830008.0070443,
-    "ast_hash": "9c8afa131a5c8bdbb571d20e3764a493",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen12.png": {
-    "mtime": 1786830029.6515307,
-    "ast_hash": "f8509ecfb85f7cf0df6e82ad3fc2f72d",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen12_2x.png": {
-    "mtime": 1786830036.0431936,
-    "ast_hash": "b80d8e49817b1f0ba30671029610014c",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen13.png": {
-    "mtime": 1786830051.2310348,
-    "ast_hash": "eeebede4a18189eec2bb0196abfad83c",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen13_2x.png": {
-    "mtime": 1786830058.6803577,
-    "ast_hash": "4da999f7f8964c9a886acfc4542cd652",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen1_2x.png": {
-    "mtime": 1786828791.6458607,
-    "ast_hash": "695ab92ecbdfadaeb7d05adb83a6dd1f",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen2.png": {
-    "mtime": 1786828843.4217443,
-    "ast_hash": "cb3f55abc9c9bb4f7d8524b0d6e17cd8",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen3.png": {
-    "mtime": 1786829001.5567603,
-    "ast_hash": "319fc84ab94f8746f66db45e9d8c87c9",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen4.png": {
-    "mtime": 1786829043.0005176,
-    "ast_hash": "299086d968b6e4093954fbc29737c179",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen5.png": {
-    "mtime": 1786829195.7978475,
-    "ast_hash": "c9d156d584e9dfc14113f0665a36db83",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen5_2x.png": {
-    "mtime": 1786829212.070863,
-    "ast_hash": "91bf9fb795ea7a4b1b44b6edc6730272",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen6.png": {
-    "mtime": 1786829247.2487657,
-    "ast_hash": "56beb6c8a33353e68c7905fd689b0383",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen6_2x.png": {
-    "mtime": 1786829353.6983228,
-    "ast_hash": "d1878b2a8333469fac71e806ed8d1231",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen7.png": {
-    "mtime": 1786829838.3082292,
-    "ast_hash": "43d9dbc7f9cf97f537a2126cf17ffee4",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen7_2x.png": {
-    "mtime": 1786829844.3659408,
-    "ast_hash": "fd000c95e2f5068a082d057e6431a3b1",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen8.png": {
-    "mtime": 1786829865.3200417,
-    "ast_hash": "6717516eb2f4b2afd95f3b31d9b80ed5",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen8_2x.png": {
-    "mtime": 1786829871.0800457,
-    "ast_hash": "c5cd70de010a5e58f44801c5803c8f8b",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen9.png": {
-    "mtime": 1786829913.5789177,
-    "ast_hash": "59e43b2222446e080e05446323898f56",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/screen9_2x.png": {
-    "mtime": 1786829921.8587427,
-    "ast_hash": "2db216dcd4b9933120aaa3c7ae7d86bd",
-    "semantic_hash": ""
-  },
   "products/nanoMOBILE/flutter_app/lib/core/theme/nano_motion.dart": {
-    "mtime": 1787008800.354132,
-    "ast_hash": "aec8b20ab0d405c2679c8cc7f80067f5",
-    "semantic_hash": ""
+    "mtime": 1787186973.0091379,
+    "ast_hash": "2978f1907507da1a858fa8a7aaaf02c4",
+    "semantic_hash": "2978f1907507da1a858fa8a7aaaf02c4"
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/nano_transitions.dart": {
-    "mtime": 1787021638.8735178,
-    "ast_hash": "4d485e4006c0041a80f44f7e10fee55c",
-    "semantic_hash": ""
+    "mtime": 1787186973.0091379,
+    "ast_hash": "ef5fa2e9f6025c292cf832462f59d639",
+    "semantic_hash": "ef5fa2e9f6025c292cf832462f59d639"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/nano_optical_surface.dart": {
-    "mtime": 1787028136.2883246,
-    "ast_hash": "88d11d4697de7a0f772dd27916b6d273",
-    "semantic_hash": ""
+    "mtime": 1787186973.011149,
+    "ast_hash": "6b13a9e43ef26df83f51bd46cefe6752",
+    "semantic_hash": "6b13a9e43ef26df83f51bd46cefe6752"
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/nano_thinking_orb.dart": {
-    "mtime": 1787000764.6250691,
-    "ast_hash": "f6c63f9a702092d6f85968c04b7c60d2",
-    "semantic_hash": ""
+    "mtime": 1787186973.011149,
+    "ast_hash": "df3cb95b189a2da147e5e73dd78b0da4",
+    "semantic_hash": "df3cb95b189a2da147e5e73dd78b0da4"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/model_metadata_entities.dart": {
-    "mtime": 1787014216.3267515,
-    "ast_hash": "177259643e6c8d5e3fd6f0b03a8d1066",
-    "semantic_hash": ""
+    "mtime": 1787186973.0274367,
+    "ast_hash": "37661cc9fbfded740f431aa1b0d2bc25",
+    "semantic_hash": "37661cc9fbfded740f431aa1b0d2bc25"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/repositories/i_model_metadata_repository.dart": {
-    "mtime": 1787014651.0598154,
-    "ast_hash": "f4432459bb317cc139a38c1256e8f019",
-    "semantic_hash": ""
+    "mtime": 1787186973.0274367,
+    "ast_hash": "88e2fbf33a6b663f5a5613f159e0a02f",
+    "semantic_hash": "88e2fbf33a6b663f5a5613f159e0a02f"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/usecases/ram_compatibility_evaluator.dart": {
-    "mtime": 1787014673.0123708,
-    "ast_hash": "9ab5f588796153e51b5f3d0235537542",
-    "semantic_hash": ""
+    "mtime": 1787186973.0306048,
+    "ast_hash": "eba9a91411f1e6cb7336e39e8f34ca64",
+    "semantic_hash": "eba9a91411f1e6cb7336e39e8f34ca64"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/providers/model_metadata_providers.dart": {
-    "mtime": 1787014683.5646193,
-    "ast_hash": "17b72c6b6f16b5e78f350e06319ba485",
-    "semantic_hash": ""
+    "mtime": 1787186973.0316126,
+    "ast_hash": "5d53238dfbda63e2e73dbaf21c60a279",
+    "semantic_hash": "5d53238dfbda63e2e73dbaf21c60a279"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/widgets/model_brand_logos.dart": {
-    "mtime": 1787015112.1892357,
-    "ast_hash": "97d6a6c0ceaf133d3efa8328eac833e8",
-    "semantic_hash": ""
+    "mtime": 1787186973.0336094,
+    "ast_hash": "ba7bc2cf51412e5573c91b4209fcae65",
+    "semantic_hash": "ba7bc2cf51412e5573c91b4209fcae65"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/widgets/model_detail_bottom_sheet.dart": {
-    "mtime": 1787028205.9096243,
-    "ast_hash": "5e88ef5dbb9b4f48d81df25e2e248bc5",
-    "semantic_hash": ""
+    "mtime": 1787186973.0336094,
+    "ast_hash": "d0e079652fc519c801b9a003ebc053c5",
+    "semantic_hash": "d0e079652fc519c801b9a003ebc053c5"
   },
   "vendor/llama-cpp-sys-2-mtp/llama.cpp/.devops/tools.sh": {
     "mtime": 1786933258.677691,
@@ -20743,5 +20608,60 @@
     "mtime": 1786933260.5142682,
     "ast_hash": "99793bd07b80d354e2a7a822926c4e62",
     "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/core/services/engine_supervisor.dart": {
+    "mtime": 1787186972.9983513,
+    "ast_hash": "d6ceb6aee74db8efccdd610892837cbb",
+    "semantic_hash": "d6ceb6aee74db8efccdd610892837cbb"
+  },
+  "products/nanoMOBILE/flutter_app/test/chat_cancel_test.dart": {
+    "mtime": 1787186973.0402856,
+    "ast_hash": "db783ce3917957835b4749a89404b1e1",
+    "semantic_hash": "db783ce3917957835b4749a89404b1e1"
+  },
+  "products/nanoMOBILE/flutter_app/test/chat_soak_test.dart": {
+    "mtime": 1787186973.0418057,
+    "ast_hash": "de750293094f0f02f2a2255a34a49a22",
+    "semantic_hash": "de750293094f0f02f2a2255a34a49a22"
+  },
+  "products/nanoMOBILE/flutter_app/test/chat_tier_gate_test.dart": {
+    "mtime": 1787186973.0428126,
+    "ast_hash": "a4294ec1d6737b685e48ab5bda413cb6",
+    "semantic_hash": "a4294ec1d6737b685e48ab5bda413cb6"
+  },
+  "products/nanoMOBILE/flutter_app/test/chat_timings_test.dart": {
+    "mtime": 1787186973.043483,
+    "ast_hash": "73b2b2e351f909bf59483d094e13536a",
+    "semantic_hash": "73b2b2e351f909bf59483d094e13536a"
+  },
+  "products/nanoRUNTIME/nanortime-core/src/execution/prefix_cache.rs": {
+    "mtime": 1787186973.0602458,
+    "ast_hash": "d5dd325106eb60d6b6465e58a00cd8aa",
+    "semantic_hash": "d5dd325106eb60d6b6465e58a00cd8aa"
+  },
+  "products/nanoRUNTIME/nanortime-core/src/execution/session.rs": {
+    "mtime": 1787186973.0602458,
+    "ast_hash": "40d84a70d25f78e2784cd41ddcbceb0f",
+    "semantic_hash": "40d84a70d25f78e2784cd41ddcbceb0f"
+  },
+  "products/nanoRUNTIME/nanortime-core/src/memory_engine/supervision.rs": {
+    "mtime": 1787186973.0762525,
+    "ast_hash": "d7e62c47fbe6100d4371cf3781e0da91",
+    "semantic_hash": "d7e62c47fbe6100d4371cf3781e0da91"
+  },
+  "products/nanoRUNTIME/nanortime-core/tests/lifecycle_soak_test.rs": {
+    "mtime": 1787186973.0762525,
+    "ast_hash": "53ef0f4ae0bda867618a72e9f4c31682",
+    "semantic_hash": "53ef0f4ae0bda867618a72e9f4c31682"
+  },
+  "products/nanoRUNTIME/nanortime-core/tests/session_kv_test.rs": {
+    "mtime": 1787186973.0762525,
+    "ast_hash": "49592f09af0b289b0df9f0339d7e65ca",
+    "semantic_hash": "49592f09af0b289b0df9f0339d7e65ca"
+  },
+  "scripts/release_gates.sh": {
+    "mtime": 1787186973.08609,
+    "ast_hash": "6c96e2f367928b6d0167b47f61b03244",
+    "semantic_hash": "6c96e2f367928b6d0167b47f61b03244"
   }
 }

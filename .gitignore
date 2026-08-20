@@ -20,6 +20,9 @@ data/research/evidence_package/sessions/
 llama.cpp-source/
 llama-prebuilt/
 vendor/llama-cpp-sys-2/llama.cpp/
+# Fork vendored (trackeado por los patches qwen3.x) — es código de terceros,
+# no del proyecto: fuera del grafo graphify (que respeta .gitignore).
+vendor/llama-cpp-sys-2-mtp/llama.cpp/
 *.tar.gz
 *.zip
 
