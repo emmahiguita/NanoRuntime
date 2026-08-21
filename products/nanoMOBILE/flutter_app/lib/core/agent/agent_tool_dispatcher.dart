@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../services/nano_runtime_api.dart';
+import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_loop.dart';
@@ -247,12 +248,17 @@ class PlanOutcome {
   final ToolCall? pauseCall;
   final String summary;
 
+  /// Ruta de ejecución elegida por cada paso (paralelo a [steps]) — C6
+  /// ActionPathRouter. Visible en UI como "Execution path".
+  final List<ExecutionPath> paths;
+
   const PlanOutcome({
     required this.completed,
     required this.steps,
     this.pauseIndex,
     this.pauseCall,
     required this.summary,
+    this.paths = const [],
   });
 }
 
@@ -272,13 +278,19 @@ class AgentToolDispatcher {
     ToolRegistry? registry,
     PolicyEngine? policy,
     AgentVerifier? verifier,
+    ActionPathRouter? router,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
-       _verifier = verifier;
+       _verifier = verifier,
+       _router = router ?? ActionPathRouter();
 
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
+
+  /// Router de ruta de ejecución (C6): etiqueta cada paso del plan con el
+  /// mecanismo más eficiente (Intent / Linux / Accessibility / ...).
+  final ActionPathRouter _router;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -416,11 +428,13 @@ class AgentToolDispatcher {
   }) async {
     final outcomes = <ToolOutcome>[];
     final feedbacks = <String>[];
+    final paths = <ExecutionPath>[];
     final total = plan.length;
     final loopDetector = _LoopDetector();
 
     for (var i = 0; i < total; i++) {
       final call = plan[i];
+      paths.add(_router.route(call).path);
       // Detección de bucle (C5): abortar ANTES de repetir una acción contra
       // el mismo estado (A→B→A→B o misma acción 3+ en plan de 5+).
       final fp = _fingerprint(call);
@@ -436,6 +450,7 @@ class AgentToolDispatcher {
           completed: false,
           steps: outcomes,
           summary: [...feedbacks, loopOutcome.feedback].join('\n'),
+          paths: paths,
         );
       }
 
@@ -455,6 +470,7 @@ class AgentToolDispatcher {
           pauseIndex: i,
           pauseCall: call,
           summary: feedbacks.join('\n'),
+          paths: paths,
         );
       }
       feedbacks.add('${i + 1}/$total ${outcome.feedback}');
@@ -464,6 +480,7 @@ class AgentToolDispatcher {
           completed: false,
           steps: outcomes,
           summary: feedbacks.join('\n'),
+          paths: paths,
         );
       }
     }
@@ -472,6 +489,7 @@ class AgentToolDispatcher {
       completed: true,
       steps: outcomes,
       summary: feedbacks.join('\n'),
+      paths: paths,
     );
   }
 

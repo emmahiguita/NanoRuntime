@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../linux/linux_distribution_registry.dart';
 import '../services/nano_runtime_api.dart';
+import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_tool_dispatcher.dart';
+import 'experience_cache.dart';
+import 'stability_gate.dart';
 import 'tool_registry.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
@@ -38,5 +42,26 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     registry: ToolRegistry.builtin,
     policy: ref.watch(policyEngineProvider),
     verifier: ref.watch(agentVerifierProvider),
+    router: ref.watch(actionPathRouterProvider),
   );
+});
+
+/// Estabilidad del árbol semántico (C4): espera asentamiento bounded.
+final stabilityGateProvider = Provider<StabilityGate>((ref) {
+  return StabilityGate(snapshotFn: ref.watch(agentExecutorProvider).snapshot);
+});
+
+/// Router de ruta de ejecución (C6): comparte el estado real de Linux.
+final actionPathRouterProvider = Provider<ActionPathRouter>((ref) {
+  return ActionPathRouter(
+    // Linux disponible cuando hay distribuciones registradas en el
+    // subsistema (termux/kali/ubuntu instalados).
+    linuxAvailable: () =>
+        LinuxDistributionRegistry.instance.getAllDistributions().isNotEmpty,
+  );
+});
+
+/// Memoria de ejecuciones verificadas (C7): única por app, en memoria.
+final experienceCacheProvider = Provider<ExperienceCache>((ref) {
+  return ExperienceCache();
 });

@@ -877,6 +877,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
             );
             return;
           }
+          // Memoria (C7): guardar SOLO ejecuciones que completaron verificado.
+          final cache = _ref.read(experienceCacheProvider);
+          if (planOutcome.completed) {
+            cache.recordSuccess(text, toolCalls);
+          } else {
+            cache.recordFailure(text);
+          }
           _closeRoundClient(client);
           await _generateRound(text, [
             ...toolTrace,
