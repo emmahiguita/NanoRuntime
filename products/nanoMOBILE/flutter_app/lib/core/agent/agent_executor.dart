@@ -24,6 +24,11 @@ import 'selector_engine.dart';
 /// [NanoAgentExecutor] lo implementa; los tests usan fakes.
 abstract interface class AgentExecutor {
   Future<NanoSnapshot?> snapshot();
+
+  /// RESOLVE del ciclo OBSERVE→RESOLVE→ACT→VERIFY: resuelve [selector]
+  /// contra el snapshot fresco con [ResolveOutcome] tipado.
+  Future<ResolveOutcome> resolve(NanoSelector selector);
+
   Future<AgentExecutionResult> tap(NanoSelector selector);
   Future<AgentExecutionResult> setText(NanoSelector selector, String text);
 }
@@ -70,6 +75,8 @@ class NanoAgentExecutor implements AgentExecutor {
   }
 
   /// Resuelve sin ejecutar nada — el reporte de la consola en Settings.
+  /// Resuelve [selector] contra el snapshot fresco (RESOLVE del ciclo).
+  @override
   Future<ResolveOutcome> resolve(NanoSelector selector) async {
     final snap = await snapshot();
     if (snap == null) {

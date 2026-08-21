@@ -19,6 +19,11 @@ class _FakeExecutor implements AgentExecutor {
   Future<NanoSnapshot?> snapshot() async => null;
 
   @override
+  Future<ResolveOutcome> resolve(NanoSelector selector) async {
+    throw UnimplementedError('Fake de loop no resuelve selectores.');
+  }
+
+  @override
   Future<AgentExecutionResult> tap(NanoSelector selector) async {
     return tapResults[tapCalls++ % tapResults.length];
   }

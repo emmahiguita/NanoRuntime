@@ -263,22 +263,26 @@ class PlanOutcome {
 /// confirmación NO se ejecutan. Los comandos `@` (autoría humana) llevan
 /// confirmación implícita; el tool-calling del LLM (agencia autónoma) no.
 class AgentToolDispatcher {
+  /// DIP: depende de las interfaces [AgentExecutor] y [AgentVerifier] — el
+  /// composition root (agent_dependencies.dart) inyecta las implementaciones
+  /// reales; los tests inyectan fakes. El default es la implementación real
+  /// (compat standalone), nunca una falsa.
   AgentToolDispatcher({
-    NanoAgentExecutor? executor,
+    AgentExecutor? executor,
     ToolRegistry? registry,
     PolicyEngine? policy,
-    ActionVerifier? verifier,
+    AgentVerifier? verifier,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier;
 
-  final NanoAgentExecutor _executor;
+  final AgentExecutor _executor;
   final PolicyEngine _policy;
-  ActionVerifier? _verifier;
+  AgentVerifier? _verifier;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
-  ActionVerifier get verifier =>
+  AgentVerifier get verifier =>
       _verifier ??= ActionVerifier(snapshotFn: _executor.snapshot);
 
   /// Loop de ejecución orquestado (lazy): reutiliza el executor + verifier
@@ -403,7 +407,8 @@ class AgentToolDispatcher {
   /// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]
   /// (el primer paso sensible pidió confirmación humana — el plan queda en
   /// pausa y el caller reanuda desde ahí con `confirmed: true`), o fallo
-  /// tipado (política denegada o paso no verificado → el plan se aborta).
+  /// tipado (política denegada, bucle detectado o paso no verificado → el
+  /// plan se aborta).
   Future<PlanOutcome> runPlanGuarded(
     List<ToolCall> plan, {
     bool humanInitiated = false,
@@ -412,9 +417,28 @@ class AgentToolDispatcher {
     final outcomes = <ToolOutcome>[];
     final feedbacks = <String>[];
     final total = plan.length;
+    final loopDetector = _LoopDetector();
 
     for (var i = 0; i < total; i++) {
       final call = plan[i];
+      // Detección de bucle (C5): abortar ANTES de repetir una acción contra
+      // el mismo estado (A→B→A→B o misma acción 3+ en plan de 5+).
+      final fp = _fingerprint(call);
+      if (loopDetector.isLoop(fp)) {
+        final loopOutcome = ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback: '[loopDetected] Ciclo en el plan '
+              '("${call.tool} ${call.selector ?? ''}${call.text != null ? ' ' + call.text! : ''}"). '
+              'El mundo no avanza: se aborta en lugar de repetir la acción.',
+        );
+        outcomes.add(loopOutcome);
+        return PlanOutcome(
+          completed: false,
+          steps: outcomes,
+          summary: [...feedbacks, loopOutcome.feedback].join('\n'),
+        );
+      }
+
       // `confirmed` autoriza el plan COMPLETO (el usuario aprobó ejecutar
       // este plan): ningún paso vuelve a pedir confirmación.
       final outcome = await runToolGuarded(
@@ -450,6 +474,10 @@ class AgentToolDispatcher {
       summary: feedbacks.join('\n'),
     );
   }
+
+  /// Huella de una acción del plan (tool + selector + texto).
+  static String _fingerprint(ToolCall c) =>
+      '${c.tool}|${c.selector ?? ''}|${c.text ?? ''}';
 
   /// Un feedback de ejecución que no representa éxito. El contrato visible
   /// del dispatcher es tipado: cualquier feedback que ARRANCA con un código
@@ -743,3 +771,24 @@ class AgentToolDispatcher {
     }
   }
 }
+
+/// Detector de bucles del plan (C5). Heurística bounded, nunca infinito:
+/// - patrón alternante A→B→A→B (los últimos 4 pasos son dos pares iguales);
+/// - la misma acción 3+ veces en un plan de 5+ pasos.
+class _LoopDetector {
+  final List<String> _history = [];
+
+  bool isLoop(String fingerprint) {
+    _history.add(fingerprint);
+    final n = _history.length;
+    if (n >= 4 &&
+        _history[n - 4] == _history[n - 2] &&
+        _history[n - 3] == _history[n - 1]) {
+      return true; // A→B→A→B
+    }
+    final count = _history.where((h) => h == fingerprint).length;
+    if (count >= 3 && _history.length >= 5) return true;
+    return false;
+  }
+}
+

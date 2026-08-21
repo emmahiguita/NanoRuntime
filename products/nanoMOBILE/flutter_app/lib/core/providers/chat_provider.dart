@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../agent/agent_dependencies.dart';
 import '../agent/agent_tool_dispatcher.dart';
 import '../services/device_info.dart';
 import '../services/llm_engine_client.dart';
@@ -1200,5 +1201,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
 }
 
 final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
-  (ref) => ChatNotifier(ref),
+  // Inyección real (DI): el dispatcher viene del composition root
+  // (agent_dependencies.dart) con sus dependencias reales cableadas una vez.
+  // El fallback interno de ChatNotifier solo existe para tests que no pasan
+  // toolDispatcher.
+  (ref) => ChatNotifier(ref, toolDispatcher: ref.watch(agentDispatcherProvider)),
 );

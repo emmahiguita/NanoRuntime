@@ -497,5 +497,45 @@ void main() {
       expect(tapCalls, hasLength(1));
       expect(resumed.summary, contains('2/2 Botón atrás'));
     });
+
+    test('plan cíclico A→B→A→B → loopDetected antes de repetir', () async {
+      // El mundo avanza con cada acción (tap → dobleAceptar, back → ajustes),
+      // pero el plan del LLM cicla tap/back sin progreso: el detector aborta
+      // en el 4º paso SIN ejecutar la acción repetida.
+      dumpProvider = () {
+        if (tapCalls.length >= 2) return snapshotDobleAceptar(); // tras 2º tap
+        if (methodCalls.contains('globalAction')) return snapshotAjustes();
+        if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
+        return snapshotAjustes();
+      };
+      final outcome = await dispatcher.runPlanGuarded(
+        const [
+          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+          ToolCall(tool: 'back'),
+          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+          ToolCall(tool: 'back'),
+        ],
+        confirmed: true,
+      );
+      expect(outcome.completed, isFalse);
+      expect(outcome.summary, contains('[loopDetected]'));
+      // El paso repetido (2º back) no se ejecutó: solo 1 back, pero los dos
+      // taps legítimos (pasos 1 y 3) sí.
+      expect(tapCalls, hasLength(2));
+      expect(methodCalls.where((m) => m == 'globalAction'), hasLength(1));
+    });
+
+    test('plan largo legítimo sin repetir acción → no falso positivo', () async {
+      // Solo herramientas read contra el snapshot fijo de ajustes (Bluetooth
+      // y Aceptar existen): acciones todas distintas, sin loop posible.
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'screen'),
+        ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'screen'),
+        ToolCall(tool: 'resolve', selector: 'text=Aceptar'),
+      ]);
+      expect(outcome.completed, isTrue);
+      expect(outcome.summary, isNot(contains('[loopDetected]')));
+    });
   });
 }
