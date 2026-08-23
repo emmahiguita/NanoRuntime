@@ -138,7 +138,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(
-        NanoSpacing.md, NanoSpacing.md, NanoSpacing.md, NanoSpacing.xxxl,
+        NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.xl,
       ),
       child: Center(
         child: ConstrainedBox(
@@ -151,25 +151,25 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                 onModeTap: _pickMode,
                 onDevTap: widget.onDevTap,
               ),
-              const SizedBox(height: NanoSpacing.lg),
+              const SizedBox(height: NanoSpacing.sm),
               _TaskComposer(
                 controller: _taskController,
                 running: _running,
                 onRun: _runTask,
               ),
               if (_running || _lastStatus != null) ...[
-                const SizedBox(height: NanoSpacing.lg),
+                const SizedBox(height: NanoSpacing.sm),
                 _ActiveExecutionCard(
                   goal: _lastGoal,
                   running: _running,
                   status: _lastStatus,
                 ),
               ],
-              const SizedBox(height: NanoSpacing.lg),
+              const SizedBox(height: NanoSpacing.sm),
               QuickAutomationActions(onRun: _runTask),
-              const SizedBox(height: NanoSpacing.lg),
+              const SizedBox(height: NanoSpacing.sm),
               const EngineStatusCard(),
-              const SizedBox(height: NanoSpacing.lg),
+              const SizedBox(height: NanoSpacing.sm),
               const RecentExecutionsCard(),
             ],
           ),
@@ -512,30 +512,44 @@ class RecentExecutionsCard extends ConsumerWidget {
               Text('Sin ejecuciones todavía.',
                   style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13))
             else
-              for (final t in traces.take(6))
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
+              // Bounded: máximo 4 + altura límite con scroll interno → la card
+              // no empuja el resto del dashboard en pantallas verticales.
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 132),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        _statusIcon(t.status),
-                        size: 16,
-                        color: _statusColor(t.status, colors),
-                      ),
-                      const SizedBox(width: NanoSpacing.sm),
-                      Expanded(
-                        child: Text(t.goal,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13, color: colors.textPrimary)),
-                      ),
-                      const SizedBox(width: NanoSpacing.sm),
-                      Text('${t.duration.inMilliseconds}ms',
-                          style: TextStyle(
-                              fontSize: 12, color: colors.onSurfaceVariant)),
+                      for (final t in traces.take(4))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _statusIcon(t.status),
+                                size: 16,
+                                color: _statusColor(t.status, colors),
+                              ),
+                              const SizedBox(width: NanoSpacing.sm),
+                              Expanded(
+                                child: Text(t.goal,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontSize: 13, color: colors.textPrimary)),
+                              ),
+                              const SizedBox(width: NanoSpacing.sm),
+                              Text('${t.duration.inMilliseconds}ms',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: colors.onSurfaceVariant)),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
+              ),
           ],
         ),
       ),
