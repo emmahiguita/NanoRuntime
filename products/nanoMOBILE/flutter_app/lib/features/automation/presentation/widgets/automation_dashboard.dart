@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_breakpoint.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
@@ -135,46 +136,95 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   Widget build(BuildContext context) {
     final mode = ref.watch(settingsProvider).agentAutomationMode;
 
-    return SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(
-        NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.xl,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _AgentHeader(
-                mode: mode,
-                onModeTap: _pickMode,
-                onDevTap: widget.onDevTap,
-              ),
-              const SizedBox(height: NanoSpacing.sm),
-              _TaskComposer(
-                controller: _taskController,
+    // Responsive: en wide (landscape/tablet) divide en 2 columnas para
+    // APROVECHAR el ancho (composer+quick a la izquierda, estado+recientes a la
+    // derecha). En portrait una columna compacta que encaja en pantalla.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= NanoBreakpoints.mediumMax;
+
+        final header = _AgentHeader(
+          mode: mode,
+          onModeTap: _pickMode,
+          onDevTap: widget.onDevTap,
+        );
+        final composer = _TaskComposer(
+          controller: _taskController,
+          running: _running,
+          onRun: _runTask,
+        );
+        final active = (_running || _lastStatus != null)
+            ? _ActiveExecutionCard(
+                goal: _lastGoal,
                 running: _running,
-                onRun: _runTask,
-              ),
-              if (_running || _lastStatus != null) ...[
-                const SizedBox(height: NanoSpacing.sm),
-                _ActiveExecutionCard(
-                  goal: _lastGoal,
-                  running: _running,
-                  status: _lastStatus,
-                ),
-              ],
-              const SizedBox(height: NanoSpacing.sm),
-              QuickAutomationActions(onRun: _runTask),
-              const SizedBox(height: NanoSpacing.sm),
-              const EngineStatusCard(),
-              const SizedBox(height: NanoSpacing.sm),
-              const RecentExecutionsCard(),
-            ],
+                status: _lastStatus,
+              )
+            : null;
+        final quick = QuickAutomationActions(onRun: _runTask);
+
+        final left = <Widget>[
+          composer,
+          if (active != null) ...[
+            const SizedBox(height: NanoSpacing.sm),
+            active,
+          ],
+          const SizedBox(height: NanoSpacing.sm),
+          quick,
+        ];
+        final right = <Widget>[
+          const EngineStatusCard(),
+          const SizedBox(height: NanoSpacing.sm),
+          const RecentExecutionsCard(),
+        ];
+
+        return SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.xl,
           ),
-        ),
-      ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: wide ? 1100 : 720),
+              child: wide
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        header,
+                        const SizedBox(height: NanoSpacing.sm),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: left,
+                              ),
+                            ),
+                            const SizedBox(width: NanoSpacing.xl),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: right,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        header,
+                        const SizedBox(height: NanoSpacing.sm),
+                        ...left,
+                        const SizedBox(height: NanoSpacing.sm),
+                        ...right,
+                      ],
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

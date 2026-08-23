@@ -25,33 +25,44 @@ class EngineStatusCard extends ConsumerWidget {
           children: [
             SectionHeader('Estado', Icons.monitor_heart_rounded, colors: colors),
             const SizedBox(height: NanoSpacing.xs),
-            _row(context, 'Agente', engine?.isLive ?? false),
-            _row(context, 'Runtime', engine?.phase.name ?? '—'),
-            _row(context, 'Modelo', engine?.modelPath?.split('/').last ?? '—'),
+            // Compacta en 3 mini-columnas → aprovecha el ancho (no 3 filas
+            // gigantes). Los valores se leen de lado a lado.
+            Row(
+              children: [
+                _stat(context, colors, 'Agente', engine?.isLive ?? false),
+                _stat(context, colors, 'Runtime', engine?.phase.name ?? '—'),
+                _stat(context, colors, 'Modelo',
+                    engine?.modelPath?.split('/').last ?? '—'),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _row(BuildContext context, String label, dynamic value) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+  Widget _stat(
+    BuildContext context,
+    dynamic colors,
+    String label,
+    dynamic value,
+  ) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 96,
-            child: Text(label,
-                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
-          ),
-          Expanded(
-            child: Text(
-              value.toString(),
+          Text(label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: colors.textPrimary),
-            ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
+          const SizedBox(height: 2),
+          Text(
+            value.toString(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 14, color: colors.textPrimary,
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),
