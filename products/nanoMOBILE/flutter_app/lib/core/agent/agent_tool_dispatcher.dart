@@ -21,6 +21,7 @@ import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_loop.dart';
+import 'linux_tool_adapter.dart';
 import 'nano_selector.dart';
 import 'nano_snapshot.dart' as nano_snapshot;
 import 'tool_registry.dart';
@@ -279,10 +280,12 @@ class AgentToolDispatcher {
     PolicyEngine? policy,
     AgentVerifier? verifier,
     ActionPathRouter? router,
+    LinuxToolAdapter? linuxAdapter,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
-       _router = router ?? ActionPathRouter();
+       _router = router ?? ActionPathRouter(),
+       _linux = linuxAdapter;
 
   final AgentExecutor _executor;
   final PolicyEngine _policy;
@@ -291,6 +294,10 @@ class AgentToolDispatcher {
   /// Router de ruta de ejecución (C6): etiqueta cada paso del plan con el
   /// mecanismo más eficiente (Intent / Linux / Accessibility / ...).
   final ActionPathRouter _router;
+
+  /// Adaptador Linux (C9). null = subsistema no disponible (los tools
+  /// linux.* devuelven fallo tipado, nunca crashean).
+  final LinuxToolAdapter? _linux;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -568,9 +575,47 @@ class AgentToolDispatcher {
           return '[tool] reply_notification requiere "text".';
         }
         return _replyNotification(key: key, text: text);
+      case 'linux.list':
+      case 'linux.readFile':
+      case 'linux.writeFile':
+      case 'linux.run':
+        return _linuxTool(call);
       default:
         return '[tool] Herramienta desconocida "${call.tool}".';
     }
+  }
+
+  /// Ejecuta un tool del subsistema Linux (C9) con resultado estructurado.
+  /// Sin adaptador (Linux no disponible) → fallo tipado, nunca excepción.
+  Future<String> _linuxTool(ToolCall call) async {
+    final adapter = _linux;
+    if (adapter == null) {
+      return '[linuxOff] Subsistema Linux no disponible: sin distribución '
+          'registrada o sin adaptador configurado.';
+    }
+    final arg = call.text ?? call.selector ?? '';
+    if (arg.isEmpty) {
+      return '[tool] ${call.tool} requiere "text" o "selector" con el '
+          'argumento.';
+    }
+    final LinuxCommandResult result;
+    switch (call.tool) {
+      case 'linux.list':
+        result = await adapter.list(arg);
+      case 'linux.readFile':
+        result = await adapter.readFile(arg);
+      case 'linux.writeFile':
+        final content = call.text ?? '';
+        result = await adapter.writeFile(arg, content);
+      default:
+        result = await adapter.runCommand(arg);
+    }
+    if (!result.ok) {
+      return '[linux] ${result.infrastructureError}';
+    }
+    final out = result.stdout.trim();
+    final tail = out.length > 800 ? '${out.substring(0, 800)}…' : out;
+    return '[linux] ${call.tool} →\n${tail.isEmpty ? '(sin salida)' : tail}';
   }
 
   // ── Implementaciones ──────────────────────────────────────────────────────

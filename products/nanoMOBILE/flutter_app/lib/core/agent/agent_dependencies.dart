@@ -7,6 +7,8 @@ import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_tool_dispatcher.dart';
 import 'experience_cache.dart';
+import 'goal_verifier.dart';
+import 'nano_flow.dart';
 import 'stability_gate.dart';
 import 'tool_registry.dart';
 
@@ -64,4 +66,18 @@ final actionPathRouterProvider = Provider<ActionPathRouter>((ref) {
 /// Memoria de ejecuciones verificadas (C7): única por app, en memoria.
 final experienceCacheProvider = Provider<ExperienceCache>((ref) {
   return ExperienceCache();
+});
+
+/// Verificador del objetivo final (C3), sobre el MISMO executor del dispatcher.
+final goalVerifierProvider = Provider<GoalVerifier>((ref) {
+  return GoalVerifier(executor: ref.watch(agentExecutorProvider));
+});
+
+/// Ejecutor de flujos deterministas (C8): flujo verificado → ejecución sin
+/// LLM, con la misma gobernanza que el plan del LLM.
+final nanoFlowExecutorProvider = Provider<NanoFlowExecutor>((ref) {
+  return NanoFlowExecutor(
+    dispatcher: ref.watch(agentDispatcherProvider),
+    goalVerifier: ref.watch(goalVerifierProvider),
+  );
 });

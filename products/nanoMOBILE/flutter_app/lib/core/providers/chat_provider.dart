@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../agent/agent_dependencies.dart';
 import '../agent/agent_tool_dispatcher.dart';
+import '../agent/experience_cache.dart';
+import '../agent/nano_flow.dart';
 import '../services/device_info.dart';
 import '../services/llm_engine_client.dart';
 import '../services/runtime_engine.dart';
@@ -207,6 +209,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// Ejecutor de herramientas del chat (comandos `@` y tool-calling del LLM).
   final AgentToolDispatcher _tools;
 
+  /// Memoria de flujos verificados (C7) — null = flujo determinista off
+  /// (tests sin inyección mantienen el comportamiento actual).
+  final ExperienceCache? _experienceCache;
+
+  /// Ejecutor de flujos deterministas (C8) — null = off.
+  final NanoFlowExecutor? _flowExecutor;
+
   // ── Confirmación de herramienta (política externalWrite) ──
   // Cuando el tool-calling del LLM pide una escritura externa, la política
   // pausa el turno: se guarda la llamada + contexto de reanudación y la UI
@@ -226,13 +235,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
   List<ToolCall>? _pendingPlan;
   int? _pendingPlanIndex;
 
-  ChatNotifier(this._ref, {AgentToolDispatcher? toolDispatcher})
-    : _tools = toolDispatcher ?? AgentToolDispatcher(),
-      super(
-        ChatState(
-          availableModels: [for (final m in NeuralCatalog.models) m.name],
-        ),
-      ) {
+  ChatNotifier(
+    this._ref, {
+    AgentToolDispatcher? toolDispatcher,
+    ExperienceCache? experienceCache,
+    NanoFlowExecutor? flowExecutor,
+  })  : _tools = toolDispatcher ?? AgentToolDispatcher(),
+        _experienceCache = experienceCache,
+        _flowExecutor = flowExecutor,
+        super(
+          ChatState(
+            availableModels: [for (final m in NeuralCatalog.models) m.name],
+          ),
+        ) {
     _restoreModel();
     _restoreMessages();
   }
@@ -243,8 +258,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     Ref ref,
     super.initial, {
     AgentToolDispatcher? toolDispatcher,
+    ExperienceCache? experienceCache,
+    NanoFlowExecutor? flowExecutor,
   }) : _ref = ref,
-       _tools = toolDispatcher ?? AgentToolDispatcher();
+       _tools = toolDispatcher ?? AgentToolDispatcher(),
+       _experienceCache = experienceCache,
+       _flowExecutor = flowExecutor;
 
   /// Restaura la última selección de modelo para que sobreviva al reinicio.
   Future<void> _restoreModel() async {
@@ -553,6 +572,58 @@ class ChatNotifier extends StateNotifier<ChatState> {
       );
       _persistMessages();
       return;
+    }
+
+    // NanoFlow (C8): si el objetivo ya tiene un flujo VERIFICADO con
+    // confianza (ExperienceCache), se ejecuta determinista — sin LLM.
+    // Principio: el LLM no hace el trabajo que un flujo puede hacer.
+    final cache = _experienceCache;
+    final flowExecutor = _flowExecutor;
+    if (cache != null && flowExecutor != null) {
+      final verified = cache.planFor(t);
+      if (verified != null) {
+        final flowResult = await flowExecutor.execute(
+          NanoFlow(goal: t, steps: verified.steps),
+        );
+        if (!mounted) return;
+        if (flowResult.plan.pauseIndex != null) {
+          // Primer paso sensible del flow → misma pausa de confirmación que
+          // el plan del LLM.
+          _pendingPlan = verified.steps;
+          _pendingPlanIndex = flowResult.plan.pauseIndex;
+          _pendingUserText = t;
+          _pendingTrace = const [];
+          _pendingCallText = '';
+          state = state.copyWith(
+            generating: false,
+            pendingTool: flowResult.plan.pauseCall?.tool,
+            pendingToolDescription: flowResult.plan.summary,
+          );
+          return;
+        }
+        final feedback = [
+          '[flow] Objetivo resuelto por flujo verificado (sin LLM):',
+          flowResult.plan.summary,
+          '[goal] ${flowResult.goal.reason}',
+        ].join('\n');
+        final flowMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: feedback,
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, flowMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        if (!flowResult.completed) {
+          cache.recordFailure(t);
+        }
+        return;
+      }
     }
 
     final engine = _ref.read(runtimeEngineProvider.notifier);
@@ -1212,5 +1283,10 @@ final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
   // (agent_dependencies.dart) con sus dependencias reales cableadas una vez.
   // El fallback interno de ChatNotifier solo existe para tests que no pasan
   // toolDispatcher.
-  (ref) => ChatNotifier(ref, toolDispatcher: ref.watch(agentDispatcherProvider)),
+  (ref) => ChatNotifier(
+    ref,
+    toolDispatcher: ref.watch(agentDispatcherProvider),
+    experienceCache: ref.watch(experienceCacheProvider),
+    flowExecutor: ref.watch(nanoFlowExecutorProvider),
+  ),
 );

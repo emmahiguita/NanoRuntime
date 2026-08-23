@@ -111,6 +111,34 @@ class ToolRegistry {
       requiresConfirmation: true,
       description: 'Responder una notificación en una aplicación externa',
     ),
+    // ── Subsistema Linux (C9) — acceso estructurado, nunca bash libre sin
+    // política. Los writes piden confirmación; run es device (puede ser
+    // destructivo: la política evalúa por comando en el dispatcher).
+    ToolDefinition(
+      name: 'linux.list',
+      risk: ToolRisk.read,
+      timeout: Duration(seconds: 15),
+      description: 'Listar archivos en el subsistema Linux',
+    ),
+    ToolDefinition(
+      name: 'linux.readFile',
+      risk: ToolRisk.read,
+      timeout: Duration(seconds: 15),
+      description: 'Leer un archivo del subsistema Linux',
+    ),
+    ToolDefinition(
+      name: 'linux.writeFile',
+      risk: ToolRisk.externalWrite,
+      requiresConfirmation: true,
+      timeout: Duration(seconds: 20),
+      description: 'Escribir un archivo en el subsistema Linux',
+    ),
+    ToolDefinition(
+      name: 'linux.run',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 30),
+      description: 'Ejecutar un comando en el subsistema Linux',
+    ),
   ];
 
   /// Resuelve [name] (con alias) al registro canónico; null si no existe.
