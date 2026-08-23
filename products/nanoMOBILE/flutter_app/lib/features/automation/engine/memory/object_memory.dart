@@ -136,6 +136,31 @@ class NanoObjectMemory {
 
   double confidence(UiObjectKey key) => _entries[key]?.confidence ?? 0.0;
 
+  /// Serializa las entradas (mejor selector por objeto) para persistencia (C13).
+  List<Map<String, dynamic>> toJson() {
+    final out = <Map<String, dynamic>>[];
+    for (final e in _entries.values) {
+      UiSelectorEvidence? best;
+      for (final s in e.selectors.values) {
+        if (s.resourceId != null) {
+          best = s;
+          break; // resourceId es el más robusto
+        }
+        best ??= s;
+      }
+      out.add({
+        'concept': e.key.concept,
+        'package': e.key.package,
+        'appVersion': e.key.appVersion,
+        'resourceId': best?.resourceId,
+        'text': best?.text,
+        'successes': e.successes,
+        'failures': e.failures,
+      });
+    }
+    return out;
+  }
+
   /// Acierto VERIFICADO: sube confianza + fija el selector como evidencia.
   NanoObjectMemory recordSuccess(
     UiObjectKey key,
