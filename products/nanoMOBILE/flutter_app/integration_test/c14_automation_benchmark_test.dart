@@ -31,7 +31,11 @@ void main() {
 
   testWidgets('C14-A automation benchmark', (tester) async {
     app.main();
-    await tester.pumpAndSettle();
+    // NO pumpAndSettle: la home tiene animaciones continuas (ambient/parallax)
+    // que nunca "asientan" y harían timeout. El benchmark usa el container de
+    // providers, no la UI — basta un pump acotado para que inicie el boot.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
 
     final ctx = tester.element(find.byType(ProviderScope).first);
     final container = ProviderScope.containerOf(ctx);
