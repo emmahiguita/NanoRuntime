@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
@@ -18,7 +17,6 @@ class AutomationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = NanoThemeExtension.of(context).colors;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -28,21 +26,28 @@ class AutomationScreen extends ConsumerWidget {
           SafeArea(
             child: NanoScreenShell(
               title: 'Automatización',
-              trailing: IconButton(
-                tooltip: 'Dev',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AutomationDevScreen(),
-                  ),
-                ),
-                icon: Icon(Icons.build_circle_rounded,
-                    color: colors.onSurfaceVariant),
-              ),
-              body: const AutomationDashboard(),
+              showBack: true,
+              body: AutomationDashboard(onDevTap: _openDev),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static void _openDev(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 320),
+        reverseTransitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (_, __, ___) => const AutomationDevScreen(),
+        transitionsBuilder: (_, anim, __, child) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.08, 0),
+            end: Offset.zero,
+          ).animate(anim),
+          child: FadeTransition(opacity: anim, child: child),
+        ),
       ),
     );
   }

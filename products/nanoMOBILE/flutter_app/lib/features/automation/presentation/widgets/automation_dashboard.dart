@@ -28,7 +28,10 @@ final engineStatusProvider = Provider<EngineStatus?>(
 /// Reemplaza la antigua "consola de tests" por un dashboard orientado al
 /// usuario. Las herramientas técnicas viven en la pantalla Dev (no acá).
 class AutomationDashboard extends ConsumerStatefulWidget {
-  const AutomationDashboard({super.key});
+  const AutomationDashboard({super.key, this.onDevTap});
+
+  /// Abre la pantalla Dev (herramientas técnicas). null = no mostrar icono.
+  final void Function(BuildContext context)? onDevTap;
 
   @override
   ConsumerState<AutomationDashboard> createState() =>
@@ -124,7 +127,11 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _AgentHeader(mode: mode, onModeTap: _pickMode),
+              _AgentHeader(
+                mode: mode,
+                onModeTap: _pickMode,
+                onDevTap: widget.onDevTap,
+              ),
               const SizedBox(height: NanoSpacing.lg),
               _TaskComposer(
                 controller: _taskController,
@@ -154,9 +161,14 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
 }
 
 class _AgentHeader extends StatelessWidget {
-  const _AgentHeader({required this.mode, required this.onModeTap});
+  const _AgentHeader({
+    required this.mode,
+    required this.onModeTap,
+    this.onDevTap,
+  });
   final AgentAutomationMode mode;
   final VoidCallback onModeTap;
+  final void Function(BuildContext context)? onDevTap;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +201,7 @@ class _AgentHeader extends StatelessWidget {
                     letterSpacing: 0.5,
                     color: colors.textPrimary,
                   )),
-              Text('Listo para trabajar · Local · 1.5B',
+              Text('Listo · Local · 1.5B',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
@@ -209,10 +221,20 @@ class _AgentHeader extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: colors.accentCyan,
                     )),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+        if (onDevTap != null) ...[
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Dev',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => onDevTap!(context),
+            icon: Icon(Icons.build_circle_rounded,
+                size: 20, color: colors.onSurfaceVariant),
+          ),
+        ],
       ],
     );
   }
