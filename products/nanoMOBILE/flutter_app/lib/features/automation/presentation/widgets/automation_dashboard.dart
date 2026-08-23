@@ -201,10 +201,10 @@ class _AgentHeader extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: colors.accentCyan,
                     )),
-              ],
-            ),
+            ],
           ),
         ),
+      ),
       ],
     );
   }
@@ -235,6 +235,8 @@ class _TaskComposerState extends State<_TaskComposer>
   )..repeat();
 
   double _specularDrift = 0.0;
+  double _tiltX = 0.0;
+  double _tiltY = 0.0;
 
   @override
   void dispose() {
@@ -248,6 +250,16 @@ class _TaskComposerState extends State<_TaskComposer>
     final local = box.globalToLocal(e.position);
     setState(() {
       _specularDrift = ((local.dx / box.size.width) - 0.5) * 0.5;
+      // Tilt 3D en perspectiva: el vidrio se inclina hacia el puntero.
+      _tiltY = ((local.dx / box.size.width) - 0.5) * 0.22;
+      _tiltX = -((local.dy / box.size.height) - 0.5) * 0.22;
+    });
+  }
+
+  void _resetTilt() {
+    setState(() {
+      _tiltX = 0.0;
+      _tiltY = 0.0;
     });
   }
 
@@ -257,7 +269,15 @@ class _TaskComposerState extends State<_TaskComposer>
     return Listener(
       onPointerDown: _onPointer,
       onPointerMove: _onPointer,
-      child: NanoOpticalSurface(
+      onPointerUp: (_) => _resetTilt(),
+      onPointerCancel: (_) => _resetTilt(),
+      child: Transform(
+        alignment: Alignment.center,
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.0014) // perspectiva (profundidad 3D)
+          ..rotateX(_tiltX)
+          ..rotateY(_tiltY),
+        child: NanoOpticalSurface(
         borderRadius: NanoRadius.large,
         borderStrength: 0.7,
         reflectionStrength: 0.5,
@@ -319,6 +339,7 @@ class _TaskComposerState extends State<_TaskComposer>
             ],
           ),
         ),
+      ),
       ),
     );
   }
