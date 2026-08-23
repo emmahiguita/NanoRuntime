@@ -13,7 +13,7 @@
 ///    3 × 250ms y degrada a error tipado, nunca excepción.
 library;
 
-import '../services/nano_runtime_api.dart';
+import '../../../core/services/nano_runtime_api.dart';
 import 'actionability_engine.dart';
 import 'agent_result.dart';
 import 'nano_selector.dart';

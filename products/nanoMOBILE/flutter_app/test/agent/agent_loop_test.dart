@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/action_verifier.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/agent_loop.dart';
-import 'package:nanoai/core/agent/agent_result.dart';
-import 'package:nanoai/core/agent/nano_selector.dart';
-import 'package:nanoai/core/agent/nano_snapshot.dart';
+import 'package:nanoai/features/automation/engine/action_verifier.dart';
+import 'package:nanoai/features/automation/engine/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/agent_loop.dart';
+import 'package:nanoai/features/automation/engine/agent_result.dart';
+import 'package:nanoai/features/automation/engine/nano_selector.dart';
+import 'package:nanoai/features/automation/engine/nano_snapshot.dart';
 
 /// Ejecutor fake: devuelve resultados en secuencia (c├¡clico para reintentos).
 class _FakeExecutor implements AgentExecutor {

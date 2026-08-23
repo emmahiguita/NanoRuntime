@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../linux/linux_distribution_registry.dart';
-import '../services/nano_runtime_api.dart';
+import '../../../core/linux/linux_distribution_registry.dart';
+import '../../../core/services/nano_runtime_api.dart';
 import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';

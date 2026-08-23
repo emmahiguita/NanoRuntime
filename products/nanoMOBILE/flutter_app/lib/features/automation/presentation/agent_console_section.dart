@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/nano_selector.dart';
+import 'package:nanoai/features/automation/engine/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/nano_selector.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
   import 'package:nanoai/core/theme/nano_type.dart';

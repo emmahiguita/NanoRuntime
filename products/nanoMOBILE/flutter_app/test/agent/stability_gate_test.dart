@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/nano_snapshot.dart';
-import 'package:nanoai/core/agent/stability_gate.dart';
+import 'package:nanoai/features/automation/engine/nano_snapshot.dart';
+import 'package:nanoai/features/automation/engine/stability_gate.dart';
 
 import 'fixtures.dart';
 

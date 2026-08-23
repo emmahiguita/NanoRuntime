@@ -11,11 +11,11 @@
 /// `ActionPathRouter`/adapters — un solo cerebro de ejecución.
 library;
 
-import 'package:nanoai/core/agent/agent_tool_dispatcher.dart'
+import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
     show AgentToolDispatcher, PlanOutcome, ToolCall, ToolOutcome;
-import 'package:nanoai/core/agent/experience_cache.dart' show ExperienceCache;
-import 'package:nanoai/core/agent/goal_verifier.dart' show GoalExpectation;
-import 'package:nanoai/core/agent/nano_flow.dart'
+import 'package:nanoai/features/automation/engine/experience_cache.dart' show ExperienceCache;
+import 'package:nanoai/features/automation/engine/goal_verifier.dart' show GoalExpectation;
+import 'package:nanoai/features/automation/engine/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 
 import '../domain/automation_policy.dart' show AgentAutomationMode, AutomationPolicy;

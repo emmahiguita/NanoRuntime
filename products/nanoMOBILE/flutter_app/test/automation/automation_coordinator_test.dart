@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 

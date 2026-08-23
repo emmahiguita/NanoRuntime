@@ -1,10 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/actionability_engine.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/agent_tool_dispatcher.dart';
-import 'package:nanoai/core/agent/goal_verifier.dart';
-import 'package:nanoai/core/agent/nano_flow.dart';
+import 'package:nanoai/features/automation/engine/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/goal_verifier.dart';
+import 'package:nanoai/features/automation/engine/nano_flow.dart';
 
 import 'fixtures.dart';
 

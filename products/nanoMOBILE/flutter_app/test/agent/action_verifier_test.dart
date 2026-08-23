@@ -5,9 +5,9 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/action_verifier.dart';
-import 'package:nanoai/core/agent/nano_selector.dart';
-import 'package:nanoai/core/agent/nano_snapshot.dart';
+import 'package:nanoai/features/automation/engine/action_verifier.dart';
+import 'package:nanoai/features/automation/engine/nano_selector.dart';
+import 'package:nanoai/features/automation/engine/nano_snapshot.dart';
 
 import 'fixtures.dart';
 

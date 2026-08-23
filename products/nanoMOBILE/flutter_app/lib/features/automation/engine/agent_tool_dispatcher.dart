@@ -16,7 +16,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../services/nano_runtime_api.dart';
+import '../../../core/services/nano_runtime_api.dart';
 import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';

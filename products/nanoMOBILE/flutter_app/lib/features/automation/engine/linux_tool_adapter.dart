@@ -13,7 +13,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import '../services/pty_shell.dart';
+import '../../../core/services/pty_shell.dart';
 
 /// Resultado estructurado de un comando Linux. El exitCode es null cuando la
 /// vía de ejecución no puede determinarlo (pty interactivo) — nunca se
