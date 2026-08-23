@@ -14,7 +14,7 @@ import '../services/runtime_engine.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
-import 'package:nanoai/features/automation/domain/automation_policy.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 
 // ================================================================
 // Chat State and Notifier
@@ -215,6 +215,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Ejecutor de flujos deterministas (C8) — null = off.
   final NanoFlowExecutor? _flowExecutor;
+
+  /// Único dueño del ciclo de ejecución (policy + cache + flow + dispatcher).
+  /// Cacheado: se construye una vez con las dependencias inyectadas.
+  AutomationCoordinator? _coordinatorCache;
+  AutomationCoordinator get _coordinator => _coordinatorCache ??=
+      AutomationCoordinator(
+        dispatcher: _tools,
+        mode: () => _ref.read(settingsProvider).agentAutomationMode,
+        cache: _experienceCache,
+        flowExecutor: _flowExecutor,
+      );
 
   // ── Confirmación de herramienta (política externalWrite) ──
   // Cuando el tool-calling del LLM pide una escritura externa, la política
@@ -422,7 +433,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         pendingTool: null,
         pendingToolDescription: null,
       );
-      final outcome = await _tools.runPlanGuarded(resume, confirmed: true);
+      final outcome = await _coordinator.runPlan(resume, confirmed: true);
       if (!mounted || _generationCancelled) return;
       if (outcome.pauseIndex != null && outcome.pauseCall != null) {
         // Otro paso del plan pidió confirmación → nueva pausa.
@@ -455,7 +466,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       pendingToolDescription: null,
     );
 
-    final outcome = await _tools.runToolGuarded(call, confirmed: true);
+    final outcome = await _coordinator.runTool(call, confirmed: true);
     if (!mounted || _generationCancelled) return;
 
     // CORRECCIÓN CRÍTICA: Verificar mounted nuevamente antes de continuar
@@ -527,7 +538,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Nuevo turno del usuario: resetea el presupuesto de pasos de la
     // política y descarta cualquier confirmación pendiente vieja (tool o
     // plan multi-paso).
-    _tools.resetTurn();
+    _coordinator.reset();
     _pendingCall = null;
     _pendingPlan = null;
     _pendingPlanIndex = null;
@@ -556,7 +567,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Comandos `@`: ejecución determinista sin LLM. Funcionan incluso con
     // el motor degradado (vivo sin GGUF) — no consumen tokens ni ensureReady.
     if (AgentToolDispatcher.isToolCommand(t)) {
-      final result = await _tools.runCommand(t);
+      final result = await _coordinator.runCommand(t);
       if (!mounted) return;
       final toolMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -574,56 +585,46 @@ class ChatNotifier extends StateNotifier<ChatState> {
       return;
     }
 
-    // NanoFlow (C8): si el objetivo ya tiene un flujo VERIFICADO con
-    // confianza (ExperienceCache), se ejecuta determinista — sin LLM.
+    // Camino determinista (C7→C8): flujo verificado en cache, sin LLM.
     // Principio: el LLM no hace el trabajo que un flujo puede hacer.
-    final cache = _experienceCache;
-    final flowExecutor = _flowExecutor;
-    if (cache != null && flowExecutor != null) {
-      final verified = cache.planFor(t);
-      if (verified != null) {
-        final flowResult = await flowExecutor.execute(
-          NanoFlow(goal: t, steps: verified.steps),
-        );
-        if (!mounted) return;
-        if (flowResult.plan.pauseIndex != null) {
-          // Primer paso sensible del flow → misma pausa de confirmación que
-          // el plan del LLM.
-          _pendingPlan = verified.steps;
-          _pendingPlanIndex = flowResult.plan.pauseIndex;
-          _pendingUserText = t;
-          _pendingTrace = const [];
-          _pendingCallText = '';
-          state = state.copyWith(
-            generating: false,
-            pendingTool: flowResult.plan.pauseCall?.tool,
-            pendingToolDescription: flowResult.plan.summary,
-          );
-          return;
-        }
-        final feedback = [
-          '[flow] Objetivo resuelto por flujo verificado (sin LLM):',
-          flowResult.plan.summary,
-          '[goal] ${flowResult.goal.reason}',
-        ].join('\n');
-        final flowMsg = ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: feedback,
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-        );
+    final deterministic = await _coordinator.tryDeterministic(t);
+    if (deterministic != null) {
+      if (!mounted) return;
+      final flowResult = deterministic.result;
+      if (flowResult.plan.pauseIndex != null) {
+        // Primer paso sensible del flow → misma pausa de confirmación que
+        // el plan del LLM.
+        _pendingPlan = deterministic.steps;
+        _pendingPlanIndex = flowResult.plan.pauseIndex;
+        _pendingUserText = t;
+        _pendingTrace = const [];
+        _pendingCallText = '';
         state = state.copyWith(
-          messages: [...state.messages, flowMsg],
           generating: false,
-          streamingText: '',
+          pendingTool: flowResult.plan.pauseCall?.tool,
+          pendingToolDescription: flowResult.plan.summary,
         );
-        _persistMessages();
-        if (!flowResult.completed) {
-          cache.recordFailure(t);
-        }
         return;
       }
+      final feedback = [
+        '[flow] Objetivo resuelto por flujo verificado (sin LLM):',
+        flowResult.plan.summary,
+        '[goal] ${flowResult.goal.reason}',
+      ].join('\n');
+      final flowMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: feedback,
+        timestamp: DateTime.now(),
+        status: MessageStatus.sent,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, flowMsg],
+        generating: false,
+        streamingText: '',
+      );
+      _persistMessages();
+      return;
     }
 
     final engine = _ref.read(runtimeEngineProvider.notifier);
@@ -764,13 +765,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   bool _requiresAutonomousToolConfirmation(ToolCall call) =>
-      _policy.requiresConfirmation(call.tool);
+      _coordinator.requiresConfirmation(call.tool);
 
   String _toolConfirmationDescription(ToolCall call) =>
-      _policy.confirmationDescription(call.tool);
-
-  AutomationPolicy get _policy =>
-      AutomationPolicy(_ref.read(settingsProvider).agentAutomationMode);
+      _coordinator.confirmationDescription(call.tool);
 
   Future<void> _generate(String text, List<ChatAttachment> attachments) =>
       _generateRound(text, const <String>[], attachments);
@@ -932,7 +930,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
         // Plan multi-paso: ejecutar secuencialmente y re-generar UNA vez con
         // el resumen del plan (evita N rondas LLM para N pasos).
         if (toolCalls.length > 1) {
-          final planOutcome = await _tools.runPlanGuarded(toolCalls);
+          final planOutcome = await _coordinator.runPlan(
+            toolCalls,
+            recordGoal: text,
+          );
           if (!mounted || _generationCancelled) return;
           if (planOutcome.pauseIndex != null && planOutcome.pauseCall != null) {
             // Un paso pidió confirmación → pausar el plan completo.
@@ -947,13 +948,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
               pendingToolDescription: planOutcome.summary,
             );
             return;
-          }
-          // Memoria (C7): guardar SOLO ejecuciones que completaron verificado.
-          final cache = _ref.read(experienceCacheProvider);
-          if (planOutcome.completed) {
-            cache.recordSuccess(text, toolCalls);
-          } else {
-            cache.recordFailure(text);
           }
           _closeRoundClient(client);
           await _generateRound(text, [
@@ -978,7 +972,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           return;
         }
 
-        final outcome = await _tools.runToolGuarded(toolCall);
+        final outcome = await _coordinator.runTool(toolCall);
         if (!mounted || _generationCancelled) return;
         if (outcome.needsConfirmation) {
           // Pausa: guardar contexto de reanudación y exponer el diálogo.
