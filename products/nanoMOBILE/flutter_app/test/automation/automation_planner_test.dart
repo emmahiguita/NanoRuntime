@@ -76,6 +76,43 @@ void main() {
     });
   });
 
+  group('LlmAutomationPlanner · validación endurecida (false success)', () {
+    test('write "" (texto vacío) se descarta', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"write","text":""}]'),
+      );
+      expect((await p.plan('')).calls, isEmpty);
+    });
+
+    test('back con selector se descarta (es sin parámetros)', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"back","selector":"text=Bluetooth"}]'),
+      );
+      expect((await p.plan('')).calls, isEmpty);
+    });
+
+    test('screen con selector se descarta (solo lectura)', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"screen","selector":"id=resourceId"}]'),
+      );
+      expect((await p.plan('')).calls, isEmpty);
+    });
+
+    test('placeholder id=resourceId se descarta (copiado del prompt)', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"tap","selector":"id=resourceId"}]'),
+      );
+      expect((await p.plan('')).calls, isEmpty);
+    });
+
+    test('plan válido (tap text=Bluetooth) se conserva', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"tap","selector":"text=Bluetooth"}]'),
+      );
+      expect((await p.plan('')).calls, hasLength(1));
+    });
+  });
+
   group('AutomationCoordinator.execute · planner real', () {
     test('con planner que no produce acciones → noPlan honesto', () async {
       final c = AutomationCoordinator(

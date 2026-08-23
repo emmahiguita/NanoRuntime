@@ -90,13 +90,28 @@ class LlmAutomationPlanner implements AutomationPlanner {
     );
   }
 
-  /// Filtra la salida del modelo contra el vocabulario conocido y exige que
-  /// cada llamada tenga selector o texto (acción ejecutable).
+  /// Filtra la salida del modelo contra el vocabulario conocido y rechaza
+  /// planes claramente inválidos (evita false success), por tipo de tool:
+  /// - tap/resolve: EXIGEN selector real (no vacío, no placeholder `resourceId`).
+  /// - write: exige texto no vacío (escribir "" no aporta).
+  /// - back/screen: sin parámetros — un selector/texto aquí es mal uso.
+  /// - resto: si no lleva selector ni texto, no es ejecutable.
   List<ToolCall> _validate(List<ToolCall> calls) {
     final valid = <ToolCall>[];
     for (final call in calls) {
       if (!_knownTools.contains(call.tool)) continue;
-      if (call.selector == null && call.text == null) continue;
+      final sel = call.selector ?? '';
+
+      if (call.tool == 'tap' || call.tool == 'resolve') {
+        if (sel.trim().isEmpty || sel.contains('resourceId')) continue;
+      } else if (call.tool == 'write') {
+        if (call.text == null || call.text!.trim().isEmpty) continue;
+      } else if (call.tool == 'back' || call.tool == 'screen') {
+        if (call.selector != null || call.text != null) continue;
+      } else {
+        if (call.selector == null && call.text == null) continue;
+      }
+
       valid.add(call);
     }
     return valid;
