@@ -308,7 +308,6 @@ class _TaskComposerState extends State<_TaskComposer>
                   Expanded(
                     child: TextField(
                       controller: widget.controller,
-                      autofocus: true,
                       textInputAction: TextInputAction.go,
                       onSubmitted: (v) =>
                           !widget.running ? widget.onRun(v) : null,
