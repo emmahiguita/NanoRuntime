@@ -22,11 +22,12 @@ function Fail-Infra([string]$msg) { Write-Error $msg; exit 2 }
 # 1. device detect
 if (-not (adb devices | Select-String $Device)) { Fail-Infra "Device $Device no detectado" }
 
-# 2. build APK con contexto reproducible
+# 2. build APK con contexto reproducible + perfil benchmark (salta NanoLinux)
 Push-Location $appDir
 flutter build apk --debug `
   --dart-define=GIT_COMMIT=$commit `
-  --dart-define=DEVICE_MODEL=$Device
+  --dart-define=DEVICE_MODEL=$Device `
+  --dart-define=NANO_BOOT_PROFILE=automation-benchmark
 if ($LASTEXITCODE -ne 0) { Pop-Location; Fail-Infra "build APK falló" }
 Pop-Location
 
@@ -42,6 +43,12 @@ Start-Sleep -Seconds 2
 # 5. run el integration benchmark (preflight interno aborta si falta modelo)
 $out = Push-Location $appDir; flutter test "integration_test\c14_automation_benchmark_test.dart" -d $Device 2>&1; Pop-Location
 $out | Tee-Object -FilePath (Join-Path $root "c14_out.txt") | Out-Host
+
+# 5b. ADB flaky: un transporte caído NO es un fallo del agente, es infra.
+if (-not (adb devices | Select-String $Device)) {
+  Write-Error "INFRA_DEVICE_DISCONNECTED: el device $Device se desconectó durante el benchmark (USB/adb flaky). No es fallo del agente."
+  exit 2
+}
 
 # 6. parse C14_REPORT:<json>
 $m = $out | Select-String "C14_REPORT:(.+)"

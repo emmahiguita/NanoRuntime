@@ -21,6 +21,7 @@ adb devices | grep -q "$DEVICE" || fail_infra "Device $DEVICE no detectado"
   flutter build apk --debug \
     --dart-define=GIT_COMMIT="$COMMIT" \
     --dart-define=DEVICE_MODEL="$DEVICE" \
+    --dart-define=NANO_BOOT_PROFILE=automation-benchmark \
   || exit 2
 )
 
@@ -34,6 +35,9 @@ OUT="$(
   flutter test integration_test/c14_automation_benchmark_test.dart -d "$DEVICE" 2>&1 || true
 )"
 echo "$OUT" | tee "$ROOT/c14_out.txt"
+
+# ADB flaky: transporte caído NO es fallo del agente, es infra.
+adb devices | grep -q "$DEVICE" || fail_infra "INFRA_DEVICE_DISCONNECTED"
 
 if JSON="$(echo "$OUT" | grep -o 'C14_REPORT:.*' | head -1 | sed 's/^C14_REPORT://')"; then
   GATES_PASS="$(echo "$JSON" | jq -e '.report.gates | all(.pass == true)' 2>/dev/null || echo false)"

@@ -5,6 +5,7 @@
 /// Los campos no disponibles se reportan como null/'' (nunca se inventan).
 library;
 
+import 'package:nanoai/core/config/app_boot_profile.dart';
 import 'package:nanoai/core/config/app_build_info.dart';
 
 class BenchmarkContext {
@@ -20,6 +21,16 @@ class BenchmarkContext {
   final double? temperature;
   final DateTime timestamp;
 
+  /// Perfil de boot (normal | automationBenchmark) — reproduce el entorno.
+  final String bootProfile;
+
+  /// Estado del provisioning de NanoLinux en este run:
+  /// 'skipped' (perfil benchmark) | 'boot' (provisionado en arranque).
+  final String linuxProvisioning;
+
+  /// Si C14-A requiere Linux (false: certifica planner→Android, no NanoLinux).
+  final bool linuxRequired;
+
   const BenchmarkContext({
     required this.gitCommit,
     required this.appVersion,
@@ -32,6 +43,9 @@ class BenchmarkContext {
     this.threads,
     this.temperature,
     required this.timestamp,
+    required this.bootProfile,
+    required this.linuxProvisioning,
+    required this.linuxRequired,
   });
 
   factory BenchmarkContext.capture({
@@ -43,20 +57,26 @@ class BenchmarkContext {
     String backend = '',
     int? threads,
     double? temperature,
-  }) =>
-      BenchmarkContext(
-        gitCommit: AppBuildInfo.gitCommit,
-        appVersion: AppBuildInfo.appVersion,
-        runtimeVersion: runtimeVersion,
-        device: device.isEmpty ? AppBuildInfo.deviceModel : device,
-        model: model,
-        quant: quant,
-        contextSize: contextSize,
-        backend: backend,
-        threads: threads,
-        temperature: temperature,
-        timestamp: DateTime.now(),
-      );
+  }) {
+    final profile = AppBootProfile.current;
+    final linuxSkipped = profile.skipsLinuxProvisioning;
+    return BenchmarkContext(
+      gitCommit: AppBuildInfo.gitCommit,
+      appVersion: AppBuildInfo.appVersion,
+      runtimeVersion: runtimeVersion,
+      device: device.isEmpty ? AppBuildInfo.deviceModel : device,
+      model: model,
+      quant: quant,
+      contextSize: contextSize,
+      backend: backend,
+      threads: threads,
+      temperature: temperature,
+      timestamp: DateTime.now(),
+      bootProfile: profile.name,
+      linuxProvisioning: linuxSkipped ? 'skipped' : 'boot',
+      linuxRequired: !linuxSkipped,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'gitCommit': gitCommit,
@@ -70,5 +90,8 @@ class BenchmarkContext {
         'threads': threads,
         'temperature': temperature,
         'timestamp': timestamp.toIso8601String(),
+        'bootProfile': bootProfile,
+        'linuxProvisioning': linuxProvisioning,
+        'linuxRequired': linuxRequired,
       };
 }
