@@ -837,14 +837,22 @@ class NanoFeatureCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Capa Z-Elevada: Icono flotante con parallax
-                Transform.translate(
-                  offset: iconOffset,
-                  child: _FeatureIcon(
-                    icon: data.icon,
-                    accent: data.accent,
-                    isLandscape: isLandscape,
-                    distance: distance,
+                // Capa Z-Elevada: Icono flotante con parallax.
+                // Flexible + FittedBox(scaleDown): la caja (46px fija) no
+                // desborda el AspectRatio en alturas compactas (CPH2557);
+                // se escala manteniendo la proporción (sin franjas amarillas).
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Transform.translate(
+                      offset: iconOffset,
+                      child: _FeatureIcon(
+                        icon: data.icon,
+                        accent: data.accent,
+                        isLandscape: isLandscape,
+                        distance: distance,
+                      ),
+                    ),
                   ),
                 ),
                 // Capa Z-Media: Textos con micro-desplazamiento
