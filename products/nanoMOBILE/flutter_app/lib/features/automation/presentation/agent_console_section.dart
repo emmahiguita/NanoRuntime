@@ -285,7 +285,7 @@ void initState() {
               TextField(
                 controller: _setTextController,
                 decoration: InputDecoration(
-                  labelText: 'Texto a escribir en el campo resuelto',
+                  labelText: 'Texto a escribir',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
