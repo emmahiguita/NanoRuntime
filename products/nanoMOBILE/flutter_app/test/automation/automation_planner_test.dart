@@ -1,0 +1,84 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:nanoai/core/services/llm_engine_client.dart';
+import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
+    show AgentToolDispatcher, ToolCall;
+import 'package:nanoai/features/automation/engine/automation_planner.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator.dart';
+import 'package:nanoai/features/automation/domain/automation_goal.dart';
+import 'package:nanoai/features/automation/domain/automation_result.dart';
+import 'package:nanoai/features/automation/domain/automation_policy.dart';
+
+/// Cliente LLM fake: devuelve un texto canjeado (la lógica de parsing/validación
+/// del planner es REAL; el motor/no se toca → no se inventa hardware).
+class _FakeClient extends LLMEngineClient {
+  final String canned;
+  _FakeClient(this.canned);
+
+  @override
+  Future<LLMResult> generate({
+    required String prompt,
+    double temperature = 0.7,
+    int maxTokens = 256,
+  }) async =>
+      LLMResult(text: canned);
+}
+
+/// Planner fake que siempre devuelve vacío (para probar que execute lo llama
+/// y degrada a noPlan, sin ejecutar tools → sin IO del dispatcher).
+class _EmptyPlanner implements AutomationPlanner {
+  @override
+  Future<List<ToolCall>> plan(String goal) async => const [];
+}
+
+void main() {
+  group('LlmAutomationPlanner · parseo y validación REAL', () {
+    test('parsea un array JSON válido en ToolCalls', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient(
+          '[{"tool":"tap","selector":"text=Bluetooth"},'
+          '{"tool":"write","text":"hola"}]',
+        ),
+      );
+      final calls = await p.plan('');
+      expect(calls, hasLength(2));
+      expect(calls.first.tool, 'tap');
+      expect(calls.first.selector, 'text=Bluetooth');
+      expect(calls.last.tool, 'write');
+      expect(calls.last.text, 'hola');
+    });
+
+    test('descarta tools desconocidas (salida del modelo es dato NO fiable)',
+        () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"hack","selector":"x"}]'),
+      );
+      expect(await p.plan(''), isEmpty);
+    });
+
+    test('descarta llamadas sin selector ni texto (no ejecutables)', () async {
+      final p = LlmAutomationPlanner(
+        client: _FakeClient('[{"tool":"tap"},{"tool":"write","text":"ok"}]'),
+      );
+      final calls = await p.plan('');
+      expect(calls, hasLength(1));
+      expect(calls.single.tool, 'write');
+    });
+
+    test('salida malformada → vacío (noPlan honesto aguas arriba)', () async {
+      final p = LlmAutomationPlanner(client: _FakeClient('no soy json'));
+      expect(await p.plan(''), isEmpty);
+    });
+  });
+
+  group('AutomationCoordinator.execute · planner real', () {
+    test('con planner que no produce acciones → noPlan honesto', () async {
+      final c = AutomationCoordinator(
+        dispatcher: AgentToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+        planner: _EmptyPlanner(),
+      );
+      final r = await c.execute(const AutomationGoal(text: 'abre bluetooth'));
+      expect(r.status, AutomationResultStatus.noPlan);
+    });
+  });
+}

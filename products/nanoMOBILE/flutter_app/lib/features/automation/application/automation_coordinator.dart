@@ -13,6 +13,8 @@ library;
 
 import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
     show AgentToolDispatcher, PlanOutcome, ToolCall, ToolOutcome;
+import 'package:nanoai/features/automation/engine/automation_planner.dart'
+    show AutomationPlanner;
 import 'package:nanoai/features/automation/engine/experience_cache.dart' show ExperienceCache;
 import 'package:nanoai/features/automation/engine/goal_verifier.dart'
     show GoalExpectation, GoalStatus;
@@ -40,17 +42,23 @@ class AutomationCoordinator {
   /// Ledger de ejecuciones reales (auditoría / C14). null = no trazar.
   final ActionLedger? _ledger;
 
+  /// Planner REAL (LLM) para generar un plan cuando no hay flujo en cache ni
+  /// plan provisto. null = no planear (devuelve noPlan).
+  final AutomationPlanner? _planner;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
     ExperienceCache? cache,
     NanoFlowExecutor? flowExecutor,
     ActionLedger? ledger,
+    AutomationPlanner? planner,
   })  : _dispatcher = dispatcher,
         _mode = mode,
         _cache = cache,
         _flowExecutor = flowExecutor,
-        _ledger = ledger;
+        _ledger = ledger,
+        _planner = planner;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
 
@@ -153,13 +161,14 @@ class AutomationCoordinator {
   ///
   /// Punto de entrada ÚNICO del módulo (para chat, notificaciones, voz,
   /// eventos). Decide el camino:
-  ///   1. Sin [plan] → flujo verificado en cache (C7→C8) si hay hit; si no,
-  ///      noPlan honesto (sin inventar éxito).
-  ///   2. Con [plan] (del LLM) → lo ejecuta bajo gobernanza (multi-paso o
+  ///   1. Sin [plan] → flujo verificado en cache (C7→C8) si hay hit.
+  ///   2. Sin [plan] y sin hit → el [AutomationPlanner] REAL genera un plan
+  ///      con el LLM local y se ejecuta bajo gobernanza (motor autónomo).
+  ///   3. Con [plan] (del LLM) → lo ejecuta bajo gobernanza (multi-paso o
   ///      tool única) y memoriza en cache (C7).
   ///
-  /// NO genera el plan (eso es del planner/LLM aguas arriba) ni renderiza.
-  /// Registra la ejecución en el ledger. Nunca lanza por fallos de negocio.
+  /// NO renderiza (eso es del llamador). Registra la ejecución en el ledger.
+  /// Nunca lanza por fallos de negocio: todo término es un [AutomationResult].
   Future<AutomationResult> execute(
     AutomationGoal goal, {
     List<ToolCall>? plan,
@@ -174,11 +183,25 @@ class AutomationCoordinator {
       if (deterministic != null) {
         return _resultFromFlow(executionId, deterministic.result);
       }
-      return AutomationResult(
-        executionId: executionId,
-        status: AutomationResultStatus.noPlan,
-        reason: 'Sin flujo verificado en cache ni plan provisto.',
-      );
+
+      // Sin flujo en cache: planear con el LLM local (motor autónomo).
+      final planner = _planner;
+      if (planner == null) {
+        return AutomationResult(
+          executionId: executionId,
+          status: AutomationResultStatus.noPlan,
+          reason: 'Sin flujo verificado en cache ni plan provisto.',
+        );
+      }
+      final generated = await planner.plan(goal.text);
+      if (generated.isEmpty) {
+        return AutomationResult(
+          executionId: executionId,
+          status: AutomationResultStatus.noPlan,
+          reason: 'El planner LLM no produjo acciones verificables para el objetivo.',
+        );
+      }
+      plan = generated;
     }
 
     if (plan.length > 1) {
