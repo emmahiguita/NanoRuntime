@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import 'automation_dashboard.dart' show engineStatusProvider;
@@ -54,15 +55,15 @@ class EngineStatusCard extends ConsumerWidget {
           Text(label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
+              style: NanoType.caption(colors.onSurfaceVariant)),
           const SizedBox(height: 2),
           Text(
             value.toString(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 14, color: colors.textPrimary,
-                fontWeight: FontWeight.w600),
+            style: NanoType.body(colors.textPrimary).copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

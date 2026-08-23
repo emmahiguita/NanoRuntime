@@ -4,6 +4,7 @@ import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_breakpoint.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
@@ -273,7 +274,7 @@ class _AgentHeader extends StatelessWidget {
               Text('Listo · Local · 1.5B',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                  style: NanoType.label(colors.onSurfaceVariant)),
             ],
           ),
         ),
@@ -492,7 +493,7 @@ class _ActiveExecutionCard extends StatelessWidget {
               running
                   ? 'Ejecutando…'
                   : (ok ? 'Verificado · ${status!.name}' : 'Resultado: ${status!.name}'),
-              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+              style: NanoType.label(colors.onSurfaceVariant),
             ),
           ],
         ),
@@ -560,7 +561,7 @@ class RecentExecutionsCard extends ConsumerWidget {
             const SizedBox(height: NanoSpacing.xs),
             if (traces.isEmpty)
               Text('Sin ejecuciones todavía.',
-                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13))
+                  style: NanoType.body(colors.onSurfaceVariant))
             else
               // Bounded: máximo 4 + altura límite con scroll interno → la card
               // no empuja el resto del dashboard en pantallas verticales.
@@ -585,14 +586,12 @@ class RecentExecutionsCard extends ConsumerWidget {
                                 child: Text(t.goal,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        fontSize: 13, color: colors.textPrimary)),
+                                    style: NanoType.body(colors.textPrimary)),
                               ),
                               const SizedBox(width: NanoSpacing.sm),
                               Text('${t.duration.inMilliseconds}ms',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: colors.onSurfaceVariant)),
+                                  style: NanoType.label(
+                                      colors.onSurfaceVariant)),
                             ],
                           ),
                         ),
