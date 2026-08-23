@@ -16,6 +16,8 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/automation/engine/planning/automation_planner.dart'
     show AutomationPlanner;
 import 'package:nanoai/features/automation/engine/memory/experience_cache.dart' show ExperienceCache;
+import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
+    show NanoObjectMemory, UiObjectKey, UiSelectorEvidence;
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show DeterministicFlowCatalog;
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
@@ -65,6 +67,11 @@ class AutomationCoordinator {
   /// SIN el modelo LLM). null = no usar (solo cache + planner).
   final DeterministicFlowCatalog? _catalog;
 
+  /// C10 — memoria de identidad de objetos UI. Resuelve selectores semánticos a
+  /// selectores VERIFICADOS (resourceId) + aprende de la verificación. Mutable
+  /// (copy-on-write): registrar un acierto/fallo devuelve una memoria nueva.
+  NanoObjectMemory? _objectMemory;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
@@ -78,6 +85,7 @@ class AutomationCoordinator {
       GoalExpectation? expectation,
     })? verifyGoal,
     DeterministicFlowCatalog? catalog,
+    NanoObjectMemory? objectMemory,
     void Function(C14Execution)? c14Sink,
   })  : _dispatcher = dispatcher,
         _mode = mode,
@@ -87,6 +95,7 @@ class AutomationCoordinator {
         _planner = planner,
         _verifyGoal = verifyGoal,
         _catalog = catalog,
+        _objectMemory = objectMemory,
         _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -103,6 +112,7 @@ class AutomationCoordinator {
         planner: _planner,
         verifyGoal: _verifyGoal,
         catalog: _catalog,
+        objectMemory: _objectMemory,
         c14Sink: sink,
       );
 
@@ -330,6 +340,9 @@ class AutomationCoordinator {
       }
     }
 
+    // C10: anclar selectores semánticos a selectores verificados (memoria).
+    plan = _resolveSelectors(plan, goal.text);
+
     if (plan.length > 1) {
       steps = plan.length;
       final t = Stopwatch()..start();
@@ -342,6 +355,7 @@ class AutomationCoordinator {
       t.stop();
       toolLatency = t.elapsed;
       final r = _resultFromPlan(executionId, outcome);
+      _recordMemory(goal.text, plan, r.status);
       emit(r);
       return r;
     }
@@ -351,8 +365,54 @@ class AutomationCoordinator {
     t.stop();
     toolLatency = t.elapsed;
     final r = _resultFromTool(executionId, outcome);
+    _recordMemory(goal.text, plan, r.status);
     emit(r);
     return r;
+  }
+
+  // ── C10: memoria de objetos UI ─────────────────────────────────────────────
+
+  /// Ancla selectores semánticos (text=/desc=) a selectores VERIFICADOS en
+  /// memoria (resourceId). Nunca inventa: si no hay evidencia fiable, deja el
+  /// selector original (el executor fallará honesto).
+  List<ToolCall> _resolveSelectors(List<ToolCall> plan, String goal) {
+    final mem = _objectMemory;
+    if (mem == null) return plan;
+    final key = UiObjectKey(concept: goal.toLowerCase());
+    return plan.map((c) {
+      final sel = c.selector ?? '';
+      if (sel.startsWith('text=') || sel.startsWith('desc=')) {
+        final rid = mem.resolve(key)?.resourceId;
+        if (rid != null && rid.isNotEmpty) {
+          return ToolCall(tool: c.tool, selector: 'id=$rid', text: c.text);
+        }
+      }
+      return c;
+    }).toList(growable: false);
+  }
+
+  /// Memoriza la verificación del objetivo para anclar selectores futuros.
+  /// RESOLUTION adapta; la VERIFICACIÓN ya fue estricta aguas arriba.
+  void _recordMemory(
+    String goal,
+    List<ToolCall> plan,
+    AutomationResultStatus status,
+  ) {
+    final mem = _objectMemory;
+    if (mem == null || plan.isEmpty) return;
+    final key = UiObjectKey(concept: goal.toLowerCase());
+    final ok = status == AutomationResultStatus.completed ||
+        status == AutomationResultStatus.completedUnverified;
+    var next = mem;
+    for (final c in plan) {
+      final sel = c.selector ?? '';
+      final evidence = UiSelectorEvidence(
+        resourceId: sel.startsWith('id=') ? sel.substring(3) : null,
+        text: sel.startsWith('text=') ? sel.substring(5) : null,
+      );
+      next = ok ? next.recordSuccess(key, evidence) : next.recordFailure(key);
+    }
+    _objectMemory = next;
   }
 
   // ── Resultado (mapeo a dominio) ───────────────────────────────────────────
