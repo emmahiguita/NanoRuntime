@@ -14,6 +14,14 @@ import '../../domain/automation_policy.dart';
 import '../../domain/automation_result.dart';
 import '../../ledger/action_ledger_provider.dart';
 
+/// Estado del engine (ligero) para la capa de presentación. Se envuelve en un
+/// [Provider] para no acoplar la UI al `RuntimeEngineNotifier` pesado (que
+/// arranca un health monitor) y para poder sobrescribirlo en tests/golden sin
+/// enganchar el motor. En producción leerá el estado real del runtime.
+final engineStatusProvider = Provider<EngineStatus?>(
+  (ref) => ref.watch(runtimeEngineProvider),
+);
+
 /// El centro de control del asistente: cabecera de estado, composer de tareas,
 /// quick actions, estado de capacidades y ejecuciones recientes.
 ///
@@ -450,7 +458,7 @@ class CapabilitiesCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
-    final engine = ref.watch(runtimeEngineProvider);
+    final engine = ref.watch(engineStatusProvider);
     return NanoCard(
       padding: EdgeInsets.zero,
       child: Padding(
@@ -460,9 +468,9 @@ class CapabilitiesCard extends ConsumerWidget {
           children: [
             SectionHeader('Estado', Icons.monitor_heart_rounded, colors: colors),
             const SizedBox(height: NanoSpacing.xs),
-            _row(context, 'Agente', engine.isLive),
-            _row(context, 'Runtime', engine.phase.name),
-            _row(context, 'Modelo', engine.modelPath?.split('/').last ?? '—'),
+            _row(context, 'Agente', engine?.isLive ?? false),
+            _row(context, 'Runtime', engine?.phase.name ?? '—'),
+            _row(context, 'Modelo', engine?.modelPath?.split('/').last ?? '—'),
           ],
         ),
       ),
