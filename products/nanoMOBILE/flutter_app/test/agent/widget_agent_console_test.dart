@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/theme/app_theme.dart';
 import 'package:nanoai/features/automation/presentation/agent_console_section.dart';
@@ -27,11 +28,13 @@ void main() {
 
   Future<void> pumpConsole(WidgetTester tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: const Scaffold(
-          body: SingleChildScrollView(
-            child: AgentConsoleSection(),
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(
+            body: SingleChildScrollView(
+              child: AgentConsoleSection(),
+            ),
           ),
         ),
       ),

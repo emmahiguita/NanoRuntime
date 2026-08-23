@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
-import 'package:nanoai/features/automation/engine/perception/nano_selector.dart';
-import 'package:nanoai/core/services/nano_runtime_api.dart';
+import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
+import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
+import 'package:nanoai/features/automation/engine/perception/nano_selector.dart'
+    show NanoSelector, SelectorFormatException;
 import 'package:nanoai/core/theme/design_tokens.dart';
   import 'package:nanoai/core/theme/nano_type.dart';
   import 'package:nanoai/core/widgets/nano_components.dart';
@@ -16,15 +19,16 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 ///   nunca `tapOnText`.
 /// - setText con foco verificado contra re-snapshot.
 /// - Gestos puros de prueba (Back / Launch Ajustes / Swipe ↑).
-class AgentConsoleSection extends StatefulWidget {
+class AgentConsoleSection extends ConsumerStatefulWidget {
   const AgentConsoleSection({super.key});
 
   @override
-  State<AgentConsoleSection> createState() => _AgentConsoleSectionState();
+  ConsumerState<AgentConsoleSection> createState() =>
+      _AgentConsoleSectionState();
 }
 
-class _AgentConsoleSectionState extends State<AgentConsoleSection> {
-  late final NanoAgentExecutor _executor;
+class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
+  late final AgentExecutor _executor;
   final _selectorController = TextEditingController();
   final _setTextController = TextEditingController();
 
@@ -35,9 +39,9 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
   bool _busy = false;
 
   @override
-  void initState() {
-    super.initState();
-    _executor = NanoAgentExecutor();
+void initState() {
+  super.initState();
+  _executor = ref.read(agentExecutorProvider);
   }
 
   @override
@@ -157,7 +161,7 @@ class _AgentConsoleSectionState extends State<AgentConsoleSection> {
   }
 
   Future<void> _gesture(String kind) async {
-    final runtime = NanoRuntimeApi.instance;
+    final runtime = ref.read(nanoRuntimeApiProvider);
     final ok = switch (kind) {
       'back' => await runtime.agentGlobalAction('back'),
       'launch' => await runtime.agentLaunchPackage('com.android.settings'),

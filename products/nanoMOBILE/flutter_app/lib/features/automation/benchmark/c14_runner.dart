@@ -13,6 +13,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
+import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 
 import '../application/automation_coordinator_provider.dart';
@@ -96,6 +97,7 @@ Future<C14RunResult> runC14Benchmark(
   final engine = container.read(runtimeEngineProvider);
   final engineNotifier = container.read(runtimeEngineProvider.notifier);
   final settings = container.read(settingsProvider);
+  final runtimeApi = container.read(nanoRuntimeApiProvider);
 
   // Fuente de verdad del motor: el ENDPOINT real (http://127.0.0.1:8080).
   // El notifier puede quedar `failed` si su supervisor falló el start, pero
@@ -112,13 +114,13 @@ Future<C14RunResult> runC14Benchmark(
   final preflight = await const C14Preflight().run(
     runtimeAlive: runtimeAlive,
     modelLoaded: modelLoaded,
-    accessibilityEnabled: await _accessibilityEnabled(),
+    accessibilityEnabled: await _accessibilityEnabled(runtimeApi),
     coordinatorReady: true, // DI construye o lanza (se propaga como error).
     policyConfigured: true, // agentAutomationMode siempre tiene valor (enum).
     // REAL: se lee el árbol de accesibilidad real (agentDumpScreen). Si el
     // dump devuelve nodos, la pantalla es interactiva/desbloqueada; si no, no.
-    deviceUnlocked: await _screenInteractive(),
-    screenInteractive: await _screenInteractive(),
+    deviceUnlocked: await _screenInteractive(runtimeApi),
+    screenInteractive: await _screenInteractive(runtimeApi),
   );
 
   if (!preflight.pass) {
@@ -149,9 +151,9 @@ Future<C14RunResult> runC14Benchmark(
   );
 }
 
-Future<bool> _accessibilityEnabled() async {
+Future<bool> _accessibilityEnabled(NanoRuntimeApi api) async {
   try {
-    final status = await NanoRuntimeApi.instance.agentStatus();
+    final status = await api.agentStatus();
     if (status == null) return false;
     return status['connected'] == true || status['enabled'] == true;
   } catch (_) {
@@ -162,9 +164,9 @@ Future<bool> _accessibilityEnabled() async {
 /// REAL: ¿la pantalla es interactiva/desbloqueable? Se lee el árbol de
 /// accesibilidad real (agentDumpScreen). Un dump con nodos implica pantalla
 /// accesible y desbloqueada; uno vacío/erro → no. Nunca se asume true.
-Future<bool> _screenInteractive() async {
+Future<bool> _screenInteractive(NanoRuntimeApi api) async {
   try {
-    final nodes = await NanoRuntimeApi.instance.agentDumpScreen();
+    final nodes = await api.agentDumpScreen();
     return nodes.isNotEmpty;
   } catch (_) {
     return false;
