@@ -857,9 +857,11 @@ class NanoFeatureCard extends StatelessWidget {
                 ),
                 // Capa Z-Media: Textos con micro-desplazamiento
                 Flexible(
-                  child: Transform.translate(
-                    offset: textOffset,
-                    child: Padding(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Transform.translate(
+                      offset: textOffset,
+                      child: Padding(
                       padding: EdgeInsets.symmetric(
                         vertical: isLandscape ? 0 : 2,
                       ),
@@ -916,6 +918,7 @@ class NanoFeatureCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                ),
                 ),
                 // Capa Z-Elevada: Botón interactivo de acción
                 Transform.translate(
