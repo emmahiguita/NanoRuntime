@@ -18,6 +18,8 @@ import 'package:nanoai/features/automation/application/automation_coordinator.da
 import 'package:nanoai/features/automation/application/automation_planner_provider.dart';
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
     show NanoObjectMemory;
+import 'package:nanoai/features/automation/engine/perception/perception_mux.dart'
+    show PerceptionMux;
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
 import 'package:nanoai/features/automation/ledger/action_ledger_provider.dart';
@@ -236,6 +238,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         verifyGoal: _ref.read(goalVerifierProvider).verify,
         catalog: defaultDeterministicCatalog,
         objectMemory: NanoObjectMemory(),
+        perceptionMux: const PerceptionMux([]),
       );
 
   // ── Confirmación de herramienta (política externalWrite) ──

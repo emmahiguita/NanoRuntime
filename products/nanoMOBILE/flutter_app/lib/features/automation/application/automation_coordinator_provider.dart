@@ -4,6 +4,8 @@ import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
+import 'package:nanoai/features/automation/engine/perception/perception_mux.dart'
+    show PerceptionMux;
 
 import '../ledger/action_ledger_provider.dart';
 import 'automation_coordinator.dart';
@@ -24,5 +26,8 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     verifyGoal: ref.watch(goalVerifierProvider).verify,
     catalog: defaultDeterministicCatalog,
     objectMemory: NanoObjectMemory(),
+    // C12: sin fuente de percepción de pantalla conectada aún (se wirea el
+    // AccessibilityPerception en el device). Mux vacío = no inventa.
+    perceptionMux: const PerceptionMux([]),
   );
 });

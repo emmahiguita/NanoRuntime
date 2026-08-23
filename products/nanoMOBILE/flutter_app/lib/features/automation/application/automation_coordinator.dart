@@ -18,6 +18,8 @@ import 'package:nanoai/features/automation/engine/planning/automation_planner.da
 import 'package:nanoai/features/automation/engine/memory/experience_cache.dart' show ExperienceCache;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
     show NanoObjectMemory, UiObjectKey, UiSelectorEvidence;
+import 'package:nanoai/features/automation/engine/perception/perception_mux.dart'
+    show PerceptionMux;
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show DeterministicFlowCatalog;
 import 'package:nanoai/features/automation/engine/trust/instruction_trust.dart'
@@ -74,6 +76,10 @@ class AutomationCoordinator {
   /// (copy-on-write): registrar un acierto/fallo devuelve una memoria nueva.
   NanoObjectMemory? _objectMemory;
 
+  /// C12 — perceptores de pantalla fusionados. Fallback en vivo cuando [C10] no
+  /// tiene un selector verificado para el concepto. null = sin percepción.
+  final PerceptionMux? _perceptionMux;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
@@ -88,6 +94,7 @@ class AutomationCoordinator {
     })? verifyGoal,
     DeterministicFlowCatalog? catalog,
     NanoObjectMemory? objectMemory,
+    PerceptionMux? perceptionMux,
     void Function(C14Execution)? c14Sink,
   })  : _dispatcher = dispatcher,
         _mode = mode,
@@ -98,6 +105,7 @@ class AutomationCoordinator {
         _verifyGoal = verifyGoal,
         _catalog = catalog,
         _objectMemory = objectMemory,
+        _perceptionMux = perceptionMux,
         _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -115,6 +123,7 @@ class AutomationCoordinator {
         verifyGoal: _verifyGoal,
         catalog: _catalog,
         objectMemory: _objectMemory,
+        perceptionMux: _perceptionMux,
         c14Sink: sink,
       );
 
@@ -354,8 +363,8 @@ class AutomationCoordinator {
       }
     }
 
-    // C10: anclar selectores semánticos a selectores verificados (memoria).
-    plan = _resolveSelectors(plan, goal.text);
+    // C10/C12: anclar selectores semánticos a selectores reales (memoria/percepción).
+    plan = await _resolveSelectors(plan, goal.text);
 
     if (plan.length > 1) {
       steps = plan.length;
@@ -386,23 +395,36 @@ class AutomationCoordinator {
 
   // ── C10: memoria de objetos UI ─────────────────────────────────────────────
 
-  /// Ancla selectores semánticos (text=/desc=) a selectores VERIFICADOS en
-  /// memoria (resourceId). Nunca inventa: si no hay evidencia fiable, deja el
+  /// Ancla selectores semánticos (text=/desc=) a un selector REAL:
+  /// primero C10 (resourceId verificado en memoria) y, si miss, C12 (percepción
+  /// en vivo vía perceptionMux). Nunca inventa: si nada resuelve, deja el
   /// selector original (el executor fallará honesto).
-  List<ToolCall> _resolveSelectors(List<ToolCall> plan, String goal) {
+  Future<List<ToolCall>> _resolveSelectors(
+    List<ToolCall> plan,
+    String goal,
+  ) async {
     final mem = _objectMemory;
-    if (mem == null) return plan;
+    final mux = _perceptionMux;
     final key = UiObjectKey(concept: goal.toLowerCase());
-    return plan.map((c) {
+    final resolved = <ToolCall>[];
+    for (final c in plan) {
       final sel = c.selector ?? '';
       if (sel.startsWith('text=') || sel.startsWith('desc=')) {
-        final rid = mem.resolve(key)?.resourceId;
+        final concept = sel.substring(5).trim();
+        var used = sel;
+        final rid = mem?.resolve(key)?.resourceId;
         if (rid != null && rid.isNotEmpty) {
-          return ToolCall(tool: c.tool, selector: 'id=$rid', text: c.text);
+          used = 'id=$rid';
+        } else if (mux != null) {
+          final perceived = await mux.resolve(concept);
+          if (perceived != null) used = perceived;
         }
+        resolved.add(ToolCall(tool: c.tool, selector: used, text: c.text));
+      } else {
+        resolved.add(c);
       }
-      return c;
-    }).toList(growable: false);
+    }
+    return resolved;
   }
 
   /// Memoriza la verificación del objetivo para anclar selectores futuros.
