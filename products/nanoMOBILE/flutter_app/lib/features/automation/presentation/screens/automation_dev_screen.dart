@@ -28,6 +28,7 @@ class AutomationDevScreen extends StatelessWidget {
           SafeArea(
             child: NanoScreenShell(
               title: 'Dev',
+              showBack: true,
               body: SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,

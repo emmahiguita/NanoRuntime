@@ -45,24 +45,26 @@ void main() {
 }
 
 Widget _app() => ProviderScope(
-      overrides: [
-        engineStatusProvider.overrideWithValue(
-          const EngineStatus(
-            port: 8080,
-            phase: EnginePhase.ready,
-            modelPath: '/data/local/tmp/qwen-q8-fast.gguf',
-          ),
-        ),
-        automationEngineProvider.overrideWith(
-          (ref) => AutomationEngine.from(
-            _FakeCoordinator(),
-            ref.read(actionLedgerProvider),
-          ),
-        ),
-        actionLedgerProvider.overrideWithValue(ActionLedger()),
-      ],
+      overrides: _overrides(),
       child: MaterialApp(theme: AppTheme.light, home: const AutomationScreen()),
     );
+
+List<Override> _overrides() => [
+      engineStatusProvider.overrideWithValue(
+        const EngineStatus(
+          port: 8080,
+          phase: EnginePhase.ready,
+          modelPath: '/data/local/tmp/qwen-q8-fast.gguf',
+        ),
+      ),
+      automationEngineProvider.overrideWith(
+        (ref) => AutomationEngine.from(
+          _FakeCoordinator(),
+          ref.read(actionLedgerProvider),
+        ),
+      ),
+      actionLedgerProvider.overrideWithValue(ActionLedger()),
+    ];
 
 class _FakeCoordinator extends AutomationCoordinator {
   _FakeCoordinator()
