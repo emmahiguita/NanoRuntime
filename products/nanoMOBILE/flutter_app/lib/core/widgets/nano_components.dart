@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
-import '../theme/nano_breakpoint.dart';
 import '../theme/nano_type.dart';
 import 'nano_optical_surface.dart';
 
@@ -234,18 +233,4 @@ class NanoActionButton extends StatelessWidget {
 
     return expanded ? SizedBox(width: double.infinity, child: button) : button;
   }
-}
-
-/// Aplica el ancho adaptativo de un botón primario: full-width SOLO en
-/// compact (mobile first), content-sized en medium+.
-///
-/// El botón full-width en portrait mobile es una acción primaria legítima;
-/// en landscape/tablet/desktop el mismo `width: double.infinity` produce un
-/// botón estirado sin propósito (regla "Adaptive, no stretched" de la
-/// auditoría responsive).
-Widget nanoAdaptivePrimary(BuildContext context, Widget button) {
-  final width = MediaQuery.sizeOf(context).width;
-  return NanoBreakpoints.hasHorizontalSpace(NanoBreakpoints.of(width))
-      ? button
-      : SizedBox(width: double.infinity, child: button);
 }
