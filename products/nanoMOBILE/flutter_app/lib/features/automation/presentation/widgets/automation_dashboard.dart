@@ -5,6 +5,7 @@ import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
+import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
@@ -181,6 +182,8 @@ class _AgentHeader extends StatelessWidget {
                     color: colors.textPrimary,
                   )),
               Text('Listo para trabajar · Local · 1.5B',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
             ],
           ),
@@ -220,8 +223,13 @@ class _TaskComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return NanoCard(
-      padding: EdgeInsets.zero,
+    return NanoOpticalSurface(
+      borderRadius: NanoRadius.large,
+      borderStrength: 0.7,
+      reflectionStrength: 0.4,
+      blurSigma: 14,
+      glassOpacityScale: 0.85,
+      accent: colors.accentCyan,
       child: Padding(
         padding: const EdgeInsets.all(NanoSpacing.md),
         child: Column(
@@ -411,8 +419,14 @@ class CapabilitiesCard extends ConsumerWidget {
             child: Text(label,
                 style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
           ),
-          Text(value.toString(),
-              style: TextStyle(fontSize: 13, color: colors.textPrimary)),
+          Expanded(
+            child: Text(
+              value.toString(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: colors.textPrimary),
+            ),
+          ),
         ],
       ),
     );
