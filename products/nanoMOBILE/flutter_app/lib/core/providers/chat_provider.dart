@@ -15,6 +15,7 @@ import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
+import 'package:nanoai/features/automation/ledger/action_ledger_provider.dart';
 
 // ================================================================
 // Chat State and Notifier
@@ -225,6 +226,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         mode: () => _ref.read(settingsProvider).agentAutomationMode,
         cache: _experienceCache,
         flowExecutor: _flowExecutor,
+        ledger: _ref.read(actionLedgerProvider),
       );
 
   // ── Confirmación de herramienta (política externalWrite) ──

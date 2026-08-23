@@ -14,11 +14,15 @@ library;
 import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
     show AgentToolDispatcher, PlanOutcome, ToolCall, ToolOutcome;
 import 'package:nanoai/features/automation/engine/experience_cache.dart' show ExperienceCache;
-import 'package:nanoai/features/automation/engine/goal_verifier.dart' show GoalExpectation;
+import 'package:nanoai/features/automation/engine/goal_verifier.dart'
+    show GoalExpectation, GoalStatus;
 import 'package:nanoai/features/automation/engine/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 
 import '../domain/automation_policy.dart' show AgentAutomationMode, AutomationPolicy;
+import '../engine/tool_registry.dart' show PolicyVerdict;
+import '../ledger/action_ledger.dart' show ActionLedger;
+import '../ledger/automation_trace.dart' show AutomationTrace, AutomationTraceStatus;
 
 /// Coordinador del ciclo de ejecución. Inyecta sus dependencias (DIP).
 class AutomationCoordinator {
@@ -31,15 +35,20 @@ class AutomationCoordinator {
   /// settings/Riverpod.
   final AgentAutomationMode Function() _mode;
 
+  /// Ledger de ejecuciones reales (auditoría / C14). null = no trazar.
+  final ActionLedger? _ledger;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
     ExperienceCache? cache,
     NanoFlowExecutor? flowExecutor,
+    ActionLedger? ledger,
   })  : _dispatcher = dispatcher,
         _mode = mode,
         _cache = cache,
-        _flowExecutor = flowExecutor;
+        _flowExecutor = flowExecutor,
+        _ledger = ledger;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
 
@@ -64,6 +73,7 @@ class AutomationCoordinator {
     String goal, {
     GoalExpectation? expectation,
   }) async {
+    final startedAt = DateTime.now();
     final cache = _cache;
     final flow = _flowExecutor;
     if (cache == null || flow == null) return null;
@@ -75,6 +85,14 @@ class AutomationCoordinator {
     if (!result.completed) {
       cache.recordFailure(goal);
     }
+    _record(
+      goal: goal,
+      status: _statusFromFlow(result),
+      summary: result.plan.summary,
+      pauseIndex: result.plan.pauseIndex,
+      pauseTool: result.plan.pauseCall?.tool,
+      startedAt: startedAt,
+    );
     return (result: result, steps: verified.steps);
   }
 
@@ -88,6 +106,7 @@ class AutomationCoordinator {
     bool confirmed = false,
     String? recordGoal,
   }) async {
+    final startedAt = DateTime.now();
     final outcome = await _dispatcher.runPlanGuarded(plan, confirmed: confirmed);
     if (recordGoal != null) {
       if (outcome.completed) {
@@ -96,16 +115,77 @@ class AutomationCoordinator {
         _cache?.recordFailure(recordGoal);
       }
     }
+    _record(
+      goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
+      status: _statusFromPlan(outcome),
+      summary: outcome.summary,
+      pauseIndex: outcome.pauseIndex,
+      pauseTool: outcome.pauseCall?.tool,
+      startedAt: startedAt,
+    );
     return outcome;
   }
 
   /// Ejecuta una herramienta suelta bajo gobernanza.
-  Future<ToolOutcome> runTool(ToolCall call, {bool confirmed = false}) =>
-      _dispatcher.runToolGuarded(call, confirmed: confirmed);
+  Future<ToolOutcome> runTool(ToolCall call, {bool confirmed = false}) async {
+    final startedAt = DateTime.now();
+    final outcome = await _dispatcher.runToolGuarded(call, confirmed: confirmed);
+    _record(
+      goal: call.tool,
+      status: _statusFromTool(outcome),
+      summary: outcome.feedback,
+      startedAt: startedAt,
+    );
+    return outcome;
+  }
 
   /// Comando `@` determinista (autoría humana — confirmación implícita).
   Future<String> runCommand(String command) => _dispatcher.runCommand(command);
 
   /// Resetea el estado del turno del dispatcher (ciclo de vida de una ronda).
   void reset() => _dispatcher.resetTurn();
+
+  // ── Trazas (ledger) ───────────────────────────────────────────────────────
+
+  AutomationTraceStatus _statusFromFlow(FlowExecutionResult r) {
+    if (r.plan.pauseIndex != null) return AutomationTraceStatus.paused;
+    if (!r.completed) return AutomationTraceStatus.failed;
+    return r.goal.status == GoalStatus.satisfied
+        ? AutomationTraceStatus.completed
+        : AutomationTraceStatus.completedUnverified;
+  }
+
+  AutomationTraceStatus _statusFromPlan(PlanOutcome o) {
+    if (o.pauseIndex != null) return AutomationTraceStatus.paused;
+    if (!o.completed) return AutomationTraceStatus.failed;
+    return AutomationTraceStatus.completed;
+  }
+
+  AutomationTraceStatus _statusFromTool(ToolOutcome o) => switch (o.verdict) {
+        PolicyVerdict.needsConfirmation => AutomationTraceStatus.paused,
+        PolicyVerdict.denied => AutomationTraceStatus.denied,
+        PolicyVerdict.allow => AutomationTraceStatus.completed,
+      };
+
+  void _record({
+    required String goal,
+    required AutomationTraceStatus status,
+    required String summary,
+    int? pauseIndex,
+    String? pauseTool,
+    required DateTime startedAt,
+  }) {
+    _ledger?.record(
+      AutomationTrace(
+        executionId: 'auto-${DateTime.now().microsecondsSinceEpoch}',
+        goal: goal,
+        status: status,
+        summary: summary,
+        pauseIndex: pauseIndex,
+        pauseTool: pauseTool,
+        startedAt: startedAt,
+        endedAt: DateTime.now(),
+      ),
+    );
+  }
 }
