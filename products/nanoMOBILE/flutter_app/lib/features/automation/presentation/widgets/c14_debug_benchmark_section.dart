@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
@@ -168,7 +169,7 @@ class _C14DebugBenchmarkSectionState
     if (preflight == null) {
       return Text(
         'Preflight se evalúa al pulsar RUN (modelo, runtime, accesibilidad).',
-        style: TextStyle(color: _colors.onSurfaceVariant, fontSize: 12),
+        style: NanoType.label(_colors.onSurfaceVariant),
       );
     }
     return Wrap(
