@@ -5,6 +5,8 @@ import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/engine/execution/tool_registry.dart'
     show PolicyVerdict;
+import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
+    show defaultDeterministicCatalog;
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
@@ -169,8 +171,33 @@ void main() {
         const AutomationGoal(text: 'volver atrás'),
         plan: [ToolCall(tool: 'back', selector: 'id=x')],
       );
-      // Antes: completed (false success). Ahora: failed (honesto).
       expect(r.status, AutomationResultStatus.failed);
+    });
+  });
+
+  group('AutomationCoordinator · catálogo determinista (sin LLM)', () {
+    test('objetivo CONOCIDO se ejecuta SIN el modelo (no noPlan)', () async {
+      final c = AutomationCoordinator(
+        dispatcher: _FailedToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+        catalog: defaultDeterministicCatalog, // sin planner → sin LLM
+      );
+      // 'abrir Bluetooth' ∈ catálogo → plan determinista (tap text=Bluetooth)
+      // que se ejecuta; el fake devuelve allow+fallo → failed (honesto).
+      final r = await c.execute(const AutomationGoal(text: 'abrir Bluetooth'));
+      expect(r.status, isNot(AutomationResultStatus.noPlan));
+      expect(r.status, AutomationResultStatus.failed);
+    });
+
+    test('objetivo DESCONOCIDO sin catálogo ni planner → noPlan honesto',
+        () async {
+      final c = AutomationCoordinator(
+        dispatcher: _FailedToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+        catalog: defaultDeterministicCatalog, // sin planner
+      );
+      final r = await c.execute(const AutomationGoal(text: 'organizar fotos'));
+      expect(r.status, AutomationResultStatus.noPlan);
     });
   });
 }

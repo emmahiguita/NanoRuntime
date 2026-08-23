@@ -14,6 +14,8 @@ import '../../domain/automation_policy.dart';
 import '../../domain/automation_result.dart';
 import '../../ledger/action_ledger_provider.dart';
 
+import 'engine_status_card.dart';
+
 /// Estado del engine (ligero) para la capa de presentación. Se envuelve en un
 /// [Provider] para no acoplar la UI al `RuntimeEngineNotifier` pesado (que
 /// arranca un health monitor) y para poder sobrescribirlo en tests/golden sin
@@ -149,7 +151,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
               const SizedBox(height: NanoSpacing.lg),
               QuickAutomationActions(onRun: _runTask),
               const SizedBox(height: NanoSpacing.lg),
-              const CapabilitiesCard(),
+              const EngineStatusCard(),
               const SizedBox(height: NanoSpacing.lg),
               const RecentExecutionsCard(),
             ],
@@ -468,57 +470,6 @@ class QuickAutomationActions extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// Estado de las capacidades (runtime/accesibilidad/Linux) — de forma compacta.
-class CapabilitiesCard extends ConsumerWidget {
-  const CapabilitiesCard({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final engine = ref.watch(engineStatusProvider);
-    return NanoCard(
-      padding: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(NanoSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader('Estado', Icons.monitor_heart_rounded, colors: colors),
-            const SizedBox(height: NanoSpacing.xs),
-            _row(context, 'Agente', engine?.isLive ?? false),
-            _row(context, 'Runtime', engine?.phase.name ?? '—'),
-            _row(context, 'Modelo', engine?.modelPath?.split('/').last ?? '—'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(BuildContext context, String label, dynamic value) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label,
-                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
-          ),
-          Expanded(
-            child: Text(
-              value.toString(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: colors.textPrimary),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

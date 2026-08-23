@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
+import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
+    show defaultDeterministicCatalog;
 
 import '../ledger/action_ledger_provider.dart';
 import 'automation_coordinator.dart';
@@ -19,5 +21,6 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     ledger: ref.watch(actionLedgerProvider),
     planner: ref.watch(llmAutomationPlannerProvider),
     verifyGoal: ref.watch(goalVerifierProvider).verify,
+    catalog: defaultDeterministicCatalog,
   );
 });

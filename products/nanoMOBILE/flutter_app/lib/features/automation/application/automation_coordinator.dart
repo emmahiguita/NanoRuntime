@@ -16,6 +16,8 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/automation/engine/planning/automation_planner.dart'
     show AutomationPlanner;
 import 'package:nanoai/features/automation/engine/memory/experience_cache.dart' show ExperienceCache;
+import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
+    show DeterministicFlowCatalog;
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
@@ -59,6 +61,10 @@ class AutomationCoordinator {
     GoalExpectation? expectation,
   })? _verifyGoal;
 
+  /// Catálogo determinista: flujos conocidos para objetivos comunes (funcionan
+  /// SIN el modelo LLM). null = no usar (solo cache + planner).
+  final DeterministicFlowCatalog? _catalog;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
@@ -71,6 +77,7 @@ class AutomationCoordinator {
       required bool planCompleted,
       GoalExpectation? expectation,
     })? verifyGoal,
+    DeterministicFlowCatalog? catalog,
     void Function(C14Execution)? c14Sink,
   })  : _dispatcher = dispatcher,
         _mode = mode,
@@ -79,6 +86,7 @@ class AutomationCoordinator {
         _ledger = ledger,
         _planner = planner,
         _verifyGoal = verifyGoal,
+        _catalog = catalog,
         _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -94,6 +102,7 @@ class AutomationCoordinator {
         ledger: _ledger,
         planner: _planner,
         verifyGoal: _verifyGoal,
+        catalog: _catalog,
         c14Sink: sink,
       );
 
@@ -247,6 +256,9 @@ class AutomationCoordinator {
     var generatedCount = 0;
     var rejectedCount = 0;
     var steps = 0;
+    // Expectativa efectiva para el run (usada en aprendizaje SOUND). Por defecto
+    // la del goal; un flujo determinista del catálogo puede aportar la suya.
+    var runExpectation = goal.expectation;
 
     void emit(AutomationResult r) {
       final sink = _c14Sink;
@@ -283,32 +295,39 @@ class AutomationCoordinator {
         return r;
       }
 
-      // Sin flujo en cache: planear con el LLM local (motor autónomo).
-      final planner = _planner;
-      if (planner == null) {
-        final r = AutomationResult(
-          executionId: executionId,
-          status: AutomationResultStatus.noPlan,
-          reason: 'Sin flujo verificado en cache ni plan provisto.',
-        );
-        emit(r);
-        return r;
+      // Catálogo determinista (SIN LLM): objetivo conocido → flujo real.
+      final known = _catalog?.forGoal(goal.text);
+      if (known != null && known.steps.isNotEmpty) {
+        plan = known.steps;
+        runExpectation = goal.expectation ?? known.expectation;
+      } else {
+        // Sin flujo en cache ni catálogo: planear con el LLM local.
+        final planner = _planner;
+        if (planner == null) {
+          final r = AutomationResult(
+            executionId: executionId,
+            status: AutomationResultStatus.noPlan,
+            reason: 'Sin flujo verificado en cache ni plan provisto.',
+          );
+          emit(r);
+          return r;
+        }
+        final planned = await planner.plan(goal.text);
+        llmLatency = planned.llmLatency;
+        generatedCount = planned.generated;
+        rejectedCount = planned.rejected;
+        if (planned.calls.isEmpty) {
+          final r = AutomationResult(
+            executionId: executionId,
+            status: AutomationResultStatus.noPlan,
+            reason:
+                'El planner LLM no produjo acciones verificables para el objetivo.',
+          );
+          emit(r);
+          return r;
+        }
+        plan = planned.calls;
       }
-      final planned = await planner.plan(goal.text);
-      llmLatency = planned.llmLatency;
-      generatedCount = planned.generated;
-      rejectedCount = planned.rejected;
-      if (planned.calls.isEmpty) {
-        final r = AutomationResult(
-          executionId: executionId,
-          status: AutomationResultStatus.noPlan,
-          reason:
-              'El planner LLM no produjo acciones verificables para el objetivo.',
-        );
-        emit(r);
-        return r;
-      }
-      plan = planned.calls;
     }
 
     if (plan.length > 1) {
@@ -318,7 +337,7 @@ class AutomationCoordinator {
         plan,
         confirmed: confirmed,
         recordGoal: goal.text,
-        expectation: goal.expectation,
+        expectation: runExpectation,
       );
       t.stop();
       toolLatency = t.elapsed;

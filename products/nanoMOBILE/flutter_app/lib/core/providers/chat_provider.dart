@@ -16,6 +16,8 @@ import '../models/catalog_models.dart';
 import 'settings_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/application/automation_planner_provider.dart';
+import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
+    show defaultDeterministicCatalog;
 import 'package:nanoai/features/automation/ledger/action_ledger_provider.dart';
 
 // ================================================================
@@ -230,6 +232,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         ledger: _ref.read(actionLedgerProvider),
         planner: _ref.read(llmAutomationPlannerProvider),
         verifyGoal: _ref.read(goalVerifierProvider).verify,
+        catalog: defaultDeterministicCatalog,
       );
 
   // ── Confirmación de herramienta (política externalWrite) ──
