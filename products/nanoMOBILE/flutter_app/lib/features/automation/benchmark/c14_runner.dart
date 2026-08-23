@@ -94,7 +94,15 @@ Future<C14RunResult> runC14Benchmark(
 }) async {
   final wall = Stopwatch()..start();
   final engine = container.read(runtimeEngineProvider);
+  final engineNotifier = container.read(runtimeEngineProvider.notifier);
   final settings = container.read(settingsProvider);
+
+  // Fuente de verdad del motor: el ENDPOINT real (http://127.0.0.1:8080).
+  // El notifier puede quedar `failed` si su supervisor falló el start, pero
+  // un motor ya instanciado sirviendo /health es lo que el planner usa.
+  // Preflight honesto: chequear contra lo que realmente responderá generate().
+  final runtimeAlive = await engineNotifier.client.isOnline();
+  final modelLoaded = await engineNotifier.client.hasModel();
 
   final context = BenchmarkContext.capture(
     model: engine.modelPath ?? '',
@@ -102,8 +110,8 @@ Future<C14RunResult> runC14Benchmark(
   );
 
   final preflight = await const C14Preflight().run(
-    runtimeAlive: engine.isLive,
-    modelLoaded: engine.phase == EnginePhase.ready,
+    runtimeAlive: runtimeAlive,
+    modelLoaded: modelLoaded,
     accessibilityEnabled: await _accessibilityEnabled(),
     coordinatorReady: true, // DI construye o lanza (se propaga como error).
     policyConfigured: true, // agentAutomationMode siempre tiene valor (enum).

@@ -37,7 +37,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 3));
 
-    final ctx = tester.element(find.byType(ProviderScope).first);
+    // El container se toma de un widget DENTRO del ProviderScope (el hijo
+    // NanoPlatformApp), no de la raíz — containerOf busca un ANCESTOR.
+    final ctx = tester.element(find.byType(app.NanoPlatformApp).first);
     final container = ProviderScope.containerOf(ctx);
 
     // Asegura runtime + modelo (el preflight lo valida; esto solo espera a que
