@@ -7,9 +7,9 @@ library;
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/features/automation/engine/agent_executor.dart';
-import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
-import 'package:nanoai/features/automation/engine/tool_registry.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 import 'fixtures.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 
-import '../engine/automation_planner.dart';
+import '../engine/planning/automation_planner.dart';
 
 /// Provider del planner LLM REAL (motor autónomo).
 ///

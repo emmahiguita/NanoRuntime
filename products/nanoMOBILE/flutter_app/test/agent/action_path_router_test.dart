@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/features/automation/engine/action_path_router.dart';
-import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/execution/action_path_router.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 
 /// Tests del ActionPathRouter (C6): elige el mecanismo más eficiente — nunca
 /// Accessibility cuando hay Intent/Linux para la tarea.

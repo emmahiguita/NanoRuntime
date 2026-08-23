@@ -16,8 +16,8 @@ library;
 import 'package:nanoai/core/services/llm_engine_client.dart'
     show LLMEngineClient, LLMResult;
 
-import 'agent_tool_dispatcher.dart' show AgentToolProtocol, ToolCall;
-import 'tool_registry.dart' show ToolRegistry;
+import '../execution/agent_tool_dispatcher.dart' show AgentToolProtocol, ToolCall;
+import '../execution/tool_registry.dart' show ToolRegistry;
 
 /// Contrato del planner. DIP: LLM real, heurística determinista, o fake en
 /// tests. Producen [PlannedPlan] (ToolCalls ejecutables por el dispatcher +

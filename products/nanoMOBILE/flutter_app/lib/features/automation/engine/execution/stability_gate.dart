@@ -12,7 +12,7 @@
 /// moverse?" — es ortogonal y bounded.
 library;
 
-import 'nano_snapshot.dart';
+import '../perception/nano_snapshot.dart';
 
 class StabilityResult {
   /// True si el árbol se asentó (N lecturas consecutivas equivalentes).

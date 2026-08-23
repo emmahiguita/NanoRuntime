@@ -11,21 +11,21 @@
 /// `ActionPathRouter`/adapters — un solo cerebro de ejecución.
 library;
 
-import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show AgentToolDispatcher, PlanOutcome, ToolCall, ToolOutcome;
-import 'package:nanoai/features/automation/engine/automation_planner.dart'
+import 'package:nanoai/features/automation/engine/planning/automation_planner.dart'
     show AutomationPlanner;
-import 'package:nanoai/features/automation/engine/experience_cache.dart' show ExperienceCache;
-import 'package:nanoai/features/automation/engine/goal_verifier.dart'
+import 'package:nanoai/features/automation/engine/memory/experience_cache.dart' show ExperienceCache;
+import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
-import 'package:nanoai/features/automation/engine/nano_flow.dart'
+import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart' show AgentAutomationMode, AutomationPolicy;
 import '../domain/automation_result.dart' show AutomationResult, AutomationResultStatus;
 import '../benchmark/c14_metrics.dart' show C14Execution;
-import '../engine/tool_registry.dart' show PolicyVerdict;
+import '../engine/execution/tool_registry.dart' show PolicyVerdict;
 import '../ledger/action_ledger.dart' show ActionLedger;
 import '../ledger/automation_trace.dart' show AutomationTrace;
 

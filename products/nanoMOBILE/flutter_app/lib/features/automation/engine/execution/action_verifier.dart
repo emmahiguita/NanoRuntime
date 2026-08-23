@@ -16,9 +16,9 @@
 /// fixtures sin MethodChannel.
 library;
 
-import 'nano_selector.dart';
-import 'nano_snapshot.dart';
-import 'selector_engine.dart';
+import '../perception/nano_selector.dart';
+import '../perception/nano_snapshot.dart';
+import '../perception/selector_engine.dart';
 
 /// Postcondiciones de una acción. Todas opcionales: la ausencia de criterios
 /// es una expectativa trivialmente verificada (compat con acciones de solo

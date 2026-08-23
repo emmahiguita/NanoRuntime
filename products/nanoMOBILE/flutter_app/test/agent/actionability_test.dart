@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/features/automation/engine/actionability_engine.dart';
-import 'package:nanoai/features/automation/engine/nano_snapshot.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart';
 
 void main() {
   NanoNode node({

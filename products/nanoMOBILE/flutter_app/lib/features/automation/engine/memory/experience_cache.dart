@@ -11,7 +11,7 @@
 /// - El caché es por objetivo + app/paquete cuando se conoce.
 library;
 
-import 'agent_tool_dispatcher.dart';
+import '../execution/agent_tool_dispatcher.dart';
 
 /// Flow verificado que puede reutilizarse.
 class VerifiedFlow {

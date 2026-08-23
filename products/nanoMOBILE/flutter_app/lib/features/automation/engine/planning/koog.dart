@@ -7,10 +7,10 @@
 /// limita a tap/write (lo que [AgentLoop] orquesta hoy).
 library;
 
-import 'action_verifier.dart';
-import 'agent_loop.dart';
-import 'nano_selector.dart';
-import 'tool_registry.dart';
+import '../execution/action_verifier.dart';
+import '../execution/agent_loop.dart';
+import '../perception/nano_selector.dart';
+import '../execution/tool_registry.dart';
 
 /// Paso del plan de Koog en vocabulario de TOOLS (`tap`/`write`/...).
 /// Value object ÔÇö no ejecuta nada.

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
-import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show AgentToolDispatcher;
-import 'package:nanoai/features/automation/engine/automation_planner.dart';
+import 'package:nanoai/features/automation/engine/planning/automation_planner.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart';

@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
-import 'package:nanoai/features/automation/engine/experience_cache.dart';
-import 'package:nanoai/features/automation/engine/goal_verifier.dart'
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/memory/experience_cache.dart';
+import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
-import 'package:nanoai/features/automation/engine/tool_registry.dart'
+import 'package:nanoai/features/automation/engine/execution/tool_registry.dart'
     show PolicyVerdict;
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';

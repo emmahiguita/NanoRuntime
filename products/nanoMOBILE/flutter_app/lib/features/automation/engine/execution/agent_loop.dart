@@ -10,7 +10,7 @@ library;
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_result.dart';
-import 'nano_selector.dart';
+import '../perception/nano_selector.dart';
 
 /// Acciones que el loop puede orquestar (ISP: la m├¡nima necesaria).
 enum AgentAction { tap, setText }

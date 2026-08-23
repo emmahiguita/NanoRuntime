@@ -10,7 +10,7 @@
 /// fixtures.
 library;
 
-import 'agent_result.dart';
+import '../execution/agent_result.dart';
 import 'nano_selector.dart';
 import 'nano_snapshot.dart';
 

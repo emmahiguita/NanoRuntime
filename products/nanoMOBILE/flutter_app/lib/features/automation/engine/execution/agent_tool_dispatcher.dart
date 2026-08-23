@@ -16,14 +16,14 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../core/services/nano_runtime_api.dart';
+import '../../../../core/services/nano_runtime_api.dart';
 import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_loop.dart';
-import 'linux_tool_adapter.dart';
-import 'nano_selector.dart';
-import 'nano_snapshot.dart' as nano_snapshot;
+import '../platform/linux_tool_adapter.dart';
+import '../perception/nano_selector.dart';
+import '../perception/nano_snapshot.dart' as nano_snapshot;
 import 'tool_registry.dart';
 
 /// Llamada a herramienta extraída de una respuesta del LLM.

@@ -5,8 +5,8 @@
 /// futuro LLM aguas arriba deciden cómo reaccionar sin parsear strings.
 library;
 
-import 'actionability_engine.dart';
-import 'nano_snapshot.dart';
+import '../perception/actionability_engine.dart';
+import '../perception/nano_snapshot.dart';
 
 /// Estado de una resolución de selector.
 enum ResolveStatus { resolved, ambiguous, notFound, serviceOff }

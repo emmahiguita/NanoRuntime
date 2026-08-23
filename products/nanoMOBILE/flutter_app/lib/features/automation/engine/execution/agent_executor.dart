@@ -13,12 +13,12 @@
 ///    3 × 250ms y degrada a error tipado, nunca excepción.
 library;
 
-import '../../../core/services/nano_runtime_api.dart';
-import 'actionability_engine.dart';
+import '../../../../core/services/nano_runtime_api.dart';
+import '../perception/actionability_engine.dart';
 import 'agent_result.dart';
-import 'nano_selector.dart';
-import 'nano_snapshot.dart';
-import 'selector_engine.dart';
+import '../perception/nano_selector.dart';
+import '../perception/nano_snapshot.dart';
+import '../perception/selector_engine.dart';
 
 /// Contrato mínimo del ejecutor (DIP): lo que [AgentLoop] necesita.
 /// [NanoAgentExecutor] lo implementa; los tests usan fakes.

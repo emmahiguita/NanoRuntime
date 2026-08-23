@@ -2,15 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/linux/linux_distribution_registry.dart';
 import '../../../core/services/nano_runtime_api.dart';
-import 'action_path_router.dart';
-import 'action_verifier.dart';
-import 'agent_executor.dart';
-import 'agent_tool_dispatcher.dart';
-import 'experience_cache.dart';
-import 'goal_verifier.dart';
-import 'nano_flow.dart';
-import 'stability_gate.dart';
-import 'tool_registry.dart';
+import 'execution/action_path_router.dart';
+import 'execution/action_verifier.dart';
+import 'execution/agent_executor.dart';
+import 'execution/agent_tool_dispatcher.dart';
+import 'memory/experience_cache.dart';
+import 'execution/goal_verifier.dart';
+import 'execution/nano_flow.dart';
+import 'execution/stability_gate.dart';
+import 'execution/tool_registry.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a

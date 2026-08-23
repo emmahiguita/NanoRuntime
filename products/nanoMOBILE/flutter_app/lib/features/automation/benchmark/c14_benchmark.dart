@@ -22,7 +22,7 @@ import '../application/automation_coordinator.dart';
 import '../application/automation_coordinator_provider.dart'
     show automationCoordinatorProvider;
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
-import '../engine/goal_verifier.dart' show GoalExpectation;
+import '../engine/execution/goal_verifier.dart' show GoalExpectation;
 import 'c14_metrics.dart';
 
 /// Una tarea de la suite: goal + expectativa de objetivo opcional (para que el

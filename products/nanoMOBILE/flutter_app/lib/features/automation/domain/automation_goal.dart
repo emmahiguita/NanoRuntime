@@ -9,7 +9,7 @@
 /// decide el camino (flujo verificado en cache o planner).
 library;
 
-import 'package:nanoai/features/automation/engine/goal_verifier.dart'
+import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation;
 
 class AutomationGoal {

@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/features/automation/engine/actionability_engine.dart';
-import 'package:nanoai/features/automation/engine/agent_executor.dart';
-import 'package:nanoai/features/automation/engine/agent_result.dart';
-import 'package:nanoai/features/automation/engine/nano_selector.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_result.dart';
+import 'package:nanoai/features/automation/engine/perception/nano_selector.dart';
 
 import 'fixtures.dart';
 

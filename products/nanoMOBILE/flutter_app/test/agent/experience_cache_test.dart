@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
-import 'package:nanoai/features/automation/engine/experience_cache.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/memory/experience_cache.dart';
 
 /// Tests del ExperienceCache (C7): memoria de ejecuciones VERIFICADAS —
 /// hit con confianza, degradación por fallo, invalidez por debajo del umbral.
