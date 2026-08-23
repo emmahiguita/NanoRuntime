@@ -20,6 +20,8 @@ import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
     show NanoObjectMemory, UiObjectKey, UiSelectorEvidence;
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show DeterministicFlowCatalog;
+import 'package:nanoai/features/automation/engine/trust/instruction_trust.dart'
+    show InstructionTrust;
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
@@ -292,6 +294,18 @@ class AutomationCoordinator {
           totalLatency: sw.elapsed,
         ),
       );
+    }
+
+    // C11: solo una INSTRUCCIÓN real del usuario autoriza ejecutar. Un goal
+    // vacío/espacio no es instrucción → noPlan (no se actúa sin orden).
+    if (!InstructionTrust(userInstruction: goal.text).authorizesExecution()) {
+      final r = AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.noPlan,
+        reason: 'Sin instrucción autorizada del usuario.',
+      );
+      emit(r);
+      return r;
     }
 
     if (plan == null) {
