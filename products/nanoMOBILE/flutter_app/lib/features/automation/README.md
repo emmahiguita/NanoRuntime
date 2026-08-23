@@ -1,5 +1,36 @@
 # Módulo de Automatización
 
+## Capacidad REAL vs. pendiente (milestone)
+
+> **NanoAutomation puede ejecutar objetivos conocidos SIN LLM, planear objetivos
+> desconocidos mediante un modelo local, gobernar las acciones, verificar
+> resultados y convertir ejecuciones verificadas en flujos deterministas
+> reutilizables. Para objetivos nuevos, la principal limitación actual es el
+> grounding/identidad de objetos UI, que se aborda en C10.**
+
+### Lo que SÍ hace hoy (probado)
+- `runGoal(goal)` ejecuta acciones reales (tap/write/back/app) por accesibilidad.
+- **Sin LLM**: objetivos del catálogo determinista (Bluetooth, Wi-Fi, Ajustes,
+  Chrome, volver) → ejecución real + verificación + aprendizaje.
+- **Gobernanza** en 3 niveles (manual/asistido/autónomo).
+- **Verificación** honesta (GoalVerifier); sin expectativa no se declara éxito.
+- **Aprende SOUND**: memoriza solo flujos cuyo objetivo se verificó satisfecho.
+- **Ledger** de ejecuciones reales + **benchmark C14-A** del planner.
+
+### Lo que NO hace aún (limitación real)
+- **Planner de calidad para objetivos desconocidos**: el modelo local (Qwen 1.5B)
+  puede producir selectores pobres/placeholder (`id=resourceId`) → esos planes
+  fallan en ejecución (reportado `failed`, nunca éxito falso).
+- **Ejecución completa en device** requiere accesibilidad manual activada
+  (Android la blquea vía adb).
+- **Grounding/identidad de objetivos UI** → **C10**.
+
+### Fases
+- **C10 NanoObjectMemory**: memoria + identidad verificable de elementos UI
+  (selectores reales por package/app, confianza, recuperación).
+- C11 InstructionTrust · C12 PerceptionMux · C13 NanoRecorder · C14-B (100+).
+
+---
 ## Qué hace
 
 > **Dado un objetivo (goal) en lenguaje natural, lo convierte en acciones
