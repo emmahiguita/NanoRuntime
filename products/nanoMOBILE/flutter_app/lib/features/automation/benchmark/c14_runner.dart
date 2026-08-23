@@ -115,8 +115,10 @@ Future<C14RunResult> runC14Benchmark(
     accessibilityEnabled: await _accessibilityEnabled(),
     coordinatorReady: true, // DI construye o lanza (se propaga como error).
     policyConfigured: true, // agentAutomationMode siempre tiene valor (enum).
-    deviceUnlocked: true, // sin fuente verificable todavía (ver nota).
-    screenInteractive: true,
+    // REAL: se lee el árbol de accesibilidad real (agentDumpScreen). Si el
+    // dump devuelve nodos, la pantalla es interactiva/desbloqueada; si no, no.
+    deviceUnlocked: await _screenInteractive(),
+    screenInteractive: await _screenInteractive(),
   );
 
   if (!preflight.pass) {
@@ -152,6 +154,18 @@ Future<bool> _accessibilityEnabled() async {
     final status = await NanoRuntimeApi.instance.agentStatus();
     if (status == null) return false;
     return status['connected'] == true || status['enabled'] == true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// REAL: ¿la pantalla es interactiva/desbloqueable? Se lee el árbol de
+/// accesibilidad real (agentDumpScreen). Un dump con nodos implica pantalla
+/// accesible y desbloqueada; uno vacío/erro → no. Nunca se asume true.
+Future<bool> _screenInteractive() async {
+  try {
+    final nodes = await NanoRuntimeApi.instance.agentDumpScreen();
+    return nodes.isNotEmpty;
   } catch (_) {
     return false;
   }
