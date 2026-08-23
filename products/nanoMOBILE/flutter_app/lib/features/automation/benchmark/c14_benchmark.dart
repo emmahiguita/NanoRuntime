@@ -68,12 +68,22 @@ class C14Benchmark {
 
   List<C14Execution> get executions => List.unmodifiable(_executions);
 
-  Future<C14BenchmarkReport> run(C14Suite suite) async {
-    for (final task in suite.tasks) {
+  Future<C14BenchmarkReport> run(
+    C14Suite suite, {
+    void Function(int index, String goal)? onStart,
+    void Function(C14Execution)? onExecution,
+  }) async {
+    for (var i = 0; i < suite.tasks.length; i++) {
+      final task = suite.tasks[i];
+      onStart?.call(i, task);
+      final before = _executions.length;
       await _coordinator.execute(
         AutomationGoal(text: task),
         options: const AutomationOptions(confirmed: true),
       );
+      if (onExecution != null && _executions.length > before) {
+        onExecution(_executions.last);
+      }
     }
     return C14Gates().evaluate(_executions);
   }

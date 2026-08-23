@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
@@ -10,6 +11,7 @@ import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 import '../agent_console_section.dart';
 import '../notification_automation_section.dart';
+import '../widgets/c14_debug_benchmark_section.dart';
 import '../../domain/automation_policy.dart';
 
 /// Pantalla DEDICADA de Automatización.
@@ -122,6 +124,10 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
                                         levelSection,
                                         const SizedBox(height: NanoSpacing.xl),
                                         const AgentConsoleSection(),
+                                        if (kDebugMode) ...[
+                                          const SizedBox(height: NanoSpacing.xl),
+                                          const C14DebugBenchmarkSection(),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -145,6 +151,10 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
                                   const AgentConsoleSection(),
                                   const SizedBox(height: NanoSpacing.xl),
                                   const NotificationAutomationSection(),
+                                  if (kDebugMode) ...[
+                                    const SizedBox(height: NanoSpacing.xl),
+                                    const C14DebugBenchmarkSection(),
+                                  ],
                                 ],
                               ),
                       ),
