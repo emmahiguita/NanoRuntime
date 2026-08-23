@@ -16,13 +16,30 @@ import '../../ledger/action_ledger_provider.dart';
 
 import 'engine_status_card.dart';
 
-/// Estado del engine (ligero) para la capa de presentación. Se envuelve en un
-/// [Provider] para no acoplar la UI al `RuntimeEngineNotifier` pesado (que
-/// arranca un health monitor) y para poder sobrescribirlo en tests/golden sin
-/// enganchar el motor. En producción leerá el estado real del runtime.
-final engineStatusProvider = Provider<EngineStatus?>(
-  (ref) => ref.watch(runtimeEngineProvider),
-);
+/// Estado del engine (ligero) para la capa de presentación. Lee el ENDPOINT
+/// REAL (http://127.0.0.1:8080) — el motor que realmente responderá generate() —
+/// en vez del notifier (que puede quedar idle si su supervisor no lo levantó).
+/// Si el endpoint está vivo + tiene modelo → ready (refleja la realidad). Si no
+/// → el estado del notifier. Nunca simula.
+final engineStatusProvider = FutureProvider<EngineStatus?>((ref) async {
+  final notifier = ref.watch(runtimeEngineProvider);
+  final state = ref.watch(runtimeEngineProvider);
+  try {
+    final client = ref.read(runtimeEngineProvider.notifier).client;
+    final online = await client.isOnline();
+    final hasModel = await client.hasModel();
+    if (online && hasModel) {
+      return EngineStatus(
+        port: state.port,
+        phase: EnginePhase.ready,
+        modelPath: state.modelPath ?? 'modelo-cargado',
+      );
+    }
+  } catch (_) {
+    // endpoint no responde → usar el estado del notifier (honesto).
+  }
+  return notifier;
+});
 
 /// El centro de control del asistente: cabecera de estado, composer de tareas,
 /// quick actions, estado de capacidades y ejecuciones recientes.

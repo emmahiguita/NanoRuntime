@@ -14,7 +14,8 @@ class EngineStatusCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
-    final engine = ref.watch(engineStatusProvider);
+    // Lee el ENDPOINT real (no el notifier) → refleja el motor que responderá.
+    final engine = ref.watch(engineStatusProvider).valueOrNull;
     return NanoCard(
       padding: EdgeInsets.zero,
       child: Padding(

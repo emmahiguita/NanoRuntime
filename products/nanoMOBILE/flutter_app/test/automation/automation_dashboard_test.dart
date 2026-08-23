@@ -50,8 +50,8 @@ Widget _app() => ProviderScope(
     );
 
 List<Override> _overrides() => [
-      engineStatusProvider.overrideWithValue(
-        const EngineStatus(
+      engineStatusProvider.overrideWith(
+        (ref) => const EngineStatus(
           port: 8080,
           phase: EnginePhase.ready,
           modelPath: '/data/local/tmp/qwen-q8-fast.gguf',
