@@ -17,7 +17,7 @@ import 'package:nanoai/features/automation/engine/automation_planner.dart'
     show AutomationPlanner;
 import 'package:nanoai/features/automation/engine/experience_cache.dart' show ExperienceCache;
 import 'package:nanoai/features/automation/engine/goal_verifier.dart'
-    show GoalExpectation, GoalStatus;
+    show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/engine/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 
@@ -51,6 +51,14 @@ class AutomationCoordinator {
   /// solo por el harness C14; el resto del módulo no lo usa.
   final void Function(C14Execution)? _c14Sink;
 
+  /// Verificador de objetivo (GOAL level) para el aprendizaje SOUND. null =
+  /// no se puede verificar → no se aprende (no memorizar planes no verificados).
+  final Future<GoalVerification> Function(
+    String goal, {
+    required bool planCompleted,
+    GoalExpectation? expectation,
+  })? _verifyGoal;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
@@ -58,6 +66,11 @@ class AutomationCoordinator {
     NanoFlowExecutor? flowExecutor,
     ActionLedger? ledger,
     AutomationPlanner? planner,
+    Future<GoalVerification> Function(
+      String goal, {
+      required bool planCompleted,
+      GoalExpectation? expectation,
+    })? verifyGoal,
     void Function(C14Execution)? c14Sink,
   })  : _dispatcher = dispatcher,
         _mode = mode,
@@ -65,6 +78,7 @@ class AutomationCoordinator {
         _flowExecutor = flowExecutor,
         _ledger = ledger,
         _planner = planner,
+        _verifyGoal = verifyGoal,
         _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -79,6 +93,7 @@ class AutomationCoordinator {
         flowExecutor: _flowExecutor,
         ledger: _ledger,
         planner: _planner,
+        verifyGoal: _verifyGoal,
         c14Sink: sink,
       );
 
@@ -129,21 +144,19 @@ class AutomationCoordinator {
   // ── Ejecución de plan / herramienta ───────────────────────────────────────
 
   /// Ejecuta un plan multi-paso bajo gobernanza. [recordGoal] != null →
-  /// memoriza el resultado en cache (C7): SOLO la ejecución inicial registra
-  /// (el resume tras confirmación no). Devuelve el [PlanOutcome].
+  /// memoriza el resultado en cache (C7), PERO de forma SOUND: solo cuando el
+  /// OBJETIVO está verificado satisfecho ([GoalVerifier]); un plan que
+  /// completó a nivel pasos pero NO logró el objetivo NO se memoriza.
   Future<PlanOutcome> runPlan(
     List<ToolCall> plan, {
     bool confirmed = false,
     String? recordGoal,
+    GoalExpectation? expectation,
   }) async {
     final startedAt = DateTime.now();
     final outcome = await _dispatcher.runPlanGuarded(plan, confirmed: confirmed);
     if (recordGoal != null) {
-      if (outcome.completed) {
-        _cache?.recordSuccess(recordGoal, plan);
-      } else {
-        _cache?.recordFailure(recordGoal);
-      }
+      await _learn(recordGoal, plan, outcome, expectation);
     }
     _record(
       goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
@@ -154,6 +167,32 @@ class AutomationCoordinator {
       startedAt: startedAt,
     );
     return outcome;
+  }
+
+  /// Aprendizaje SOUND (C7): memorizar SOLO planes cuyo objetivo se verificó
+  /// satisfecho. Sin expectativa o sin verifier → no aprender (evita memorizar
+  /// planes que "completaron" a nivel pasos sin lograr el objetivo).
+  Future<void> _learn(
+    String goal,
+    List<ToolCall> plan,
+    PlanOutcome outcome,
+    GoalExpectation? expectation,
+  ) async {
+    final cache = _cache;
+    if (cache == null) return;
+    if (!outcome.completed) {
+      cache.recordFailure(goal);
+      return;
+    }
+    if (expectation == null) return;
+    final verify = _verifyGoal;
+    if (verify == null) return;
+    final v = await verify(goal, planCompleted: true, expectation: expectation);
+    if (v.status == GoalStatus.satisfied) {
+      cache.recordSuccess(goal, plan);
+    } else {
+      cache.recordFailure(goal);
+    }
   }
 
   /// Ejecuta una herramienta suelta bajo gobernanza.
@@ -272,8 +311,12 @@ class AutomationCoordinator {
     if (plan.length > 1) {
       steps = plan.length;
       final t = Stopwatch()..start();
-      final outcome =
-          await runPlan(plan, confirmed: confirmed, recordGoal: goal.text);
+      final outcome = await runPlan(
+        plan,
+        confirmed: confirmed,
+        recordGoal: goal.text,
+        expectation: goal.expectation,
+      );
       t.stop();
       toolLatency = t.elapsed;
       final r = _resultFromPlan(executionId, outcome);

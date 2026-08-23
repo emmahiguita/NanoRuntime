@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/experience_cache.dart';
+import 'package:nanoai/features/automation/engine/goal_verifier.dart'
+    show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
@@ -86,6 +89,56 @@ void main() {
         options: const AutomationOptions(executionId: 'manual-1'),
       );
       expect(r.executionId, 'manual-1');
+    });
+  });
+
+  group('AutomationCoordinator · aprendizaje SOUND (bug #1)', () {
+    // Nota: runPlanGuarded(const []) devuelve `completed: true` sin tocar el
+    // executor (el loop no corre), así que un dispatcher real es seguro aquí.
+
+    test('NO memoriza un plan completado cuyo OBJETIVO no se verificó', () async {
+      final cache = ExperienceCache();
+      final c = AutomationCoordinator(
+        dispatcher: AgentToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+        cache: cache,
+        verifyGoal: (g, {required planCompleted, expectation}) async =>
+            GoalVerification(GoalStatus.notSatisfied, 'no'),
+      );
+      await c.runPlan(
+        const [],
+        recordGoal: 'bluetooth',
+        expectation: const GoalExpectation(visibleText: 'Bluetooth'),
+      );
+      expect(cache.planFor('bluetooth'), isNull); // no se aprendió el plan malo
+    });
+
+    test('memoriza SOLO cuando el objetivo se verificó satisfecho', () async {
+      final cache = ExperienceCache();
+      final c = AutomationCoordinator(
+        dispatcher: AgentToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+        cache: cache,
+        verifyGoal: (g, {required planCompleted, expectation}) async =>
+            GoalVerification(GoalStatus.satisfied, 'ok'),
+      );
+      await c.runPlan(
+        const [],
+        recordGoal: 'bluetooth',
+        expectation: const GoalExpectation(visibleText: 'Bluetooth'),
+      );
+      expect(cache.planFor('bluetooth'), isNotNull);
+    });
+
+    test('sin expectativa NO memoriza (no se puede verificar) — sound', () async {
+      final cache = ExperienceCache();
+      final c = AutomationCoordinator(
+        dispatcher: AgentToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+        cache: cache,
+      );
+      await c.runPlan(const [], recordGoal: 'volver');
+      expect(cache.planFor('volver'), isNull);
     });
   });
 }

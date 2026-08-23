@@ -18,5 +18,6 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     flowExecutor: ref.watch(nanoFlowExecutorProvider),
     ledger: ref.watch(actionLedgerProvider),
     planner: ref.watch(llmAutomationPlannerProvider),
+    verifyGoal: ref.watch(goalVerifierProvider).verify,
   );
 });

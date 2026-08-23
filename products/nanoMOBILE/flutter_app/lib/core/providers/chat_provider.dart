@@ -229,6 +229,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         flowExecutor: _flowExecutor,
         ledger: _ref.read(actionLedgerProvider),
         planner: _ref.read(llmAutomationPlannerProvider),
+        verifyGoal: _ref.read(goalVerifierProvider).verify,
       );
 
   // ── Confirmación de herramienta (política externalWrite) ──

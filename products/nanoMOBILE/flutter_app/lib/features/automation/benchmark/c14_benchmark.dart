@@ -22,30 +22,43 @@ import '../application/automation_coordinator.dart';
 import '../application/automation_coordinator_provider.dart'
     show automationCoordinatorProvider;
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
+import '../engine/goal_verifier.dart' show GoalExpectation;
 import 'c14_metrics.dart';
+
+/// Una tarea de la suite: goal + expectativa de objetivo opcional (para que el
+/// aprendizaje sea SOUND — solo se memorizan planes cuyo objetivo se verifica
+/// satisfecho; sin expectativa no se aprende, pero igual se mide).
+class C14Task {
+  final String goal;
+  final GoalExpectation? expectation;
+  const C14Task(this.goal, {this.expectation});
+}
 
 /// Suite de tareas diagnósticas de C14-A (10-20 reales).
 class C14Suite {
   final String name;
-  final List<String> tasks;
+  final List<C14Task> tasks;
 
   const C14Suite({required this.name, required this.tasks});
 }
 
-/// Suite por defecto del plan maestro.
+/// Suite por defecto del plan maestro, con expectativas BEST-EFFORT por tarea
+/// (las que tienen un estado verificable). Las que no (volver, escribir campo,
+/// "dime si...") llevan expectation null → no se memorizan (honesto), pero sí
+/// se miden. Ajustar los `visibleText` al device/app real (tuning on-device).
 const C14Suite defaultSuite = C14Suite(
   name: 'diagnóstico corto',
   tasks: [
-    'abrir Ajustes',
-    'abrir Bluetooth',
-    'abrir Wi-Fi',
-    'volver atrás',
-    'escribir en el campo',
-    'abre Ajustes, luego Bluetooth, y vuelve',
-    'dime si Bluetooth está activado',
-    'abrir una app con cache miss',
-    'repetir la anterior (cache hit)',
-    'comando deliberadamente inválido',
+    C14Task('abrir Ajustes', expectation: GoalExpectation(visibleText: 'Ajustes')),
+    C14Task('abrir Bluetooth', expectation: GoalExpectation(visibleText: 'Bluetooth')),
+    C14Task('abrir Wi-Fi', expectation: GoalExpectation(visibleText: 'Wi-Fi')),
+    C14Task('volver atrás'),
+    C14Task('escribir en el campo'),
+    C14Task('abre Ajustes, luego Bluetooth, y vuelve'),
+    C14Task('dime si Bluetooth está activado'),
+    C14Task('abrir una app con cache miss'),
+    C14Task('repetir la anterior (cache hit)'),
+    C14Task('comando deliberadamente inválido'),
   ],
 );
 
@@ -75,10 +88,10 @@ class C14Benchmark {
   }) async {
     for (var i = 0; i < suite.tasks.length; i++) {
       final task = suite.tasks[i];
-      onStart?.call(i, task);
+      onStart?.call(i, task.goal);
       final before = _executions.length;
       await _coordinator.execute(
-        AutomationGoal(text: task),
+        AutomationGoal(text: task.goal, expectation: task.expectation),
         options: const AutomationOptions(confirmed: true),
       );
       if (onExecution != null && _executions.length > before) {
