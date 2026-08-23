@@ -210,7 +210,7 @@ class _AgentHeader extends StatelessWidget {
   }
 }
 
-class _TaskComposer extends StatelessWidget {
+class _TaskComposer extends StatefulWidget {
   const _TaskComposer({
     required this.controller,
     required this.running,
@@ -221,63 +221,103 @@ class _TaskComposer extends StatelessWidget {
   final ValueChanged<String> onRun;
 
   @override
+  State<_TaskComposer> createState() => _TaskComposerState();
+}
+
+/// Composer con glass hiperrealista: el reflejo del vidrio (NanoOpticalSurface)
+/// brilla de forma continua (AnimationController.repeat) y el destello
+/// especular SIGUE al puntero/tacto (specularDrift) — efecto tridimensional real.
+class _TaskComposerState extends State<_TaskComposer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _reflection = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat();
+
+  double _specularDrift = 0.0;
+
+  @override
+  void dispose() {
+    _reflection.dispose();
+    super.dispose();
+  }
+
+  void _onPointer(PointerEvent e) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final local = box.globalToLocal(e.position);
+    setState(() {
+      _specularDrift = ((local.dx / box.size.width) - 0.5) * 0.5;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.large,
-      borderStrength: 0.7,
-      reflectionStrength: 0.4,
-      blurSigma: 14,
-      glassOpacityScale: 0.85,
-      accent: colors.accentCyan,
-      child: Padding(
-        padding: const EdgeInsets.all(NanoSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('¿Qué quieres que haga?',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600, color: colors.textPrimary)),
-            const SizedBox(height: NanoSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    autofocus: true,
-                    textInputAction: TextInputAction.go,
-                    onSubmitted: (v) => !running ? onRun(v) : null,
-                    decoration: InputDecoration(
-                      hintText: 'Describe una tarea…',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
+    return Listener(
+      onPointerDown: _onPointer,
+      onPointerMove: _onPointer,
+      child: NanoOpticalSurface(
+        borderRadius: NanoRadius.large,
+        borderStrength: 0.7,
+        reflectionStrength: 0.5,
+        blurSigma: 14,
+        glassOpacityScale: 0.85,
+        accent: colors.accentCyan,
+        reflectionController: _reflection,
+        specularDrift: _specularDrift,
+        child: Padding(
+          padding: const EdgeInsets.all(NanoSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('¿Qué quieres que haga?',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, color: colors.textPrimary)),
+              const SizedBox(height: NanoSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: widget.controller,
+                      autofocus: true,
+                      textInputAction: TextInputAction.go,
+                      onSubmitted: (v) =>
+                          !widget.running ? widget.onRun(v) : null,
+                      decoration: InputDecoration(
+                        hintText: 'Describe una tarea…',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: colors.surfaceVariant,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                       ),
-                      filled: true,
-                      fillColor: colors.surfaceVariant,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
                     ),
                   ),
-                ),
-                const SizedBox(width: NanoSpacing.sm),
-                FilledButton(
-                  onPressed: running ? null : () => onRun(controller.text),
-                  style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(14),
+                  const SizedBox(width: NanoSpacing.sm),
+                  FilledButton(
+                    onPressed: widget.running
+                        ? null
+                        : () => widget.onRun(widget.controller.text),
+                    style: FilledButton.styleFrom(
+                      shape: const CircleBorder(),
+                      padding: const EdgeInsets.all(14),
+                    ),
+                    child: widget.running
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.arrow_forward_rounded),
                   ),
-                  child: running
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.arrow_forward_rounded),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
