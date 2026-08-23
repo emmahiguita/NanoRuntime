@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
+import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/features/automation/ledger/action_ledger.dart';
 import 'package:nanoai/features/automation/ledger/automation_trace.dart';
 
@@ -19,7 +20,7 @@ void main() {
           AutomationTrace(
             executionId: 'e$i',
             goal: 'g$i',
-            status: AutomationTraceStatus.completed,
+            status: AutomationResultStatus.completed,
             summary: 'ok',
             startedAt: DateTime(2024, 1, 1),
             endedAt: DateTime(2024, 1, 1, 0, 0, 1),
@@ -57,7 +58,7 @@ void main() {
 AutomationTrace _trace({required String goal}) => AutomationTrace(
       executionId: 'e',
       goal: goal,
-      status: AutomationTraceStatus.completed,
+      status: AutomationResultStatus.completed,
       summary: 'ok',
       startedAt: DateTime(2024, 1, 1),
       endedAt: DateTime(2024, 1, 1, 0, 0, 1),

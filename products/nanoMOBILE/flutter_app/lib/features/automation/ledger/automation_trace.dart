@@ -6,32 +6,15 @@
 /// el benchmark físico (C14: verificar ejecuciones REALES, no simuladas).
 library;
 
-/// Estado final honesto de una ejecución. Nunca inventa éxito:
-/// - [completed]: plan verificado y objetivo satisfecho.
-/// - [completedUnverified]: plan completo paso a paso, sin expectativa de
-///   objetivo declarada (no se declara cumplimiento).
-/// - [paused]: un paso pidió confirmación humana (el flujo sigue vivo).
-/// - [denied]: la política denegó un tool del plan.
-/// - [noPlan]: sin flujo verificado en cache ni planner disponible.
-/// - [failed]: el plan no completó o el objetivo resultó No satisfecho.
-/// - [cancelled]: cancelación cooperativa solicitada.
-enum AutomationTraceStatus {
-  completed,
-  completedUnverified,
-  paused,
-  denied,
-  noPlan,
-  failed,
-  cancelled,
-}
+import '../domain/automation_result.dart' show AutomationResultStatus;
 
 /// Registro inmutable de una ejecución. Value object — no ejecuta nada.
 class AutomationTrace {
   final String executionId;
   final String goal;
 
-  /// Resultado final.
-  final AutomationTraceStatus status;
+  /// Resultado final (vocabulario único del dominio).
+  final AutomationResultStatus status;
 
   /// Resumen legible (qué pasó, en español).
   final String summary;

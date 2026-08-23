@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
+import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
+import 'package:nanoai/features/automation/domain/automation_result.dart';
 
 /// Pruebas del AutomationCoordinator (único dueño del ciclo de ejecución).
 ///
@@ -59,6 +61,31 @@ void main() {
         mode: () => AgentAutomationMode.assisted,
       );
       expect(await c.tryDeterministic('abre bluetooth'), isNull);
+    });
+  });
+
+  group('AutomationCoordinator.execute', () {
+    test('sin cache/flow ni plan → noPlan honesto (no inventa éxito)', () async {
+      final c = AutomationCoordinator(
+        dispatcher: AgentToolDispatcher(),
+        mode: () => AgentAutomationMode.assisted,
+      );
+      final r = await c.execute(const AutomationGoal(text: 'abre bluetooth'));
+      expect(r.status, AutomationResultStatus.noPlan);
+      expect(r.executionId, isNotEmpty);
+      expect(r.reason, contains('Sin flujo'));
+    });
+
+    test('usa el executionId provisto por el llamador', () async {
+      final c = AutomationCoordinator(
+        dispatcher: AgentToolDispatcher(),
+        mode: () => AgentAutomationMode.assisted,
+      );
+      final r = await c.execute(
+        const AutomationGoal(text: 'x'),
+        options: const AutomationOptions(executionId: 'manual-1'),
+      );
+      expect(r.executionId, 'manual-1');
     });
   });
 }

@@ -19,10 +19,12 @@ import 'package:nanoai/features/automation/engine/goal_verifier.dart'
 import 'package:nanoai/features/automation/engine/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 
+import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart' show AgentAutomationMode, AutomationPolicy;
+import '../domain/automation_result.dart' show AutomationResult, AutomationResultStatus;
 import '../engine/tool_registry.dart' show PolicyVerdict;
 import '../ledger/action_ledger.dart' show ActionLedger;
-import '../ledger/automation_trace.dart' show AutomationTrace, AutomationTraceStatus;
+import '../ledger/automation_trace.dart' show AutomationTrace;
 
 /// Coordinador del ciclo de ejecución. Inyecta sus dependencias (DIP).
 class AutomationCoordinator {
@@ -145,31 +147,103 @@ class AutomationCoordinator {
   /// Resetea el estado del turno del dispatcher (ciclo de vida de una ronda).
   void reset() => _dispatcher.resetTurn();
 
+  // ── Entrada única del módulo ──────────────────────────────────────────────
+
+  /// Ejecuta un [AutomationGoal] hasta un [AutomationResult] honesto.
+  ///
+  /// Punto de entrada ÚNICO del módulo (para chat, notificaciones, voz,
+  /// eventos). Decide el camino:
+  ///   1. Sin [plan] → flujo verificado en cache (C7→C8) si hay hit; si no,
+  ///      noPlan honesto (sin inventar éxito).
+  ///   2. Con [plan] (del LLM) → lo ejecuta bajo gobernanza (multi-paso o
+  ///      tool única) y memoriza en cache (C7).
+  ///
+  /// NO genera el plan (eso es del planner/LLM aguas arriba) ni renderiza.
+  /// Registra la ejecución en el ledger. Nunca lanza por fallos de negocio.
+  Future<AutomationResult> execute(
+    AutomationGoal goal, {
+    List<ToolCall>? plan,
+    AutomationOptions? options,
+  }) async {
+    final confirmed = options?.confirmed ?? false;
+    final executionId = options?.executionId ?? _newId();
+
+    if (plan == null) {
+      final deterministic =
+          await tryDeterministic(goal.text, expectation: goal.expectation);
+      if (deterministic != null) {
+        return _resultFromFlow(executionId, deterministic.result);
+      }
+      return AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.noPlan,
+        reason: 'Sin flujo verificado en cache ni plan provisto.',
+      );
+    }
+
+    if (plan.length > 1) {
+      final outcome =
+          await runPlan(plan, confirmed: confirmed, recordGoal: goal.text);
+      return _resultFromPlan(executionId, outcome);
+    }
+    final outcome = await runTool(plan.single, confirmed: confirmed);
+    return _resultFromTool(executionId, outcome);
+  }
+
+  // ── Resultado (mapeo a dominio) ───────────────────────────────────────────
+
+  AutomationResult _resultFromFlow(String id, FlowExecutionResult r) =>
+      AutomationResult(
+        executionId: id,
+        status: _statusFromFlow(r),
+        reason: r.plan.summary,
+        pauseIndex: r.plan.pauseIndex,
+        pauseTool: r.plan.pauseCall?.tool,
+      );
+
+  AutomationResult _resultFromPlan(String id, PlanOutcome o) => AutomationResult(
+        executionId: id,
+        status: _statusFromPlan(o),
+        reason: o.summary,
+        pauseIndex: o.pauseIndex,
+        pauseTool: o.pauseCall?.tool,
+      );
+
+  AutomationResult _resultFromTool(String id, ToolOutcome o) => AutomationResult(
+        executionId: id,
+        status: _statusFromTool(o),
+        reason: o.feedback,
+      );
+
+  static int _seq = 0;
+  static String _newId() =>
+      'auto-${DateTime.now().microsecondsSinceEpoch}-${++_seq}';
+
   // ── Trazas (ledger) ───────────────────────────────────────────────────────
 
-  AutomationTraceStatus _statusFromFlow(FlowExecutionResult r) {
-    if (r.plan.pauseIndex != null) return AutomationTraceStatus.paused;
-    if (!r.completed) return AutomationTraceStatus.failed;
+  AutomationResultStatus _statusFromFlow(FlowExecutionResult r) {
+    if (r.plan.pauseIndex != null) return AutomationResultStatus.paused;
+    if (!r.completed) return AutomationResultStatus.failed;
     return r.goal.status == GoalStatus.satisfied
-        ? AutomationTraceStatus.completed
-        : AutomationTraceStatus.completedUnverified;
+        ? AutomationResultStatus.completed
+        : AutomationResultStatus.completedUnverified;
   }
 
-  AutomationTraceStatus _statusFromPlan(PlanOutcome o) {
-    if (o.pauseIndex != null) return AutomationTraceStatus.paused;
-    if (!o.completed) return AutomationTraceStatus.failed;
-    return AutomationTraceStatus.completed;
+  AutomationResultStatus _statusFromPlan(PlanOutcome o) {
+    if (o.pauseIndex != null) return AutomationResultStatus.paused;
+    if (!o.completed) return AutomationResultStatus.failed;
+    return AutomationResultStatus.completed;
   }
 
-  AutomationTraceStatus _statusFromTool(ToolOutcome o) => switch (o.verdict) {
-        PolicyVerdict.needsConfirmation => AutomationTraceStatus.paused,
-        PolicyVerdict.denied => AutomationTraceStatus.denied,
-        PolicyVerdict.allow => AutomationTraceStatus.completed,
+  AutomationResultStatus _statusFromTool(ToolOutcome o) => switch (o.verdict) {
+        PolicyVerdict.needsConfirmation => AutomationResultStatus.paused,
+        PolicyVerdict.denied => AutomationResultStatus.denied,
+        PolicyVerdict.allow => AutomationResultStatus.completed,
       };
 
   void _record({
     required String goal,
-    required AutomationTraceStatus status,
+    required AutomationResultStatus status,
     required String summary,
     int? pauseIndex,
     String? pauseTool,
