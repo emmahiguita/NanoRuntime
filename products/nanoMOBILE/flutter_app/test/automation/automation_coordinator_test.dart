@@ -3,10 +3,27 @@ import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/experience_cache.dart';
 import 'package:nanoai/features/automation/engine/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
+import 'package:nanoai/features/automation/engine/tool_registry.dart'
+    show PolicyVerdict;
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart';
+
+/// Dispatcher fake: un tool PERMITIDO por política (allow) pero cuya EJECUCIÓN
+/// falla (feedback '[notFound]'). Reproduce el bug #2: antes el coordinator lo
+/// marcaba como `completed` (false success).
+class _FailedToolDispatcher extends AgentToolDispatcher {
+  _FailedToolDispatcher() : super();
+
+  @override
+  Future<ToolOutcome> runToolGuarded(
+    ToolCall call, {
+    bool humanInitiated = false,
+    bool confirmed = false,
+  }) async =>
+      ToolOutcome(verdict: PolicyVerdict.allow, feedback: '[notFound] objetivo no visible');
+}
 
 /// Pruebas del AutomationCoordinator (único dueño del ciclo de ejecución).
 ///
@@ -139,6 +156,21 @@ void main() {
       );
       await c.runPlan(const [], recordGoal: 'volver');
       expect(cache.planFor('volver'), isNull);
+    });
+  });
+
+  group('AutomationCoordinator · false success (bug #2)', () {
+    test('tool único PERMITIDO pero fallido → failed, no completed', () async {
+      final c = AutomationCoordinator(
+        dispatcher: _FailedToolDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+      );
+      final r = await c.execute(
+        const AutomationGoal(text: 'volver atrás'),
+        plan: [ToolCall(tool: 'back', selector: 'id=x')],
+      );
+      // Antes: completed (false success). Ahora: failed (honesto).
+      expect(r.status, AutomationResultStatus.failed);
     });
   });
 }

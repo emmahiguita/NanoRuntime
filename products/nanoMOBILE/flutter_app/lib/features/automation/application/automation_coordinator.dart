@@ -127,7 +127,10 @@ class AutomationCoordinator {
     final result = await flow.execute(
       NanoFlow(goal: goal, steps: verified.steps, goalExpectation: expectation),
     );
-    if (!result.completed) {
+    // Degradar confianza SOLO en fallo REAL (no completado y SIN pausa).
+    // Una pausa (pauseIndex != null) es un estado normal (pedir confirmación),
+    // no un fallo — no debe degradar el flujo en cache.
+    if (!result.completed && result.plan.pauseIndex == null) {
       cache.recordFailure(goal);
     }
     _record(
@@ -381,8 +384,19 @@ class AutomationCoordinator {
   AutomationResultStatus _statusFromTool(ToolOutcome o) => switch (o.verdict) {
         PolicyVerdict.needsConfirmation => AutomationResultStatus.paused,
         PolicyVerdict.denied => AutomationResultStatus.denied,
-        PolicyVerdict.allow => AutomationResultStatus.completed,
+        // allow ≠ éxito: la ejecución PUEDE haber fallado (feedback '[notFound]',
+        // '[timeout]', '[verify:...]'). Un tool permitido pero que falló es
+        // FAILED, no completed — evita false success (mismo criterio tipado que
+        // el dispatcher usa en runPlanGuarded vía _isFailedFeedback).
+        PolicyVerdict.allow => _isFailedFeedback(o.feedback)
+            ? AutomationResultStatus.failed
+            : AutomationResultStatus.completed,
       };
+
+  /// Feedback de fallo: arranca con `[codigo]`/`[codigo:...]` (p.ej.
+  /// `[notFound]`, `[policy]`). Los éxitos nunca empiezan con `[`.
+  static bool _isFailedFeedback(String feedback) =>
+      RegExp(r'^\[[a-zA-Z]+(:|\])').hasMatch(feedback);
 
   void _record({
     required String goal,
