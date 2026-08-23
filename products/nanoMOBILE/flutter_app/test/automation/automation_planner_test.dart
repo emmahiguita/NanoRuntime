@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/features/automation/engine/agent_tool_dispatcher.dart'
-    show AgentToolDispatcher, ToolCall;
+    show AgentToolDispatcher;
 import 'package:nanoai/features/automation/engine/automation_planner.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
@@ -27,7 +27,12 @@ class _FakeClient extends LLMEngineClient {
 /// y degrada a noPlan, sin ejecutar tools → sin IO del dispatcher).
 class _EmptyPlanner implements AutomationPlanner {
   @override
-  Future<List<ToolCall>> plan(String goal) async => const [];
+  Future<PlannedPlan> plan(String goal) async => const PlannedPlan(
+        calls: [],
+        generated: 0,
+        rejected: 0,
+        llmLatency: Duration.zero,
+      );
 }
 
 void main() {
@@ -39,7 +44,8 @@ void main() {
           '{"tool":"write","text":"hola"}]',
         ),
       );
-      final calls = await p.plan('');
+      final pp = await p.plan('');
+      final calls = pp.calls;
       expect(calls, hasLength(2));
       expect(calls.first.tool, 'tap');
       expect(calls.first.selector, 'text=Bluetooth');
@@ -52,21 +58,21 @@ void main() {
       final p = LlmAutomationPlanner(
         client: _FakeClient('[{"tool":"hack","selector":"x"}]'),
       );
-      expect(await p.plan(''), isEmpty);
+      expect((await p.plan('')).calls, isEmpty);
     });
 
     test('descarta llamadas sin selector ni texto (no ejecutables)', () async {
       final p = LlmAutomationPlanner(
         client: _FakeClient('[{"tool":"tap"},{"tool":"write","text":"ok"}]'),
       );
-      final calls = await p.plan('');
+      final calls = (await p.plan('')).calls;
       expect(calls, hasLength(1));
       expect(calls.single.tool, 'write');
     });
 
     test('salida malformada → vacío (noPlan honesto aguas arriba)', () async {
       final p = LlmAutomationPlanner(client: _FakeClient('no soy json'));
-      expect(await p.plan(''), isEmpty);
+      expect((await p.plan('')).calls, isEmpty);
     });
   });
 

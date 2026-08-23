@@ -24,6 +24,7 @@ import 'package:nanoai/features/automation/engine/nano_flow.dart'
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart' show AgentAutomationMode, AutomationPolicy;
 import '../domain/automation_result.dart' show AutomationResult, AutomationResultStatus;
+import '../benchmark/c14_metrics.dart' show C14Execution;
 import '../engine/tool_registry.dart' show PolicyVerdict;
 import '../ledger/action_ledger.dart' show ActionLedger;
 import '../ledger/automation_trace.dart' show AutomationTrace;
@@ -46,6 +47,10 @@ class AutomationCoordinator {
   /// plan provisto. null = no planear (devuelve noPlan).
   final AutomationPlanner? _planner;
 
+  /// Sink de métricas del benchmark físico (C14). null = no emitir. Inyectable
+  /// solo por el harness C14; el resto del módulo no lo usa.
+  final void Function(C14Execution)? _c14Sink;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
@@ -53,14 +58,29 @@ class AutomationCoordinator {
     NanoFlowExecutor? flowExecutor,
     ActionLedger? ledger,
     AutomationPlanner? planner,
+    void Function(C14Execution)? c14Sink,
   })  : _dispatcher = dispatcher,
         _mode = mode,
         _cache = cache,
         _flowExecutor = flowExecutor,
         _ledger = ledger,
-        _planner = planner;
+        _planner = planner,
+        _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
+
+  /// Copia este coordinator con un sink de métricas C14 asociado (para el
+  /// benchmark). Conserva las mismas dependencias; solo cambia el sink.
+  AutomationCoordinator withSink(void Function(C14Execution) sink) =>
+      AutomationCoordinator(
+        dispatcher: _dispatcher,
+        mode: _mode,
+        cache: _cache,
+        flowExecutor: _flowExecutor,
+        ledger: _ledger,
+        planner: _planner,
+        c14Sink: sink,
+      );
 
   // ── Política de gobernanza ────────────────────────────────────────────────
 
@@ -174,43 +194,100 @@ class AutomationCoordinator {
     List<ToolCall>? plan,
     AutomationOptions? options,
   }) async {
+    final sw = Stopwatch()..start();
     final confirmed = options?.confirmed ?? false;
     final executionId = options?.executionId ?? _newId();
+
+    // Métricas C14 acumuladas a lo largo del camino (diagnóstico del planner).
+    var cacheHit = false;
+    var llmLatency = Duration.zero;
+    var toolLatency = Duration.zero;
+    var generatedCount = 0;
+    var rejectedCount = 0;
+    var steps = 0;
+
+    void emit(AutomationResult r) {
+      final sink = _c14Sink;
+      if (sink == null) return;
+      sink(
+        C14Execution(
+          goal: goal.text,
+          planValid: r.status != AutomationResultStatus.noPlan,
+          toolsGenerated: generatedCount,
+          toolsRejected: rejectedCount,
+          steps: steps,
+          path: cacheHit ? 'cache' : (generatedCount > 0 ? 'llm' : 'none'),
+          llmLatency: llmLatency,
+          toolLatency: toolLatency,
+          verification: r.status,
+          retries: 0,
+          replans: 0,
+          cacheHit: cacheHit,
+          goalSuccess: r.status == AutomationResultStatus.completed ||
+              r.status == AutomationResultStatus.completedUnverified,
+          totalLatency: sw.elapsed,
+        ),
+      );
+    }
 
     if (plan == null) {
       final deterministic =
           await tryDeterministic(goal.text, expectation: goal.expectation);
       if (deterministic != null) {
-        return _resultFromFlow(executionId, deterministic.result);
+        cacheHit = true;
+        steps = deterministic.steps.length;
+        final r = _resultFromFlow(executionId, deterministic.result);
+        emit(r);
+        return r;
       }
 
       // Sin flujo en cache: planear con el LLM local (motor autónomo).
       final planner = _planner;
       if (planner == null) {
-        return AutomationResult(
+        final r = AutomationResult(
           executionId: executionId,
           status: AutomationResultStatus.noPlan,
           reason: 'Sin flujo verificado en cache ni plan provisto.',
         );
+        emit(r);
+        return r;
       }
-      final generated = await planner.plan(goal.text);
-      if (generated.isEmpty) {
-        return AutomationResult(
+      final planned = await planner.plan(goal.text);
+      llmLatency = planned.llmLatency;
+      generatedCount = planned.generated;
+      rejectedCount = planned.rejected;
+      if (planned.calls.isEmpty) {
+        final r = AutomationResult(
           executionId: executionId,
           status: AutomationResultStatus.noPlan,
-          reason: 'El planner LLM no produjo acciones verificables para el objetivo.',
+          reason:
+              'El planner LLM no produjo acciones verificables para el objetivo.',
         );
+        emit(r);
+        return r;
       }
-      plan = generated;
+      plan = planned.calls;
     }
 
     if (plan.length > 1) {
+      steps = plan.length;
+      final t = Stopwatch()..start();
       final outcome =
           await runPlan(plan, confirmed: confirmed, recordGoal: goal.text);
-      return _resultFromPlan(executionId, outcome);
+      t.stop();
+      toolLatency = t.elapsed;
+      final r = _resultFromPlan(executionId, outcome);
+      emit(r);
+      return r;
     }
+    steps = 1;
+    final t = Stopwatch()..start();
     final outcome = await runTool(plan.single, confirmed: confirmed);
-    return _resultFromTool(executionId, outcome);
+    t.stop();
+    toolLatency = t.elapsed;
+    final r = _resultFromTool(executionId, outcome);
+    emit(r);
+    return r;
   }
 
   // ── Resultado (mapeo a dominio) ───────────────────────────────────────────

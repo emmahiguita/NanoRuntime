@@ -20,9 +20,34 @@ import 'agent_tool_dispatcher.dart' show AgentToolProtocol, ToolCall;
 import 'tool_registry.dart' show ToolRegistry;
 
 /// Contrato del planner. DIP: LLM real, heurística determinista, o fake en
-/// tests. Producen [ToolCall] ejecutables por el dispatcher.
+/// tests. Producen [PlannedPlan] (ToolCalls ejecutables por el dispatcher +
+/// métricas de generación para el benchmark C14).
 abstract interface class AutomationPlanner {
-  Future<List<ToolCall>> plan(String goal);
+  Future<PlannedPlan> plan(String goal);
+}
+
+/// Plan del planner + métricas de generación (cómo se generó).
+class PlannedPlan {
+  /// Llamadas ya filtradas por validación (solo tools conocidas y ejecutables).
+  final List<ToolCall> calls;
+
+  /// Total de llamadas que el modelo emitió (antes de filtrar).
+  final int generated;
+
+  /// Llamadas descartadas por validación (tools desconocidas/sin selector).
+  final int rejected;
+
+  /// Latencia del generate del LLM.
+  final Duration llmLatency;
+
+  const PlannedPlan({
+    required this.calls,
+    required this.generated,
+    required this.rejected,
+    required this.llmLatency,
+  });
+
+  bool get planValid => calls.isNotEmpty;
 }
 
 /// Planner real que usa el LLM local (via [LLMEngineClient]).
@@ -36,26 +61,33 @@ class LlmAutomationPlanner implements AutomationPlanner {
             ToolRegistry.builtin.all.map((t) => t.name).toSet();
 
   @override
-  Future<List<ToolCall>> plan(String goal) async {
-    const maxRetries = 2;
-    for (var attempt = 0; attempt < maxRetries; attempt++) {
-      final LLMResult result;
-      try {
-        result = await _client.generate(
-          prompt: _buildPrompt(goal),
-          temperature: 0.2,
-          maxTokens: 220,
-        );
-      } catch (_) {
-        // Motor no responde: plan vacío → noPlan honesto del coordinator.
-        return const [];
-      }
-      final calls = _validate(AgentToolProtocol.extractToolCalls(result.text));
-      if (calls.isNotEmpty) return calls;
-      // Si salió vacío (parseo fallido), reintento una vez con la misma
-      // instrucción de formato reforzada.
+  Future<PlannedPlan> plan(String goal) async {
+    final sw = Stopwatch()..start();
+    final LLMResult result;
+    try {
+      result = await _client.generate(
+        prompt: _buildPrompt(goal),
+        temperature: 0.2,
+        maxTokens: 220,
+      );
+    } catch (_) {
+      // Motor no responde: plan vacío → noPlan honesto del coordinator.
+      return PlannedPlan(
+        calls: const [],
+        generated: 0,
+        rejected: 0,
+        llmLatency: sw.elapsed,
+      );
     }
-    return const [];
+    sw.stop();
+    final all = AgentToolProtocol.extractToolCalls(result.text);
+    final calls = _validate(all);
+    return PlannedPlan(
+      calls: calls,
+      generated: all.length,
+      rejected: all.length - calls.length,
+      llmLatency: sw.elapsed,
+    );
   }
 
   /// Filtra la salida del modelo contra el vocabulario conocido y exige que
