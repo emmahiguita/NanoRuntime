@@ -15,7 +15,8 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
     show AgentToolDispatcher, PlanOutcome, ToolCall, ToolOutcome;
 import 'package:nanoai/features/automation/engine/planning/automation_planner.dart'
     show AutomationPlanner;
-import 'package:nanoai/features/automation/engine/memory/experience_cache.dart' show ExperienceCache;
+import 'package:nanoai/features/automation/engine/memory/experience_cache.dart'
+    show ExperienceCache;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
     show NanoObjectMemory, UiObjectKey, UiSelectorEvidence;
 import 'package:nanoai/features/automation/engine/perception/perception_mux.dart'
@@ -30,8 +31,10 @@ import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
-import '../domain/automation_policy.dart' show AgentAutomationMode, AutomationPolicy;
-import '../domain/automation_result.dart' show AutomationResult, AutomationResultStatus;
+import '../domain/automation_policy.dart'
+    show AgentAutomationMode, AutomationPolicy;
+import '../domain/automation_result.dart'
+    show AutomationResult, AutomationResultStatus;
 import '../benchmark/c14_metrics.dart' show C14Execution;
 import '../engine/execution/tool_registry.dart' show PolicyVerdict;
 import '../ledger/action_ledger.dart' show ActionLedger;
@@ -65,7 +68,8 @@ class AutomationCoordinator {
     String goal, {
     required bool planCompleted,
     GoalExpectation? expectation,
-  })? _verifyGoal;
+  })?
+  _verifyGoal;
 
   /// Catálogo determinista: flujos conocidos para objetivos comunes (funcionan
   /// SIN el modelo LLM). null = no usar (solo cache + planner).
@@ -80,6 +84,10 @@ class AutomationCoordinator {
   /// tiene un selector verificado para el concepto. null = sin percepción.
   final PerceptionMux? _perceptionMux;
 
+  /// Snapshot de solo lectura para diagnóstico/tests. La memoria interna sigue
+  /// siendo copy-on-write y solo el coordinator puede reemplazarla.
+  NanoObjectMemory? get objectMemorySnapshot => _objectMemory;
+
   AutomationCoordinator({
     required AgentToolDispatcher dispatcher,
     required AgentAutomationMode Function() mode,
@@ -91,22 +99,23 @@ class AutomationCoordinator {
       String goal, {
       required bool planCompleted,
       GoalExpectation? expectation,
-    })? verifyGoal,
+    })?
+    verifyGoal,
     DeterministicFlowCatalog? catalog,
     NanoObjectMemory? objectMemory,
     PerceptionMux? perceptionMux,
     void Function(C14Execution)? c14Sink,
-  })  : _dispatcher = dispatcher,
-        _mode = mode,
-        _cache = cache,
-        _flowExecutor = flowExecutor,
-        _ledger = ledger,
-        _planner = planner,
-        _verifyGoal = verifyGoal,
-        _catalog = catalog,
-        _objectMemory = objectMemory,
-        _perceptionMux = perceptionMux,
-        _c14Sink = c14Sink;
+  }) : _dispatcher = dispatcher,
+       _mode = mode,
+       _cache = cache,
+       _flowExecutor = flowExecutor,
+       _ledger = ledger,
+       _planner = planner,
+       _verifyGoal = verifyGoal,
+       _catalog = catalog,
+       _objectMemory = objectMemory,
+       _perceptionMux = perceptionMux,
+       _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
 
@@ -144,10 +153,7 @@ class AutomationCoordinator {
   /// Incluye las [steps] del flujo para que el llamador pueda reanudar si un
   /// paso del flujo pide confirmación ([FlowExecutionResult.plan.pauseIndex]).
   Future<({FlowExecutionResult result, List<ToolCall> steps})?>
-      tryDeterministic(
-    String goal, {
-    GoalExpectation? expectation,
-  }) async {
+  tryDeterministic(String goal, {GoalExpectation? expectation}) async {
     final startedAt = DateTime.now();
     final cache = _cache;
     final flow = _flowExecutor;
@@ -187,7 +193,10 @@ class AutomationCoordinator {
     GoalExpectation? expectation,
   }) async {
     final startedAt = DateTime.now();
-    final outcome = await _dispatcher.runPlanGuarded(plan, confirmed: confirmed);
+    final outcome = await _dispatcher.runPlanGuarded(
+      plan,
+      confirmed: confirmed,
+    );
     if (recordGoal != null) {
       await _learn(recordGoal, plan, outcome, expectation);
     }
@@ -231,7 +240,10 @@ class AutomationCoordinator {
   /// Ejecuta una herramienta suelta bajo gobernanza.
   Future<ToolOutcome> runTool(ToolCall call, {bool confirmed = false}) async {
     final startedAt = DateTime.now();
-    final outcome = await _dispatcher.runToolGuarded(call, confirmed: confirmed);
+    final outcome = await _dispatcher.runToolGuarded(
+      call,
+      confirmed: confirmed,
+    );
     _record(
       goal: call.tool,
       status: _statusFromTool(outcome),
@@ -298,8 +310,7 @@ class AutomationCoordinator {
           retries: 0,
           replans: 0,
           cacheHit: cacheHit,
-          goalSuccess: r.status == AutomationResultStatus.completed ||
-              r.status == AutomationResultStatus.completedUnverified,
+          goalSuccess: r.isVerifiedSuccess,
           totalLatency: sw.elapsed,
         ),
       );
@@ -318,8 +329,10 @@ class AutomationCoordinator {
     }
 
     if (plan == null) {
-      final deterministic =
-          await tryDeterministic(goal.text, expectation: goal.expectation);
+      final deterministic = await tryDeterministic(
+        goal.text,
+        expectation: goal.expectation,
+      );
       if (deterministic != null) {
         cacheHit = true;
         steps = deterministic.steps.length;
@@ -377,7 +390,13 @@ class AutomationCoordinator {
       );
       t.stop();
       toolLatency = t.elapsed;
-      final r = _resultFromPlan(executionId, outcome);
+      final base = _resultFromPlan(executionId, outcome);
+      final r = await _finalizeExecution(
+        executionId: executionId,
+        goal: goal.text,
+        base: base,
+        expectation: runExpectation,
+      );
       _recordMemory(goal.text, plan, r.status);
       emit(r);
       return r;
@@ -387,7 +406,13 @@ class AutomationCoordinator {
     final outcome = await runTool(plan.single, confirmed: confirmed);
     t.stop();
     toolLatency = t.elapsed;
-    final r = _resultFromTool(executionId, outcome);
+    final base = _resultFromTool(executionId, outcome);
+    final r = await _finalizeExecution(
+      executionId: executionId,
+      goal: goal.text,
+      base: base,
+      expectation: runExpectation,
+    );
     _recordMemory(goal.text, plan, r.status);
     emit(r);
     return r;
@@ -401,17 +426,22 @@ class AutomationCoordinator {
   /// selector original (el executor fallará honesto).
   Future<List<ToolCall>> _resolveSelectors(
     List<ToolCall> plan,
-    String goal,
+    String _goal,
   ) async {
     final mem = _objectMemory;
     final mux = _perceptionMux;
-    final key = UiObjectKey(concept: goal.toLowerCase());
     final resolved = <ToolCall>[];
     for (final c in plan) {
       final sel = c.selector ?? '';
-      if (sel.startsWith('text=') || sel.startsWith('desc=')) {
-        final concept = sel.substring(5).trim();
+      final concept = _conceptFromSelector(sel);
+      final semantic =
+          sel.startsWith('text=') ||
+          sel.startsWith('text~=') ||
+          sel.startsWith('desc=') ||
+          sel.startsWith('desc~=');
+      if (semantic && concept.isNotEmpty) {
         var used = sel;
+        final key = UiObjectKey(concept: concept);
         final rid = mem?.resolve(key)?.resourceId;
         if (rid != null && rid.isNotEmpty) {
           used = 'id=$rid';
@@ -427,28 +457,113 @@ class AutomationCoordinator {
     return resolved;
   }
 
+  String _conceptFromSelector(String selector) {
+    final s = selector.trim();
+    if (s.startsWith('text~=')) return s.substring(6).trim().toLowerCase();
+    if (s.startsWith('desc~=')) return s.substring(6).trim().toLowerCase();
+    if (s.startsWith('text=')) return s.substring(5).trim().toLowerCase();
+    if (s.startsWith('desc=')) return s.substring(5).trim().toLowerCase();
+    if (s.startsWith('id=')) return s.substring(3).trim().toLowerCase();
+    return s.toLowerCase();
+  }
+
+  UiSelectorEvidence? _evidenceFromSelector(String selector) {
+    final s = selector.trim();
+    if (s.startsWith('id=')) {
+      return UiSelectorEvidence(resourceId: s.substring(3).trim());
+    }
+    if (s.startsWith('text~=')) {
+      return UiSelectorEvidence(text: s.substring(6).trim());
+    }
+    if (s.startsWith('text=')) {
+      return UiSelectorEvidence(text: s.substring(5).trim());
+    }
+    if (s.startsWith('desc~=')) {
+      return UiSelectorEvidence(desc: s.substring(6).trim());
+    }
+    if (s.startsWith('desc=')) {
+      return UiSelectorEvidence(desc: s.substring(5).trim());
+    }
+    return null;
+  }
+
   /// Memoriza la verificación del objetivo para anclar selectores futuros.
   /// RESOLUTION adapta; la VERIFICACIÓN ya fue estricta aguas arriba.
   void _recordMemory(
-    String goal,
+    String _goal,
     List<ToolCall> plan,
     AutomationResultStatus status,
   ) {
     final mem = _objectMemory;
     if (mem == null || plan.isEmpty) return;
-    final key = UiObjectKey(concept: goal.toLowerCase());
-    final ok = status == AutomationResultStatus.completed ||
-        status == AutomationResultStatus.completedUnverified;
+
+    // completedUnverified NO es evidencia positiva ni negativa.
+    final verifiedSuccess = status == AutomationResultStatus.completed;
+    final verifiedFailure = status == AutomationResultStatus.failed;
+    if (!verifiedSuccess && !verifiedFailure) return;
+
     var next = mem;
     for (final c in plan) {
       final sel = c.selector ?? '';
-      final evidence = UiSelectorEvidence(
-        resourceId: sel.startsWith('id=') ? sel.substring(3) : null,
-        text: sel.startsWith('text=') ? sel.substring(5) : null,
-      );
-      next = ok ? next.recordSuccess(key, evidence) : next.recordFailure(key);
+      final concept = _conceptFromSelector(sel);
+      if (concept.isEmpty) continue;
+      final key = UiObjectKey(concept: concept);
+      if (verifiedSuccess) {
+        final evidence = _evidenceFromSelector(sel);
+        if (evidence == null || evidence.fingerprint.isEmpty) continue;
+        next = next.recordSuccess(key, evidence);
+      } else {
+        next = next.recordFailure(key);
+      }
     }
     _objectMemory = next;
+  }
+
+  /// Normaliza ACTION/PLAN success a TASK success. Ningún camino de
+  /// [execute] puede devolver `completed` si el objetivo final no fue probado.
+  Future<AutomationResult> _finalizeExecution({
+    required String executionId,
+    required String goal,
+    required AutomationResult base,
+    GoalExpectation? expectation,
+  }) async {
+    if (base.status != AutomationResultStatus.completed) return base;
+
+    final verify = _verifyGoal;
+    if (verify == null || expectation == null) {
+      return AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.completedUnverified,
+        reason: '${base.reason} Objetivo final sin verificación declarada.',
+        pauseIndex: base.pauseIndex,
+        pauseTool: base.pauseTool,
+      );
+    }
+
+    final v = await verify(goal, planCompleted: true, expectation: expectation);
+    return switch (v.status) {
+      GoalStatus.satisfied => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.completed,
+        reason: '${base.reason} ${v.reason}',
+        pauseIndex: base.pauseIndex,
+        pauseTool: base.pauseTool,
+      ),
+      GoalStatus.unverified => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.completedUnverified,
+        reason: '${base.reason} ${v.reason}',
+        pauseIndex: base.pauseIndex,
+        pauseTool: base.pauseTool,
+      ),
+      GoalStatus.notSatisfied => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.failed,
+        reason: '${base.reason} ${v.reason}',
+        pauseIndex: base.pauseIndex,
+        pauseTool: base.pauseTool,
+      ),
+    };
   }
 
   // ── Resultado (mapeo a dominio) ───────────────────────────────────────────
@@ -462,7 +577,8 @@ class AutomationCoordinator {
         pauseTool: r.plan.pauseCall?.tool,
       );
 
-  AutomationResult _resultFromPlan(String id, PlanOutcome o) => AutomationResult(
+  AutomationResult _resultFromPlan(String id, PlanOutcome o) =>
+      AutomationResult(
         executionId: id,
         status: _statusFromPlan(o),
         reason: o.summary,
@@ -470,7 +586,8 @@ class AutomationCoordinator {
         pauseTool: o.pauseCall?.tool,
       );
 
-  AutomationResult _resultFromTool(String id, ToolOutcome o) => AutomationResult(
+  AutomationResult _resultFromTool(String id, ToolOutcome o) =>
+      AutomationResult(
         executionId: id,
         status: _statusFromTool(o),
         reason: o.feedback,
@@ -497,16 +614,17 @@ class AutomationCoordinator {
   }
 
   AutomationResultStatus _statusFromTool(ToolOutcome o) => switch (o.verdict) {
-        PolicyVerdict.needsConfirmation => AutomationResultStatus.paused,
-        PolicyVerdict.denied => AutomationResultStatus.denied,
-        // allow ≠ éxito: la ejecución PUEDE haber fallado (feedback '[notFound]',
-        // '[timeout]', '[verify:...]'). Un tool permitido pero que falló es
-        // FAILED, no completed — evita false success (mismo criterio tipado que
-        // el dispatcher usa en runPlanGuarded vía _isFailedFeedback).
-        PolicyVerdict.allow => _isFailedFeedback(o.feedback)
-            ? AutomationResultStatus.failed
-            : AutomationResultStatus.completed,
-      };
+    PolicyVerdict.needsConfirmation => AutomationResultStatus.paused,
+    PolicyVerdict.denied => AutomationResultStatus.denied,
+    // allow ≠ éxito: la ejecución PUEDE haber fallado (feedback '[notFound]',
+    // '[timeout]', '[verify:...]'). Un tool permitido pero que falló es
+    // FAILED, no completed — evita false success (mismo criterio tipado que
+    // el dispatcher usa en runPlanGuarded vía _isFailedFeedback).
+    PolicyVerdict.allow =>
+      _isFailedFeedback(o.feedback)
+          ? AutomationResultStatus.failed
+          : AutomationResultStatus.completed,
+  };
 
   /// Feedback de fallo: arranca con `[codigo]`/`[codigo:...]` (p.ej.
   /// `[notFound]`, `[policy]`). Los éxitos nunca empiezan con `[`.

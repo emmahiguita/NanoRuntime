@@ -1,18 +1,14 @@
 /// GoalVerifier — responde "¿el objetivo del usuario quedó REALMENTE
-/// cumplido?" (TASK SUCCESS), distinto de [ActionVerifier] que responde
-/// "¿la acción funcionó?" (ACTION SUCCESS).
+/// cumplido?" (TASK SUCCESS), distinto de ActionVerifier.
 ///
-/// Regla de honestidad (§16 self-healing del plan maestro): el verificación
-/// de objetivo NUNCA es tolerante. Si no hay expectativa declarada ni plan
-/// completo, NO declara éxito — reporta [GoalStatus.unverified] o
-/// [GoalStatus.notSatisfied].
+/// R0: una UI que contiene la palabra "Bluetooth" no demuestra que el switch
+/// esté activado. La verificación puede exigir package y checked state.
 library;
 
 import 'agent_executor.dart';
+import '../perception/nano_selector.dart';
+import '../perception/selector_engine.dart';
 
-/// Veredicto del objetivo. [unverified] es un estado honesto: el plan
-/// multi-paso completó y cada paso fue ejecutado+verificado, pero no hay
-/// expectativa de objetivo declarada para una comprobación final.
 enum GoalStatus { satisfied, notSatisfied, unverified }
 
 class GoalVerification {
@@ -22,27 +18,38 @@ class GoalVerification {
   const GoalVerification(this.status, this.reason);
 }
 
-/// Expectativa del OBJETIVO (no de la acción): qué debe ser cierto al final.
-/// La declara el llamador (heurística del chat o el LLM vía `goal_expect`).
 class GoalExpectation {
-  /// Texto que debe estar visible en el snapshot final.
+  final String? expectedPackage;
   final String? visibleText;
-
-  /// Texto que debe NO estar visible (p.ej. la pantalla original quedó atrás).
   final String? absentText;
+  final NanoSelector? checkedSelector;
+  final bool? expectedChecked;
 
-  const GoalExpectation({this.visibleText, this.absentText});
+  const GoalExpectation({
+    this.expectedPackage,
+    this.visibleText,
+    this.absentText,
+    this.checkedSelector,
+    this.expectedChecked,
+  }) : assert(
+         (checkedSelector == null) == (expectedChecked == null),
+         'checkedSelector y expectedChecked deben declararse juntos.',
+       );
 
-  bool get hasCriteria => visibleText != null || absentText != null;
+  bool get hasCriteria =>
+      (expectedPackage != null && expectedPackage!.isNotEmpty) ||
+      visibleText != null ||
+      absentText != null ||
+      checkedSelector != null;
 }
 
-/// Verifica el objetivo final contra el estado real del dispositivo.
-/// DIP: depende de [AgentExecutor] (interfaz) — el snapshot final es la única
-/// evidencia aceptada, nunca el optimismo del llamador.
 class GoalVerifier {
-  GoalVerifier({required AgentExecutor executor}) : _executor = executor;
+  GoalVerifier({required AgentExecutor executor, NanoSelectorEngine? engine})
+    : _executor = executor,
+      _engine = engine ?? NanoSelectorEngine();
 
   final AgentExecutor _executor;
+  final NanoSelectorEngine _engine;
 
   Future<GoalVerification> verify(
     String goal, {
@@ -58,12 +65,10 @@ class GoalVerifier {
     }
 
     if (expectation == null || !expectation.hasCriteria) {
-      // Sin expectativa: el plan completo y verificado paso a paso es la
-      // evidencia de ejecución, pero NO de cumplimiento del objetivo.
-      return GoalVerification(
+      return const GoalVerification(
         GoalStatus.unverified,
         'Plan completo y verificado paso a paso; sin expectativa de objetivo '
-        'declarada no hay comprobación final (honesto, no inventado).',
+        'declarada no hay comprobación final.',
       );
     }
 
@@ -75,13 +80,21 @@ class GoalVerifier {
       );
     }
 
+    final expectedPackage = expectation.expectedPackage;
+    if (expectedPackage != null &&
+        expectedPackage.isNotEmpty &&
+        snap.package != expectedPackage) {
+      return GoalVerification(
+        GoalStatus.notSatisfied,
+        'Package final esperado "$expectedPackage", real "${snap.package}".',
+      );
+    }
+
     final visibleTexts = snap.nodes.map((n) => n.text).toSet();
 
     if (expectation.visibleText != null) {
       final needle = expectation.visibleText!.toLowerCase();
-      final found = visibleTexts.any(
-        (t) => t.toLowerCase().contains(needle),
-      );
+      final found = visibleTexts.any((t) => t.toLowerCase().contains(needle));
       if (!found) {
         return GoalVerification(
           GoalStatus.notSatisfied,
@@ -101,6 +114,26 @@ class GoalVerifier {
           GoalStatus.notSatisfied,
           'El objetivo exige que "$needle" NO esté, pero sigue visible: '
           'el objetivo no se cumplió.',
+        );
+      }
+    }
+
+    final checkedSelector = expectation.checkedSelector;
+    if (checkedSelector != null) {
+      final resolved = _engine.resolve(checkedSelector, snap);
+      if (!resolved.isResolved || resolved.best == null) {
+        return GoalVerification(
+          GoalStatus.notSatisfied,
+          'No se pudo resolver de forma unívoca el control cuyo estado '
+          '`checked` debía verificarse: ${resolved.reason}',
+        );
+      }
+      final actual = resolved.best!.node.checked;
+      if (actual != expectation.expectedChecked) {
+        return GoalVerification(
+          GoalStatus.notSatisfied,
+          'El control "${resolved.best!.node.label}" tiene checked=$actual; '
+          'se esperaba checked=${expectation.expectedChecked}.',
         );
       }
     }

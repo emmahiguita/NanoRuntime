@@ -50,4 +50,11 @@ class AutomationResult {
   });
 
   bool get isPaused => status == AutomationResultStatus.paused;
+
+  /// ÚNICA definición de éxito verificado del dominio.
+  ///
+  /// `completedUnverified` significa que la ejecución terminó, pero el objetivo
+  /// final no fue demostrado contra estado real. Nunca debe alimentar métricas
+  /// de éxito, memoria positiva ni shortcuts aprendidos.
+  bool get isVerifiedSuccess => status == AutomationResultStatus.completed;
 }
