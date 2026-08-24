@@ -1342,87 +1342,113 @@ class _StreamingBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final radius = NanoShapes.aiBubble;
+
+    final parsed = parseThought(text);
+    final thought = parsed.thought;
+    final response = parsed.response;
+
+    // Cuerpo vivo: sin texto aún → pensamiento en onda; con texto → contenido
+    // streaming + cursor respirando al final (hiperrealista, sin simulación).
+    final Widget body;
+    if (text.isEmpty) {
+      body = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Center(child: const ThinkingIndicator()),
+      );
+    } else {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (thought != null && thought.trim().isNotEmpty)
+            ModelReasoningBlock(thought: thought, initiallyExpanded: true),
+          if (response.trim().isNotEmpty)
+            MarkdownBody(
+              data: response,
+              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
+            )
+          else if (thought != null && response.isEmpty)
+            const SizedBox.shrink()
+          else
+            MarkdownBody(
+              data: text.isEmpty ? '...' : text,
+              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
+            ),
+          const SizedBox(height: 6),
+          const StreamingCursor(),
+        ],
+      );
+    }
+
+    Widget content = Container(
+      constraints: const BoxConstraints(maxWidth: double.infinity),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: NanoGlass.substrate(colors, opacity: isDark ? 0.78 : 0.88),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          body,
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: colors.success,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Generando con $model...',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.onSurface.withValues(alpha: 0.48),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    // Óptica premium idéntica al mensaje AI: bisel especular + sombra
+    // ambiental + vidrio desenfocado. El fondo living se refracta detrás.
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colors.onSurface.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          borderRadius: radius,
+          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            () {
-              final parsed = parseThought(text);
-              final thought = parsed.thought;
-              final response = parsed.response;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (thought != null && thought.trim().isNotEmpty)
-                    ModelReasoningBlock(
-                      thought: thought,
-                      initiallyExpanded: true,
-                    ),
-                  if (response.trim().isNotEmpty)
-                    MarkdownBody(
-                      data: response,
-                      styleSheet: _buildChatMarkdownStyleSheet(
-                        context,
-                        isUser: false,
-                      ),
-                    )
-                  else if (text.isEmpty ||
-                      (thought != null && response.isEmpty))
-                    // Si el pensamiento está activo pero la respuesta principal está vacía, no mostrar body vacío
-                    const SizedBox.shrink()
-                  else
-                    MarkdownBody(
-                      data: text.isEmpty ? '...' : text,
-                      styleSheet: _buildChatMarkdownStyleSheet(
-                        context,
-                        isUser: false,
-                      ),
-                    ),
-                ],
-              );
-            }(),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: colors.success,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Generando con $model...',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.48),
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ],
+        child: Container(
+          padding: const EdgeInsets.all(1.0),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: NanoBorders.specularChamfer(colors),
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: reduceMotion ? 0.0 : 12.0,
+                sigmaY: reduceMotion ? 0.0 : 12.0,
+              ),
+              child: content,
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1658,7 +1684,7 @@ class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.psychology_outlined,
+                    Icons.psychology_rounded,
                     size: 16,
                     color: colors.success.withValues(alpha: 0.8),
                   ),
@@ -1820,6 +1846,8 @@ class _ComposerState extends State<_Composer> {
       borderStrength: _isFocused ? 1.0 : 0.80,
       reflectionStrength: _isFocused ? 0.90 : 0.65,
       depth: 1.15,
+      tilt: true,
+      autoReflect: true,
       accent: _isFocused
           ? (isDark ? colors.accent : colors.accentCyan)
           : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),

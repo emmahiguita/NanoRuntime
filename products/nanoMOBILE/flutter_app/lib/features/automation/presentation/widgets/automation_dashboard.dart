@@ -15,7 +15,7 @@ import '../../domain/automation_result.dart';
 import '../../ledger/action_ledger_provider.dart';
 
 import 'engine_status_card.dart';
-import 'interactive_glass_card.dart';
+import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 
 /// Estado del engine (ligero) para la capa de presentación. Lee el ENDPOINT
 /// REAL (http://127.0.0.1:8080) — el motor que realmente responderá generate() —

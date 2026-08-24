@@ -246,6 +246,8 @@ class _TerminalCard extends StatelessWidget {
       label: 'Abrir ${destination.title}',
       child: NanoOpticalSurface(
         onTap: destination.onOpen,
+        tilt: true,
+        autoReflect: true,
         accent: destination.accent,
         borderStrength: 0.82,
         reflectionStrength: isDark ? 0.70 : 0.48,

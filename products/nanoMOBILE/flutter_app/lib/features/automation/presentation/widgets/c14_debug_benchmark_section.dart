@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/features/automation/presentation/widgets/interactive_glass_card.dart';
+import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../benchmark/c14_runner.dart';

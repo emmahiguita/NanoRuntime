@@ -42,6 +42,9 @@ class NanoOpticalSurface extends StatefulWidget {
     this.glassOpacityScale = 1.0,
     this.onTap,
     this.onLongPress,
+    this.tilt = false,
+    this.tiltIntensity = 0.035,
+    this.autoReflect = false,
   });
 
   final Widget child;
@@ -68,13 +71,27 @@ class NanoOpticalSurface extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
+  /// Inclina la superficie en 3D (rotationX/Y) siguiendo el puntero,
+  /// imitando el giro de un panel de vidrio bajo la luz. Opt-in para no
+  /// alterar cards estáticas por defecto.
+  final bool tilt;
+
+  /// Radiánes máximos de rotación en el borde (puntero en un extremo).
+  final double tiltIntensity;
+
+  /// Genera internamente un AnimationController en loop para el barrido
+  /// especular ambiental (_AnimatedReflection), sin depender de un
+  /// controller externo pasado por el padre. Opt-in.
+  final bool autoReflect;
+
   @override
   State<NanoOpticalSurface> createState() => _NanoOpticalSurfaceState();
 }
 
 class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pressController;
+  AnimationController? _ambientController;
   late Animation<double> _scaleAnimation;
   bool _isPointerInside = false;
   Alignment _pointerLight = Alignment.center;
@@ -94,11 +111,22 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             reverseCurve: NanoMotionCurves.glassSpring,
           ),
         );
+
+    // Barrido especular ambiental propio: al activar autoReflect la card
+    // genera su propio AnimationController en loop (sin depender del padre),
+    // replicando el destello de luz de las cards de inicio/modelos.
+    if (widget.autoReflect) {
+      _ambientController = AnimationController(
+        vsync: this,
+        duration: NanoMotionDurations.ambient,
+      )..repeat();
+    }
   }
 
   @override
   void dispose() {
     _pressController.dispose();
+    _ambientController?.dispose();
     super.dispose();
   }
 
@@ -225,10 +253,28 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
       );
     }
 
+    final Widget out;
+    if (widget.tilt && _isPointerInside && !reduceMotion) {
+      // Giro 3D del panel: rota hacia el puntero con perspectiva suave.
+      // rotationY -x (se aleja a la derecha), rotationX +y (se inclina
+      // hacia atrás arriba), como un vidrio siguiendo la luz.
+      final tilt = Matrix4.identity()
+        ..setEntry(3, 2, 0.0012)
+        ..rotateY(-_pointerLight.x * widget.tiltIntensity)
+        ..rotateX(_pointerLight.y * widget.tiltIntensity);
+      out = Transform(
+        transform: tilt,
+        alignment: Alignment.center,
+        child: surface,
+      );
+    } else {
+      out = surface;
+    }
+
     return MouseRegion(
       onHover: reduceMotion ? null : _handlePointerHover,
       onExit: _handlePointerExit,
-      child: surface,
+      child: out,
     );
   }
 
@@ -343,6 +389,9 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             stops: const [0.0, 0.32, 0.72, 1.0],
           );
 
+    final effectiveReflectionController = widget.reflectionController ??
+        (widget.autoReflect ? _ambientController : null);
+
     Widget opticalStack = Stack(
       fit: StackFit.passthrough,
       children: [
@@ -432,10 +481,10 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
         ),
 
         // Destello especular móvil + curva cáustica (luz líquida)
-        if (widget.reflectionController != null && !reduceMotion)
+        if (effectiveReflectionController != null && !reduceMotion)
           Positioned.fill(
             child: _AnimatedReflection(
-              controller: widget.reflectionController!,
+              controller: effectiveReflectionController,
               intensity: widget.reflectionStrength,
               specularDrift: effectiveSpecularDrift,
               warmColor: colors.warmReflection,

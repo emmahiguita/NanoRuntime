@@ -5,7 +5,7 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import 'automation_dashboard.dart' show engineStatusProvider;
-import 'interactive_glass_card.dart';
+import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 
 /// Card de estado del motor (runtime/modelo/fase) — COMPARTIDA, una sola fuente.
 /// Usada por el dashboard y la pantalla Dev (sin duplicación).

@@ -476,6 +476,8 @@ class _DistributionCard extends StatelessWidget {
             reflectionStrength: 0.50,
             accent: isInstalled ? colors.accentMint : colors.accentSky,
             onTap: onTap,
+            tilt: true,
+            autoReflect: true,
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [

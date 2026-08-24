@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/features/automation/presentation/widgets/interactive_glass_card.dart';
+import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
 import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
