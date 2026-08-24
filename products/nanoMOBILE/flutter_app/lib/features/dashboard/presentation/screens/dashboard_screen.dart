@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
+import 'package:nanoai/core/services/runtime_engine.dart';
 
 import 'package:nanoai/features/home/nano_home_screen.dart';
 import 'package:nanoai/features/home/nano_home_models.dart';
@@ -25,6 +26,8 @@ class DashboardScreen extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
     final rootfs = ref.watch(rootfsProvider);
     final chat = ref.watch(chatProvider);
+    final engineReady =
+        ref.watch(runtimeEngineProvider).phase == EnginePhase.ready;
 
     final chatSubtitle = chat.engineOnline
         ? null
@@ -52,6 +55,9 @@ class DashboardScreen extends ConsumerWidget {
       kaliStatus: _mapKaliStatus(rootfs.isInstalled),
       chatSubtitle: chatSubtitle,
       terminalSubtitle: terminalSubtitle,
+      chatOn: chat.engineOnline,
+      termOn: rootfs.isInstalled,
+      modelOn: engineReady,
       onTerminalTap: () => context.go('/terminal'),
       onChatTap: () => context.go('/chat'),
       onModelsTap: () => context.go('/models'),

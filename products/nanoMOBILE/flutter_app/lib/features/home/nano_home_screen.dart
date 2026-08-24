@@ -25,6 +25,11 @@ class NanoHomeScreen extends StatefulWidget {
   final VoidCallback? onAutomationTap;
   final VoidCallback onKaliTap;
 
+  /// Estados EN VIVO reales (providers) para los indicadores pulsantes.
+  final bool chatOn;
+  final bool termOn;
+  final bool modelOn;
+
   const NanoHomeScreen({
     super.key,
     required this.telemetry,
@@ -37,6 +42,9 @@ class NanoHomeScreen extends StatefulWidget {
     this.onDesktopTap,
     this.onAutomationTap,
     required this.onKaliTap,
+    this.chatOn = false,
+    this.termOn = false,
+    this.modelOn = false,
   });
 
   @override
@@ -226,6 +234,9 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                     onModels: widget.onModelsTap,
                                     onDesktop: widget.onDesktopTap,
                     onAutomation: widget.onAutomationTap ?? () {},
+                                    chatOn: widget.chatOn,
+                                    termOn: widget.termOn,
+                                    modelOn: widget.modelOn,
                                     isLandscape: true,
                                   ),
                                 ),
@@ -312,6 +323,9 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                 onModels: widget.onModelsTap,
                                 onDesktop: widget.onDesktopTap,
                     onAutomation: widget.onAutomationTap ?? () {},
+                                chatOn: widget.chatOn,
+                                termOn: widget.termOn,
+                                modelOn: widget.modelOn,
                                 isLandscape: false,
                               ),
                             ),
@@ -616,6 +630,11 @@ class _FeatureCarousel extends StatelessWidget {
   final VoidCallback? onAutomation;
   final bool isLandscape;
 
+  /// Estados EN VIVO reales (provider) para el indicador pulsante de cada card.
+  final bool chatOn;
+  final bool termOn;
+  final bool modelOn;
+
   const _FeatureCarousel({
     required this.controller,
     required this.reflectionController,
@@ -629,6 +648,9 @@ class _FeatureCarousel extends StatelessWidget {
     this.onDesktop,
     this.onAutomation,
     this.isLandscape = false,
+    this.chatOn = false,
+    this.termOn = false,
+    this.modelOn = false,
   });
 
   @override
@@ -644,6 +666,8 @@ class _FeatureCarousel extends StatelessWidget {
         icon: Icons.chat_bubble_outline_rounded,
         accent: colors.accentLavender,
         secondaryAccent: colors.accentCyan,
+        statusColor: chatOn ? colors.success : colors.warning,
+        statusLabel: chatOn ? 'EN VIVO' : 'MOTOR APAGADO',
         onTap: onChat,
       ),
       NanoFeatureData(
@@ -654,6 +678,8 @@ class _FeatureCarousel extends StatelessWidget {
         icon: Icons.terminal_rounded,
         accent: colors.accentCyan,
         secondaryAccent: colors.accentMint,
+        statusColor: termOn ? colors.success : colors.warning,
+        statusLabel: termOn ? 'LINUX LISTO' : 'PREPARANDO LINUX',
         onTap: onTerminal,
       ),
       NanoFeatureData(
@@ -664,6 +690,8 @@ class _FeatureCarousel extends StatelessWidget {
         icon: Icons.view_in_ar_rounded,
         accent: colors.accentBlue,
         secondaryAccent: colors.accentLavender,
+        statusColor: modelOn ? colors.success : colors.warning,
+        statusLabel: modelOn ? 'MODELO ACTIVO' : 'SIN MODELO',
         onTap: onModels,
       ),
       NanoFeatureData(
@@ -782,6 +810,11 @@ class NanoFeatureData {
   final Color secondaryAccent;
   final VoidCallback onTap;
 
+  /// Indicador de estado EN VIVO (datos reales del provider) que pulsa.
+  /// Vacío/null = no mostrar pill.
+  final String statusLabel;
+  final Color? statusColor;
+
   const NanoFeatureData({
     required this.id,
     required this.title,
@@ -791,12 +824,102 @@ class NanoFeatureData {
     required this.accent,
     required this.secondaryAccent,
     required this.onTap,
+    this.statusLabel = '',
+    this.statusColor,
   });
 }
 
 // =============================================================
 // FEATURE CARD CON PARALLAX MULTICAPA DESACOPLADO
 // =============================================================
+
+/// Indicador de estado EN VIVO: dot que pulsa (animación siempre activa, se
+/// ve en reposo) + etiqueta. Refleja datos reales del provider (motor,
+/// Linux, modelo) — no un simple texto estático.
+class _LiveStatusPill extends StatefulWidget {
+  const _LiveStatusPill({
+    required this.color,
+    required this.label,
+    this.isLandscape = false,
+  });
+
+  final Color color;
+  final String label;
+  final bool isLandscape;
+
+  @override
+  State<_LiveStatusPill> createState() => _LiveStatusPillState();
+}
+
+class _LiveStatusPillState extends State<_LiveStatusPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final pulse = reduceMotion ? 0.0 : _c.value;
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.isLandscape ? 6 : 8,
+            vertical: widget.isLandscape ? 1 : 2,
+          ),
+          decoration: BoxDecoration(
+            color: widget.color.withValues(alpha: 0.10 + pulse * 0.06),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: widget.color.withValues(alpha: 0.30 + pulse * 0.22),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color,
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.color.withValues(alpha: 0.5 + pulse * 0.4),
+                      blurRadius: 5 + pulse * 4,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.color,
+                  fontFamily: 'Inter',
+                  fontSize: widget.isLandscape ? 8.5 : 10,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 class NanoFeatureCard extends StatelessWidget {
   final NanoFeatureData data;
@@ -903,6 +1026,15 @@ class NanoFeatureCard extends StatelessWidget {
                               letterSpacing: -0.4,
                             ),
                           ),
+                          if (data.statusLabel.isNotEmpty &&
+                              data.statusColor != null) ...[
+                            SizedBox(height: isLandscape ? 1 : 3),
+                            _LiveStatusPill(
+                              color: data.statusColor!,
+                              label: data.statusLabel,
+                              isLandscape: isLandscape,
+                            ),
+                          ],
                           if (data.line1.isNotEmpty) ...[
                             SizedBox(height: isLandscape ? 0 : 2),
                             Text(
