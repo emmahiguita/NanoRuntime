@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
@@ -27,7 +29,10 @@ class AutomationScreen extends ConsumerWidget {
             child: NanoScreenShell(
               title: 'Automatización',
               showBack: true,
-              body: AutomationDashboard(onDevTap: _openDev),
+              body: AutomationDashboard(
+                onDevTap: kDebugMode ? _openDev : null,
+                onMessagesTap: () => context.go('/automation/messages'),
+              ),
             ),
           ),
         ],

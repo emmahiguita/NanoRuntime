@@ -6,7 +6,6 @@ import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
 import '../agent_console_section.dart';
-import '../notification_automation_section.dart';
 import '../widgets/c14_debug_benchmark_section.dart';
 import '../widgets/engine_status_card.dart';
 
@@ -61,8 +60,6 @@ class AutomationDevScreen extends StatelessWidget {
                         const EngineStatusCard(),
                         const SizedBox(height: NanoSpacing.xl),
                         const AgentConsoleSection(),
-                        const SizedBox(height: NanoSpacing.xl),
-                        const NotificationAutomationSection(),
                         if (kDebugMode) ...[
                           const SizedBox(height: NanoSpacing.xl),
                           const C14DebugBenchmarkSection(),

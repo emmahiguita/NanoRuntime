@@ -8,8 +8,10 @@ class SectionHeader extends StatelessWidget {
   final String text;
   final IconData icon;
   final NanoColors colors;
+  final Color? iconColor;
   const SectionHeader(this.text, this.icon, {
     required this.colors,
+    this.iconColor,
     super.key,
   });
 
@@ -21,10 +23,11 @@ class SectionHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: colors.primary.withValues(alpha: 0.12),
+            color: iconColor?.withValues(alpha: 0.12) ??
+                colors.primary.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(icon, size: NanoIcons.small, color: colors.primary),
+          child: Icon(icon, size: NanoIcons.small, color: iconColor ?? colors.primary),
         ),
         const SizedBox(width: NanoSpacing.sm),
         Text(

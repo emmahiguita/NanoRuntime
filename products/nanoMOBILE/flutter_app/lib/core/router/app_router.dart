@@ -13,6 +13,7 @@ import '../../features/desktop/presentation/screens/desktop_launch_screen.dart';
 import '../../features/desktop/presentation/screens/vnc_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
 import '../../features/automation/presentation/screens/automation_screen.dart';
+import '../../features/automation/presentation/screens/automation_messages_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -97,6 +98,12 @@ class AppRouter {
       GoRoute(
         path: '/automation',
         pageBuilder: (_, __) => _expressiveSlide(const AutomationScreen()),
+      ),
+      // /automation/messages → responder mensajes (función de usuario, no Dev)
+      GoRoute(
+        path: '/automation/messages',
+        pageBuilder: (_, __) =>
+            _expressiveSlide(const AutomationMessagesScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',

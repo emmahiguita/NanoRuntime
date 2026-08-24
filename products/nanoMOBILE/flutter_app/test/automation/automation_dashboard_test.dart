@@ -54,8 +54,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    // El fake coord devuelve noPlan → el ActiveExecutionCard muestra el resultado.
-    expect(find.textContaining('noPlan'), findsOneWidget);
+    // El fake coord devuelve noPlan → el ActiveExecutionCard muestra el estado
+    // HONESTO en lenguaje humano (no el nombre interno del enum).
+    expect(find.text('Sin plan'), findsOneWidget);
   });
 }
 

@@ -30,11 +30,15 @@ enum AgentAutomationMode {
   };
 
   String get description => switch (this) {
-    AgentAutomationMode.manual => 'Toda acción del LLM pide confirmación.',
+    AgentAutomationMode.manual =>
+      'Nano puede observar. Cualquier acción que modifique o controle el '
+          'dispositivo requiere tu confirmación.',
     AgentAutomationMode.assisted =>
-      'Lectura automática; tocar, atrás y escribir piden confirmación.',
+      'Nano ejecuta acciones seguras y te consulta antes de acciones '
+          'sensibles.',
     AgentAutomationMode.autonomous =>
-      'Lectura, tocar y atrás automáticos; escribir siempre pide confirmación.',
+      'Nano completa tareas permitidas por sí mismo. Las acciones sensibles '
+          'siguen protegidas por políticas.',
   };
 }
 
