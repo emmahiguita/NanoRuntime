@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/widgets/interactive_glass_card.dart';
+import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
 import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
@@ -178,11 +178,15 @@ void initState() {
       return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader('Agente de UI', Icons.smart_toy, colors: colors),
-          InteractiveGlassCard(
+        SectionHeader('Percepción y acciones', Icons.smart_toy, colors: colors),
+          NanoOpticalSurface(
+            borderStrength: 0.45,
+            reflectionStrength: 0.28,
+            blurSigma: 12,
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _GroupLabel('Snapshot del árbol', colors),
               Text(
                 _status,
                 style: NanoType.body(colors.onSurface),
@@ -225,6 +229,7 @@ void initState() {
               const SizedBox(height: NanoSpacing.md),
               const Divider(height: 1),
               const SizedBox(height: NanoSpacing.md),
+              _GroupLabel('Selector y toque', colors),
               TextField(
                 controller: _selectorController,
                 decoration: InputDecoration(
@@ -281,6 +286,7 @@ void initState() {
                 ),
               ],
               const SizedBox(height: NanoSpacing.md),
+              _GroupLabel('Insertar texto', colors),
               TextField(
                 controller: _setTextController,
                 decoration: InputDecoration(
@@ -303,6 +309,7 @@ void initState() {
                 ),
               ),
               const SizedBox(height: NanoSpacing.md),
+              _GroupLabel('Gestos', colors),
               Wrap(
                 spacing: NanoSpacing.sm,
                 runSpacing: NanoSpacing.sm,
@@ -344,6 +351,24 @@ void initState() {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Etiqueta overline de sub-grupo dentro de una sección Dev (ayuda a escanear).
+class _GroupLabel extends StatelessWidget {
+  final String text;
+  final NanoColors colors;
+  const _GroupLabel(this.text, this.colors);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: NanoSpacing.xs),
+      child: Text(
+        text.toUpperCase(),
+        style: NanoType.overline(colors.accentCyan),
+      ),
     );
   }
 }

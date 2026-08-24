@@ -45,23 +45,25 @@ class AutomationDevScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Propósito claro del Dev (no es la interfaz del asistente).
+                        // Nota breve (una línea): no es la interfaz del asistente.
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
-                              NanoSpacing.sm, 0, NanoSpacing.sm, NanoSpacing.sm),
+                              NanoSpacing.sm, 0, NanoSpacing.sm, NanoSpacing.md),
                           child: Text(
-                            'Herramientas del desarrollador para depurar la '
-                            'percepción y la ejecución del agente. No es la '
-                            'interfaz del asistente; aquí se prueban selectores, '
-                            'snapshots, gestos y el benchmark físico.',
-                            style: NanoType.body(colors.onSurfaceVariant),
+                            'Herramientas de diagnóstico del agente. Solo para '
+                            'depurar la percepción y la ejecución.',
+                            style: NanoType.caption(colors.onSurfaceVariant),
                           ),
                         ),
+                        // 1 · Motor (estado real del runtime + capacidades)
                         const EngineStatusCard(),
                         const SizedBox(height: NanoSpacing.xl),
+                        // 2 · Percepción y acciones (snapshot, selector, toque,
+                        //    insertar texto, gestos)
                         const AgentConsoleSection(),
                         if (kDebugMode) ...[
                           const SizedBox(height: NanoSpacing.xl),
+                          // 3 · Benchmark físico (C14-A)
                           const C14DebugBenchmarkSection(),
                         ],
                       ],
