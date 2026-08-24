@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
+import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
 import '../widgets/automation_dashboard.dart';
@@ -22,7 +22,7 @@ class AutomationScreen extends ConsumerWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned.fill(child: NanoAmbientBackground()),
+          const Positioned.fill(child: LiquidFluidBackground()),
           SafeArea(
             child: NanoScreenShell(
               title: 'Automatización',
@@ -38,16 +38,29 @@ class AutomationScreen extends ConsumerWidget {
   static void _openDev(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 320),
-        reverseTransitionDuration: const Duration(milliseconds: 240),
+        transitionDuration: const Duration(milliseconds: 380),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
         pageBuilder: (_, __, ___) => const AutomationDevScreen(),
-        transitionsBuilder: (_, anim, __, child) => SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.08, 0),
-            end: Offset.zero,
-          ).animate(anim),
-          child: FadeTransition(opacity: anim, child: child),
-        ),
+        // Transición completa: fade + escala (glass morph) + slide lateral.
+        transitionsBuilder: (_, anim, __, child) {
+          final curved = CurvedAnimation(
+            parent: anim,
+            curve: Curves.easeOutCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.06, 0),
+                end: Offset.zero,
+              ).animate(curved),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+                child: child,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

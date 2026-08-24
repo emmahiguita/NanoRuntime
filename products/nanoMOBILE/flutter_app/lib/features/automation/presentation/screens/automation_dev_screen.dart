@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
+import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
 import '../agent_console_section.dart';
@@ -24,7 +24,7 @@ class AutomationDevScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned.fill(child: NanoAmbientBackground()),
+          const Positioned.fill(child: LiquidFluidBackground()),
           SafeArea(
             child: NanoScreenShell(
               title: 'Dev',
