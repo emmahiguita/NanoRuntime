@@ -7,7 +7,6 @@ import 'package:nanoai/core/theme/nano_breakpoint.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
-import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
@@ -17,6 +16,7 @@ import '../../domain/automation_result.dart';
 import '../../ledger/action_ledger_provider.dart';
 
 import 'engine_status_card.dart';
+import 'interactive_glass_card.dart';
 
 /// Estado del engine (ligero) para la capa de presentación. Lee el ENDPOINT
 /// REAL (http://127.0.0.1:8080) — el motor que realmente responderá generate() —
@@ -326,7 +326,7 @@ class _AgentHeader extends StatelessWidget {
   }
 }
 
-class _TaskComposer extends StatefulWidget {
+class _TaskComposer extends StatelessWidget {
   const _TaskComposer({
     required this.controller,
     required this.running,
@@ -337,72 +337,11 @@ class _TaskComposer extends StatefulWidget {
   final ValueChanged<String> onRun;
 
   @override
-  State<_TaskComposer> createState() => _TaskComposerState();
-}
-
-/// Composer con glass hiperrealista: el reflejo del vidrio (NanoOpticalSurface)
-/// brilla de forma continua (AnimationController.repeat) y el destello
-/// especular SIGUE al puntero/tacto (specularDrift) — efecto tridimensional real.
-class _TaskComposerState extends State<_TaskComposer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _reflection = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2600),
-  )..repeat();
-
-  double _specularDrift = 0.0;
-  double _tiltX = 0.0;
-  double _tiltY = 0.0;
-
-  @override
-  void dispose() {
-    _reflection.dispose();
-    super.dispose();
-  }
-
-  void _onPointer(PointerEvent e) {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final local = box.globalToLocal(e.position);
-    setState(() {
-      _specularDrift = ((local.dx / box.size.width) - 0.5) * 0.5;
-      // Tilt 3D en perspectiva: el vidrio se inclina hacia el puntero.
-      _tiltY = ((local.dx / box.size.width) - 0.5) * 0.22;
-      _tiltX = -((local.dy / box.size.height) - 0.5) * 0.22;
-    });
-  }
-
-  void _resetTilt() {
-    setState(() {
-      _tiltX = 0.0;
-      _tiltY = 0.0;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return Listener(
-      onPointerDown: _onPointer,
-      onPointerMove: _onPointer,
-      onPointerUp: (_) => _resetTilt(),
-      onPointerCancel: (_) => _resetTilt(),
-      child: Transform(
-        alignment: Alignment.center,
-        transform: Matrix4.identity()
-          ..setEntry(3, 2, 0.0014) // perspectiva (profundidad 3D)
-          ..rotateX(_tiltX)
-          ..rotateY(_tiltY),
-        child: NanoOpticalSurface(
-        borderRadius: NanoRadius.large,
-        borderStrength: 0.7,
-        reflectionStrength: 0.5,
-        blurSigma: 14,
-        glassOpacityScale: 0.85,
-        accent: colors.accentCyan,
-        reflectionController: _reflection,
-        specularDrift: _specularDrift,
-        child: Padding(
+    return InteractiveGlassCard(
+      accent: colors.accentCyan,
+      child: Padding(
           padding: const EdgeInsets.all(NanoSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,10 +354,10 @@ class _TaskComposerState extends State<_TaskComposer>
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: widget.controller,
+                      controller: controller,
                       textInputAction: TextInputAction.go,
                       onSubmitted: (v) =>
-                          !widget.running ? widget.onRun(v) : null,
+                          !running ? onRun(v) : null,
                       decoration: InputDecoration(
                         hintText: 'Describe una tarea…',
                         border: OutlineInputBorder(
@@ -434,14 +373,14 @@ class _TaskComposerState extends State<_TaskComposer>
                   ),
                   const SizedBox(width: NanoSpacing.sm),
                   FilledButton(
-                    onPressed: widget.running
+                    onPressed: running
                         ? null
-                        : () => widget.onRun(widget.controller.text),
+                        : () => onRun(controller.text),
                     style: FilledButton.styleFrom(
                       shape: const CircleBorder(),
                       padding: const EdgeInsets.all(14),
                     ),
-                    child: widget.running
+                    child: running
                         ? const SizedBox(
                             width: 20,
                             height: 20,
@@ -453,8 +392,6 @@ class _TaskComposerState extends State<_TaskComposer>
               ),
             ],
           ),
-        ),
-      ),
       ),
     );
   }
@@ -566,12 +503,11 @@ class RecentExecutionsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
     final traces = ref.watch(actionLedgerProvider).entries;
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.large,
-      borderStrength: 0.5,
-      reflectionStrength: 0.3,
+    return InteractiveGlassCard(
+      borderStrength: 0.45,
+      reflectionStrength: 0.28,
       blurSigma: 12,
-      glassOpacityScale: 0.8,
+      glassOpacityScale: 0.78,
       child: Padding(
         padding: const EdgeInsets.all(NanoSpacing.md),
         child: Column(

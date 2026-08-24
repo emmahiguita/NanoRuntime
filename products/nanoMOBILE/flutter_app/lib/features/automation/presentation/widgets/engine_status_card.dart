@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import 'automation_dashboard.dart' show engineStatusProvider;
+import 'interactive_glass_card.dart';
 
 /// Card de estado del motor (runtime/modelo/fase) — COMPARTIDA, una sola fuente.
 /// Usada por el dashboard y la pantalla Dev (sin duplicación).
@@ -18,12 +17,11 @@ class EngineStatusCard extends ConsumerWidget {
     final colors = NanoThemeExtension.of(context).colors;
     // Lee el ENDPOINT real (no el notifier) → refleja el motor que responderá.
     final engine = ref.watch(engineStatusProvider).valueOrNull;
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.large,
-      borderStrength: 0.5,
-      reflectionStrength: 0.35,
+    return InteractiveGlassCard(
+      borderStrength: 0.45,
+      reflectionStrength: 0.3,
       blurSigma: 12,
-      glassOpacityScale: 0.8,
+      glassOpacityScale: 0.78,
       child: Padding(
         padding: const EdgeInsets.all(NanoSpacing.md),
         child: Column(
