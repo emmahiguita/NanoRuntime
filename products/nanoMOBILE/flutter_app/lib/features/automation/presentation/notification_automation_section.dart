@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/automation/presentation/widgets/interactive_glass_card.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
   import 'package:nanoai/core/theme/nano_type.dart';
-  import 'package:nanoai/core/widgets/nano_components.dart';
   import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/automation/executors/notification_executor.dart';
 import 'package:nanoai/features/automation/executors/notification_executor_provider.dart';
@@ -147,8 +147,7 @@ class _NotificationAutomationSectionState
           Icons.notifications_active_rounded,
           colors: colors,
         ),
-          NanoCard(
-            padding: EdgeInsets.zero,
+          InteractiveGlassCard(
             child: Padding(
             padding: const EdgeInsets.all(NanoSpacing.md),
             child: Column(

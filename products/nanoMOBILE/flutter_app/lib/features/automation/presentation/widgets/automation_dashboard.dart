@@ -6,7 +6,6 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_breakpoint.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
-import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
@@ -413,8 +412,7 @@ class _ActiveExecutionCard extends StatelessWidget {
     final done = !running && status != null;
     final ok = status == AutomationResultStatus.completed ||
         status == AutomationResultStatus.completedUnverified;
-    return NanoCard(
-      padding: EdgeInsets.zero,
+    return InteractiveGlassCard(
       child: Padding(
         padding: const EdgeInsets.all(NanoSpacing.md),
         child: Column(

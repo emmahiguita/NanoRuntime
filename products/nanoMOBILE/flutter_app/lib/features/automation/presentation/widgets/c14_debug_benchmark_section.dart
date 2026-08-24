@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/core/widgets/nano_components.dart';
+import 'package:nanoai/features/automation/presentation/widgets/interactive_glass_card.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../benchmark/c14_runner.dart';
@@ -128,8 +128,7 @@ class _C14DebugBenchmarkSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader('Diagnostics', Icons.bug_report_rounded, colors: _colors),
-        NanoCard(
-          padding: EdgeInsets.zero,
+        InteractiveGlassCard(
           child: Padding(
             padding: const EdgeInsets.all(NanoSpacing.md),
             child: Column(

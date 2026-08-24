@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/automation/presentation/widgets/interactive_glass_card.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
 import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
@@ -7,8 +8,7 @@ import 'package:nanoai/features/automation/engine/perception/nano_selector.dart'
     show NanoSelector, SelectorFormatException;
 import 'package:nanoai/core/theme/design_tokens.dart';
   import 'package:nanoai/core/theme/nano_type.dart';
-  import 'package:nanoai/core/widgets/nano_components.dart';
-  import 'package:nanoai/core/widgets/nano_section.dart';
+    import 'package:nanoai/core/widgets/nano_section.dart';
 
 /// Consola del agente de UI — consumidor real del Selector Engine.
 ///
@@ -179,8 +179,7 @@ void initState() {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader('Agente de UI', Icons.smart_toy, colors: colors),
-          NanoCard(
-            padding: EdgeInsets.zero,
+          InteractiveGlassCard(
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -200,7 +199,7 @@ void initState() {
                   style: NanoType.body(colors.onSurface),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: colors.primary,
+                  backgroundColor: colors.accentCyan,
                   disabledBackgroundColor: colors.primary.withValues(
                     alpha: 0.4,
                   ),
@@ -261,7 +260,7 @@ void initState() {
                       colors.onSurface,
                     )),
                     style: FilledButton.styleFrom(
-                      backgroundColor: colors.primary,
+                      backgroundColor: colors.accentCyan,
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
@@ -309,19 +308,19 @@ void initState() {
                 runSpacing: NanoSpacing.sm,
                 children: [
                   _GestureButton(
-                    label: 'Back',
+                    label: 'Volver',
                     icon: Icons.arrow_back,
                     onPressed: _busy ? null : () => _gesture('back'),
                     colors: colors,
                   ),
                   _GestureButton(
-                    label: 'Launch Ajustes',
+                    label: 'Abrir Ajustes',
                     icon: Icons.launch,
                     onPressed: _busy ? null : () => _gesture('launch'),
                     colors: colors,
                   ),
                   _GestureButton(
-                    label: 'Swipe ↑',
+                    label: 'Deslizar',
                     icon: Icons.swipe_up,
                     onPressed: _busy ? null : () => _gesture('swipe'),
                     colors: colors,

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
@@ -19,6 +20,7 @@ class AutomationDevScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -44,6 +46,18 @@ class AutomationDevScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Propósito claro del Dev (no es la interfaz del asistente).
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              NanoSpacing.sm, 0, NanoSpacing.sm, NanoSpacing.sm),
+                          child: Text(
+                            'Herramientas del desarrollador para depurar la '
+                            'percepción y la ejecución del agente. No es la '
+                            'interfaz del asistente; aquí se prueban selectores, '
+                            'snapshots, gestos y el benchmark físico.',
+                            style: NanoType.body(colors.onSurfaceVariant),
+                          ),
+                        ),
                         const EngineStatusCard(),
                         const SizedBox(height: NanoSpacing.xl),
                         const AgentConsoleSection(),

@@ -74,7 +74,8 @@ void main() {
     expect(find.text('Sin consultar'), findsOneWidget);
 
     await tester.tap(find.text('Leer pantalla actual'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       find.textContaining('Conectado — com.android.settings · 7 nodos'),
@@ -92,7 +93,8 @@ void main() {
       'text=Bluetooth',
     );
     await tester.tap(find.text('Resolver'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       find.textContaining('Resuelto: "Bluetooth" (75 pts)'),
@@ -109,7 +111,8 @@ void main() {
       'text=Bluetooth',
     );
     await tester.tap(find.text('Tap seguro'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       find.textContaining('ok: tap en "Bluetooth" @(540,340)'),
@@ -126,7 +129,8 @@ void main() {
       'text=Aceptar',
     );
     await tester.tap(find.text('Tap seguro'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('FAIL [ambiguousTarget]'), findsOneWidget);
   });
@@ -139,11 +143,12 @@ void main() {
       'editable=true',
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'Texto a escribir en el campo resuelto'),
+      find.widgetWithText(TextField, 'Texto a escribir'),
       'wifi',
     );
     await tester.tap(find.text('Escribir'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('ok: "wifi" en'), findsOneWidget);
   });
@@ -156,7 +161,8 @@ void main() {
       'foo=bar',
     );
     await tester.tap(find.text('Resolver'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('Selector inválido'), findsOneWidget);
   });
