@@ -42,6 +42,21 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('composer envia un goal y muestra el resultado (flujo real)',
+      (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // Escribir + enviar como lo haría un usuario.
+    await tester.enterText(find.byType(TextField).first, 'abre Bluetooth');
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // El fake coord devuelve noPlan → el ActiveExecutionCard muestra el resultado.
+    expect(find.textContaining('noPlan'), findsOneWidget);
+  });
 }
 
 Widget _app() => ProviderScope(
