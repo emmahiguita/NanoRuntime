@@ -6,7 +6,6 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_breakpoint.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
-import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
@@ -508,13 +507,13 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.small,
+    return InteractiveGlassCard(
       borderStrength: 0.4,
       reflectionStrength: 0.28,
       blurSigma: 12,
       glassOpacityScale: 0.85,
-      accent: colors.accentCyan,
+      shimmer: false, // tile ligero: tilt 3D sí, shimmer no (sin ticker extra)
+      tiltIntensity: 0.14,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

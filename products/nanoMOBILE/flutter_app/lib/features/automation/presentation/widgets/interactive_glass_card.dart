@@ -21,6 +21,10 @@ class InteractiveGlassCard extends StatefulWidget {
   final double glassOpacityScale;
   final double tiltIntensity;
 
+  /// shimmer: reflejo especular continuo (AnimationController.repeat). false →
+  /// glass estático (sin ticker, para tiles ligeros). El tilt 3D sigue activo.
+  final bool shimmer;
+
   const InteractiveGlassCard({
     super.key,
     required this.child,
@@ -30,6 +34,7 @@ class InteractiveGlassCard extends StatefulWidget {
     this.blurSigma = 14,
     this.glassOpacityScale = 0.85,
     this.tiltIntensity = 0.18,
+    this.shimmer = true,
   });
 
   @override
@@ -41,7 +46,13 @@ class _InteractiveGlassCardState extends State<InteractiveGlassCard>
   late final AnimationController _reflection = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2600),
-  )..repeat();
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.shimmer) _reflection.repeat();
+  }
 
   double _specularDrift = 0.0;
   double _tiltX = 0.0;
