@@ -227,6 +227,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return NanoScreenShell(
       title: 'Chat',
       hideHeader: _isReadingMode,
+      resizeToAvoidBottomInset: true,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -261,9 +262,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
+      body: _isReadingMode
+          ? _ReadingMode(
+              messages: state.messages,
+              model: state.activeModel,
+              onExit: () => setState(() => _isReadingMode = false),
+            )
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
             // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
             // márgenes muertos); se mantiene una cota por legibilidad.
             maxWidth: isCompactLandscape ? 1440 : 1400,
@@ -398,14 +405,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
               ),
-              if (_isReadingMode)
-                Positioned(
-                  top: 6,
-                  right: 8,
-                  child: _ReadingModeExit(
-                    onExit: () => setState(() => _isReadingMode = false),
-                  ),
-                ),
             ],
           ),
         ),
@@ -584,37 +583,416 @@ class _ComposerTransition extends StatelessWidget {
   }
 }
 
-class _ReadingModeExit extends StatelessWidget {
-  const _ReadingModeExit({required this.onExit});
+// ================================================================
+// Modo lectura real e inmersivo
+// ================================================================
+
+/// Modo lectura REAL: superficie serena de bajo deslumbramiento, columna
+/// centrada legible (720px), tipografía amplia (17px/1.75), barra de progreso
+/// y salida elegante. Abandona el chrome del chat para enfocarse en el
+/// contenido — no es un simple ocultar barra.
+class _ReadingMode extends StatefulWidget {
+  const _ReadingMode({
+    required this.messages,
+    required this.model,
+    required this.onExit,
+  });
+
+  final List<ChatMessage> messages;
+  final String model;
+  final VoidCallback onExit;
+
+  @override
+  State<_ReadingMode> createState() => _ReadingModeState();
+}
+
+class _ReadingModeState extends State<_ReadingMode> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    final surface = Stack(
+      children: [
+        // Superficie serena de lectura: degradado vertical suave y profundo,
+        // sin reflejos ruidosos, para lectura prolongada sin fatiga.
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [
+                        colors.glass100.withValues(alpha: 0.12),
+                        colors.surface.withValues(alpha: 0.90),
+                        colors.glass300.withValues(alpha: 0.16),
+                      ]
+                    : [
+                        colors.surface.withValues(alpha: 0.40),
+                        Colors.white.withValues(alpha: 0.72),
+                        colors.surface.withValues(alpha: 0.45),
+                      ],
+              ),
+            ),
+          ),
+        ),
+        // Contenido centrado legible (foco en el texto, no en las burbujas)
+        Positioned.fill(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: ListView.builder(
+                controller: _scroll,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 48, 24, 72),
+                itemCount: widget.messages.length,
+                itemBuilder: (context, i) => _ReadingParagraph(
+                  message: widget.messages[i],
+                  model: widget.model,
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Barra de progreso de lectura (delgada, superior)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _ReadingProgress(scroll: _scroll),
+        ),
+        // Salida elegante: píldora de vidrio fija, siempre accesible.
+        Positioned(
+          top: 8,
+          right: 12,
+          child: _ReadingExitPill(onExit: widget.onExit),
+        ),
+      ],
+    );
+
+    if (reduceMotion) return surface;
+
+    // Entrada inmersiva: fundido + escala suave al abrir el modo lectura
+    // (transición glass, respeta reduce-motion).
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) {
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(
+            scale: 0.982 + 0.018 * t,
+            child: child,
+          ),
+        );
+      },
+      child: surface,
+    );
+  }
+}
+
+/// Barra de progreso de lectura: refleja la fracción de scroll de forma sutil.
+class _ReadingProgress extends StatefulWidget {
+  const _ReadingProgress({required this.scroll});
+
+  final ScrollController scroll;
+
+  @override
+  State<_ReadingProgress> createState() => _ReadingProgressState();
+}
+
+class _ReadingProgressState extends State<_ReadingProgress> {
+  @override
+  void initState() {
+    super.initState();
+    widget.scroll.addListener(_onChange);
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.scroll.removeListener(_onChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final pos = widget.scroll.hasClients ? widget.scroll.position : null;
+    // hasViewportDimension: antes del layout el viewport no fijó su dimensión
+    // y maxScrollExtent es null (acceder a él revienta con un null-check).
+    if (pos == null || !pos.hasViewportDimension) {
+      return const SizedBox(height: 2.5);
+    }
+    final max = pos.maxScrollExtent;
+    final frac = max <= 0 ? 1.0 : (pos.pixels / max).clamp(0.0, 1.0);
+
+    return Container(
+      height: 2.5,
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: frac,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [colors.accent, colors.accentCyan],
+            ),
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: colors.accent.withValues(alpha: 0.45),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Píldora de vidrio para salir del modo lectura (con texto, no solo icono).
+class _ReadingExitPill extends StatelessWidget {
+  const _ReadingExitPill({required this.onExit});
 
   final VoidCallback onExit;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-
     return NanoOpticalSurface(
+      key: const ValueKey('chat_reading_mode_exit'),
       geometry: NanoSurfaceGeometry.capsule,
       borderRadius: 999,
       blurSigma: 14,
-      borderStrength: 0.58,
-      reflectionStrength: 0.42,
+      borderStrength: 0.62,
+      reflectionStrength: 0.50,
+      accent: colors.accent,
+      onTap: onExit,
       padding: EdgeInsets.zero,
-      child: IconButton(
-        key: const ValueKey('chat_reading_mode_exit'),
-        tooltip: 'Salir del modo lectura',
-        visualDensity: VisualDensity.compact,
-        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-        padding: EdgeInsets.zero,
-        onPressed: onExit,
-        icon: Icon(
-          Icons.fullscreen_exit_rounded,
-          size: 19,
-          color: colors.onSurface.withValues(alpha: 0.78),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.fullscreen_exit_rounded,
+              size: 15,
+              color: colors.onSurface.withValues(alpha: 0.75),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              'Salir de lectura',
+              style: TextStyle(
+                color: colors.onSurface.withValues(alpha: 0.80),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+/// Un párrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
+class _ReadingParagraph extends StatelessWidget {
+  const _ReadingParagraph({required this.message, required this.model});
+
+  final ChatMessage message;
+  final String model;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isUser = message.sender == MessageSender.user;
+    final isError = message.status == MessageStatus.error;
+    final time =
+        '${message.timestamp.hour.toString().padLeft(2, '0')}:'
+        '${message.timestamp.minute.toString().padLeft(2, '0')}';
+    final label = isUser ? 'Tú' : (model.isEmpty ? 'NanoAI' : model);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              isUser ? Icons.person_rounded : Icons.auto_awesome_rounded,
+              size: 13,
+              color: isUser
+                  ? colors.onSurface.withValues(alpha: 0.45)
+                  : colors.accent.withValues(alpha: 0.85),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: isUser
+                    ? colors.onSurface.withValues(alpha: 0.50)
+                    : colors.accent.withValues(alpha: 0.85),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              time,
+              style: TextStyle(
+                color: colors.onSurface.withValues(alpha: 0.38),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (isError)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, size: 14, color: colors.danger),
+                const SizedBox(width: 6),
+                Text(
+                  'Error',
+                  style: TextStyle(color: colors.danger, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        if (isUser)
+          SelectableText(
+            message.text,
+            style: _readingBodyStyle(colors, isUser: true),
+          )
+        else
+          _buildReadingAiBody(context, message.text),
+        const SizedBox(height: 34),
+      ],
+    );
+  }
+}
+
+/// Hoja de estilo Markdown para el modo lectura (tipografía amplia, cómoda).
+MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
+  final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+  return MarkdownStyleSheet(
+    p: TextStyle(
+      color: colors.onSurface.withValues(alpha: 0.96),
+      fontSize: 17,
+      height: 1.75,
+      letterSpacing: 0.15,
+    ),
+    h1: TextStyle(
+      color: colors.accent,
+      fontSize: 26,
+      fontWeight: FontWeight.bold,
+      height: 1.45,
+    ),
+    h2: TextStyle(
+      color: colors.accent,
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+      height: 1.4,
+    ),
+    h3: TextStyle(
+      color: colors.success,
+      fontSize: 19,
+      fontWeight: FontWeight.w600,
+      height: 1.35,
+    ),
+    strong: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700),
+    em: TextStyle(
+      color: colors.onSurface.withValues(alpha: 0.9),
+      fontStyle: FontStyle.italic,
+    ),
+    listBullet: TextStyle(color: colors.accent, fontSize: 17),
+    code: TextStyle(
+      backgroundColor: colors.success.withValues(alpha: 0x20 / 0xFF),
+      color: colors.success,
+      fontFamily: 'monospace',
+      fontSize: 15,
+    ),
+    codeblockPadding: const EdgeInsets.all(14),
+    codeblockDecoration: BoxDecoration(
+      color: colors.codeBlockBg,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: colors.accent.withValues(alpha: 0.25)),
+    ),
+    blockquote: TextStyle(
+      color: colors.onSurface.withValues(alpha: 0.8),
+      fontSize: 16,
+      fontStyle: FontStyle.italic,
+    ),
+    blockquoteDecoration: BoxDecoration(
+      color: colors.quoteBg.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(8),
+      border: Border(left: BorderSide(color: colors.accent, width: 3)),
+    ),
+    tableBorder: TableBorder.all(
+      color: colors.onSurface.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    tableHead: TextStyle(color: colors.accent, fontWeight: FontWeight.w700),
+    tableBody: TextStyle(color: colors.onSurface.withValues(alpha: 0.9)),
+    tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+  );
+}
+
+/// Estilo del texto plano del usuario en modo lectura.
+TextStyle _readingBodyStyle(NanoColors colors, {required bool isUser}) {
+  return TextStyle(
+    color: isUser
+        ? colors.onSurface
+        : colors.onSurface.withValues(alpha: 0.96),
+    fontSize: 17,
+    height: 1.75,
+    letterSpacing: 0.15,
+  );
+}
+
+/// Cuerpo AI en modo lectura: parsea pensamiento + markdown amplio.
+Widget _buildReadingAiBody(BuildContext context, String text) {
+  final parsed = parseThought(text);
+  final thought = parsed.thought;
+  final response = parsed.response;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (thought != null && thought.trim().isNotEmpty)
+        ModelReasoningBlock(thought: thought),
+      if (response.trim().isNotEmpty)
+        MarkdownBody(
+          data: response,
+          selectable: true,
+          styleSheet: _buildReadingMarkdownStyleSheet(context),
+        )
+      else if (thought == null || response.isEmpty)
+        MarkdownBody(
+          data: text.isEmpty ? '...' : text,
+          selectable: true,
+          styleSheet: _buildReadingMarkdownStyleSheet(context),
+        ),
+    ],
+  );
 }
 
 /// Badge de estado del motor con pulso lento cuando está online. Detenido:
@@ -1809,6 +2187,21 @@ class _ComposerState extends State<_Composer> {
     super.initState();
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChange);
+    // Desktop/Web: Enter envía, Shift+Enter inserta salto de línea.
+    // En móvil, la tecla "enviar" del teclado dispara onSubmitted.
+    _focusNode.onKeyEvent = (node, event) {
+      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+      final key = event.logicalKey;
+      if (key != LogicalKeyboardKey.enter &&
+          key != LogicalKeyboardKey.numpadEnter) {
+        return KeyEventResult.ignored;
+      }
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        return KeyEventResult.ignored;
+      }
+      _trySend();
+      return KeyEventResult.handled;
+    };
     _hasText = widget.controller.text.trim().isNotEmpty;
     widget.controller.addListener(_onTextChange);
   }
@@ -1823,6 +2216,13 @@ class _ComposerState extends State<_Composer> {
     final has = widget.controller.text.trim().isNotEmpty;
     if (has != _hasText && mounted) {
       setState(() => _hasText = has);
+    }
+  }
+
+  /// Envío seguro: solo si el composer está habilitado y hay texto.
+  void _trySend() {
+    if (widget.enabled && _hasText) {
+      widget.onSend();
     }
   }
 
@@ -2032,6 +2432,8 @@ class _ComposerState extends State<_Composer> {
                     enabled: widget.enabled,
                     maxLines: widget.compact ? 3 : 5,
                     minLines: 1,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _trySend(),
                     style: TextStyle(
                       color: colors.onSurface,
                       fontSize: 14.5,
