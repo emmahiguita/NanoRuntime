@@ -155,16 +155,7 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
   }
 
   void _handlePointerHover(PointerHoverEvent event) {
-    final renderBox = context.findRenderObject() as RenderBox?;
-    final size = renderBox?.size;
-    if (size == null || size.isEmpty) return;
-
-    final nextLight = Alignment(
-      (event.localPosition.dx / size.width * 2 - 1).clamp(-1.0, 1.0).toDouble(),
-      (event.localPosition.dy / size.height * 2 - 1)
-          .clamp(-1.0, 1.0)
-          .toDouble(),
-    );
+    final nextLight = _lightFromPosition(event.localPosition);
     if (!_isPointerInside ||
         (nextLight.x - _pointerLight.x).abs() > 0.035 ||
         (nextLight.y - _pointerLight.y).abs() > 0.035) {
@@ -176,6 +167,42 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
   }
 
   void _handlePointerExit(PointerExitEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+  }
+
+  /// Alineación de la luz pendiente, normalizada a [-1,1] desde la posición
+  /// local del puntero (hover de ratón O táctil).
+  Alignment _lightFromPosition(Offset localPosition) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final size = renderBox?.size;
+    if (size == null || size.isEmpty) return Alignment.center;
+    return Alignment(
+      (localPosition.dx / size.width * 2 - 1).clamp(-1.0, 1.0).toDouble(),
+      (localPosition.dy / size.height * 2 - 1).clamp(-1.0, 1.0).toDouble(),
+    );
+  }
+
+  /// Seguimiento TÁCTIL: en móvil no hay hover, así que el puntero (y con él
+  /// el tilt 3D + el especular) sigue la posición del DEDO. Mismo umbral de
+  /// movimiento que el hover → sin setState por cada píxel.
+  void _handleTouchDown(PointerDownEvent event) => _trackTouch(event.localPosition);
+
+  void _handleTouchMove(PointerMoveEvent event) => _trackTouch(event.localPosition);
+
+  void _trackTouch(Offset localPosition) {
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    final nextLight = _lightFromPosition(localPosition);
+    if (!_isPointerInside ||
+        (nextLight.x - _pointerLight.x).abs() > 0.035 ||
+        (nextLight.y - _pointerLight.y).abs() > 0.035) {
+      setState(() {
+        _isPointerInside = true;
+        _pointerLight = nextLight;
+      });
+    }
+  }
+
+  void _handleTouchExit() {
     if (_isPointerInside) setState(() => _isPointerInside = false);
   }
 
@@ -271,10 +298,16 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
       out = surface;
     }
 
-    return MouseRegion(
-      onHover: reduceMotion ? null : _handlePointerHover,
-      onExit: _handlePointerExit,
-      child: out,
+    return Listener(
+      onPointerDown: _handleTouchDown,
+      onPointerMove: _handleTouchMove,
+      onPointerUp: (_) => _handleTouchExit(),
+      onPointerCancel: (_) => _handleTouchExit(),
+      child: MouseRegion(
+        onHover: reduceMotion ? null : _handlePointerHover,
+        onExit: _handlePointerExit,
+        child: out,
+      ),
     );
   }
 

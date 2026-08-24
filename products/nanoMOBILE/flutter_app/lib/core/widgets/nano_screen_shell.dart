@@ -15,6 +15,7 @@ class NanoScreenShell extends StatelessWidget {
     this.hideHeaderInPortrait = false,
     this.hideHeader = false,
     this.showBack,
+    this.resizeToAvoidBottomInset = false,
   });
 
   final String title;
@@ -29,6 +30,11 @@ class NanoScreenShell extends StatelessWidget {
   /// las pestañas del shell no (el back del sistema cambia de pestaña).
   final bool? showBack;
 
+  /// Si el body se encoge cuando el teclado abre (viewInsets). Chat lo
+  /// activa para que el composer se eleve sobre el teclado en vez de quedar
+  /// tapado. El resto de pantallas preservan el valor por defecto.
+  final bool resizeToAvoidBottomInset;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
@@ -42,7 +48,7 @@ class NanoScreenShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
