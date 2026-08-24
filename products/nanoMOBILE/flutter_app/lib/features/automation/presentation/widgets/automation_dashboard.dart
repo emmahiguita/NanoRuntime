@@ -195,17 +195,33 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Columnas acotadas (máx 520) → las cards NO se
+                            // estiran a todo el ancho en horizontal.
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: left,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 520),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: left,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: NanoSpacing.xl),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: right,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 520),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: right,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -550,8 +566,12 @@ class RecentExecutionsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
     final traces = ref.watch(actionLedgerProvider).entries;
-    return NanoCard(
-      padding: EdgeInsets.zero,
+    return NanoOpticalSurface(
+      borderRadius: NanoRadius.large,
+      borderStrength: 0.5,
+      reflectionStrength: 0.3,
+      blurSigma: 12,
+      glassOpacityScale: 0.8,
       child: Padding(
         padding: const EdgeInsets.all(NanoSpacing.md),
         child: Column(
