@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
-  import 'package:nanoai/core/theme/nano_type.dart';
-  import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/automation/executors/notification_executor.dart';
 import 'package:nanoai/features/automation/executors/notification_executor_provider.dart';
 
@@ -147,8 +147,8 @@ class _NotificationAutomationSectionState
           Icons.notifications_active_rounded,
           colors: colors,
         ),
-          InteractiveGlassCard(
-            child: Padding(
+        InteractiveGlassCard(
+          child: Padding(
             padding: const EdgeInsets.all(NanoSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -115,21 +115,23 @@ void main() {
       expect(tapCalls, isEmpty);
     });
 
-    test('@tap → ok con coordenadas del centro y postcondición verificada',
-        () async {
-      // Tras el gesto real (tapCalls no vacío) la pantalla cambia — el
-      // verifier debe confirmar el cambio de snapshot.
-      dumpProvider = () =>
-          tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
-      final r = await dispatcher.runCommand('@tap text=Bluetooth');
-      // AgentLoop verificado: completa limpio (sin sufijo [verify:]) porque
-      // la postcondición (cambio de snapshot) se satisfizo.
-      expect(r, 'tap en "Bluetooth" @(540,340)');
-      expect(tapCalls, [
-        [540, 340],
-      ]);
-      expect(methodCalls, isNot(contains('tapOnText')));
-    });
+    test(
+      '@tap → ok con coordenadas del centro y postcondición verificada',
+      () async {
+        // Tras el gesto real (tapCalls no vacío) la pantalla cambia — el
+        // verifier debe confirmar el cambio de snapshot.
+        dumpProvider = () =>
+            tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
+        final r = await dispatcher.runCommand('@tap text=Bluetooth');
+        // AgentLoop verificado: completa limpio (sin sufijo [verify:]) porque
+        // la postcondición (cambio de snapshot) se satisfizo.
+        expect(r, 'tap en "Bluetooth" @(540,340)');
+        expect(tapCalls, [
+          [540, 340],
+        ]);
+        expect(methodCalls, isNot(contains('tapOnText')));
+      },
+    );
 
     test('@tap sin cambio de pantalla → gesto ok pero verify falla', () async {
       // dispatchGesture devolvió true pero la pantalla no cambió: NO se
@@ -146,22 +148,24 @@ void main() {
       expect(tapCalls, isEmpty);
     });
 
-    test('@escribir → ok, inputText exacto y texto visible verificado',
-        () async {
-      focused = true;
-      // Antes del input el campo está sin foco/vacío; después del
-      // inputText el texto "wifi" es visible → postcondición verificada.
-      dumpProvider = () {
-        final raw = ajustesFocused();
-        if (inputCalls.isNotEmpty) {
-          ((raw['nodes'] as List)[5] as Map)['text'] = inputCalls.last;
-        }
-        return raw;
-      };
-      final r = await dispatcher.runCommand('@escribir wifi | editable=true');
-      expect(r, contains('"wifi" escrito en'));
-      expect(inputCalls, ['wifi']);
-    });
+    test(
+      '@escribir → ok, inputText exacto y texto visible verificado',
+      () async {
+        focused = true;
+        // Antes del input el campo está sin foco/vacío; después del
+        // inputText el texto "wifi" es visible → postcondición verificada.
+        dumpProvider = () {
+          final raw = ajustesFocused();
+          if (inputCalls.isNotEmpty) {
+            ((raw['nodes'] as List)[5] as Map)['text'] = inputCalls.last;
+          }
+          return raw;
+        };
+        final r = await dispatcher.runCommand('@escribir wifi | editable=true');
+        expect(r, contains('"wifi" escrito en'));
+        expect(inputCalls, ['wifi']);
+      },
+    );
 
     test('@back → globalAction con cambio de pantalla verificado', () async {
       dumpProvider = () => methodCalls.contains('globalAction')
@@ -379,9 +383,7 @@ void main() {
     });
 
     test('objeto único → lista de una (compat single)', () {
-      final calls = AgentToolProtocol.extractToolCalls(
-        '{"tool":"screen"}',
-      );
+      final calls = AgentToolProtocol.extractToolCalls('{"tool":"screen"}');
       expect(calls, hasLength(1));
       expect(calls.single.tool, 'screen');
     });
@@ -398,19 +400,24 @@ void main() {
     // el caller real (chat send) resetea antes; aquí se resetea por test.
     setUp(() => dispatcher.resetTurn());
 
-    test('plan solo-lectura de 2 pasos verificado → completed numerado',
-        () async {
-      final outcome = await dispatcher.runPlanGuarded(const [
-        ToolCall(tool: 'screen'),
-        ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
-      ]);
-      expect(outcome.completed, isTrue);
-      expect(outcome.steps, hasLength(2));
-      expect(outcome.pauseIndex, isNull);
-      expect(outcome.summary, contains('1/2 Pantalla "com.android.settings"'));
-      expect(outcome.summary, contains('2/2 Resuelto: "Bluetooth"'));
-      expect(tapCalls, isEmpty);
-    });
+    test(
+      'plan solo-lectura de 2 pasos verificado → completed numerado',
+      () async {
+        final outcome = await dispatcher.runPlanGuarded(const [
+          ToolCall(tool: 'screen'),
+          ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
+        ]);
+        expect(outcome.completed, isTrue);
+        expect(outcome.steps, hasLength(2));
+        expect(outcome.pauseIndex, isNull);
+        expect(
+          outcome.summary,
+          contains('1/2 Pantalla "com.android.settings"'),
+        );
+        expect(outcome.summary, contains('2/2 Resuelto: "Bluetooth"'));
+        expect(tapCalls, isEmpty);
+      },
+    );
 
     test('plan de acciones sensibles aprobado → completed', () async {
       // El mundo cambia con cada acción: tap → dobleAceptar; back → ajustes.
@@ -436,13 +443,10 @@ void main() {
     test('paso 2 denegado por política → plan aborta tras el paso 1', () async {
       dumpProvider = () =>
           tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
-      final outcome = await dispatcher.runPlanGuarded(
-        const [
-          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-          ToolCall(tool: 'rm'), // fuera del registro
-        ],
-        confirmed: true,
-      );
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'rm'), // fuera del registro
+      ], confirmed: true);
       expect(outcome.completed, isFalse);
       expect(outcome.steps, hasLength(2));
       expect(outcome.summary, contains('1/2 tap en "Bluetooth"'));
@@ -453,50 +457,46 @@ void main() {
       // Solo el primer tap cambia la pantalla; el segundo no encuentra nada.
       dumpProvider = () =>
           tapCalls.length == 1 ? snapshotDobleAceptar() : snapshotAjustes();
-      final outcome = await dispatcher.runPlanGuarded(
-        const [
-          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-          ToolCall(tool: 'tap', selector: 'text=Inexistente'),
-        ],
-        confirmed: true,
-      );
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'tap', selector: 'text=Inexistente'),
+      ], confirmed: true);
       expect(outcome.completed, isFalse);
       expect(outcome.steps, hasLength(2));
       expect(outcome.summary, contains('[notFound]'));
       expect(tapCalls, hasLength(1));
     });
 
-    test('plan sensible sin confirmar → pausa en paso 1 y reanuda completo',
-        () async {
-      dumpProvider = () {
-        if (methodCalls.contains('globalAction')) return snapshotAjustes();
-        if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
-        return snapshotAjustes();
-      };
-      // Flujo E2E real del chat: el LLM emite [tap, back] sin autorización.
-      final paused = await dispatcher.runPlanGuarded(const [
-        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-        ToolCall(tool: 'back'),
-      ]);
-      expect(paused.completed, isFalse);
-      expect(paused.pauseIndex, 0);
-      expect(paused.pauseCall!.tool, 'tap');
-      // Nada se ejecutó todavía.
-      expect(tapCalls, isEmpty);
-
-      // El usuario aprueba el plan → se reanuda COMPLETO y autorizado.
-      final resumed = await dispatcher.runPlanGuarded(
-        const [
+    test(
+      'plan sensible sin confirmar → pausa en paso 1 y reanuda completo',
+      () async {
+        dumpProvider = () {
+          if (methodCalls.contains('globalAction')) return snapshotAjustes();
+          if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
+          return snapshotAjustes();
+        };
+        // Flujo E2E real del chat: el LLM emite [tap, back] sin autorización.
+        final paused = await dispatcher.runPlanGuarded(const [
           ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
           ToolCall(tool: 'back'),
-        ],
-        confirmed: true,
-      );
-      expect(resumed.completed, isTrue);
-      expect(resumed.steps, hasLength(2));
-      expect(tapCalls, hasLength(1));
-      expect(resumed.summary, contains('2/2 Botón atrás'));
-    });
+        ]);
+        expect(paused.completed, isFalse);
+        expect(paused.pauseIndex, 0);
+        expect(paused.pauseCall!.tool, 'tap');
+        // Nada se ejecutó todavía.
+        expect(tapCalls, isEmpty);
+
+        // El usuario aprueba el plan → se reanuda COMPLETO y autorizado.
+        final resumed = await dispatcher.runPlanGuarded(const [
+          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+          ToolCall(tool: 'back'),
+        ], confirmed: true);
+        expect(resumed.completed, isTrue);
+        expect(resumed.steps, hasLength(2));
+        expect(tapCalls, hasLength(1));
+        expect(resumed.summary, contains('2/2 Botón atrás'));
+      },
+    );
 
     test('plan cíclico A→B→A→B → loopDetected antes de repetir', () async {
       // El mundo avanza con cada acción (tap → dobleAceptar, back → ajustes),
@@ -508,15 +508,12 @@ void main() {
         if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
         return snapshotAjustes();
       };
-      final outcome = await dispatcher.runPlanGuarded(
-        const [
-          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-          ToolCall(tool: 'back'),
-          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-          ToolCall(tool: 'back'),
-        ],
-        confirmed: true,
-      );
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'back'),
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'back'),
+      ], confirmed: true);
       expect(outcome.completed, isFalse);
       expect(outcome.summary, contains('[loopDetected]'));
       // El paso repetido (2º back) no se ejecutó: solo 1 back, pero los dos
@@ -525,17 +522,20 @@ void main() {
       expect(methodCalls.where((m) => m == 'globalAction'), hasLength(1));
     });
 
-    test('plan largo legítimo sin repetir acción → no falso positivo', () async {
-      // Solo herramientas read contra el snapshot fijo de ajustes (Bluetooth
-      // y Aceptar existen): acciones todas distintas, sin loop posible.
-      final outcome = await dispatcher.runPlanGuarded(const [
-        ToolCall(tool: 'screen'),
-        ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
-        ToolCall(tool: 'screen'),
-        ToolCall(tool: 'resolve', selector: 'text=Aceptar'),
-      ]);
-      expect(outcome.completed, isTrue);
-      expect(outcome.summary, isNot(contains('[loopDetected]')));
-    });
+    test(
+      'plan largo legítimo sin repetir acción → no falso positivo',
+      () async {
+        // Solo herramientas read contra el snapshot fijo de ajustes (Bluetooth
+        // y Aceptar existen): acciones todas distintas, sin loop posible.
+        final outcome = await dispatcher.runPlanGuarded(const [
+          ToolCall(tool: 'screen'),
+          ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
+          ToolCall(tool: 'screen'),
+          ToolCall(tool: 'resolve', selector: 'text=Aceptar'),
+        ]);
+        expect(outcome.completed, isTrue);
+        expect(outcome.summary, isNot(contains('[loopDetected]')));
+      },
+    );
   });
 }

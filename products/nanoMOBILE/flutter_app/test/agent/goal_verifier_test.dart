@@ -13,19 +13,18 @@ void main() {
   group('GoalVerifier', () {
     test('plan incompleto → notSatisfied, nunca éxito', () async {
       final v = GoalVerifier(executor: _FakeExecutor(snapshotAjustes()));
-      final r = await v.verify(
-        'abre ajustes y vuelve',
-        planCompleted: false,
-      );
+      final r = await v.verify('abre ajustes y vuelve', planCompleted: false);
       expect(r.status, GoalStatus.notSatisfied);
     });
 
-    test('plan completo sin expectativa → unverified (honesto, no inventado)',
-        () async {
-      final v = GoalVerifier(executor: _FakeExecutor(snapshotAjustes()));
-      final r = await v.verify('abre ajustes y vuelve', planCompleted: true);
-      expect(r.status, GoalStatus.unverified);
-    });
+    test(
+      'plan completo sin expectativa → unverified (honesto, no inventado)',
+      () async {
+        final v = GoalVerifier(executor: _FakeExecutor(snapshotAjustes()));
+        final r = await v.verify('abre ajustes y vuelve', planCompleted: true);
+        expect(r.status, GoalStatus.unverified);
+      },
+    );
 
     test('expectativa visibleText cumplida → satisfied', () async {
       // snapshotAjustes contiene el nodo "Bluetooth".
@@ -89,7 +88,10 @@ class _FakeExecutor implements AgentExecutor {
       _raw == null ? null : NanoSnapshot.fromRaw(_raw!);
 
   @override
-  Future<AgentExecutionResult> setText(NanoSelector selector, String text) async {
+  Future<AgentExecutionResult> setText(
+    NanoSelector selector,
+    String text,
+  ) async {
     throw UnimplementedError();
   }
 

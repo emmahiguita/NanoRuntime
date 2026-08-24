@@ -207,8 +207,7 @@ class ActionVerifier implements AgentVerifier {
       if (!lastSnap.isEmpty) {
         final outcome = _checkOnce(expectation, lastSnap, preSnapshot);
         if (outcome != null) return outcome;
-        pending = _pendingList(expectation, lastSnap, preSnapshot)
-            .join('; ');
+        pending = _pendingList(expectation, lastSnap, preSnapshot).join('; ');
       } else {
         pending = 'Snapshot vacío: sin ventana activa (rebind en curso).';
       }
@@ -216,7 +215,8 @@ class ActionVerifier implements AgentVerifier {
       if (DateTime.now().isAfter(deadline)) {
         return VerificationOutcome(
           status: VerificationStatus.timeout,
-          reason: 'Plazo de ${expectation.timeout.inMilliseconds}ms agotado — '
+          reason:
+              'Plazo de ${expectation.timeout.inMilliseconds}ms agotado — '
               'pendiente: $pending',
           snapshot: lastSnap,
         );
@@ -237,7 +237,8 @@ class ActionVerifier implements AgentVerifier {
       if (_containsVisibleText(snap, e.forbiddenText!)) {
         return VerificationOutcome(
           status: VerificationStatus.notVerified,
-          reason: 'Texto prohibido "${e.forbiddenText}" visible tras la '
+          reason:
+              'Texto prohibido "${e.forbiddenText}" visible tras la '
               'acción.',
           snapshot: snap,
         );
@@ -251,7 +252,8 @@ class ActionVerifier implements AgentVerifier {
       if (pkg.isNotEmpty && pkg != e.expectedPackage) {
         return VerificationOutcome(
           status: VerificationStatus.wrongPackage,
-          reason: 'Package esperado "${e.expectedPackage}", en primer plano '
+          reason:
+              'Package esperado "${e.expectedPackage}", en primer plano '
               '"$pkg".',
           snapshot: snap,
         );
@@ -272,8 +274,10 @@ class ActionVerifier implements AgentVerifier {
     }
     if (e.mustDisappear != null &&
         _engine.resolve(e.mustDisappear!, snap).isResolved) {
-      pending.add('mustDisappear=${e.mustDisappear!.toDebugString()} '
-          'sigue presente');
+      pending.add(
+        'mustDisappear=${e.mustDisappear!.toDebugString()} '
+        'sigue presente',
+      );
     }
     if (e.expectedText != null &&
         e.expectedText!.isNotEmpty &&
@@ -326,7 +330,8 @@ class ActionVerifier implements AgentVerifier {
           e.expectedText!.isNotEmpty &&
           !_containsVisibleText(snap, e.expectedText!))
         'texto "${e.expectedText}" no visible',
-      if (e.mustChangeSnapshot && pre != null &&
+      if (e.mustChangeSnapshot &&
+          pre != null &&
           _signature(snap) == _signature(pre))
         'el snapshot no cambió respecto al previo',
     ];

@@ -30,8 +30,10 @@ class _FakeExecutor implements AgentExecutor {
       const AgentExecutionResult.ok();
 
   @override
-  Future<AgentExecutionResult> setText(NanoSelector selector, String text) async =>
-      const AgentExecutionResult.ok();
+  Future<AgentExecutionResult> setText(
+    NanoSelector selector,
+    String text,
+  ) async => const AgentExecutionResult.ok();
 }
 
 class _FakeVerifier implements AgentVerifier {
@@ -39,21 +41,24 @@ class _FakeVerifier implements AgentVerifier {
   Future<VerificationOutcome> verify(
     ActionExpectation expectation, {
     NanoSnapshot? preSnapshot,
-  }) async =>
-      const VerificationOutcome(status: VerificationStatus.verified, reason: 'ok');
+  }) async => const VerificationOutcome(
+    status: VerificationStatus.verified,
+    reason: 'ok',
+  );
 }
 
-AgentLoop _loop() => AgentLoop(executor: _FakeExecutor(), verifier: _FakeVerifier());
+AgentLoop _loop() =>
+    AgentLoop(executor: _FakeExecutor(), verifier: _FakeVerifier());
 
 /// Pol├¡tica permisiva para el camino feliz: tap/write como lectura (sin
 /// confirmaci├│n). El PolicyEngine por defecto pide confirmaci├│n para
 /// acciones de device/externalWrite ÔÇö la gobernanza se prueba aparte.
 PolicyEngine _permissivePolicy() => PolicyEngine(
-      registry: ToolRegistry({
-        'tap': const ToolDefinition(name: 'tap', risk: ToolRisk.read),
-        'write': const ToolDefinition(name: 'write', risk: ToolRisk.read),
-      }),
-    );
+  registry: ToolRegistry({
+    'tap': const ToolDefinition(name: 'tap', risk: ToolRisk.read),
+    'write': const ToolDefinition(name: 'write', risk: ToolRisk.read),
+  }),
+);
 
 void main() {
   test('goal simple (tap) se planifica y ejecuta completo', () async {
@@ -101,7 +106,11 @@ void main() {
 
     expect(result.completed, isFalse);
     expect(result.deniedTool, 'write');
-    expect(result.loopResult, isNull, reason: 'no se ejecuta nada sin confirmar');
+    expect(
+      result.loopResult,
+      isNull,
+      reason: 'no se ejecuta nada sin confirmar',
+    );
   });
 
   test('tool desconocido ÔåÆ la pol├¡tica deniega', () async {

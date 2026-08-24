@@ -29,7 +29,10 @@ class _FakeExecutor implements AgentExecutor {
   }
 
   @override
-  Future<AgentExecutionResult> setText(NanoSelector selector, String text) async {
+  Future<AgentExecutionResult> setText(
+    NanoSelector selector,
+    String text,
+  ) async {
     return setTextResults[setTextCalls++ % setTextResults.length];
   }
 }
@@ -51,12 +54,12 @@ class _FakeVerifier implements AgentVerifier {
 }
 
 AgentStep _tapStep(String id, {int maxAttempts = 3}) => AgentStep(
-      id: id,
-      selector: NanoSelector.parse('text=$id'),
-      action: AgentAction.tap,
-      expectation: const ActionExpectation(),
-      maxAttempts: maxAttempts,
-    );
+  id: id,
+  selector: NanoSelector.parse('text=$id'),
+  action: AgentAction.tap,
+  expectation: const ActionExpectation(),
+  maxAttempts: maxAttempts,
+);
 
 void main() {
   test('un paso tap+verificado completa el plan', () async {
@@ -64,7 +67,10 @@ void main() {
       tapResults: const [AgentExecutionResult.ok()],
     );
     final verifier = _FakeVerifier([
-      const VerificationOutcome(status: VerificationStatus.verified, reason: 'ok'),
+      const VerificationOutcome(
+        status: VerificationStatus.verified,
+        reason: 'ok',
+      ),
     ]);
     final loop = AgentLoop(executor: executor, verifier: verifier);
 
@@ -107,7 +113,10 @@ void main() {
       ],
     );
     final verifier = _FakeVerifier([
-      const VerificationOutcome(status: VerificationStatus.verified, reason: 'ok'),
+      const VerificationOutcome(
+        status: VerificationStatus.verified,
+        reason: 'ok',
+      ),
     ]);
     final loop = AgentLoop(executor: executor, verifier: verifier);
 
@@ -161,14 +170,14 @@ void main() {
       ],
     );
     final verifier = _FakeVerifier([
-      const VerificationOutcome(status: VerificationStatus.verified, reason: 'ok'),
+      const VerificationOutcome(
+        status: VerificationStatus.verified,
+        reason: 'ok',
+      ),
     ]);
     final loop = AgentLoop(executor: executor, verifier: verifier);
 
-    final result = await loop.run([
-      _tapStep('Ajustes'),
-      _tapStep('Bluetooth'),
-    ]);
+    final result = await loop.run([_tapStep('Ajustes'), _tapStep('Bluetooth')]);
 
     expect(result.completed, isFalse);
     expect(result.steps, hasLength(2));

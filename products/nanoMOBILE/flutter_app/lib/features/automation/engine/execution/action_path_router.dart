@@ -30,14 +30,14 @@ enum ExecutionPath {
   coordinates;
 
   String get label => switch (this) {
-        ExecutionPath.androidIntent => 'Android API / Intent',
-        ExecutionPath.structuredTool => 'Herramienta estructurada',
-        ExecutionPath.linux => 'Linux',
-        ExecutionPath.accessibility => 'Accessibility',
-        ExecutionPath.ocr => 'OCR',
-        ExecutionPath.vision => 'Vision',
-        ExecutionPath.coordinates => 'Coordenadas (fallback)',
-      };
+    ExecutionPath.androidIntent => 'Android API / Intent',
+    ExecutionPath.structuredTool => 'Herramienta estructurada',
+    ExecutionPath.linux => 'Linux',
+    ExecutionPath.accessibility => 'Accessibility',
+    ExecutionPath.ocr => 'OCR',
+    ExecutionPath.vision => 'Vision',
+    ExecutionPath.coordinates => 'Coordenadas (fallback)',
+  };
 }
 
 class PathDecision {
@@ -52,8 +52,8 @@ class ActionPathRouter {
   ActionPathRouter({
     bool Function()? intentAvailable,
     bool Function()? linuxAvailable,
-  })  : _intentAvailable = intentAvailable ?? (() => false),
-        _linuxAvailable = linuxAvailable ?? (() => false);
+  }) : _intentAvailable = intentAvailable ?? (() => false),
+       _linuxAvailable = linuxAvailable ?? (() => false);
 
   final bool Function() _intentAvailable;
   final bool Function() _linuxAvailable;

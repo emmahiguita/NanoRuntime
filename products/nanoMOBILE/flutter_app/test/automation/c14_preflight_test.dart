@@ -33,19 +33,21 @@ void main() {
       expect(r.failCode, PreflightCode.modelNotLoaded);
     });
 
-    test('aborta en la PRIMERA dependencia que falta (accesibilidad)',
-        () async {
-      final r = await const C14Preflight().run(
-        runtimeAlive: true,
-        modelLoaded: true,
-        accessibilityEnabled: false,
-        coordinatorReady: true,
-        policyConfigured: true,
-        deviceUnlocked: false, // no importa, accesibilidad va primero
-        screenInteractive: true,
-      );
-      expect(r.failCode, PreflightCode.accessibilityOff);
-    });
+    test(
+      'aborta en la PRIMERA dependencia que falta (accesibilidad)',
+      () async {
+        final r = await const C14Preflight().run(
+          runtimeAlive: true,
+          modelLoaded: true,
+          accessibilityEnabled: false,
+          coordinatorReady: true,
+          policyConfigured: true,
+          deviceUnlocked: false, // no importa, accesibilidad va primero
+          screenInteractive: true,
+        );
+        expect(r.failCode, PreflightCode.accessibilityOff);
+      },
+    );
 
     test('runtime muerto → RUNTIME_DEAD', () async {
       final r = await const C14Preflight().run(
@@ -63,7 +65,10 @@ void main() {
 
   group('BenchmarkContext', () {
     test('captura gitCommit/appVersion/deviceModel de build-info', () {
-      final ctx = BenchmarkContext.capture(model: 'qwen.gguf', temperature: 0.3);
+      final ctx = BenchmarkContext.capture(
+        model: 'qwen.gguf',
+        temperature: 0.3,
+      );
       // AppBuildInfo usa dart-define con default 'unknown'/'0.0.0'.
       expect(ctx.gitCommit, isA<String>());
       expect(ctx.appVersion, isA<String>());

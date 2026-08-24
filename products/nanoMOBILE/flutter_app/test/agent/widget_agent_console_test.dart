@@ -32,9 +32,7 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light,
           home: const Scaffold(
-            body: SingleChildScrollView(
-              child: AgentConsoleSection(),
-            ),
+            body: SingleChildScrollView(child: AgentConsoleSection()),
           ),
         ),
       ),
@@ -46,22 +44,22 @@ void main() {
     focusedAfterTap = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      switch (call.method) {
-        case 'dumpSnapshot':
-          return dump();
-        case 'tapAt':
-          focusedAfterTap = true;
-          return true;
-        case 'inputText':
-          return true;
-        case 'globalAction':
-        case 'launchPackage':
-        case 'swipe':
-          return true;
-        default:
-          return null;
-      }
-    });
+          switch (call.method) {
+            case 'dumpSnapshot':
+              return dump();
+            case 'tapAt':
+              focusedAfterTap = true;
+              return true;
+            case 'inputText':
+              return true;
+            case 'globalAction':
+            case 'launchPackage':
+            case 'swipe':
+              return true;
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {

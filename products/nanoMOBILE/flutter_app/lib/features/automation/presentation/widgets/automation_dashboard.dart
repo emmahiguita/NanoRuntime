@@ -89,15 +89,17 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       final result = await ref
           .read(automationEngineProvider)
           .runGoal(AutomationGoal(text: goal));
-      if (mounted) setState(() {
-        _lastStatus = result.status;
-        _running = false;
-      });
+      if (mounted)
+        setState(() {
+          _lastStatus = result.status;
+          _running = false;
+        });
     } catch (e) {
-      if (mounted) setState(() {
-        _lastStatus = AutomationResultStatus.failed;
-        _running = false;
-      });
+      if (mounted)
+        setState(() {
+          _lastStatus = AutomationResultStatus.failed;
+          _running = false;
+        });
     }
   }
 
@@ -119,7 +121,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                   ChoiceOption('manual', 'Manual', Icons.pan_tool_alt_rounded),
                   ChoiceOption('assisted', 'Asistido', Icons.assistant_rounded),
                   ChoiceOption(
-                      'autonomous', 'Autónomo', Icons.auto_awesome_rounded),
+                    'autonomous',
+                    'Autónomo',
+                    Icons.auto_awesome_rounded,
+                  ),
                 ],
                 selectedValue: s.agentAutomationMode.name,
                 onSelected: (value) {
@@ -188,7 +193,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         return SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(
-            NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.sm, NanoSpacing.xl,
+            NanoSpacing.sm,
+            NanoSpacing.sm,
+            NanoSpacing.sm,
+            NanoSpacing.xl,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -208,7 +216,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                               child: Align(
                                 alignment: Alignment.topCenter,
                                 child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 520),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 520,
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -222,7 +232,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                               child: Align(
                                 alignment: Alignment.topCenter,
                                 child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 520),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 520,
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -286,10 +298,7 @@ class _AgentHeader extends ConsumerWidget {
             color: dotColor,
             shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(
-                color: dotColor.withValues(alpha: 0.5),
-                blurRadius: 8,
-              ),
+              BoxShadow(color: dotColor.withValues(alpha: 0.5), blurRadius: 8),
             ],
           ),
         ),
@@ -298,12 +307,14 @@ class _AgentHeader extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('NANO AGENT',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: colors.textPrimary,
-                  )),
+              Text(
+                'NANO AGENT',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: colors.textPrimary,
+                ),
+              ),
               Text(
                 ready ? 'Listo · $modelName' : 'Motor detenido · $modelName',
                 maxLines: 1,
@@ -323,11 +334,13 @@ class _AgentHeader extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Modo: ${mode.label.toUpperCase()} ›',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: colors.accentCyan,
-                    )),
+                Text(
+                  'Modo: ${mode.label.toUpperCase()} ›',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: colors.accentCyan,
+                  ),
+                ),
               ],
             ),
           ),
@@ -338,8 +351,11 @@ class _AgentHeader extends ConsumerWidget {
             tooltip: 'Dev',
             visualDensity: VisualDensity.compact,
             onPressed: () => onDevTap!(context),
-            icon: Icon(Icons.build_circle_rounded,
-                size: 20, color: colors.onSurfaceVariant),
+            icon: Icon(
+              Icons.build_circle_rounded,
+              size: 20,
+              color: colors.onSurfaceVariant,
+            ),
           ),
         ],
       ],
@@ -357,10 +373,12 @@ String _friendlyModelName(String path) {
   // qwen2.5-1.5b -> "Qwen 2.5 1.5B"
   final m = RegExp(r'^([a-z0-9]+?)[-.]?(\d+(?:\.\d+)?b)').firstMatch(s);
   if (m != null) {
-    final fam = m.group(1)!.replaceAllMapped(
-      RegExp(r'[a-z]+'),
-      (mm) => mm.group(0)![0].toUpperCase() + mm.group(0)!.substring(1),
-    );
+    final fam = m
+        .group(1)!
+        .replaceAllMapped(
+          RegExp(r'[a-z]+'),
+          (mm) => mm.group(0)![0].toUpperCase() + mm.group(0)!.substring(1),
+        );
     return '$fam ${m.group(2)!.toUpperCase()}';
   }
   return s;
@@ -386,56 +404,59 @@ class _TaskComposer extends StatelessWidget {
       blurSigma: 20,
       borderStrength: 0.7,
       child: Padding(
-          padding: const EdgeInsets.all(NanoSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('¿Qué quieres que haga?',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, color: colors.textPrimary)),
-              const SizedBox(height: NanoSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      textInputAction: TextInputAction.go,
-                      onSubmitted: (v) =>
-                          !running ? onRun(v) : null,
-                      decoration: InputDecoration(
-                        hintText: 'Describe una tarea…',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: colors.surfaceVariant,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(NanoSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Qué quieres que haga?',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: NanoSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    textInputAction: TextInputAction.go,
+                    onSubmitted: (v) => !running ? onRun(v) : null,
+                    decoration: InputDecoration(
+                      hintText: 'Describe una tarea…',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: colors.surfaceVariant,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
                     ),
                   ),
-                  const SizedBox(width: NanoSpacing.sm),
-                  FilledButton(
-                    onPressed: running
-                        ? null
-                        : () => onRun(controller.text),
-                    style: FilledButton.styleFrom(
-                      shape: const CircleBorder(),
-                      padding: const EdgeInsets.all(14),
-                    ),
-                    child: running
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.arrow_forward_rounded),
+                ),
+                const SizedBox(width: NanoSpacing.sm),
+                FilledButton(
+                  onPressed: running ? null : () => onRun(controller.text),
+                  style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(14),
                   ),
-                ],
-              ),
-            ],
-          ),
+                  child: running
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.arrow_forward_rounded),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -524,21 +545,21 @@ class _ActiveExecutionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: NanoSpacing.sm),
                 Expanded(
-                  child: Text(goal,
-                      maxLines: 4,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600, color: colors.textPrimary)),
+                  child: Text(
+                    goal,
+                    maxLines: 4,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: NanoSpacing.sm),
             Text(
-              running
-                  ? 'Ejecutando…'
-                  : (present?.label ?? ''),
-              style: NanoType.label(
-                present?.color ?? colors.onSurfaceVariant,
-              ),
+              running ? 'Ejecutando…' : (present?.label ?? ''),
+              style: NanoType.label(present?.color ?? colors.onSurfaceVariant),
             ),
           ],
         ),
@@ -559,7 +580,11 @@ class QuickAutomationActions extends StatelessWidget {
     ('Activar Bluetooth', 'activar Bluetooth', Icons.bluetooth_rounded),
     ('Abrir Chrome', 'abrir Chrome', Icons.public_rounded),
     ('Abrir Linux', 'abrir la terminal Linux', Icons.terminal_rounded),
-    ('Leer notificaciones', 'leer las notificaciones', Icons.notifications_active_rounded),
+    (
+      'Leer notificaciones',
+      'leer las notificaciones',
+      Icons.notifications_active_rounded,
+    ),
     ('Analizar archivos', 'analizar los archivos', Icons.folder_rounded),
   ];
 
@@ -623,7 +648,9 @@ class _QuickActionTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: NanoSpacing.md, vertical: NanoSpacing.sm),
+              horizontal: NanoSpacing.md,
+              vertical: NanoSpacing.sm,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -656,17 +683,23 @@ class _MessagesEntryTile extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: NanoSpacing.md, vertical: NanoSpacing.sm),
+            horizontal: NanoSpacing.md,
+            vertical: NanoSpacing.sm,
+          ),
           child: Row(
             children: [
-              Icon(Icons.forward_to_inbox_rounded,
-                  color: colors.accentLavender, size: 20),
+              Icon(
+                Icons.forward_to_inbox_rounded,
+                color: colors.accentLavender,
+                size: 20,
+              ),
               const SizedBox(width: NanoSpacing.sm),
               Expanded(
                 child: Text(
                   'Responder mensajes',
-                  style: NanoType.body(colors.textPrimary)
-                      .copyWith(fontWeight: FontWeight.w600),
+                  style: NanoType.body(
+                    colors.textPrimary,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(width: NanoSpacing.sm),
@@ -697,12 +730,17 @@ class RecentExecutionsCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader('Ejecuciones recientes', Icons.history_rounded,
-              colors: colors),
+          SectionHeader(
+            'Ejecuciones recientes',
+            Icons.history_rounded,
+            colors: colors,
+          ),
           const SizedBox(height: NanoSpacing.xs),
           if (traces.isEmpty)
-            Text('Sin ejecuciones todavía.',
-                style: NanoType.body(colors.onSurfaceVariant))
+            Text(
+              'Sin ejecuciones todavía.',
+              style: NanoType.body(colors.onSurfaceVariant),
+            )
           else ...[
             for (final t in traces.take(3))
               _HistoryTile(trace: t, colors: colors),
@@ -736,21 +774,26 @@ class RecentExecutionsCard extends ConsumerWidget {
         builder: (ctx, scroll) => SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
-                NanoSpacing.lg, 0, NanoSpacing.lg, NanoSpacing.lg),
+              NanoSpacing.lg,
+              0,
+              NanoSpacing.lg,
+              NanoSpacing.lg,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionHeader('Historial completo', Icons.history_rounded,
-                    colors: colors),
+                SectionHeader(
+                  'Historial completo',
+                  Icons.history_rounded,
+                  colors: colors,
+                ),
                 const SizedBox(height: NanoSpacing.sm),
                 Expanded(
                   child: ListView.builder(
                     controller: scroll,
                     itemCount: traces.length,
-                    itemBuilder: (_, i) => _HistoryTile(
-                      trace: traces[i],
-                      colors: colors,
-                    ),
+                    itemBuilder: (_, i) =>
+                        _HistoryTile(trace: traces[i], colors: colors),
                   ),
                 ),
               ],
@@ -768,10 +811,7 @@ class _HistoryTile extends StatelessWidget {
   final AutomationTrace trace;
   final NanoColors colors;
 
-  const _HistoryTile({
-    required this.trace,
-    required this.colors,
-  });
+  const _HistoryTile({required this.trace, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -790,18 +830,20 @@ class _HistoryTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(trace.goal,
-                      maxLines: 2,
-                      style: NanoType.body(colors.textPrimary)),
-                  Text(p.label,
-                      style: NanoType.label(p.color)),
+                  Text(
+                    trace.goal,
+                    maxLines: 2,
+                    style: NanoType.body(colors.textPrimary),
+                  ),
+                  Text(p.label, style: NanoType.label(p.color)),
                 ],
               ),
             ),
             const SizedBox(width: NanoSpacing.sm),
-            Text(_relativeTime(
-                trace.endedAt.difference(trace.startedAt)),
-                style: NanoType.label(colors.onSurfaceVariant)),
+            Text(
+              _relativeTime(trace.endedAt.difference(trace.startedAt)),
+              style: NanoType.label(colors.onSurfaceVariant),
+            ),
           ],
         ),
       ),
@@ -818,25 +860,36 @@ class _HistoryTile extends StatelessWidget {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
-                NanoSpacing.lg, 0, NanoSpacing.lg, NanoSpacing.lg),
+              NanoSpacing.lg,
+              0,
+              NanoSpacing.lg,
+              NanoSpacing.lg,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionHeader('Detalle de ejecución', p.icon,
-                    colors: c, iconColor: p.color),
+                SectionHeader(
+                  'Detalle de ejecución',
+                  p.icon,
+                  colors: c,
+                  iconColor: p.color,
+                ),
                 const SizedBox(height: NanoSpacing.sm),
-                Text(trace.goal,
-                    style: NanoType.body(c.onSurface).copyWith(
-                      fontWeight: FontWeight.w600,
-                    )),
+                Text(
+                  trace.goal,
+                  style: NanoType.body(
+                    c.onSurface,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: NanoSpacing.sm),
-                Text('Estado: ${p.label}',
-                    style: NanoType.body(p.color)),
+                Text('Estado: ${p.label}', style: NanoType.body(p.color)),
                 if (trace.summary.isNotEmpty) ...[
                   const SizedBox(height: NanoSpacing.sm),
-                  SelectableText(trace.summary,
-                      style: NanoType.body(c.onSurfaceVariant)),
+                  SelectableText(
+                    trace.summary,
+                    style: NanoType.body(c.onSurfaceVariant),
+                  ),
                 ],
                 const SizedBox(height: NanoSpacing.sm),
                 Text(

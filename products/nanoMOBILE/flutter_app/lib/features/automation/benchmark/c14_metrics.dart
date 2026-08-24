@@ -93,10 +93,8 @@ class C14Gates {
     final total = ex.length;
     final passed = ex.where((e) => e.goalSuccess).length;
     final validPlans = ex.where((e) => e.planValid).length;
-    final toolsGenerated =
-        ex.fold<int>(0, (s, e) => s + e.toolsGenerated);
-    final toolsRejected =
-        ex.fold<int>(0, (s, e) => s + e.toolsRejected);
+    final toolsGenerated = ex.fold<int>(0, (s, e) => s + e.toolsGenerated);
+    final toolsRejected = ex.fold<int>(0, (s, e) => s + e.toolsRejected);
     final unknownToolsRate = toolsGenerated == 0
         ? 0.0
         : toolsRejected / toolsGenerated.toDouble();

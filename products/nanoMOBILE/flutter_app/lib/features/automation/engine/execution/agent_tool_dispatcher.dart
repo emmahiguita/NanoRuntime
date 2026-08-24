@@ -310,7 +310,8 @@ class AgentToolDispatcher {
   /// inyectada (AgentLoop), no un dispatch single-attempt.
   AgentLoop? _loop;
 
-  AgentLoop get loop => _loop ??= AgentLoop(executor: _executor, verifier: verifier);
+  AgentLoop get loop =>
+      _loop ??= AgentLoop(executor: _executor, verifier: verifier);
 
   /// Pasos ejecutados en el turno actual (lo incrementa cada ejecución real).
   /// El chat lo resetea con [resetTurn] en cada envío del usuario.
@@ -448,7 +449,8 @@ class AgentToolDispatcher {
       if (loopDetector.isLoop(fp)) {
         final loopOutcome = ToolOutcome(
           verdict: PolicyVerdict.denied,
-          feedback: '[loopDetected] Ciclo en el plan '
+          feedback:
+              '[loopDetected] Ciclo en el plan '
               '("${call.tool} ${call.selector ?? ''}${call.text != null ? ' ' + call.text! : ''}"). '
               'El mundo no avanza: se aborta en lugar de repetir la acción.',
         );
@@ -481,7 +483,8 @@ class AgentToolDispatcher {
         );
       }
       feedbacks.add('${i + 1}/$total ${outcome.feedback}');
-      if (outcome.verdict != PolicyVerdict.allow || _isFailedFeedback(outcome.feedback)) {
+      if (outcome.verdict != PolicyVerdict.allow ||
+          _isFailedFeedback(outcome.feedback)) {
         // Denegado por política o fallo de ejecución/verificación → abortar.
         return PlanOutcome(
           completed: false,
@@ -662,9 +665,9 @@ class AgentToolDispatcher {
     if (selector == null) return err!;
     // Postcondición por defecto: la pantalla debe cambiar (un tap que no
     // cambia nada es sospechoso aunque el gesto devuelva true).
-    final expectation = _expectationFor(call).copyWith(
-      mustChangeSnapshot: true,
-    );
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
     // AgentLoop orquestado: ejecuta + verifica. maxAttempts=1 para un tap:
     // reintentar un gesto podría ser doble-tap (la verificación se reporta).
     final result = await loop.run([
@@ -724,9 +727,9 @@ class AgentToolDispatcher {
     final ok = await NanoRuntimeApi.instance.agentGlobalAction('back');
     if (!ok) return '[gestureFailed] Back falló.';
     // Postcondición por defecto: la pantalla debe cambiar.
-    final expectation = _expectationFor(call).copyWith(
-      mustChangeSnapshot: true,
-    );
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
     return 'Botón atrás ejecutado.'
         '${await _verifySuffix(expectation, preSnapshot: pre)}';
   }
@@ -771,10 +774,7 @@ class AgentToolDispatcher {
   }) async {
     if (!expectation.hasCriteria) return '';
     try {
-      final out = await verifier.verify(
-        expectation,
-        preSnapshot: preSnapshot,
-      );
+      final out = await verifier.verify(expectation, preSnapshot: preSnapshot);
       if (out.isVerified) return ' · verificado';
       return ' [verify:${out.status.name}] ${out.reason}';
     } catch (e) {
@@ -854,4 +854,3 @@ class _LoopDetector {
     return false;
   }
 }
-

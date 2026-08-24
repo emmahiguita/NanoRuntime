@@ -55,18 +55,18 @@ class KoogRunResult {
   });
 
   factory KoogRunResult._ok(AgentLoopResult loop) => KoogRunResult._(
-        completed: loop.completed,
-        loopResult: loop,
-        deniedTool: null,
-        summary: loop.summary,
-      );
+    completed: loop.completed,
+    loopResult: loop,
+    deniedTool: null,
+    summary: loop.summary,
+  );
 
   factory KoogRunResult._denied(String tool, String reason) => KoogRunResult._(
-        completed: false,
-        loopResult: null,
-        deniedTool: tool,
-        summary: 'Plan abortado por pol├¡tica: $reason',
-      );
+    completed: false,
+    loopResult: null,
+    deniedTool: tool,
+    summary: 'Plan abortado por pol├¡tica: $reason',
+  );
 }
 
 /// Orquestador del workflow. SRP: orquesta, no genera el plan ni ejecuta.
@@ -75,9 +75,9 @@ class Koog {
     required PlanGenerator generator,
     required AgentLoop loop,
     PolicyEngine? policy,
-  })  : _generator = generator,
-        _loop = loop,
-        _policy = policy ?? PolicyEngine();
+  }) : _generator = generator,
+       _loop = loop,
+       _policy = policy ?? PolicyEngine();
 
   final PlanGenerator _generator;
   final AgentLoop _loop;
@@ -108,22 +108,22 @@ class Koog {
     final selector = NanoSelector.parse(step.selector);
     return switch (step.tool) {
       'tap' => AgentStep(
-          id: 'tap(${step.selector})',
-          selector: selector,
-          action: AgentAction.tap,
-          expectation: const ActionExpectation(),
-        ),
+        id: 'tap(${step.selector})',
+        selector: selector,
+        action: AgentAction.tap,
+        expectation: const ActionExpectation(),
+      ),
       'write' => AgentStep(
-          id: 'write(${step.selector})',
-          selector: selector,
-          action: AgentAction.setText,
-          text: step.text ?? '',
-          expectation: const ActionExpectation(),
-        ),
+        id: 'write(${step.selector})',
+        selector: selector,
+        action: AgentAction.setText,
+        text: step.text ?? '',
+        expectation: const ActionExpectation(),
+      ),
       _ => throw UnsupportedError(
-          'Tool "${step.tool}" no soportado por el spike Koog '
-          '(solo tap/write).',
-        ),
+        'Tool "${step.tool}" no soportado por el spike Koog '
+        '(solo tap/write).',
+      ),
     };
   }
 }

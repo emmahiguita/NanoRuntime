@@ -19,8 +19,7 @@ class _FakeClient extends LLMEngineClient {
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
-  }) async =>
-      LLMResult(text: canned);
+  }) async => LLMResult(text: canned);
 }
 
 /// Planner fake que siempre devuelve vacío (para probar que execute lo llama
@@ -28,11 +27,11 @@ class _FakeClient extends LLMEngineClient {
 class _EmptyPlanner implements AutomationPlanner {
   @override
   Future<PlannedPlan> plan(String goal) async => const PlannedPlan(
-        calls: [],
-        generated: 0,
-        rejected: 0,
-        llmLatency: Duration.zero,
-      );
+    calls: [],
+    generated: 0,
+    rejected: 0,
+    llmLatency: Duration.zero,
+  );
 }
 
 void main() {
@@ -53,13 +52,15 @@ void main() {
       expect(calls.last.text, 'hola');
     });
 
-    test('descarta tools desconocidas (salida del modelo es dato NO fiable)',
-        () async {
-      final p = LlmAutomationPlanner(
-        client: _FakeClient('[{"tool":"hack","selector":"x"}]'),
-      );
-      expect((await p.plan('')).calls, isEmpty);
-    });
+    test(
+      'descarta tools desconocidas (salida del modelo es dato NO fiable)',
+      () async {
+        final p = LlmAutomationPlanner(
+          client: _FakeClient('[{"tool":"hack","selector":"x"}]'),
+        );
+        expect((await p.plan('')).calls, isEmpty);
+      },
+    );
 
     test('descarta llamadas sin selector ni texto (no ejecutables)', () async {
       final p = LlmAutomationPlanner(
@@ -98,12 +99,15 @@ void main() {
       expect((await p.plan('')).calls, isEmpty);
     });
 
-    test('placeholder id=resourceId se descarta (copiado del prompt)', () async {
-      final p = LlmAutomationPlanner(
-        client: _FakeClient('[{"tool":"tap","selector":"id=resourceId"}]'),
-      );
-      expect((await p.plan('')).calls, isEmpty);
-    });
+    test(
+      'placeholder id=resourceId se descarta (copiado del prompt)',
+      () async {
+        final p = LlmAutomationPlanner(
+          client: _FakeClient('[{"tool":"tap","selector":"id=resourceId"}]'),
+        );
+        expect((await p.plan('')).calls, isEmpty);
+      },
+    );
 
     test('plan válido (tap text=Bluetooth) se conserva', () async {
       final p = LlmAutomationPlanner(

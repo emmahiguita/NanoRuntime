@@ -43,8 +43,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('composer envia un goal y muestra el resultado (flujo real)',
-      (tester) async {
+  testWidgets('composer envia un goal y muestra el resultado (flujo real)', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app());
     await tester.pump(const Duration(milliseconds: 250));
 
@@ -61,45 +62,44 @@ void main() {
 }
 
 Widget _app() => ProviderScope(
-      overrides: _overrides(),
-      child: MaterialApp(theme: AppTheme.light, home: const AutomationScreen()),
-    );
+  overrides: _overrides(),
+  child: MaterialApp(theme: AppTheme.light, home: const AutomationScreen()),
+);
 
 List<Override> _overrides() => [
-      engineStatusProvider.overrideWith(
-        (ref) => const EngineStatus(
-          port: 8080,
-          phase: EnginePhase.ready,
-          modelPath: '/data/local/tmp/qwen-q8-fast.gguf',
-        ),
-      ),
-      automationEngineProvider.overrideWith(
-        (ref) => AutomationEngine.from(
-          _FakeCoordinator(),
-          ref.read(actionLedgerProvider),
-        ),
-      ),
-      actionLedgerProvider.overrideWithValue(ActionLedger()),
-    ];
+  engineStatusProvider.overrideWith(
+    (ref) => const EngineStatus(
+      port: 8080,
+      phase: EnginePhase.ready,
+      modelPath: '/data/local/tmp/qwen-q8-fast.gguf',
+    ),
+  ),
+  automationEngineProvider.overrideWith(
+    (ref) => AutomationEngine.from(
+      _FakeCoordinator(),
+      ref.read(actionLedgerProvider),
+    ),
+  ),
+  actionLedgerProvider.overrideWithValue(ActionLedger()),
+];
 
 class _FakeCoordinator extends AutomationCoordinator {
   _FakeCoordinator()
-      : super(
-          dispatcher: _DummyDispatcher(),
-          mode: () => AgentAutomationMode.autonomous,
-        );
+    : super(
+        dispatcher: _DummyDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+      );
 
   @override
   Future<AutomationResult> execute(
     AutomationGoal goal, {
     List<ToolCall>? plan,
     AutomationOptions? options,
-  }) async =>
-      const AutomationResult(
-        executionId: 'x',
-        status: AutomationResultStatus.noPlan,
-        reason: 'no plan',
-      );
+  }) async => const AutomationResult(
+    executionId: 'x',
+    status: AutomationResultStatus.noPlan,
+    reason: 'no plan',
+  );
 }
 
 class _DummyDispatcher extends AgentToolDispatcher {

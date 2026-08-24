@@ -87,7 +87,8 @@ class NanoSelectorEngine {
       return ResolveOutcome(
         status: ResolveStatus.notFound,
         candidates: const [],
-        reason: 'Paquete esperado "${selector.packageName}", actual '
+        reason:
+            'Paquete esperado "${selector.packageName}", actual '
             '"${snapshot.package}".',
       );
     }
@@ -102,16 +103,15 @@ class NanoSelectorEngine {
     // Bonus near: candidatos próximos a anclas del sub-selector near.
     final withNear = _applyNearBonus(selector, base, snapshot);
 
-    final ranked = withNear
-        .where((e) => e.score >= minResolvedScore)
-        .toList()
+    final ranked = withNear.where((e) => e.score >= minResolvedScore).toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
     if (ranked.isEmpty) {
       return ResolveOutcome(
         status: ResolveStatus.notFound,
         candidates: const [],
-        reason: 'Sin nodos que alcancen el umbral ($minResolvedScore pts) '
+        reason:
+            'Sin nodos que alcancen el umbral ($minResolvedScore pts) '
             'para ${selector.toDebugString()}.',
       );
     }
@@ -160,9 +160,11 @@ class NanoSelectorEngine {
             ? ScoringConstants.textExact
             : ScoringConstants.textFuzzy;
         score += points;
-        criteria.add(selector.textMatcher == TextMatcher.exact
-            ? 'textExact:+75'
-            : 'textFuzzy:+65');
+        criteria.add(
+          selector.textMatcher == TextMatcher.exact
+              ? 'textExact:+75'
+              : 'textFuzzy:+65',
+        );
         if (selector.role != null &&
             RoleDerivation.fromClassName(node.type) == selector.role) {
           score += ScoringConstants.roleBonus;
@@ -270,8 +272,8 @@ class NanoSelectorEngine {
     final yGap = (b.top >= a.bottom)
         ? b.top - a.bottom
         : (a.top >= b.bottom)
-            ? a.top - b.bottom
-            : -1;
+        ? a.top - b.bottom
+        : -1;
     return yGap >= 0 &&
         yGap <= ScoringConstants.nearMaxGapPx &&
         a.xOverlapRatio(b) >= ScoringConstants.nearMinOverlap;
@@ -283,8 +285,8 @@ class NanoSelectorEngine {
     final xGap = (b.left >= a.right)
         ? b.left - a.right
         : (a.left >= b.right)
-            ? a.left - b.right
-            : -1;
+        ? a.left - b.right
+        : -1;
     return xGap >= 0 &&
         xGap <= ScoringConstants.nearMaxGapPx &&
         _yOverlapRatio(a, b) >= ScoringConstants.nearMinOverlap;
@@ -311,8 +313,7 @@ class NanoSelectorEngine {
       if (n.bounds.bottom > sh) sh = n.bounds.bottom;
     }
     if (sw <= 0 || sh <= 0) return false;
-    final maxDelta =
-        (sw < sh ? sw : sh) * ScoringConstants.centerRegionRatio;
+    final maxDelta = (sw < sh ? sw : sh) * ScoringConstants.centerRegionRatio;
     final dx = (node.bounds.centerX - sw / 2).abs();
     final dy = (node.bounds.centerY - sh / 2).abs();
     return dx <= maxDelta && dy <= maxDelta;
@@ -342,7 +343,8 @@ class NanoSelectorEngine {
       return ResolveOutcome(
         status: ResolveStatus.ambiguous,
         candidates: top5,
-        reason: 'Ambiguo: "${a.node.label}" (${a.score}) vs '
+        reason:
+            'Ambiguo: "${a.node.label}" (${a.score}) vs '
             '"${b.node.label}" (${b.score}) — gap $boundary < '
             '$ambiguityGap. No se ejecuta.',
       );
@@ -360,8 +362,7 @@ class NanoSelectorEngine {
   bool _matches(String want, String actual, TextMatcher matcher) {
     return switch (matcher) {
       TextMatcher.exact => actual.trim() == want.trim(),
-      TextMatcher.contains =>
-        actual.toLowerCase().contains(want.toLowerCase()),
+      TextMatcher.contains => actual.toLowerCase().contains(want.toLowerCase()),
       TextMatcher.regex => RegExp(want).hasMatch(actual),
     };
   }

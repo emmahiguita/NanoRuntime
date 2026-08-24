@@ -11,12 +11,18 @@ void main() {
     final withIntent = ActionPathRouter(intentAvailable: () => true);
 
     test('tap/write/back → Accessibility (mecanismo actual de UI)', () {
-      final r = noLinux.route(const ToolCall(tool: 'tap', selector: 'text=Bluetooth'));
+      final r = noLinux.route(
+        const ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+      );
       expect(r.path, ExecutionPath.accessibility);
-      expect(noLinux.route(const ToolCall(tool: 'back')).path,
-          ExecutionPath.accessibility);
-      expect(noLinux.route(const ToolCall(tool: 'write')).path,
-          ExecutionPath.accessibility);
+      expect(
+        noLinux.route(const ToolCall(tool: 'back')).path,
+        ExecutionPath.accessibility,
+      );
+      expect(
+        noLinux.route(const ToolCall(tool: 'write')).path,
+        ExecutionPath.accessibility,
+      );
     });
 
     test('notificaciones → herramienta estructurada (canal, sin UI)', () {
@@ -25,7 +31,9 @@ void main() {
     });
 
     test('abrir app con Intent disponible → androidIntent', () {
-      final r = withIntent.route(const ToolCall(tool: 'launch_app', text: 'settings'));
+      final r = withIntent.route(
+        const ToolCall(tool: 'launch_app', text: 'settings'),
+      );
       expect(r.path, ExecutionPath.androidIntent);
     });
 
@@ -35,9 +43,10 @@ void main() {
       expect(r.reason, contains('Sin Intent'));
     });
 
-    test('leer archivo con Linux disponible → linux (NO abrir Files app)',
-        () {
-      final r = withLinux.route(const ToolCall(tool: 'read_file', text: '/sdcard/x'));
+    test('leer archivo con Linux disponible → linux (NO abrir Files app)', () {
+      final r = withLinux.route(
+        const ToolCall(tool: 'read_file', text: '/sdcard/x'),
+      );
       expect(r.path, ExecutionPath.linux);
       expect(r.reason, contains('subsistema Linux'));
     });

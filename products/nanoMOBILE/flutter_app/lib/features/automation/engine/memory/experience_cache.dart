@@ -79,7 +79,9 @@ class ExperienceCache {
       existing.successCount++;
       existing.lastVerified = now;
       if (!_samePlan(existing.steps, steps)) {
-        existing.steps..clear()..addAll(steps);
+        existing.steps
+          ..clear()
+          ..addAll(steps);
       }
     } else {
       _byGoal[key] = VerifiedFlow(

@@ -43,9 +43,8 @@ class ResolveOutcome {
   bool get isResolved => status == ResolveStatus.resolved;
 
   /// Mejor candidato si resuelto.
-  ScoreEntry? get best => isResolved && candidates.isNotEmpty
-      ? candidates.first
-      : null;
+  ScoreEntry? get best =>
+      isResolved && candidates.isNotEmpty ? candidates.first : null;
 }
 
 /// Códigos de error del ejecutor de alto nivel.
@@ -79,17 +78,17 @@ class AgentExecutionResult {
     this.resolve,
     this.actionability,
     this.targetNode,
-  })  : ok = true,
-        errorCode = null,
-        reason = null;
+  }) : ok = true,
+       errorCode = null,
+       reason = null;
 
   const AgentExecutionResult.failure({
     required AgentErrorCode this.errorCode,
     required String this.reason,
     this.resolve,
     this.actionability,
-  })  : ok = false,
-        targetNode = null;
+  }) : ok = false,
+       targetNode = null;
 
   @override
   String toString() => ok

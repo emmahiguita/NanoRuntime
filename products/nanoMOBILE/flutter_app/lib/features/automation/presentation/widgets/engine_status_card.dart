@@ -74,17 +74,27 @@ class EngineStatusCard extends ConsumerWidget {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
-                NanoSpacing.lg, 0, NanoSpacing.lg, NanoSpacing.lg),
+              NanoSpacing.lg,
+              0,
+              NanoSpacing.lg,
+              NanoSpacing.lg,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionHeader('Detalles del runtime', Icons.terminal_rounded,
-                    colors: colors),
+                SectionHeader(
+                  'Detalles del runtime',
+                  Icons.terminal_rounded,
+                  colors: colors,
+                ),
                 const SizedBox(height: NanoSpacing.sm),
                 _detailRow(ctx, 'Fase', engine?.phase.name ?? '—'),
-                _detailRow(ctx, 'Modelo',
-                    engine?.modelPath?.split('/').last ?? '—'),
+                _detailRow(
+                  ctx,
+                  'Modelo',
+                  engine?.modelPath?.split('/').last ?? '—',
+                ),
                 _detailRow(ctx, 'Puerto', '${engine?.port ?? 0}'),
                 _detailRow(ctx, 'Linux', linux ? 'Instalado' : 'Sin preparar'),
               ],
@@ -103,14 +113,15 @@ class EngineStatusCard extends ConsumerWidget {
         children: [
           SizedBox(
             width: 96,
-            child: Text(label,
-                style: NanoType.label(colors.onSurfaceVariant)),
+            child: Text(label, style: NanoType.label(colors.onSurfaceVariant)),
           ),
           Expanded(
-            child: Text(value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: NanoType.body(colors.onSurface)),
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: NanoType.body(colors.onSurface),
+            ),
           ),
         ],
       ),
@@ -153,9 +164,7 @@ class _CapabilityRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             ok ? okText : offText,
-            style: NanoType.body(
-              ok ? colors.onSurface : color,
-            ),
+            style: NanoType.body(ok ? colors.onSurface : color),
           ),
         ],
       ),

@@ -11,18 +11,23 @@ import 'package:nanoai/features/automation/ledger/automation_trace.dart';
 /// Pruebas de la facade ABC (pública, legible) del módulo.
 void main() {
   group('AutomationEngine (facade pública)', () {
-    test('runGoal delega al coordinator y devuelve resultado honesto', () async {
-      final ledger = ActionLedger();
-      final coord = AutomationCoordinator(
-        dispatcher: AgentToolDispatcher(),
-        mode: () => AgentAutomationMode.autonomous,
-        ledger: ledger,
-      );
-      final engine = AutomationEngine.from(coord, ledger);
-      final r = await engine.runGoal(const AutomationGoal(text: 'abre bluetooth'));
-      // Sin cache/planner → noPlan honesto (no inventa éxito).
-      expect(r.status, AutomationResultStatus.noPlan);
-    });
+    test(
+      'runGoal delega al coordinator y devuelve resultado honesto',
+      () async {
+        final ledger = ActionLedger();
+        final coord = AutomationCoordinator(
+          dispatcher: AgentToolDispatcher(),
+          mode: () => AgentAutomationMode.autonomous,
+          ledger: ledger,
+        );
+        final engine = AutomationEngine.from(coord, ledger);
+        final r = await engine.runGoal(
+          const AutomationGoal(text: 'abre bluetooth'),
+        );
+        // Sin cache/planner → noPlan honesto (no inventa éxito).
+        expect(r.status, AutomationResultStatus.noPlan);
+      },
+    );
 
     test('trace/traceOf exponen el ledger (qué hizo realmente)', () {
       final ledger = ActionLedger();

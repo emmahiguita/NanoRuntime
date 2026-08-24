@@ -49,8 +49,14 @@ class C14Suite {
 const C14Suite defaultSuite = C14Suite(
   name: 'diagnóstico corto',
   tasks: [
-    C14Task('abrir Ajustes', expectation: GoalExpectation(visibleText: 'Ajustes')),
-    C14Task('abrir Bluetooth', expectation: GoalExpectation(visibleText: 'Bluetooth')),
+    C14Task(
+      'abrir Ajustes',
+      expectation: GoalExpectation(visibleText: 'Ajustes'),
+    ),
+    C14Task(
+      'abrir Bluetooth',
+      expectation: GoalExpectation(visibleText: 'Bluetooth'),
+    ),
     C14Task('abrir Wi-Fi', expectation: GoalExpectation(visibleText: 'Wi-Fi')),
     C14Task('volver atrás'),
     C14Task('escribir en el campo'),
@@ -70,12 +76,14 @@ class C14Benchmark {
   /// Construye el coordinator REAL (con planner LLM inyectado) enlazando el
   /// sink de métricas. DIP: en tests se sustituye por un fake.
   final AutomationCoordinator Function(void Function(C14Execution) sink)
-      _buildCoordinator;
+  _buildCoordinator;
 
   late final AutomationCoordinator _coordinator;
 
-  C14Benchmark({required AutomationCoordinator Function(void Function(C14Execution)) buildCoordinator})
-      : _buildCoordinator = buildCoordinator {
+  C14Benchmark({
+    required AutomationCoordinator Function(void Function(C14Execution))
+    buildCoordinator,
+  }) : _buildCoordinator = buildCoordinator {
     _coordinator = _buildCoordinator(_executions.add);
   }
 

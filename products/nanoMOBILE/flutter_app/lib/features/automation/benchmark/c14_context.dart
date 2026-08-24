@@ -79,19 +79,19 @@ class BenchmarkContext {
   }
 
   Map<String, dynamic> toJson() => {
-        'gitCommit': gitCommit,
-        'appVersion': appVersion,
-        'runtimeVersion': runtimeVersion,
-        'device': device,
-        'model': model,
-        'quant': quant,
-        'contextSize': contextSize,
-        'backend': backend,
-        'threads': threads,
-        'temperature': temperature,
-        'timestamp': timestamp.toIso8601String(),
-        'bootProfile': bootProfile,
-        'linuxProvisioning': linuxProvisioning,
-        'linuxRequired': linuxRequired,
-      };
+    'gitCommit': gitCommit,
+    'appVersion': appVersion,
+    'runtimeVersion': runtimeVersion,
+    'device': device,
+    'model': model,
+    'quant': quant,
+    'contextSize': contextSize,
+    'backend': backend,
+    'threads': threads,
+    'temperature': temperature,
+    'timestamp': timestamp.toIso8601String(),
+    'bootProfile': bootProfile,
+    'linuxProvisioning': linuxProvisioning,
+    'linuxRequired': linuxRequired,
+  };
 }

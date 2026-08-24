@@ -32,7 +32,9 @@ void main() {
 
   test('fusiona múltiples fuentes, el de mayor score gana', () async {
     final mux = PerceptionMux([
-      _FakeSource(const [SelectorCandidate(selector: 'text=Bluetooth', score: 0.6)]),
+      _FakeSource(const [
+        SelectorCandidate(selector: 'text=Bluetooth', score: 0.6),
+      ]),
       _FakeSource(const [SelectorCandidate(selector: 'id=id_bt', score: 0.95)]),
     ]);
     expect(await mux.resolve('Bluetooth'), 'id=id_bt');
@@ -48,6 +50,5 @@ class _FakeSource implements PerceptionSource {
     String concept, {
     String? role,
     String? package,
-  }) async =>
-      candidates;
+  }) async => candidates;
 }

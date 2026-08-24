@@ -29,8 +29,9 @@ abstract final class RoleDerivation {
     final short = className.substring(className.lastIndexOf('.') + 1);
     return switch (short) {
       'Button' || 'ImageButton' || 'MaterialButton' => Role.button,
-      'EditText' || 'AutoCompleteTextView' || 'MultiAutoCompleteTextView' =>
-        Role.editText,
+      'EditText' ||
+      'AutoCompleteTextView' ||
+      'MultiAutoCompleteTextView' => Role.editText,
       'TextView' => Role.textView,
       'ImageView' => Role.imageView,
       'CheckBox' => Role.checkBox,
@@ -149,7 +150,9 @@ class NanoSelector {
         final eq = p.indexOf('=');
         // El char inmediatamente anterior al '=' marca el operador (~=, /=).
         final hasOp = eq >= 1 && (p[eq - 1] == '~' || p[eq - 1] == '/');
-        final key = hasOp ? p.substring(0, eq - 1).trim() : p.substring(0, eq).trim();
+        final key = hasOp
+            ? p.substring(0, eq - 1).trim()
+            : p.substring(0, eq).trim();
         final value = eq >= 0 ? p.substring(eq + 1).trim() : '';
         switch (key) {
           case 'pkg':
@@ -166,9 +169,9 @@ class NanoSelector {
               'switch' => Role.switch_,
               'listitem' => Role.listItem,
               _ => throw SelectorFormatException(
-                  'Rol desconocido "$value". Válidos: button, editText, '
-                  'textView, imageView, checkBox, switch, listItem.',
-                ),
+                'Rol desconocido "$value". Válidos: button, editText, '
+                'textView, imageView, checkBox, switch, listItem.',
+              ),
             };
           case 'text':
             text = value;
@@ -179,16 +182,16 @@ class NanoSelector {
               'true' || '1' => true,
               'false' || '0' => false,
               _ => throw SelectorFormatException(
-                  'editable espera true/false, no "$value".',
-                ),
+                'editable espera true/false, no "$value".',
+              ),
             };
           case 'clickable':
             clickable = switch (value.toLowerCase()) {
               'true' || '1' => true,
               'false' || '0' => false,
               _ => throw SelectorFormatException(
-                  'clickable espera true/false, no "$value".',
-                ),
+                'clickable espera true/false, no "$value".',
+              ),
             };
           case 'near':
             near = NanoSelector.parse(value);
@@ -204,8 +207,9 @@ class NanoSelector {
               'Operador "${p[eq - 1]}=" solo aplica a text o desc.',
             );
           }
-          textMatcher =
-              p[eq - 1] == '~' ? TextMatcher.contains : TextMatcher.regex;
+          textMatcher = p[eq - 1] == '~'
+              ? TextMatcher.contains
+              : TextMatcher.regex;
         }
       }
     }

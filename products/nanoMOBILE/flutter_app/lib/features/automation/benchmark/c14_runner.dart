@@ -38,53 +38,53 @@ class C14RunResult {
   });
 
   Map<String, dynamic> toJson() => {
-        'benchmark': 'C14-A',
-        ...context.toJson(),
-        'preflight': {
-          'pass': preflight.pass,
-          'failCode': preflight.failCode?.name,
-          'checks': [
-            for (final c in preflight.checks)
-              {'name': c.name, 'ok': c.ok, 'detail': c.detail},
-          ],
-        },
-        'report': report == null
-            ? null
-            : {
-                'total': report!.total,
-                'passed': report!.passed,
-                'successRate': report!.successRate,
-                'gates': [
-                  for (final g in report!.gates)
-                    {
-                      'name': g.name,
-                      'value': g.value,
-                      'threshold': g.threshold,
-                      'pass': g.pass,
-                    },
-                ],
-                'executions': [
-                  for (final e in report!.executions)
-                    {
-                      'goal': e.goal,
-                      'planValid': e.planValid,
-                      'toolsGenerated': e.toolsGenerated,
-                      'toolsRejected': e.toolsRejected,
-                      'steps': e.steps,
-                      'path': e.path,
-                      'llmLatencyMs': e.llmLatency.inMilliseconds,
-                      'toolLatencyMs': e.toolLatency.inMilliseconds,
-                      'verification': e.verification.name,
-                      'retries': e.retries,
-                      'replans': e.replans,
-                      'cacheHit': e.cacheHit,
-                      'goalSuccess': e.goalSuccess,
-                      'totalLatencyMs': e.totalLatency.inMilliseconds,
-                    },
-                ],
-              },
-        'totalMs': total.inMilliseconds,
-      };
+    'benchmark': 'C14-A',
+    ...context.toJson(),
+    'preflight': {
+      'pass': preflight.pass,
+      'failCode': preflight.failCode?.name,
+      'checks': [
+        for (final c in preflight.checks)
+          {'name': c.name, 'ok': c.ok, 'detail': c.detail},
+      ],
+    },
+    'report': report == null
+        ? null
+        : {
+            'total': report!.total,
+            'passed': report!.passed,
+            'successRate': report!.successRate,
+            'gates': [
+              for (final g in report!.gates)
+                {
+                  'name': g.name,
+                  'value': g.value,
+                  'threshold': g.threshold,
+                  'pass': g.pass,
+                },
+            ],
+            'executions': [
+              for (final e in report!.executions)
+                {
+                  'goal': e.goal,
+                  'planValid': e.planValid,
+                  'toolsGenerated': e.toolsGenerated,
+                  'toolsRejected': e.toolsRejected,
+                  'steps': e.steps,
+                  'path': e.path,
+                  'llmLatencyMs': e.llmLatency.inMilliseconds,
+                  'toolLatencyMs': e.toolLatency.inMilliseconds,
+                  'verification': e.verification.name,
+                  'retries': e.retries,
+                  'replans': e.replans,
+                  'cacheHit': e.cacheHit,
+                  'goalSuccess': e.goalSuccess,
+                  'totalLatencyMs': e.totalLatency.inMilliseconds,
+                },
+            ],
+          },
+    'totalMs': total.inMilliseconds,
+  };
 }
 
 /// Ejecuta el benchmark C14-A. Único punto de entrada (debug UI + integration).

@@ -40,9 +40,9 @@ class NanoAgentExecutor implements AgentExecutor {
     NanoRuntimeApi? api,
     NanoSelectorEngine? engine,
     StabilityChecker? stability,
-  })  : _api = api ?? NanoRuntimeApi.instance,
-        _engine = engine ?? NanoSelectorEngine(),
-        _stability = stability ?? const StabilityChecker();
+  }) : _api = api ?? NanoRuntimeApi.instance,
+       _engine = engine ?? NanoSelectorEngine(),
+       _stability = stability ?? const StabilityChecker();
 
   final NanoRuntimeApi _api;
   final NanoSelectorEngine _engine;
@@ -83,7 +83,8 @@ class NanoAgentExecutor implements AgentExecutor {
       return ResolveOutcome(
         status: ResolveStatus.serviceOff,
         candidates: const [],
-        reason: 'Accesibilidad apagada o canal sin respuesta '
+        reason:
+            'Accesibilidad apagada o canal sin respuesta '
             '($snapshotMaxAttempts reintentos).',
       );
     }
@@ -91,7 +92,8 @@ class NanoAgentExecutor implements AgentExecutor {
       return const ResolveOutcome(
         status: ResolveStatus.serviceOff,
         candidates: [],
-        reason: 'Sin ventana activa: snapshot vacío (rebind ColorOS en '
+        reason:
+            'Sin ventana activa: snapshot vacío (rebind ColorOS en '
             'curso).',
       );
     }
@@ -143,7 +145,8 @@ class NanoAgentExecutor implements AgentExecutor {
     if (stableNode == null) {
       return AgentExecutionResult.failure(
         errorCode: AgentErrorCode.unstableTarget,
-        reason: 'Objetivo inestable: se movió durante la espera de settle '
+        reason:
+            'Objetivo inestable: se movió durante la espera de settle '
             '(${_stability.maxCenterDeltaPx}px / '
             '${_stability.maxSizeChangeRatio * 100}%).',
         resolve: resolve,
@@ -158,7 +161,8 @@ class NanoAgentExecutor implements AgentExecutor {
     if (!ok) {
       return AgentExecutionResult.failure(
         errorCode: AgentErrorCode.gestureFailed,
-        reason: 'El gesto tapAt(${stableNode.bounds.centerX.round()}, '
+        reason:
+            'El gesto tapAt(${stableNode.bounds.centerX.round()}, '
             '${stableNode.bounds.centerY.round()}) falló en el canal.',
         resolve: resolve,
         actionability: actionability,
@@ -280,8 +284,8 @@ class NanoAgentExecutor implements AgentExecutor {
     final code = switch (resolve.status) {
       ResolveStatus.ambiguous => AgentErrorCode.ambiguousTarget,
       ResolveStatus.notFound => AgentErrorCode.notFound,
-      ResolveStatus.resolved || ResolveStatus.serviceOff =>
-        AgentErrorCode.serviceOff,
+      ResolveStatus.resolved ||
+      ResolveStatus.serviceOff => AgentErrorCode.serviceOff,
     };
     return AgentExecutionResult.failure(
       errorCode: code,

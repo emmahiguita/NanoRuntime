@@ -16,7 +16,8 @@ library;
 import 'package:nanoai/core/services/llm_engine_client.dart'
     show LLMEngineClient, LLMResult;
 
-import '../execution/agent_tool_dispatcher.dart' show AgentToolProtocol, ToolCall;
+import '../execution/agent_tool_dispatcher.dart'
+    show AgentToolProtocol, ToolCall;
 import '../execution/tool_registry.dart' show ToolRegistry;
 
 /// Contrato del planner. DIP: LLM real, heurística determinista, o fake en
@@ -55,10 +56,12 @@ class LlmAutomationPlanner implements AutomationPlanner {
   final LLMEngineClient _client;
   final Set<String> _knownTools;
 
-  LlmAutomationPlanner({required LLMEngineClient client, Set<String>? knownTools})
-      : _client = client,
-        _knownTools = knownTools ??
-            ToolRegistry.builtin.all.map((t) => t.name).toSet();
+  LlmAutomationPlanner({
+    required LLMEngineClient client,
+    Set<String>? knownTools,
+  }) : _client = client,
+       _knownTools =
+           knownTools ?? ToolRegistry.builtin.all.map((t) => t.name).toSet();
 
   @override
   Future<PlannedPlan> plan(String goal) async {

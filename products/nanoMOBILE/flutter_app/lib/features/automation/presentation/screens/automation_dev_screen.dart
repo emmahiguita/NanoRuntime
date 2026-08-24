@@ -48,7 +48,11 @@ class AutomationDevScreen extends StatelessWidget {
                         // Nota breve (una línea): no es la interfaz del asistente.
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
-                              NanoSpacing.sm, 0, NanoSpacing.sm, NanoSpacing.md),
+                            NanoSpacing.sm,
+                            0,
+                            NanoSpacing.sm,
+                            NanoSpacing.md,
+                          ),
                           child: Text(
                             'Herramientas de diagnóstico del agente. Solo para '
                             'depurar la percepción y la ejecución.',

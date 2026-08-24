@@ -100,8 +100,8 @@ class AgentLoopResult {
 /// cablea el snapshot (DIP).
 class AgentLoop {
   AgentLoop({required AgentExecutor executor, required AgentVerifier verifier})
-      : _executor = executor,
-        _verifier = verifier;
+    : _executor = executor,
+      _verifier = verifier;
 
   final AgentExecutor _executor;
   final AgentVerifier _verifier;
@@ -141,8 +141,10 @@ class AgentLoop {
       // ACT.
       final execution = switch (step.action) {
         AgentAction.tap => await _executor.tap(step.selector),
-        AgentAction.setText =>
-          await _executor.setText(step.selector, step.text ?? ''),
+        AgentAction.setText => await _executor.setText(
+          step.selector,
+          step.text ?? '',
+        ),
       };
 
       if (!execution.ok) {
@@ -198,12 +200,12 @@ class AgentLoop {
   /// ambiguous/notFound/notActionable/snapshotEmpty) no: reintentar no cambia
   /// el resultado y solo consume tiempo.
   static bool _isRetryable(AgentErrorCode? code) => switch (code) {
-        AgentErrorCode.gestureFailed ||
-        AgentErrorCode.inputFailed ||
-        AgentErrorCode.unstableTarget ||
-        AgentErrorCode.timeout => true,
-        _ => false,
-      };
+    AgentErrorCode.gestureFailed ||
+    AgentErrorCode.inputFailed ||
+    AgentErrorCode.unstableTarget ||
+    AgentErrorCode.timeout => true,
+    _ => false,
+  };
 
   String _failureSummary(AgentStepResult r) {
     if (!r.execution.ok) {

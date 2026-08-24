@@ -22,7 +22,11 @@ class PreflightCheck {
   final String name;
   final bool ok;
   final String detail;
-  const PreflightCheck({required this.name, required this.ok, required this.detail});
+  const PreflightCheck({
+    required this.name,
+    required this.ok,
+    required this.detail,
+  });
 }
 
 class C14PreflightResult {
@@ -56,17 +60,23 @@ class C14Preflight {
       PreflightCheck(
         name: 'Runtime vivo',
         ok: runtimeAlive,
-        detail: runtimeAlive ? 'engine /health OK' : 'engine muerto o no respondió',
+        detail: runtimeAlive
+            ? 'engine /health OK'
+            : 'engine muerto o no respondió',
       ),
       PreflightCheck(
         name: 'Modelo cargado',
         ok: modelLoaded,
-        detail: modelLoaded ? 'GGUF cargado' : 'sin modelo (degraded / no GGUF)',
+        detail: modelLoaded
+            ? 'GGUF cargado'
+            : 'sin modelo (degraded / no GGUF)',
       ),
       PreflightCheck(
         name: 'Accesibilidad activa',
         ok: accessibilityEnabled,
-        detail: accessibilityEnabled ? 'servicio activo' : 'sin árbol semántico',
+        detail: accessibilityEnabled
+            ? 'servicio activo'
+            : 'sin árbol semántico',
       ),
       PreflightCheck(
         name: 'Coordinator listo',
@@ -94,18 +104,17 @@ class C14Preflight {
     return C14PreflightResult(
       pass: failIndex == -1,
       checks: checks,
-      failCode:
-          failIndex == -1 ? null : _codeFor(checks[failIndex].name),
+      failCode: failIndex == -1 ? null : _codeFor(checks[failIndex].name),
     );
   }
 
   static PreflightCode _codeFor(String name) => switch (name) {
-        'Runtime vivo' => PreflightCode.runtimeDead,
-        'Modelo cargado' => PreflightCode.modelNotLoaded,
-        'Accesibilidad activa' => PreflightCode.accessibilityOff,
-        'Coordinator listo' => PreflightCode.coordinatorNotReady,
-        'Política configurada' => PreflightCode.policyNotConfigured,
-        'Device desbloqueado' => PreflightCode.deviceLocked,
-        _ => PreflightCode.screenNotInteractive,
-      };
+    'Runtime vivo' => PreflightCode.runtimeDead,
+    'Modelo cargado' => PreflightCode.modelNotLoaded,
+    'Accesibilidad activa' => PreflightCode.accessibilityOff,
+    'Coordinator listo' => PreflightCode.coordinatorNotReady,
+    'Política configurada' => PreflightCode.policyNotConfigured,
+    'Device desbloqueado' => PreflightCode.deviceLocked,
+    _ => PreflightCode.screenNotInteractive,
+  };
 }

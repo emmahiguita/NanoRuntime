@@ -27,7 +27,8 @@ class AutomationMessagesScreen extends StatelessWidget {
               title: 'Mensajes',
               showBack: true,
               body: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(
                   NanoSpacing.md,
                   NanoSpacing.md,

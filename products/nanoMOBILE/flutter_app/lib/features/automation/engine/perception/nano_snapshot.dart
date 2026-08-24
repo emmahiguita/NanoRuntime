@@ -30,13 +30,13 @@ class NanoBounds {
     final xGap = (other.left > right)
         ? other.left - right
         : (left > other.right)
-            ? left - other.right
-            : 0;
+        ? left - other.right
+        : 0;
     final yGap = (other.top > bottom)
         ? other.top - bottom
         : (top > other.bottom)
-            ? top - other.bottom
-            : 0;
+        ? top - other.bottom
+        : 0;
     return xGap > yGap ? xGap : yGap;
   }
 
@@ -176,9 +176,8 @@ class NanoSnapshot {
 
   /// Editables visibles en orden de árbol — la posición ordinal alimenta el
   /// criterio "editable + posición" del scoring.
-  List<NanoNode> visibleEditables() => visibleNodes
-      .where((n) => n.editable)
-      .toList();
+  List<NanoNode> visibleEditables() =>
+      visibleNodes.where((n) => n.editable).toList();
 
   /// Parsea `{package, nodes:[…]}` (respuesta de `dumpSnapshot`). Si [raw]
   /// es la lista plana de `dumpScreen`, package queda "" y depth 0.
@@ -186,11 +185,10 @@ class NanoSnapshot {
     final rawNodes = raw['nodes'] as List? ?? const <dynamic>[];
     final nodes = <NanoNode>[];
     for (var i = 0; i < rawNodes.length; i++) {
-      nodes.add(NanoNode.fromMap(i, Map<dynamic, dynamic>.from(rawNodes[i] as Map)));
+      nodes.add(
+        NanoNode.fromMap(i, Map<dynamic, dynamic>.from(rawNodes[i] as Map)),
+      );
     }
-    return NanoSnapshot(
-      package: raw['package'] as String? ?? '',
-      nodes: nodes,
-    );
+    return NanoSnapshot(package: raw['package'] as String? ?? '', nodes: nodes);
   }
 }

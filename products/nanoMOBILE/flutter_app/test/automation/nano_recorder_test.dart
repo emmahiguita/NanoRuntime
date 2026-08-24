@@ -4,24 +4,32 @@ import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
 
 /// C13 — NanoRecorder: persistencia durable de trazas + memoria de objetos UI.
 void main() {
-  test('persiste y recarga una memoria de objetos UI (selectores verificados)',
-      () async {
-    final sink = InMemoryRecorderSink();
-    final recorder = NanoRecorder(sink);
+  test(
+    'persiste y recarga una memoria de objetos UI (selectores verificados)',
+    () async {
+      final sink = InMemoryRecorderSink();
+      final recorder = NanoRecorder(sink);
 
-    var mem = const NanoObjectMemory().recordSuccess(
-      const UiObjectKey(concept: 'bluetooth', package: 'com.android.settings'),
-      const UiSelectorEvidence(resourceId: 'id_bt', text: 'Bluetooth'),
-    );
+      var mem = const NanoObjectMemory().recordSuccess(
+        const UiObjectKey(
+          concept: 'bluetooth',
+          package: 'com.android.settings',
+        ),
+        const UiSelectorEvidence(resourceId: 'id_bt', text: 'Bluetooth'),
+      );
 
-    await recorder.persistObjectMemory(mem);
+      await recorder.persistObjectMemory(mem);
 
-    final restored = await recorder.restoreObjectMemory();
-    final resolved = restored.resolve(
-      const UiObjectKey(concept: 'bluetooth', package: 'com.android.settings'),
-    );
-    expect(resolved?.resourceId, 'id_bt');
-  });
+      final restored = await recorder.restoreObjectMemory();
+      final resolved = restored.resolve(
+        const UiObjectKey(
+          concept: 'bluetooth',
+          package: 'com.android.settings',
+        ),
+      );
+      expect(resolved?.resourceId, 'id_bt');
+    },
+  );
 
   test('persiste trazas de ejecución y las lee', () async {
     final sink = InMemoryRecorderSink();

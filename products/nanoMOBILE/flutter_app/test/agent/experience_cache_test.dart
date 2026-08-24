@@ -28,8 +28,7 @@ void main() {
       expect(cache.size, 1);
     });
 
-    test('fallos degradan la confianza; bajo umbral → invalidado (miss)',
-        () {
+    test('fallos degradan la confianza; bajo umbral → invalidado (miss)', () {
       final cache = ExperienceCache(minConfidence: 0.5);
       cache.recordSuccess('abre bluetooth y vuelve', bluetoothPlan);
       cache.recordFailure('abre bluetooth y vuelve');

@@ -125,20 +125,22 @@ void main() {
       expect(tapCalls, hasLength(1));
     });
 
-    test('flow cuyo paso falla → completed=false con goal no satisfecho',
-        () async {
-      final flow = NanoFlow(
-        goal: 'verificar estado de Bluetooth',
-        steps: const [
-          ToolCall(tool: 'screen'),
-          ToolCall(tool: 'resolve', selector: 'text=Inexistente'),
-        ],
-        goalExpectation: const GoalExpectation(visibleText: 'Bluetooth'),
-      );
-      final r = await executor.execute(flow);
-      expect(r.completed, isFalse);
-      expect(r.plan.completed, isFalse);
-      expect(r.goal.status, GoalStatus.notSatisfied);
-    });
+    test(
+      'flow cuyo paso falla → completed=false con goal no satisfecho',
+      () async {
+        final flow = NanoFlow(
+          goal: 'verificar estado de Bluetooth',
+          steps: const [
+            ToolCall(tool: 'screen'),
+            ToolCall(tool: 'resolve', selector: 'text=Inexistente'),
+          ],
+          goalExpectation: const GoalExpectation(visibleText: 'Bluetooth'),
+        );
+        final r = await executor.execute(flow);
+        expect(r.completed, isFalse);
+        expect(r.plan.completed, isFalse);
+        expect(r.goal.status, GoalStatus.notSatisfied);
+      },
+    );
   });
 }

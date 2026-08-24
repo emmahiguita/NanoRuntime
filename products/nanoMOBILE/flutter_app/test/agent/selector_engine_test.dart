@@ -10,14 +10,14 @@ void main() {
   final engine = NanoSelectorEngine();
 
   NanoSnapshot snap(String name) => NanoSnapshot.fromRaw(switch (name) {
-        'ajustes' => snapshotAjustes(),
-        'dobleAceptar' => snapshotDobleAceptar(),
-        'labelCampo' => snapshotLabelCampo(),
-        'centroVsEsquina' => snapshotCentroVsEsquina(),
-        'idDiscrepante' => snapshotIdDiscrepante(),
-        'rebind' => snapshotRebindEmpty(),
-        _ => throw ArgumentError(name),
-      });
+    'ajustes' => snapshotAjustes(),
+    'dobleAceptar' => snapshotDobleAceptar(),
+    'labelCampo' => snapshotLabelCampo(),
+    'centroVsEsquina' => snapshotCentroVsEsquina(),
+    'idDiscrepante' => snapshotIdDiscrepante(),
+    'rebind' => snapshotRebindEmpty(),
+    _ => throw ArgumentError(name),
+  });
 
   group('NanoSelectorEngine.resolve', () {
     test('resourceId exacto gana sobre texto (100)', () {
@@ -66,7 +66,10 @@ void main() {
       );
       expect(r.isResolved, isTrue);
       expect(r.best!.score, 85);
-      expect(r.best!.matchedCriteria, containsAll(['textExact:+75', 'role:+10']));
+      expect(
+        r.best!.matchedCriteria,
+        containsAll(['textExact:+75', 'role:+10']),
+      );
     });
 
     test('editable: primer campo visible suma 60', () {
@@ -77,8 +80,10 @@ void main() {
       expect(r.isResolved, isTrue);
       expect(r.best!.node.editable, isTrue);
       expect(r.best!.score, 60);
-      expect(r.best!.matchedCriteria,
-          containsAll(['editable:+45', 'firstEditable:+15']));
+      expect(
+        r.best!.matchedCriteria,
+        containsAll(['editable:+45', 'firstEditable:+15']),
+      );
     });
 
     test('near: campo junto a label ancla gana +50', () {
@@ -161,10 +166,7 @@ void main() {
 
     test('package mismatch → notFound (precondición dura)', () {
       final r = engine.resolve(
-        const NanoSelector(
-          packageName: 'com.whatsapp',
-          text: 'Bluetooth',
-        ),
+        const NanoSelector(packageName: 'com.whatsapp', text: 'Bluetooth'),
         snap('ajustes'),
       );
       expect(r.status, ResolveStatus.notFound);
@@ -267,8 +269,10 @@ void main() {
 
   group('NanoSelector', () {
     test('sin criterios → SelectorFormatException', () {
-      expect(() => const NanoSelector().validate(),
-          throwsA(isA<SelectorFormatException>()));
+      expect(
+        () => const NanoSelector().validate(),
+        throwsA(isA<SelectorFormatException>()),
+      );
     });
 
     test('regex inválido → SelectorFormatException', () {
@@ -319,23 +323,31 @@ void main() {
     });
 
     test('clave desconocida → FormatException', () {
-      expect(() => NanoSelector.parse('foo=bar'),
-          throwsA(isA<SelectorFormatException>()));
+      expect(
+        () => NanoSelector.parse('foo=bar'),
+        throwsA(isA<SelectorFormatException>()),
+      );
     });
 
     test('rol desconocido → FormatException', () {
-      expect(() => NanoSelector.parse('role=taco'),
-          throwsA(isA<SelectorFormatException>()));
+      expect(
+        () => NanoSelector.parse('role=taco'),
+        throwsA(isA<SelectorFormatException>()),
+      );
     });
 
     test('expresión vacía → FormatException', () {
-      expect(() => NanoSelector.parse('   '),
-          throwsA(isA<SelectorFormatException>()));
+      expect(
+        () => NanoSelector.parse('   '),
+        throwsA(isA<SelectorFormatException>()),
+      );
     });
 
     test('solo pkg sin criterio → FormatException', () {
-      expect(() => NanoSelector.parse('pkg=com.android.settings'),
-          throwsA(isA<SelectorFormatException>()));
+      expect(
+        () => NanoSelector.parse('pkg=com.android.settings'),
+        throwsA(isA<SelectorFormatException>()),
+      );
     });
 
     test('editable=true;near=desc=Usuario → near anidado', () {

@@ -63,9 +63,9 @@ class _C14DebugBenchmarkSectionState
       setState(() => _result = result);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('C14 infra error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('C14 infra error: $e')));
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -73,21 +73,25 @@ class _C14DebugBenchmarkSectionState
 
   void _copy(String text) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copiado al portapapeles')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Copiado al portapapeles')));
   }
 
   String _reportText() {
     final r = _result!;
     final b = StringBuffer()
       ..writeln('C14-A REPORT')
-      ..writeln('device=${r.context.device} model=${r.context.model} '
-          'commit=${r.context.gitCommit}')
+      ..writeln(
+        'device=${r.context.device} model=${r.context.model} '
+        'commit=${r.context.gitCommit}',
+      )
       ..writeln();
     for (final g in r.report!.gates) {
-      b.writeln('${g.name.padRight(24)} ${(g.value * 100).toStringAsFixed(0)}%'
-          '  ${g.pass ? 'PASS' : 'FAIL'}');
+      b.writeln(
+        '${g.name.padRight(24)} ${(g.value * 100).toStringAsFixed(0)}%'
+        '  ${g.pass ? 'PASS' : 'FAIL'}',
+      );
     }
     b
       ..writeln()
@@ -109,10 +113,7 @@ class _C14DebugBenchmarkSectionState
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => _copy(json),
-            child: const Text('Copiar'),
-          ),
+          TextButton(onPressed: () => _copy(json), child: const Text('Copiar')),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cerrar'),
@@ -134,8 +135,10 @@ class _C14DebugBenchmarkSectionState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('C14 Automation Benchmark',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  'C14 Automation Benchmark',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: NanoSpacing.sm),
                 _preflightStatus(),
                 const SizedBox(height: NanoSpacing.md),
@@ -177,8 +180,10 @@ class _C14DebugBenchmarkSectionState
       children: [
         for (final c in preflight.checks)
           Chip(
-            label: Text('${c.name}: ${c.ok ? 'OK' : 'FAIL'}',
-                style: const TextStyle(fontSize: 11)),
+            label: Text(
+              '${c.name}: ${c.ok ? 'OK' : 'FAIL'}',
+              style: const TextStyle(fontSize: 11),
+            ),
             backgroundColor: (c.ok ? _colors.success : _colors.error)
                 .withValues(alpha: 0.15),
             side: BorderSide.none,
@@ -217,11 +222,15 @@ class _C14DebugBenchmarkSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(),
-        Text('C14-A REPORT',
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(
+          'C14-A REPORT',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         for (final g in rep.gates)
-          Text('${g.name}: ${(g.value * 100).toStringAsFixed(0)}% '
-              '${g.pass ? 'PASS' : 'FAIL'}'),
+          Text(
+            '${g.name}: ${(g.value * 100).toStringAsFixed(0)}% '
+            '${g.pass ? 'PASS' : 'FAIL'}',
+          ),
         const SizedBox(height: NanoSpacing.sm),
         Text('Goal success  ${rep.passed}/${rep.total}'),
         Text('Total  ${r.total.inMilliseconds}ms'),

@@ -12,8 +12,7 @@ import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart'
 import 'fixtures.dart';
 
 void main() {
-  NanoSnapshot snap(Map<String, dynamic> raw) =>
-      NanoSnapshot.fromRaw(raw);
+  NanoSnapshot snap(Map<String, dynamic> raw) => NanoSnapshot.fromRaw(raw);
 
   ActionVerifier verifierWith(List<NanoSnapshot?> sequence) {
     var i = 0;
@@ -52,10 +51,7 @@ void main() {
   });
 
   test('mustAppear aparece en el 2º sondeo → verified', () async {
-    final v = verifierWith([
-      snap(snapshotAjustes()),
-      snap(snapshotAjustes()),
-    ]);
+    final v = verifierWith([snap(snapshotAjustes()), snap(snapshotAjustes())]);
     final out = await v.verify(
       fast.copyWith(mustAppear: NanoSelector.parse('text=Bluetooth')),
     );
@@ -139,22 +135,27 @@ void main() {
     expect(out.reason, contains('no cambió'));
   });
 
-  test('mustChangeSnapshot sin preSnapshot → notVerified (no asumir)', () async {
-    final v = verifierWith([snap(snapshotAjustes())]);
-    final out = await v.verify(fast.copyWith(mustChangeSnapshot: true));
-    expect(out.status, VerificationStatus.notVerified);
-    expect(out.reason, contains('preSnapshot'));
-  });
+  test(
+    'mustChangeSnapshot sin preSnapshot → notVerified (no asumir)',
+    () async {
+      final v = verifierWith([snap(snapshotAjustes())]);
+      final out = await v.verify(fast.copyWith(mustChangeSnapshot: true));
+      expect(out.status, VerificationStatus.notVerified);
+      expect(out.reason, contains('preSnapshot'));
+    },
+  );
 
-  test('postcondiciones combinadas: pkg + mustAppear juntas → verified',
-      () async {
-    final v = verifierWith([snap(snapshotAjustes())]);
-    final out = await v.verify(
-      fast.copyWith(
-        expectedPackage: 'com.android.settings',
-        mustAppear: NanoSelector.parse('desc=Buscar ajustes'),
-      ),
-    );
-    expect(out.status, VerificationStatus.verified);
-  });
+  test(
+    'postcondiciones combinadas: pkg + mustAppear juntas → verified',
+    () async {
+      final v = verifierWith([snap(snapshotAjustes())]);
+      final out = await v.verify(
+        fast.copyWith(
+          expectedPackage: 'com.android.settings',
+          mustAppear: NanoSelector.parse('desc=Buscar ajustes'),
+        ),
+      );
+      expect(out.status, VerificationStatus.verified);
+    },
+  );
 }

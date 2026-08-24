@@ -52,8 +52,8 @@ class NanoFlowExecutor {
   NanoFlowExecutor({
     required AgentToolDispatcher dispatcher,
     required GoalVerifier goalVerifier,
-  })  : _dispatcher = dispatcher,
-        _goalVerifier = goalVerifier;
+  }) : _dispatcher = dispatcher,
+       _goalVerifier = goalVerifier;
 
   final AgentToolDispatcher _dispatcher;
   final GoalVerifier _goalVerifier;

@@ -56,10 +56,10 @@ void main() {
 }
 
 AutomationTrace _trace({required String goal}) => AutomationTrace(
-      executionId: 'e',
-      goal: goal,
-      status: AutomationResultStatus.completed,
-      summary: 'ok',
-      startedAt: DateTime(2024, 1, 1),
-      endedAt: DateTime(2024, 1, 1, 0, 0, 1),
-    );
+  executionId: 'e',
+  goal: goal,
+  status: AutomationResultStatus.completed,
+  summary: 'ok',
+  startedAt: DateTime(2024, 1, 1),
+  endedAt: DateTime(2024, 1, 1, 0, 0, 1),
+);

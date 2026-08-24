@@ -7,8 +7,8 @@ import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/perception/nano_selector.dart'
     show NanoSelector, SelectorFormatException;
 import 'package:nanoai/core/theme/design_tokens.dart';
-  import 'package:nanoai/core/theme/nano_type.dart';
-    import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/core/widgets/nano_section.dart';
 
 /// Consola del agente de UI — consumidor real del Selector Engine.
 ///
@@ -39,9 +39,9 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
   bool _busy = false;
 
   @override
-void initState() {
-  super.initState();
-  _executor = ref.read(agentExecutorProvider);
+  void initState() {
+    super.initState();
+    _executor = ref.read(agentExecutorProvider);
   }
 
   @override
@@ -76,7 +76,8 @@ void initState() {
     setState(() {
       _busy = false;
       if (snap == null) {
-        _status = 'No conectado — activar en Ajustes → Accesibilidad → '
+        _status =
+            'No conectado — activar en Ajustes → Accesibilidad → '
             'NanoAI Local';
         _nodes = const [];
         return;
@@ -90,8 +91,7 @@ void initState() {
       _nodes = snap.visibleNodes
           .take(8)
           .map(
-            (n) =>
-                'd${n.depth} ${n.label} @(${n.bounds.left},${n.bounds.top})',
+            (n) => 'd${n.depth} ${n.label} @(${n.bounds.left},${n.bounds.top})',
           )
           .toList();
     });
@@ -132,8 +132,8 @@ void initState() {
       _busy = false;
       _feedback = r.ok
           ? 'ok: tap en "${r.targetNode!.label}" '
-              '@(${r.targetNode!.bounds.centerX},'
-              '${r.targetNode!.bounds.centerY})'
+                '@(${r.targetNode!.bounds.centerX},'
+                '${r.targetNode!.bounds.centerY})'
           : 'FAIL [${r.errorCode!.name}]: ${r.reason}';
     });
   }
@@ -174,16 +174,16 @@ void initState() {
 
   @override
   Widget build(BuildContext context) {
-      final colors = NanoThemeExtension.of(context).colors;
-      return Column(
+    final colors = NanoThemeExtension.of(context).colors;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader('Percepción y acciones', Icons.smart_toy, colors: colors),
-          NanoOpticalSurface(
-            borderStrength: 0.45,
-            reflectionStrength: 0.28,
-            blurSigma: 12,
-            child: Column(
+        NanoOpticalSurface(
+          borderStrength: 0.45,
+          reflectionStrength: 0.28,
+          blurSigma: 12,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _GroupLabel('Snapshot del árbol', colors),
@@ -234,7 +234,8 @@ void initState() {
                 controller: _selectorController,
                 decoration: InputDecoration(
                   labelText: 'Selector (mini-DSL)',
-                  helperText: 'ej. text=Bluetooth · editable=true · '
+                  helperText:
+                      'ej. text=Bluetooth · editable=true · '
                       'editable=true;near=desc=Usuario',
                   helperMaxLines: 2,
                   border: OutlineInputBorder(
@@ -251,9 +252,10 @@ void initState() {
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _resolve,
                     icon: const Icon(Icons.search, size: 16),
-                    label: Text('Resolver', style: NanoType.caption(
-                      colors.onSurface,
-                    )),
+                    label: Text(
+                      'Resolver',
+                      style: NanoType.caption(colors.onSurface),
+                    ),
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
@@ -261,9 +263,10 @@ void initState() {
                   FilledButton.icon(
                     onPressed: _busy ? null : _tapSafe,
                     icon: const Icon(Icons.touch_app, size: 16),
-                    label: Text('Tap seguro', style: NanoType.caption(
-                      colors.onSurface,
-                    )),
+                    label: Text(
+                      'Tap seguro',
+                      style: NanoType.caption(colors.onSurface),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: colors.accentCyan,
                       visualDensity: VisualDensity.compact,
@@ -301,9 +304,10 @@ void initState() {
               OutlinedButton.icon(
                 onPressed: _busy ? null : _setText,
                 icon: const Icon(Icons.keyboard, size: 16),
-                label: Text('Escribir', style: NanoType.caption(
-                  colors.onSurface,
-                )),
+                label: Text(
+                  'Escribir',
+                  style: NanoType.caption(colors.onSurface),
+                ),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),

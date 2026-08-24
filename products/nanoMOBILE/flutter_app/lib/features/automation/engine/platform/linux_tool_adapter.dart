@@ -70,8 +70,10 @@ class LinuxToolAdapter {
   /// si es seguro; el adapter no valida contenido.
   Future<LinuxCommandResult> runCommand(String command) => _run(command);
 
-  Future<LinuxCommandResult> _run(String command,
-      {Duration timeout = const Duration(seconds: 20)}) {
+  Future<LinuxCommandResult> _run(
+    String command, {
+    Duration timeout = const Duration(seconds: 20),
+  }) {
     return _runner.run(command, timeout: timeout);
   }
 

@@ -27,9 +27,10 @@ class AutomationEngine {
   const AutomationEngine._(this._coordinator, this._ledger);
 
   /// Construye el engine real sobre el coordinator + ledger compartido.
-  static AutomationEngine from(AutomationCoordinator coordinator,
-          ActionLedger ledger) =>
-      AutomationEngine._(coordinator, ledger);
+  static AutomationEngine from(
+    AutomationCoordinator coordinator,
+    ActionLedger ledger,
+  ) => AutomationEngine._(coordinator, ledger);
 
   /// EL objetivo → acciones verificadas → [AutomationResult] honesto.
   ///

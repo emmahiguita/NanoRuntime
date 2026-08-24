@@ -69,7 +69,8 @@ class ActionabilityState {
     final exists = node.bounds.width > 0 || node.bounds.height > 0;
     final visible = node.visible;
     final enabled = node.enabled;
-    final expectedPackageOk = expectedPackage == null ||
+    final expectedPackageOk =
+        expectedPackage == null ||
         expectedPackage.isEmpty ||
         expectedPackage == snapshotPackage;
     final receivesAction = switch (kind) {
@@ -87,7 +88,8 @@ class ActionabilityState {
     } else if (!enabled) {
       reason = 'Nodo deshabilitado.';
     } else if (!expectedPackageOk) {
-      reason = 'Package inesperado: se esperaba "$expectedPackage", '
+      reason =
+          'Package inesperado: se esperaba "$expectedPackage", '
           'actual "$snapshotPackage".';
     } else if (!receivesAction) {
       reason = switch (kind) {
