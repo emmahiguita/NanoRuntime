@@ -408,6 +408,13 @@ class _TelemetryGlass extends StatelessWidget {
         blurSigma: 14,
         borderStrength: 0.65,
         reflectionStrength: 0.45,
+        // Firma del módulo automation en el dashboard: tilt 3D (pointer) +
+        // barrido especular animado (autoReflect). Seguro: la telemetry card
+        // no está en el carousel, así que no reproduce el texto sub-píxel
+        // que motivó evitar rotateY en las cards deslizantes.
+        tilt: true,
+        tiltIntensity: 0.06,
+        autoReflect: true,
         padding: const EdgeInsets.fromLTRB(8, 4, 6, 4),
         child: Row(
           children: [
@@ -710,14 +717,20 @@ class _FeatureCarousel extends StatelessWidget {
 
                     final reduceMotion = NanoMotion.reduceMotion(context);
 
-                    // Parallax 2D (sin rotateY ni perspectiva): la rotación 3D
-                    // en el carousel producía texto sub-píxel (bordes borrosos
-                    // en las cards adyacentes). Solo escala + traslación + opacidad.
+                    // Coverflow 3D: rotateY por desplazamiento de página.
+                    // La card enfocada (delta≈0) queda plana/nítida; las
+                    // adyacentes giran con perspectiva suave. El ángulo se
+                    // acota (~10°) y las adyacentes ya van atenuadas +escaladas,
+                    // evitando el texto sub-píxel del ángulo grande anterior.
                     final scale = reduceMotion ? 1.0 : (1.0 - distance * 0.06);
                     final translationY = reduceMotion
                         ? distance * 2.0
                         : distance * 6.0;
                     final translationX = reduceMotion ? 0.0 : -delta * 4.0;
+                    final rotationY = reduceMotion
+                        ? 0.0
+                        : (-delta.clamp(-1.0, 1.0) * 0.17);
+                    final perspective = reduceMotion ? 0.0 : 0.00135;
 
                     // Desplazamiento cáustico inercial reactivo al gesto
                     final specularDrift = -(page - page.roundToDouble()) * 0.22;
@@ -725,7 +738,9 @@ class _FeatureCarousel extends StatelessWidget {
                     return Transform(
                       alignment: Alignment.center,
                       transform: Matrix4.identity()
+                        ..setEntry(3, 2, perspective)
                         ..setTranslationRaw(translationX, translationY, 0.0)
+                        ..rotateY(rotationY)
                         ..scaleByDouble(scale, scale, 1.0, 1.0),
                       child: Opacity(
                         opacity: (1.0 - distance * 0.16).clamp(0.0, 1.0),
@@ -828,6 +843,12 @@ class NanoFeatureCard extends StatelessWidget {
             accent: data.accent,
             reflectionController: reflectionController,
             specularDrift: specularDrift,
+            // Tilt 3D per-card (pointer y dedo). Independiente del transform
+            // del carousel: solo late la card tocada/señalada, nunca las
+            // adyacentes → no reproduce el texto sub-píxel del rotateY de
+            // página.
+            tilt: true,
+            tiltIntensity: 0.10,
             onTap: data.onTap,
             padding: EdgeInsets.symmetric(
               horizontal: 14,
