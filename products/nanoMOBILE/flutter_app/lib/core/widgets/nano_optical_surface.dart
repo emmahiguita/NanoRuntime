@@ -182,30 +182,6 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     );
   }
 
-  /// Seguimiento TÁCTIL: en móvil no hay hover, así que el puntero (y con él
-  /// el tilt 3D + el especular) sigue la posición del DEDO. Mismo umbral de
-  /// movimiento que el hover → sin setState por cada píxel.
-  void _handleTouchDown(PointerDownEvent event) => _trackTouch(event.localPosition);
-
-  void _handleTouchMove(PointerMoveEvent event) => _trackTouch(event.localPosition);
-
-  void _trackTouch(Offset localPosition) {
-    if (MediaQuery.disableAnimationsOf(context)) return;
-    final nextLight = _lightFromPosition(localPosition);
-    if (!_isPointerInside ||
-        (nextLight.x - _pointerLight.x).abs() > 0.035 ||
-        (nextLight.y - _pointerLight.y).abs() > 0.035) {
-      setState(() {
-        _isPointerInside = true;
-        _pointerLight = nextLight;
-      });
-    }
-  }
-
-  void _handleTouchExit() {
-    if (_isPointerInside) setState(() => _isPointerInside = false);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
@@ -298,16 +274,10 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
       out = surface;
     }
 
-    return Listener(
-      onPointerDown: _handleTouchDown,
-      onPointerMove: _handleTouchMove,
-      onPointerUp: (_) => _handleTouchExit(),
-      onPointerCancel: (_) => _handleTouchExit(),
-      child: MouseRegion(
-        onHover: reduceMotion ? null : _handlePointerHover,
-        onExit: _handlePointerExit,
-        child: out,
-      ),
+    return MouseRegion(
+      onHover: reduceMotion ? null : _handlePointerHover,
+      onExit: _handlePointerExit,
+      child: out,
     );
   }
 

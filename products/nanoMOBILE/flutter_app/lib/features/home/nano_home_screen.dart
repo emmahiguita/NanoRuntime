@@ -966,12 +966,6 @@ class NanoFeatureCard extends StatelessWidget {
             accent: data.accent,
             reflectionController: reflectionController,
             specularDrift: specularDrift,
-            // Tilt 3D per-card (pointer y dedo). Independiente del transform
-            // del carousel: solo late la card tocada/señalada, nunca las
-            // adyacentes → no reproduce el texto sub-píxel del rotateY de
-            // página.
-            tilt: true,
-            tiltIntensity: 0.10,
             onTap: data.onTap,
             padding: EdgeInsets.symmetric(
               horizontal: 14,
