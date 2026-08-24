@@ -57,6 +57,7 @@ class _InteractiveGlassCardState extends State<InteractiveGlassCard>
   double _specularDrift = 0.0;
   double _tiltX = 0.0;
   double _tiltY = 0.0;
+  bool _pressed = false;
 
   @override
   void dispose() {
@@ -74,14 +75,16 @@ class _InteractiveGlassCardState extends State<InteractiveGlassCard>
       _specularDrift = (nx - 0.5) * 0.5;
       _tiltY = (nx - 0.5) * widget.tiltIntensity;
       _tiltX = -(ny - 0.5) * widget.tiltIntensity;
+      _pressed = true;
     });
   }
 
   void _reset() {
-    if (_tiltX == 0 && _tiltY == 0) return;
+    if (_tiltX == 0 && _tiltY == 0 && !_pressed) return;
     setState(() {
       _tiltX = 0.0;
       _tiltY = 0.0;
+      _pressed = false;
     });
   }
 
@@ -93,22 +96,27 @@ class _InteractiveGlassCardState extends State<InteractiveGlassCard>
       onPointerMove: _onPointer,
       onPointerUp: (_) => _reset(),
       onPointerCancel: (_) => _reset(),
-      child: Transform(
-        alignment: Alignment.center,
-        transform: Matrix4.identity()
-          ..setEntry(3, 2, 0.0014)
-          ..rotateX(_tiltX)
-          ..rotateY(_tiltY),
-        child: NanoOpticalSurface(
-          borderRadius: NanoRadius.large,
-          borderStrength: widget.borderStrength,
-          reflectionStrength: widget.reflectionStrength,
-          blurSigma: widget.blurSigma,
-          glassOpacityScale: widget.glassOpacityScale,
-          accent: widget.accent ?? colors.accentCyan,
-          reflectionController: _reflection,
-          specularDrift: _specularDrift,
-          child: widget.child,
+      child: AnimatedScale(
+        scale: _pressed ? 0.985 : 1.0,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0014)
+            ..rotateX(_tiltX)
+            ..rotateY(_tiltY),
+          child: NanoOpticalSurface(
+            borderRadius: NanoRadius.large,
+            borderStrength: widget.borderStrength,
+            reflectionStrength: widget.reflectionStrength,
+            blurSigma: widget.blurSigma,
+            glassOpacityScale: widget.glassOpacityScale,
+            accent: widget.accent ?? colors.accentCyan,
+            reflectionController: _reflection,
+            specularDrift: _specularDrift,
+            child: widget.child,
+          ),
         ),
       ),
     );
