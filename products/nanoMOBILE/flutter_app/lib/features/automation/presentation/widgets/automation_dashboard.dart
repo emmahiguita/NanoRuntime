@@ -6,6 +6,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_breakpoint.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
+import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
@@ -459,11 +460,11 @@ class QuickAutomationActions extends StatelessWidget {
   final ValueChanged<String> onRun;
 
   static const _actions = [
-    ('Bluetooth', 'activar Bluetooth'),
-    ('Chrome', 'abrir Chrome'),
-    ('Linux', 'abrir la terminal Linux'),
-    ('Notificaciones', 'leer las notificaciones'),
-    ('Archivos', 'analizar los archivos'),
+    ('Bluetooth', 'activar Bluetooth', Icons.bluetooth_rounded),
+    ('Chrome', 'abrir Chrome', Icons.public_rounded),
+    ('Linux', 'abrir la terminal Linux', Icons.terminal_rounded),
+    ('Notificaciones', 'leer las notificaciones', Icons.notifications_active_rounded),
+    ('Archivos', 'analizar los archivos', Icons.folder_rounded),
   ];
 
   @override
@@ -478,17 +479,61 @@ class QuickAutomationActions extends StatelessWidget {
           spacing: NanoSpacing.sm,
           runSpacing: NanoSpacing.sm,
           children: [
-            for (final (label, goal) in _actions)
-              ActionChip(
-                label: Text(label),
-                onPressed: () => onRun(goal),
-                backgroundColor: colors.surfaceVariant,
-                side: BorderSide.none,
-                labelStyle: TextStyle(color: colors.textPrimary),
+            for (final (label, goal, icon) in _actions)
+              _QuickActionTile(
+                icon: icon,
+                label: label,
+                onTap: () => onRun(goal),
               ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Tile de acción rápida: glass óptico con icono + etiqueta (profesional,
+/// hyperrealista, content-sized — nunca se estira). Ligero (glass estático).
+class _QuickActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return NanoOpticalSurface(
+      borderRadius: NanoRadius.small,
+      borderStrength: 0.4,
+      reflectionStrength: 0.28,
+      blurSigma: 12,
+      glassOpacityScale: 0.85,
+      accent: colors.accentCyan,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: NanoSpacing.md, vertical: NanoSpacing.sm),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: colors.accentCyan),
+                const SizedBox(width: NanoSpacing.sm),
+                Text(label, style: NanoType.label(colors.textPrimary)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
