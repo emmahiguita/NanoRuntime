@@ -39,9 +39,9 @@ class ToolCall {
   /// `{package, appear, disappear, text, forbidden}` — ver [ActionVerifier].
   final Map<String, dynamic>? expect;
 
-  /// Argumentos tipados (A1): vía compatible para tools que NO son
-  /// `selector`/`text` (swipe/scroll/long_press). Aditivo: no rompe el
-  /// contrato legacy. La migración global a args es A4.
+  /// Argumentos tipados (A1, canónico desde A4): `args` es la vía preferente.
+  /// `selector`/`text`/`key` quedan como aliases legacy (compat) leídos a
+  /// través de los getters tipados de abajo.
   final Map<String, Object?>? args;
   const ToolCall({
     required this.tool,
@@ -51,6 +51,26 @@ class ToolCall {
     this.expect,
     this.args,
   });
+
+  // ── Getters tipados (args primero, fallback legacy) ──────────────────────
+  // El dispatcher y el planner leen SOLO estos getters. Un tool nuevo puede
+  // definir su propio getter (p. ej. `destinationArg`) sin sobrecargar
+  // `selector`/`text`. A4 establece `args` como contrato canónico.
+
+  /// Selector UI (tap/write/resolve). `args.selector` o `selector` legacy.
+  String? get selectorArg => (args?['selector'] as String?) ?? selector;
+
+  /// Texto de acción (write/reply). `args.text` o `text` legacy.
+  String? get textArg => (args?['text'] as String?) ?? text;
+
+  /// Key de notificación (reply_notification). `args.key` o `key` legacy.
+  String? get keyArg => (args?['key'] as String?) ?? key;
+
+  /// packageName para launch_app (A2). `args.packageName` o `selector` legacy.
+  String? get packageNameArg => (args?['packageName'] as String?) ?? selector;
+
+  /// destination para open_system (A3). Solo `args.destination`.
+  String? get destinationArg => args?['destination'] as String?;
 }
 
 /// Parseo tolerante del bloque JSON de herramientas en texto generado.
@@ -503,7 +523,7 @@ class AgentToolDispatcher {
           verdict: PolicyVerdict.denied,
           feedback:
               '[loopDetected] Ciclo en el plan '
-              '("${call.tool} ${call.selector ?? ''}${call.text != null ? ' ${call.text!}' : ''}"). '
+              '("${call.tool} ${call.selectorArg ?? ''}${call.textArg != null ? ' ${call.textArg!}' : ''}"). '
               'El mundo no avanza: se aborta en lugar de repetir la acción.',
         );
         outcomes.add(loopOutcome);
@@ -602,17 +622,17 @@ class AgentToolDispatcher {
       case 'screen':
         return _describeScreen();
       case 'resolve':
-        if (call.selector == null || call.selector!.isEmpty) {
+        if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] resolve requiere "selector".';
         }
-        return _resolve(call.selector!);
+        return _resolve(call.selectorArg!);
       case 'tap':
-        if (call.selector == null || call.selector!.isEmpty) {
+        if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] tap requiere "selector".';
         }
         return _tap(call);
       case 'write':
-        if (call.selector == null || call.selector!.isEmpty) {
+        if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] write requiere "selector".';
         }
         return _write(call);
@@ -637,9 +657,7 @@ class AgentToolDispatcher {
       case 'launch_app':
         // A2: el package grounded viaja en args (flujo del catálogo). Fallback a
         // selector solo para el contrato legacy (catálogo estático 'chrome').
-        final packageName =
-            (call.args?['packageName'] as String? ?? call.selector)?.trim() ??
-            '';
+        final packageName = call.packageNameArg?.trim() ?? '';
         if (packageName.isEmpty) {
           return '[tool] launch_app requiere args {packageName}.';
         }
@@ -650,8 +668,8 @@ class AgentToolDispatcher {
       case 'notifications':
         return _notifications();
       case 'reply_notification':
-        final key = call.key?.trim() ?? '';
-        final text = call.text?.trim() ?? '';
+        final key = call.keyArg?.trim() ?? '';
+        final text = call.textArg?.trim() ?? '';
         if (key.isEmpty) {
           return '[tool] reply_notification requiere "key".';
         }
@@ -677,7 +695,7 @@ class AgentToolDispatcher {
       return '[linuxOff] Subsistema Linux no disponible: sin distribución '
           'registrada o sin adaptador configurado.';
     }
-    final arg = call.text ?? call.selector ?? '';
+    final arg = call.textArg ?? call.selectorArg ?? '';
     if (arg.isEmpty) {
       return '[tool] ${call.tool} requiere "text" o "selector" con el '
           'argumento.';
@@ -689,7 +707,7 @@ class AgentToolDispatcher {
       case 'linux.readFile':
         result = await adapter.readFile(arg);
       case 'linux.writeFile':
-        final content = call.text ?? '';
+        final content = call.textArg ?? '';
         result = await adapter.writeFile(arg, content);
       default:
         result = await adapter.runCommand(arg);
@@ -745,7 +763,7 @@ class AgentToolDispatcher {
   }
 
   Future<String> _tap(ToolCall call) async {
-    final (selector, err) = _tryParse(call.selector!);
+    final (selector, err) = _tryParse(call.selectorArg!);
     if (selector == null) return err!;
     // Postcondición por defecto: la pantalla debe cambiar (un tap que no
     // cambia nada es sospechoso aunque el gesto devuelva true).
@@ -756,7 +774,7 @@ class AgentToolDispatcher {
     // reintentar un gesto podría ser doble-tap (la verificación se reporta).
     final result = await loop.run([
       AgentStep(
-        id: 'tap(${call.selector})',
+        id: 'tap(${call.selectorArg})',
         selector: selector,
         action: AgentAction.tap,
         expectation: expectation,
@@ -777,18 +795,18 @@ class AgentToolDispatcher {
   }
 
   Future<String> _write(ToolCall call) async {
-    final text = (call.text ?? '').trim();
+    final text = (call.textArg ?? '').trim();
     if (text.isEmpty) {
       return 'Texto vacío en @escribir.';
     }
-    final (selector, err) = _tryParse(call.selector!);
+    final (selector, err) = _tryParse(call.selectorArg!);
     if (selector == null) return err!;
     // AgentLoop orquestado: el texto escrito debe ser visible (verificación
     // + retry; reescribir es idempotente, maxAttempts=3 es seguro).
     final expectation = _expectationFor(call).copyWith(expectedText: text);
     final result = await loop.run([
       AgentStep(
-        id: 'write(${call.selector})',
+        id: 'write(${call.selectorArg})',
         selector: selector,
         action: AgentAction.setText,
         text: text,

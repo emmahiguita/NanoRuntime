@@ -112,16 +112,16 @@ class LlmAutomationPlanner implements AutomationPlanner {
     final valid = <ToolCall>[];
     for (final call in calls) {
       if (!_knownTools.contains(call.tool)) continue;
-      final sel = call.selector ?? '';
+      final sel = call.selectorArg ?? '';
 
       if (call.tool == 'tap' || call.tool == 'resolve') {
         if (sel.trim().isEmpty || sel.contains('resourceId')) continue;
       } else if (call.tool == 'write') {
-        if (call.text == null || call.text!.trim().isEmpty) continue;
+        if (call.textArg == null || call.textArg!.trim().isEmpty) continue;
       } else if (call.tool == 'back' || call.tool == 'screen') {
-        if (call.selector != null || call.text != null) continue;
+        if (call.selectorArg != null || call.textArg != null) continue;
       } else {
-        if (call.selector == null && call.text == null) continue;
+        if (call.selectorArg == null && call.textArg == null) continue;
       }
 
       valid.add(call);
