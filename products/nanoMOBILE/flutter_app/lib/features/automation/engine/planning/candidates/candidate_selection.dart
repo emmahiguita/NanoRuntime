@@ -30,3 +30,11 @@ final class NoCandidate extends CandidateSelection {
   final String reason;
   const NoCandidate(this.reason);
 }
+
+/// El selector (p. ej. Koog) produjo un candidateId que NO existe en el set,
+/// o una salida no interpretable. La selección se rechaza; el CandidateSet
+/// sigue siendo la autoridad (nunca se crea una acción nueva desde el modelo).
+final class InvalidCandidateSelection extends CandidateSelection {
+  final String reason;
+  const InvalidCandidateSelection(this.reason);
+}
