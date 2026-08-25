@@ -406,6 +406,23 @@ void main() {
       expect(launchedPackages, ['com.android.chrome']);
     });
 
+    test(
+      'launch_app con args.packageName (A2 grounded) abre el paquete',
+      () async {
+        dispatcher.resetTurn();
+        final approved = await dispatcher.runToolGuarded(
+          const ToolCall(
+            tool: 'launch_app',
+            args: {'packageName': 'com.android.chrome'},
+          ),
+          confirmed: true,
+        );
+        expect(approved.verdict, PolicyVerdict.allow);
+        expect(approved.feedback, contains('com.android.chrome'));
+        expect(launchedPackages, ['com.android.chrome']);
+      },
+    );
+
     test('tool desconocida → denied con lista para corregirse', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'teletransport'));
       expect(r, contains('[policy] Herramienta desconocida "teletransport"'));

@@ -627,9 +627,13 @@ class AgentToolDispatcher {
       case 'long_press':
         return _doLongPress(call);
       case 'launch_app':
-        final packageName = call.selector?.trim() ?? '';
+        // A2: el package grounded viaja en args (flujo del catálogo). Fallback a
+        // selector solo para el contrato legacy (catálogo estático 'chrome').
+        final packageName =
+            (call.args?['packageName'] as String? ?? call.selector)?.trim() ??
+            '';
         if (packageName.isEmpty) {
-          return '[tool] launch_app requiere "selector" con el packageName.';
+          return '[tool] launch_app requiere args {packageName}.';
         }
         final launched = await _launchPackage(packageName);
         return launched

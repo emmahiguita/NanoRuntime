@@ -29,5 +29,7 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     // C12: sin fuente de percepción de pantalla conectada aún (se wirea el
     // AccessibilityPerception en el device). Mux vacío = no inventa.
     perceptionMux: const PerceptionMux([]),
+    // A2: resuelve "abre <app>" con package REAL del PackageManager.
+    appLaunch: ref.watch(appLaunchResolverProvider),
   );
 });

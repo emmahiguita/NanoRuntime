@@ -29,6 +29,8 @@ import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
+import 'package:nanoai/features/automation/engine/system/app_launch_resolver.dart'
+    show AppLaunchResolver;
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
@@ -84,6 +86,10 @@ class AutomationCoordinator {
   /// tiene un selector verificado para el concepto. null = sin percepción.
   final PerceptionMux? _perceptionMux;
 
+  /// A2 — resolvedor determinista de "abre <app>" grounded en el catálogo de
+  /// apps instaladas. null = sin inventario (no se resuelven apps por nombre).
+  final AppLaunchResolver? _appLaunch;
+
   /// Snapshot de solo lectura para diagnóstico/tests. La memoria interna sigue
   /// siendo copy-on-write y solo el coordinator puede reemplazarla.
   NanoObjectMemory? get objectMemorySnapshot => _objectMemory;
@@ -104,6 +110,7 @@ class AutomationCoordinator {
     DeterministicFlowCatalog? catalog,
     NanoObjectMemory? objectMemory,
     PerceptionMux? perceptionMux,
+    AppLaunchResolver? appLaunch,
     void Function(C14Execution)? c14Sink,
   }) : _dispatcher = dispatcher,
        _mode = mode,
@@ -115,6 +122,7 @@ class AutomationCoordinator {
        _catalog = catalog,
        _objectMemory = objectMemory,
        _perceptionMux = perceptionMux,
+       _appLaunch = appLaunch,
        _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -133,6 +141,7 @@ class AutomationCoordinator {
         catalog: _catalog,
         objectMemory: _objectMemory,
         perceptionMux: _perceptionMux,
+        appLaunch: _appLaunch,
         c14Sink: sink,
       );
 
@@ -360,39 +369,51 @@ class AutomationCoordinator {
         return r;
       }
 
-      // Catálogo determinista (SIN LLM): objetivo conocido → flujo real.
-      final known = _catalog?.forGoal(goal.text);
-      if (known != null && known.steps.isNotEmpty) {
-        plan = known.steps;
-        runExpectation = goal.expectation ?? known.expectation;
-        outputProvesGoal = known.outputProvesGoal;
+      // A2: resolvedor grounded de "abre <app>" — package REAL del
+      // PackageManager, nunca un package inventado por el modelo. Precede al
+      // catálogo estático para que "abre Chrome" use el catálogo real.
+      final appLaunch = _appLaunch;
+      final launchPlan = appLaunch == null
+          ? null
+          : await appLaunch.resolve(goal.text);
+      if (launchPlan != null) {
+        plan = [launchPlan.call];
+        runExpectation = launchPlan.expectation;
       } else {
-        // Sin flujo en cache ni catálogo: planear con el LLM local.
-        final planner = _planner;
-        if (planner == null) {
-          final r = AutomationResult(
-            executionId: executionId,
-            status: AutomationResultStatus.noPlan,
-            reason: 'Sin flujo verificado en cache ni plan provisto.',
-          );
-          emit(r);
-          return r;
+        // Catálogo determinista (SIN LLM): objetivo conocido → flujo real.
+        final known = _catalog?.forGoal(goal.text);
+        if (known != null && known.steps.isNotEmpty) {
+          plan = known.steps;
+          runExpectation = goal.expectation ?? known.expectation;
+          outputProvesGoal = known.outputProvesGoal;
+        } else {
+          // Sin flujo en cache ni catálogo: planear con el LLM local.
+          final planner = _planner;
+          if (planner == null) {
+            final r = AutomationResult(
+              executionId: executionId,
+              status: AutomationResultStatus.noPlan,
+              reason: 'Sin flujo verificado en cache ni plan provisto.',
+            );
+            emit(r);
+            return r;
+          }
+          final planned = await planner.plan(goal.text);
+          llmLatency = planned.llmLatency;
+          generatedCount = planned.generated;
+          rejectedCount = planned.rejected;
+          if (planned.calls.isEmpty) {
+            final r = AutomationResult(
+              executionId: executionId,
+              status: AutomationResultStatus.noPlan,
+              reason:
+                  'El planner LLM no produjo acciones verificables para el objetivo.',
+            );
+            emit(r);
+            return r;
+          }
+          plan = planned.calls;
         }
-        final planned = await planner.plan(goal.text);
-        llmLatency = planned.llmLatency;
-        generatedCount = planned.generated;
-        rejectedCount = planned.rejected;
-        if (planned.calls.isEmpty) {
-          final r = AutomationResult(
-            executionId: executionId,
-            status: AutomationResultStatus.noPlan,
-            reason:
-                'El planner LLM no produjo acciones verificables para el objetivo.',
-          );
-          emit(r);
-          return r;
-        }
-        plan = planned.calls;
       }
     }
 

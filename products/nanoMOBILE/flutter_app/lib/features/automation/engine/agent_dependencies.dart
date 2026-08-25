@@ -11,6 +11,10 @@ import 'execution/goal_verifier.dart';
 import 'execution/nano_flow.dart';
 import 'execution/stability_gate.dart';
 import 'execution/tool_registry.dart';
+import 'platform/nano_system_api.dart';
+import 'system/app_launch_resolver.dart';
+import 'system/installed_app_catalog.dart';
+import 'system/system_inventory.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a
@@ -80,4 +84,19 @@ final nanoFlowExecutorProvider = Provider<NanoFlowExecutor>((ref) {
     dispatcher: ref.watch(agentDispatcherProvider),
     goalVerifier: ref.watch(goalVerifierProvider),
   );
+});
+
+/// Inventario factual del sistema (A2): frontera MethodChannel → interface.
+final systemInventoryProvider = Provider<SystemInventory>((ref) {
+  return MethodChannelSystemInventory();
+});
+
+/// Catálogo de apps instaladas/launchable (A2): cachea + resuelve.
+final installedAppCatalogProvider = Provider<InstalledAppCatalog>((ref) {
+  return InstalledAppCatalog(ref.watch(systemInventoryProvider));
+});
+
+/// Resolvedor determinista de "abre <app>" grounded.
+final appLaunchResolverProvider = Provider<AppLaunchResolver>((ref) {
+  return AppLaunchResolver(ref.watch(installedAppCatalogProvider));
 });
