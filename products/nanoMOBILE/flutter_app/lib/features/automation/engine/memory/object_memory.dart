@@ -1,7 +1,8 @@
-/// C10 — NanoObjectMemory: memoria + identidad VERIFICABLE de elementos UI.
+/// C10 → A12 — NanoObjectMemory V2: memoria contextual VERIFICABLE de UI.
 ///
-/// R0 mantiene el modelo de confianza actual y corrige persistencia:
-/// serializar/restaurar conserva evidencia y contadores exactamente.
+/// V2 añade contexto al [UiObjectKey] (screenSignature + semanticTarget) y
+/// invalidación por fallos consecutivos, preservando SOUND learning: solo se
+/// memoriza éxito verificado; `completedUnverified`/fallo NUNCA entrena éxito.
 library;
 
 class UiSelectorEvidence {
@@ -12,6 +13,9 @@ class UiSelectorEvidence {
   final String? near;
   final String? hierarchySignature;
 
+  /// Firma de pantalla donde se VERIFICÓ este selector (contexto, A12).
+  final String? screenSignature;
+
   const UiSelectorEvidence({
     this.resourceId,
     this.text,
@@ -19,6 +23,7 @@ class UiSelectorEvidence {
     this.role,
     this.near,
     this.hierarchySignature,
+    this.screenSignature,
   });
 
   String get fingerprint => resourceId ?? text ?? desc ?? role ?? '';
@@ -30,6 +35,7 @@ class UiSelectorEvidence {
     'role': role,
     'near': near,
     'hierarchySignature': hierarchySignature,
+    'screenSignature': screenSignature,
   };
 
   factory UiSelectorEvidence.fromJson(Map<String, dynamic> json) =>
@@ -40,6 +46,7 @@ class UiSelectorEvidence {
         role: json['role'] as String?,
         near: json['near'] as String?,
         hierarchySignature: json['hierarchySignature'] as String?,
+        screenSignature: json['screenSignature'] as String?,
       );
 }
 
@@ -48,22 +55,34 @@ class UiObjectKey {
   final String package;
   final String appVersion;
 
+  /// Firma de pantalla (A12): liga el target al layout/estado de pantalla.
+  final String screenSignature;
+
+  /// Target semántico (A12): role esperado (ej. `switchControl`).
+  final String semanticTarget;
+
   const UiObjectKey({
     required this.concept,
     this.package = '',
     this.appVersion = '',
+    this.screenSignature = '',
+    this.semanticTarget = '',
   });
 
   Map<String, dynamic> toJson() => {
     'concept': concept,
     'package': package,
     'appVersion': appVersion,
+    'screenSignature': screenSignature,
+    'semanticTarget': semanticTarget,
   };
 
   factory UiObjectKey.fromJson(Map<String, dynamic> json) => UiObjectKey(
     concept: json['concept'] as String? ?? '',
     package: json['package'] as String? ?? '',
     appVersion: json['appVersion'] as String? ?? '',
+    screenSignature: json['screenSignature'] as String? ?? '',
+    semanticTarget: json['semanticTarget'] as String? ?? '',
   );
 
   @override
@@ -71,13 +90,24 @@ class UiObjectKey {
       other is UiObjectKey &&
       other.concept == concept &&
       other.package == package &&
-      other.appVersion == appVersion;
+      other.appVersion == appVersion &&
+      other.screenSignature == screenSignature &&
+      other.semanticTarget == semanticTarget;
 
   @override
-  int get hashCode => Object.hash(concept, package, appVersion);
+  int get hashCode => Object.hash(
+    concept,
+    package,
+    appVersion,
+    screenSignature,
+    semanticTarget,
+  );
 
   @override
-  String toString() => '$concept@$package/$appVersion';
+  String toString() =>
+      '$concept@$package/$appVersion'
+      '${screenSignature.isNotEmpty ? '#$screenSignature' : ''}'
+      '${semanticTarget.isNotEmpty ? '[$semanticTarget]' : ''}';
 }
 
 class UiObjectEntry {
@@ -85,6 +115,10 @@ class UiObjectEntry {
   final Map<String, UiSelectorEvidence> selectors;
   final int successes;
   final int failures;
+
+  /// Fallos consecutivos (A12): >= umbral invalida el entry hasta nuevo éxito.
+  final int consecutiveFailures;
+
   final DateTime lastVerified;
 
   const UiObjectEntry({
@@ -92,6 +126,7 @@ class UiObjectEntry {
     this.selectors = const {},
     this.successes = 0,
     this.failures = 0,
+    this.consecutiveFailures = 0,
     required this.lastVerified,
   });
 
@@ -104,6 +139,7 @@ class UiObjectEntry {
     Map<String, UiSelectorEvidence>? selectors,
     int? successes,
     int? failures,
+    int? consecutiveFailures,
     DateTime? lastVerified,
   }) {
     var sels = selectors ?? this.selectors;
@@ -117,6 +153,7 @@ class UiObjectEntry {
       selectors: sels,
       successes: successes ?? this.successes,
       failures: failures ?? this.failures,
+      consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
       lastVerified: lastVerified ?? this.lastVerified,
     );
   }
@@ -126,6 +163,7 @@ class UiObjectEntry {
     'selectors': selectors.values.map((s) => s.toJson()).toList(),
     'successes': successes,
     'failures': failures,
+    'consecutiveFailures': consecutiveFailures,
     'lastVerified': lastVerified.toIso8601String(),
   };
 
@@ -148,12 +186,15 @@ class UiObjectEntry {
         selectors: selectors,
         successes: (json['successes'] as num?)?.toInt() ?? 0,
         failures: (json['failures'] as num?)?.toInt() ?? 0,
+        consecutiveFailures:
+            (json['consecutiveFailures'] as num?)?.toInt() ?? 0,
         lastVerified:
             DateTime.tryParse(json['lastVerified'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       );
     }
 
+    // Formato legacy (sin anidamiento de key): compat.
     final key = UiObjectKey(
       concept: json['concept'] as String? ?? '',
       package: json['package'] as String? ?? '',
@@ -183,14 +224,21 @@ class UiObjectEntry {
 
 class NanoObjectMemory {
   static const double _invalidConfidence = 0.3;
+
+  /// Fallos consecutivos que invalidan un entry (A12).
+  static const int _maxConsecutiveFailures = 2;
+
   final Map<UiObjectKey, UiObjectEntry> _entries;
 
   const NanoObjectMemory([Map<UiObjectKey, UiObjectEntry> entries = const {}])
     : _entries = entries;
 
+  /// Resuelve el selector verificado para [key]. null si miss, confianza baja o
+  /// fallos consecutivos recientes (A12: no actuar sobre memoria stale).
   UiSelectorEvidence? resolve(UiObjectKey key) {
     final entry = _entries[key];
     if (entry == null || entry.confidence < _invalidConfidence) return null;
+    if (entry.consecutiveFailures >= _maxConsecutiveFailures) return null;
     if (entry.selectors.isEmpty) return null;
     UiSelectorEvidence? best;
     for (final s in entry.selectors.values) {
@@ -202,7 +250,19 @@ class NanoObjectMemory {
 
   bool isKnown(UiObjectKey key) => _entries[key]?.selectors.isNotEmpty == true;
 
-  double confidence(UiObjectKey key) => _entries[key]?.confidence ?? 0.0;
+  /// Confianza con decay temporal (A12): >7 días 0.8, >30 días 0.5.
+  double confidence(UiObjectKey key, {DateTime? now}) {
+    final entry = _entries[key];
+    if (entry == null) return 0.0;
+    final t = now ?? DateTime.now();
+    final ageDays = t.difference(entry.lastVerified).inDays;
+    final decay = ageDays > 30
+        ? 0.5
+        : ageDays > 7
+        ? 0.8
+        : 1.0;
+    return entry.confidence * decay;
+  }
 
   List<Map<String, dynamic>> toJson() =>
       _entries.values.map((entry) => entry.toJson()).toList();
@@ -230,6 +290,7 @@ class NanoObjectMemory {
         fingerprint: selector.fingerprint,
         selectorOverride: selector,
         successes: entry.successes + 1,
+        consecutiveFailures: 0, // éxito resetea fallos consecutivos
         lastVerified: t,
       ),
     );
@@ -239,7 +300,11 @@ class NanoObjectMemory {
     final t = now ?? DateTime.now();
     return _withEntry(
       key,
-      (entry) => entry.copyWith(failures: entry.failures + 1, lastVerified: t),
+      (entry) => entry.copyWith(
+        failures: entry.failures + 1,
+        consecutiveFailures: entry.consecutiveFailures + 1,
+        lastVerified: t,
+      ),
     );
   }
 
