@@ -13,7 +13,10 @@ import 'execution/stability_gate.dart';
 import 'execution/tool_registry.dart';
 import 'platform/nano_system_api.dart';
 import 'system/app_launch_resolver.dart';
+import 'system/capability_probes.dart';
 import 'system/installed_app_catalog.dart';
+import 'system/system_graph.dart';
+import 'system/system_intent_launcher.dart';
 import 'system/system_inventory.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
@@ -49,6 +52,7 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     policy: ref.watch(policyEngineProvider),
     verifier: ref.watch(agentVerifierProvider),
     router: ref.watch(actionPathRouterProvider),
+    systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
   );
 });
 
@@ -99,4 +103,35 @@ final installedAppCatalogProvider = Provider<InstalledAppCatalog>((ref) {
 /// Resolvedor determinista de "abre <app>" grounded.
 final appLaunchResolverProvider = Provider<AppLaunchResolver>((ref) {
   return AppLaunchResolver(ref.watch(installedAppCatalogProvider));
+});
+
+/// Navegación de sistema allowlisted (A3).
+final systemIntentLauncherProvider = Provider<SystemIntentLauncher>((ref) {
+  return MethodChannelSystemIntentLauncher();
+});
+
+/// Modelo factual del dispositivo (A3). Los probes leen estado real:
+/// accessibility/notification vía devicePermissionStatus, Linux vía el registro
+/// de distribuciones. Añadir Shizuku/ADB/root luego = añadir un probe.
+final systemGraphBuilderProvider = Provider<SystemGraphBuilder>((ref) {
+  return SystemGraphBuilder(
+    inventory: ref.watch(systemInventoryProvider),
+    catalog: ref.watch(installedAppCatalogProvider),
+    probes: [
+      const StaticSystemCapabilityProbe(),
+      AccessibilityCapabilityProbe(() async {
+        final s = await NanoRuntimeApi.instance.devicePermissionStatus();
+        return s['accessibility'] == true;
+      }),
+      NotificationCapabilityProbe(() async {
+        final s = await NanoRuntimeApi.instance.devicePermissionStatus();
+        return s['notificationAccess'] == true;
+      }),
+      LinuxCapabilityProbe(
+        () =>
+            LinuxDistributionRegistry.instance.getAllDistributions().isNotEmpty,
+      ),
+      const SystemIntentCapabilityProbe(),
+    ],
+  );
 });

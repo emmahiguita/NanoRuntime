@@ -213,6 +213,16 @@ class ToolRegistry {
       timeout: Duration(seconds: 5),
       description: 'Mantener pulsado un punto de la pantalla',
     ),
+    // ── System destination (A3) ─────────────────────────────────────────────
+    // Navegación de sistema allowlisted. promptSyntax null = no visible al LLM:
+    // el destino es un ID semántico validado contra el enum, nunca un string
+    // crudo de Intent inventable por el modelo.
+    ToolDefinition(
+      name: 'open_system',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Abrir un destino de sistema allowlisted',
+    ),
   ];
 
   /// Resuelve [name] (con alias) al registro canónico; null si no existe.

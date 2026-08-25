@@ -90,21 +90,21 @@ const _notificationReadTerms = <String>[
 ];
 
 const DeterministicFlow _bluetoothOpenFlow = DeterministicFlow(
-  steps: [ToolCall(tool: 'tap', selector: 'text=Bluetooth')],
-  expectation: GoalExpectation(
-    expectedPackage: 'com.android.settings',
-    visibleText: 'Bluetooth',
-  ),
+  steps: [
+    ToolCall(tool: 'open_system', args: {'destination': 'bluetooth_settings'}),
+  ],
+  // OEM-agnostic: no se hardcodea com.android.settings; el intent oficial abre
+  // la pantalla de Bluetooth y el verifier comprueba el texto visible.
+  expectation: GoalExpectation(visibleText: 'Bluetooth'),
   requiredAny: _openTerms,
   forbiddenAny: _stateChangingTerms,
 );
 
 const DeterministicFlow _wifiOpenFlow = DeterministicFlow(
-  steps: [ToolCall(tool: 'tap', selector: 'text=Wi-Fi')],
-  expectation: GoalExpectation(
-    expectedPackage: 'com.android.settings',
-    visibleText: 'Wi-Fi',
-  ),
+  steps: [
+    ToolCall(tool: 'open_system', args: {'destination': 'wifi_settings'}),
+  ],
+  expectation: GoalExpectation(visibleText: 'Wi-Fi'),
   requiredAny: _openTerms,
   forbiddenAny: _stateChangingTerms,
 );
@@ -123,7 +123,9 @@ const DeterministicFlowCatalog defaultDeterministicCatalog =
       'wi-fi': _wifiOpenFlow,
       'wifi': _wifiOpenFlow,
       'ajustes': DeterministicFlow(
-        steps: [ToolCall(tool: 'tap', selector: 'text=Ajustes')],
+        steps: [
+          ToolCall(tool: 'open_system', args: {'destination': 'settings'}),
+        ],
         expectation: GoalExpectation(visibleText: 'Ajustes'),
         requiredAny: _openTerms,
       ),

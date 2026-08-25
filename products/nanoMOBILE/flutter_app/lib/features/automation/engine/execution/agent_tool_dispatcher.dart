@@ -24,6 +24,8 @@ import 'agent_loop.dart';
 import '../platform/linux_tool_adapter.dart';
 import '../perception/nano_selector.dart';
 import '../perception/nano_snapshot.dart' as nano_snapshot;
+import '../system/system_destination.dart' show SystemDestination;
+import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
 import 'tool_registry.dart';
 
 /// Llamada a herramienta extraída de una respuesta del LLM.
@@ -295,6 +297,7 @@ class AgentToolDispatcher {
     Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs})?
     swipe,
     Future<bool> Function(int x, int y, {int durationMs})? longPress,
+    SystemIntentLauncher? systemIntentLauncher,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
@@ -305,8 +308,8 @@ class AgentToolDispatcher {
        _globalAction =
            globalAction ?? NanoRuntimeApi.instance.agentGlobalAction,
        _swipe = swipe ?? NanoRuntimeApi.instance.agentSwipe,
-       _longPress = longPress ?? NanoRuntimeApi.instance.agentLongPressAt;
-
+       _longPress = longPress ?? NanoRuntimeApi.instance.agentLongPressAt,
+       _systemIntentLauncher = systemIntentLauncher;
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
@@ -333,6 +336,9 @@ class AgentToolDispatcher {
   final Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs})
   _swipe;
   final Future<bool> Function(int x, int y, {int durationMs}) _longPress;
+
+  /// Navegación de sistema allowlisted (A3). null = no conectada.
+  final SystemIntentLauncher? _systemIntentLauncher;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -626,6 +632,8 @@ class AgentToolDispatcher {
         return _doScroll(call);
       case 'long_press':
         return _doLongPress(call);
+      case 'open_system':
+        return _openSystem(call);
       case 'launch_app':
         // A2: el package grounded viaja en args (flujo del catálogo). Fallback a
         // selector solo para el contrato legacy (catálogo estático 'chrome').
@@ -909,6 +917,33 @@ class AgentToolDispatcher {
       call,
     ).copyWith(mustChangeSnapshot: true);
     return 'Pulsación larga ejecutada.'
+        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+  }
+
+  /// A3: navegación de sistema allowlisted. El destino viaja como ID semántico
+  /// (args{destination}); [SystemDestination.fromWireId] rechaza cualquier
+  /// string que no esté en la allowlist (nunca un Intent crudo inventable).
+  Future<String> _openSystem(ToolCall call) async {
+    final raw = call.args?['destination']?.toString() ?? '';
+    final destination = SystemDestination.fromWireId(raw);
+    if (destination == null) {
+      return '[tool] open_system requiere args {destination} allowlisted '
+          '(settings|wifi_settings|bluetooth_settings).';
+    }
+    final launcher = _systemIntentLauncher;
+    if (launcher == null) {
+      return '[unavailable] Navegación de sistema no disponible.';
+    }
+    final pre = await _executor.snapshot();
+    final res = await launcher.open(destination);
+    if (!res.opened) {
+      return '[launchFailed] No se pudo abrir ${destination.description}: '
+          '${res.reason}';
+    }
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
+    return '${destination.description} abiertos.'
         '${await _verifySuffix(expectation, preSnapshot: pre)}';
   }
 
