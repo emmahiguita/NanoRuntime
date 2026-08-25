@@ -1,11 +1,14 @@
 package dev.nanoai.mobile.channels
 
+import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import dev.nanoai.mobile.services.AgentAccessibilityBridge
+import dev.nanoai.mobile.services.OcrService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
@@ -42,6 +45,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             "text-input",   // inputText
             "global",       // globalAction back/home/recents
             "launch",       // launchPackage
+            "ocr",          // ocrRegion (ML Kit fallback de percepción)
         )
 
         /** Reintentos al esperar el rebind del AccessibilityService. */
@@ -50,6 +54,8 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val ocrService = OcrService()
+    private val ocrExecutor = Executors.newSingleThreadExecutor()
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -153,6 +159,42 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                 postToService(AgentAccessibilityBridge.service, result) { it.launchPackage(pkg) }
             }
 
+            "ocrRegion" -> {
+                val bounds = call.argument<List<Number>>("bounds")?.map { it.toInt() }
+                val service = AgentAccessibilityBridge.service
+                if (service == null) {
+                    result.error("SERVICE_OFF", "AgentAccessibilityService no conectado", null)
+                    return
+                }
+                mainHandler.post {
+                    service.takeScreenshot { bitmap ->
+                        if (bitmap == null) {
+                            result.error("SHOT_ERR", "captura de pantalla falló", null)
+                            return@takeScreenshot
+                        }
+                        ocrExecutor.execute {
+                            try {
+                                val cropped = if (bounds != null && bounds.size == 4) {
+                                    cropBitmap(bitmap, bounds)
+                                } else {
+                                    bitmap
+                                }
+                                val lines = ocrService.recognize(cropped)
+                                result.success(lines.map {
+                                    mapOf(
+                                        "text" to it.text,
+                                        "bounds" to listOf(it.left, it.top, it.right, it.bottom),
+                                    )
+                                })
+                                bitmap.recycle()
+                            } catch (e: Exception) {
+                                result.error("OCR_ERR", e.message ?: "error OCR", null)
+                            }
+                        }
+                    }
+                }
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -248,5 +290,14 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
         } catch (e: Exception) {
             result.error("AGENT_ERR", e.message ?: "error", null)
         }
+    }
+
+    private fun cropBitmap(bitmap: Bitmap, bounds: List<Int>): Bitmap {
+        val l = bounds[0].coerceIn(0, bitmap.width)
+        val t = bounds[1].coerceIn(0, bitmap.height)
+        val r = bounds[2].coerceIn(0, bitmap.width)
+        val b = bounds[3].coerceIn(0, bitmap.height)
+        if (r <= l || b <= t) return bitmap
+        return Bitmap.createBitmap(bitmap, l, t, r - l, b - t)
     }
 }

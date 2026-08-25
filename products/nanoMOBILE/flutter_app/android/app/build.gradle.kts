@@ -98,5 +98,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.tukaani:xz:1.9")
+    // A9: OCR on-device (bundled, sin Google Play Services) como fallback de
+    // percepción cuando Accessibility no resuelve. Detrás de OcrBackend.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }
 

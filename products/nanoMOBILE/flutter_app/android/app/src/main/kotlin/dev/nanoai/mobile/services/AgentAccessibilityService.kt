@@ -3,10 +3,13 @@ package dev.nanoai.mobile.services
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import dev.nanoai.mobile.MainActivity
@@ -262,6 +265,42 @@ class AgentAccessibilityService : AccessibilityService() {
             Log.w(TAG, "launchPackage($packageName) falló: $e")
             false
         }
+    }
+
+    /**
+     * Captura pantalla (A9, OCR dirigido). API 30+ (AccessibilityService
+     * takeScreenshot). callback(null) si no soportado o falla.
+     */
+    fun takeScreenshot(callback: (Bitmap?) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            Log.w(TAG, "takeScreenshot: requiere API 30+")
+            callback(null)
+            return
+        }
+        takeScreenshot(
+            Display.DEFAULT_DISPLAY,
+            mainExecutor,
+            object : TakeScreenshotCallback {
+                override fun onSuccess(screenshot: ScreenshotResult) {
+                    val bitmap = try {
+                        Bitmap.wrapHardwareBuffer(
+                            screenshot.hardwareBuffer,
+                            screenshot.colorSpace,
+                        )
+                    } catch (e: Exception) {
+                        null
+                    } finally {
+                        screenshot.hardwareBuffer.close()
+                    }
+                    callback(bitmap)
+                }
+
+                override fun onFailure(errorCode: Int) {
+                    Log.w(TAG, "takeScreenshot onFailure: $errorCode")
+                    callback(null)
+                }
+            },
+        )
     }
 
     /** estado del servicio para el handshake. NO toca el árbol (el binder

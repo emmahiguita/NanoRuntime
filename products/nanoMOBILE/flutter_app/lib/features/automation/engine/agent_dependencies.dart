@@ -19,9 +19,11 @@ import 'system/system_graph.dart';
 import 'system/system_intent_launcher.dart';
 import 'system/system_inventory.dart';
 import 'perception/mux/accessibility_perception_source.dart';
+import 'perception/mux/ocr_perception_source.dart';
 import 'perception/mux/perception_source.dart';
 import 'perception/nano_snapshot.dart';
 import 'perception/perception_mux.dart';
+import 'platform/nano_ocr_api.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a
@@ -149,12 +151,16 @@ class _ExecutorScreenObserver implements ScreenObserver {
   Future<NanoSnapshot?> snapshot() => _executor.snapshot();
 }
 
-/// Percepción orquestada (A8): accesibilidad vía ScreenGraph.
+/// Percepción orquestada (A8+A9): accesibilidad vía ScreenGraph + OCR fallback.
 final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
   final executor = ref.watch(agentExecutorProvider);
   return PerceptionMux(
     accessibilitySource: AccessibilityPerceptionSource(
       _ExecutorScreenObserver(executor),
+    ),
+    ocrSource: OcrPerceptionSource(
+      const AccessibilityScreenImageProvider(),
+      MlKitOcrBackend(),
     ),
   );
 });
