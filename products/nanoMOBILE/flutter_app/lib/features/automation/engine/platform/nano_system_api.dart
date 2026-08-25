@@ -10,6 +10,8 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/services/nano_runtime_api.dart'
     show NanoRuntimeChannels;
+import '../system/system_destination.dart';
+import '../system/system_intent_launcher.dart';
 import '../system/system_inventory.dart';
 import '../system/system_models.dart';
 
@@ -47,6 +49,19 @@ class NanoSystemApi {
       return null;
     }
   }
+
+  /// Abre un destino de sistema allowlisted. null = canal no respondió.
+  Future<Map<dynamic, dynamic>?> openSystemDestination(String wireId) async {
+    try {
+      return await _system.invokeMethod<Map<dynamic, dynamic>>(
+        'openSystemDestination',
+        {'destination': wireId},
+      );
+    } catch (e) {
+      debugPrint('[system] openSystemDestination error: $e');
+      return null;
+    }
+  }
 }
 
 /// Implementación MethodChannel de [SystemInventory].
@@ -75,4 +90,36 @@ class MethodChannelSystemInventory implements SystemInventory {
 
   @override
   Future<String?> getDefaultLauncher() => _api.getDefaultLauncher();
+}
+
+/// Implementación MethodChannel de [SystemIntentLauncher]. Traduce un
+/// [SystemDestination] semántico a su wire id; el nativo valida la allowlist.
+class MethodChannelSystemIntentLauncher implements SystemIntentLauncher {
+  MethodChannelSystemIntentLauncher({NanoSystemApi? api})
+    : _api = api ?? NanoSystemApi.instance;
+
+  final NanoSystemApi _api;
+
+  @override
+  Future<SystemIntentResult> open(SystemDestination destination) async {
+    final raw = await _api.openSystemDestination(destination.wireId);
+    if (raw == null) {
+      return const SystemIntentResult.failure(
+        SystemIntentError.unavailable,
+        'Canal de sistema no disponible.',
+      );
+    }
+    if (raw['opened'] == true) return const SystemIntentResult.ok();
+    final err = raw['error'] as String? ?? '';
+    return SystemIntentResult.failure(
+      _mapError(err),
+      'No se pudo abrir el destino: $err',
+    );
+  }
+
+  SystemIntentError _mapError(String err) => switch (err) {
+    'unsupported_destination' => SystemIntentError.unsupported,
+    'launch_failed' => SystemIntentError.launchFailed,
+    _ => SystemIntentError.unavailable,
+  };
 }
