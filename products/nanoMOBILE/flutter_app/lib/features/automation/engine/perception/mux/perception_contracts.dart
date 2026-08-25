@@ -38,6 +38,7 @@ class ObservationPolicy {
   final bool allowAccessibility;
   final bool allowOcr;
   final bool allowVision;
+  final bool allowFullScreenVision;
   final double minimumConfidence;
 
   const ObservationPolicy({
@@ -45,6 +46,7 @@ class ObservationPolicy {
     this.allowAccessibility = true,
     this.allowOcr = true,
     this.allowVision = false,
+    this.allowFullScreenVision = false,
     this.minimumConfidence = 0.5,
   });
 }
@@ -55,11 +57,13 @@ class PerceptionBudget {
   final int maxAccessibilityReads;
   final int maxOcrCalls;
   final int maxVisionCalls;
+  final int maxFullScreenVisionCalls;
 
   const PerceptionBudget({
     this.maxAccessibilityReads = 2,
     this.maxOcrCalls = 1,
-    this.maxVisionCalls = 0,
+    this.maxVisionCalls = 1,
+    this.maxFullScreenVisionCalls = 0,
   });
 }
 

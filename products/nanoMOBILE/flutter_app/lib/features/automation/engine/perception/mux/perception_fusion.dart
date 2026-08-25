@@ -9,6 +9,7 @@ import '../semantic/nano_ui_object.dart';
 import 'ocr_contracts.dart';
 import 'perception_contracts.dart';
 import 'perception_result.dart';
+import 'vision_contracts.dart';
 
 class PerceptionFusionEngine {
   const PerceptionFusionEngine();
@@ -28,6 +29,37 @@ class PerceptionFusionEngine {
           source: PerceptionEvidenceSource.ocr,
           reference: ocr.text,
           confidence: ocr.confidence,
+        ),
+      ],
+    );
+  }
+
+  /// Fusiona accessibility + OCR + Vision (evidencia triple). El role lo aporta
+  /// Accessibility (factual); Vision solo añade concepto visual. No inventa.
+  PerceptionResolved fuseWithVision(
+    NanoUiObject accObject,
+    OcrObservation ocr,
+    VisionObject vision,
+  ) {
+    return PerceptionResolved(
+      object: accObject,
+      confidence:
+          (accObject.confidence + ocr.confidence + vision.confidence) / 3,
+      evidence: [
+        PerceptionEvidence(
+          source: PerceptionEvidenceSource.accessibility,
+          reference: accObject.id,
+          confidence: accObject.confidence,
+        ),
+        PerceptionEvidence(
+          source: PerceptionEvidenceSource.ocr,
+          reference: ocr.text,
+          confidence: ocr.confidence,
+        ),
+        PerceptionEvidence(
+          source: PerceptionEvidenceSource.vision,
+          reference: vision.label,
+          confidence: vision.confidence,
         ),
       ],
     );

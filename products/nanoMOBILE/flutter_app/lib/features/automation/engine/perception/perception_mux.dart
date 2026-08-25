@@ -15,20 +15,26 @@ import 'mux/object_memory_perception_source.dart';
 import 'mux/ocr_perception_source.dart';
 import 'mux/perception_contracts.dart';
 import 'mux/perception_result.dart';
+import 'mux/vision_perception_source.dart';
 
 class PerceptionMux {
   const PerceptionMux({
     this.memorySource,
     this.accessibilitySource,
     this.ocrSource,
+    this.visionSource,
   });
 
   final ObjectMemoryPerceptionSource? memorySource;
   final AccessibilityPerceptionSource? accessibilitySource;
   final OcrPerceptionSource? ocrSource;
+  final VisionPerceptionSource? visionSource;
 
   bool get isEnabled =>
-      memorySource != null || accessibilitySource != null || ocrSource != null;
+      memorySource != null ||
+      accessibilitySource != null ||
+      ocrSource != null ||
+      visionSource != null;
 
   /// Percepción orquestada y tipada.
   Future<PerceptionResult> perceive(
@@ -94,7 +100,25 @@ class PerceptionMux {
   ) async {
     final ocr = ocrSource;
     if (policy.allowOcr && ocr != null && budget.maxOcrCalls > 0) {
-      return ocr.perceive(request, budget);
+      final ocrResult = await ocr.perceive(request, budget);
+      if (ocrResult is PerceptionResolved) return ocrResult;
+      return _escalateToVision(request, budget, policy, ocrResult);
+    }
+    return _escalateToVision(request, budget, policy, fallback);
+  }
+
+  Future<PerceptionResult> _escalateToVision(
+    PerceptionRequest request,
+    PerceptionBudget budget,
+    ObservationPolicy policy,
+    PerceptionResult fallback,
+  ) async {
+    final vision = visionSource;
+    if (policy.allowVision &&
+        vision != null &&
+        budget.maxVisionCalls > 0 &&
+        (request.region != null || policy.allowFullScreenVision)) {
+      return vision.perceive(request, budget);
     }
     return fallback;
   }
