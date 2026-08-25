@@ -12,16 +12,23 @@ import '../memory/object_memory.dart' show UiSelectorEvidence;
 import 'semantic/nano_ui_object.dart' show NanoUiObject;
 import 'mux/accessibility_perception_source.dart';
 import 'mux/object_memory_perception_source.dart';
+import 'mux/ocr_perception_source.dart';
 import 'mux/perception_contracts.dart';
 import 'mux/perception_result.dart';
 
 class PerceptionMux {
-  const PerceptionMux({this.memorySource, this.accessibilitySource});
+  const PerceptionMux({
+    this.memorySource,
+    this.accessibilitySource,
+    this.ocrSource,
+  });
 
   final ObjectMemoryPerceptionSource? memorySource;
   final AccessibilityPerceptionSource? accessibilitySource;
+  final OcrPerceptionSource? ocrSource;
 
-  bool get isEnabled => memorySource != null || accessibilitySource != null;
+  bool get isEnabled =>
+      memorySource != null || accessibilitySource != null || ocrSource != null;
 
   /// Percepción orquestada y tipada.
   Future<PerceptionResult> perceive(
@@ -58,17 +65,38 @@ class PerceptionMux {
       }
     }
 
-    // 3. Accessibility (si está permitida).
+    // 3. Accessibility (si está permitida). Resuelto → 0 OCR.
     final acc = accessibilitySource;
     if (policy.allowAccessibility && acc != null) {
-      return acc.perceive(request, budget);
+      final accResult = await acc.perceive(request, budget);
+      if (accResult is PerceptionResolved) return accResult;
+      // Insufficient/Ambiguous/Unavailable → escalar a OCR si está permitido.
+      return _escalateToOcr(request, budget, policy, accResult);
     }
 
-    // 4. Escalado (OCR/Vision futuros, no implementados).
-    return const PerceptionInsufficient(
-      reason: 'Sin fuente de percepción habilitada.',
-      recommendedSource: PerceptionEvidenceSource.ocr,
+    // 4. Sin accesibilidad → OCR directo.
+    return _escalateToOcr(
+      request,
+      budget,
+      policy,
+      const PerceptionInsufficient(
+        reason: 'Sin accesibilidad.',
+        recommendedSource: PerceptionEvidenceSource.ocr,
+      ),
     );
+  }
+
+  Future<PerceptionResult> _escalateToOcr(
+    PerceptionRequest request,
+    PerceptionBudget budget,
+    ObservationPolicy policy,
+    PerceptionResult fallback,
+  ) async {
+    final ocr = ocrSource;
+    if (policy.allowOcr && ocr != null && budget.maxOcrCalls > 0) {
+      return ocr.perceive(request, budget);
+    }
+    return fallback;
   }
 
   /// Compat legacy (selector string) para el AutomationCoordinator actual.

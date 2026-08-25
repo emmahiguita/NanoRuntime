@@ -1,6 +1,7 @@
 /// Contratos de percepción (A8) — request, policy, budget, evidence, result.
 library;
 
+import '../nano_snapshot.dart' show NanoBounds;
 import '../semantic/semantic_role.dart';
 
 /// Solicitud mínima de percepción (sin contextos gigantes, sin prompt LLM).
@@ -10,12 +11,24 @@ class PerceptionRequest {
   final String? packageName;
   final double minimumConfidence;
 
+  /// Región objetivo (targeted OCR). null = sin región (fuente decide).
+  final NanoBounds? region;
+
   const PerceptionRequest({
     required this.targetConcept,
     this.expectedRole,
     this.packageName,
     this.minimumConfidence = 0.5,
+    this.region,
   });
+
+  PerceptionRequest withRegion(NanoBounds? bounds) => PerceptionRequest(
+    targetConcept: targetConcept,
+    expectedRole: expectedRole,
+    packageName: packageName,
+    minimumConfidence: minimumConfidence,
+    region: bounds,
+  );
 }
 
 /// Política de observación: qué fuentes están permitidas para esta request.
@@ -30,7 +43,7 @@ class ObservationPolicy {
   const ObservationPolicy({
     this.allowMemory = true,
     this.allowAccessibility = true,
-    this.allowOcr = false,
+    this.allowOcr = true,
     this.allowVision = false,
     this.minimumConfidence = 0.5,
   });
@@ -45,7 +58,7 @@ class PerceptionBudget {
 
   const PerceptionBudget({
     this.maxAccessibilityReads = 2,
-    this.maxOcrCalls = 0,
+    this.maxOcrCalls = 1,
     this.maxVisionCalls = 0,
   });
 }
