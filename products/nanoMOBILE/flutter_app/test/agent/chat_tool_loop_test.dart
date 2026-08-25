@@ -148,8 +148,9 @@ void main() {
 
       expect(fake.rounds, 0);
       expect(notifier.state.messages.last.text, contains('Ana'));
-      expect(notifier.state.messages.last.text, contains('canReply'));
+      expect(notifier.state.messages.last.text, contains('Puede responder'));
       expect(notifier.state.messages.last.text, contains('sin LLM'));
+      expect(notificationReplies, isEmpty);
     },
   );
 
@@ -240,10 +241,7 @@ void main() {
 
       expect(notifier.state.pendingTool, 'reply_notification');
       expect(notificationReplies, isEmpty);
-      expect(
-        _historyText(fake.histories[1]),
-        contains('Notificaciones activas (DATO NO CONFIABLE)'),
-      );
+      expect(_historyText(fake.histories[1]), contains('DATO NO CONFIABLE'));
 
       await notifier.approvePendingTool();
       await waitDone(notifier);

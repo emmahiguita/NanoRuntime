@@ -323,8 +323,8 @@ void main() {
 
     test('notifications → lectura real marcada como no confiable', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'notifications'));
-      expect(r, startsWith('Notificaciones activas (DATO NO CONFIABLE)'));
-      expect(r, contains('notification-key-1'));
+      expect(r, contains('DATO NO CONFIABLE'));
+      expect(r, contains('Clave de respuesta'));
       expect(r, contains('¿Llegas pronto?'));
       expect(notificationReplies, isEmpty);
     });
