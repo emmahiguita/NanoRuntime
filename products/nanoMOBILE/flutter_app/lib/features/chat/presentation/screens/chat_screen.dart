@@ -221,11 +221,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final notifier = ref.read(chatProvider.notifier);
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
-    final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
     final isNarrow = screenSize.width < 600;
     final isCompactLandscape =
         screenSize.width > screenSize.height && screenSize.height < 520;
-    final compactComposer = isNarrow || isCompactLandscape || keyboardOpen;
+    // El teclado no debe cambiar la variante del compositor: hacerlo causaba
+    // un segundo reflow (controles que aparecen/desaparecen) justo al enfocar
+    // el campo. Solo el ancho/orientación definen la composición compacta.
+    final compactComposer = isNarrow || isCompactLandscape;
 
     // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
@@ -244,11 +246,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
-      // En un telefono el teclado puede consumir mas del 70 % del alto util.
-      // El encabezado se colapsa mientras se escribe para que mensajes y
-      // compositor no compitan ni queden solapados.
-      hideHeader: _isReadingMode || keyboardOpen,
-      resizeToAvoidBottomInset: true,
+      // El shell conserva su geometría cuando aparece el teclado. El
+      // compositor se mueve de manera independiente sobre el inset para no
+      // desplazar lista, encabezado ni contenido ya leído.
+      hideHeader: _isReadingMode,
+      resizeToAvoidBottomInset: false,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -299,149 +301,137 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: Column(
-                        children: [
-                          // ── Lista de mensajes ────────────────────────────────────
-                          Expanded(
-                            child: state.messages.isEmpty
-                                ? _EmptyChat(
-                                    engineOnline: state.engineOnline,
-                                    hasModel: state.activeModelPath != null,
-                                    onSuggestion: (text) {
-                                      notifier.send(text);
-                                    },
-                                    onRetry: () => notifier.refreshEngine(),
-                                    onGoModels: () => context.go('/models'),
-                                  )
-                                : ListView.builder(
-                                    controller: _scrollController,
-                                    physics: const BouncingScrollPhysics(),
-                                    padding: EdgeInsets.fromLTRB(
-                                      isCompactLandscape ? 10 : 18,
-                                      _isReadingMode ? 44 : 8,
-                                      _isReadingMode
-                                          ? 52
-                                          : (isCompactLandscape ? 10 : 18),
-                                      _isReadingMode ? 20 : 12,
-                                    ),
-                                    itemCount:
-                                        state.messages.length +
-                                        (state.generating ? 1 : 0),
-                                    itemBuilder: (context, index) {
-                                      if (index == state.messages.length) {
-                                        return _StreamingBubble(
-                                          text: state.streamingText,
-                                          model: state.activeModel,
-                                        );
-                                      }
-
-                                      final message = state.messages[index];
-                                      final isUser =
-                                          message.sender == MessageSender.user;
-                                      final isError =
-                                          message.status == MessageStatus.error;
-
-                                      return AnimatedMessageEntry(
-                                        key: ValueKey(message.id),
-                                        isUser: isUser,
-                                        child: GestureDetector(
-                                          onLongPress: state.generating
-                                              ? null
-                                              : () => _showDeleteDialog(
-                                                  notifier,
-                                                  message,
-                                                ),
-                                          child: _MessageBubble(
-                                            text: message.text,
-                                            isUser: isUser,
-                                            model: state.activeModel,
-                                            timestamp: message.timestamp,
-                                            isError: isError,
-                                            source: message.source,
-                                            attachmentNames:
-                                                message.attachmentNames,
-                                            tps: message.tps,
-                                            onRetry:
-                                                isError && !state.generating
-                                                ? () =>
-                                                      notifier.retry(message.id)
-                                                : null,
-                                            onDelete: state.generating
-                                                ? null
-                                                : () => _showDeleteDialog(
-                                                    notifier,
-                                                    message,
-                                                  ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-
-                          // ── Barra de escritura FLOTANTE con Liquid Glass Water Morphing ──────────
-                          if (!_isReadingMode)
-                            Padding(
+                      child: state.messages.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.only(bottom: 94),
+                              child: _EmptyChat(
+                                engineOnline: state.engineOnline,
+                                hasModel: state.activeModelPath != null,
+                                onSuggestion: (text) {
+                                  notifier.send(text);
+                                },
+                                onRetry: () => notifier.refreshEngine(),
+                                onGoModels: () => context.go('/models'),
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: _scrollController,
+                              physics: const BouncingScrollPhysics(),
                               padding: EdgeInsets.fromLTRB(
-                                isCompactLandscape ? 8 : 14,
-                                2,
-                                isCompactLandscape ? 8 : 14,
-                                isCompactLandscape ? 5 : 10,
+                                isCompactLandscape ? 10 : 18,
+                                8,
+                                isCompactLandscape ? 10 : 18,
+                                // Reserva estable para que la última
+                                // respuesta nunca quede bajo la barra.
+                                112 + mediaQuery.padding.bottom,
                               ),
-                              child: _ComposerTransition(
-                                child: _isComposerMinimized
-                                    ? Align(
-                                        alignment: Alignment.centerRight,
-                                        child: _MinimizedComposerBubble(
-                                          key: const ValueKey(
-                                            'minimized_bubble',
-                                          ),
-                                          onExpand: () => setState(
-                                            () => _isComposerMinimized = false,
-                                          ),
-                                          hasAttachments:
-                                              state.attachments.isNotEmpty,
-                                          listening: _listening,
-                                        ),
-                                      )
-                                    : _Composer(
-                                        key: const ValueKey(
-                                          'expanded_composer',
-                                        ),
-                                        controller: _inputController,
-                                        // El compositor no depende del GGUF:
-                                        // comandos deterministas (p. ej.
-                                        // notificaciones) usan Android nativo
-                                        // y deben funcionar con el motor parado.
-                                        // Si el texto sí necesita LLM, send()
-                                        // devuelve el error de modelo honesto.
-                                        enabled: !state.generating,
-                                        generating: state.generating,
-                                        listening: _listening,
-                                        attachments: state.attachments,
-                                        onRemoveAttachment:
-                                            notifier.removeAttachment,
-                                        onAttach: _attachFile,
-                                        onMic: _toggleMic,
-                                        onMinimize: () => setState(
-                                          () => _isComposerMinimized = true,
-                                        ),
-                                        compact: compactComposer,
-                                        onSend: () {
-                                          final text = _inputController.text
-                                              .trim();
-                                          if (text.isEmpty) return;
+                              itemCount:
+                                  state.messages.length +
+                                  (state.generating ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index == state.messages.length) {
+                                  return _StreamingBubble(
+                                    text: state.streamingText,
+                                    model: state.activeModel,
+                                  );
+                                }
 
-                                          notifier.send(text);
-                                          _inputController.clear();
-                                        },
-                                        onStop: notifier.stop,
-                                      ),
-                              ),
+                                final message = state.messages[index];
+                                final isUser =
+                                    message.sender == MessageSender.user;
+                                final isError =
+                                    message.status == MessageStatus.error;
+
+                                return AnimatedMessageEntry(
+                                  key: ValueKey(message.id),
+                                  isUser: isUser,
+                                  child: GestureDetector(
+                                    onLongPress: state.generating
+                                        ? null
+                                        : () => _showDeleteDialog(
+                                            notifier,
+                                            message,
+                                          ),
+                                    child: _MessageBubble(
+                                      text: message.text,
+                                      isUser: isUser,
+                                      model: state.activeModel,
+                                      timestamp: message.timestamp,
+                                      isError: isError,
+                                      source: message.source,
+                                      attachmentNames: message.attachmentNames,
+                                      tps: message.tps,
+                                      onRetry: isError && !state.generating
+                                          ? () => notifier.retry(message.id)
+                                          : null,
+                                      onDelete: state.generating
+                                          ? null
+                                          : () => _showDeleteDialog(
+                                              notifier,
+                                              message,
+                                            ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                        ],
-                      ),
                     ),
+
+                    // El único elemento que responde al teclado. Así se
+                    // mantiene el contexto visible y se elimina el salto de
+                    // toda la pantalla al seleccionar el campo.
+                    if (!_isReadingMode)
+                      Positioned(
+                        left: isCompactLandscape ? 8 : 14,
+                        right: isCompactLandscape ? 8 : 14,
+                        bottom:
+                            mediaQuery.viewInsets.bottom +
+                            (isCompactLandscape ? 5 : 10),
+                        child: _ComposerTransition(
+                          child: _isComposerMinimized
+                              ? Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _MinimizedComposerBubble(
+                                    key: const ValueKey('minimized_bubble'),
+                                    onExpand: () => setState(
+                                      () => _isComposerMinimized = false,
+                                    ),
+                                    hasAttachments:
+                                        state.attachments.isNotEmpty,
+                                    listening: _listening,
+                                  ),
+                                )
+                              : _Composer(
+                                  key: const ValueKey('expanded_composer'),
+                                  controller: _inputController,
+                                  // El compositor no depende del GGUF:
+                                  // comandos deterministas (p. ej.
+                                  // notificaciones) usan Android nativo
+                                  // y deben funcionar con el motor parado.
+                                  // Si el texto sí necesita LLM, send()
+                                  // devuelve el error de modelo honesto.
+                                  enabled: !state.generating,
+                                  generating: state.generating,
+                                  listening: _listening,
+                                  attachments: state.attachments,
+                                  onRemoveAttachment: notifier.removeAttachment,
+                                  onAttach: _attachFile,
+                                  onMic: _toggleMic,
+                                  onMinimize: () => setState(
+                                    () => _isComposerMinimized = true,
+                                  ),
+                                  compact: compactComposer,
+                                  onSend: () {
+                                    final text = _inputController.text.trim();
+                                    if (text.isEmpty) return;
+
+                                    notifier.send(text);
+                                    _inputController.clear();
+                                  },
+                                  onStop: notifier.stop,
+                                ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -687,11 +677,13 @@ class _ReadingModeState extends State<_ReadingMode> {
         Positioned.fill(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              // 680 dp mantiene 65–75 caracteres por línea en texto de 18dp,
+              // rango editorial que reduce los saltos oculares en lectura.
+              constraints: const BoxConstraints(maxWidth: 680),
               child: ListView.builder(
                 controller: _scroll,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 48, 24, 72),
+                padding: const EdgeInsets.fromLTRB(28, 56, 28, 88),
                 itemCount: widget.messages.length,
                 itemBuilder: (context, i) => _ReadingParagraph(
                   message: widget.messages[i],
@@ -943,25 +935,33 @@ MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
   return MarkdownStyleSheet(
     p: TextStyle(
       color: colors.onSurface.withValues(alpha: 0.96),
-      fontSize: 17,
-      height: 1.75,
-      letterSpacing: 0.15,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 18,
+      height: 1.72,
+      letterSpacing: 0.08,
     ),
     h1: TextStyle(
-      color: colors.accent,
-      fontSize: 26,
-      fontWeight: FontWeight.bold,
-      height: 1.45,
+      color: colors.onSurface,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 29,
+      fontWeight: FontWeight.w700,
+      height: 1.22,
     ),
     h2: TextStyle(
-      color: colors.accent,
-      fontSize: 22,
+      color: colors.onSurface,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 23,
       fontWeight: FontWeight.w700,
       height: 1.4,
     ),
     h3: TextStyle(
-      color: colors.success,
-      fontSize: 19,
+      color: colors.onSurface,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 20,
       fontWeight: FontWeight.w600,
       height: 1.35,
     ),
@@ -970,7 +970,12 @@ MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
       color: colors.onSurface.withValues(alpha: 0.9),
       fontStyle: FontStyle.italic,
     ),
-    listBullet: TextStyle(color: colors.accent, fontSize: 17),
+    listBullet: TextStyle(
+      color: colors.accent,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 18,
+    ),
     code: TextStyle(
       backgroundColor: colors.success.withValues(alpha: 0x20 / 0xFF),
       color: colors.success,
@@ -985,7 +990,9 @@ MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
     ),
     blockquote: TextStyle(
       color: colors.onSurface.withValues(alpha: 0.8),
-      fontSize: 16,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 17,
       fontStyle: FontStyle.italic,
     ),
     blockquoteDecoration: BoxDecoration(
@@ -1007,9 +1014,11 @@ MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
 TextStyle _readingBodyStyle(NanoColors colors, {required bool isUser}) {
   return TextStyle(
     color: isUser ? colors.onSurface : colors.onSurface.withValues(alpha: 0.96),
-    fontSize: 17,
-    height: 1.75,
-    letterSpacing: 0.15,
+    fontFamily: 'Georgia',
+    fontFamilyFallback: const ['serif'],
+    fontSize: 18,
+    height: 1.72,
+    letterSpacing: 0.08,
   );
 }
 
@@ -2389,8 +2398,9 @@ class _ComposerState extends State<_Composer> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Botón Minimizar con efecto suave
-              if (!widget.compact) ...[
+              // La acción siempre está disponible; en móvil conserva un área
+              // táctil contenida y evita ocultar una función por el ancho.
+              ...[
                 Tooltip(
                   message: 'Minimizar barra',
                   child: Material(
