@@ -271,144 +271,159 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           : Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-            // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
-            // márgenes muertos); se mantiene una cota por legibilidad.
-            maxWidth: isCompactLandscape ? 1440 : 1400,
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Column(
+                  // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
+                  // márgenes muertos); se mantiene una cota por legibilidad.
+                  maxWidth: isCompactLandscape ? 1440 : 1400,
+                ),
+                child: Stack(
                   children: [
-                    // ── Lista de mensajes ────────────────────────────────────
-                    Expanded(
-                      child: state.messages.isEmpty
-                          ? _EmptyChat(
-                              engineOnline: state.engineOnline,
-                              hasModel: state.activeModelPath != null,
-                              onSuggestion: (text) {
-                                notifier.send(text);
-                              },
-                              onRetry: () => notifier.refreshEngine(),
-                              onGoModels: () => context.go('/models'),
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              physics: const BouncingScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(
-                                isCompactLandscape ? 10 : 18,
-                                _isReadingMode ? 44 : 8,
-                                _isReadingMode
-                                    ? 52
-                                    : (isCompactLandscape ? 10 : 18),
-                                _isReadingMode ? 20 : 12,
-                              ),
-                              itemCount:
-                                  state.messages.length +
-                                  (state.generating ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.messages.length) {
-                                  return _StreamingBubble(
-                                    text: state.streamingText,
-                                    model: state.activeModel,
-                                  );
-                                }
+                    Positioned.fill(
+                      child: Column(
+                        children: [
+                          // ── Lista de mensajes ────────────────────────────────────
+                          Expanded(
+                            child: state.messages.isEmpty
+                                ? _EmptyChat(
+                                    engineOnline: state.engineOnline,
+                                    hasModel: state.activeModelPath != null,
+                                    onSuggestion: (text) {
+                                      notifier.send(text);
+                                    },
+                                    onRetry: () => notifier.refreshEngine(),
+                                    onGoModels: () => context.go('/models'),
+                                  )
+                                : ListView.builder(
+                                    controller: _scrollController,
+                                    physics: const BouncingScrollPhysics(),
+                                    padding: EdgeInsets.fromLTRB(
+                                      isCompactLandscape ? 10 : 18,
+                                      _isReadingMode ? 44 : 8,
+                                      _isReadingMode
+                                          ? 52
+                                          : (isCompactLandscape ? 10 : 18),
+                                      _isReadingMode ? 20 : 12,
+                                    ),
+                                    itemCount:
+                                        state.messages.length +
+                                        (state.generating ? 1 : 0),
+                                    itemBuilder: (context, index) {
+                                      if (index == state.messages.length) {
+                                        return _StreamingBubble(
+                                          text: state.streamingText,
+                                          model: state.activeModel,
+                                        );
+                                      }
 
-                                final message = state.messages[index];
-                                final isUser =
-                                    message.sender == MessageSender.user;
-                                final isError =
-                                    message.status == MessageStatus.error;
+                                      final message = state.messages[index];
+                                      final isUser =
+                                          message.sender == MessageSender.user;
+                                      final isError =
+                                          message.status == MessageStatus.error;
 
-                                return AnimatedMessageEntry(
-                                  key: ValueKey(message.id),
-                                  isUser: isUser,
-                                  child: GestureDetector(
-                                    onLongPress: state.generating
-                                        ? null
-                                        : () => _showDeleteDialog(
-                                            notifier,
-                                            message,
+                                      return AnimatedMessageEntry(
+                                        key: ValueKey(message.id),
+                                        isUser: isUser,
+                                        child: GestureDetector(
+                                          onLongPress: state.generating
+                                              ? null
+                                              : () => _showDeleteDialog(
+                                                  notifier,
+                                                  message,
+                                                ),
+                                          child: _MessageBubble(
+                                            text: message.text,
+                                            isUser: isUser,
+                                            model: state.activeModel,
+                                            timestamp: message.timestamp,
+                                            isError: isError,
+                                            attachmentNames:
+                                                message.attachmentNames,
+                                            tps: message.tps,
+                                            onRetry:
+                                                isError && !state.generating
+                                                ? () =>
+                                                      notifier.retry(message.id)
+                                                : null,
+                                            onDelete: state.generating
+                                                ? null
+                                                : () => _showDeleteDialog(
+                                                    notifier,
+                                                    message,
+                                                  ),
                                           ),
-                                    child: _MessageBubble(
-                                      text: message.text,
-                                      isUser: isUser,
-                                      model: state.activeModel,
-                                      timestamp: message.timestamp,
-                                      isError: isError,
-                                      attachmentNames: message.attachmentNames,
-                                      tps: message.tps,
-                                      onRetry: isError && !state.generating
-                                          ? () => notifier.retry(message.id)
-                                          : null,
-                                      onDelete: state.generating
-                                          ? null
-                                          : () => _showDeleteDialog(
-                                              notifier,
-                                              message,
-                                            ),
-                                    ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
+                          ),
+
+                          // ── Barra de escritura FLOTANTE con Liquid Glass Water Morphing ──────────
+                          if (!_isReadingMode)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                isCompactLandscape ? 8 : 14,
+                                2,
+                                isCompactLandscape ? 8 : 14,
+                                isCompactLandscape ? 5 : 10,
+                              ),
+                              child: _ComposerTransition(
+                                child: _isComposerMinimized
+                                    ? Align(
+                                        alignment: Alignment.centerRight,
+                                        child: _MinimizedComposerBubble(
+                                          key: const ValueKey(
+                                            'minimized_bubble',
+                                          ),
+                                          onExpand: () => setState(
+                                            () => _isComposerMinimized = false,
+                                          ),
+                                          hasAttachments:
+                                              state.attachments.isNotEmpty,
+                                          listening: _listening,
+                                        ),
+                                      )
+                                    : _Composer(
+                                        key: const ValueKey(
+                                          'expanded_composer',
+                                        ),
+                                        controller: _inputController,
+                                        // El compositor no depende del GGUF:
+                                        // comandos deterministas (p. ej.
+                                        // notificaciones) usan Android nativo
+                                        // y deben funcionar con el motor parado.
+                                        // Si el texto sí necesita LLM, send()
+                                        // devuelve el error de modelo honesto.
+                                        enabled: !state.generating,
+                                        generating: state.generating,
+                                        listening: _listening,
+                                        attachments: state.attachments,
+                                        onRemoveAttachment:
+                                            notifier.removeAttachment,
+                                        onAttach: _attachFile,
+                                        onMic: _toggleMic,
+                                        onMinimize: () => setState(
+                                          () => _isComposerMinimized = true,
+                                        ),
+                                        compact: isCompactLandscape,
+                                        onSend: () {
+                                          final text = _inputController.text
+                                              .trim();
+                                          if (text.isEmpty) return;
+
+                                          notifier.send(text);
+                                          _inputController.clear();
+                                        },
+                                        onStop: notifier.stop,
+                                      ),
+                              ),
                             ),
-                    ),
-
-                    // ── Barra de escritura FLOTANTE con Liquid Glass Water Morphing ──────────
-                    if (!_isReadingMode)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          isCompactLandscape ? 8 : 14,
-                          2,
-                          isCompactLandscape ? 8 : 14,
-                          isCompactLandscape ? 5 : 10,
-                        ),
-                        child: _ComposerTransition(
-                          child: _isComposerMinimized
-                              ? Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _MinimizedComposerBubble(
-                                    key: const ValueKey('minimized_bubble'),
-                                    onExpand: () => setState(
-                                      () => _isComposerMinimized = false,
-                                    ),
-                                    hasAttachments:
-                                        state.attachments.isNotEmpty,
-                                    listening: _listening,
-                                  ),
-                                )
-                              : _Composer(
-                                  key: const ValueKey('expanded_composer'),
-                                  controller: _inputController,
-                                  enabled: state.canSend && !state.generating,
-                                  generating: state.generating,
-                                  listening: _listening,
-                                  attachments: state.attachments,
-                                  onRemoveAttachment: notifier.removeAttachment,
-                                  onAttach: _attachFile,
-                                  onMic: _toggleMic,
-                                  onMinimize: () => setState(
-                                    () => _isComposerMinimized = true,
-                                  ),
-                                  compact: isCompactLandscape,
-                                  onSend: () {
-                                    final text = _inputController.text.trim();
-                                    if (text.isEmpty) return;
-
-                                    notifier.send(text);
-                                    _inputController.clear();
-                                  },
-                                  onStop: notifier.stop,
-                                ),
-                        ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -691,10 +706,7 @@ class _ReadingModeState extends State<_ReadingMode> {
       builder: (context, t, child) {
         return Opacity(
           opacity: t,
-          child: Transform.scale(
-            scale: 0.982 + 0.018 * t,
-            child: child,
-          ),
+          child: Transform.scale(scale: 0.982 + 0.018 * t, child: child),
         );
       },
       child: surface,
@@ -869,7 +881,11 @@ class _ReadingParagraph extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                Icon(Icons.error_outline_rounded, size: 14, color: colors.danger),
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 14,
+                  color: colors.danger,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   'Error',
@@ -960,9 +976,7 @@ MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
 /// Estilo del texto plano del usuario en modo lectura.
 TextStyle _readingBodyStyle(NanoColors colors, {required bool isUser}) {
   return TextStyle(
-    color: isUser
-        ? colors.onSurface
-        : colors.onSurface.withValues(alpha: 0.96),
+    color: isUser ? colors.onSurface : colors.onSurface.withValues(alpha: 0.96),
     fontSize: 17,
     height: 1.75,
     letterSpacing: 0.15,
@@ -1722,7 +1736,7 @@ class _StreamingBubble extends StatelessWidget {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = colors is NanoDarkColors;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final radius = NanoShapes.aiBubble;
+    const radius = NanoShapes.aiBubble;
 
     final parsed = parseThought(text);
     final thought = parsed.thought;
@@ -1732,9 +1746,9 @@ class _StreamingBubble extends StatelessWidget {
     // streaming + cursor respirando al final (hiperrealista, sin simulación).
     final Widget body;
     if (text.isEmpty) {
-      body = Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Center(child: const ThinkingIndicator()),
+      body = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: Center(child: ThinkingIndicator()),
       );
     } else {
       body = Column(

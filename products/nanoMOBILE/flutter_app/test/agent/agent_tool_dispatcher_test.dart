@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
+import 'package:nanoai/features/automation/engine/platform/linux_tool_adapter.dart';
 
 import 'fixtures.dart';
 
@@ -17,6 +19,7 @@ void main() {
   final tapCalls = <List<int>>[];
   final inputCalls = <String>[];
   final notificationReplies = <Map<dynamic, dynamic>>[];
+  final launchedPackages = <String>[];
   var dumpProvider = () => snapshotAjustes();
   var focused = false;
 
@@ -28,6 +31,10 @@ void main() {
         maxSizeChangeRatio: 0.10,
       ),
     ),
+    launchPackage: (packageName) async {
+      launchedPackages.add(packageName);
+      return true;
+    },
   );
 
   Map<String, dynamic> ajustesFocused() {
@@ -41,6 +48,7 @@ void main() {
     tapCalls.clear();
     inputCalls.clear();
     notificationReplies.clear();
+    launchedPackages.clear();
     dumpProvider = () => snapshotAjustes();
     focused = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -65,6 +73,8 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(notificationsChannel, (call) async {
           switch (call.method) {
+            case 'status':
+              return {'accessGranted': true, 'connected': true};
             case 'list':
               return [
                 {
@@ -313,7 +323,7 @@ void main() {
 
     test('notifications → lectura real marcada como no confiable', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'notifications'));
-      expect(r, startsWith('[notifications untrusted_data=true]'));
+      expect(r, startsWith('Notificaciones activas (DATO NO CONFIABLE)'));
       expect(r, contains('notification-key-1'));
       expect(r, contains('¿Llegas pronto?'));
       expect(notificationReplies, isEmpty);
@@ -342,11 +352,32 @@ void main() {
         ),
         confirmed: true,
       );
-      expect(outcome.feedback, '[notificationReply] Respuesta enviada.');
+      expect(
+        outcome.feedback,
+        'Android entregó la respuesta a la aplicación de mensajería.',
+      );
       expect(notificationReplies, hasLength(1));
       expect(notificationReplies.single['key'], 'notification-key-1');
       expect(notificationReplies.single['text'], 'Sí, en cinco minutos.');
       expect(notificationReplies.single['confirmed'], isTrue);
+    });
+
+    test('launch_app solo abre el paquete después de confirmación', () async {
+      dispatcher.resetTurn();
+      final pending = await dispatcher.runToolGuarded(
+        const ToolCall(tool: 'launch_app', selector: 'com.android.chrome'),
+      );
+
+      expect(pending.needsConfirmation, isTrue);
+      expect(launchedPackages, isEmpty);
+
+      final approved = await dispatcher.runToolGuarded(
+        pending.pendingCall!,
+        confirmed: true,
+      );
+      expect(approved.verdict, PolicyVerdict.allow);
+      expect(approved.feedback, contains('com.android.chrome'));
+      expect(launchedPackages, ['com.android.chrome']);
     });
 
     test('tool desconocida → denied con lista para corregirse', () async {
@@ -355,7 +386,7 @@ void main() {
       expect(
         r,
         contains(
-          'Disponibles: screen, resolve, tap, back, write, notifications, reply_notification',
+          'Disponibles: screen, resolve, tap, back, launch_app, write, notifications, reply_notification',
         ),
       );
     });
@@ -438,6 +469,20 @@ void main() {
       expect(outcome.summary, contains('1/2 tap en "Bluetooth"'));
       expect(outcome.summary, contains('2/2 Botón atrás'));
       expect(tapCalls, hasLength(1));
+    });
+
+    test('respuesta RemoteInput aceptada completa el plan', () async {
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Llego en cinco minutos.',
+        ),
+      ], confirmed: true);
+
+      expect(outcome.completed, isTrue);
+      expect(notificationReplies, hasLength(1));
+      expect(outcome.summary, contains('Android entregó la respuesta'));
     });
 
     test('paso 2 denegado por política → plan aborta tras el paso 1', () async {
@@ -537,5 +582,26 @@ void main() {
         expect(outcome.summary, isNot(contains('[loopDetected]')));
       },
     );
+
+    test('operación Linux correcta no aborta el plan por su prefijo', () async {
+      final linuxDispatcher = AgentToolDispatcher(
+        linuxAdapter: LinuxToolAdapter(runner: _SuccessfulLinuxRunner()),
+      );
+
+      final outcome = await linuxDispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'linux.list', text: '/tmp'),
+      ]);
+
+      expect(outcome.completed, isTrue);
+      expect(outcome.summary, contains('Linux linux.list'));
+    });
   });
+}
+
+class _SuccessfulLinuxRunner implements LinuxCommandRunner {
+  @override
+  Future<LinuxCommandResult> run(
+    String command, {
+    Duration timeout = const Duration(seconds: 20),
+  }) async => const LinuxCommandResult(stdout: 'ok', duration: Duration.zero);
 }

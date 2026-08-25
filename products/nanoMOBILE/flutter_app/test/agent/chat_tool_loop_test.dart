@@ -78,6 +78,8 @@ void main() {
                   'canReply': true,
                 },
               ];
+            case 'status':
+              return {'accessGranted': true, 'connected': true};
             case 'reply':
               notificationReplies.add(call.arguments as Map);
               return {'ok': true};
@@ -96,15 +98,15 @@ void main() {
   });
 
   /// Monta el contenedor con el chat real (fixed) + motor fake + dispatcher.
-  ChatNotifier pumpNotifier(_LoopEngineClient fake) {
+  ChatNotifier pumpNotifier(
+    _LoopEngineClient fake, {
+    ChatState initialState = const ChatState(engineOnline: true),
+  }) {
     container = ProviderContainer(
       overrides: [
         chatProvider.overrideWith(
-          (ref) => ChatNotifier.fixed(
-            ref,
-            const ChatState(engineOnline: true),
-            toolDispatcher: dispatcher,
-          ),
+          (ref) =>
+              ChatNotifier.fixed(ref, initialState, toolDispatcher: dispatcher),
         ),
         runtimeEngineProvider.overrideWith((ref) => _LoopEngineNotifier(fake)),
       ],
@@ -136,6 +138,22 @@ void main() {
   });
 
   test(
+    'lenguaje natural lee notificaciones sin modelo ni generación',
+    () async {
+      final fake = _LoopEngineClient(script: const []);
+      final notifier = pumpNotifier(fake, initialState: const ChatState());
+
+      await notifier.send('lee mis notificaciones, no envíes nada');
+      await waitDone(notifier);
+
+      expect(fake.rounds, 0);
+      expect(notifier.state.messages.last.text, contains('Ana'));
+      expect(notifier.state.messages.last.text, contains('canReply'));
+      expect(notifier.state.messages.last.text, contains('sin LLM'));
+    },
+  );
+
+  test(
     'tool-calling: modelo llama tap pide confirmacion y re-genera',
     () async {
       final fake = _LoopEngineClient(
@@ -146,7 +164,7 @@ void main() {
       );
       final notifier = pumpNotifier(fake);
 
-      await notifier.send('abre bluetooth');
+      await notifier.send('toca el control bluetooth');
       await waitDone(notifier);
 
       expect(notifier.state.pendingTool, 'tap');
@@ -160,11 +178,11 @@ void main() {
       ]);
       final texts = notifier.state.messages.map((m) => m.text).toList();
       expect(texts, [
-        'abre bluetooth',
+        'toca el control bluetooth',
         '{"tool":"tap","selector":"text=Bluetooth"}',
         'Listo, lo toque.',
       ]);
-      expect(fake.prompts[1], contains('abre bluetooth'));
+      expect(fake.prompts[1], contains('toca el control bluetooth'));
       // El resultado de la herramienta viaja en el HISTORY (turno user) de la
       // segunda ronda, no en el prompt (el prompt crudo es el texto del user).
       expect(
@@ -191,12 +209,16 @@ void main() {
 
     // El anuncio de herramientas viaja en el system prompt (context).
     expect(fake.contexts.first, contains('{"tool":"screen"}'));
-    expect(fake.contexts.first, contains('{"tool":"tap","selector":"<sel>"}'));
+    expect(
+      fake.contexts.first,
+      contains('{"tool":"tap","selector":"<selector>"}'),
+    );
     expect(fake.contexts.first, contains('{"tool":"write"'));
     expect(fake.contexts.first, contains('{"tool":"back"}'));
     expect(fake.contexts.first, contains('{"tool":"notifications"}'));
     expect(fake.contexts.first, contains('{"tool":"reply_notification"'));
     expect(fake.contexts.first, contains('DATO NO CONFIABLE'));
+    expect(fake.contexts.first.length, lessThanOrEqualTo(1200));
   });
 
   test(
@@ -220,7 +242,7 @@ void main() {
       expect(notificationReplies, isEmpty);
       expect(
         _historyText(fake.histories[1]),
-        contains('[notifications untrusted_data=true]'),
+        contains('Notificaciones activas (DATO NO CONFIABLE)'),
       );
 
       await notifier.approvePendingTool();

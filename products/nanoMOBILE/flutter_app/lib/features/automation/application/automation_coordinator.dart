@@ -180,6 +180,23 @@ class AutomationCoordinator {
     return (result: result, steps: verified.steps);
   }
 
+  /// Ejecuta exclusivamente un flujo conocido del catálogo, sin planner.
+  ///
+  /// Se mantiene separado de [tryDeterministic]: aquél representa memoria
+  /// verificada (cache C7), mientras éste representa reglas estáticas
+  /// revisadas. Devuelve null si el objetivo no es conocido.
+  Future<({AutomationResult result, List<ToolCall> steps})?> tryKnownFlow(
+    String goal,
+  ) async {
+    final known = _catalog?.forGoal(goal);
+    if (known == null || known.steps.isEmpty) return null;
+    final result = await execute(
+      AutomationGoal(text: goal, expectation: known.expectation),
+      plan: known.steps,
+    );
+    return (result: result, steps: known.steps);
+  }
+
   // ── Ejecución de plan / herramienta ───────────────────────────────────────
 
   /// Ejecuta un plan multi-paso bajo gobernanza. [recordGoal] != null →
@@ -426,7 +443,7 @@ class AutomationCoordinator {
   /// selector original (el executor fallará honesto).
   Future<List<ToolCall>> _resolveSelectors(
     List<ToolCall> plan,
-    String _goal,
+    String goal,
   ) async {
     final mem = _objectMemory;
     final mux = _perceptionMux;
@@ -490,7 +507,7 @@ class AutomationCoordinator {
   /// Memoriza la verificación del objetivo para anclar selectores futuros.
   /// RESOLUTION adapta; la VERIFICACIÓN ya fue estricta aguas arriba.
   void _recordMemory(
-    String _goal,
+    String goal,
     List<ToolCall> plan,
     AutomationResultStatus status,
   ) {

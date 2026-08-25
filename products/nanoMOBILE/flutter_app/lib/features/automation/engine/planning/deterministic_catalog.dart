@@ -74,6 +74,19 @@ const _stateChangingTerms = <String>[
   'estado',
 ];
 
+const _notificationReadTerms = <String>[
+  'leer',
+  'lee',
+  'listar',
+  'lista',
+  'mostrar',
+  'muestra',
+  'ver',
+  'dime',
+  'cuáles',
+  'cuales',
+];
+
 const DeterministicFlow _bluetoothOpenFlow = DeterministicFlow(
   steps: [ToolCall(tool: 'tap', selector: 'text=Bluetooth')],
   expectation: GoalExpectation(
@@ -94,6 +107,11 @@ const DeterministicFlow _wifiOpenFlow = DeterministicFlow(
   forbiddenAny: _stateChangingTerms,
 );
 
+const DeterministicFlow _notificationReadFlow = DeterministicFlow(
+  steps: [ToolCall(tool: 'notifications')],
+  requiredAny: _notificationReadTerms,
+);
+
 const DeterministicFlowCatalog defaultDeterministicCatalog =
     DeterministicFlowCatalog({
       'bluetooth': _bluetoothOpenFlow,
@@ -105,10 +123,12 @@ const DeterministicFlowCatalog defaultDeterministicCatalog =
         requiredAny: _openTerms,
       ),
       'chrome': DeterministicFlow(
-        steps: [ToolCall(tool: 'tap', selector: 'text=Chrome')],
-        expectation: GoalExpectation(visibleText: 'Chrome'),
+        steps: [ToolCall(tool: 'launch_app', selector: 'com.android.chrome')],
+        expectation: GoalExpectation(expectedPackage: 'com.android.chrome'),
         requiredAny: _openTerms,
       ),
+      'notificaciones': _notificationReadFlow,
+      'notificación': _notificationReadFlow,
       'volver': DeterministicFlow(steps: [ToolCall(tool: 'back')]),
       'atrás': DeterministicFlow(steps: [ToolCall(tool: 'back')]),
     });

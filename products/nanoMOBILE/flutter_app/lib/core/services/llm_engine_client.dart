@@ -319,7 +319,9 @@ class LLMEngineClient {
   }) async {
     try {
       debugPrint(
-        '[llm] startStreamRequest sessionId=${sessionId ?? ''} prompt_len=${prompt.length}',
+        '[llm] startStreamRequest sessionId=${sessionId ?? ''} '
+        'prompt_len=${prompt.length} context_len=${context?.length ?? 0} '
+        'history_turns=${history?.length ?? 0}',
       );
       final request = http.Request('POST', Uri.parse('$baseUrl/completion'));
       request.headers['Content-Type'] = 'application/json';

@@ -52,8 +52,8 @@ class NotificationAutomationService : NotificationListenerService() {
             ?: return ReplyResult(false, "NOTIFICATION_GONE")
         val action = replyAction(source.notification)
             ?: return ReplyResult(false, "REPLY_UNAVAILABLE")
-        val remoteInputs = action.remoteInputs
-            ?: return ReplyResult(false, "REPLY_UNAVAILABLE")
+        val remoteInputs = textRemoteInputs(action)
+        if (remoteInputs.isEmpty()) return ReplyResult(false, "REPLY_UNAVAILABLE")
 
         return try {
             val intent = Intent()
@@ -63,7 +63,9 @@ class NotificationAutomationService : NotificationListenerService() {
             }
             RemoteInput.addResultsToIntent(remoteInputs, intent, results)
             action.actionIntent.send(this, 0, intent)
-            ReplyResult(true, "SENT")
+            // PendingIntent.send sin excepción prueba que Android entregó la
+            // acción a la app origen; no demuestra lectura del destinatario.
+            ReplyResult(true, "REMOTE_INPUT_ACCEPTED")
         } catch (_: android.app.PendingIntent.CanceledException) {
             ReplyResult(false, "ACTION_EXPIRED")
         } catch (_: SecurityException) {
@@ -92,8 +94,16 @@ class NotificationAutomationService : NotificationListenerService() {
 
     private fun replyAction(notification: Notification): Notification.Action? =
         notification.actions?.firstOrNull { action ->
-            !action.remoteInputs.isNullOrEmpty()
+            textRemoteInputs(action).isNotEmpty()
         }
+
+    /** Sólo RemoteInput que admite texto libre. Los data-only inputs no son
+     * un canal de respuesta textual y no deben marcar canReply=true. */
+    private fun textRemoteInputs(action: Notification.Action): Array<RemoteInput> =
+        action.remoteInputs
+            ?.filter(RemoteInput::getAllowFreeFormInput)
+            ?.toTypedArray()
+            ?: emptyArray()
 
     data class ReplyResult(val ok: Boolean, val code: String)
 

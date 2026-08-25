@@ -31,6 +31,7 @@ class ToolDefinition {
     this.requiresConfirmation = false,
     this.timeout = const Duration(seconds: 10),
     this.description = '',
+    this.promptSyntax,
   });
 
   final String name;
@@ -43,6 +44,12 @@ class ToolDefinition {
 
   /// Descripción humana para el diálogo de confirmación y la ayuda.
   final String description;
+
+  /// JSON canónico que el modelo local puede emitir. null mantiene la
+  /// herramienta disponible para flujos deterministas, pero evita anunciarla
+  /// al LLM cuando todavía no existe un catálogo que impida argumentos
+  /// inventados (por ejemplo packageName de launch_app).
+  final String? promptSyntax;
 }
 
 /// Registro de herramientas con alias (verbos `@` en español → nombre
@@ -77,39 +84,53 @@ class ToolRegistry {
       name: 'screen',
       risk: ToolRisk.read,
       description: 'Leer la pantalla actual del dispositivo',
+      promptSyntax: '{"tool":"screen"}',
     ),
     ToolDefinition(
       name: 'resolve',
       risk: ToolRisk.read,
       description: 'Resolver un selector contra el árbol de accesibilidad',
+      promptSyntax: '{"tool":"resolve","selector":"<selector>"}',
     ),
     ToolDefinition(
       name: 'tap',
       risk: ToolRisk.device,
       description: 'Tocar un elemento de la pantalla',
+      promptSyntax: '{"tool":"tap","selector":"<selector>"}',
     ),
     ToolDefinition(
       name: 'back',
       risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Presionar el botón atrás',
+      promptSyntax: '{"tool":"back"}',
+    ),
+    ToolDefinition(
+      name: 'launch_app',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 10),
+      description: 'Abrir una aplicación instalada por su paquete Android',
     ),
     ToolDefinition(
       name: 'write',
       risk: ToolRisk.externalWrite,
       requiresConfirmation: true,
       description: 'Escribir texto en un campo de una aplicación',
+      promptSyntax: '{"tool":"write","selector":"<selector>","text":"<texto>"}',
     ),
     ToolDefinition(
       name: 'notifications',
       risk: ToolRisk.read,
       description: 'Leer las notificaciones activas del dispositivo',
+      promptSyntax: '{"tool":"notifications"}',
     ),
     ToolDefinition(
       name: 'reply_notification',
       risk: ToolRisk.externalWrite,
       requiresConfirmation: true,
       description: 'Responder una notificación en una aplicación externa',
+      promptSyntax:
+          '{"tool":"reply_notification","key":"<key>","text":"<texto>"}',
     ),
     // ── Subsistema Linux (C9) — acceso estructurado, nunca bash libre sin
     // política. Los writes piden confirmación; run es device (puede ser

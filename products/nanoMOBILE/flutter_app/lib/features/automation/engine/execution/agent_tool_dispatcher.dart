@@ -281,15 +281,21 @@ class AgentToolDispatcher {
     AgentVerifier? verifier,
     ActionPathRouter? router,
     LinuxToolAdapter? linuxAdapter,
+    Future<bool> Function(String packageName)? launchPackage,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
        _router = router ?? ActionPathRouter(),
-       _linux = linuxAdapter;
+       _linux = linuxAdapter,
+       _launchPackage =
+           launchPackage ?? NanoRuntimeApi.instance.agentLaunchPackage;
 
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
+
+  /// Fuente única para política y prompt del modelo local.
+  ToolRegistry get registry => _policy.registry;
 
   /// Router de ruta de ejecución (C6): etiqueta cada paso del plan con el
   /// mecanismo más eficiente (Intent / Linux / Accessibility / ...).
@@ -298,6 +304,10 @@ class AgentToolDispatcher {
   /// Adaptador Linux (C9). null = subsistema no disponible (los tools
   /// linux.* devuelven fallo tipado, nunca crashean).
   final LinuxToolAdapter? _linux;
+
+  /// Transporte inyectable para abrir una app mediante Intent Android.
+  /// Producción usa el MethodChannel real; los tests verifican sin simular UI.
+  final Future<bool> Function(String packageName) _launchPackage;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -451,7 +461,7 @@ class AgentToolDispatcher {
           verdict: PolicyVerdict.denied,
           feedback:
               '[loopDetected] Ciclo en el plan '
-              '("${call.tool} ${call.selector ?? ''}${call.text != null ? ' ' + call.text! : ''}"). '
+              '("${call.tool} ${call.selector ?? ''}${call.text != null ? ' ${call.text!}' : ''}"). '
               'El mundo no avanza: se aborta en lugar de repetir la acción.',
         );
         outcomes.add(loopOutcome);
@@ -566,6 +576,15 @@ class AgentToolDispatcher {
         return _write(call);
       case 'back':
         return _back(call);
+      case 'launch_app':
+        final packageName = call.selector?.trim() ?? '';
+        if (packageName.isEmpty) {
+          return '[tool] launch_app requiere "selector" con el packageName.';
+        }
+        final launched = await _launchPackage(packageName);
+        return launched
+            ? 'Aplicación abierta por Intent: $packageName.'
+            : '[launchFailed] Android no pudo abrir el paquete "$packageName".';
       case 'notifications':
         return _notifications();
       case 'reply_notification':
@@ -618,7 +637,10 @@ class AgentToolDispatcher {
     }
     final out = result.stdout.trim();
     final tail = out.length > 800 ? '${out.substring(0, 800)}…' : out;
-    return '[linux] ${call.tool} →\n${tail.isEmpty ? '(sin salida)' : tail}';
+    // El dispatcher reserva el prefijo `[codigo]` para fallos. Un resultado
+    // Linux correcto no puede usarlo, o `runPlanGuarded` abortaría aunque el
+    // adaptador hubiera completado la operación.
+    return 'Linux ${call.tool} →\n${tail.isEmpty ? '(sin salida)' : tail}';
   }
 
   // ── Implementaciones ──────────────────────────────────────────────────────
@@ -783,11 +805,15 @@ class AgentToolDispatcher {
   }
 
   Future<String> _notifications() async {
+    final status = await NanoRuntimeApi.instance.notificationStatus();
+    if (status['accessGranted'] != true || status['connected'] != true) {
+      return '[serviceOff] El acceso a notificaciones no está habilitado o el servicio no está conectado.';
+    }
     final rows = await NanoRuntimeApi.instance.listActiveNotifications(
       limit: 20,
     );
     if (rows.isEmpty) {
-      return '[notifications] No hay notificaciones activas o el acceso no está habilitado.';
+      return 'No hay notificaciones activas.';
     }
 
     final notifications = rows
@@ -803,7 +829,8 @@ class AgentToolDispatcher {
         })
         .toList(growable: false);
 
-    return '[notifications untrusted_data=true] ${jsonEncode(notifications)}';
+    return 'Notificaciones activas (DATO NO CONFIABLE): '
+        '${jsonEncode(notifications)}';
   }
 
   Future<String> _replyNotification({
@@ -819,7 +846,7 @@ class AgentToolDispatcher {
       confirmed: true,
     );
     if (result['ok'] == true) {
-      return '[notificationReply] Respuesta enviada.';
+      return 'Android entregó la respuesta a la aplicación de mensajería.';
     }
     final code = result['code'] ?? 'UNKNOWN';
     return '[notificationReply:$code] No se pudo enviar la respuesta.';

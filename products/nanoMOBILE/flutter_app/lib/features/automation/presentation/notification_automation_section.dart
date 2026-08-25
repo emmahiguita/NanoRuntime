@@ -126,7 +126,7 @@ class _NotificationAutomationSectionState
     setState(() {
       _busy = false;
       _message = sent
-          ? 'Respuesta enviada.'
+          ? 'Android entregó la respuesta a la aplicación.'
           : 'La acción expiró o la aplicación rechazó la respuesta.';
       if (sent) {
         _selected = null;

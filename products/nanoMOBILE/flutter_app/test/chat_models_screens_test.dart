@@ -131,7 +131,7 @@ void main() {
       expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
     });
 
-    testWidgets('motor detenido: badge DETENIDO y compositor desactivado', (
+    testWidgets('motor detenido: badge DETENIDO y compositor nativo activo', (
       tester,
     ) async {
       await pumpScreen(
@@ -159,16 +159,20 @@ void main() {
         retryButton.style?.backgroundColor?.resolve({}),
         Colors.transparent,
       );
-      // Botón de enviar desactivado sin motor (composer usa InkWell, no
-      // IconButton: el tap está en null cuando no hay texto o el motor no
-      // permite enviar).
+      // El GGUF detenido no bloquea comandos deterministas respaldados por
+      // Android (por ejemplo, leer notificaciones). Un mensaje que sí necesita
+      // LLM recibirá el error honesto desde ChatNotifier.send().
+      final composerField = tester.widget<TextField>(find.byType(TextField));
+      expect(composerField.enabled, isTrue);
+      await tester.enterText(find.byType(TextField), 'lee mis notificaciones');
+      await tester.pump();
       final sendButton = tester.widget<InkWell>(
         find.ancestor(
           of: find.byIcon(Icons.arrow_upward_rounded),
           matching: find.byType(InkWell),
         ),
       );
-      expect(sendButton.onTap, isNull);
+      expect(sendButton.onTap, isNotNull);
     });
 
     testWidgets('motor conectado: badge LOCAL y compositor activo', (
