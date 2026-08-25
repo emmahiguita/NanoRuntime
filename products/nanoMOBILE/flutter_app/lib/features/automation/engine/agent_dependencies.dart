@@ -34,6 +34,7 @@ import 'planning/candidates/candidate_providers.dart';
 import 'planning/candidates/candidate_ranker.dart';
 import 'planning/candidates/candidate_selection_engine.dart';
 import 'planning/candidates/candidate_tool_call_adapter.dart';
+import 'planning/candidates/screen_graph_candidate_provider.dart';
 import 'planning/deterministic_catalog.dart';
 import 'system/capability_availability.dart';
 import 'system/system_capability.dart';
@@ -219,6 +220,9 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
       ),
       InstalledAppCandidateProvider(ref.watch(installedAppCatalogProvider)),
       DeterministicCandidateProvider(defaultDeterministicCatalog),
+      ScreenGraphCandidateProvider(
+        _ExecutorScreenObserver(ref.watch(agentExecutorProvider)),
+      ),
     ]),
     selection: CandidateSelectionEngine(ranker: CandidateRanker()),
     governance: const ActionGovernancePipeline(
