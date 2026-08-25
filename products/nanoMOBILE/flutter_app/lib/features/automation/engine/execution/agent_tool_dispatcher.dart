@@ -1017,7 +1017,7 @@ class AgentToolDispatcher {
       // La clave sólo tiene utilidad para RemoteInput. No se expone en las
       // notificaciones de solo lectura, donde además suele ser muy larga.
       if (canReply) {
-        final key = _notificationText(row['key'], maxLength: 500);
+        final key = _notificationKey(row['key']);
         if (key.isNotEmpty) buffer.write('\n   - Clave de respuesta: `$key`');
       }
     }
@@ -1038,6 +1038,16 @@ class AgentToolDispatcher {
       RegExp(r'([\\`*_{}\[\]()#+\-.!>])'),
       (match) => '\\${match.group(1)}',
     );
+  }
+
+  /// Identificador técnico (clave RemoteInput): preservado byte-for-byte — NO
+  /// pasa por el escape Markdown de [_notificationText]. Los `-`/`.`/`_` son
+  /// parte del identificador y el LLM debe copiarlo exacto en
+  /// `reply_notification`; escapar el guión (`\-`) corrompería la clave.
+  /// Solo recorta longitud (bounded), no altera el contenido.
+  String _notificationKey(Object? value) {
+    final raw = '${value ?? ''}';
+    return raw.length <= 500 ? raw : '${raw.substring(0, 500)}…';
   }
 
   Future<String> _replyNotification({

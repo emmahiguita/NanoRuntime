@@ -326,7 +326,33 @@ void main() {
       expect(r, contains('DATO NO CONFIABLE'));
       expect(r, contains('Clave de respuesta'));
       expect(r, contains('¿Llegas pronto?'));
+      // H1: la clave técnica se preserva exacta (no escapa el guión).
+      expect(r, contains('`notification-key-1`'));
+      expect(r, isNot(contains(r'notification\-key\-1')));
       expect(notificationReplies, isEmpty);
+    });
+
+    test('notification key con puntuación se preserva exacto', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(notificationsChannel, (call) async {
+            if (call.method == 'status') {
+              return {'accessGranted': true, 'connected': true};
+            }
+            if (call.method == 'list') {
+              return [
+                {
+                  'key': 'chat|reply:1.0_key',
+                  'package': 'com.example.chat',
+                  'title': 'Ana',
+                  'text': '¿Llegas pronto?',
+                  'canReply': true,
+                },
+              ];
+            }
+            return null;
+          });
+      final r = await dispatcher.runTool(const ToolCall(tool: 'notifications'));
+      expect(r, contains('`chat|reply:1.0_key`'));
     });
 
     test('reply_notification no envía sin confirmación', () async {
