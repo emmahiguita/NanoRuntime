@@ -13,12 +13,14 @@ import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
 class DeterministicFlow {
   final List<ToolCall> steps;
   final GoalExpectation? expectation;
+  final bool outputProvesGoal;
   final List<String> requiredAny;
   final List<String> forbiddenAny;
 
   const DeterministicFlow({
     required this.steps,
     this.expectation,
+    this.outputProvesGoal = false,
     this.requiredAny = const [],
     this.forbiddenAny = const [],
   });
@@ -109,6 +111,9 @@ const DeterministicFlow _wifiOpenFlow = DeterministicFlow(
 
 const DeterministicFlow _notificationReadFlow = DeterministicFlow(
   steps: [ToolCall(tool: 'notifications')],
+  // El resultado es el snapshot que Android devolvio; no necesita inferir un
+  // estado visual posterior. Un fallo del listener conserva estado failed.
+  outputProvesGoal: true,
   requiredAny: _notificationReadTerms,
 );
 

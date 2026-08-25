@@ -190,9 +190,10 @@ class AutomationCoordinator {
   ) async {
     final known = _catalog?.forGoal(goal);
     if (known == null || known.steps.isEmpty) return null;
+    // Dejar que execute resuelva nuevamente el catálogo conserva dentro de
+    // una sola ruta la evidencia declarada por el flujo (outputProvesGoal).
     final result = await execute(
       AutomationGoal(text: goal, expectation: known.expectation),
-      plan: known.steps,
     );
     return (result: result, steps: known.steps);
   }
@@ -309,6 +310,7 @@ class AutomationCoordinator {
     // Expectativa efectiva para el run (usada en aprendizaje SOUND). Por defecto
     // la del goal; un flujo determinista del catálogo puede aportar la suya.
     var runExpectation = goal.expectation;
+    var outputProvesGoal = false;
 
     void emit(AutomationResult r) {
       final sink = _c14Sink;
@@ -363,6 +365,7 @@ class AutomationCoordinator {
       if (known != null && known.steps.isNotEmpty) {
         plan = known.steps;
         runExpectation = goal.expectation ?? known.expectation;
+        outputProvesGoal = known.outputProvesGoal;
       } else {
         // Sin flujo en cache ni catálogo: planear con el LLM local.
         final planner = _planner;
@@ -413,6 +416,7 @@ class AutomationCoordinator {
         goal: goal.text,
         base: base,
         expectation: runExpectation,
+        outputProvesGoal: outputProvesGoal,
       );
       _recordMemory(goal.text, plan, r.status);
       emit(r);
@@ -429,6 +433,7 @@ class AutomationCoordinator {
       goal: goal.text,
       base: base,
       expectation: runExpectation,
+      outputProvesGoal: outputProvesGoal,
     );
     _recordMemory(goal.text, plan, r.status);
     emit(r);
@@ -543,10 +548,20 @@ class AutomationCoordinator {
     required String goal,
     required AutomationResult base,
     GoalExpectation? expectation,
+    bool outputProvesGoal = false,
   }) async {
     if (base.status != AutomationResultStatus.completed) return base;
 
     final verify = _verifyGoal;
+    if (expectation == null && outputProvesGoal) {
+      return AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.completed,
+        reason: '${base.reason} Resultado nativo devuelto al usuario.',
+        pauseIndex: base.pauseIndex,
+        pauseTool: base.pauseTool,
+      );
+    }
     if (verify == null || expectation == null) {
       return AutomationResult(
         executionId: executionId,
