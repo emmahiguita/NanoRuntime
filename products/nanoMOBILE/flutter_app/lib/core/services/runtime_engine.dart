@@ -318,6 +318,9 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   Future<void> _healthTick() async {
     if (_recoveryInProgress || _healthCheckInProgress) return;
     if (state.phase == EnginePhase.idle) return;
+    // Una conexión SSE activa ya prueba que el proceso responde. Sondear
+    // /health cada 2 s durante prefill/decode roba CPU y ensucia el timeline.
+    if (_client.hasActiveStreamRequest) return;
     _healthCheckInProgress = true;
     try {
       if (await _client.isOnline(

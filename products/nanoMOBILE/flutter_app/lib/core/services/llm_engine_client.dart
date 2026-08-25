@@ -18,6 +18,10 @@ class LLMEngineClient {
   // Fábrica del client de streaming (uno nuevo por stream para poder cerrarlo
   // en cancelación sin afectar el client compartido). Inyectable en tests.
   final http.Client Function()? _streamClientFactory;
+  int _activeStreamRequests = 0;
+
+  /// Señal local para que el watchdog no compita con decode/prefill.
+  bool get hasActiveStreamRequest => _activeStreamRequests > 0;
 
   LLMEngineClient({
     this.baseUrl = 'http://127.0.0.1:8080',
@@ -320,6 +324,7 @@ class LLMEngineClient {
     List<Map<String, String>>? history,
     String? requestId,
   }) async {
+    _activeStreamRequests++;
     try {
       debugPrint(
         '[llm] startStreamRequest sessionId=${sessionId ?? ''} '
@@ -447,6 +452,7 @@ class LLMEngineClient {
         controller.addError(LLMEngineException('Error inesperado: $e'));
       }
     } finally {
+      if (_activeStreamRequests > 0) _activeStreamRequests--;
       if (!controller.isClosed) {
         await controller.close();
       }
