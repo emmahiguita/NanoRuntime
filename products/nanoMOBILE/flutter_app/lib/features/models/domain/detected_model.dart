@@ -26,6 +26,10 @@ class DetectedModel {
     this.path,
   });
 
-  /// Usable por el motor solo si es GGUF con magic válido.
-  bool get usable => format == DetectedModelFormat.gguf && magicOk;
+  /// Usable por el motor sólo si el scanner validó la cabecera GGUF completa.
+  /// 24 bytes es el encabezado fijo mínimo (magic, versión y contadores).
+  bool get usable =>
+      format == DetectedModelFormat.gguf &&
+      magicOk &&
+      (sizeBytes < 0 || sizeBytes >= 24);
 }

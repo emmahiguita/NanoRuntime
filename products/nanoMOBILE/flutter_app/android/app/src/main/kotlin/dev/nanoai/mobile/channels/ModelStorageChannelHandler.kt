@@ -42,6 +42,8 @@ class ModelStorageChannelHandler(
     companion object {
         private const val TAG = "ModelStorage"
         const val CHANNEL_NAME = "com.nanoai/model_storage"
+        private const val GGUF_HEADER_BYTES = 24
+        private val GGUF_MAGIC = "GGUF".toByteArray(Charsets.US_ASCII)
 
         /** requestCode del ACTION_OPEN_DOCUMENT_TREE clásico. MainActivity
          *  reenvía el resultado en onActivityResult (FlutterActivity no
@@ -246,14 +248,11 @@ class ModelStorageChannelHandler(
         return out
     }
 
-    /** Lee los primeros 4 bytes del archivo y compara contra "GGUF". */
+    /** Valida la cabecera estructural mínima de un GGUF ejecutable. */
     private fun isGgufFile(file: File): Boolean {
+        if (file.length() < GGUF_HEADER_BYTES) return false
         return try {
-            file.inputStream().use { fis ->
-                val header = ByteArray(4)
-                fis.read(header) == 4 &&
-                    header.contentEquals("GGUF".toByteArray(Charsets.US_ASCII))
-            }
+            file.inputStream().use(::hasValidGgufHeader)
         } catch (e: Exception) {
             false
         }
@@ -377,20 +376,39 @@ class ModelStorageChannelHandler(
         return out
     }
 
-    /** Lee los primeros 4 bytes y compara contra el magic "GGUF". */
+    /** Valida magic, versión y contadores básicos sin cargar el modelo. */
     private fun isGguf(uri: Uri): Boolean {
         return try {
             val pfd = activity.contentResolver.openFileDescriptor(uri, "r") ?: return false
             val ok = pfd.use { fd ->
                 val fis = java.io.FileInputStream(fd.fileDescriptor)
-                val header = ByteArray(4)
-                fis.read(header) == 4 &&
-                    header.contentEquals("GGUF".toByteArray(Charsets.US_ASCII))
+                fis.use(::hasValidGgufHeader)
             }
             ok
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun hasValidGgufHeader(input: java.io.InputStream): Boolean {
+        val header = ByteArray(GGUF_HEADER_BYTES)
+        var offset = 0
+        while (offset < header.size) {
+            val count = input.read(header, offset, header.size - offset)
+            if (count <= 0) return false
+            offset += count
+        }
+        return isValidGgufHeader(header)
+    }
+
+    private fun isValidGgufHeader(header: ByteArray): Boolean {
+        if (header.size < GGUF_HEADER_BYTES) return false
+        if (!header.copyOfRange(0, 4).contentEquals(GGUF_MAGIC)) return false
+        val data = java.nio.ByteBuffer.wrap(header).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val version = data.getInt(4)
+        val tensorCount = data.getLong(8)
+        val metadataCount = data.getLong(16)
+        return version in 1..3 && tensorCount > 0 && metadataCount > 0
     }
 
     private fun handleOpenFd(call: MethodCall, result: MethodChannel.Result) {

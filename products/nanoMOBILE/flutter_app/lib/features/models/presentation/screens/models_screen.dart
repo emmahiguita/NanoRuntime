@@ -137,13 +137,16 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     _viabilityFetching.add(model.id);
     final sizeBytes = (model.sizeGb * 1024 * 1024 * 1024).round();
     final client = ref.read(runtimeEngineProvider.notifier).client;
-    client.assessModelViability(sizeBytes).then((status) {
-      if (mounted) setState(() => _viabilityByModel[model.id] = status);
-    }).catchError((_) {
-      // offline: queda el fallback síncrono. El modelo permanece en
-      // _viabilityFetching para NO reintentar en esta sesión (evita bucle
-      // fetch→fail→rebuild→fetch). El veredicto se consulta al re-entrar.
-    });
+    client
+        .assessModelViability(sizeBytes)
+        .then((status) {
+          if (mounted) setState(() => _viabilityByModel[model.id] = status);
+        })
+        .catchError((_) {
+          // offline: queda el fallback síncrono. El modelo permanece en
+          // _viabilityFetching para NO reintentar en esta sesión (evita bucle
+          // fetch→fail→rebuild→fetch). El veredicto se consulta al re-entrar.
+        });
   }
 
   ModelViability _viabilityFromStatus(
@@ -305,16 +308,29 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                           sizeGb: detectedModel.sizeBytes > 0
                               ? detectedModel.sizeBytes / (1024 * 1024 * 1024)
                               : 0,
-                          description:
-                              'Modelo local detectado en almacenamiento SD / interno.',
+                          description: detectedModel.usable
+                              ? 'Modelo local detectado en almacenamiento SD / interno.'
+                              : 'Archivo rechazado: la cabecera GGUF es inválida o incompleta.',
                           path: detectedModel.path ?? detectedModel.uri,
                           isDetected: true,
                           isActive: isActive,
                           dashboard: dashboard,
-                          onAction: () => notifier.useDetected(detectedModel),
-                          actionLabel: 'Cargar Modelo',
+                          onAction: detectedModel.usable
+                              ? () => notifier.useDetected(detectedModel)
+                              : () => ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'No se puede cargar: cabecera GGUF inválida.',
+                                    ),
+                                  ),
+                                ),
+                          actionLabel: detectedModel.usable
+                              ? 'Cargar Modelo'
+                              : 'Archivo no compatible',
                         ),
-                        onUse: () => notifier.useDetected(detectedModel),
+                        onUse: detectedModel.usable
+                            ? () => notifier.useDetected(detectedModel)
+                            : null,
                       );
                     } else {
                       final model = item.catalog!;
@@ -1073,7 +1089,6 @@ class _ModelCard extends StatelessWidget {
     required this.onUse,
     required this.onDownload,
     required this.onCancel,
-    this.dense = false,
   });
 
   final String name;
@@ -1091,7 +1106,6 @@ class _ModelCard extends StatelessWidget {
   final VoidCallback onUse;
   final VoidCallback onDownload;
   final VoidCallback onCancel;
-  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -1620,7 +1634,7 @@ class _DetectedCard extends StatelessWidget {
   final bool active;
   final AnimationController reflectionController;
   final VoidCallback onTapDetails;
-  final VoidCallback onUse;
+  final VoidCallback? onUse;
 
   @override
   Widget build(BuildContext context) {
@@ -1743,6 +1757,12 @@ class _DetectedCard extends StatelessWidget {
                           color: colors.accentMint,
                         ),
                       )
+                    : !model.usable
+                    ? _StatusChip(
+                        label: 'GGUF INVÁLIDO',
+                        color: colors.error,
+                        dense: isDense,
+                      )
                     : active
                     ? NanoOpticalSurface(
                         geometry: NanoSurfaceGeometry.circle,
@@ -1763,7 +1783,7 @@ class _DetectedCard extends StatelessWidget {
                     : _PillButton(
                         label: 'Cargar',
                         accent: colors.accentMint,
-                        onPressed: onUse,
+                        onPressed: onUse!,
                         dense: isDense,
                       );
 
