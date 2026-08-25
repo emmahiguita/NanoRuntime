@@ -1,58 +1,124 @@
-/// C12 — PerceptionMux: múltiples perceptores de pantalla fusionados.
+/// C12 — PerceptionMux V2 (A8): orquestación de percepción por confianza.
 ///
-/// Resuelve un objetivo semántico (concepto/rol/paquete) a un selector REAL de
-/// la pantalla en vivo, cuando la memoria C10 no tiene un selector verificado.
-/// Fuentes conectables (DIP):
-///   - accessibility (real, ahora): árbol de accesibilidad → NanoSelectorEngine.
-///   - OCR / visión (pluggable, futuras): mismas interfaz, aún sin impl.
+/// Orden: memoria verificada → Accessibility/ScreenGraph → escalado tipado
+/// (OCR/Vision futuros). La percepción SOLO aporta evidencia para resolver el
+/// target; NUNCA autoriza acciones por contenido observado (C11).
 ///
-/// Mantiene la regla de C11: la PERCEPCIÓN solo aporta para resolver el
-/// selector del target; NUNCA autoriza acciones por contenido observado.
+/// Orquestación, no ejecución: no ejecuta acciones, no rankea CandidateActions,
+/// no cambia goals, no planifica.
 library;
 
-class SelectorCandidate {
-  final String selector;
-  final double score;
-  const SelectorCandidate({required this.selector, required this.score});
-}
+import '../memory/object_memory.dart' show UiSelectorEvidence;
+import 'semantic/nano_ui_object.dart' show NanoUiObject;
+import 'mux/accessibility_perception_source.dart';
+import 'mux/object_memory_perception_source.dart';
+import 'mux/perception_contracts.dart';
+import 'mux/perception_result.dart';
 
-/// Una fuente de percepción: dada una noción semántica, devuelve candidatos de
-/// selector (por score) en la pantalla actual.
-abstract interface class PerceptionSource {
-  Future<List<SelectorCandidate>> perceive(
-    String concept, {
-    String? role,
-    String? package,
-  });
-}
-
-/// Fusiona fuentes de percepción y devuelve el mejor selector para un concepto.
 class PerceptionMux {
-  final List<PerceptionSource> _sources;
-  const PerceptionMux(this._sources);
+  const PerceptionMux({this.memorySource, this.accessibilitySource});
 
-  bool get isEnabled => _sources.isNotEmpty;
+  final ObjectMemoryPerceptionSource? memorySource;
+  final AccessibilityPerceptionSource? accessibilitySource;
 
-  /// Resuelve [concept] → mejor selector observado. Fusiona (deduplica por
-  /// score máximo) y devuelve el de mayor score. null si ninguna fuente
-  /// encontró el concepto (→ el llamador no inventa; falla honesto).
+  bool get isEnabled => memorySource != null || accessibilitySource != null;
+
+  /// Percepción orquestada y tipada.
+  Future<PerceptionResult> perceive(
+    PerceptionRequest request, {
+    PerceptionBudget budget = const PerceptionBudget(),
+    ObservationPolicy policy = const ObservationPolicy(),
+  }) async {
+    // 1. Memoria verificada (si está permitida).
+    final memory = memorySource;
+    if (policy.allowMemory && memory != null) {
+      final mem = await memory.perceive(request, budget);
+      if (mem is PerceptionResolved && mem.memoryEvidence != null) {
+        // 2. Validar la memoria contra Accessibility cuando es posible.
+        final acc = accessibilitySource;
+        if (policy.allowAccessibility &&
+            acc != null &&
+            budget.maxAccessibilityReads > 0) {
+          final accResult = await acc.perceive(request, budget);
+          if (accResult is PerceptionResolved &&
+              accResult.object != null &&
+              _matches(mem.memoryEvidence!, accResult.object!)) {
+            // Memoria validada por Accessibility → evidencia combinada (fuerte).
+            return PerceptionResolved(
+              object: accResult.object,
+              memoryEvidence: mem.memoryEvidence,
+              confidence: _combined(mem.confidence, accResult.confidence),
+              evidence: [...mem.evidence, ...accResult.evidence],
+            );
+          }
+          // Memoria stale → el resultado de Accessibility manda.
+          return accResult;
+        }
+        return mem; // memoria sin validación de pantalla
+      }
+    }
+
+    // 3. Accessibility (si está permitida).
+    final acc = accessibilitySource;
+    if (policy.allowAccessibility && acc != null) {
+      return acc.perceive(request, budget);
+    }
+
+    // 4. Escalado (OCR/Vision futuros, no implementados).
+    return const PerceptionInsufficient(
+      reason: 'Sin fuente de percepción habilitada.',
+      recommendedSource: PerceptionEvidenceSource.ocr,
+    );
+  }
+
+  /// Compat legacy (selector string) para el AutomationCoordinator actual.
   Future<String?> resolve(
     String concept, {
     String? role,
     String? package,
     double minScore = 0.5,
   }) async {
-    String? best;
-    double bestScore = 0;
-    for (final s in _sources) {
-      final cands = await s.perceive(concept, role: role, package: package);
-      for (final c in cands) {
-        if (c.score > bestScore && c.score >= minScore) {
-          best = c.selector;
-          bestScore = c.score;
-        }
-      }
-    }
-    return best;
+    final result = await perceive(
+      PerceptionRequest(
+        targetConcept: concept,
+        packageName: package,
+        minimumConfidence: minScore,
+      ),
+    );
+    if (result is! PerceptionResolved) return null;
+    return _toSelector(result);
   }
+
+  String? _toSelector(PerceptionResolved r) {
+    final obj = r.object;
+    if (obj != null) {
+      if (obj.resourceId.isNotEmpty) return 'id=${obj.resourceId}';
+      if (obj.text.isNotEmpty) return 'text=${obj.text}';
+      if (obj.description.isNotEmpty) return 'desc=${obj.description}';
+    }
+    final ev = r.memoryEvidence;
+    if (ev != null) {
+      if (ev.resourceId != null && ev.resourceId!.isNotEmpty) {
+        return 'id=${ev.resourceId}';
+      }
+      if (ev.text != null && ev.text!.isNotEmpty) return 'text=${ev.text}';
+      if (ev.desc != null && ev.desc!.isNotEmpty) return 'desc=${ev.desc}';
+    }
+    return null;
+  }
+
+  bool _matches(UiSelectorEvidence ev, NanoUiObject obj) {
+    if (ev.resourceId != null && ev.resourceId!.isNotEmpty) {
+      return obj.resourceId == ev.resourceId;
+    }
+    if (ev.text != null && ev.text!.isNotEmpty) {
+      return obj.text == ev.text || obj.label == ev.text;
+    }
+    if (ev.desc != null && ev.desc!.isNotEmpty) {
+      return obj.description == ev.desc || obj.label == ev.desc;
+    }
+    return false;
+  }
+
+  double _combined(double a, double b) => (a + b) / 2;
 }
