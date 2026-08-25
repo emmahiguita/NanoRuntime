@@ -136,7 +136,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         verifyGoal: _ref.read(goalVerifierProvider).verify,
         catalog: defaultDeterministicCatalog,
         objectMemory: const NanoObjectMemory(),
-        perceptionMux: const PerceptionMux([]),
+        perceptionMux: const PerceptionMux(),
       );
 
   // ── Confirmación de herramienta (política externalWrite) ──

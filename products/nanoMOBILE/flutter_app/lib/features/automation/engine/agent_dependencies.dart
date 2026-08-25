@@ -18,6 +18,10 @@ import 'system/installed_app_catalog.dart';
 import 'system/system_graph.dart';
 import 'system/system_intent_launcher.dart';
 import 'system/system_inventory.dart';
+import 'perception/mux/accessibility_perception_source.dart';
+import 'perception/mux/perception_source.dart';
+import 'perception/nano_snapshot.dart';
+import 'perception/perception_mux.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a
@@ -133,5 +137,24 @@ final systemGraphBuilderProvider = Provider<SystemGraphBuilder>((ref) {
       ),
       const SystemIntentCapabilityProbe(),
     ],
+  );
+});
+
+/// Adapta el AgentExecutor (ya provee snapshot()) al ScreenObserver (DIP).
+class _ExecutorScreenObserver implements ScreenObserver {
+  _ExecutorScreenObserver(this._executor);
+  final AgentExecutor _executor;
+
+  @override
+  Future<NanoSnapshot?> snapshot() => _executor.snapshot();
+}
+
+/// Percepción orquestada (A8): accesibilidad vía ScreenGraph.
+final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
+  final executor = ref.watch(agentExecutorProvider);
+  return PerceptionMux(
+    accessibilitySource: AccessibilityPerceptionSource(
+      _ExecutorScreenObserver(executor),
+    ),
   );
 });
