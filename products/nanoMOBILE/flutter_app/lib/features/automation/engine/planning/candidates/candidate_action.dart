@@ -201,3 +201,12 @@ final class CandidateAction {
     }
   }
 }
+
+/// Clave estructural estable (tool + args ordenados) para dedup/conflicto de
+/// payload. NO es identidad (eso es [CandidateId]): es equivalencia de payload,
+/// usada por el generador (dedup) y el ranker (materialidad de la diferencia).
+String candidatePayloadKey(CandidateAction c) {
+  final keys = c.args.keys.toList()..sort();
+  final parts = keys.map((k) => '$k=${c.args[k]}').join(',');
+  return '${c.tool}::{$parts}';
+}
