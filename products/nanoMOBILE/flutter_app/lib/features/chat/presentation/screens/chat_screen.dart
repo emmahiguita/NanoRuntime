@@ -377,16 +377,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                     ),
 
-                    // El único elemento que responde al teclado. Así se
-                    // mantiene el contexto visible y se elimina el salto de
-                    // toda la pantalla al seleccionar el campo.
+                    // Android ya redimensiona esta Activity con adjustResize.
+                    // No sumar viewInsets aquí: era un segundo desplazamiento
+                    // que elevaba el compositor completo al abrir el teclado.
                     if (!_isReadingMode)
                       Positioned(
                         left: isCompactLandscape ? 8 : 14,
                         right: isCompactLandscape ? 8 : 14,
-                        bottom:
-                            mediaQuery.viewInsets.bottom +
-                            (isCompactLandscape ? 5 : 10),
+                        bottom: isCompactLandscape ? 5 : 10,
                         child: _ComposerTransition(
                           child: _isComposerMinimized
                               ? Align(
