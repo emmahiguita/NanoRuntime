@@ -60,8 +60,17 @@ class LlmAutomationPlanner implements AutomationPlanner {
     required LLMEngineClient client,
     Set<String>? knownTools,
   }) : _client = client,
+       // A1 hardening: el vocabulario del planner autónomo se deriva SOLO de
+       // tools anunciables (promptSyntax != null). `launch_app`, `linux.*` y
+       // los gestos/global actions de A1 quedan fuera: el LLM no puede emitir
+       // un packageName inventado ni coordenadas sin grounding. A2 (catalog)
+       // reintroducirá launch_app con evidencia real del PackageManager.
        _knownTools =
-           knownTools ?? ToolRegistry.builtin.all.map((t) => t.name).toSet();
+           knownTools ??
+           ToolRegistry.builtin.all
+               .where((t) => t.promptSyntax != null)
+               .map((t) => t.name)
+               .toSet();
 
   @override
   Future<PlannedPlan> plan(String goal) async {

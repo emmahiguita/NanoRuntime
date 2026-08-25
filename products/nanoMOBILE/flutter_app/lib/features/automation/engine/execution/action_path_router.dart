@@ -74,6 +74,21 @@ class ActionPathRouter {
           ExecutionPath.accessibility,
           'Herramienta de UI sobre el árbol semántico de Accessibility.',
         );
+      case 'home':
+      case 'recents':
+      case 'open_notifications':
+      case 'open_quick_settings':
+        return const PathDecision(
+          ExecutionPath.accessibility,
+          'Acción global de sistema vía AccessibilityService.',
+        );
+      case 'swipe':
+      case 'scroll':
+      case 'long_press':
+        return const PathDecision(
+          ExecutionPath.accessibility,
+          'Gesto sobre AccessibilityService (dispatchGesture).',
+        );
       case 'notifications':
       case 'reply_notification':
         return PathDecision(

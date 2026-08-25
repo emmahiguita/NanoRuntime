@@ -76,6 +76,10 @@ class ToolRegistry {
       'responder_notificacion': 'reply_notification',
       'atras': 'back',
       'atrás': 'back',
+      'inicio': 'home',
+      'recientes': 'recents',
+      'sombra': 'open_notifications',
+      'ajustes_rapidos': 'open_quick_settings',
     },
   );
 
@@ -159,6 +163,55 @@ class ToolRegistry {
       risk: ToolRisk.device,
       timeout: Duration(seconds: 30),
       description: 'Ejecutar un comando en el subsistema Linux',
+    ),
+    // ── Device Actions V1 (A1) ─────────────────────────────────────────────
+    // Capacidades nativas YA existentes en AgentAccessibilityService, elevadas
+    // a tools tipadas. `promptSyntax: null` = disponibles para flujos
+    // deterministas y comandos `@`, pero NO anunciadas al LLM: el grounding
+    // de swipe/scroll/long_press lo gobernará Candidate-First (A5/A6), y las
+    // global actions no deben ser elegidas por un modelo sin evidencia del
+    // estado del dispositivo.
+    ToolDefinition(
+      name: 'home',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Ir a la pantalla de inicio',
+    ),
+    ToolDefinition(
+      name: 'recents',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Abrir la vista de aplicaciones recientes',
+    ),
+    ToolDefinition(
+      name: 'open_notifications',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Abrir la sombra de notificaciones',
+    ),
+    ToolDefinition(
+      name: 'open_quick_settings',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Abrir los ajustes rápidos',
+    ),
+    ToolDefinition(
+      name: 'swipe',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Deslizar entre dos puntos de la pantalla',
+    ),
+    ToolDefinition(
+      name: 'scroll',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Desplazar la pantalla en una dirección',
+    ),
+    ToolDefinition(
+      name: 'long_press',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 5),
+      description: 'Mantener pulsado un punto de la pantalla',
     ),
   ];
 

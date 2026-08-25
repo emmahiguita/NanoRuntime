@@ -36,12 +36,18 @@ class ToolCall {
   /// Postcondiciones declaradas por el llamador (LLM o comando @):
   /// `{package, appear, disappear, text, forbidden}` — ver [ActionVerifier].
   final Map<String, dynamic>? expect;
+
+  /// Argumentos tipados (A1): vía compatible para tools que NO son
+  /// `selector`/`text` (swipe/scroll/long_press). Aditivo: no rompe el
+  /// contrato legacy. La migración global a args es A4.
+  final Map<String, Object?>? args;
   const ToolCall({
     required this.tool,
     this.selector,
     this.text,
     this.key,
     this.expect,
+    this.args,
   });
 }
 
@@ -164,6 +170,9 @@ abstract final class AgentToolProtocol {
         expect: map['expect'] is Map
             ? (map['expect'] as Map).cast<String, dynamic>()
             : null,
+        args: map['args'] is Map
+            ? (map['args'] as Map).cast<String, Object?>()
+            : null,
       );
     } catch (_) {
       final tool = _field(trimmed, 'tool');
@@ -282,13 +291,21 @@ class AgentToolDispatcher {
     ActionPathRouter? router,
     LinuxToolAdapter? linuxAdapter,
     Future<bool> Function(String packageName)? launchPackage,
+    Future<bool> Function(String action)? globalAction,
+    Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs})?
+    swipe,
+    Future<bool> Function(int x, int y, {int durationMs})? longPress,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
        _router = router ?? ActionPathRouter(),
        _linux = linuxAdapter,
        _launchPackage =
-           launchPackage ?? NanoRuntimeApi.instance.agentLaunchPackage;
+           launchPackage ?? NanoRuntimeApi.instance.agentLaunchPackage,
+       _globalAction =
+           globalAction ?? NanoRuntimeApi.instance.agentGlobalAction,
+       _swipe = swipe ?? NanoRuntimeApi.instance.agentSwipe,
+       _longPress = longPress ?? NanoRuntimeApi.instance.agentLongPressAt;
 
   final AgentExecutor _executor;
   final PolicyEngine _policy;
@@ -308,6 +325,14 @@ class AgentToolDispatcher {
   /// Transporte inyectable para abrir una app mediante Intent Android.
   /// Producción usa el MethodChannel real; los tests verifican sin simular UI.
   final Future<bool> Function(String packageName) _launchPackage;
+
+  /// Transportes inyectables de Device Actions V1 (A1) — DIP: el dispatcher no
+  /// depende del singleton para gestos/acciones globales; los tests inyectan
+  /// fakes sin MethodChannel.
+  final Future<bool> Function(String action) _globalAction;
+  final Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs})
+  _swipe;
+  final Future<bool> Function(int x, int y, {int durationMs}) _longPress;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -385,8 +410,19 @@ class AgentToolDispatcher {
       case 'notificaciones':
       case 'notifications':
         call = const ToolCall(tool: 'notifications');
+      case 'home':
+      case 'inicio':
+        call = const ToolCall(tool: 'home');
+      case 'recents':
+      case 'recientes':
+        call = const ToolCall(tool: 'recents');
+      case 'sombra':
+        call = const ToolCall(tool: 'open_notifications');
+      case 'quick_settings':
+      case 'ajustes_rapidos':
+        call = const ToolCall(tool: 'open_quick_settings');
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @back.';
+        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @back, @home, @recents, @sombra, @quick_settings.';
     }
     return (await runToolGuarded(call, humanInitiated: true)).feedback;
   }
@@ -576,6 +612,20 @@ class AgentToolDispatcher {
         return _write(call);
       case 'back':
         return _back(call);
+      case 'home':
+        return _navigate(call, 'Pantalla de inicio', 'home');
+      case 'recents':
+        return _navigate(call, 'Recientes', 'recents');
+      case 'open_notifications':
+        return _navigate(call, 'Sombra de notificaciones', 'notifications');
+      case 'open_quick_settings':
+        return _navigate(call, 'Ajustes rápidos', 'quick_settings');
+      case 'swipe':
+        return _doSwipe(call);
+      case 'scroll':
+        return _doScroll(call);
+      case 'long_press':
+        return _doLongPress(call);
       case 'launch_app':
         final packageName = call.selector?.trim() ?? '';
         if (packageName.isEmpty) {
@@ -746,7 +796,7 @@ class AgentToolDispatcher {
 
   Future<String> _back(ToolCall call) async {
     final pre = await _executor.snapshot();
-    final ok = await NanoRuntimeApi.instance.agentGlobalAction('back');
+    final ok = await _globalAction('back');
     if (!ok) return '[gestureFailed] Back falló.';
     // Postcondición por defecto: la pantalla debe cambiar.
     final expectation = _expectationFor(
@@ -754,6 +804,135 @@ class AgentToolDispatcher {
     ).copyWith(mustChangeSnapshot: true);
     return 'Botón atrás ejecutado.'
         '${await _verifySuffix(expectation, preSnapshot: pre)}';
+  }
+
+  /// Global action de navegación (home/recents/shade/quick_settings). Aceptar
+  /// el gesto (`performGlobalAction == true`) NO es el objetivo: se exige
+  /// cambio observable de snapshot antes de reportar éxito limpio.
+  Future<String> _navigate(ToolCall call, String label, String action) async {
+    final pre = await _executor.snapshot();
+    final ok = await _globalAction(action);
+    if (!ok) return '[gestureFailed] $label falló.';
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
+    return '$label ejecutado.'
+        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+  }
+
+  /// Swipe por coordenadas explícitas. `args` = {startX,startY,endX,endY,
+  /// durationMs?}. Las coordenadas son infraestructura (A1): Candidate-First
+  /// (A5/A6) será quien las gobierne; el LLM no tiene acceso a este tool.
+  Future<String> _doSwipe(ToolCall call) async {
+    final a = call.args ?? const {};
+    final x1 = _argInt(a, 'startX');
+    final y1 = _argInt(a, 'startY');
+    final x2 = _argInt(a, 'endX');
+    final y2 = _argInt(a, 'endY');
+    if (x1 == null || y1 == null || x2 == null || y2 == null) {
+      return '[tool] swipe requiere args {startX,startY,endX,endY} '
+          '(y durationMs opcional).';
+    }
+    final duration = _argInt(a, 'durationMs') ?? 300;
+    final pre = await _executor.snapshot();
+    final ok = await _swipe(x1, y1, x2, y2, durationMs: duration);
+    if (!ok) return '[gestureFailed] swipe falló.';
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
+    return 'Deslizamiento ejecutado.'
+        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+  }
+
+  /// Scroll semántico: `args` = {direction: up|down|left|right}. Las
+  /// coordenadas se resuelven respecto al viewport real (bounds máximo del
+  /// snapshot), nunca las inventa el llamador.
+  Future<String> _doScroll(ToolCall call) async {
+    final direction = call.args?['direction']?.toString().toLowerCase() ?? '';
+    if (direction.isEmpty) {
+      return '[tool] scroll requiere args {direction: up|down|left|right}.';
+    }
+    final snap = await _executor.snapshot();
+    if (snap == null || snap.isEmpty) {
+      return '[snapshotEmpty] Sin ventana activa para calcular el scroll.';
+    }
+    var sw = 0;
+    var sh = 0;
+    for (final n in snap.nodes) {
+      if (n.bounds.right > sw) sw = n.bounds.right;
+      if (n.bounds.bottom > sh) sh = n.bounds.bottom;
+    }
+    if (sw <= 0 || sh <= 0) {
+      return '[snapshotEmpty] Sin bounds de pantalla para calcular el scroll.';
+    }
+    final cx = sw ~/ 2;
+    final cy = sh ~/ 2;
+    final dx = (sw * 0.6).round();
+    final dy = (sh * 0.6).round();
+    final coords = _scrollCoords(direction, cx, cy, dx, dy);
+    if (coords == null) {
+      return '[tool] scroll direction inválida "$direction" '
+          '(up|down|left|right).';
+    }
+    final ok = await _swipe(
+      coords.x1,
+      coords.y1,
+      coords.x2,
+      coords.y2,
+      durationMs: 300,
+    );
+    if (!ok) return '[gestureFailed] scroll falló.';
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
+    return 'Scroll $direction ejecutado.'
+        '${await _verifySuffix(expectation, preSnapshot: snap)}';
+  }
+
+  /// Long press: `args` = {x,y,durationMs?}.
+  Future<String> _doLongPress(ToolCall call) async {
+    final a = call.args ?? const {};
+    final x = _argInt(a, 'x');
+    final y = _argInt(a, 'y');
+    if (x == null || y == null) {
+      return '[tool] long_press requiere args {x,y} (y durationMs opcional).';
+    }
+    final duration = _argInt(a, 'durationMs') ?? 600;
+    final pre = await _executor.snapshot();
+    final ok = await _longPress(x, y, durationMs: duration);
+    if (!ok) return '[gestureFailed] long_press falló.';
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(mustChangeSnapshot: true);
+    return 'Pulsación larga ejecutada.'
+        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+  }
+
+  /// Coordenadas de scroll según dirección del gesto (movimiento del dedo):
+  /// up = dedo hacia arriba (contenido baja), down = dedo hacia abajo, etc.
+  /// null si [direction] no es válida.
+  ({int x1, int y1, int x2, int y2})? _scrollCoords(
+    String direction,
+    int cx,
+    int cy,
+    int dx,
+    int dy,
+  ) {
+    return switch (direction) {
+      'up' => (x1: cx, y1: cy + dy ~/ 2, x2: cx, y2: cy - dy ~/ 2),
+      'down' => (x1: cx, y1: cy - dy ~/ 2, x2: cx, y2: cy + dy ~/ 2),
+      'left' => (x1: cx + dx ~/ 2, y1: cy, x2: cx - dx ~/ 2, y2: cy),
+      'right' => (x1: cx - dx ~/ 2, y1: cy, x2: cx + dx ~/ 2, y2: cy),
+      _ => null,
+    };
+  }
+
+  /// Lee un entero de [args] (num o String numérica). null si ausente/inválido.
+  int? _argInt(Map<String, Object?> args, String key) {
+    final v = args[key];
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
   }
 
   // ── Verificación de postcondiciones ───────────────────────────────────────
