@@ -65,48 +65,52 @@ class InstalledAppCatalog {
   Future<List<InstalledApp>> get apps async => _cache ?? await refresh();
 
   /// Resuelve [query] (nombre humano o package) contra el catálogo real.
-  /// Orden: exact label → exact package → prefix label → token. Ambigüedad
-  /// real → [AppMatchAmbiguous] (nunca elige un target externo a ciegas).
-  Future<AppMatchResult> findApp(String query) async {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return AppMatchNotFound(query);
-    final list = await apps;
+  Future<AppMatchResult> findApp(String query) async =>
+      matchApps(await apps, query);
+}
 
-    final exactLabel = list
-        .where((a) => a.label.trim().toLowerCase() == q)
-        .toList(growable: false);
-    if (exactLabel.length == 1) {
-      return AppMatchResolved(exactLabel.single, AppMatchKind.exactLabel);
-    }
-    if (exactLabel.length > 1) return AppMatchAmbiguous(exactLabel);
+/// Matching puro sobre una lista de apps (compartido por [InstalledAppCatalog]
+/// y [SystemGraph]). No toca inventario ni cache.
+/// Orden: exact label → exact package → prefix label → token. Ambigüedad real →
+/// [AppMatchAmbiguous] (nunca elige un target externo a ciegas).
+AppMatchResult matchApps(List<InstalledApp> apps, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return AppMatchNotFound(query);
 
-    final exactPkg = list
-        .where((a) => a.packageName.toLowerCase() == q)
-        .toList(growable: false);
-    if (exactPkg.length == 1) {
-      return AppMatchResolved(exactPkg.single, AppMatchKind.exactPackage);
-    }
-    if (exactPkg.length > 1) return AppMatchAmbiguous(exactPkg);
-
-    final prefix = list
-        .where((a) => a.label.trim().toLowerCase().startsWith(q))
-        .toList(growable: false);
-    if (prefix.length == 1) {
-      return AppMatchResolved(prefix.single, AppMatchKind.prefixLabel);
-    }
-    if (prefix.length > 1) return AppMatchAmbiguous(prefix);
-
-    final token = list
-        .where((a) {
-          final tokens = a.label.trim().toLowerCase().split(RegExp(r'\s+'));
-          return tokens.any((t) => t == q);
-        })
-        .toList(growable: false);
-    if (token.length == 1) {
-      return AppMatchResolved(token.single, AppMatchKind.token);
-    }
-    if (token.length > 1) return AppMatchAmbiguous(token);
-
-    return AppMatchNotFound(query);
+  final exactLabel = apps
+      .where((a) => a.label.trim().toLowerCase() == q)
+      .toList(growable: false);
+  if (exactLabel.length == 1) {
+    return AppMatchResolved(exactLabel.single, AppMatchKind.exactLabel);
   }
+  if (exactLabel.length > 1) return AppMatchAmbiguous(exactLabel);
+
+  final exactPkg = apps
+      .where((a) => a.packageName.toLowerCase() == q)
+      .toList(growable: false);
+  if (exactPkg.length == 1) {
+    return AppMatchResolved(exactPkg.single, AppMatchKind.exactPackage);
+  }
+  if (exactPkg.length > 1) return AppMatchAmbiguous(exactPkg);
+
+  final prefix = apps
+      .where((a) => a.label.trim().toLowerCase().startsWith(q))
+      .toList(growable: false);
+  if (prefix.length == 1) {
+    return AppMatchResolved(prefix.single, AppMatchKind.prefixLabel);
+  }
+  if (prefix.length > 1) return AppMatchAmbiguous(prefix);
+
+  final token = apps
+      .where((a) {
+        final tokens = a.label.trim().toLowerCase().split(RegExp(r'\s+'));
+        return tokens.any((t) => t == q);
+      })
+      .toList(growable: false);
+  if (token.length == 1) {
+    return AppMatchResolved(token.single, AppMatchKind.token);
+  }
+  if (token.length > 1) return AppMatchAmbiguous(token);
+
+  return AppMatchNotFound(query);
 }
