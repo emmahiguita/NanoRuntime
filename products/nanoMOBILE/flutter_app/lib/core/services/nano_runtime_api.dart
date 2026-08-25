@@ -16,6 +16,7 @@ abstract final class NanoRuntimeChannels {
   static const modelStorage = 'com.nanoai/model_storage';
   static const notifications = 'com.nanoai/notifications';
   static const devicePermissions = 'com.nanoai/device_permissions';
+  static const system = 'com.nanoai/system';
 }
 
 /// Resultado del handshake de runtime.

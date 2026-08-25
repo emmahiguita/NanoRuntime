@@ -15,4 +15,5 @@ object ChannelNames {
     const val SHARE = ShareChannelHandler.CHANNEL_NAME
     const val NOTIFICATIONS = NotificationAutomationChannelHandler.CHANNEL_NAME
     const val DEVICE_PERMISSIONS = DevicePermissionsChannelHandler.CHANNEL_NAME
+    const val SYSTEM = SystemInventoryChannelHandler.CHANNEL_NAME
 }

@@ -33,6 +33,12 @@
             <action android:name="android.intent.action.MAIN"/>
             <category android:name="android.intent.category.LAUNCHER"/>
         </intent>
+        <!-- A2: resolver el launcher por defecto (CATEGORY_HOME) para el
+             DeviceProfile sin QUERY_ALL_PACKAGES. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.HOME"/>
+        </intent>
     </queries>
 
     <application

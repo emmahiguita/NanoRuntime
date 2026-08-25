@@ -21,6 +21,7 @@ import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
+import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -250,6 +251,9 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(messenger, ChannelNames.SHARE)
             .setMethodCallHandler(ShareChannelHandler(this))
+
+        MethodChannel(messenger, ChannelNames.SYSTEM)
+            .setMethodCallHandler(SystemInventoryChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
             .setMethodCallHandler(
