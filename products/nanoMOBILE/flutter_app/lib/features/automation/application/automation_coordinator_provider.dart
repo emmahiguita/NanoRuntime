@@ -28,5 +28,7 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     perceptionMux: ref.watch(perceptionMuxProvider),
     // A2: resuelve "abre <app>" con package REAL del PackageManager.
     appLaunch: ref.watch(appLaunchResolverProvider),
+    // A13.5: planificador Candidate-First de producción (0 LLM goals conocidos).
+    candidateFirst: ref.watch(candidateFirstPlannerProvider),
   );
 });

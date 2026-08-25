@@ -24,6 +24,21 @@ import 'perception/mux/perception_source.dart';
 import 'perception/nano_snapshot.dart';
 import 'perception/perception_mux.dart';
 import 'platform/nano_ocr_api.dart';
+import 'governance/action_governance_pipeline.dart';
+import 'governance/intent_firewall.dart';
+import 'governance/pre_action_critic.dart';
+import 'governance/privilege_broker.dart';
+import 'planning/candidate_first_planner.dart';
+import 'planning/candidates/candidate_generator.dart';
+import 'planning/candidates/candidate_providers.dart';
+import 'planning/candidates/candidate_ranker.dart';
+import 'planning/candidates/candidate_selection_engine.dart';
+import 'planning/candidates/candidate_tool_call_adapter.dart';
+import 'planning/deterministic_catalog.dart';
+import 'system/capability_availability.dart';
+import 'system/system_capability.dart';
+import 'system/system_intent_catalog.dart';
+import 'system/system_models.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a
@@ -162,5 +177,55 @@ final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
       const AccessibilityScreenImageProvider(),
       MlKitOcrBackend(),
     ),
+  );
+});
+
+/// Graph estático de destinos de sistema (allowlist A3 siempre disponible).
+/// El SystemGraph REAL (async, con accessibility/notification/Linux) se cableará
+/// en un follow-up; A13.5 usa este graph para el SystemIntentCandidateProvider.
+SystemGraph _intentGraph() => SystemGraph(
+  device: const DeviceProfile(
+    manufacturer: '',
+    model: '',
+    sdkInt: 0,
+    release: '',
+  ),
+  apps: const [],
+  roles: const [],
+  capabilities: {
+    for (final c in const [
+      SystemCapability.openSystemSettings,
+      SystemCapability.openWifiSettings,
+      SystemCapability.openBluetoothSettings,
+    ])
+      c: CapabilityAvailability(
+        capability: c,
+        state: CapabilityAvailabilityKind.available,
+        reason: 'allowlist',
+      ),
+  },
+);
+
+/// Planificador Candidate-First de producción (A13.5): generator → selection →
+/// governance → adapter. Cableado al coordinator.
+final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
+  return CandidateFirstPlanner(
+    generator: CandidateActionGenerator([
+      NanoFlowCandidateProvider(ref.watch(experienceCacheProvider)),
+      SystemIntentCandidateProvider(
+        defaultDeterministicCatalog,
+        _intentGraph(),
+        SystemIntentCatalog.builtin,
+      ),
+      InstalledAppCandidateProvider(ref.watch(installedAppCatalogProvider)),
+      DeterministicCandidateProvider(defaultDeterministicCatalog),
+    ]),
+    selection: CandidateSelectionEngine(ranker: CandidateRanker()),
+    governance: const ActionGovernancePipeline(
+      firewall: IntentFirewall(),
+      critic: PreActionCritic(),
+      broker: PrivilegeBroker(),
+    ),
+    adapter: CandidateToolCallAdapter(),
   );
 });

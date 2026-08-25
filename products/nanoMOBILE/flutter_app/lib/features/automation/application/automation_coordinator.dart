@@ -31,6 +31,16 @@ import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 import 'package:nanoai/features/automation/engine/system/app_launch_resolver.dart'
     show AppLaunchResolver;
+import 'package:nanoai/features/automation/engine/governance/action_governance_pipeline.dart'
+    show
+        GovernanceApproved,
+        GovernanceClarification,
+        GovernanceConfirmation,
+        GovernanceDenied,
+        GovernanceMoreEvidence,
+        GovernanceOutcome;
+import 'package:nanoai/features/automation/engine/planning/candidate_first_planner.dart'
+    show CandidateFirstPlanner, CandidatePlanGoverned, CandidatePlanResolved;
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
@@ -90,6 +100,10 @@ class AutomationCoordinator {
   /// apps instaladas. null = sin inventario (no se resuelven apps por nombre).
   final AppLaunchResolver? _appLaunch;
 
+  /// A13.5 — planificador Candidate-First de producción (0 LLM para goals
+  /// conocidos). null = sin pipeline (legacy fallback directo).
+  final CandidateFirstPlanner? _candidateFirst;
+
   /// Snapshot de solo lectura para diagnóstico/tests. La memoria interna sigue
   /// siendo copy-on-write y solo el coordinator puede reemplazarla.
   NanoObjectMemory? get objectMemorySnapshot => _objectMemory;
@@ -111,6 +125,7 @@ class AutomationCoordinator {
     NanoObjectMemory? objectMemory,
     PerceptionMux? perceptionMux,
     AppLaunchResolver? appLaunch,
+    CandidateFirstPlanner? candidateFirst,
     void Function(C14Execution)? c14Sink,
   }) : _dispatcher = dispatcher,
        _mode = mode,
@@ -123,6 +138,7 @@ class AutomationCoordinator {
        _objectMemory = objectMemory,
        _perceptionMux = perceptionMux,
        _appLaunch = appLaunch,
+       _candidateFirst = candidateFirst,
        _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -142,8 +158,43 @@ class AutomationCoordinator {
         objectMemory: _objectMemory,
         perceptionMux: _perceptionMux,
         appLaunch: _appLaunch,
+        candidateFirst: _candidateFirst,
         c14Sink: sink,
       );
+
+  /// Mapea un resultado de gobernanza (A11) a un [AutomationResult] honesto.
+  AutomationResult _resultFromGoverned(
+    String executionId,
+    GovernanceOutcome outcome,
+  ) {
+    return switch (outcome) {
+      GovernanceDenied(:final reason) => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.denied,
+        reason: 'Gobernanza denegó la acción: ${reason.name}.',
+      ),
+      GovernanceConfirmation(:final reason) => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.paused,
+        reason: 'Requiere confirmación: ${reason.name}.',
+      ),
+      GovernanceMoreEvidence(:final reason) => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.noPlan,
+        reason: 'Evidencia insuficiente: ${reason.name}.',
+      ),
+      GovernanceClarification(:final reason) => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.paused,
+        reason: 'Requiere clarificación: ${reason.name}.',
+      ),
+      GovernanceApproved() => AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.failed,
+        reason: 'Estado de gobernanza inesperado.',
+      ),
+    };
+  }
 
   // ── Política de gobernanza ────────────────────────────────────────────────
 
@@ -369,50 +420,68 @@ class AutomationCoordinator {
         return r;
       }
 
-      // A2: resolvedor grounded de "abre <app>" — package REAL del
-      // PackageManager, nunca un package inventado por el modelo. Precede al
-      // catálogo estático para que "abre Chrome" use el catálogo real.
-      final appLaunch = _appLaunch;
-      final launchPlan = appLaunch == null
-          ? null
-          : await appLaunch.resolve(goal.text);
-      if (launchPlan != null) {
-        plan = [launchPlan.call];
-        runExpectation = launchPlan.expectation;
-      } else {
-        // Catálogo determinista (SIN LLM): objetivo conocido → flujo real.
-        final known = _catalog?.forGoal(goal.text);
-        if (known != null && known.steps.isNotEmpty) {
-          plan = known.steps;
-          runExpectation = goal.expectation ?? known.expectation;
-          outputProvesGoal = known.outputProvesGoal;
+      // A13.5: Candidate-First pipeline (0 LLM para goals conocidos). Antes del
+      // fallback legacy. Resuelto → ejecutar; Governed → resultado honesto;
+      // NoCandidate/ambiguo → cae al legacy fallback.
+      final candidateFirst = _candidateFirst;
+      if (candidateFirst != null) {
+        final candidatePlan = await candidateFirst.plan(goal.text);
+        if (candidatePlan is CandidatePlanResolved) {
+          plan = [candidatePlan.call];
+          runExpectation = candidatePlan.expectation;
+        } else if (candidatePlan is CandidatePlanGoverned) {
+          final r = _resultFromGoverned(executionId, candidatePlan.outcome);
+          emit(r);
+          return r;
+        }
+      }
+
+      if (plan == null) {
+        // A2: resolvedor grounded de "abre <app>" — package REAL del
+        // PackageManager, nunca un package inventado por el modelo. Precede al
+        // catálogo estático para que "abre Chrome" use el catálogo real.
+        final appLaunch = _appLaunch;
+        final launchPlan = appLaunch == null
+            ? null
+            : await appLaunch.resolve(goal.text);
+        if (launchPlan != null) {
+          plan = [launchPlan.call];
+          runExpectation = launchPlan.expectation;
         } else {
-          // Sin flujo en cache ni catálogo: planear con el LLM local.
-          final planner = _planner;
-          if (planner == null) {
-            final r = AutomationResult(
-              executionId: executionId,
-              status: AutomationResultStatus.noPlan,
-              reason: 'Sin flujo verificado en cache ni plan provisto.',
-            );
-            emit(r);
-            return r;
+          // Catálogo determinista (SIN LLM): objetivo conocido → flujo real.
+          final known = _catalog?.forGoal(goal.text);
+          if (known != null && known.steps.isNotEmpty) {
+            plan = known.steps;
+            runExpectation = goal.expectation ?? known.expectation;
+            outputProvesGoal = known.outputProvesGoal;
+          } else {
+            // Sin flujo en cache ni catálogo: planear con el LLM local.
+            final planner = _planner;
+            if (planner == null) {
+              final r = AutomationResult(
+                executionId: executionId,
+                status: AutomationResultStatus.noPlan,
+                reason: 'Sin flujo verificado en cache ni plan provisto.',
+              );
+              emit(r);
+              return r;
+            }
+            final planned = await planner.plan(goal.text);
+            llmLatency = planned.llmLatency;
+            generatedCount = planned.generated;
+            rejectedCount = planned.rejected;
+            if (planned.calls.isEmpty) {
+              final r = AutomationResult(
+                executionId: executionId,
+                status: AutomationResultStatus.noPlan,
+                reason:
+                    'El planner LLM no produjo acciones verificables para el objetivo.',
+              );
+              emit(r);
+              return r;
+            }
+            plan = planned.calls;
           }
-          final planned = await planner.plan(goal.text);
-          llmLatency = planned.llmLatency;
-          generatedCount = planned.generated;
-          rejectedCount = planned.rejected;
-          if (planned.calls.isEmpty) {
-            final r = AutomationResult(
-              executionId: executionId,
-              status: AutomationResultStatus.noPlan,
-              reason:
-                  'El planner LLM no produjo acciones verificables para el objetivo.',
-            );
-            emit(r);
-            return r;
-          }
-          plan = planned.calls;
         }
       }
     }
