@@ -44,13 +44,16 @@ class LLMEngineClient {
   ///
   /// Reintenta con backoff corto: durante el arranque, llama.cpp tarda en
   /// abrir el puerto, así que el primer /health puede fallar por ECONNREFUSED.
-  Future<bool> isOnline() async {
-    const attempts = 5; // Aumentado de 3 a 5 para dar más tiempo al motor
-    for (var i = 0; i < attempts; i++) {
+  Future<bool> isOnline({
+    int attempts = 5,
+    Duration requestTimeout = const Duration(seconds: 5),
+  }) async {
+    final attemptCount = attempts.clamp(1, 20);
+    for (var i = 0; i < attemptCount; i++) {
       try {
         final r = await _client
             .get(Uri.parse('$baseUrl/health'))
-            .timeout(const Duration(seconds: 5)); // Aumentado de 3 a 5 segundos
+            .timeout(requestTimeout);
         if (r.statusCode == 200) {
           final body = r.body;
           if (body.contains('"status":"ok"')) {
@@ -65,13 +68,13 @@ class LLMEngineClient {
           return false;
         }
       } catch (e) {
-        if (i == attempts - 1) {
+        if (i == attemptCount - 1) {
           debugPrint(
-            '[llm] health check failed después de $attempts intentos: $e',
+            '[llm] health check failed después de $attemptCount intentos: $e',
           );
           return false;
         }
-        // Backoff exponencial: 500ms, 1s, 2s, 4s.
+        // Backoff lineal acotado: 500ms, 1s, 1.5s, 2s.
         await Future<void>.delayed(Duration(milliseconds: 500 * (i + 1)));
       }
     }

@@ -46,6 +46,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
+  static const _maxAttachBytes = 64 * 1024;
 
   @override
   void initState() {
@@ -142,16 +143,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.any,
-        withData: true,
+        // En Android, `withData:true` carga el archivo completo en RAM antes
+        // de poder validarlo. Se usa la ruta cacheada del SAF y se limita antes.
+        withData: false,
       );
       final file = result?.files.single;
       if (file == null || file.path == null) return;
 
-      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final selected = File(file.path!);
+      final byteLength = await selected.length();
+      if (byteLength > _maxAttachBytes) {
+        _showHonestError(
+          'El archivo supera ${_maxAttachBytes ~/ 1024} KB. '
+          'Adjunta un fragmento de texto más pequeño.',
+        );
+        return;
+      }
+      final bytes = await selected.readAsBytes();
       final text = utf8.decode(bytes, allowMalformed: true);
 
       // Heurística honesta: si el contenido no es texto imprimible, no sirve.
-      if (text.trim().isEmpty || text.contains('') || _looksBinary(text)) {
+      if (text.trim().isEmpty ||
+          text.contains('\u0000') ||
+          _looksBinary(text)) {
         _showHonestError(
           'El archivo no parece texto legible; adjunta '
           'archivos .txt/.md/.log.',
@@ -205,9 +219,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
-    final screenSize = MediaQuery.sizeOf(context);
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
+    final isNarrow = screenSize.width < 600;
     final isCompactLandscape =
         screenSize.width > screenSize.height && screenSize.height < 520;
+    final compactComposer = isNarrow || isCompactLandscape || keyboardOpen;
 
     // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
@@ -226,7 +244,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
-      hideHeader: _isReadingMode,
+      // En un telefono el teclado puede consumir mas del 70 % del alto util.
+      // El encabezado se colapsa mientras se escribe para que mensajes y
+      // compositor no compitan ni queden solapados.
+      hideHeader: _isReadingMode || keyboardOpen,
       resizeToAvoidBottomInset: true,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -336,6 +357,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             model: state.activeModel,
                                             timestamp: message.timestamp,
                                             isError: isError,
+                                            source: message.source,
                                             attachmentNames:
                                                 message.attachmentNames,
                                             tps: message.tps,
@@ -404,7 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         onMinimize: () => setState(
                                           () => _isComposerMinimized = true,
                                         ),
-                                        compact: isCompactLandscape,
+                                        compact: compactComposer,
                                         onSend: () {
                                           final text = _inputController.text
                                               .trim();
@@ -838,7 +860,11 @@ class _ReadingParagraph extends StatelessWidget {
     final time =
         '${message.timestamp.hour.toString().padLeft(2, '0')}:'
         '${message.timestamp.minute.toString().padLeft(2, '0')}';
-    final label = isUser ? 'Tú' : (model.isEmpty ? 'NanoAI' : model);
+    final label = isUser
+        ? 'Tú'
+        : (message.source == MessageSource.device
+              ? 'Nano · Dispositivo'
+              : (model.isEmpty ? 'NanoAI' : model));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,7 +872,11 @@ class _ReadingParagraph extends StatelessWidget {
         Row(
           children: [
             Icon(
-              isUser ? Icons.person_rounded : Icons.auto_awesome_rounded,
+              isUser
+                  ? Icons.person_rounded
+                  : (message.source == MessageSource.device
+                        ? Icons.phone_android_rounded
+                        : Icons.auto_awesome_rounded),
               size: 13,
               color: isUser
                   ? colors.onSurface.withValues(alpha: 0.45)
@@ -1205,6 +1235,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isUser,
     required this.model,
     required this.timestamp,
+    required this.source,
     this.isError = false,
     this.attachmentNames = const [],
     this.tps,
@@ -1216,6 +1247,7 @@ class _MessageBubble extends StatelessWidget {
   final bool isUser;
   final String model;
   final DateTime timestamp;
+  final MessageSource source;
   final bool isError;
 
   /// Tokens por segundo de la generación (solo respuestas AI completadas).
@@ -1273,6 +1305,9 @@ class _MessageBubble extends StatelessWidget {
 
     final isDark = colors is NanoDarkColors;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final displayModel = source == MessageSource.device
+        ? 'Nano · Dispositivo'
+        : (model.isEmpty ? 'NanoAI' : model);
 
     final bubbleBorderRadius = isUser
         ? NanoShapes.userBubble
@@ -1364,14 +1399,16 @@ class _MessageBubble extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.auto_awesome_rounded,
+                  source == MessageSource.device
+                      ? Icons.phone_android_rounded
+                      : Icons.auto_awesome_rounded,
                   size: 14,
                   color: colors.accent.withValues(alpha: isDark ? 0.92 : 0.78),
                 ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    model.isEmpty ? 'NanoAI' : model,
+                    displayModel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1403,7 +1440,7 @@ class _MessageBubble extends StatelessWidget {
               if (!isUser && !isError)
                 _MessageActions(
                   text: text,
-                  model: model,
+                  model: displayModel,
                   timestamp: timestamp,
                   onDelete: onDelete,
                 ),
@@ -2256,12 +2293,15 @@ class _ComposerState extends State<_Composer> {
     return NanoOpticalSurface(
       geometry: NanoSurfaceGeometry.roundedRectangle,
       borderRadius: 24,
-      blurSigma: 24.0,
+      blurSigma: widget.compact ? 16.0 : 20.0,
       borderStrength: _isFocused ? 1.0 : 0.80,
-      reflectionStrength: _isFocused ? 0.90 : 0.65,
+      // El campo de texto es una superficie de trabajo: la caustica movil no
+      // debe atravesar las letras. En escritorio se conserva el barrido al
+      // estar inactivo; en movil se priorizan legibilidad y frame time.
+      reflectionStrength: _isFocused ? 0.42 : 0.32,
       depth: 1.15,
-      tilt: true,
-      autoReflect: true,
+      tilt: !widget.compact,
+      autoReflect: !widget.compact && !_isFocused,
       accent: _isFocused
           ? (isDark ? colors.accent : colors.accentCyan)
           : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
@@ -2350,28 +2390,30 @@ class _ComposerState extends State<_Composer> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Botón Minimizar con efecto suave
-              Tooltip(
-                message: 'Minimizar barra',
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(99),
-                  child: InkWell(
-                    key: const ValueKey('chat_composer_minimize'),
+              if (!widget.compact) ...[
+                Tooltip(
+                  message: 'Minimizar barra',
+                  child: Material(
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(99),
-                    onTap: widget.onMinimize,
-                    child: SizedBox(
-                      width: 30,
-                      height: 36,
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: colors.onSurface.withValues(alpha: 0.52),
-                        size: 22,
+                    child: InkWell(
+                      key: const ValueKey('chat_composer_minimize'),
+                      borderRadius: BorderRadius.circular(99),
+                      onTap: widget.onMinimize,
+                      child: SizedBox(
+                        width: 30,
+                        height: 36,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: colors.onSurface.withValues(alpha: 0.52),
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 2),
+                const SizedBox(width: 2),
+              ],
 
               // Botón Mic / Dictado
               Tooltip(
@@ -2384,8 +2426,8 @@ class _ComposerState extends State<_Composer> {
                     onTap: widget.onMic,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 36,
-                      height: 36,
+                      width: widget.compact ? 32 : 36,
+                      height: widget.compact ? 34 : 36,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: widget.listening
@@ -2423,8 +2465,8 @@ class _ComposerState extends State<_Composer> {
                     borderRadius: BorderRadius.circular(99),
                     onTap: widget.onAttach,
                     child: SizedBox(
-                      width: 36,
-                      height: 36,
+                      width: widget.compact ? 32 : 36,
+                      height: widget.compact ? 34 : 36,
                       child: Icon(
                         Icons.attach_file_rounded,
                         color: colors.onSurface.withValues(alpha: 0.58),
@@ -2434,7 +2476,7 @@ class _ComposerState extends State<_Composer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: widget.compact ? 1 : 4),
 
               // Campo de texto expandible con tipografía y padding uniforme
               Expanded(
@@ -2476,7 +2518,7 @@ class _ComposerState extends State<_Composer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: widget.compact ? 3 : 6),
 
               // Botón Enviar / Detener con acabado de vidrio y gradiente dinámico
               Tooltip(
@@ -2492,8 +2534,8 @@ class _ComposerState extends State<_Composer> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOutCubic,
-                      width: 38,
-                      height: 38,
+                      width: widget.compact ? 36 : 38,
+                      height: widget.compact ? 36 : 38,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: widget.generating

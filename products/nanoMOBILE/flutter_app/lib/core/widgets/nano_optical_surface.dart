@@ -115,12 +115,31 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     // Barrido especular ambiental propio: al activar autoReflect la card
     // genera su propio AnimationController en loop (sin depender del padre),
     // replicando el destello de luz de las cards de inicio/modelos.
+    _syncAmbientReflection();
+  }
+
+  @override
+  void didUpdateWidget(covariant NanoOpticalSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.autoReflect != widget.autoReflect) {
+      _syncAmbientReflection();
+    }
+  }
+
+  void _syncAmbientReflection() {
     if (widget.autoReflect) {
-      _ambientController = AnimationController(
+      _ambientController ??= AnimationController(
         vsync: this,
         duration: NanoMotionDurations.ambient,
-      )..repeat();
+      );
+      if (!_ambientController!.isAnimating) {
+        _ambientController!.repeat();
+      }
+      return;
     }
+
+    _ambientController?.dispose();
+    _ambientController = null;
   }
 
   @override
@@ -392,7 +411,8 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             stops: const [0.0, 0.32, 0.72, 1.0],
           );
 
-    final effectiveReflectionController = widget.reflectionController ??
+    final effectiveReflectionController =
+        widget.reflectionController ??
         (widget.autoReflect ? _ambientController : null);
 
     Widget opticalStack = Stack(
