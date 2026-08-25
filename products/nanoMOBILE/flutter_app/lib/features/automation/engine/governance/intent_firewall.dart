@@ -46,6 +46,16 @@ ActionEffect? effectOfTool(String tool) => switch (tool) {
   'linux.list' || 'linux.readFile' => ActionEffect.read,
   'linux.writeFile' => ActionEffect.modifyFile,
   'linux.run' => ActionEffect.executeProcess,
+  // MCP (A14) — tools categóricas.
+  'mcp.read' => ActionEffect.read,
+  'mcp.device' => ActionEffect.navigate,
+  'mcp.externalWrite' => ActionEffect.publishExternalContent,
+  'mcp.privileged' => ActionEffect.privilegedSystemOperation,
+  // Shizuku (A14) — tools tipadas (nunca shell).
+  'install_package' => ActionEffect.installPackage,
+  'force_stop_package' => ActionEffect.manageApplication,
+  'grant_specific_permission' => ActionEffect.changePermission,
+  'query_package' => ActionEffect.read,
   _ => null,
 };
 
