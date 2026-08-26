@@ -7,6 +7,7 @@
 library;
 
 import '../planning/candidates/candidate_action.dart';
+import '../privilege/shizuku_availability.dart';
 import '../system/system_graph.dart';
 import 'intent_firewall.dart';
 import 'intent_spec.dart';
@@ -57,6 +58,7 @@ class ActionGovernancePipeline {
     IntentSpec intent,
     CandidateAction candidate, {
     SystemGraph? graph,
+    ShizukuAvailability? shizuku,
   }) {
     // 1. Firewall (scope de intención).
     final fw = firewall.check(intent, candidate);
@@ -76,7 +78,7 @@ class ActionGovernancePipeline {
     }
 
     // 3. Broker (privilegio técnico).
-    final priv = broker.resolve(candidate, graph: graph);
+    final priv = broker.resolve(candidate, graph: graph, shizuku: shizuku);
     if (!priv.available) {
       return const GovernanceDenied(GovernanceReason.privilegeUnavailable);
     }

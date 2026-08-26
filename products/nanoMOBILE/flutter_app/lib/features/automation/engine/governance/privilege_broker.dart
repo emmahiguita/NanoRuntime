@@ -6,6 +6,7 @@
 library;
 
 import '../planning/candidates/candidate_action.dart';
+import '../privilege/shizuku_availability.dart';
 import '../system/system_capability.dart';
 import '../system/system_graph.dart';
 
@@ -36,9 +37,13 @@ class PrivilegeDecision {
 class PrivilegeBroker {
   const PrivilegeBroker();
 
-  PrivilegeDecision resolve(CandidateAction candidate, {SystemGraph? graph}) {
+  PrivilegeDecision resolve(
+    CandidateAction candidate, {
+    SystemGraph? graph,
+    ShizukuAvailability? shizuku,
+  }) {
     final tier = _minimumTier(candidate);
-    final available = _available(tier, graph);
+    final available = _available(tier, graph, shizuku);
     return PrivilegeDecision(
       tier: tier,
       available: available,
@@ -84,10 +89,17 @@ class PrivilegeBroker {
     return PrivilegeTier.publicAndroid;
   }
 
-  bool _available(PrivilegeTier tier, SystemGraph? graph) {
+  bool _available(
+    PrivilegeTier tier,
+    SystemGraph? graph,
+    ShizukuAvailability? shizuku,
+  ) {
     if (graph == null) {
       // Sin SystemGraph, solo publicAndroid es "disponible" (conservador).
-      return tier == PrivilegeTier.publicAndroid;
+      if (tier == PrivilegeTier.publicAndroid) return true;
+      // Shizuku: disponibilidad factual del provider (null → unavailable).
+      if (tier == PrivilegeTier.shizuku) return shizuku?.isAvailable ?? false;
+      return false;
     }
     return switch (tier) {
       PrivilegeTier.publicAndroid => true,
@@ -105,7 +117,8 @@ class PrivilegeBroker {
                 .isAvailable,
       PrivilegeTier.nanoLinux =>
         graph.availabilityOf(SystemCapability.linuxExecution).isAvailable,
-      _ => false, // mediaProjection/developerAdb/shizuku/deviceOwner/rootLab
+      PrivilegeTier.shizuku => shizuku?.isAvailable ?? false,
+      _ => false, // mediaProjection/developerAdb/deviceOwner/rootLab
     };
   }
 }
