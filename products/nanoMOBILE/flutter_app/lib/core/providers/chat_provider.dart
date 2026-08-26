@@ -12,6 +12,7 @@ import '../services/device_info.dart';
 import '../services/chat_history_store.dart';
 import '../services/chat_system_prompt.dart';
 import '../services/llm_engine_client.dart';
+import '../services/nano_runtime_api.dart';
 import '../services/runtime_engine.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
@@ -433,11 +434,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// (idle/failed), se arranca aquí con ensureReady() antes de generar. Si
   /// queda degraded (motor vivo sin GGUF), se inserta un error honesto en
   /// el chat en lugar de una generación que siempre fallaría con 503.
+  /// A16 — entrada por voz: transcribe y envía como orden (MISMO flujo que un
+  /// texto escrito). Lo invoca la UI con el botón de micrófono. Devuelve el
+  /// texto transcrito (o null si falló/canceló).
+  Future<String?> sendVoiceCommand() async {
+    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+    if (text == null || text.trim().isEmpty) return null;
+    await send(text);
+    return text;
+  }
+
   Future<void> send(String text) async {
     final t = text.trim();
     if (t.isEmpty || state.generating) return;
     _historyTouched = true;
-
     // Nuevo turno del usuario: resetea el presupuesto de pasos de la
     // política y descarta cualquier confirmación pendiente vieja (tool o
     // plan multi-paso).
