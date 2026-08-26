@@ -81,6 +81,8 @@ SystemGraph intentGraph() => SystemGraph(
       SystemCapability.openSystemSettings,
       SystemCapability.openWifiSettings,
       SystemCapability.openBluetoothSettings,
+      SystemCapability.launchApps,
+      SystemCapability.interactAccessibility,
     ])
       c: CapabilityAvailability(
         capability: c,
@@ -92,7 +94,7 @@ SystemGraph intentGraph() => SystemGraph(
 
 CandidateFirstPlanner planner(List<CandidateProvider> providers) =>
     CandidateFirstPlanner(
-      generator: CandidateActionGenerator(providers),
+      generatorBuilder: (graph) => CandidateActionGenerator(providers),
       selection: CandidateSelectionEngine(ranker: CandidateRanker()),
       governance: const ActionGovernancePipeline(
         firewall: IntentFirewall(),
@@ -100,6 +102,7 @@ CandidateFirstPlanner planner(List<CandidateProvider> providers) =>
         broker: PrivilegeBroker(),
       ),
       adapter: CandidateToolCallAdapter(),
+      getGraph: () async => intentGraph(),
     );
 
 AutomationCoordinator coordinator(CandidateFirstPlanner candidateFirst) =>

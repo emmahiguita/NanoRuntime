@@ -36,10 +36,7 @@ import 'planning/candidates/candidate_selection_engine.dart';
 import 'planning/candidates/candidate_tool_call_adapter.dart';
 import 'planning/candidates/screen_graph_candidate_provider.dart';
 import 'planning/deterministic_catalog.dart';
-import 'system/capability_availability.dart';
-import 'system/system_capability.dart';
 import 'system/system_intent_catalog.dart';
-import 'system/system_models.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a
@@ -181,48 +178,33 @@ final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
   );
 });
 
-/// Graph estático de destinos de sistema (allowlist A3 siempre disponible).
-/// El SystemGraph REAL (async, con accessibility/notification/Linux) se cableará
-/// en un follow-up; A13.5 usa este graph para el SystemIntentCandidateProvider.
-SystemGraph _intentGraph() => SystemGraph(
-  device: const DeviceProfile(
-    manufacturer: '',
-    model: '',
-    sdkInt: 0,
-    release: '',
-  ),
-  apps: const [],
-  roles: const [],
-  capabilities: {
-    for (final c in const [
-      SystemCapability.openSystemSettings,
-      SystemCapability.openWifiSettings,
-      SystemCapability.openBluetoothSettings,
-    ])
-      c: CapabilityAvailability(
-        capability: c,
-        state: CapabilityAvailabilityKind.available,
-        reason: 'allowlist',
-      ),
-  },
-);
+/// SystemGraph REAL (A15.7): construido async (device profile + apps + probes de
+/// capability). Cacheado por el FutureProvider. Alimenta Candidate-First y el
+/// governance (availability factual).
+final systemGraphProvider = FutureProvider<SystemGraph>((ref) {
+  return ref.watch(systemGraphBuilderProvider).build();
+});
 
-/// Planificador Candidate-First de producción (A13.5): generator → selection →
-/// governance → adapter. Cableado al coordinator.
+/// Planificador Candidate-First de producción (A13.5/A15.7): generator →
+/// selection → governance → adapter, con SystemGraph real cargado lazy.
 final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
+  // Capturar dependencias estables durante el build (no usar ref dentro del
+  // closure generatorBuilder, que corre en runtime dentro de plan()).
+  final experienceCache = ref.watch(experienceCacheProvider);
+  final installedCatalog = ref.watch(installedAppCatalogProvider);
+  final executor = ref.watch(agentExecutorProvider);
+
   return CandidateFirstPlanner(
-    generator: CandidateActionGenerator([
-      NanoFlowCandidateProvider(ref.watch(experienceCacheProvider)),
+    generatorBuilder: (graph) => CandidateActionGenerator([
+      NanoFlowCandidateProvider(experienceCache),
       SystemIntentCandidateProvider(
         defaultDeterministicCatalog,
-        _intentGraph(),
+        graph,
         SystemIntentCatalog.builtin,
       ),
-      InstalledAppCandidateProvider(ref.watch(installedAppCatalogProvider)),
+      InstalledAppCandidateProvider(installedCatalog),
       DeterministicCandidateProvider(defaultDeterministicCatalog),
-      ScreenGraphCandidateProvider(
-        _ExecutorScreenObserver(ref.watch(agentExecutorProvider)),
-      ),
+      ScreenGraphCandidateProvider(_ExecutorScreenObserver(executor)),
     ]),
     selection: CandidateSelectionEngine(ranker: CandidateRanker()),
     governance: const ActionGovernancePipeline(
@@ -231,5 +213,6 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
       broker: PrivilegeBroker(),
     ),
     adapter: CandidateToolCallAdapter(),
+    getGraph: () => ref.read(systemGraphProvider.future),
   );
 });

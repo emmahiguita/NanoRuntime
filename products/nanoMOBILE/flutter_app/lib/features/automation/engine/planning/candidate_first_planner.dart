@@ -1,15 +1,18 @@
 /// CandidateFirstPlanner (A13.5) — planificador Candidate-First de producción.
 ///
 /// Encapsula el pipeline probado: generator → selection (Koog si ambigüedad) →
-/// governance (firewall/critic/broker) → adapter → ToolCall. Devuelve un
-/// resultado tipado; NO ejecuta, NO verifica, NO entrena memoria. Es el puerto
-/// que el AutomationCoordinator consulta ANTES del fallback legacy.
+/// governance (firewall/critic/broker) → adapter → ToolCall. A15.7: el
+/// SystemGraph REAL (async, con accessibility/notification/Linux) se carga lazy
+/// y alimenta tanto el SystemIntentCandidateProvider como el governance (broker/
+/// critic validan capabilities factuales). Devuelve resultado tipado; NO
+/// ejecuta, NO verifica, NO entrena memoria.
 library;
 
 import '../execution/agent_tool_dispatcher.dart' show ToolCall;
 import '../execution/goal_verifier.dart' show GoalExpectation;
 import '../governance/action_governance_pipeline.dart';
 import '../governance/intent_spec_compiler.dart';
+import '../system/system_graph.dart';
 import 'candidates/candidate_action.dart';
 import 'candidates/candidate_generator.dart';
 import 'candidates/candidate_provider.dart';
@@ -51,24 +54,33 @@ class CandidatePlanGoverned extends CandidatePlanResult {
 
 class CandidateFirstPlanner {
   CandidateFirstPlanner({
-    required CandidateActionGenerator generator,
+    required CandidateActionGenerator Function(SystemGraph graph)
+    generatorBuilder,
     required CandidateSelectionEngine selection,
     required ActionGovernancePipeline governance,
     required CandidateToolCallAdapter adapter,
-  }) : _generator = generator,
+    required Future<SystemGraph> Function() getGraph,
+  }) : _generatorBuilder = generatorBuilder,
        _selection = selection,
        _governance = governance,
-       _adapter = adapter;
+       _adapter = adapter,
+       _getGraph = getGraph;
 
-  final CandidateActionGenerator _generator;
+  final CandidateActionGenerator Function(SystemGraph) _generatorBuilder;
   final CandidateSelectionEngine _selection;
   final ActionGovernancePipeline _governance;
   final CandidateToolCallAdapter _adapter;
+  final Future<SystemGraph> Function() _getGraph;
 
   Future<CandidatePlanResult> plan(String goal) async {
     final intent = const IntentSpecCompiler().compile(goal);
 
-    final generated = await _generator.generate(CandidateRequest(goal));
+    // A15.7: SystemGraph real (async) para availability + governance.
+    final graph = await _getGraph();
+
+    final generated = await _generatorBuilder(
+      graph,
+    ).generate(CandidateRequest(goal));
     if (generated.candidates.isEmpty) {
       return const CandidatePlanNoCandidate();
     }
@@ -80,7 +92,11 @@ class CandidateFirstPlanner {
       return const CandidatePlanNoCandidate(); // ambiguo/no seleccionado → legacy
     }
 
-    final outcome = _governance.govern(intent, selected.candidate);
+    final outcome = _governance.govern(
+      intent,
+      selected.candidate,
+      graph: graph,
+    );
     if (outcome is! GovernanceApproved) {
       return CandidatePlanGoverned(outcome);
     }
