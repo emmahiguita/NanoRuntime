@@ -11,6 +11,9 @@ library;
 import '../../notifications/notification_object.dart';
 import '../../system/system_capability.dart';
 import '../../execution/tool_registry.dart' show ToolRisk;
+import '../../execution/action_verifier.dart' show ActionExpectation;
+import '../../execution/platform_verification.dart'
+    show ForegroundPackageEquals;
 import 'candidate_action.dart';
 import 'candidate_provider.dart';
 
@@ -40,37 +43,75 @@ class NotificationCandidateProvider implements CandidateProvider {
     if (!_replyTerms.any(goal.contains)) return const [];
 
     final raw = await _listNotifications();
-    final candidates = raw
+    final notifications = raw
         .whereType<Map>()
         .map((m) => NotificationObject.fromMap(m.cast<dynamic, dynamic>()))
-        .where((n) => n.canReply && n.key.isNotEmpty)
+        .where((n) => n.key.isNotEmpty || n.packageName.isNotEmpty)
         .toList();
-    if (candidates.isEmpty) return const [];
+    if (notifications.isEmpty) return const [];
 
-    final target = _match(goal, candidates);
+    final target = _match(goal, notifications);
     if (target == null) return const [];
 
-    return [
+    // Ruta más barata primero (A14.7): si la notificación expone RemoteInput,
+    // se responde directamente sin abrir la app.
+    if (target.canReply) {
+      return [_replyCandidate(target)];
+    }
+    // Fallback de continuidad: no hay RemoteInput → abrir la app origen (grounded
+    // en el packageName real de la notificación) y continuar por UI.
+    if (target.packageName.isEmpty) return const [];
+    return [_launchCandidate(target)];
+  }
+
+  CandidateAction _replyCandidate(NotificationObject target) => CandidateAction(
+    id: CandidateId('notification:reply:${target.key}'),
+    semanticAction: 'reply',
+    tool: 'reply_notification',
+    args: {'key': target.key, 'conversation': target.identity},
+    channel: ActionChannel.notification,
+    groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
+    risk: ToolRisk.externalWrite,
+    reversible: false,
+    requiredCapabilities: const {SystemCapability.replyNotifications},
+    evidence: [
+      ActionEvidence(
+        source: ActionEvidenceSource.notificationCapability,
+        reference: 'remoteInput:${target.remoteInputKey}',
+        confidence: 0.85,
+      ),
+    ],
+  );
+
+  /// Candidato de continuación: abre la app origen de la notificación para
+  /// responder por UI cuando no hay RemoteInput. El package sale de la
+  /// notificación (evidencia real), NUNCA del LLM. La postcondición exige
+  /// `ForegroundPackageEquals(package)`.
+  CandidateAction _launchCandidate(NotificationObject target) =>
       CandidateAction(
-        id: CandidateId('notification:reply:${target.key}'),
-        semanticAction: 'reply',
-        tool: 'reply_notification',
-        args: {'key': target.key, 'conversation': target.identity},
-        channel: ActionChannel.notification,
-        groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
-        risk: ToolRisk.externalWrite,
-        reversible: false,
-        requiredCapabilities: const {SystemCapability.replyNotifications},
+        id: CandidateId('notification:launch:${target.packageName}'),
+        semanticAction: 'open_app',
+        tool: 'launch_app',
+        args: {
+          'packageName': target.packageName,
+          'conversation': target.identity,
+        },
+        channel: ActionChannel.androidIntent,
+        groundingConfidence: 0.7,
+        risk: ToolRisk.device,
+        reversible: true,
+        requiredCapabilities: const {SystemCapability.launchApps},
         evidence: [
           ActionEvidence(
             source: ActionEvidenceSource.notificationCapability,
-            reference: 'remoteInput:${target.remoteInputKey}',
-            confidence: 0.85,
+            reference: target.packageName,
+            confidence: 0.7,
           ),
         ],
-      ),
-    ];
-  }
+        expectation: ActionExpectation(
+          platformPredicates: [ForegroundPackageEquals(target.packageName)],
+        ),
+      );
 
   /// Encuentra la conversación a la que el objetivo se refiere. Si el objetivo
   /// nombra un remitente ("responde a Juan"), se busca por coincidencia en
