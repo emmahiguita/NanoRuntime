@@ -101,5 +101,11 @@ dependencies {
     // A9: OCR on-device (bundled, sin Google Play Services) como fallback de
     // percepción cuando Accessibility no resuelve. Detrás de OcrBackend.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // A14.3: API oficial de Shizuku (dev.rikka.shizuku:api) — SOLO disponibilidad
+    // FACTUAL (pingBinder/checkSelfPermission, ambas pasivas: sin diálogo, sin
+    // acciones privilegiadas). La ejecución Shizuku es A14.4 con capacidades
+    // tipadas, nunca shell arbitrario. Apache-2.0, minSdk 23 <= nuestro minSdk 26.
+    // Artefacto: github.com/rikkaapps/shizuku (api/manifest.gradle, v13.1.5).
+    implementation("dev.rikka.shizuku:api:13.1.5")
 }
 

@@ -45,3 +45,10 @@
 -dontwarn com.google.android.play.core.tasks.OnFailureListener
 -dontwarn com.google.android.play.core.tasks.OnSuccessListener
 -dontwarn com.google.android.play.core.tasks.Task
+
+# A14.3: Shizuku API binding (dev.rikka.shizuku:api). El cliente Shizuku se
+# vincula al servicio de sistema via reflection (IShizukuService). Sin estas
+# reglas R8 puede eliminar/renombrar las clases del binding y romper
+# pingBinder()/checkSelfPermission() (disponibilidad factual) en runtime.
+-keep class rikka.shizuku.** { *; }
+-dontwarn rikka.shizuku.**

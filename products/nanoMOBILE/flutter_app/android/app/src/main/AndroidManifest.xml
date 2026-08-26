@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Conexion al motor llama.cpp local (loopback 127.0.0.1) y descarga de modelos -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- A14.3: permiso declarativo para el binding con el servicio Shizuku.
+         NO concede privilegios por sí solo; declara que la app puede vincularse
+         al servicio Shizuku (ShizukuManager). La autorización real se otorga
+         explícitamente por el usuario en la app Shizuku, y A14.3 solo la
+         reporta de forma factual (checkSelfPermission). Nunca se pide solo. -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
     <!-- Acceso a medios compartidos (Android 13+, runtime grant). El visor de
          archivos pcmanfm dentro del escritorio Linux los necesita para montar
          /storage/emulated/0; se solicitan en Ajustes → Escritorio. -->
@@ -121,6 +127,24 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- A14.3: proveedor de binding Shizuku. Declarado por la API oficial
+             dev.rikka.shizuku:api. Permite a NanoAI vincularse al servicio
+             Shizuku para consultar disponibilidad (pasivo). NO ejecuta nada
+             por sí mismo: la ejecución pasa por CandidateAction → governance
+             (A14.4). Sin este provider no se establece el binding. -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <!-- A14.3: marca la app como cliente Shizuku v3 (binding V3_SUPPORT).
+             Pasivo: solo informa al servicio que la app soporta la API v3. -->
+        <meta-data
+            android:name="moe.shizuku.client.V3_SUPPORT"
+            android:value="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

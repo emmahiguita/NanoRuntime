@@ -717,6 +717,23 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A14.3 — estado FACTUAL de Shizuku (pasivo). El backend Kotlin consulta
+  /// instalación (PackageManager), binder vivo (pingBinder) y autorización
+  /// (checkSelfPermission) SIN abrir diálogos ni ejecutar acciones. Devuelve
+  /// vacío (honesto) si el canal no responde; el mapeo a ShizukuStatus ocurre
+  /// en el provider de dominio, nunca aquí.
+  Future<Map<dynamic, dynamic>> queryShizukuStatus() async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'queryShizukuStatus',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] queryShizukuStatus error: $e');
+      return const {};
+    }
+  }
+
   Future<bool> requestRuntimePermissions() =>
       _invokePermissionAction('requestRuntime');
 

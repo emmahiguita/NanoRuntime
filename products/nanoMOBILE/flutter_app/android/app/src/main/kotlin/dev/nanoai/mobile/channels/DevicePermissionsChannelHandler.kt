@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import dev.nanoai.mobile.services.AgentAccessibilityService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import rikka.shizuku.Shizuku
 
 /** Estado y navegación para los permisos que NanoAI usa realmente. */
 class DevicePermissionsChannelHandler(
@@ -27,6 +28,7 @@ class DevicePermissionsChannelHandler(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "status" -> result.success(status())
+            "queryShizukuStatus" -> result.success(queryShizukuStatus())
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -59,6 +61,49 @@ class DevicePermissionsChannelHandler(
                 Environment.isExternalStorageManager()
             ),
     )
+
+    /**
+     * A14.3 — estado FACTUAL de Shizuku, PASIVO. Solo consulta:
+     * instalación (PackageManager), binder vivo (Shizuku.pingBinder) y
+     * autorización (Shizuku.checkSelfPermission). NINGUNA de estas llama abre
+     * diálogo, ejecuta shell ni toca acciones privilegiadas. `permissionGranted`
+     * es la verdad del servicio Shizuku, no una inferencia de la app.
+     */
+    private fun queryShizukuStatus(): Map<String, Any?> {
+        val installed = isShizukuAppInstalled()
+        val binderAlive = try {
+            Shizuku.pingBinder()
+        } catch (_: Throwable) {
+            false
+        }
+        val permissionGranted = if (binderAlive) {
+            try {
+                Shizuku.checkSelfPermission()
+            } catch (_: Throwable) {
+                false
+            }
+        } else {
+            false
+        }
+        return mapOf(
+            "installed" to installed,
+            "binderAlive" to binderAlive,
+            "permissionGranted" to permissionGranted,
+        )
+    }
+
+    private fun isShizukuAppInstalled(): Boolean {
+        val pm = activity.packageManager
+        return listOf("moe.shizuku.privileged.api", "moe.shizuku.manager")
+            .any { pkg ->
+                try {
+                    pm.getPackageInfo(pkg, 0)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+    }
 
     private fun mediaGranted(): Boolean {
         val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
