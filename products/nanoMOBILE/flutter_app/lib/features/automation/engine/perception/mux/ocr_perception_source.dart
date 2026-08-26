@@ -11,6 +11,7 @@ import 'ocr_contracts.dart';
 import 'perception_contracts.dart';
 import 'perception_result.dart';
 import 'perception_source.dart';
+import 'vision_contracts.dart' show toScreenAbsolute;
 
 class OcrPerceptionSource implements PerceptionSource {
   OcrPerceptionSource(this._imageProvider, this._backend);
@@ -70,15 +71,19 @@ class OcrPerceptionSource implements PerceptionSource {
     }
 
     final best = matches.first;
-    // Objeto virtual: bounds + texto OCR. Los bounds son aproximados (relativos
-    // a la imagen capturada); el role NO se inventa (unknown salvo request).
+    // A15.6: transformar bounds imageRelative → screenAbsolute. El OCR opera
+    // sobre el crop (region) o full-screen; el motor necesita coordenadas
+    // absolutas de pantalla (sin ambigüedad de espacio).
+    final origin = img.image!.bounds;
+    final absoluteBounds = toScreenAbsolute(best.bounds, origin);
+    // Objeto virtual: bounds absolutos + texto OCR. El role NO se inventa.
     final virtual = NanoUiObject(
-      id: 'ocr:${best.bounds.centerX}:${best.bounds.centerY}',
+      id: 'ocr:${absoluteBounds.centerX}:${absoluteBounds.centerY}',
       role: request.expectedRole ?? SemanticRole.unknown,
       label: best.text,
       text: best.text,
       description: '',
-      bounds: best.bounds,
+      bounds: absoluteBounds,
       enabled: true,
       visible: true,
       clickable: false,

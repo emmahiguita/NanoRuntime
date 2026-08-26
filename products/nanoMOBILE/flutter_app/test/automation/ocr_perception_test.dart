@@ -197,6 +197,32 @@ void main() {
     expect(images.lastRegion, region);
   });
 
+  test(
+    'targeted OCR transforma bounds imageRelative → screenAbsolute',
+    () async {
+      final images = _FakeImageProvider();
+      final backend = _FakeOcr([
+        const OcrObservation(
+          text: 'Enviar',
+          bounds: NanoBounds(left: 10, top: 20, right: 100, bottom: 80),
+          confidence: 0.9,
+        ),
+      ]);
+      const region = NanoBounds(left: 100, top: 200, right: 400, bottom: 500);
+      final source = OcrPerceptionSource(images, backend);
+      final r = await source.perceive(
+        const PerceptionRequest(targetConcept: 'enviar', region: region),
+        const PerceptionBudget(maxOcrCalls: 1),
+      );
+      expect(r, isA<PerceptionResolved>());
+      final bounds = (r as PerceptionResolved).object!.bounds;
+      expect(bounds.left, 110);
+      expect(bounds.top, 220);
+      expect(bounds.right, 200);
+      expect(bounds.bottom, 280);
+    },
+  );
+
   test('OCR empty → insufficient (recomienda vision)', () async {
     final mux = PerceptionMux(
       accessibilitySource: AccessibilityPerceptionSource(
