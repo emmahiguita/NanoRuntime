@@ -37,6 +37,7 @@ import 'governance/privilege_broker.dart';
 import 'planning/candidate_first_planner.dart';
 import 'planning/candidates/candidate_generator.dart';
 import 'planning/candidates/candidate_providers.dart';
+import 'planning/candidates/notification_candidate_provider.dart';
 import 'planning/candidates/candidate_ranker.dart';
 import 'planning/candidates/candidate_selection_engine.dart';
 import 'planning/candidates/candidate_selector.dart';
@@ -279,6 +280,10 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
       InstalledAppCandidateProvider(installedCatalog),
       DeterministicCandidateProvider(defaultDeterministicCatalog),
       ScreenGraphCandidateProvider(_ExecutorScreenObserver(executor)),
+      // A14.6: notificaciones contestables como capacidad genérica (RemoteInput).
+      NotificationCandidateProvider(
+        () => NanoRuntimeApi.instance.listActiveNotifications(),
+      ),
     ]),
     selection: CandidateSelectionEngine(
       ranker: CandidateRanker(),

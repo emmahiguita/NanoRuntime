@@ -1,6 +1,7 @@
 package dev.nanoai.mobile.services
 
 import android.app.Notification
+import android.app.Notification.MessagingStyle
 import android.app.RemoteInput
 import android.content.Intent
 import android.content.ComponentName
@@ -81,13 +82,54 @@ class NotificationAutomationService : NotificationListenerService() {
             extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
                 ?: extras.getCharSequence(Notification.EXTRA_TEXT)
             )?.toString().orEmpty()
+
+        // A14.6 — Notification Capability Graph: extrae identidad/estructura
+        // real de la conversación desde el MessagingStyle (sender, isGroup,
+        // conversationTitle, mensaje individual). Vía extras + getMessagesFromBundleArray
+        // (público; extractMessagingStyleFromNotification no está en la API 36).
+        // Apps sin MessagingStyle quedan con campos vacíos (honesto).
+        val messages = MessagingStyle.Message.getMessagesFromBundleArray(
+            extras.getParcelableArray(Notification.EXTRA_MESSAGES),
+        )
+        val lastMessage = messages.lastOrNull()
+        val sender = lastMessage?.sender?.toString().orEmpty()
+        val messageText = lastMessage?.text?.toString().orEmpty()
+        val isGroup = extras.getBoolean(
+            Notification.EXTRA_IS_GROUP_CONVERSATION,
+            false,
+        )
+        val conversationTitle = extras
+            .getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            ?.toString().orEmpty()
+        val conversationId = extras.getString("android.conversationId").orEmpty()
+
+        val reply = replyAction(notification)
+        val remoteInputKey = reply
+            ?.remoteInputs
+            ?.firstOrNull(RemoteInput::getAllowFreeFormInput)
+            ?.resultKey
+            .orEmpty()
+
         return mapOf(
             "key" to source.key,
             "package" to source.packageName,
             "title" to title.take(MAX_FIELD_CHARS),
             "text" to text.take(MAX_FIELD_CHARS),
+            "messageText" to messageText.take(MAX_FIELD_CHARS),
+            "sender" to sender.take(200),
+            "conversationTitle" to conversationTitle.take(200),
+            "conversationId" to conversationId.take(200),
+            "isGroup" to isGroup,
+            "isSummary" to (
+                notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
+            ),
             "postTime" to source.postTime,
-            "canReply" to (replyAction(notification) != null),
+            "canReply" to (reply != null),
+            "remoteInputKey" to remoteInputKey,
+            "actions" to notification.actions
+                .orEmpty()
+                .map { it.title?.toString().orEmpty() }
+                .filter { it.isNotEmpty() },
             "ongoing" to source.isOngoing,
         )
     }
