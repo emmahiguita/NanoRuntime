@@ -7,6 +7,7 @@ library;
 
 import 'capability_availability.dart';
 import 'system_capability.dart';
+import '../privilege/shizuku_availability.dart';
 
 abstract interface class CapabilityProbe {
   Future<Map<SystemCapability, CapabilityAvailability>> probe();
@@ -183,6 +184,42 @@ class SystemIntentCapabilityProbe implements CapabilityProbe {
           reason: 'Destino oficial de sistema (allowlist).',
           evidence: const [ev],
         ),
+    };
+  }
+}
+
+/// Capabilities de Shizuku (A14.3) — estado FACTUAL de disponibilidad, no de
+/// autoridad. El provider consulta el servicio Shizuku (binder + autorización)
+/// de forma pasiva: sin shell, sin diálogos, sin ejecución. El probe solo
+/// traduce la disponibilidad a la capability `SystemCapability.shizuku`.
+///
+/// `available` != `authorized` != `action authorized by user` != `safe` !=
+/// `executed`. La ejecución (A14.4) pasa por CandidateAction → governance.
+class ShizukuCapabilityProbe implements CapabilityProbe {
+  ShizukuCapabilityProbe(this._availabilityProvider);
+
+  final ShizukuAvailabilityProvider _availabilityProvider;
+
+  @override
+  Future<Map<SystemCapability, CapabilityAvailability>> probe() async {
+    final a = await _availabilityProvider.status();
+    final state = switch (a.status) {
+      ShizukuStatus.available => CapabilityAvailabilityKind.available,
+      ShizukuStatus.permissionRequired =>
+        CapabilityAvailabilityKind.requiresUserEnablement,
+      ShizukuStatus.notInstalled ||
+      ShizukuStatus.serviceUnavailable ||
+      ShizukuStatus.unsupported => CapabilityAvailabilityKind.unavailable,
+    };
+    return {
+      SystemCapability.shizuku: CapabilityAvailability(
+        capability: SystemCapability.shizuku,
+        state: state,
+        reason: a.reason,
+        evidence: const [
+          SystemEvidence(SystemEvidenceSource.runtimeChannel, 'shizuku'),
+        ],
+      ),
     };
   }
 }

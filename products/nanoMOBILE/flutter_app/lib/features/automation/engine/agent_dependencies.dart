@@ -28,6 +28,8 @@ import 'perception/nano_snapshot.dart';
 import 'perception/perception_mux.dart';
 import 'platform/nano_ocr_api.dart';
 import 'governance/action_governance_pipeline.dart';
+import 'privilege/shizuku_availability.dart';
+import 'privilege/shizuku_native_provider.dart';
 import 'governance/intent_firewall.dart';
 import 'governance/pre_action_critic.dart';
 import 'governance/privilege_broker.dart';
@@ -155,9 +157,20 @@ final systemGraphBuilderProvider = Provider<SystemGraphBuilder>((ref) {
         () =>
             LinuxDistributionRegistry.instance.getAllDistributions().isNotEmpty,
       ),
+      // A14.3: estado FACTUAL de Shizuku (binder + autorización) vía el canal
+      // nativo pasivo. Solo disponibilidad — la ejecución es A14.4 tipada.
+      ShizukuCapabilityProbe(ref.watch(shizukuAvailabilityProvider)),
       const SystemIntentCapabilityProbe(),
     ],
   );
+});
+
+/// A14.3 — proveedor de disponibilidad FACTUAL de Shizuku. Lee el estado real
+/// del dispositivo (instalación + binder + autorización) sin ejecutar nada.
+final shizukuAvailabilityProvider = Provider<ShizukuAvailabilityProvider>((
+  ref,
+) {
+  return MethodChannelShizukuAvailabilityProvider();
 });
 
 /// Adapta el AgentExecutor (ya provee snapshot()) al ScreenObserver (DIP).
@@ -245,5 +258,6 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
     ),
     adapter: CandidateToolCallAdapter(),
     getGraph: () => ref.read(systemGraphProvider.future),
+    shizukuSource: () => ref.read(shizukuAvailabilityProvider).status(),
   );
 });

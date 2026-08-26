@@ -12,6 +12,7 @@ import '../execution/agent_tool_dispatcher.dart' show ToolCall;
 import '../execution/goal_verifier.dart' show GoalExpectation;
 import '../governance/action_governance_pipeline.dart';
 import '../governance/intent_spec_compiler.dart';
+import '../privilege/shizuku_availability.dart';
 import '../system/system_graph.dart';
 import 'candidates/candidate_action.dart';
 import 'candidates/candidate_generator.dart';
@@ -72,17 +73,24 @@ class CandidateFirstPlanner {
     required ActionGovernancePipeline governance,
     required CandidateToolCallAdapter adapter,
     required Future<SystemGraph> Function() getGraph,
+    Future<ShizukuAvailability> Function()? shizukuSource,
   }) : _generatorBuilder = generatorBuilder,
        _selection = selection,
        _governance = governance,
        _adapter = adapter,
-       _getGraph = getGraph;
+       _getGraph = getGraph,
+       _shizukuSource = shizukuSource;
 
   final CandidateActionGenerator Function(SystemGraph) _generatorBuilder;
   final CandidateSelectionEngine _selection;
   final ActionGovernancePipeline _governance;
   final CandidateToolCallAdapter _adapter;
   final Future<SystemGraph> Function() _getGraph;
+
+  /// Fuente opcional de disponibilidad FACTUAL de Shizuku (A14.3). Inyectada
+  /// solo en producción; ausente en tests → el broker la trata como no
+  /// disponible (conservador, sin ejecución privilegiada).
+  final Future<ShizukuAvailability> Function()? _shizukuSource;
 
   Future<CandidatePlanResult> plan(String goal) async {
     final intent = const IntentSpecCompiler().compile(goal);
@@ -110,6 +118,7 @@ class CandidateFirstPlanner {
       intent,
       selected.candidate,
       graph: graph,
+      shizuku: _shizukuSource == null ? null : await _shizukuSource(),
     );
     if (outcome is! GovernanceApproved) {
       return CandidatePlanGoverned(outcome);
