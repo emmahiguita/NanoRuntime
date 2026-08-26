@@ -779,6 +779,21 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A16 — etiquetado de imagen on-device (ML Kit). Devuelve [{label, confidence,
+  /// bounds}] como observación estructurada. El llamador decide (percepción, no
+  /// autoridad). Vacío si falla el canal o el nativo.
+  Future<List<dynamic>> visionLabel(Uint8List pngBytes) async {
+    try {
+      return await _agent.invokeListMethod<dynamic>('visionLabel', {
+            'png': pngBytes,
+          }) ??
+          const [];
+    } catch (e) {
+      debugPrint('[runtime] visionLabel error: $e');
+      return const [];
+    }
+  }
+
   /// A16 — entrada por voz: reconocimiento de voz del sistema Android. Devuelve
   /// el texto transcrito, o null si falló/canceló. El texto entra al MISMO
   /// motor de ejecución (AutomationCoordinator), no a un motor de voz separado.

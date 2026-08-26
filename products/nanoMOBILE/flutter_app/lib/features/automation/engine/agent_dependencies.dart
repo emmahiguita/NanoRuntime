@@ -24,6 +24,8 @@ import 'system/system_inventory.dart';
 import 'perception/mux/accessibility_perception_source.dart';
 import 'perception/mux/object_memory_perception_source.dart';
 import 'perception/mux/ocr_perception_source.dart';
+import 'perception/mux/mlkit_vision_backend.dart';
+import 'perception/mux/vision_perception_source.dart';
 import 'perception/mux/perception_source.dart';
 import 'perception/nano_snapshot.dart';
 import 'perception/perception_mux.dart';
@@ -256,6 +258,11 @@ final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
     ocrSource: OcrPerceptionSource(
       const AccessibilityScreenImageProvider(),
       MlKitOcrBackend(),
+    ),
+    // A16: visión on-device (ML Kit Image Labeling) como ÚLTIMO escalado.
+    visionSource: VisionPerceptionSource(
+      const AccessibilityScreenImageProvider(),
+      const MlKitVisionBackend(),
     ),
   );
 });

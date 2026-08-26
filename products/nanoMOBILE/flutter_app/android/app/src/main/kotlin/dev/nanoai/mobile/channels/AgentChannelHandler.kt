@@ -1,10 +1,12 @@
 package dev.nanoai.mobile.channels
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import dev.nanoai.mobile.services.AgentAccessibilityBridge
 import dev.nanoai.mobile.services.OcrService
+import dev.nanoai.mobile.services.VisionService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.CountDownLatch
@@ -55,6 +57,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ocrService = OcrService()
+    private val visionService = VisionService()
     private val ocrExecutor = Executors.newSingleThreadExecutor()
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -191,6 +194,30 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                                 result.error("OCR_ERR", e.message ?: "error OCR", null)
                             }
                         }
+                    }
+                }
+            }
+
+            "visionLabel" -> {
+                val png = call.argument<ByteArray>("png")
+                if (png == null) {
+                    result.error("ARG", "sin imagen PNG", null)
+                    return
+                }
+                ocrExecutor.execute {
+                    try {
+                        val bitmap = BitmapFactory.decodeByteArray(png, 0, png.size)
+                        val labels = visionService.label(bitmap)
+                        result.success(labels.map {
+                            mapOf(
+                                "label" to it.text,
+                                "confidence" to it.confidence.toDouble(),
+                                "bounds" to listOf(it.left, it.top, it.right, it.bottom),
+                            )
+                        })
+                        bitmap.recycle()
+                    } catch (e: Exception) {
+                        result.error("VISION_ERR", e.message ?: "error vision", null)
                     }
                 }
             }

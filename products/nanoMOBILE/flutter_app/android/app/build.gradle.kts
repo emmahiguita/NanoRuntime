@@ -106,6 +106,10 @@ dependencies {
     // A9: OCR on-device (bundled, sin Google Play Services) como fallback de
     // percepción cuando Accessibility no resuelve. Detrás de OcrBackend.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // A16: visión on-device (etiquetado de imagen) como backend REAL del seam
+    // VisionPerceptionSource. Detección de objetos/etiquetas con bounding box,
+    // sin red (soberanía local).
+    implementation("com.google.mlkit:image-labeling:17.0.8")
     // A14.3: API oficial de Shizuku (dev.rikka.shizuku:api) — SOLO disponibilidad
     // FACTUAL (pingBinder/checkSelfPermission, ambas pasivas: sin diálogo, sin
     // acciones privilegiadas). La ejecución Shizuku es A14.4 con capacidades
