@@ -159,6 +159,19 @@ enum TaskStepStatus {
   failed,
 }
 
+/// A15.1 — clasificación tipada del fallo de un paso. Determina si es
+/// RECUPERABLE (se puede reintentar/cambiar de ruta) o TERMINAL (stop).
+enum TaskFailureKind {
+  /// Fallo transitorio o de ruta: reintentar/cambiar de ruta es seguro.
+  recoverable,
+
+  /// Fallo terminal: denegado, sin datos, cancelado, o sin progreso. No replan.
+  terminal,
+
+  /// Sin clasificación (no falló).
+  none,
+}
+
 final class TaskStepResult {
   final TaskStepStatus status;
   final String reason;
@@ -166,11 +179,18 @@ final class TaskStepResult {
   /// Valor producido (solo si completed).
   final TaskValue? output;
 
+  /// Clasificación del fallo (A15.1). null/`none` = no es un fallo.
+  final TaskFailureKind failureKind;
+
   const TaskStepResult({
     required this.status,
     required this.reason,
     this.output,
+    this.failureKind = TaskFailureKind.none,
   });
 
   bool get isCompleted => status == TaskStepStatus.completed;
+
+  /// Si el fallo admite recuperación acotada (reintento/cambio de ruta).
+  bool get isRecoverable => failureKind == TaskFailureKind.recoverable;
 }

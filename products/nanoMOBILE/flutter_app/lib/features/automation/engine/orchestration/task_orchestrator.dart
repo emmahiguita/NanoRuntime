@@ -14,6 +14,8 @@ class TaskOrchestrator {
     required Future<List<dynamic>> Function() listNotifications,
     required Future<bool> Function(String url) openUrl,
     required Future<bool> Function(String path, String content) writeFile,
+    this.maxAttemptsPerStep = 2,
+    this.maxReplansPerTask = 2,
   }) : _listNotifications = listNotifications,
        _openUrl = openUrl,
        _writeFile = writeFile;
@@ -22,8 +24,14 @@ class TaskOrchestrator {
   final Future<bool> Function(String url) _openUrl;
   final Future<bool> Function(String path, String content) _writeFile;
 
-  /// Ejecuta el plan en orden topológico. Un paso no-completado detiene los
-  /// dependientes (no se ejecutan pasos huérfanos).
+  /// A15.1 — presupuesto de recuperación acotado.
+  final int maxAttemptsPerStep;
+  final int maxReplansPerTask;
+
+  /// Ejecuta el plan en orden topológico con recuperación ACOTADA (A15.1).
+  /// Un paso no-completado detiene los dependientes. Los pasos fallidos
+  /// recuperables se reintentan hasta el presupuesto; un reintento con el MISMO
+  /// motivo (sin progreso) se detiene para evitar loops.
   Future<List<TaskStepResult>> run(TaskPlan plan) async {
     final invalid = plan.validate();
     if (invalid != null) {
@@ -32,13 +40,31 @@ class TaskOrchestrator {
 
     final values = <TaskValueId, TaskValue>{};
     final results = <TaskStepResult>[];
+    var replans = 0;
 
     for (final step in plan.ordered) {
-      final r = await _runStep(step, values);
-      results.add(r);
-      if (!r.isCompleted) break;
-      if (step.produces != null && r.output != null) {
-        values[step.produces!] = r.output!;
+      var result = await _runStep(step, values);
+      var attempts = 1;
+
+      while (!result.isCompleted &&
+          result.isRecoverable &&
+          attempts < maxAttemptsPerStep &&
+          replans < maxReplansPerTask) {
+        replans++;
+        attempts++;
+        final next = await _runStep(step, values);
+        // Detección de loop: mismo motivo sin progreso → detener.
+        if (next.reason == result.reason && !next.isCompleted) {
+          result = next;
+          break;
+        }
+        result = next;
+      }
+
+      results.add(result);
+      if (!result.isCompleted) break;
+      if (step.produces != null && result.output != null) {
+        values[step.produces!] = result.output!;
       }
     }
     return results;
@@ -72,6 +98,7 @@ class TaskOrchestrator {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
         reason: 'sin notificaciones activas',
+        failureKind: TaskFailureKind.terminal,
       );
     }
     final first = maps.first;
@@ -95,6 +122,7 @@ class TaskOrchestrator {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
         reason: 'sin texto fuente para extraer URL',
+        failureKind: TaskFailureKind.terminal,
       );
     }
     final data = const ObservedDataExtractor().extract(source.text);
@@ -103,6 +131,7 @@ class TaskOrchestrator {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
         reason: 'no se encontró URL en el texto observado',
+        failureKind: TaskFailureKind.terminal,
       );
     }
     return TaskStepResult(
@@ -130,6 +159,7 @@ class TaskOrchestrator {
       return const TaskStepResult(
         status: TaskStepStatus.failed,
         reason: 'writeFile devolvió false',
+        failureKind: TaskFailureKind.recoverable,
       );
     }
     return TaskStepResult(
@@ -149,6 +179,7 @@ class TaskOrchestrator {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
         reason: 'sin URL para abrir',
+        failureKind: TaskFailureKind.terminal,
       );
     }
     final ok = await _openUrl(value.url);
@@ -160,6 +191,7 @@ class TaskOrchestrator {
         : const TaskStepResult(
             status: TaskStepStatus.failed,
             reason: 'openUrl devolvió false',
+            failureKind: TaskFailureKind.recoverable,
           );
   }
 }
