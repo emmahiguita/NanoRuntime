@@ -49,6 +49,6 @@ class ShizukuCapabilityProvider {
     ShizukuCapability.installPackage => 'install_package',
     ShizukuCapability.forceStopPackage => 'force_stop_package',
     ShizukuCapability.grantSpecificPermission => 'grant_specific_permission',
-    ShizukuCapability.queryPackage => 'query_package',
+    ShizukuCapability.queryPackage => 'shizuku_query_package',
   };
 }

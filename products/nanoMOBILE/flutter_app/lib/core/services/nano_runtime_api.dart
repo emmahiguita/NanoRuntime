@@ -734,6 +734,23 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A14.4 — primera acción Shizuku TIPADA: consulta metadatos de un paquete
+  /// con privilegios (read-only, `cmd package dump`). El llamador debe verificar
+  /// disponibilidad/autorización ANTES (queryShizukuStatus); el nativo valida el
+  /// packageName y no acepta comandos libres. Devuelve vacío si el canal falla.
+  Future<Map<dynamic, dynamic>> shizukuQueryPackage(String packageName) async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'shizukuQueryPackage',
+            {'packageName': packageName},
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] shizukuQueryPackage error: $e');
+      return const {'ok': false, 'code': 'CHANNEL_ERROR'};
+    }
+  }
+
   Future<bool> requestRuntimePermissions() =>
       _invokePermissionAction('requestRuntime');
 

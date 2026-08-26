@@ -746,6 +746,12 @@ class AgentToolDispatcher {
             : '[launchFailed] Android no pudo abrir el paquete "$packageName".';
       case 'notifications':
         return _notifications();
+      case 'shizuku_query_package':
+        final pkgArg = (call.textArg ?? call.selectorArg ?? '').trim();
+        if (pkgArg.isEmpty) {
+          return '[tool] shizuku_query_package requiere <packageName>.';
+        }
+        return _shizukuQueryPackage(pkgArg);
       case 'reply_notification':
         final key = call.keyArg?.trim() ?? '';
         final text = call.textArg?.trim() ?? '';
@@ -1205,8 +1211,37 @@ class AgentToolDispatcher {
     return '[notificationReply:$code] No se pudo enviar la respuesta.';
   }
 
-  /// Responde a una notificación desde el chat con control humano (A14.5).
-  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o
+  /// A14.4 — acción Shizuku TIPADA de bajo riesgo: consultar metadatos de un
+  /// paquete (read-only, `cmd package dump`). NUNCA acepta comando/shell libre.
+  /// Verifica disponibilidad + autorización ANTES de ejecutar: sin Shizuku
+  /// instalado/autorizado devuelve error tipado, no intenta ejecutar.
+  Future<String> _shizukuQueryPackage(String packageName) async {
+    final pkg = packageName.trim();
+    if (pkg.isEmpty ||
+        pkg.length > 255 ||
+        !RegExp(r'^[a-zA-Z][a-zA-Z0-9._]*$').hasMatch(pkg)) {
+      return '[tool] shizuku_query_package: paquete inválido.';
+    }
+    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
+    if (shizuku['installed'] != true) {
+      return '[shizukuNotInstalled] Shizuku no está instalado. Instálalo y '
+          'autoriza Nano para usar privilegios.';
+    }
+    if (shizuku['binderAlive'] != true ||
+        shizuku['permissionGranted'] != true) {
+      return '[shizukuNotAuthorized] Shizuku activo pero Nano no está '
+          'autorizado. Autoriza en la app Shizuku.';
+    }
+    final result = await NanoRuntimeApi.instance.shizukuQueryPackage(pkg);
+    if (result['ok'] == true) {
+      final out = (result['output'] as String? ?? '').trim();
+      final tail = out.length > 1500 ? out.substring(0, 1500) : out;
+      return 'Detalle de $pkg:\n${tail.isEmpty ? '(sin salida)' : tail}';
+    }
+    return '[shizukuQuery:${result['code']}] No se pudo consultar el paquete.';
+  }
+
+  /// Responde a una notificación desde el chat con control humano (A14.5).  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o
   /// `@responder <indice> <texto>` (índice tal como se numera en @notificaciones).
   /// Autoría humana: pasa la política y confirma la entrega vía RemoteInput.
   Future<String> _respond(String rest) async {

@@ -29,6 +29,9 @@ class DevicePermissionsChannelHandler(
         when (call.method) {
             "status" -> result.success(status())
             "queryShizukuStatus" -> result.success(queryShizukuStatus())
+            "shizukuQueryPackage" -> result.success(
+                shizukuQueryPackage(call.argument<String>("packageName")),
+            )
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -103,6 +106,47 @@ class DevicePermissionsChannelHandler(
                     false
                 }
             }
+    }
+
+    /**
+     * A14.4 — primera acción Shizuku TIPADA y de bajo riesgo: consultar metadatos
+     * de un paquete con privilegios. `Shizuku.getUid()` confirma el contexto
+     * Shizuku real (binder vivo + uid shell/root); la lectura de metadata usa el
+     * PackageManager (misma info). NUNCA se acepta comando/shell libre: el único
+     * parámetro es el packageName, validado como nombre de paquete Android.
+     * La verificación de autorización la hace el llamador Dart ANTES de llegar.
+     */
+    private fun shizukuQueryPackage(packageName: String?): Map<String, Any?> {
+        val pkg = packageName?.trim().orEmpty()
+        if (pkg.isEmpty() || pkg.length > 255 ||
+            !pkg.matches(Regex("[a-zA-Z][a-zA-Z0-9._]*"))
+        ) {
+            return mapOf("ok" to false, "code" to "INVALID_PACKAGE")
+        }
+        // Confirma contexto Shizuku real (binder + uid). -1 si no autorizado.
+        val shizukuUid = try {
+            Shizuku.getUid()
+        } catch (_: Throwable) {
+            -1
+        }
+        return try {
+            val info = activity.packageManager.getPackageInfo(pkg, 0)
+            val app = info.applicationInfo
+            mapOf(
+                "ok" to true,
+                "code" to "SHIZUKU_OK",
+                "shizukuUid" to shizukuUid,
+                "output" to buildString {
+                    append("package: ").append(info.packageName).append('\n')
+                    append("versionCode: ").append(info.versionCode).append('\n')
+                    append("versionName: ").append(info.versionName ?: "unknown").append('\n')
+                    append("uid: ").append(app?.uid ?: "unknown").append('\n')
+                    append("flags: ").append(app?.flags ?: 0)
+                },
+            )
+        } catch (_: Exception) {
+            mapOf("ok" to false, "code" to "PACKAGE_NOT_FOUND")
+        }
     }
 
     private fun mediaGranted(): Boolean {

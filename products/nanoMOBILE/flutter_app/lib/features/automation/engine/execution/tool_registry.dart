@@ -223,6 +223,17 @@ class ToolRegistry {
       timeout: Duration(seconds: 5),
       description: 'Abrir un destino de sistema allowlisted',
     ),
+    // A14.4: Shizuku TIPADO. Solo capacidad read (queryPackage). El resto
+    // (install/forceStop/grant) queda sin registrar hasta validar en device.
+    // promptSyntax null: la invoca el humano/high-level, no el LLM (aún), para
+    // no inflar el prompt móvil.
+    ToolDefinition(
+      name: 'shizuku_query_package',
+      risk: ToolRisk.read,
+      timeout: Duration(seconds: 15),
+      description:
+          'Consultar metadatos de un paquete con privilegios Shizuku (solo lectura)',
+    ),
   ];
 
   /// Resuelve [name] (con alias) al registro canónico; null si no existe.
