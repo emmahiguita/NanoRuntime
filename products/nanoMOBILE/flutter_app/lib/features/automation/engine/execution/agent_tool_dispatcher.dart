@@ -486,8 +486,15 @@ class AgentToolDispatcher {
         return _runGrantPermission('archivos');
       case 'conceder_runtime':
         return _runGrantPermission('runtime');
+      // A14.5 — contestar una notificación desde el chat con control humano.
+      // Sintaxis: @responder <texto> (a la primera respondible) o
+      // @responder <indice> <texto> (a la notificación en esa posición tal como
+      // se numeró en @notificaciones). Autoría humana → pasa la política.
+      case 'responder':
+      case 'reply':
+        return _respond(rest);
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso>.';
+        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso>.';
     }
     return (await runToolGuarded(call, humanInitiated: true)).feedback;
   }
@@ -1196,6 +1203,54 @@ class AgentToolDispatcher {
     }
     final code = result['code'] ?? 'UNKNOWN';
     return '[notificationReply:$code] No se pudo enviar la respuesta.';
+  }
+
+  /// Responde a una notificación desde el chat con control humano (A14.5).
+  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o
+  /// `@responder <indice> <texto>` (índice tal como se numera en @notificaciones).
+  /// Autoría humana: pasa la política y confirma la entrega vía RemoteInput.
+  Future<String> _respond(String rest) async {
+    final status = await NanoRuntimeApi.instance.notificationStatus();
+    if (status['accessGranted'] != true || status['connected'] != true) {
+      return '[serviceOff] El acceso a notificaciones no está habilitado o el '
+          'servicio no está conectado. Usa @conceder_notificaciones.';
+    }
+    final rows = await NanoRuntimeApi.instance.listActiveNotifications(
+      limit: 20,
+    );
+    if (rows.isEmpty) return 'No hay notificaciones activas para responder.';
+
+    final trimmed = rest.trim();
+    if (trimmed.isEmpty) {
+      return 'Uso: @responder [indice] <texto>. Ej: @responder texto, '
+          '@responder 1 texto.';
+    }
+    final firstSpace = trimmed.indexOf(RegExp(r'\s'));
+    final firstToken =
+        (firstSpace < 0 ? trimmed : trimmed.substring(0, firstSpace)).trim();
+    final body = (firstSpace < 0 ? '' : trimmed.substring(firstSpace + 1))
+        .trim();
+    final parsedIndex = int.tryParse(firstToken);
+    final index = parsedIndex;
+    final replyText = parsedIndex != null ? body : trimmed;
+    if (replyText.isEmpty) {
+      return 'Uso: @responder <texto> o @responder <indice> <texto>.';
+    }
+
+    // Recorre respondibles en el orden en que @notificaciones las numera (1-based
+    // sobre las que admiten respuesta), y responde a la posición pedida.
+    var respondibleIndex = 0;
+    for (final raw in rows) {
+      final row = raw is Map ? raw : const <dynamic, dynamic>{};
+      if (row['canReply'] != true) continue;
+      respondibleIndex++;
+      if (respondibleIndex < (index ?? 1)) continue;
+      final key = _notificationKey(row['key']);
+      if (key.isEmpty) continue;
+      return _replyNotification(key: key, text: replyText);
+    }
+    return 'No se encontró una notificación respondible en la posición '
+        '${index ?? 1}. Usa @notificaciones para ver las que pueden responder.';
   }
 
   /// Parseo con error legible: (selector, null) o (null, motivo).
