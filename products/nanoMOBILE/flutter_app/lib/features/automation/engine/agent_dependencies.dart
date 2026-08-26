@@ -79,6 +79,27 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     verifier: ref.watch(agentVerifierProvider),
     router: ref.watch(actionPathRouterProvider),
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
+    // A14.5: fuentes REALES del informe ejecutivo (@capacidades) y apertura de
+    // pantallas de permiso (@conceder_<x>). Lee el SystemGraph y el estado de
+    // permisos/Shizuku del dispositivo — nada simulado.
+    systemGraphSource: () => ref.read(systemGraphProvider.future),
+    devicePermissionsSource: () =>
+        NanoRuntimeApi.instance.devicePermissionStatus(),
+    shizukuStatusSource: () => NanoRuntimeApi.instance.queryShizukuStatus(),
+    openPermissionSource: (kind) {
+      switch (kind) {
+        case 'accessibility':
+          return NanoRuntimeApi.instance.openAccessibilitySettings();
+        case 'notificaciones':
+          return NanoRuntimeApi.instance.openNotificationAccessSettings();
+        case 'archivos':
+          return NanoRuntimeApi.instance.openAllFilesAccessSettings();
+        case 'runtime':
+          return NanoRuntimeApi.instance.requestRuntimePermissions();
+        default:
+          return Future.value(false);
+      }
+    },
   );
 });
 

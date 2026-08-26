@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Conexion al motor llama.cpp local (loopback 127.0.0.1) y descarga de modelos -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- A14.5: visibilidad de TODAS las apps instaladas para el inventario del
+         agente (SystemInventory -> DeviceProfile / catálogo de apps). Con solo
+         QUERIES de launcher, apps que no exponen launcher quedan invisibles y
+         el agente "no sabe" de su existencia. Permiso restringido por Play
+         (solo apps que lo justifiquen); este proyecto es de desarrollo local
+         (debug keystore) y necesita el inventario completo del sistema. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <!-- A14.3: permiso declarativo para el binding con el servicio Shizuku.
          NO concede privilegios por sí solo; declara que la app puede vincularse
          al servicio Shizuku (ShizukuManager). La autorización real se otorga

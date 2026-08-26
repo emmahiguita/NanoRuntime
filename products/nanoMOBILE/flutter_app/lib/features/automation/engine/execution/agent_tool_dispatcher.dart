@@ -24,7 +24,9 @@ import 'agent_loop.dart';
 import '../platform/linux_tool_adapter.dart';
 import '../perception/nano_selector.dart';
 import '../perception/nano_snapshot.dart' as nano_snapshot;
+import '../system/capabilities_report.dart';
 import '../system/system_destination.dart' show SystemDestination;
+import '../system/system_graph.dart' show SystemGraph;
 import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
 import 'tool_registry.dart';
 
@@ -318,6 +320,10 @@ class AgentToolDispatcher {
     swipe,
     Future<bool> Function(int x, int y, {int durationMs})? longPress,
     SystemIntentLauncher? systemIntentLauncher,
+    Future<SystemGraph> Function()? systemGraphSource,
+    Future<Map<dynamic, dynamic>> Function()? devicePermissionsSource,
+    Future<Map<dynamic, dynamic>> Function()? shizukuStatusSource,
+    Future<bool> Function(String kind)? openPermissionSource,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
@@ -329,7 +335,11 @@ class AgentToolDispatcher {
            globalAction ?? NanoRuntimeApi.instance.agentGlobalAction,
        _swipe = swipe ?? NanoRuntimeApi.instance.agentSwipe,
        _longPress = longPress ?? NanoRuntimeApi.instance.agentLongPressAt,
-       _systemIntentLauncher = systemIntentLauncher;
+       _systemIntentLauncher = systemIntentLauncher,
+       _systemGraphSource = systemGraphSource,
+       _devicePermissionsSource = devicePermissionsSource,
+       _shizukuStatusSource = shizukuStatusSource,
+       _openPermissionSource = openPermissionSource;
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
@@ -359,6 +369,15 @@ class AgentToolDispatcher {
 
   /// Navegación de sistema allowlisted (A3). null = no conectada.
   final SystemIntentLauncher? _systemIntentLauncher;
+
+  /// A14.5 — fuentes opcionales para el informe ejecutivo (@capacidades) y la
+  /// apertura de pantallas de permiso (@conceder_<x>). Inyectadas solo en
+  /// producción; ausentes en tests → el comando devuelve "no configurado" sin
+  /// crashear.
+  final Future<SystemGraph> Function()? _systemGraphSource;
+  final Future<Map<dynamic, dynamic>> Function()? _devicePermissionsSource;
+  final Future<Map<dynamic, dynamic>> Function()? _shizukuStatusSource;
+  final Future<bool> Function(String kind)? _openPermissionSource;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -447,10 +466,63 @@ class AgentToolDispatcher {
       case 'quick_settings':
       case 'ajustes_rapidos':
         call = const ToolCall(tool: 'open_quick_settings');
+      // A14.5 — informe ejecutivo factual de capacidades locales, soberanía de
+      // datos y déficits de seguridad. No necesita LLM: lee el SystemGraph real
+      // + estado de permisos + Shizuku. Autoría humana (pasa la política).
+      case 'capacidades':
+      case 'capabilities':
+      case 'resumen':
+        return _runCapabilitiesReport();
+      // A14.5 — "acción que solicite permisos para continuar". Abre la pantalla
+      // del sistema que concede el permiso faltante (accessibility, notificaciones,
+      // archivos, runtime). Sintaxis: @conceder <accessibility|notificaciones|archivos|runtime>.
+      case 'conceder':
+        return _runGrantPermission(rest);
+      case 'conceder_accessibility':
+        return _runGrantPermission('accessibility');
+      case 'conceder_notificaciones':
+        return _runGrantPermission('notificaciones');
+      case 'conceder_archivos':
+        return _runGrantPermission('archivos');
+      case 'conceder_runtime':
+        return _runGrantPermission('runtime');
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @back, @home, @recents, @sombra, @quick_settings.';
+        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso>.';
     }
     return (await runToolGuarded(call, humanInitiated: true)).feedback;
+  }
+
+  /// Informe ejecutivo factual (A14.5). Lee fuentes reales y formatea; si las
+  /// fuentes no están inyectadas devuelve un aviso honesto (no simula datos).
+  Future<String> _runCapabilitiesReport() async {
+    if (_systemGraphSource == null ||
+        _devicePermissionsSource == null ||
+        _shizukuStatusSource == null) {
+      return 'Informe de capacidades no configurado en este perfil.';
+    }
+    final graph = await _systemGraphSource();
+    final perms = await _devicePermissionsSource();
+    final shizuku = await _shizukuStatusSource();
+    return buildCapabilitiesReport(graph, perms, shizuku);
+  }
+
+  /// Abre la pantalla de concesión del permiso indicado (A14.5). Reutiliza los
+  /// transportes de NanoRuntimeApi que ya existen; no ejecuta nada más.
+  Future<String> _runGrantPermission(String kind) async {
+    const labels = {
+      'accessibility': 'Accesibilidad',
+      'notificaciones': 'Notificaciones',
+      'archivos': 'Todos los archivos',
+      'runtime': 'Permisos de runtime',
+    };
+    final label = labels[kind] ?? kind;
+    if (_openPermissionSource == null) {
+      return 'Apertura de permisos no configurada en este perfil.';
+    }
+    final ok = await _openPermissionSource(kind);
+    return ok
+        ? 'Abriendo $label... Concede el permiso y vuelve a la app.'
+        : 'No se pudo abrir la pantalla de $label.';
   }
 
   // ── Tool-calling LLM ──────────────────────────────────────────────────────
