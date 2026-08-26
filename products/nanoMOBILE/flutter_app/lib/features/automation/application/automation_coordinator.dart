@@ -40,7 +40,11 @@ import 'package:nanoai/features/automation/engine/governance/action_governance_p
         GovernanceMoreEvidence,
         GovernanceOutcome;
 import 'package:nanoai/features/automation/engine/planning/candidate_first_planner.dart'
-    show CandidateFirstPlanner, CandidatePlanGoverned, CandidatePlanResolved;
+    show
+        CandidateFirstPlanner,
+        CandidatePlanGoverned,
+        CandidatePlanNoCandidate,
+        CandidatePlanResolved;
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
@@ -104,6 +108,10 @@ class AutomationCoordinator {
   /// conocidos). null = sin pipeline (legacy fallback directo).
   final CandidateFirstPlanner? _candidateFirst;
 
+  /// A13.6 — callback para compartir la instancia de memoria actualizada con la
+  /// DI (el notifier). null en tests/aislado.
+  final void Function(NanoObjectMemory)? _onMemoryUpdate;
+
   /// Snapshot de solo lectura para diagnóstico/tests. La memoria interna sigue
   /// siendo copy-on-write y solo el coordinator puede reemplazarla.
   NanoObjectMemory? get objectMemorySnapshot => _objectMemory;
@@ -126,6 +134,7 @@ class AutomationCoordinator {
     PerceptionMux? perceptionMux,
     AppLaunchResolver? appLaunch,
     CandidateFirstPlanner? candidateFirst,
+    void Function(NanoObjectMemory)? onMemoryUpdate,
     void Function(C14Execution)? c14Sink,
   }) : _dispatcher = dispatcher,
        _mode = mode,
@@ -139,6 +148,7 @@ class AutomationCoordinator {
        _perceptionMux = perceptionMux,
        _appLaunch = appLaunch,
        _candidateFirst = candidateFirst,
+       _onMemoryUpdate = onMemoryUpdate,
        _c14Sink = c14Sink;
 
   AutomationPolicy get _policy => AutomationPolicy(_mode());
@@ -159,6 +169,7 @@ class AutomationCoordinator {
         perceptionMux: _perceptionMux,
         appLaunch: _appLaunch,
         candidateFirst: _candidateFirst,
+        onMemoryUpdate: _onMemoryUpdate,
         c14Sink: sink,
       );
 
@@ -367,6 +378,12 @@ class AutomationCoordinator {
     var generatedCount = 0;
     var rejectedCount = 0;
     var steps = 0;
+    // A13.6: métricas Candidate-First / legacy (observabilidad C14).
+    var candidateCount = 0;
+    var selectionMode = 'none';
+    var koogInvoked = false;
+    var legacyFallback = false;
+    var candidateLatency = Duration.zero;
     // Expectativa efectiva para el run (usada en aprendizaje SOUND). Por defecto
     // la del goal; un flujo determinista del catálogo puede aportar la suya.
     var runExpectation = goal.expectation;
@@ -391,6 +408,11 @@ class AutomationCoordinator {
           cacheHit: cacheHit,
           goalSuccess: r.isVerifiedSuccess,
           totalLatency: sw.elapsed,
+          candidateCount: candidateCount,
+          selectionMode: selectionMode,
+          koogInvoked: koogInvoked,
+          legacyFallback: legacyFallback,
+          candidateLatency: candidateLatency,
         ),
       );
     }
@@ -425,14 +447,24 @@ class AutomationCoordinator {
       // NoCandidate/ambiguo → cae al legacy fallback.
       final candidateFirst = _candidateFirst;
       if (candidateFirst != null) {
+        final swCandidate = Stopwatch()..start();
         final candidatePlan = await candidateFirst.plan(goal.text);
+        swCandidate.stop();
+        candidateLatency = swCandidate.elapsed;
         if (candidatePlan is CandidatePlanResolved) {
           plan = [candidatePlan.call];
           runExpectation = candidatePlan.expectation;
+          selectionMode = candidatePlan.selectionMode.name;
+          koogInvoked = candidatePlan.koogInvoked;
+          candidateCount = candidatePlan.candidateCount;
         } else if (candidatePlan is CandidatePlanGoverned) {
           final r = _resultFromGoverned(executionId, candidatePlan.outcome);
           emit(r);
           return r;
+        } else if (candidatePlan is CandidatePlanNoCandidate) {
+          candidateCount = candidatePlan.candidateCount;
+          legacyFallback = true;
+          selectionMode = 'legacyFallback';
         }
       }
 
@@ -540,7 +572,6 @@ class AutomationCoordinator {
     List<ToolCall> plan,
     String goal,
   ) async {
-    final mem = _objectMemory;
     final mux = _perceptionMux;
     final resolved = <ToolCall>[];
     for (final c in plan) {
@@ -553,11 +584,9 @@ class AutomationCoordinator {
           sel.startsWith('desc~=');
       if (semantic && concept.isNotEmpty) {
         var used = sel;
-        final key = UiObjectKey(concept: concept);
-        final rid = mem?.resolve(key)?.resourceId;
-        if (rid != null && rid.isNotEmpty) {
-          used = 'id=$rid';
-        } else if (mux != null) {
+        // PerceptionMux es el owner de percepción: memory-first + accessibility
+        // + OCR. Sin split-brain: el coordinator ya no consulta memoria aparte.
+        if (mux != null) {
           final perceived = await mux.resolve(concept);
           if (perceived != null) used = perceived;
         }
@@ -629,6 +658,7 @@ class AutomationCoordinator {
       }
     }
     _objectMemory = next;
+    _onMemoryUpdate?.call(next);
   }
 
   /// Normaliza ACTION/PLAN success a TASK success. Ningún camino de

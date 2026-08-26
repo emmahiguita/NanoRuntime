@@ -21,7 +21,11 @@ class CandidateSelectionEngine {
   final CandidateRanker _ranker;
   final CandidateSelector? _koog;
 
+  /// A13.6: si la última selección invocó Koog (para observabilidad C14).
+  bool lastKoogInvoked = false;
+
   Future<CandidateSelection> select(CandidateSelectionRequest request) async {
+    lastKoogInvoked = false;
     final ranked = _ranker.rank(request.candidates);
     if (ranked is! AmbiguousCandidates) return ranked; // Selected/NoCandidate
 
@@ -29,6 +33,7 @@ class CandidateSelectionEngine {
     if (koog == null) return ranked; // sin selector → preservar ambigüedad
 
     // Solo los candidatos ambiguos van al selector (nunca el set completo).
+    lastKoogInvoked = true;
     final ambiguousSet = CandidateSet(ranked.candidates);
     return koog.select(
       CandidateSelectionRequest(goal: request.goal, candidates: ambiguousSet),

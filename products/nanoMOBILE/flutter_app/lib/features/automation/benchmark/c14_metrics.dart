@@ -30,6 +30,13 @@ class C14Execution {
   final bool goalSuccess;
   final Duration totalLatency;
 
+  // A13.6: métricas Candidate-First / legacy.
+  final int candidateCount;
+  final String selectionMode; // deterministic | koog | legacyFallback | none
+  final bool koogInvoked;
+  final bool legacyFallback;
+  final Duration candidateLatency;
+
   const C14Execution({
     required this.goal,
     required this.planValid,
@@ -45,6 +52,11 @@ class C14Execution {
     required this.cacheHit,
     required this.goalSuccess,
     required this.totalLatency,
+    this.candidateCount = 0,
+    this.selectionMode = 'none',
+    this.koogInvoked = false,
+    this.legacyFallback = false,
+    this.candidateLatency = Duration.zero,
   });
 }
 
@@ -56,12 +68,20 @@ class C14BenchmarkReport {
   final int passed;
   final double successRate;
 
+  // A13.6: tasas de selección/legacy/LLM.
+  final double legacyFallbackRate;
+  final double zeroLlmRate;
+  final double koogInvocationRate;
+
   const C14BenchmarkReport({
     required this.executions,
     required this.gates,
     required this.total,
     required this.passed,
     required this.successRate,
+    required this.legacyFallbackRate,
+    required this.zeroLlmRate,
+    required this.koogInvocationRate,
   });
 
   bool get gatedPass => gates.every((g) => g.pass);
@@ -133,6 +153,15 @@ class C14Gates {
       total: total,
       passed: passed,
       successRate: _ratio(passed, total),
+      legacyFallbackRate: _ratio(
+        ex.where((e) => e.legacyFallback).length,
+        total,
+      ),
+      zeroLlmRate: _ratio(
+        ex.where((e) => e.llmLatency == Duration.zero).length,
+        total,
+      ),
+      koogInvocationRate: _ratio(ex.where((e) => e.koogInvoked).length, total),
     );
   }
 

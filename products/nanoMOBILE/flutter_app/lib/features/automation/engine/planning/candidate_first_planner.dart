@@ -25,6 +25,10 @@ sealed class CandidatePlanResult {
   const CandidatePlanResult();
 }
 
+/// Modo de selección (A13.6 observabilidad): determinista, Koog, o sin
+/// selección (none). `legacyFallback` lo asigna el coordinator aguas arriba.
+enum SelectionMode { deterministic, koog, none }
+
 /// Resuelto + governance approved → ToolCall listo para ejecutar.
 class CandidatePlanResolved extends CandidatePlanResult {
   final ToolCall call;
@@ -33,16 +37,24 @@ class CandidatePlanResolved extends CandidatePlanResult {
   /// Expectativa de GOAL derivada de la postcondición de la acción (A11/A13.5).
   final GoalExpectation? expectation;
 
+  final SelectionMode selectionMode;
+  final bool koogInvoked;
+  final int candidateCount;
+
   const CandidatePlanResolved({
     required this.call,
     required this.candidate,
     this.expectation,
+    required this.selectionMode,
+    required this.koogInvoked,
+    required this.candidateCount,
   });
 }
 
 /// Sin candidatos grounded → el caller usa fallback legacy (planner LLM).
 class CandidatePlanNoCandidate extends CandidatePlanResult {
-  const CandidatePlanNoCandidate();
+  final int candidateCount;
+  const CandidatePlanNoCandidate({this.candidateCount = 0});
 }
 
 /// Candidatos resueltos pero governance NO aprobó → decisión tipada.
@@ -81,15 +93,17 @@ class CandidateFirstPlanner {
     final generated = await _generatorBuilder(
       graph,
     ).generate(CandidateRequest(goal));
+    final candidateCount = generated.candidates.length;
     if (generated.candidates.isEmpty) {
-      return const CandidatePlanNoCandidate();
+      return CandidatePlanNoCandidate(candidateCount: candidateCount);
     }
 
     final selected = await _selection.select(
       CandidateSelectionRequest(goal: goal, candidates: generated.candidates),
     );
+    final koogInvoked = _selection.lastKoogInvoked;
     if (selected is! SelectedCandidate) {
-      return const CandidatePlanNoCandidate(); // ambiguo/no seleccionado → legacy
+      return CandidatePlanNoCandidate(candidateCount: candidateCount);
     }
 
     final outcome = _governance.govern(
@@ -106,6 +120,11 @@ class CandidateFirstPlanner {
       call: call,
       candidate: selected.candidate,
       expectation: _goalExpectationFor(selected.candidate),
+      selectionMode: koogInvoked
+          ? SelectionMode.koog
+          : SelectionMode.deterministic,
+      koogInvoked: koogInvoked,
+      candidateCount: candidateCount,
     );
   }
 

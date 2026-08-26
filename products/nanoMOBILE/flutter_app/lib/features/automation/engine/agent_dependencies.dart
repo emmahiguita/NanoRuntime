@@ -8,6 +8,7 @@ import 'execution/action_verifier.dart';
 import 'execution/agent_executor.dart';
 import 'execution/agent_tool_dispatcher.dart';
 import 'memory/experience_cache.dart';
+import 'memory/object_memory.dart';
 import 'execution/goal_verifier.dart';
 import 'execution/nano_flow.dart';
 import 'execution/stability_gate.dart';
@@ -20,6 +21,7 @@ import 'system/system_graph.dart';
 import 'system/system_intent_launcher.dart';
 import 'system/system_inventory.dart';
 import 'perception/mux/accessibility_perception_source.dart';
+import 'perception/mux/object_memory_perception_source.dart';
 import 'perception/mux/ocr_perception_source.dart';
 import 'perception/mux/perception_source.dart';
 import 'perception/nano_snapshot.dart';
@@ -167,10 +169,27 @@ class _ExecutorScreenObserver implements ScreenObserver {
   Future<NanoSnapshot?> snapshot() => _executor.snapshot();
 }
 
-/// Percepción orquestada (A8+A9): accesibilidad vía ScreenGraph + OCR fallback.
+/// Contenedor mutable de la ÚNICA instancia productiva de ObjectMemory V2.
+/// El NanoObjectMemory es inmutable; el notifier mantiene el estado actual
+/// compartido por PerceptionMux y AutomationCoordinator (sin split-brain).
+class ObjectMemoryNotifier extends StateNotifier<NanoObjectMemory> {
+  ObjectMemoryNotifier() : super(const NanoObjectMemory());
+
+  void replace(NanoObjectMemory memory) => state = memory;
+}
+
+final objectMemoryProvider =
+    StateNotifierProvider<ObjectMemoryNotifier, NanoObjectMemory>((ref) {
+      return ObjectMemoryNotifier();
+    });
+
+/// Percepción orquestada (A8+A9): memoria → accesibilidad → OCR fallback.
 final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
   final executor = ref.watch(agentExecutorProvider);
   return PerceptionMux(
+    memorySource: ObjectMemoryPerceptionSource(
+      () => ref.read(objectMemoryProvider),
+    ),
     accessibilitySource: AccessibilityPerceptionSource(
       _ExecutorScreenObserver(executor),
     ),

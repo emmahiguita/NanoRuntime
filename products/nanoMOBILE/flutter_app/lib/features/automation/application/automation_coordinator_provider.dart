@@ -24,6 +24,9 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     verifyGoal: ref.watch(goalVerifierProvider).verify,
     catalog: defaultDeterministicCatalog,
     objectMemory: NanoObjectMemory(),
+    // A13.6: compartir la instancia de memoria actualizada con el PerceptionMux
+    // (vía el notifier), eliminando el split-brain.
+    onMemoryUpdate: (m) => ref.read(objectMemoryProvider.notifier).replace(m),
     // A8: percepción orquestada real (accesibilidad vía ScreenGraph).
     perceptionMux: ref.watch(perceptionMuxProvider),
     // A2: resuelve "abre <app>" con package REAL del PackageManager.

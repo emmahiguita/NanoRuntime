@@ -9,27 +9,31 @@ import 'perception_result.dart';
 import 'perception_source.dart';
 
 class ObjectMemoryPerceptionSource implements PerceptionSource {
-  ObjectMemoryPerceptionSource(this._memory);
+  ObjectMemoryPerceptionSource(this._memoryProvider);
 
-  final NanoObjectMemory _memory;
+  /// Getter de la instancia ACTUAL (compartida con el coordinator vía DI). El
+  /// NanoObjectMemory es inmutable; el getter lee la instancia actualizada en
+  /// cada perceive (sin split-brain).
+  final NanoObjectMemory Function() _memoryProvider;
 
   @override
   Future<PerceptionResult> perceive(
     PerceptionRequest request,
     PerceptionBudget budget,
   ) async {
+    final memory = _memoryProvider();
     final key = UiObjectKey(
       concept: request.targetConcept,
       package: request.packageName ?? '',
     );
-    final evidence = _memory.resolve(key);
+    final evidence = memory.resolve(key);
     if (evidence == null) {
       return const PerceptionInsufficient(
         reason: 'Sin memoria verificada para el concepto.',
         recommendedSource: PerceptionEvidenceSource.accessibility,
       );
     }
-    final confidence = _memory.confidence(key);
+    final confidence = memory.confidence(key);
     return PerceptionResolved(
       memoryEvidence: evidence,
       confidence: confidence,
