@@ -12,6 +12,9 @@ const kAllowedTaskSemantics = <String>{
   'openApp',
   'openUrl',
   'observeScreen',
+  'openConversation',
+  'writeMessage',
+  'sendMessage',
   'writeFile',
   'replyMessage',
 };

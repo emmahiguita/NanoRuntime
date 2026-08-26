@@ -52,14 +52,52 @@ class TaskPlanner {
     'open link',
   ];
 
+  static const _messageVerbs = [
+    'escríbele a',
+    'escribele a',
+    'escríbale a',
+    'escribe a',
+    'escríbele',
+    'mensaje a',
+    'manda un mensaje a',
+    'envía un mensaje a',
+    'message to',
+  ];
+
   /// Devuelve el TaskPlan determinista si el objetivo matchea un template.
   /// null = sin template (requeriría descomposición LLM, fuera de esta fase).
   TaskPlan? plan(String goal) {
     final g = goal.toLowerCase();
     if (_saveVerbs.any(g.contains)) return _saveUrlPlan(goal);
     if (_openVerbs.any(g.contains)) return _openUrlPlan(goal);
+    if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
     return null;
   }
+
+  /// "escríbele a X" → openApp → openConversation → writeMessage → sendMessage.
+  /// El target/draft los resuelve la capa Candidate-First (ScreenGraphCandidateProvider
+  /// usa el continuationTarget del request); el plan fija la semántica y el orden.
+  TaskPlan _messagePlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'open_app', semanticAction: 'openApp'),
+      TaskStep(
+        id: 'open_conversation',
+        semanticAction: 'openConversation',
+        dependencies: ['open_app'],
+      ),
+      TaskStep(
+        id: 'write_message',
+        semanticAction: 'writeMessage',
+        dependencies: ['open_conversation'],
+      ),
+      TaskStep(
+        id: 'send_message',
+        semanticAction: 'sendMessage',
+        dependencies: ['write_message'],
+      ),
+    ],
+  );
 
   /// A15.2 — descomposición LLM VALIDADA. Recibe pasos semánticos del modelo y
   /// construye un TaskPlan solo si TODOS pasan la validación:
