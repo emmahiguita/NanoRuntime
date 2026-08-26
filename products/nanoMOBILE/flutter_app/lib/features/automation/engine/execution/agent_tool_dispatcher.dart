@@ -766,6 +766,12 @@ class AgentToolDispatcher {
         return _doLongPress(call);
       case 'open_system':
         return _openSystem(call);
+      case 'open_url':
+        final urlArg = (call.textArg ?? call.selectorArg ?? '').trim();
+        if (urlArg.isEmpty) {
+          return '[tool] open_url requiere <url>.';
+        }
+        return _openUrl(urlArg);
       case 'launch_app':
         // A2: el package grounded viaja en args (flujo del catálogo). Fallback a
         // selector solo para el contrato legacy (catálogo estático 'chrome').
@@ -1074,6 +1080,15 @@ class AgentToolDispatcher {
   /// A3: navegación de sistema allowlisted. El destino viaja como ID semántico
   /// (args{destination}); [SystemDestination.fromWireId] rechaza cualquier
   /// string que no esté en la allowlist (nunca un Intent crudo inventable).
+  /// A14.9 — abrir una URL externa (solo http/https). El nativo valida el
+  /// esquema para evitar intents arbitrarios (anti-SSRF).
+  Future<String> _openUrl(String url) async {
+    final ok = await NanoRuntimeApi.instance.openUrl(url);
+    return ok
+        ? 'Abriendo $url...'
+        : '[openUrl:failed] No se pudo abrir la URL (debe ser http/https).';
+  }
+
   Future<String> _openSystem(ToolCall call) async {
     final raw = call.args?['destination']?.toString() ?? '';
     final destination = SystemDestination.fromWireId(raw);

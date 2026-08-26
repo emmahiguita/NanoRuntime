@@ -33,13 +33,26 @@ class NotificationDataCandidateProvider implements CandidateProvider {
     'save link',
   ];
 
+  static const _openTerms = [
+    'abre el enlace',
+    'abrir el enlace',
+    'abre el link',
+    'abrir el link',
+    'abre la url',
+    'abrir url',
+    'open the link',
+    'open link',
+  ];
+
   @override
   String get id => 'notificationData';
 
   @override
   Future<List<CandidateAction>> provide(CandidateRequest request) async {
     final goal = request.goal.toLowerCase();
-    if (!_saveTerms.any(goal.contains)) return const [];
+    final isSave = _saveTerms.any(goal.contains);
+    final isOpen = _openTerms.any(goal.contains);
+    if (!isSave && !isOpen) return const [];
 
     final raw = await _listNotifications();
     final notifications = raw
@@ -49,7 +62,7 @@ class NotificationDataCandidateProvider implements CandidateProvider {
         .toList();
     if (notifications.isEmpty) return const [];
 
-    // El dato a guardar: URL del mensaje más reciente (o del target nombrado).
+    // El dato accionable: URL del mensaje más reciente (o del target nombrado).
     final target = request.continuationTarget?.toLowerCase();
     final source = _find(notifications, target) ?? notifications.first;
     final data = const ObservedDataExtractor().extract(
@@ -57,6 +70,29 @@ class NotificationDataCandidateProvider implements CandidateProvider {
     );
     final url = data.primary;
     if (url == null) return const [];
+
+    if (isOpen) {
+      return [
+        CandidateAction(
+          id: CandidateId('notification:open:${source.packageName}'),
+          semanticAction: 'open_observed_url',
+          tool: 'open_url',
+          args: {'url': url, 'source': source.identity},
+          channel: ActionChannel.androidIntent,
+          groundingConfidence: 0.85,
+          risk: ToolRisk.device,
+          reversible: true,
+          requiredCapabilities: const {SystemCapability.openSystemSettings},
+          evidence: [
+            ActionEvidence(
+              source: ActionEvidenceSource.notificationCapability,
+              reference: 'url:${url.hashCode}',
+              confidence: 0.85,
+            ),
+          ],
+        ),
+      ];
+    }
 
     // Path por defecto en el rootfs de Nano (el usuario no especificó destino).
     const path = '/root/nano_observed_link.txt';

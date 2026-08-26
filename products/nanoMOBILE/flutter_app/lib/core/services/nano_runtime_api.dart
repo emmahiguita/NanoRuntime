@@ -763,6 +763,20 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A14.9 — abrir una URL externa (solo http/https) con intent VIEW. El nativo
+  /// valida el esquema para evitar intents arbitrarios. Devuelve false si falla.
+  Future<bool> openUrl(String url) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>('openUrl', {
+            'url': url,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] openUrl error: $e');
+      return false;
+    }
+  }
+
   /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.

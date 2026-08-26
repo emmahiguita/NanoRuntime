@@ -223,6 +223,13 @@ class ToolRegistry {
       timeout: Duration(seconds: 5),
       description: 'Abrir un destino de sistema allowlisted',
     ),
+    // A14.9: abrir URL externa (solo http/https, validada en el nativo).
+    ToolDefinition(
+      name: 'open_url',
+      risk: ToolRisk.device,
+      timeout: Duration(seconds: 10),
+      description: 'Abrir una URL http/https en el navegador',
+    ),
     // A14.4: Shizuku TIPADO. Solo capacidad read (queryPackage). El resto
     // (install/forceStop/grant) queda sin registrar hasta validar en device.
     // promptSyntax null: la invoca el humano/high-level, no el LLM (aún), para

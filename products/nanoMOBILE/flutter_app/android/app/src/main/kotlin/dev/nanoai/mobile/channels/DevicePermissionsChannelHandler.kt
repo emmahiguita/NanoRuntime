@@ -78,6 +78,7 @@ class DevicePermissionsChannelHandler(
                 result,
             )
             "systemState" -> result.success(systemState())
+            "openUrl" -> result.success(openUrl(call.argument<String>("url")))
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -170,6 +171,26 @@ class DevicePermissionsChannelHandler(
         } catch (e: Throwable) {
             pendingShizukuPermission = null
             result.error("shizuku_unsupported", e.message ?: "no soportado", null)
+        }
+    }
+
+    /**
+     * A14.9 — abrir una URL externa con intent VIEW. SOLO http/https: evita
+     * `intent://`/`file://`/`content://` que podrían disparar intents
+     * arbitrarios o leer archivos (anti-SSRF/injection). Devuelve false si no
+     * es http/https o el intent falla.
+     */
+    private fun openUrl(url: String?): Boolean {
+        val u = url?.trim().orEmpty()
+        if (u.isEmpty()) return false
+        if (!(u.startsWith("https://") || u.startsWith("http://"))) return false
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            activity.startActivity(intent)
+            true
+        } catch (_: Throwable) {
+            false
         }
     }
 
