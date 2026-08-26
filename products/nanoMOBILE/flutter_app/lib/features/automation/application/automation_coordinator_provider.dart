@@ -11,6 +11,7 @@ import 'package:nanoai/features/automation/engine/orchestration/task_orchestrato
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
+import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 
 import '../ledger/action_ledger_provider.dart';
 import 'automation_coordinator.dart';
@@ -59,9 +60,20 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       },
       // A15.4: fuentes UI (delegan al dispatcher, que ya tiene governance).
       launchApp: (appName) async {
+        // Resolver nombre de app → packageName real (el dispatcher launch_app
+        // espera package, no nombre). Evita "whatsapp" inválido.
+        final catalog = ref.read(installedAppCatalogProvider);
+        final match = await catalog.findApp(appName);
+        String? pkg;
+        if (match is AppMatchResolved) {
+          pkg = match.app.packageName;
+        } else if (match is AppMatchAmbiguous && match.candidates.isNotEmpty) {
+          pkg = match.candidates.first.packageName;
+        }
+        if (pkg == null) return false;
         final dispatcher = ref.read(agentDispatcherProvider);
         final r = await dispatcher.runToolGuarded(
-          ToolCall(tool: 'launch_app', text: appName),
+          ToolCall(tool: 'launch_app', text: pkg),
         );
         return !r.feedback.startsWith('[');
       },
