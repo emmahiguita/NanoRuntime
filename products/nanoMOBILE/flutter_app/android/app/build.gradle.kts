@@ -107,5 +107,11 @@ dependencies {
     // tipadas, nunca shell arbitrario. Apache-2.0, minSdk 23 <= nuestro minSdk 26.
     // Artefacto: github.com/rikkaapps/shizuku (api/manifest.gradle, v13.1.5).
     implementation("dev.rikka.shizuku:api:13.1.5")
+    // A14.3: ShizukuProvider (ContentProvider que establece el binding con el
+    // servicio Shizuku). NECESARIO: la clase `rikka.shizuku.ShizukuProvider` está
+    // en `dev.rikka.shizuku:provider` (NO en `:api`, confirmado inspeccionando la
+    // AAR). Sin este artifact, el <provider> del manifest se instancia por
+    // reflexión y no existe -> ClassNotFoundException en el arranque (crash).
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }
 

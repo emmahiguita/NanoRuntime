@@ -52,3 +52,11 @@
 # pingBinder()/checkSelfPermission() (disponibilidad factual) en runtime.
 -keep class rikka.shizuku.** { *; }
 -dontwarn rikka.shizuku.**
+
+# A14.3: ShizukuProvider se referencia SOLO por nombre en el AndroidManifest
+# (no hay código que lo instancie). R8 lo elimina si no se mantiene
+# explícitamente -> ClassNotFoundException en el arranque al instanciar el
+# provider. Los providers declarados en manifest SE INSTANCIAN POR REFLECTION;
+# el veredicto "código no usado" no aplica. Esta regla es la recomendada para
+# ContentProviders en manifest y cubre ShizukuProvider (extends ContentProvider).
+-keep public class * extends android.content.ContentProvider
