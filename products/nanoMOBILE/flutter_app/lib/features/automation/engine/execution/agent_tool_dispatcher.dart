@@ -837,7 +837,9 @@ class AgentToolDispatcher {
       case 'linux.readFile':
         result = await adapter.readFile(arg);
       case 'linux.writeFile':
-        final content = call.textArg ?? '';
+        // path viene de `arg` (textArg); content viene de args['content'] (A4
+        // canónico) con fallback a `text`. No reusar arg como content.
+        final content = (call.args?['content'] as String?) ?? call.text ?? '';
         result = await adapter.writeFile(arg, content);
       default:
         result = await adapter.runCommand(arg);

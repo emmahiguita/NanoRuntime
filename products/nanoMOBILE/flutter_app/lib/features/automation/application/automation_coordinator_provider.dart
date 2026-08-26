@@ -1,7 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
+    show ToolCall;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
+import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
+import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
 
@@ -33,5 +38,23 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     appLaunch: ref.watch(appLaunchResolverProvider),
     // A13.5: planificador Candidate-First de producción (0 LLM goals conocidos).
     candidateFirst: ref.watch(candidateFirstPlannerProvider),
+    // A15.0: orquestador cross-app multi-paso con data flow tipado (0 LLM).
+    taskPlanner: const TaskPlanner(),
+    taskOrchestrator: TaskOrchestrator(
+      listNotifications: () =>
+          NanoRuntimeApi.instance.listActiveNotifications(),
+      openUrl: (url) => NanoRuntimeApi.instance.openUrl(url),
+      writeFile: (path, content) async {
+        final dispatcher = ref.read(agentDispatcherProvider);
+        final r = await dispatcher.runToolGuarded(
+          ToolCall(
+            tool: 'linux.writeFile',
+            text: path,
+            args: {'content': content},
+          ),
+        );
+        return !r.feedback.startsWith('[');
+      },
+    ),
   );
 });

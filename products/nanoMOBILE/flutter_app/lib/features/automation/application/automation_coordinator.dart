@@ -45,6 +45,10 @@ import 'package:nanoai/features/automation/engine/planning/candidate_first_plann
         CandidatePlanGoverned,
         CandidatePlanNoCandidate,
         CandidatePlanResolved;
+import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
+import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
+    show TaskStepResult;
+import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
@@ -108,6 +112,10 @@ class AutomationCoordinator {
   /// conocidos). null = sin pipeline (legacy fallback directo).
   final CandidateFirstPlanner? _candidateFirst;
 
+  /// A15.0 — orquestador cross-app multi-paso con data flow tipado.
+  final TaskPlanner? _taskPlanner;
+  final TaskOrchestrator? _taskOrchestrator;
+
   /// A13.6 — callback para compartir la instancia de memoria actualizada con la
   /// DI (el notifier). null en tests/aislado.
   final void Function(NanoObjectMemory)? _onMemoryUpdate;
@@ -134,6 +142,8 @@ class AutomationCoordinator {
     PerceptionMux? perceptionMux,
     AppLaunchResolver? appLaunch,
     CandidateFirstPlanner? candidateFirst,
+    TaskPlanner? taskPlanner,
+    TaskOrchestrator? taskOrchestrator,
     void Function(NanoObjectMemory)? onMemoryUpdate,
     void Function(C14Execution)? c14Sink,
   }) : _dispatcher = dispatcher,
@@ -148,6 +158,8 @@ class AutomationCoordinator {
        _perceptionMux = perceptionMux,
        _appLaunch = appLaunch,
        _candidateFirst = candidateFirst,
+       _taskPlanner = taskPlanner,
+       _taskOrchestrator = taskOrchestrator,
        _onMemoryUpdate = onMemoryUpdate,
        _c14Sink = c14Sink;
 
@@ -169,6 +181,8 @@ class AutomationCoordinator {
         perceptionMux: _perceptionMux,
         appLaunch: _appLaunch,
         candidateFirst: _candidateFirst,
+        taskPlanner: _taskPlanner,
+        taskOrchestrator: _taskOrchestrator,
         onMemoryUpdate: _onMemoryUpdate,
         c14Sink: sink,
       );
@@ -273,6 +287,18 @@ class AutomationCoordinator {
 
   /// Ejecuta un plan multi-paso bajo gobernanza. [recordGoal] != null →
   /// memoriza el resultado en cache (C7), PERO de forma SOUND: solo cuando el
+  /// A15.0 — seam cross-app: si el objetivo matchea un template determinista
+  /// multi-paso (guarda/abre el enlace), ejecuta el TaskOrchestrator con data
+  /// flow tipado. null = no es un objetivo cross-app (usar el flujo simple).
+  Future<List<TaskStepResult>?> runCrossAppTask(String goal) async {
+    final planner = _taskPlanner;
+    final orchestrator = _taskOrchestrator;
+    if (planner == null || orchestrator == null) return null;
+    final plan = planner.plan(goal);
+    if (plan == null) return null;
+    return orchestrator.run(plan);
+  }
+
   /// OBJETIVO está verificado satisfecho ([GoalVerifier]); un plan que
   /// completó a nivel pasos pero NO logró el objetivo NO se memoriza.
   Future<PlanOutcome> runPlan(
