@@ -28,7 +28,7 @@ class EngineStatusCard extends ConsumerWidget {
       reflectionStrength: 0.28,
       blurSigma: 12,
       padding: const EdgeInsets.all(NanoSpacing.md),
-      onTap: () => _showDetails(context, engine, linux),
+      onTap: () => _showDetails(context, engine, linux, ref),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -65,12 +65,18 @@ class EngineStatusCard extends ConsumerWidget {
     );
   }
 
-  void _showDetails(BuildContext context, EngineStatus? engine, bool linux) {
+  void _showDetails(
+    BuildContext context,
+    EngineStatus? engine,
+    bool linux,
+    WidgetRef ref,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (ctx) {
         final colors = NanoThemeExtension.of(ctx).colors;
+        final live = engine?.isLive ?? false;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -97,12 +103,48 @@ class EngineStatusCard extends ConsumerWidget {
                 ),
                 _detailRow(ctx, 'Puerto', '${engine?.port ?? 0}'),
                 _detailRow(ctx, 'Linux', linux ? 'Instalado' : 'Sin preparar'),
+                const SizedBox(height: NanoSpacing.md),
+                // Control de ciclo de vida del motor. El «Reiniciar» (stop+start)
+                // libera el puerto si quedó ocupado por un motor colgado.
+                Wrap(
+                  spacing: NanoSpacing.sm,
+                  runSpacing: NanoSpacing.sm,
+                  children: [
+                    if (live)
+                      FilledButton.icon(
+                        onPressed: () =>
+                            ref.read(runtimeEngineProvider.notifier).stop(),
+                        icon: const Icon(Icons.power_settings_new_rounded),
+                        label: const Text('Apagar'),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: () =>
+                            ref.read(runtimeEngineProvider.notifier).start(),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text('Encender'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () => _restart(ref),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Reiniciar'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  /// Reinicio seguro: detener el motor (libera el puerto) y arrancar de nuevo.
+  /// Útil cuando el puerto aparece ocupado por un proceso del motor colgado.
+  Future<void> _restart(WidgetRef ref) async {
+    final notifier = ref.read(runtimeEngineProvider.notifier);
+    await notifier.stop();
+    await notifier.start();
   }
 
   Widget _detailRow(BuildContext context, String label, String value) {
