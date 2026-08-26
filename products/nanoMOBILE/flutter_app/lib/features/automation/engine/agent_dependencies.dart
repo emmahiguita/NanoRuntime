@@ -5,6 +5,7 @@ import '../../../core/services/nano_runtime_api.dart';
 import '../../../core/services/runtime_engine.dart';
 import 'execution/action_path_router.dart';
 import 'execution/action_verifier.dart';
+import 'execution/platform_verification_router.dart';
 import 'execution/agent_executor.dart';
 import 'execution/agent_tool_dispatcher.dart';
 import 'memory/experience_cache.dart';
@@ -60,8 +61,14 @@ final agentExecutorProvider = Provider<AgentExecutor>((ref) {
 });
 
 /// Verificador de postcondiciones que comparte el snapshot del executor.
+/// A14.5: incorpora el lector de estado de plataforma (app en primer plano,
+/// archivos Linux) para verificar acciones no-UI de forma factual.
 final agentVerifierProvider = Provider<AgentVerifier>((ref) {
-  return ActionVerifier(snapshotFn: ref.watch(agentExecutorProvider).snapshot);
+  final executor = ref.watch(agentExecutorProvider);
+  return ActionVerifier(
+    snapshotFn: executor.snapshot,
+    platformReader: PlatformVerificationRouter(snapshotFn: executor.snapshot),
+  );
 });
 
 /// Política de gobernanza con el registro canónico de tools.
@@ -79,6 +86,11 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     verifier: ref.watch(agentVerifierProvider),
     router: ref.watch(actionPathRouterProvider),
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
+    // A14.5: lector de estado de plataforma para verificar postcondiciones
+    // no-UI (archivo Linux, app fuera de foco) tras ejecutar.
+    platformStateReader: PlatformVerificationRouter(
+      snapshotFn: ref.watch(agentExecutorProvider).snapshot,
+    ),
     // A14.5: fuentes REALES del informe ejecutivo (@capacidades) y apertura de
     // pantallas de permiso (@conceder_<x>). Lee el SystemGraph y el estado de
     // permisos/Shizuku del dispositivo — nada simulado.

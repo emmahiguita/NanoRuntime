@@ -25,6 +25,7 @@ import '../platform/linux_tool_adapter.dart';
 import '../perception/nano_selector.dart';
 import '../perception/nano_snapshot.dart' as nano_snapshot;
 import '../system/capabilities_report.dart';
+import 'platform_verification.dart';
 import '../system/system_destination.dart' show SystemDestination;
 import '../system/system_graph.dart' show SystemGraph;
 import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
@@ -324,6 +325,7 @@ class AgentToolDispatcher {
     Future<Map<dynamic, dynamic>> Function()? devicePermissionsSource,
     Future<Map<dynamic, dynamic>> Function()? shizukuStatusSource,
     Future<bool> Function(String kind)? openPermissionSource,
+    PlatformStateReader? platformStateReader,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
@@ -339,7 +341,8 @@ class AgentToolDispatcher {
        _systemGraphSource = systemGraphSource,
        _devicePermissionsSource = devicePermissionsSource,
        _shizukuStatusSource = shizukuStatusSource,
-       _openPermissionSource = openPermissionSource;
+       _openPermissionSource = openPermissionSource,
+       _platformStateReader = platformStateReader;
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
@@ -378,6 +381,11 @@ class AgentToolDispatcher {
   final Future<Map<dynamic, dynamic>> Function()? _devicePermissionsSource;
   final Future<Map<dynamic, dynamic>> Function()? _shizukuStatusSource;
   final Future<bool> Function(String kind)? _openPermissionSource;
+
+  /// A14.5 — lector de estado de plataforma para verificar postcondiciones
+  /// no-UI (archivo Linux, app fuera de foco). null = no se puede afirmar
+  /// verificación de plataforma (se reporta "solo aceptado").
+  final PlatformStateReader? _platformStateReader;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -830,6 +838,15 @@ class AgentToolDispatcher {
     }
     if (!result.ok) {
       return '[linux] ${result.infrastructureError}';
+    }
+    // A14.5 — postcondición de plataforma. Para writeFile, si el lector puede
+    // confirmar que el archivo existe, la escritura queda VERIFICADA (no solo
+    // "ok" del backend). Si no es observable, se reporta solo "escrito".
+    if (call.tool == 'linux.writeFile' && _platformStateReader != null) {
+      final r = await _platformStateReader!.evaluate(FileExists(arg));
+      if (r is PlatformPredicateSatisfied) {
+        return 'Archivo escrito y verificado en "$arg".';
+      }
     }
     final out = result.stdout.trim();
     final tail = out.length > 800 ? '${out.substring(0, 800)}…' : out;
@@ -1292,9 +1309,26 @@ class AgentToolDispatcher {
           'Usa @conceder shizuku.';
     }
     final ok = await NanoRuntimeApi.instance.shizukuForceStop(pkg);
-    return ok
-        ? 'Solicitada la detención de "$pkg". Es reversible: tócala para reabrirla.'
-        : '[forceStop:failed] No se pudo detener "$pkg" (¿existe o autorizó?).';
+    if (!ok) {
+      return '[forceStop:failed] No se pudo solicitar la detención de "$pkg".';
+    }
+    // A14.5 — postcondición de plataforma: la app dejó de estar en primer
+    // plano. Si el lector puede confirmarlo, es un hecho VERIFICADO, no solo
+    // "aceptado". Si no es observable, se reporta "solicitado, no verificado".
+    final reader = _platformStateReader;
+    if (reader != null) {
+      final r = await reader.evaluate(PackageNotForeground(pkg));
+      if (r is PlatformPredicateSatisfied) {
+        return 'Detenida "$pkg" (verificado: dejó de estar en primer plano). '
+            'Reversible: tócala para reabrirla.';
+      }
+      if (r is PlatformPredicateUnsatisfied) {
+        return 'Detención solicitada de "$pkg", pero SIGUE en primer plano: '
+            '${r.reason}.';
+      }
+    }
+    return 'Detención solicitada de "$pkg". No se pudo verificar el estado '
+        'del proceso (visibilidad restringida).';
   }
 
   /// Responde a una notificación desde el chat con control humano (A14.5).  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o

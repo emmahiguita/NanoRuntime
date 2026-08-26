@@ -19,6 +19,7 @@ library;
 import '../perception/nano_selector.dart';
 import '../perception/nano_snapshot.dart';
 import '../perception/selector_engine.dart';
+import 'platform_verification.dart';
 
 /// Postcondiciones de una acción. Todas opcionales: la ausencia de criterios
 /// es una expectativa trivialmente verificada (compat con acciones de solo
@@ -47,6 +48,11 @@ class ActionExpectation {
   /// el `preSnapshot`.
   final bool mustChangeSnapshot;
 
+  /// Postcondiciones de PLATAFORMA (A14.5): hechos verificados contra el estado
+  /// real del sistema (app en primer plano, archivo existe, proceso ausente),
+  /// no contra el "OK" del backend. Vacío = legacy UI-only (compat).
+  final List<PlatformPredicate> platformPredicates;
+
   /// Plazo máximo total de verificación.
   final Duration timeout;
 
@@ -60,6 +66,7 @@ class ActionExpectation {
     this.expectedText,
     this.forbiddenText,
     this.mustChangeSnapshot = false,
+    this.platformPredicates = const [],
     this.timeout = const Duration(seconds: 4),
     this.pollInterval = const Duration(milliseconds: 300),
   });
@@ -73,6 +80,7 @@ class ActionExpectation {
     String? expectedText,
     String? forbiddenText,
     bool? mustChangeSnapshot,
+    List<PlatformPredicate>? platformPredicates,
     Duration? timeout,
     Duration? pollInterval,
   }) {
@@ -83,6 +91,7 @@ class ActionExpectation {
       expectedText: expectedText ?? this.expectedText,
       forbiddenText: forbiddenText ?? this.forbiddenText,
       mustChangeSnapshot: mustChangeSnapshot ?? this.mustChangeSnapshot,
+      platformPredicates: platformPredicates ?? this.platformPredicates,
       timeout: timeout ?? this.timeout,
       pollInterval: pollInterval ?? this.pollInterval,
     );
@@ -90,6 +99,16 @@ class ActionExpectation {
 
   /// True si hay al menos una postcondición que comprobar.
   bool get hasCriteria =>
+      (expectedPackage != null && expectedPackage!.isNotEmpty) ||
+      mustAppear != null ||
+      mustDisappear != null ||
+      (expectedText != null && expectedText!.isNotEmpty) ||
+      (forbiddenText != null && forbiddenText!.isNotEmpty) ||
+      mustChangeSnapshot ||
+      platformPredicates.isNotEmpty;
+
+  /// True si hay criterios de UI (snapshot) que exijan el bucle de sondeo.
+  bool get hasUiCriteria =>
       (expectedPackage != null && expectedPackage!.isNotEmpty) ||
       mustAppear != null ||
       mustDisappear != null ||
@@ -107,6 +126,7 @@ class ActionExpectation {
       if (expectedText != null) 'text~=$expectedText',
       if (forbiddenText != null) 'forbidden~=$forbiddenText',
       if (mustChangeSnapshot) 'mustChangeSnapshot',
+      for (final p in platformPredicates) p.toDebugString(),
     ];
     return parts.join(', ');
   }
@@ -169,11 +189,17 @@ class ActionVerifier implements AgentVerifier {
   ActionVerifier({
     required Future<NanoSnapshot?> Function() snapshotFn,
     NanoSelectorEngine? engine,
+    PlatformStateReader? platformReader,
   }) : _snapshotFn = snapshotFn,
-       _engine = engine ?? NanoSelectorEngine();
+       _engine = engine ?? NanoSelectorEngine(),
+       _platformReader = platformReader;
 
   final Future<NanoSnapshot?> Function() _snapshotFn;
   final NanoSelectorEngine _engine;
+
+  /// Lector de estado de plataforma (A14.5). null = no se pueden verificar
+  /// postcondiciones de plataforma (se declara no-verificable, nunca éxito).
+  final PlatformStateReader? _platformReader;
 
   /// Verifica [expectation]. [preSnapshot] solo se usa para
   /// [ActionExpectation.mustChangeSnapshot].
@@ -187,6 +213,43 @@ class ActionVerifier implements AgentVerifier {
         status: VerificationStatus.verified,
         reason: 'Sin postcondiciones declaradas.',
       );
+    }
+
+    // A14.5 — postcondiciones de plataforma: se evalúan como hechos factuales
+    // (no UI). Sin lector → no-verificable (honesto, nunca éxito supuesto).
+    if (expectation.platformPredicates.isNotEmpty) {
+      final reader = _platformReader;
+      if (reader == null) {
+        return const VerificationOutcome(
+          status: VerificationStatus.serviceUnavailable,
+          reason:
+              'La acción declara postcondiciones de plataforma pero no hay '
+              'lector de estado de plataforma.',
+        );
+      }
+      final pr = await evaluateAllOf(expectation.platformPredicates, reader);
+      if (pr is PlatformPredicateUnsatisfied) {
+        return VerificationOutcome(
+          status: VerificationStatus.notVerified,
+          reason: 'Postcondición de plataforma NO cumplida: ${pr.reason}',
+        );
+      }
+      if (pr is PlatformPredicateUnavailable) {
+        return VerificationOutcome(
+          status: VerificationStatus.serviceUnavailable,
+          reason: 'Postcondición de plataforma no observable: ${pr.reason}',
+        );
+      }
+      // Plataforma satisfecha. Si NO hay criterios de UI, la acción quedó
+      // verificada por plataforma (no hay nada más que sondee un snapshot).
+      if (!expectation.hasUiCriteria) {
+        return VerificationOutcome(
+          status: VerificationStatus.verified,
+          reason:
+              'Postcondiciones de plataforma cumplidas: '
+              '${expectation.toDebugString()}',
+        );
+      }
     }
 
     final deadline = DateTime.now().add(expectation.timeout);
