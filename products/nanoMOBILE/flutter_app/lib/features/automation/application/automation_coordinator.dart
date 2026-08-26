@@ -456,6 +456,31 @@ class AutomationCoordinator {
     }
 
     if (plan == null) {
+      // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
+      // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
+      // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
+      final crossApp = await runCrossAppTask(goal.text);
+      if (crossApp != null) {
+        TaskStepResult? firstFailed;
+        for (final s in crossApp) {
+          if (!s.isCompleted) {
+            firstFailed = s;
+            break;
+          }
+        }
+        final r = AutomationResult(
+          executionId: executionId,
+          status: firstFailed == null
+              ? AutomationResultStatus.completedUnverified
+              : AutomationResultStatus.failed,
+          reason: firstFailed == null
+              ? 'Tarea cross-app completada (${crossApp.length} pasos).'
+              : 'Tarea cross-app no completada: ${firstFailed.reason}',
+        );
+        emit(r);
+        return r;
+      }
+
       final deterministic = await tryDeterministic(
         goal.text,
         expectation: goal.expectation,
