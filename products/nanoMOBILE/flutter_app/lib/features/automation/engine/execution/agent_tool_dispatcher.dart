@@ -777,6 +777,12 @@ class AgentToolDispatcher {
           return '[tool] shizuku_query_package requiere <packageName>.';
         }
         return _shizukuQueryPackage(pkgArg);
+      case 'force_stop_package':
+        final pkgArg2 = (call.textArg ?? call.selectorArg ?? '').trim();
+        if (pkgArg2.isEmpty) {
+          return '[tool] force_stop_package requiere <packageName>.';
+        }
+        return _shizukuForceStop(pkgArg2);
       case 'reply_notification':
         final key = call.keyArg?.trim() ?? '';
         final text = call.textArg?.trim() ?? '';
@@ -1264,6 +1270,31 @@ class AgentToolDispatcher {
       return 'Detalle de $pkg:\n${tail.isEmpty ? '(sin salida)' : tail}';
     }
     return '[shizukuQuery:${result['code']}] No se pudo consultar el paquete.';
+  }
+
+  /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible
+  /// reabriéndola). Verifica disponibilidad + autorización ANTES; valida el
+  /// paquete. El nativo vincula el UserService Shizuku (privilegios).
+  Future<String> _shizukuForceStop(String packageName) async {
+    final pkg = packageName.trim();
+    if (pkg.isEmpty ||
+        pkg.length > 255 ||
+        !RegExp(r'^[a-zA-Z][a-zA-Z0-9._]*$').hasMatch(pkg)) {
+      return '[tool] force_stop_package: paquete inválido.';
+    }
+    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
+    if (shizuku['installed'] != true) {
+      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
+    }
+    if (shizuku['binderAlive'] != true ||
+        shizuku['permissionGranted'] != true) {
+      return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
+          'Usa @conceder shizuku.';
+    }
+    final ok = await NanoRuntimeApi.instance.shizukuForceStop(pkg);
+    return ok
+        ? 'Solicitada la detención de "$pkg". Es reversible: tócala para reabrirla.'
+        : '[forceStop:failed] No se pudo detener "$pkg" (¿existe o autorizó?).';
   }
 
   /// Responde a una notificación desde el chat con control humano (A14.5).  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o

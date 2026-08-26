@@ -152,6 +152,19 @@
         <meta-data
             android:name="moe.shizuku.client.V3_SUPPORT"
             android:value="true" />
+        <!-- A14.4: UserService de Shizuku que ejecuta operaciones de paquete
+             tipadas con privilegios (forceStop, queryPackage). El intent-filter
+             USER_SERVICE permite que Shizuku lo invoque en su proceso. Solo
+             packageName validado; nunca shell libre. -->
+        <service
+            android:name="dev.nanoai.mobile.shizuku.PackageActionService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL">
+            <intent-filter>
+                <action android:name="rikka.shizuku.intent.action.USER_SERVICE" />
+            </intent-filter>
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

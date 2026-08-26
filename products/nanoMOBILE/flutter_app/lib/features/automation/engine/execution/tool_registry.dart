@@ -234,6 +234,17 @@ class ToolRegistry {
       description:
           'Consultar metadatos de un paquete con privilegios Shizuku (solo lectura)',
     ),
+    // A14.4: detener una app vía Shizuku (reversible reabriéndola). Requiere
+    // Shizuku instalado + Nano autorizado. promptSyntax null (invocación
+    // humana/planner, no LLM) para no inflar el prompt móvil.
+    ToolDefinition(
+      name: 'force_stop_package',
+      risk: ToolRisk.device,
+      requiresConfirmation: true,
+      timeout: Duration(seconds: 15),
+      description:
+          'Detener una aplicación con privilegios Shizuku (reversible)',
+    ),
   ];
 
   /// Resuelve [name] (con alias) al registro canónico; null si no existe.

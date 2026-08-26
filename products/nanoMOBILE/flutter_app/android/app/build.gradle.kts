@@ -15,6 +15,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // A14.4: habilita la compilación de AIDL (UserService de Shizuku).
+    buildFeatures {
+        aidl = true
+    }
+
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }

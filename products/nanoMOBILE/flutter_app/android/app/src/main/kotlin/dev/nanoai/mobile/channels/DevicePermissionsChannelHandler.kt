@@ -7,12 +7,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
+import android.content.ServiceConnection
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import dev.nanoai.mobile.services.AgentAccessibilityService
+import dev.nanoai.mobile.shizuku.IPackageAction
+import dev.nanoai.mobile.shizuku.PackageActionService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import rikka.shizuku.Shizuku
@@ -64,6 +69,10 @@ class DevicePermissionsChannelHandler(
                 shizukuQueryPackage(call.argument<String>("packageName")),
             )
             "shizukuRequestPermission" -> shizukuRequestPermission(result)
+            "shizukuForceStop" -> shizukuForceStop(
+                call.argument<String>("packageName"),
+                result,
+            )
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -170,6 +179,50 @@ class DevicePermissionsChannelHandler(
                     false
                 }
             }
+    }
+
+    /**
+     * A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible
+     * reabriéndola). Usa el UserService [PackageActionService], cuyo código corre
+     * en el proceso Shizuku (privilegios). Solo packageName validado; el estado
+     * de autorización se valida (a nivel de broker) ANTES de llegar aquí.
+     */
+    private fun shizukuForceStop(packageName: String?, result: MethodChannel.Result) {
+        val pkg = packageName?.trim().orEmpty()
+        if (pkg.isEmpty() || pkg.length > 255 ||
+            !pkg.matches(Regex("[a-zA-Z][a-zA-Z0-9._]*"))
+        ) {
+            result.success(false)
+            return
+        }
+        val args = Shizuku.UserServiceArgs(
+            ComponentName(activity, PackageActionService::class.java),
+        )
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, service: IBinder) {
+                val stub = IPackageAction.Stub.asInterface(service)
+                val ok = try {
+                    stub.forceStop(pkg)
+                } catch (_: Throwable) {
+                    false
+                }
+                mainHandler.post { result.success(ok) }
+                try {
+                    Shizuku.unbindUserService(args, this, true)
+                } catch (_: Throwable) {
+                    // se desvincula tras resolver; sin consecuencias.
+                }
+            }
+
+            override fun onServiceDisconnected(name: ComponentName) {
+                mainHandler.post { result.success(false) }
+            }
+        }
+        try {
+            Shizuku.bindUserService(args, connection)
+        } catch (e: Throwable) {
+            result.success(false)
+        }
     }
 
     /**

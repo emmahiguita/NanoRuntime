@@ -60,3 +60,7 @@
 # el veredicto "código no usado" no aplica. Esta regla es la recomendada para
 # ContentProviders en manifest y cubre ShizukuProvider (extends ContentProvider).
 -keep public class * extends android.content.ContentProvider
+# A14.4: UserService / AIDL de Shizuku. El servicio se invoca por nombre desde
+# el manifesto/USER_SERVICE y el Stub por Binder: R8 no debe renombrarlos.
+-keep class dev.nanoai.mobile.shizuku.** { *; }
+-keepnames class * implements dev.nanoai.mobile.shizuku.IPackageAction
