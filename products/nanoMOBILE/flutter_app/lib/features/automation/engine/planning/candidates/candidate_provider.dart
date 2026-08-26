@@ -13,7 +13,18 @@ import 'candidate_action.dart';
 /// prematuro.
 class CandidateRequest {
   final String goal;
-  const CandidateRequest(this.goal);
+
+  /// Target de continuación (A14.8): identidad grounded que viene de la capa de
+  /// notificación (sender/conversation), NO del texto del modelo. Ej. "Juan".
+  /// Vacío/null = no hay contexto de continuación; el provider lo deriva del goal.
+  final String? continuationTarget;
+
+  /// Borrador de mensaje aprobado (A14.8): texto proveniente de intención del
+  /// usuario o respuesta generada aprobada, NO de instrucciones de pantalla.
+  /// El write candidate lo usa como payload y como postcondición TextFieldContains.
+  final String? draftText;
+
+  const CandidateRequest(this.goal, {this.continuationTarget, this.draftText});
 }
 
 /// Genera opciones grounded para un [CandidateRequest]. Cada provider es una

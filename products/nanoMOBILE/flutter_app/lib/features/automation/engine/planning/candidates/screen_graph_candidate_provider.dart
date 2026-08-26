@@ -18,6 +18,7 @@ import '../../perception/semantic/nano_ui_object.dart';
 import '../../perception/semantic/screen_graph.dart';
 import '../../perception/semantic/semantic_role.dart';
 import '../../execution/action_verifier.dart' show ActionExpectation;
+import '../../execution/platform_verification.dart' show TextFieldContains;
 import '../../execution/tool_registry.dart' show ToolRisk;
 import '../../system/system_capability.dart';
 import 'candidate_action.dart';
@@ -42,7 +43,10 @@ class ScreenGraphCandidateProvider implements CandidateProvider {
     // objetivo es de mensajería (responde/contesta/enviar). Para cualquier otro
     // objetivo, un textField o un botón "Enviar" NO es un compositor de mensaje.
     final isMessaging = _messagingVerbs.any(goal.contains);
-    final target = _targetFromGoal(goal);
+    // Target de continuación grounded (sender de la notificación) tiene
+    // prioridad sobre el texto del goal (A14.8, sección 12).
+    final target = (request.continuationTarget ?? _targetFromGoal(goal))
+        .toLowerCase();
 
     final candidates = <CandidateAction>[];
 
@@ -68,7 +72,7 @@ class ScreenGraphCandidateProvider implements CandidateProvider {
       for (final obj in graph.objects) {
         if (!obj.visible || !obj.editable) continue;
         if (obj.role != SemanticRole.textField) continue;
-        candidates.add(_writeMessageText(obj));
+        candidates.add(_writeMessageText(obj, request.draftText));
         candidates.add(_focusMessageInput(obj));
       }
 
@@ -195,24 +199,33 @@ class ScreenGraphCandidateProvider implements CandidateProvider {
     expectation: const ActionExpectation(mustChangeSnapshot: true),
   );
 
-  CandidateAction _writeMessageText(NanoUiObject obj) => CandidateAction(
-    id: CandidateId('ui:message_input:${obj.id}'),
-    semanticAction: 'write_message_text',
-    tool: 'write',
-    args: {'selector': _selectorFor(obj)},
-    channel: ActionChannel.accessibility,
-    groundingConfidence: 0.8,
-    risk: ToolRisk.device,
-    reversible: true,
-    requiredCapabilities: const {SystemCapability.interactAccessibility},
-    evidence: [
-      ActionEvidence(
-        source: ActionEvidenceSource.accessibility,
-        reference: obj.id,
-        confidence: 0.8,
-      ),
-    ],
-  );
+  CandidateAction _writeMessageText(NanoUiObject obj, String? draft) =>
+      CandidateAction(
+        id: CandidateId('ui:message_input:${obj.id}'),
+        semanticAction: 'write_message_text',
+        tool: 'write',
+        args: {
+          'selector': _selectorFor(obj),
+          if (draft != null && draft.isNotEmpty) 'text': draft,
+        },
+        channel: ActionChannel.accessibility,
+        groundingConfidence: 0.8,
+        risk: ToolRisk.device,
+        reversible: true,
+        requiredCapabilities: const {SystemCapability.interactAccessibility},
+        evidence: [
+          ActionEvidence(
+            source: ActionEvidenceSource.accessibility,
+            reference: obj.id,
+            confidence: 0.8,
+          ),
+        ],
+        // Postcondición real del write: el campo contiene el borrador esperado
+        // (A14.8, sección 7). Sin draft no se asume éxito de contenido.
+        expectation: (draft != null && draft.isNotEmpty)
+            ? ActionExpectation(platformPredicates: [TextFieldContains(draft)])
+            : null,
+      );
 
   CandidateAction _focusMessageInput(NanoUiObject obj) => CandidateAction(
     id: CandidateId('ui:focus_input:${obj.id}'),
