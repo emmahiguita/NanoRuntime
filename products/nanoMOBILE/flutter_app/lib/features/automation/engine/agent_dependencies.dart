@@ -68,7 +68,10 @@ final agentVerifierProvider = Provider<AgentVerifier>((ref) {
   final executor = ref.watch(agentExecutorProvider);
   return ActionVerifier(
     snapshotFn: executor.snapshot,
-    platformReader: PlatformVerificationRouter(snapshotFn: executor.snapshot),
+    platformReader: PlatformVerificationRouter(
+      snapshotFn: executor.snapshot,
+      systemStateSource: () => NanoRuntimeApi.instance.systemState(),
+    ),
   );
 });
 
@@ -91,6 +94,7 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     // no-UI (archivo Linux, app fuera de foco) tras ejecutar.
     platformStateReader: PlatformVerificationRouter(
       snapshotFn: ref.watch(agentExecutorProvider).snapshot,
+      systemStateSource: () => NanoRuntimeApi.instance.systemState(),
     ),
     // A14.5: fuentes REALES del informe ejecutivo (@capacidades) y apertura de
     // pantallas de permiso (@conceder_<x>). Lee el SystemGraph y el estado de
@@ -137,8 +141,16 @@ final experienceCacheProvider = Provider<ExperienceCache>((ref) {
 });
 
 /// Verificador del objetivo final (C3), sobre el MISMO executor del dispatcher.
+/// A14.5.4: incorpora el lector de estado semántico (media/Bluetooth/WiFi/texto).
 final goalVerifierProvider = Provider<GoalVerifier>((ref) {
-  return GoalVerifier(executor: ref.watch(agentExecutorProvider));
+  final executor = ref.watch(agentExecutorProvider);
+  return GoalVerifier(
+    executor: executor,
+    stateReader: PlatformVerificationRouter(
+      snapshotFn: executor.snapshot,
+      systemStateSource: () => NanoRuntimeApi.instance.systemState(),
+    ),
+  );
 });
 
 /// Ejecutor de flujos deterministas (C8): flujo verificado → ejecución sin

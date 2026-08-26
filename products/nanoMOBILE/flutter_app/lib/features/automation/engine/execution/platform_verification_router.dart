@@ -21,11 +21,14 @@ class PlatformVerificationRouter implements PlatformStateReader {
   PlatformVerificationRouter({
     required Future<NanoSnapshot?> Function() snapshotFn,
     LinuxToolAdapter? linuxAdapter,
+    Future<Map<dynamic, dynamic>> Function()? systemStateSource,
   }) : _snapshotFn = snapshotFn,
-       _linuxAdapter = linuxAdapter;
+       _linuxAdapter = linuxAdapter,
+       _systemStateSource = systemStateSource;
 
   final Future<NanoSnapshot?> Function() _snapshotFn;
   final LinuxToolAdapter? _linuxAdapter;
+  final Future<Map<dynamic, dynamic>> Function()? _systemStateSource;
 
   @override
   Future<PlatformPredicateResult> evaluate(PlatformPredicate predicate) async {
@@ -43,6 +46,20 @@ class PlatformVerificationRouter implements PlatformStateReader {
         path,
         content,
       ),
+      // A14.5.4 — predicados de estado semántico.
+      MediaPlaybackStateEquals(:final playing) => _mediaPlaybackEquals(playing),
+      ToggleStateEquals(:final toggle, :final enabled) => _toggleEquals(
+        toggle,
+        enabled,
+      ),
+      TextFieldContains(:final text, :final caseSensitive) => _fieldContains(
+        text,
+        caseSensitive,
+      ),
+      ConversationOpenEquals(:final packageName) => _foregroundEquals(
+        packageName,
+        expectForeground: true,
+      ),
       PackageProcessAbsent() => const PlatformPredicateUnavailable(
         'La visibilidad de procesos está restringida en Android moderno; '
         'no se puede afirmar de forma factual.',
@@ -56,6 +73,68 @@ class PlatformVerificationRouter implements PlatformStateReader {
         'executor; no es re-observable aquí.',
       ),
     };
+  }
+
+  Future<PlatformPredicateResult> _mediaPlaybackEquals(bool playing) async {
+    final source = _systemStateSource;
+    if (source == null) {
+      return const PlatformPredicateUnavailable(
+        'Sin lector de estado del sistema (media).',
+      );
+    }
+    final state = await source();
+    final actual = state['mediaPlaying'] == true;
+    if (actual == playing) {
+      return PlatformPredicateSatisfied('mediaPlaying=$actual');
+    }
+    return PlatformPredicateUnsatisfied(
+      'Se esperaba mediaPlaying=$playing, real=$actual.',
+    );
+  }
+
+  Future<PlatformPredicateResult> _toggleEquals(
+    SystemToggle toggle,
+    bool enabled,
+  ) async {
+    final source = _systemStateSource;
+    if (source == null) {
+      return const PlatformPredicateUnavailable(
+        'Sin lector de estado del sistema (toggle).',
+      );
+    }
+    final state = await source();
+    final actual = switch (toggle) {
+      SystemToggle.bluetooth => state['bluetoothEnabled'] == true,
+      SystemToggle.wifi => state['wifiEnabled'] == true,
+    };
+    if (actual == enabled) {
+      return PlatformPredicateSatisfied('${toggle.name}=$actual');
+    }
+    return PlatformPredicateUnsatisfied(
+      'Se esperaba ${toggle.name}=$enabled, real=$actual.',
+    );
+  }
+
+  Future<PlatformPredicateResult> _fieldContains(
+    String text,
+    bool caseSensitive,
+  ) async {
+    final snap = await _snapshotFn();
+    if (snap == null) {
+      return const PlatformPredicateUnavailable(
+        'Sin snapshot para leer el campo de texto.',
+      );
+    }
+    final needle = caseSensitive ? text : text.toLowerCase();
+    for (final node in snap.visibleNodes) {
+      final t = caseSensitive ? node.text : node.text.toLowerCase();
+      if (t.contains(needle)) {
+        return PlatformPredicateSatisfied('campo/texto contiene "$text"');
+      }
+    }
+    return PlatformPredicateUnsatisfied(
+      'Ningún nodo de texto contiene "$text".',
+    );
   }
 
   Future<PlatformPredicateResult> _foregroundEquals(

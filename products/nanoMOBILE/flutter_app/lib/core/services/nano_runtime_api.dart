@@ -749,6 +749,20 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A14.5.4 — estado semántico factual del sistema (media reproduciéndose,
+  /// Bluetooth/WiFi on/off). Lectura pasiva; devuelve vacío si el canal falla.
+  Future<Map<dynamic, dynamic>> systemState() async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'systemState',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] systemState error: $e');
+      return const {};
+    }
+  }
+
   /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.

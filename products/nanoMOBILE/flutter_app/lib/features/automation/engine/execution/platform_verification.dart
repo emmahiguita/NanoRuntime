@@ -80,6 +80,51 @@ class NotificationReplyAccepted extends PlatformPredicate {
   String toDebugString() => 'replyAccepted==$key';
 }
 
+/// A14.5.4 — predicados de ESTADO SEMÁNTICO (el objetivo real del usuario,
+/// no solo "llegué al destino"). Distinguen "pantalla contiene X" de "el
+/// estado X ocurrió".
+
+/// Reproducción de medios activa/inactiva (reproduce/pausa un video/audio).
+class MediaPlaybackStateEquals extends PlatformPredicate {
+  const MediaPlaybackStateEquals(this.playing);
+  final bool playing;
+  @override
+  String toDebugString() => 'mediaPlaying==$playing';
+}
+
+/// Conmutador de sistema en un estado concreto (Bluetooth/WiFi on/off).
+enum SystemToggle { bluetooth, wifi }
+
+class ToggleStateEquals extends PlatformPredicate {
+  const ToggleStateEquals(this.toggle, this.enabled);
+  final SystemToggle toggle;
+  final bool enabled;
+  @override
+  String toDebugString() => '${toggle.name}==$enabled';
+}
+
+/// Un campo de texto (EditText) contiene el texto esperado (estado real de la
+/// UI, no presencia de un label). Se resuelve contra el snapshot de accesibilidad.
+class TextFieldContains extends PlatformPredicate {
+  const TextFieldContains(this.text, {this.caseSensitive = false});
+  final String text;
+  final bool caseSensitive;
+  @override
+  String toDebugString() => 'fieldContains==$text';
+}
+
+/// Conversación abierta (package en primer plano + evidencia de conversación).
+/// En la práctica se resuelve como [ForegroundPackageEquals] cuando el package
+/// de la app de mensajería es el esperado; el id exacto de conversación no es
+/// observable de forma fiable en Android moderno.
+class ConversationOpenEquals extends PlatformPredicate {
+  const ConversationOpenEquals(this.packageName, this.conversationId);
+  final String packageName;
+  final String conversationId;
+  @override
+  String toDebugString() => 'conversationOpen==$conversationId@$packageName';
+}
+
 /// Veredicto de la evaluación de un predicado de plataforma.
 sealed class PlatformPredicateResult {
   const PlatformPredicateResult();

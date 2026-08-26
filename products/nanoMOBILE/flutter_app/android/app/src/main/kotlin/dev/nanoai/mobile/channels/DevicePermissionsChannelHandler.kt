@@ -13,6 +13,10 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.content.ServiceConnection
+import android.content.Context
+import android.media.AudioManager
+import android.bluetooth.BluetoothAdapter
+import android.net.wifi.WifiManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import dev.nanoai.mobile.services.AgentAccessibilityService
@@ -73,6 +77,7 @@ class DevicePermissionsChannelHandler(
                 call.argument<String>("packageName"),
                 result,
             )
+            "systemState" -> result.success(systemState())
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -179,6 +184,39 @@ class DevicePermissionsChannelHandler(
                     false
                 }
             }
+    }
+
+    /**
+     * A14.5.4 — estado semántico factual del sistema (media reproduciéndose,
+     * Bluetooth on/off, WiFi on/off). Lectura pasiva: no cambia nada. Los
+     * APIs isMusicActive/isWifiEnabled están deprecated en API moderna pero
+     * siguen funcionales; Bluetooth requiere permiso en API 31+ → try/catch
+     * devuelve false (honesto) si no es observable.
+     */
+    private fun systemState(): Map<String, Any?> {
+        val context = activity.applicationContext
+        val mediaPlaying = try {
+            (context.getSystemService(Context.AUDIO_SERVICE) as AudioManager)
+                .isMusicActive
+        } catch (_: Throwable) {
+            false
+        }
+        val bluetoothEnabled = try {
+            BluetoothAdapter.getDefaultAdapter()?.isEnabled ?: false
+        } catch (_: Throwable) {
+            false
+        }
+        val wifiEnabled = try {
+            (context.getSystemService(Context.WIFI_SERVICE) as WifiManager)
+                .isWifiEnabled
+        } catch (_: Throwable) {
+            false
+        }
+        return mapOf(
+            "mediaPlaying" to mediaPlaying,
+            "bluetoothEnabled" to bluetoothEnabled,
+            "wifiEnabled" to wifiEnabled,
+        )
     }
 
     /**

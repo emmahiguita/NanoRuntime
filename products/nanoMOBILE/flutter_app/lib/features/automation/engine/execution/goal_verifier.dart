@@ -8,6 +8,7 @@ library;
 import 'agent_executor.dart';
 import '../perception/nano_selector.dart';
 import '../perception/selector_engine.dart';
+import 'platform_verification.dart';
 
 enum GoalStatus { satisfied, notSatisfied, unverified }
 
@@ -25,12 +26,17 @@ class GoalExpectation {
   final NanoSelector? checkedSelector;
   final bool? expectedChecked;
 
+  /// A14.5.4 — postcondiciones de ESTADO SEMÁNTICO (el objetivo real, no solo
+  /// "llegué al destino"). Se evalúan contra el lector de estado de plataforma.
+  final List<PlatformPredicate> statePredicates;
+
   const GoalExpectation({
     this.expectedPackage,
     this.visibleText,
     this.absentText,
     this.checkedSelector,
     this.expectedChecked,
+    this.statePredicates = const [],
   }) : assert(
          (checkedSelector == null) == (expectedChecked == null),
          'checkedSelector y expectedChecked deben declararse juntos.',
@@ -40,16 +46,30 @@ class GoalExpectation {
       (expectedPackage != null && expectedPackage!.isNotEmpty) ||
       visibleText != null ||
       absentText != null ||
-      checkedSelector != null;
+      checkedSelector != null ||
+      statePredicates.isNotEmpty;
 }
 
 class GoalVerifier {
-  GoalVerifier({required AgentExecutor executor, NanoSelectorEngine? engine})
-    : _executor = executor,
-      _engine = engine ?? NanoSelectorEngine();
+  GoalVerifier({
+    required AgentExecutor executor,
+    NanoSelectorEngine? engine,
+    PlatformStateReader? stateReader,
+    this.packageSettleAttempts = 5,
+    this.packageSettleDelay = const Duration(milliseconds: 200),
+  }) : _executor = executor,
+       _engine = engine ?? NanoSelectorEngine(),
+       _stateReader = stateReader;
 
   final AgentExecutor _executor;
   final NanoSelectorEngine _engine;
+  final PlatformStateReader? _stateReader;
+
+  /// Los Intents Android devuelven control antes de que Accessibility publique
+  /// la nueva ventana. Reintentar solo el package esperado evita un falso
+  /// negativo sin convertir una ejecución fallida en éxito.
+  final int packageSettleAttempts;
+  final Duration packageSettleDelay;
 
   Future<GoalVerification> verify(
     String goal, {
@@ -72,7 +92,7 @@ class GoalVerifier {
       );
     }
 
-    final snap = await _executor.snapshot();
+    var snap = await _executor.snapshot();
     if (snap == null) {
       return const GoalVerification(
         GoalStatus.notSatisfied,
@@ -81,6 +101,17 @@ class GoalVerifier {
     }
 
     final expectedPackage = expectation.expectedPackage;
+    if (expectedPackage != null && expectedPackage.isNotEmpty) {
+      for (
+        var attempt = 1;
+        snap!.package != expectedPackage && attempt < packageSettleAttempts;
+        attempt++
+      ) {
+        await Future<void>.delayed(packageSettleDelay);
+        final next = await _executor.snapshot();
+        if (next != null) snap = next;
+      }
+    }
     if (expectedPackage != null &&
         expectedPackage.isNotEmpty &&
         snap.package != expectedPackage) {
@@ -134,6 +165,31 @@ class GoalVerifier {
           GoalStatus.notSatisfied,
           'El control "${resolved.best!.node.label}" tiene checked=$actual; '
           'se esperaba checked=${expectation.expectedChecked}.',
+        );
+      }
+    }
+
+    // A14.5.4 — estado semántico: el objetivo no se cumple por "llegar al
+    // destino"; se cumple cuando el ESTADO real coincide con lo pedido.
+    if (expectation.statePredicates.isNotEmpty) {
+      final reader = _stateReader;
+      if (reader == null) {
+        return const GoalVerification(
+          GoalStatus.unverified,
+          'El objetivo declara estado semántico pero no hay lector de estado.',
+        );
+      }
+      final pr = await evaluateAllOf(expectation.statePredicates, reader);
+      if (pr is PlatformPredicateUnsatisfied) {
+        return GoalVerification(
+          GoalStatus.notSatisfied,
+          'Estado semántico NO cumplido: ${pr.reason}',
+        );
+      }
+      if (pr is PlatformPredicateUnavailable) {
+        return GoalVerification(
+          GoalStatus.unverified,
+          'Estado semántico no observable: ${pr.reason}',
         );
       }
     }
