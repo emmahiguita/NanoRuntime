@@ -21,14 +21,14 @@ abstract class NanoColors {
   Color get tertiary;
 
   // Roles custom del chat (modo claro real)
-  Color get accent;      // Cyan marca Nano (bordes, títulos de tabla)
-  Color get onAccent;    // Texto/icono sobre fondos accent (navy, alto contraste)
-  Color get danger;      // Errores custom (más vivo que error)
+  Color get accent; // Cyan marca Nano (bordes, títulos de tabla)
+  Color get onAccent; // Texto/icono sobre fondos accent (navy, alto contraste)
+  Color get danger; // Errores custom (más vivo que error)
   Color get codeBlockBg; // Fondo bloques de código markdown
-  Color get quoteBg;     // Fondo blockquote
+  Color get quoteBg; // Fondo blockquote
   Color get terminalBg;
   Color get terminalGreen;
-  
+
   // Glassmorphism tokens (solo modo claro)
   Color get glassSurface;
   Color get glassBorder;
@@ -38,12 +38,12 @@ abstract class NanoColors {
   Color get bgTop;
   Color get bgMiddle;
   Color get bgBottom;
-  
+
   Color get glass100;
   Color get glass200;
   Color get glass300;
   Color get glass400;
-  
+
   Color get metalWhite;
   Color get metalPearl;
   Color get metalSilver;
@@ -51,17 +51,17 @@ abstract class NanoColors {
   Color get metalSteel;
   Color get metalGraphite;
   Color get metalDark;
-  
+
   Color get warmReflect1;
   Color get warmReflect2;
   Color get warmReflect3;
-  
+
   Color get coldReflect1;
   Color get coldReflect2;
   Color get coldReflect3;
   Color get coldReflect4;
   Color get coldReflect5;
-  
+
   Color get nanoCyan;
   Color get nanoTurquoise;
   Color get nanoBlue;
@@ -109,213 +109,383 @@ abstract class NanoColors {
 }
 
 class NanoDarkColors implements NanoColors {
-  @override final primary = const Color(0xFF00E676); // Verde brillante para alto contraste
-  @override final primaryContainer = const Color(0xFF1A4D2E); // Más visible
-  @override final onPrimaryContainer = const Color(0xFFB9F6CA);
-  @override final secondary = const Color(0xFF38BDF8); // Azul cielo
-  @override final secondaryContainer = const Color(0xFF1E3A5F); // Más visible
-  @override final surface = const Color(0xFF0F172A); // Slate 900
-  @override final surfaceVariant = const Color(0xFF1E293B); // Slate 800
-  @override final background = const Color(0xFF020711); // backgroundPrimary
-  @override final onSurface = const Color(0xFFF5F7FA); // textPrimary
-  @override final onSurfaceVariant = const Color(0xFFA8B3C2); // textSecondary
-  @override final outline = const Color(0xFF64748B); // Slate 500 - más visible
-  @override final outlineVariant = const Color(0xFF334155); // Slate 700 - más definido
-  @override final success = const Color(0xFF49E0BC); // Mint/success
-  @override final warning = const Color(0xFFF1BC69); // Amarillo warning
-  @override final error = const Color(0xFFFF7782); // Rojo error
-  @override final info = const Color(0xFF6BC4FF); // Azul información
-  @override final tertiary = const Color(0xFFA855F7); // Púrpura terciario
-  @override final accent = const Color(0xFF42F5E3); // Cyan marca Nano
-  @override final onAccent = const Color(0xFF062A3A); // Navy profundo sobre cyan
-  @override final danger = const Color(0xFFFF5C6C); // Rojo coral vivo
-  @override final codeBlockBg = const Color(0xFF040E1A); // Azul casi negro
-  @override final quoteBg = const Color(0xFF003040); // Teal profundo
-  @override final terminalBg = const Color(0xFF0B1120); // Coincide con background
-  @override final terminalGreen = const Color(0xFF22C55E); // Verde terminal
-  
+  @override
+  final primary = const Color(0xFF00E676); // Verde brillante para alto contraste
+  @override
+  final primaryContainer = const Color(0xFF1A4D2E); // Más visible
+  @override
+  final onPrimaryContainer = const Color(0xFFB9F6CA);
+  @override
+  final secondary = const Color(0xFF38BDF8); // Azul cielo
+  @override
+  final secondaryContainer = const Color(0xFF1E3A5F); // Más visible
+  @override
+  final surface = const Color(0xFF0F172A); // Slate 900
+  @override
+  final surfaceVariant = const Color(0xFF1E293B); // Slate 800
+  @override
+  final background = const Color(0xFF020711); // backgroundPrimary
+  @override
+  final onSurface = const Color(0xFFF5F7FA); // textPrimary
+  @override
+  final onSurfaceVariant = const Color(0xFFA8B3C2); // textSecondary
+  @override
+  final outline = const Color(0xFF64748B); // Slate 500 - más visible
+  @override
+  final outlineVariant = const Color(0xFF334155); // Slate 700 - más definido
+  @override
+  final success = const Color(0xFF49E0BC); // Mint/success
+  @override
+  final warning = const Color(0xFFF1BC69); // Amarillo warning
+  @override
+  final error = const Color(0xFFFF7782); // Rojo error
+  @override
+  final info = const Color(0xFF6BC4FF); // Azul información
+  @override
+  final tertiary = const Color(0xFFA855F7); // Púrpura terciario
+  @override
+  final accent = const Color(0xFF42F5E3); // Cyan marca Nano
+  @override
+  final onAccent = const Color(0xFF062A3A); // Navy profundo sobre cyan
+  @override
+  final danger = const Color(0xFFFF5C6C); // Rojo coral vivo
+  @override
+  final codeBlockBg = const Color(0xFF040E1A); // Azul casi negro
+  @override
+  final quoteBg = const Color(0xFF003040); // Teal profundo
+  @override
+  final terminalBg = const Color(0xFF0B1120); // Coincide con background
+  @override
+  final terminalGreen = const Color(0xFF22C55E); // Verde terminal
+
   // Glassmorphism no aplicado en modo oscuro (usa valores por defecto)
-  @override final glassSurface = const Color(0x00000000); // Transparente
-  @override final glassBorder = const Color(0x00000000); // Transparente
-  @override final glassOverlay = const Color(0x00000000); // Transparente
+  @override
+  final glassSurface = const Color(0x00000000); // Transparente
+  @override
+  final glassBorder = const Color(0x00000000); // Transparente
+  @override
+  final glassOverlay = const Color(0x00000000); // Transparente
 
   // --- Glass Metallic Redesign Tokens ---
-  @override final bgTop = const Color(0xFF020711); // backgroundPrimary
-  @override final bgMiddle = const Color(0xFF050C16); // backgroundSecondary
-  @override final bgBottom = const Color(0xFF08131F); // backgroundElevated
-  
-  @override final glass100 = const Color(0xFF0B1825);
-  @override final glass200 = const Color(0xFF102130);
-  @override final glass300 = const Color(0xFF141D28);
-  @override final glass400 = const Color(0xFF0B1E30);
-  
-  @override final metalWhite = const Color(0xFFFFFFFF);
-  @override final metalPearl = const Color(0xFFF5F6FA);
-  @override final metalSilver = const Color(0xFFD9DDE5);
-  @override final metalCool = const Color(0xFF5A6778);
-  @override final metalSteel = const Color(0xFF9BA5B5);
-  @override final metalGraphite = const Color(0xFF3F4856);
-  @override final metalDark = const Color(0xFF141B25);
-  
-  @override final warmReflect1 = const Color(0xFFFFF1D6);
-  @override final warmReflect2 = const Color(0xFFEED8B6);
-  @override final warmReflect3 = const Color(0xFFFFD9A6);
-  
-  @override final coldReflect1 = const Color(0xFFBCEBFF);
-  @override final coldReflect2 = const Color(0xFF76DFFF);
-  @override final coldReflect3 = const Color(0xFF57B8FF);
-  @override final coldReflect4 = const Color(0xFF6787FF);
-  @override final coldReflect5 = const Color(0xFF8073FF);
-  
-  @override final nanoCyan = const Color(0xFF42F5E3);
-  @override final nanoTurquoise = const Color(0xFF28D7CF);
-  @override final nanoBlue = const Color(0xFF4A8FFF);
-  @override final nanoViolet = const Color(0xFF7168FF);
+  @override
+  final bgTop = const Color(0xFF020711); // backgroundPrimary
+  @override
+  final bgMiddle = const Color(0xFF050C16); // backgroundSecondary
+  @override
+  final bgBottom = const Color(0xFF08131F); // backgroundElevated
+
+  @override
+  final glass100 = const Color(0xFF0B1825);
+  @override
+  final glass200 = const Color(0xFF102130);
+  @override
+  final glass300 = const Color(0xFF141D28);
+  @override
+  final glass400 = const Color(0xFF0B1E30);
+
+  @override
+  final metalWhite = const Color(0xFFFFFFFF);
+  @override
+  final metalPearl = const Color(0xFFF5F6FA);
+  @override
+  final metalSilver = const Color(0xFFD9DDE5);
+  @override
+  final metalCool = const Color(0xFF5A6778);
+  @override
+  final metalSteel = const Color(0xFF9BA5B5);
+  @override
+  final metalGraphite = const Color(0xFF3F4856);
+  @override
+  final metalDark = const Color(0xFF141B25);
+
+  @override
+  final warmReflect1 = const Color(0xFFFFF1D6);
+  @override
+  final warmReflect2 = const Color(0xFFEED8B6);
+  @override
+  final warmReflect3 = const Color(0xFFFFD9A6);
+
+  @override
+  final coldReflect1 = const Color(0xFFBCEBFF);
+  @override
+  final coldReflect2 = const Color(0xFF76DFFF);
+  @override
+  final coldReflect3 = const Color(0xFF57B8FF);
+  @override
+  final coldReflect4 = const Color(0xFF6787FF);
+  @override
+  final coldReflect5 = const Color(0xFF8073FF);
+
+  @override
+  final nanoCyan = const Color(0xFF42F5E3);
+  @override
+  final nanoTurquoise = const Color(0xFF28D7CF);
+  @override
+  final nanoBlue = const Color(0xFF4A8FFF);
+  @override
+  final nanoViolet = const Color(0xFF7168FF);
 
   // --- New Semantic Dark Palette Tokens ---
-  @override final backgroundPrimary = const Color(0xFF020711);
-  @override final backgroundSecondary = const Color(0xFF050C16);
-  @override final backgroundElevated = const Color(0xFF08131F);
-  @override final backgroundDeep = const Color(0xFF01040A);
-  @override final backgroundNavy = const Color(0xFF071522);
-  @override final backgroundIce = const Color(0xFF0B1825);
-  @override final backgroundPearl = const Color(0xFF141D28);
+  @override
+  final backgroundPrimary = const Color(0xFF020711);
+  @override
+  final backgroundSecondary = const Color(0xFF050C16);
+  @override
+  final backgroundElevated = const Color(0xFF08131F);
+  @override
+  final backgroundDeep = const Color(0xFF01040A);
+  @override
+  final backgroundNavy = const Color(0xFF071522);
+  @override
+  final backgroundIce = const Color(0xFF0B1825);
+  @override
+  final backgroundPearl = const Color(0xFF141D28);
 
-  @override final glassPrimary = const Color(0xFF0B1825);
-  @override final glassSecondary = const Color(0xFF102130);
-  @override final glassGraphite = const Color(0xFF141D28);
-  @override final glassBlue = const Color(0xFF0B1E30);
+  @override
+  final glassPrimary = const Color(0xFF0B1825);
+  @override
+  final glassSecondary = const Color(0xFF102130);
+  @override
+  final glassGraphite = const Color(0xFF141D28);
+  @override
+  final glassBlue = const Color(0xFF0B1E30);
 
-  @override final glassLow = 0.32;
-  @override final glassMedium = 0.46;
-  @override final glassStrong = 0.62;
-  @override final glassOpaque = 0.78;
+  @override
+  final glassLow = 0.32;
+  @override
+  final glassMedium = 0.46;
+  @override
+  final glassStrong = 0.62;
+  @override
+  final glassOpaque = 0.78;
 
-  @override final textPrimary = const Color(0xFFF5F7FA);
-  @override final textSecondary = const Color(0xFFA8B3C2);
-  @override final textTertiary = const Color(0xFF737F91);
-  @override final textDisabled = const Color(0xFF526071);
+  @override
+  final textPrimary = const Color(0xFFF5F7FA);
+  @override
+  final textSecondary = const Color(0xFFA8B3C2);
+  @override
+  final textTertiary = const Color(0xFF737F91);
+  @override
+  final textDisabled = const Color(0xFF526071);
 
-  @override final accentCyan = const Color(0xFF42F5E3);
-  @override final accentMint = const Color(0xFF35E1C3);
-  @override final accentSky = const Color(0xFF59C8FF);
-  @override final accentBlue = const Color(0xFF638DFF);
-  @override final accentLavender = const Color(0xFF9184FF);
+  @override
+  final accentCyan = const Color(0xFF42F5E3);
+  @override
+  final accentMint = const Color(0xFF35E1C3);
+  @override
+  final accentSky = const Color(0xFF59C8FF);
+  @override
+  final accentBlue = const Color(0xFF638DFF);
+  @override
+  final accentLavender = const Color(0xFF9184FF);
 
-  @override final iceReflection = const Color(0xFFA9E7FF);
-  @override final silverReflection = const Color(0xFFB9C6D3);
-  @override final pearlReflection = const Color(0xFFF5F7FA);
-  @override final warmReflection = const Color(0xFFF1D7B6);
-  @override final lavenderReflection = const Color(0xFF9E94FF);
+  @override
+  final iceReflection = const Color(0xFFA9E7FF);
+  @override
+  final silverReflection = const Color(0xFFB9C6D3);
+  @override
+  final pearlReflection = const Color(0xFFF5F7FA);
+  @override
+  final warmReflection = const Color(0xFFF1D7B6);
+  @override
+  final lavenderReflection = const Color(0xFF9E94FF);
 
-  @override final borderPrimaryColor = const Color(0x26FFFFFF); // rgba(255,255,255,0.15)
-  @override final borderSecondaryColor = const Color(0x2E97A1BF); // rgba(151,170,191,0.18)
-  @override final borderAccentColor = const Color(0x4042F5E3); // rgba(66,245,227,0.25)
+  @override
+  final borderPrimaryColor = const Color(0x26FFFFFF); // rgba(255,255,255,0.15)
+  @override
+  final borderSecondaryColor = const Color(0x2E97A1BF); // rgba(151,170,191,0.18)
+  @override
+  final borderAccentColor = const Color(0x4042F5E3); // rgba(66,245,227,0.25)
 }
 
 class NanoLightColors implements NanoColors {
-  @override final primary = const Color(0xFF55DCE8); // Cyan marca
-  @override final primaryContainer = const Color(0xFFEEF5FB); // Canvas Ice
-  @override final onPrimaryContainer = const Color(0xFF1D2733); // Text Primary
-  @override final secondary = const Color(0xFF7399F6); // Nano Blue
-  @override final secondaryContainer = const Color(0xFFF2F6FA); // Canvas Secondary
-  @override final surface = const Color(0xFFFFFFFF); // Blanco puro
-  @override final surfaceVariant = const Color(0xFFF2F6FA); // Canvas Secondary
-  @override final background = const Color(0xFFF7F9FC); // Canvas Primary
-  @override final onSurface = const Color(0xFF1D2733); // Text Primary
-  @override final onSurfaceVariant = const Color(0xFF637083); // Text Secondary
-  @override final outline = const Color(0xFFDCE5ED); // Metal Silver
-  @override final outlineVariant = const Color(0xFFEEF5FB); // Canvas Ice
-  @override final success = const Color(0xFF76E5CF); // Nano Mint
-  @override final warning = const Color(0xFFE4AE62); // Warm Amber
-  @override final error = const Color(0xFFFF6B7A); // Soft Coral
-  @override final info = const Color(0xFF72C7FA); // Nano Sky
-  @override final tertiary = const Color(0xFFA89AF8); // Nano Lavender
-  @override final accent = const Color(0xFF55DCE8); // Nano Cyan
-  @override final onAccent = const Color(0xFF1D2733); // Text Primary sobre acentos
-  @override final danger = const Color(0xFFFF6B7A); // Soft Coral
-  @override final codeBlockBg = const Color(0xFFF2F6FA); // Canvas Secondary
-  @override final quoteBg = const Color(0xFFEFF7FC); // Glass Ice
-  @override final terminalBg = const Color(0xFFF8FAFC); // Slate 50
-  @override final terminalGreen = const Color(0xFF047857); // Esmeralda 700
+  @override
+  final primary = const Color(0xFF0891B2); // Cyan 600 (oscuro, visible en claro)
+  @override
+  final primaryContainer = const Color(0xFFEEF5FB); // Canvas Ice
+  @override
+  final onPrimaryContainer = const Color(0xFF1D2733); // Text Primary
+  @override
+  final secondary = const Color(0xFF4F46E5); // Indigo 600
+  @override
+  final secondaryContainer = const Color(0xFFE8EEF5); // Canvas Elevated Gris
+  @override
+  final surface = const Color(0xFFFFFFFF); // Blanco puro
+  @override
+  final surfaceVariant = const Color(0xFFE8EEF5); // Gris azulado (TextField visible)
+  @override
+  final background = const Color(0xFFF7F9FC); // Canvas Primary
+  @override
+  final onSurface = const Color(0xFF1D2733); // Text Primary
+  @override
+  final onSurfaceVariant = const Color(0xFF637083); // Text Secondary
+  @override
+  final outline = const Color(0xFFA8B4C2); // Metal Silver visible
+  @override
+  final outlineVariant = const Color(0xFFEEF5FB); // Canvas Ice
+  @override
+  final success = const Color(0xFF0F9E6E); // Esmeralda 600 (contraste en claro)
+  @override
+  final warning = const Color(0xFFA16207); // Ámbar 700
+  @override
+  final error = const Color(0xFFD6455A); // Coral 600 (rojo visible)
+  @override
+  final info = const Color(0xFF0369A1); // Sky 700
+  @override
+  final tertiary = const Color(0xFF6D28D9); // Violeta 700
+  @override
+  final accent = const Color(0xFF0891B2); // Cyan 600
+  @override
+  final onAccent = const Color(0xFFF5FAFC); // Casi blanco sobre acento oscuro
+  @override
+  final danger = const Color(0xFFD6455A); // Coral 600
+  @override
+  final codeBlockBg = const Color(0xFFF2F6FA); // Canvas Secondary
+  @override
+  final quoteBg = const Color(0xFFEFF7FC); // Glass Ice
+  @override
+  final terminalBg = const Color(0xFFF8FAFC); // Slate 50
+  @override
+  final terminalGreen = const Color(0xFF047857); // Esmeralda 700
 
   // Glassmorphism tokens (solo modo claro) — bordes ópticos metálicos
-  @override final glassSurface = const Color(0xCCFFFFFF); // Blanco 80% translúcido
-  @override final glassBorder = const Color(0x40DCE5ED); // Metal Silver suave
-  @override final glassOverlay = const Color(0x0D55DCE8); // Cyan 5% overlay óptico
+  @override
+  final glassSurface = const Color(0xCCFFFFFF); // Blanco 80% translúcido
+  @override
+  final glassBorder = const Color(0x408B97A8); // Metal Steel suave (más definido)
+  @override
+  final glassOverlay = const Color(0x0D0891B2); // Cyan 5% overlay óptico
 
   // --- Glass Metallic Redesign Tokens ---
-  @override final bgTop = const Color(0xFFF7F9FC); // Canvas Primary
-  @override final bgMiddle = const Color(0xFFF2F6FA); // Canvas Secondary
-  @override final bgBottom = const Color(0xFFEEF5FB); // Canvas Ice
-  
-  @override final glass100 = const Color(0xFFEFF7FC); // Glass Ice
-  @override final glass200 = const Color(0xFFFFFFFF); // Glass White
-  @override final glass300 = const Color(0xFFEDF5FF); // Glass Blue
-  @override final glass400 = const Color(0xFFF8FAFC); // Glass Pearl
-  
-  @override final metalWhite = const Color(0xFFFFFFFF);
-  @override final metalPearl = const Color(0xFFF8FAFC);
-  @override final metalSilver = const Color(0xFFDCE5ED);
-  @override final metalCool = const Color(0xFFB7C6D4);
-  @override final metalSteel = const Color(0xFF9EADBC);
-  @override final metalGraphite = const Color(0xFF3F4856);
-  @override final metalDark = const Color(0xFF141B25);
-  
-  @override final warmReflect1 = const Color(0xFFF1E5D8); // Metal Warm
-  @override final warmReflect2 = const Color(0xFFEED8B6);
-  @override final warmReflect3 = const Color(0xFFFFD9A6);
-  
-  @override final coldReflect1 = const Color(0xFFBCEBFF);
-  @override final coldReflect2 = const Color(0xFF76DFFF);
-  @override final coldReflect3 = const Color(0xFF57B8FF);
-  @override final coldReflect4 = const Color(0xFF6787FF);
-  @override final coldReflect5 = const Color(0xFF8073FF);
-  
-  @override final nanoCyan = const Color(0xFF55DCE8);
-  @override final nanoTurquoise = const Color(0xFF76E5CF);
-  @override final nanoBlue = const Color(0xFF7399F6);
-  @override final nanoViolet = const Color(0xFFA89AF8);
+  @override
+  final bgTop = const Color(0xFFF7F9FC); // Canvas Primary
+  @override
+  final bgMiddle = const Color(0xFFF2F6FA); // Canvas Secondary
+  @override
+  final bgBottom = const Color(0xFFEEF5FB); // Canvas Ice
+
+  @override
+  final glass100 = const Color(0xFFEFF7FC); // Glass Ice
+  @override
+  final glass200 = const Color(0xFFFFFFFF); // Glass White
+  @override
+  final glass300 = const Color(0xFFEDF5FF); // Glass Blue
+  @override
+  final glass400 = const Color(0xFFF8FAFC); // Glass Pearl
+
+  @override
+  final metalWhite = const Color(0xFFFFFFFF);
+  @override
+  final metalPearl = const Color(0xFFF8FAFC);
+  @override
+  final metalSilver = const Color(0xFFDCE5ED);
+  @override
+  final metalCool = const Color(0xFFB7C6D4);
+  @override
+  final metalSteel = const Color(0xFF9EADBC);
+  @override
+  final metalGraphite = const Color(0xFF3F4856);
+  @override
+  final metalDark = const Color(0xFF141B25);
+
+  @override
+  final warmReflect1 = const Color(0xFFF1E5D8); // Metal Warm
+  @override
+  final warmReflect2 = const Color(0xFFEED8B6);
+  @override
+  final warmReflect3 = const Color(0xFFFFD9A6);
+
+  @override
+  final coldReflect1 = const Color(0xFFBCEBFF);
+  @override
+  final coldReflect2 = const Color(0xFF76DFFF);
+  @override
+  final coldReflect3 = const Color(0xFF57B8FF);
+  @override
+  final coldReflect4 = const Color(0xFF6787FF);
+  @override
+  final coldReflect5 = const Color(0xFF8073FF);
+
+  @override
+  final nanoCyan = const Color(0xFF0891B2);
+  @override
+  final nanoTurquoise = const Color(0xFF0D9488);
+  @override
+  final nanoBlue = const Color(0xFF4F46E5);
+  @override
+  final nanoViolet = const Color(0xFF6D28D9);
 
   // --- Canonical Semantic Light Palette Tokens ---
-  @override final backgroundPrimary = const Color(0xFFF7F9FC); // Canvas Base Home
-  @override final backgroundSecondary = const Color(0xFFF2F6FA); // Canvas Secondary
-  @override final backgroundElevated = const Color(0xFFFFFFFF); // Canvas Elevated
-  @override final backgroundIce = const Color(0xFFEEF5FB); // Canvas Ice
-  @override final backgroundPearl = const Color(0xFFF8FAFC);
-  @override final backgroundDeep = const Color(0xFFE9F0F8);
-  @override final backgroundNavy = const Color(0xFFDCE5ED);
+  @override
+  final backgroundPrimary = const Color(0xFFF7F9FC); // Canvas Base Home
+  @override
+  final backgroundSecondary = const Color(0xFFF2F6FA); // Canvas Secondary
+  @override
+  final backgroundElevated = const Color(0xFFFFFFFF); // Canvas Elevated
+  @override
+  final backgroundIce = const Color(0xFFEEF5FB); // Canvas Ice
+  @override
+  final backgroundPearl = const Color(0xFFF8FAFC);
+  @override
+  final backgroundDeep = const Color(0xFFE9F0F8);
+  @override
+  final backgroundNavy = const Color(0xFFDCE5ED);
 
-  @override final glassPrimary = const Color(0xFFFFFFFF); // Glass White Puro
-  @override final glassSecondary = const Color(0xFFF8FAFC); // Glass Pearl
-  @override final glassGraphite = const Color(0xFFEFF7FC); // Glass Ice
-  @override final glassBlue = const Color(0xFFEDF5FF); // Glass Blue
+  @override
+  final glassPrimary = const Color(0xFFFFFFFF); // Glass White Puro
+  @override
+  final glassSecondary = const Color(0xFFF8FAFC); // Glass Pearl
+  @override
+  final glassGraphite = const Color(0xFFEFF7FC); // Glass Ice
+  @override
+  final glassBlue = const Color(0xFFEDF5FF); // Glass Blue
 
-  @override final glassLow = 0.36;
-  @override final glassMedium = 0.50;
-  @override final glassStrong = 0.64;
-  @override final glassOpaque = 0.78;
+  @override
+  final glassLow = 0.36;
+  @override
+  final glassMedium = 0.50;
+  @override
+  final glassStrong = 0.64;
+  @override
+  final glassOpaque = 0.78;
 
-  @override final textPrimary = const Color(0xFF1D2733); // Text Primary
-  @override final textSecondary = const Color(0xFF637083); // Text Secondary
-  @override final textTertiary = const Color(0xFF8B97A8); // Text Tertiary
-  @override final textDisabled = const Color(0xFFB6C0CB); // Text Disabled
+  @override
+  final textPrimary = const Color(0xFF1D2733); // Text Primary
+  @override
+  final textSecondary = const Color(0xFF637083); // Text Secondary
+  @override
+  final textTertiary = const Color(0xFF8B97A8); // Text Tertiary
+  @override
+  final textDisabled = const Color(0xFFB6C0CB); // Text Disabled
 
-  @override final accentCyan = const Color(0xFF55DCE8);
-  @override final accentMint = const Color(0xFF76E5CF);
-  @override final accentSky = const Color(0xFF72C7FA);
-  @override final accentBlue = const Color(0xFF7399F6);
-  @override final accentLavender = const Color(0xFFA89AF8);
+  @override
+  final accentCyan = const Color(0xFF0891B2);
+  @override
+  final accentMint = const Color(0xFF059669);
+  @override
+  final accentSky = const Color(0xFF0284C7);
+  @override
+  final accentBlue = const Color(0xFF4F46E5);
+  @override
+  final accentLavender = const Color(0xFF6D28D9);
 
-  @override final iceReflection = const Color(0xFFEFF7FC);
-  @override final silverReflection = const Color(0xFFDCE5ED);
-  @override final pearlReflection = const Color(0xFFFFFFFF);
-  @override final warmReflection = const Color(0xFFF1E5D8);
-  @override final lavenderReflection = const Color(0xFFA89AF8);
+  @override
+  final iceReflection = const Color(0xFFEFF7FC);
+  @override
+  final silverReflection = const Color(0xFFDCE5ED);
+  @override
+  final pearlReflection = const Color(0xFFFFFFFF);
+  @override
+  final warmReflection = const Color(0xFFF1E5D8);
+  @override
+  final lavenderReflection = const Color(0xFFA89AF8);
 
-  @override final borderPrimaryColor = const Color(0xF5FFFFFF); // Blanco brillante
-  @override final borderSecondaryColor = const Color(0x40DCE5ED); // Línea metálica suave (Silver)
-  @override final borderAccentColor = const Color(0x6055DCE8); // Cyan borde reflectivo
+  @override
+  final borderPrimaryColor = const Color(0xF5FFFFFF); // Blanco brillante
+  @override
+  final borderSecondaryColor = const Color(0x40DCE5ED); // Línea metálica suave (Silver)
+  @override
+  final borderAccentColor = const Color(0x6055DCE8); // Cyan borde reflectivo
 }
 
 class _LerpedNanoColors implements NanoColors {
@@ -328,101 +498,193 @@ class _LerpedNanoColors implements NanoColors {
   Color _l(Color x, Color y) => Color.lerp(x, y, t)!;
   double _d(double x, double y) => x + (y - x) * t;
 
-  @override Color get primary => _l(a.primary, b.primary);
-  @override Color get primaryContainer => _l(a.primaryContainer, b.primaryContainer);
-  @override Color get onPrimaryContainer => _l(a.onPrimaryContainer, b.onPrimaryContainer);
-  @override Color get secondary => _l(a.secondary, b.secondary);
-  @override Color get secondaryContainer => _l(a.secondaryContainer, b.secondaryContainer);
-  @override Color get surface => _l(a.surface, b.surface);
-  @override Color get surfaceVariant => _l(a.surfaceVariant, b.surfaceVariant);
-  @override Color get background => _l(a.background, b.background);
-  @override Color get onSurface => _l(a.onSurface, b.onSurface);
-  @override Color get onSurfaceVariant => _l(a.onSurfaceVariant, b.onSurfaceVariant);
-  @override Color get outline => _l(a.outline, b.outline);
-  @override Color get outlineVariant => _l(a.outlineVariant, b.outlineVariant);
-  @override Color get success => _l(a.success, b.success);
-  @override Color get warning => _l(a.warning, b.warning);
-  @override Color get error => _l(a.error, b.error);
-  @override Color get info => _l(a.info, b.info);
-  @override Color get tertiary => _l(a.tertiary, b.tertiary);
-  @override Color get accent => _l(a.accent, b.accent);
-  @override Color get onAccent => _l(a.onAccent, b.onAccent);
-  @override Color get danger => _l(a.danger, b.danger);
-  @override Color get codeBlockBg => _l(a.codeBlockBg, b.codeBlockBg);
-  @override Color get quoteBg => _l(a.quoteBg, b.quoteBg);
-  @override Color get terminalBg => _l(a.terminalBg, b.terminalBg);
-  @override Color get terminalGreen => _l(a.terminalGreen, b.terminalGreen);
-  @override Color get glassSurface => _l(a.glassSurface, b.glassSurface);
-  @override Color get glassBorder => _l(a.glassBorder, b.glassBorder);
-  @override Color get glassOverlay => _l(a.glassOverlay, b.glassOverlay);
+  @override
+  Color get primary => _l(a.primary, b.primary);
+  @override
+  Color get primaryContainer => _l(a.primaryContainer, b.primaryContainer);
+  @override
+  Color get onPrimaryContainer =>
+      _l(a.onPrimaryContainer, b.onPrimaryContainer);
+  @override
+  Color get secondary => _l(a.secondary, b.secondary);
+  @override
+  Color get secondaryContainer =>
+      _l(a.secondaryContainer, b.secondaryContainer);
+  @override
+  Color get surface => _l(a.surface, b.surface);
+  @override
+  Color get surfaceVariant => _l(a.surfaceVariant, b.surfaceVariant);
+  @override
+  Color get background => _l(a.background, b.background);
+  @override
+  Color get onSurface => _l(a.onSurface, b.onSurface);
+  @override
+  Color get onSurfaceVariant => _l(a.onSurfaceVariant, b.onSurfaceVariant);
+  @override
+  Color get outline => _l(a.outline, b.outline);
+  @override
+  Color get outlineVariant => _l(a.outlineVariant, b.outlineVariant);
+  @override
+  Color get success => _l(a.success, b.success);
+  @override
+  Color get warning => _l(a.warning, b.warning);
+  @override
+  Color get error => _l(a.error, b.error);
+  @override
+  Color get info => _l(a.info, b.info);
+  @override
+  Color get tertiary => _l(a.tertiary, b.tertiary);
+  @override
+  Color get accent => _l(a.accent, b.accent);
+  @override
+  Color get onAccent => _l(a.onAccent, b.onAccent);
+  @override
+  Color get danger => _l(a.danger, b.danger);
+  @override
+  Color get codeBlockBg => _l(a.codeBlockBg, b.codeBlockBg);
+  @override
+  Color get quoteBg => _l(a.quoteBg, b.quoteBg);
+  @override
+  Color get terminalBg => _l(a.terminalBg, b.terminalBg);
+  @override
+  Color get terminalGreen => _l(a.terminalGreen, b.terminalGreen);
+  @override
+  Color get glassSurface => _l(a.glassSurface, b.glassSurface);
+  @override
+  Color get glassBorder => _l(a.glassBorder, b.glassBorder);
+  @override
+  Color get glassOverlay => _l(a.glassOverlay, b.glassOverlay);
 
   // --- Glass Metallic Redesign Tokens ---
-  @override Color get bgTop => _l(a.bgTop, b.bgTop);
-  @override Color get bgMiddle => _l(a.bgMiddle, b.bgMiddle);
-  @override Color get bgBottom => _l(a.bgBottom, b.bgBottom);
-  @override Color get glass100 => _l(a.glass100, b.glass100);
-  @override Color get glass200 => _l(a.glass200, b.glass200);
-  @override Color get glass300 => _l(a.glass300, b.glass300);
-  @override Color get glass400 => _l(a.glass400, b.glass400);
-  @override Color get metalWhite => _l(a.metalWhite, b.metalWhite);
-  @override Color get metalPearl => _l(a.metalPearl, b.metalPearl);
-  @override Color get metalSilver => _l(a.metalSilver, b.metalSilver);
-  @override Color get metalCool => _l(a.metalCool, b.metalCool);
-  @override Color get metalSteel => _l(a.metalSteel, b.metalSteel);
-  @override Color get metalGraphite => _l(a.metalGraphite, b.metalGraphite);
-  @override Color get metalDark => _l(a.metalDark, b.metalDark);
-  @override Color get warmReflect1 => _l(a.warmReflect1, b.warmReflect1);
-  @override Color get warmReflect2 => _l(a.warmReflect2, b.warmReflect2);
-  @override Color get warmReflect3 => _l(a.warmReflect3, b.warmReflect3);
-  @override Color get coldReflect1 => _l(a.coldReflect1, b.coldReflect1);
-  @override Color get coldReflect2 => _l(a.coldReflect2, b.coldReflect2);
-  @override Color get coldReflect3 => _l(a.coldReflect3, b.coldReflect3);
-  @override Color get coldReflect4 => _l(a.coldReflect4, b.coldReflect4);
-  @override Color get coldReflect5 => _l(a.coldReflect5, b.coldReflect5);
-  @override Color get nanoCyan => _l(a.nanoCyan, b.nanoCyan);
-  @override Color get nanoTurquoise => _l(a.nanoTurquoise, b.nanoTurquoise);
-  @override Color get nanoBlue => _l(a.nanoBlue, b.nanoBlue);
-  @override Color get nanoViolet => _l(a.nanoViolet, b.nanoViolet);
+  @override
+  Color get bgTop => _l(a.bgTop, b.bgTop);
+  @override
+  Color get bgMiddle => _l(a.bgMiddle, b.bgMiddle);
+  @override
+  Color get bgBottom => _l(a.bgBottom, b.bgBottom);
+  @override
+  Color get glass100 => _l(a.glass100, b.glass100);
+  @override
+  Color get glass200 => _l(a.glass200, b.glass200);
+  @override
+  Color get glass300 => _l(a.glass300, b.glass300);
+  @override
+  Color get glass400 => _l(a.glass400, b.glass400);
+  @override
+  Color get metalWhite => _l(a.metalWhite, b.metalWhite);
+  @override
+  Color get metalPearl => _l(a.metalPearl, b.metalPearl);
+  @override
+  Color get metalSilver => _l(a.metalSilver, b.metalSilver);
+  @override
+  Color get metalCool => _l(a.metalCool, b.metalCool);
+  @override
+  Color get metalSteel => _l(a.metalSteel, b.metalSteel);
+  @override
+  Color get metalGraphite => _l(a.metalGraphite, b.metalGraphite);
+  @override
+  Color get metalDark => _l(a.metalDark, b.metalDark);
+  @override
+  Color get warmReflect1 => _l(a.warmReflect1, b.warmReflect1);
+  @override
+  Color get warmReflect2 => _l(a.warmReflect2, b.warmReflect2);
+  @override
+  Color get warmReflect3 => _l(a.warmReflect3, b.warmReflect3);
+  @override
+  Color get coldReflect1 => _l(a.coldReflect1, b.coldReflect1);
+  @override
+  Color get coldReflect2 => _l(a.coldReflect2, b.coldReflect2);
+  @override
+  Color get coldReflect3 => _l(a.coldReflect3, b.coldReflect3);
+  @override
+  Color get coldReflect4 => _l(a.coldReflect4, b.coldReflect4);
+  @override
+  Color get coldReflect5 => _l(a.coldReflect5, b.coldReflect5);
+  @override
+  Color get nanoCyan => _l(a.nanoCyan, b.nanoCyan);
+  @override
+  Color get nanoTurquoise => _l(a.nanoTurquoise, b.nanoTurquoise);
+  @override
+  Color get nanoBlue => _l(a.nanoBlue, b.nanoBlue);
+  @override
+  Color get nanoViolet => _l(a.nanoViolet, b.nanoViolet);
 
   // --- New Semantic Palette Tokens ---
-  @override Color get backgroundPrimary => _l(a.backgroundPrimary, b.backgroundPrimary);
-  @override Color get backgroundSecondary => _l(a.backgroundSecondary, b.backgroundSecondary);
-  @override Color get backgroundElevated => _l(a.backgroundElevated, b.backgroundElevated);
-  @override Color get backgroundIce => _l(a.backgroundIce, b.backgroundIce);
-  @override Color get backgroundPearl => _l(a.backgroundPearl, b.backgroundPearl);
-  @override Color get backgroundDeep => _l(a.backgroundDeep, b.backgroundDeep);
-  @override Color get backgroundNavy => _l(a.backgroundNavy, b.backgroundNavy);
+  @override
+  Color get backgroundPrimary => _l(a.backgroundPrimary, b.backgroundPrimary);
+  @override
+  Color get backgroundSecondary =>
+      _l(a.backgroundSecondary, b.backgroundSecondary);
+  @override
+  Color get backgroundElevated =>
+      _l(a.backgroundElevated, b.backgroundElevated);
+  @override
+  Color get backgroundIce => _l(a.backgroundIce, b.backgroundIce);
+  @override
+  Color get backgroundPearl => _l(a.backgroundPearl, b.backgroundPearl);
+  @override
+  Color get backgroundDeep => _l(a.backgroundDeep, b.backgroundDeep);
+  @override
+  Color get backgroundNavy => _l(a.backgroundNavy, b.backgroundNavy);
 
-  @override Color get glassPrimary => _l(a.glassPrimary, b.glassPrimary);
-  @override Color get glassSecondary => _l(a.glassSecondary, b.glassSecondary);
-  @override Color get glassGraphite => _l(a.glassGraphite, b.glassGraphite);
-  @override Color get glassBlue => _l(a.glassBlue, b.glassBlue);
+  @override
+  Color get glassPrimary => _l(a.glassPrimary, b.glassPrimary);
+  @override
+  Color get glassSecondary => _l(a.glassSecondary, b.glassSecondary);
+  @override
+  Color get glassGraphite => _l(a.glassGraphite, b.glassGraphite);
+  @override
+  Color get glassBlue => _l(a.glassBlue, b.glassBlue);
 
-  @override double get glassLow => _d(a.glassLow, b.glassLow);
-  @override double get glassMedium => _d(a.glassMedium, b.glassMedium);
-  @override double get glassStrong => _d(a.glassStrong, b.glassStrong);
-  @override double get glassOpaque => _d(a.glassOpaque, b.glassOpaque);
+  @override
+  double get glassLow => _d(a.glassLow, b.glassLow);
+  @override
+  double get glassMedium => _d(a.glassMedium, b.glassMedium);
+  @override
+  double get glassStrong => _d(a.glassStrong, b.glassStrong);
+  @override
+  double get glassOpaque => _d(a.glassOpaque, b.glassOpaque);
 
-  @override Color get textPrimary => _l(a.textPrimary, b.textPrimary);
-  @override Color get textSecondary => _l(a.textSecondary, b.textSecondary);
-  @override Color get textTertiary => _l(a.textTertiary, b.textTertiary);
-  @override Color get textDisabled => _l(a.textDisabled, b.textDisabled);
+  @override
+  Color get textPrimary => _l(a.textPrimary, b.textPrimary);
+  @override
+  Color get textSecondary => _l(a.textSecondary, b.textSecondary);
+  @override
+  Color get textTertiary => _l(a.textTertiary, b.textTertiary);
+  @override
+  Color get textDisabled => _l(a.textDisabled, b.textDisabled);
 
-  @override Color get accentCyan => _l(a.accentCyan, b.accentCyan);
-  @override Color get accentMint => _l(a.accentMint, b.accentMint);
-  @override Color get accentSky => _l(a.accentSky, b.accentSky);
-  @override Color get accentBlue => _l(a.accentBlue, b.accentBlue);
-  @override Color get accentLavender => _l(a.accentLavender, b.accentLavender);
+  @override
+  Color get accentCyan => _l(a.accentCyan, b.accentCyan);
+  @override
+  Color get accentMint => _l(a.accentMint, b.accentMint);
+  @override
+  Color get accentSky => _l(a.accentSky, b.accentSky);
+  @override
+  Color get accentBlue => _l(a.accentBlue, b.accentBlue);
+  @override
+  Color get accentLavender => _l(a.accentLavender, b.accentLavender);
 
-  @override Color get iceReflection => _l(a.iceReflection, b.iceReflection);
-  @override Color get silverReflection => _l(a.silverReflection, b.silverReflection);
-  @override Color get pearlReflection => _l(a.pearlReflection, b.pearlReflection);
-  @override Color get warmReflection => _l(a.warmReflection, b.warmReflection);
-  @override Color get lavenderReflection => _l(a.lavenderReflection, b.lavenderReflection);
+  @override
+  Color get iceReflection => _l(a.iceReflection, b.iceReflection);
+  @override
+  Color get silverReflection => _l(a.silverReflection, b.silverReflection);
+  @override
+  Color get pearlReflection => _l(a.pearlReflection, b.pearlReflection);
+  @override
+  Color get warmReflection => _l(a.warmReflection, b.warmReflection);
+  @override
+  Color get lavenderReflection =>
+      _l(a.lavenderReflection, b.lavenderReflection);
 
-  @override Color get borderPrimaryColor => _l(a.borderPrimaryColor, b.borderPrimaryColor);
-  @override Color get borderSecondaryColor => _l(a.borderSecondaryColor, b.borderSecondaryColor);
-  @override Color get borderAccentColor => _l(a.borderAccentColor, b.borderAccentColor);
+  @override
+  Color get borderPrimaryColor =>
+      _l(a.borderPrimaryColor, b.borderPrimaryColor);
+  @override
+  Color get borderSecondaryColor =>
+      _l(a.borderSecondaryColor, b.borderSecondaryColor);
+  @override
+  Color get borderAccentColor => _l(a.borderAccentColor, b.borderAccentColor);
 }
 
 /// ── Spacing Tokens (8dp grid) ──
@@ -452,8 +714,18 @@ class NanoShapes {
   static const extraLarge = BorderRadius.all(Radius.circular(32));
   static const hero = BorderRadius.all(Radius.circular(40));
   static const full = BorderRadius.all(Radius.circular(100));
-  static const userBubble = BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24), bottomLeft: Radius.circular(24), bottomRight: Radius.circular(6));
-  static const aiBubble = BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24), bottomLeft: Radius.circular(6), bottomRight: Radius.circular(24));
+  static const userBubble = BorderRadius.only(
+    topLeft: Radius.circular(24),
+    topRight: Radius.circular(24),
+    bottomLeft: Radius.circular(24),
+    bottomRight: Radius.circular(6),
+  );
+  static const aiBubble = BorderRadius.only(
+    topLeft: Radius.circular(24),
+    topRight: Radius.circular(24),
+    bottomLeft: Radius.circular(6),
+    bottomRight: Radius.circular(24),
+  );
 }
 
 /// ── 1. ORGANIZACIÓN DE SOMBRAS (NanoShadows) ──
@@ -465,11 +737,13 @@ abstract final class NanoShadows {
     Color? accent,
   }) {
     final isDark = colors is NanoDarkColors;
-    final shadowBase = isDark ? const Color(0xFF000000) : const Color(0xFF7F9AB5);
+    final shadowBase = isDark
+        ? const Color(0xFF000000)
+        : const Color(0xFF7F9AB5);
     final primaryOpacity = isDark
         ? (0.28 + (0.22 * depth)).clamp(0.0, 0.70)
         : (0.06 + (0.06 * depth)).clamp(0.0, 0.20);
-    
+
     return [
       // Capa 1: Sombra difusa principal (iluminación ambiental)
       BoxShadow(
@@ -503,8 +777,11 @@ abstract final class NanoShadows {
     if (isPressed) {
       return [
         BoxShadow(
-          color: (colors is NanoDarkColors ? const Color(0xFF000000) : const Color(0xFF7F9AB5))
-              .withValues(alpha: 0.08),
+          color:
+              (colors is NanoDarkColors
+                      ? const Color(0xFF000000)
+                      : const Color(0xFF7F9AB5))
+                  .withValues(alpha: 0.08),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
@@ -515,10 +792,10 @@ abstract final class NanoShadows {
 
   static List<BoxShadow> card(NanoColors c) => [
     BoxShadow(
-      color: c is NanoDarkColors 
-        ? const Color(0xFF000000).withValues(alpha: 0.3)
-        : const Color(0xFF7F9AB5).withValues(alpha: 0.08),
-      blurRadius: 12, 
+      color: c is NanoDarkColors
+          ? const Color(0xFF000000).withValues(alpha: 0.3)
+          : const Color(0xFF7F9AB5).withValues(alpha: 0.08),
+      blurRadius: 12,
       offset: const Offset(0, 4),
     ),
     if (c is! NanoDarkColors)
@@ -528,13 +805,13 @@ abstract final class NanoShadows {
         offset: const Offset(0, 1),
       ),
   ];
-  
+
   static List<BoxShadow> elevated(NanoColors c) => [
     BoxShadow(
-      color: c is NanoDarkColors 
-        ? const Color(0xFF000000).withValues(alpha: 0.4)
-        : const Color(0xFF7F9AB5).withValues(alpha: 0.12),
-      blurRadius: 20, 
+      color: c is NanoDarkColors
+          ? const Color(0xFF000000).withValues(alpha: 0.4)
+          : const Color(0xFF7F9AB5).withValues(alpha: 0.12),
+      blurRadius: 20,
       offset: const Offset(0, 8),
     ),
     if (c is! NanoDarkColors)
@@ -544,20 +821,20 @@ abstract final class NanoShadows {
         offset: const Offset(0, 2),
       ),
   ];
-  
+
   static List<BoxShadow> glow(NanoColors c, Color color) => [
     BoxShadow(
       color: color.withValues(alpha: c is NanoDarkColors ? 0.35 : 0.20),
-      blurRadius: 16, 
+      blurRadius: 16,
       spreadRadius: 1,
     ),
   ];
-  
+
   static List<BoxShadow> fab(NanoColors c) => [
     BoxShadow(
-      color: c is NanoDarkColors 
-        ? const Color(0xFF000000).withValues(alpha: 0.5)
-        : const Color(0xFF7F9AB5).withValues(alpha: 0.16),
+      color: c is NanoDarkColors
+          ? const Color(0xFF000000).withValues(alpha: 0.5)
+          : const Color(0xFF7F9AB5).withValues(alpha: 0.16),
       blurRadius: 24,
       offset: const Offset(0, 8),
     ),
@@ -568,7 +845,7 @@ abstract final class NanoShadows {
         offset: const Offset(0, 2),
       ),
   ];
-  
+
   static List<BoxShadow> highlight(NanoColors c) => [
     if (c is! NanoDarkColors)
       BoxShadow(
@@ -577,7 +854,7 @@ abstract final class NanoShadows {
         offset: const Offset(0, 2),
       ),
   ];
-  
+
   static List<BoxShadow> glass(NanoColors c) => ambient(c, depth: 0.8);
   static List<BoxShadow> glassElevated(NanoColors c) => ambient(c, depth: 1.5);
 }
@@ -679,8 +956,12 @@ abstract final class NanoGlass {
       end: Alignment.bottomRight,
       colors: [
         colors.glassPrimary.withValues(alpha: opacity.clamp(0.0, 1.0)),
-        colors.glassSecondary.withValues(alpha: (opacity * 0.82).clamp(0.0, 1.0)),
-        colors.glassGraphite.withValues(alpha: (opacity * 0.90).clamp(0.0, 1.0)),
+        colors.glassSecondary.withValues(
+          alpha: (opacity * 0.82).clamp(0.0, 1.0),
+        ),
+        colors.glassGraphite.withValues(
+          alpha: (opacity * 0.90).clamp(0.0, 1.0),
+        ),
       ],
     );
   }
@@ -702,8 +983,12 @@ abstract final class NanoGlass {
     return LinearGradient(
       colors: [
         Colors.transparent,
-        colors.iceReflection.withValues(alpha: (0.03 * intensity).clamp(0.0, 0.15)),
-        colors.pearlReflection.withValues(alpha: (0.09 * intensity).clamp(0.0, 0.25)),
+        colors.iceReflection.withValues(
+          alpha: (0.03 * intensity).clamp(0.0, 0.15),
+        ),
+        colors.pearlReflection.withValues(
+          alpha: (0.09 * intensity).clamp(0.0, 0.25),
+        ),
         Colors.transparent,
       ],
       stops: const [0.0, 0.45, 0.55, 1.0],
@@ -721,7 +1006,10 @@ class NanoThemeExtension extends ThemeExtension<NanoThemeExtension> {
       NanoThemeExtension(colors: colors ?? this.colors);
 
   @override
-  ThemeExtension<NanoThemeExtension> lerp(ThemeExtension<NanoThemeExtension>? other, double t) {
+  ThemeExtension<NanoThemeExtension> lerp(
+    ThemeExtension<NanoThemeExtension>? other,
+    double t,
+  ) {
     if (other is! NanoThemeExtension) return this;
     return NanoThemeExtension(
       colors: _LerpedNanoColors(a: colors, b: other.colors, t: t),
@@ -777,4 +1065,3 @@ abstract final class NanoTextColors {
     return target;
   }
 }
-
