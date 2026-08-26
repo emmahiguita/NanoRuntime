@@ -5,6 +5,11 @@
 /// executor/critic/verifier/memory), no 6 modelos en RAM. El output es un
 /// [AgentResult]; la ejecución real y la verificación siguen aguas abajo
 /// (adapter → dispatcher → verifier). No cableado al coordinator en A13.
+///
+/// @Deprecated — A13.5 lo reemplaza en PRODUCCIÓN por [CandidateFirstPlanner]
+/// (plan completo + adapter + verificación), y A15.0 por [TaskOrchestrator]
+/// (multi-paso cross-app). Este orquestador de una ronda quedó SIN cablear:
+/// solo lo ejercitan los tests de A13. No es un segundo motor productivo.
 library;
 
 import '../governance/action_governance_pipeline.dart';
@@ -17,6 +22,10 @@ import '../planning/candidates/candidate_selector.dart';
 import 'agent_role.dart';
 import 'agent_types.dart';
 
+@Deprecated(
+  'En producción usa CandidateFirstPlanner (A13.5) para single-step y '
+  'TaskOrchestrator (A15) para multi-step cross-app.',
+)
 class NanoAgentOrchestrator {
   NanoAgentOrchestrator({
     required CandidateActionGenerator generator,
