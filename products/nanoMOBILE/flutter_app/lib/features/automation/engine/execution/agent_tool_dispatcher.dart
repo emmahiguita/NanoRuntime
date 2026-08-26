@@ -481,6 +481,11 @@ class AgentToolDispatcher {
       case 'capabilities':
       case 'resumen':
         return _runCapabilitiesReport();
+      // A16 — entrada por voz: transcribe y devuelve el texto. El texto entra al
+      // MISMO motor (puedes copiarlo o confirmarlo como orden).
+      case 'escuchar':
+      case 'voz':
+        return _listenVoice();
       // A14.5 — "acción que solicite permisos para continuar". Abre la pantalla
       // del sistema que concede el permiso faltante (accessibility, notificaciones,
       // archivos, runtime). Sintaxis: @conceder <accessibility|notificaciones|archivos|runtime>.
@@ -509,6 +514,18 @@ class AgentToolDispatcher {
         return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
     }
     return (await runToolGuarded(call, humanInitiated: true)).feedback;
+  }
+
+  /// A16 — escucha la voz y devuelve el texto transcrito (sistema Android).
+  /// El texto NO se ejecuta solo aquí: se devuelve para que el usuario lo
+  /// confirme/copie como orden (o el chat_provider lo inyecte al motor).
+  Future<String> _listenVoice() async {
+    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+    if (text == null || text.trim().isEmpty) {
+      return 'No se pudo escuchar: audio no disponible o reconocimiento sin '
+          'resultado. Concede el micrófono con @conceder_runtime e inténtalo.';
+    }
+    return 'Escuchado: "$text".';
   }
 
   /// Informe ejecutivo factual (A14.5). Lee fuentes reales y formatea; si las

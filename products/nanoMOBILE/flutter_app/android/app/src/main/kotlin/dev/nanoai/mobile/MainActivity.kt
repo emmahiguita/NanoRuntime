@@ -21,6 +21,7 @@ import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
+import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -240,6 +241,9 @@ class MainActivity : FlutterActivity() {
                     requestRuntimePermissions(result)
                 },
             )
+
+        MethodChannel(messenger, ChannelNames.SPEECH)
+            .setMethodCallHandler(SpeechChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->
             EngineChannelHandler(engineSupervisor, ioScope, mainHandler)

@@ -16,6 +16,7 @@ abstract final class NanoRuntimeChannels {
   static const modelStorage = 'com.nanoai/model_storage';
   static const notifications = 'com.nanoai/notifications';
   static const devicePermissions = 'com.nanoai/device_permissions';
+  static const speech = 'com.nanoai/speech';
   static const system = 'com.nanoai/system';
 }
 
@@ -81,6 +82,7 @@ class NanoRuntimeApi {
   static const _devicePermissions = MethodChannel(
     NanoRuntimeChannels.devicePermissions,
   );
+  static const _speech = MethodChannel(NanoRuntimeChannels.speech);
 
   Future<RuntimeInfo>? _handshake;
 
@@ -774,6 +776,20 @@ class NanoRuntimeApi {
     } catch (e) {
       debugPrint('[runtime] openUrl error: $e');
       return false;
+    }
+  }
+
+  /// A16 — entrada por voz: reconocimiento de voz del sistema Android. Devuelve
+  /// el texto transcrito, o null si falló/canceló. El texto entra al MISMO
+  /// motor de ejecución (AutomationCoordinator), no a un motor de voz separado.
+  Future<String?> startVoiceRecognition({String language = 'es-ES'}) async {
+    try {
+      return await _speech.invokeMethod<String>('startListening', {
+        'language': language,
+      });
+    } catch (e) {
+      debugPrint('[runtime] startVoiceRecognition error: $e');
+      return null;
     }
   }
 
