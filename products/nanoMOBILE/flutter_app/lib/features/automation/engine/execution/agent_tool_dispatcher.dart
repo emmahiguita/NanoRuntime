@@ -520,6 +520,12 @@ class AgentToolDispatcher {
   /// Abre la pantalla de concesión del permiso indicado (A14.5). Reutiliza los
   /// transportes de NanoRuntimeApi que ya existen; no ejecuta nada más.
   Future<String> _runGrantPermission(String kind) async {
+    // `@conceder shizuku` llega aquí vía `case 'conceder'` con kind=shizuku.
+    // Delega al flujo de conexión Shizuku (diálogo Shizuku), no a una pantalla
+    // de settings.
+    if (kind == 'shizuku') {
+      return _runGrantShizuku();
+    }
     const labels = {
       'accessibility': 'Accesibilidad',
       'notificaciones': 'Notificaciones',
