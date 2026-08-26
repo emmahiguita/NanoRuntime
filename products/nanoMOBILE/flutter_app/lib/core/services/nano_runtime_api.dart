@@ -793,6 +793,16 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A16 — salida por voz (TTS): habla el texto. Devuelve false si falló.
+  Future<bool> speak(String text) async {
+    try {
+      return await _speech.invokeMethod<bool>('speak', {'text': text}) == true;
+    } catch (e) {
+      debugPrint('[runtime] speak error: $e');
+      return false;
+    }
+  }
+
   /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.

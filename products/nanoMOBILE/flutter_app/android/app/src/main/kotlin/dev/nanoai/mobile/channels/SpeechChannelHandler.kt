@@ -8,8 +8,10 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.Locale
 
 /**
  * Entrada por voz (A16): reconocimiento de voz del sistema Android. El texto
@@ -29,6 +31,7 @@ class SpeechChannelHandler(
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
+    private var tts: TextToSpeech? = null
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -36,6 +39,7 @@ class SpeechChannelHandler(
                 call.argument<String>("language") ?: "es-ES",
                 result,
             )
+            "speak" -> speak(call.argument<String>("text").orEmpty(), result)
             "cancel" -> {
                 recognizer?.cancel()
                 recognizer = null
@@ -43,6 +47,33 @@ class SpeechChannelHandler(
             }
             else -> result.notImplemented()
         }
+    }
+
+    /** Salida de voz (TTS). Inicializa el motor on-demand y habla el texto. */
+    private fun speak(text: String, result: MethodChannel.Result) {
+        if (text.isBlank()) {
+            result.success(false)
+            return
+        }
+        val existing = tts
+        if (existing != null) {
+            speakNow(existing, text, result)
+            return
+        }
+        TextToSpeech(context) { status ->
+            val engine = tts
+            if (status == TextToSpeech.SUCCESS && engine != null) {
+                speakNow(engine, text, result)
+            } else {
+                result.error("tts_error", "init status=$status", null)
+            }
+        }.also { tts = it }
+    }
+
+    private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
+        engine.language = Locale("es", "ES")
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nano_tts")
+        result.success(true)
     }
 
     private fun startListening(language: String, result: MethodChannel.Result) {

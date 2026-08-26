@@ -486,6 +486,9 @@ class AgentToolDispatcher {
       case 'escuchar':
       case 'voz':
         return _listenVoice();
+      // A16 — salida por voz (TTS): habla el texto.
+      case 'habla':
+        return _speak(rest);
       // A14.5 — "acción que solicite permisos para continuar". Abre la pantalla
       // del sistema que concede el permiso faltante (accessibility, notificaciones,
       // archivos, runtime). Sintaxis: @conceder <accessibility|notificaciones|archivos|runtime>.
@@ -526,6 +529,14 @@ class AgentToolDispatcher {
           'resultado. Concede el micrófono con @conceder_runtime e inténtalo.';
     }
     return 'Escuchado: "$text".';
+  }
+
+  /// A16 — habla el texto (TTS). Devuelve el resultado del motor de voz.
+  Future<String> _speak(String text) async {
+    final t = text.trim();
+    if (t.isEmpty) return 'Uso: @habla <texto>.';
+    final ok = await NanoRuntimeApi.instance.speak(t);
+    return ok ? 'Hablado.' : 'No se pudo hablar (TTS no disponible).';
   }
 
   /// Informe ejecutivo factual (A14.5). Lee fuentes reales y formatea; si las
