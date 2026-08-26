@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/linux/linux_distribution_registry.dart';
 import '../../../core/services/nano_runtime_api.dart';
+import '../../../core/services/runtime_engine.dart';
 import 'execution/action_path_router.dart';
 import 'execution/action_verifier.dart';
 import 'execution/agent_executor.dart';
@@ -33,7 +34,9 @@ import 'planning/candidates/candidate_generator.dart';
 import 'planning/candidates/candidate_providers.dart';
 import 'planning/candidates/candidate_ranker.dart';
 import 'planning/candidates/candidate_selection_engine.dart';
+import 'planning/candidates/candidate_selector.dart';
 import 'planning/candidates/candidate_tool_call_adapter.dart';
+import 'planning/candidates/koog_candidate_selector.dart';
 import 'planning/candidates/screen_graph_candidate_provider.dart';
 import 'planning/deterministic_catalog.dart';
 import 'system/system_intent_catalog.dart';
@@ -185,6 +188,12 @@ final systemGraphProvider = FutureProvider<SystemGraph>((ref) {
   return ref.watch(systemGraphBuilderProvider).build();
 });
 
+/// Koog selector (A15.8): resuelve ambigüedad Candidate-First con candidateId
+/// (mismo runtime local que el planner LLM, no un segundo modelo).
+final koogCandidateSelectorProvider = Provider<CandidateSelector>((ref) {
+  return KoogCandidateSelector(ref.read(runtimeEngineProvider.notifier).client);
+});
+
 /// Planificador Candidate-First de producción (A13.5/A15.7): generator →
 /// selection → governance → adapter, con SystemGraph real cargado lazy.
 final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
@@ -206,7 +215,10 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
       DeterministicCandidateProvider(defaultDeterministicCatalog),
       ScreenGraphCandidateProvider(_ExecutorScreenObserver(executor)),
     ]),
-    selection: CandidateSelectionEngine(ranker: CandidateRanker()),
+    selection: CandidateSelectionEngine(
+      ranker: CandidateRanker(),
+      koogSelector: ref.watch(koogCandidateSelectorProvider),
+    ),
     governance: const ActionGovernancePipeline(
       firewall: IntentFirewall(),
       critic: PreActionCritic(),

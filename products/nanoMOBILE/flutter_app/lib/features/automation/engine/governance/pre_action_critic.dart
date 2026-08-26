@@ -56,8 +56,11 @@ class PreActionCritic {
       }
     }
 
-    // 2. Grounding insuficiente → más evidencia.
-    if (candidate.groundingConfidence < 0.6) {
+    // 2. Grounding insuficiente → más evidencia. Umbral por tipo de evidencia:
+    // factual (packageManager/systemIntent/deterministic/nanoFlow/config) →
+    // 0.3; inferida (vision/ocr/coordinates) → 0.6. La ambigüedad factual la
+    // resuelve Koog (candidateId); no es "insuficiencia de evidencia".
+    if (candidate.groundingConfidence < _groundingThreshold(candidate)) {
       return const MoreEvidenceRequiredAction(
         GovernanceReason.insufficientEvidence,
       );
@@ -87,4 +90,18 @@ class PreActionCritic {
     ActionEffect.changeSystemState => true,
     _ => false,
   };
+
+  /// Umbral de grounding según la proveniencia de la evidencia.
+  double _groundingThreshold(CandidateAction candidate) {
+    final factual = candidate.evidence.any(
+      (e) =>
+          e.source == ActionEvidenceSource.packageManager ||
+          e.source == ActionEvidenceSource.systemIntentCatalog ||
+          e.source == ActionEvidenceSource.systemGraph ||
+          e.source == ActionEvidenceSource.deterministicCatalog ||
+          e.source == ActionEvidenceSource.nanoFlow ||
+          e.source == ActionEvidenceSource.explicitConfiguration,
+    );
+    return factual ? 0.3 : 0.6;
+  }
 }

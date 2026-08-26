@@ -17,7 +17,10 @@ import 'package:nanoai/features/automation/engine/planning/candidates/candidate_
 import 'package:nanoai/features/automation/engine/planning/candidates/candidate_providers.dart';
 import 'package:nanoai/features/automation/engine/planning/candidates/candidate_ranker.dart';
 import 'package:nanoai/features/automation/engine/planning/candidates/candidate_selection_engine.dart';
+import 'package:nanoai/features/automation/engine/planning/candidates/candidate_selector.dart';
 import 'package:nanoai/features/automation/engine/planning/candidates/candidate_tool_call_adapter.dart';
+import 'package:nanoai/features/automation/engine/planning/candidates/koog_candidate_selector.dart';
+import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart';
 import 'package:nanoai/features/automation/engine/system/capability_availability.dart';
 import 'package:nanoai/features/automation/engine/system/system_capability.dart';
@@ -92,18 +95,35 @@ SystemGraph intentGraph() => SystemGraph(
   },
 );
 
-CandidateFirstPlanner planner(List<CandidateProvider> providers) =>
-    CandidateFirstPlanner(
-      generatorBuilder: (graph) => CandidateActionGenerator(providers),
-      selection: CandidateSelectionEngine(ranker: CandidateRanker()),
-      governance: const ActionGovernancePipeline(
-        firewall: IntentFirewall(),
-        critic: PreActionCritic(),
-        broker: PrivilegeBroker(),
-      ),
-      adapter: CandidateToolCallAdapter(),
-      getGraph: () async => intentGraph(),
-    );
+CandidateFirstPlanner planner(
+  List<CandidateProvider> providers, {
+  CandidateSelector? koogSelector,
+}) => CandidateFirstPlanner(
+  generatorBuilder: (graph) => CandidateActionGenerator(providers),
+  selection: CandidateSelectionEngine(
+    ranker: CandidateRanker(),
+    koogSelector: koogSelector,
+  ),
+  governance: const ActionGovernancePipeline(
+    firewall: IntentFirewall(),
+    critic: PreActionCritic(),
+    broker: PrivilegeBroker(),
+  ),
+  adapter: CandidateToolCallAdapter(),
+  getGraph: () async => intentGraph(),
+);
+
+class _FakeKoogClient extends LLMEngineClient {
+  _FakeKoogClient(this.canned);
+  final String canned;
+
+  @override
+  Future<LLMResult> generate({
+    required String prompt,
+    double temperature = 0.7,
+    int maxTokens = 256,
+  }) async => LLMResult(text: canned);
+}
 
 AutomationCoordinator coordinator(CandidateFirstPlanner candidateFirst) =>
     AutomationCoordinator(
@@ -194,5 +214,30 @@ void main() {
     final r = await c.execute(const AutomationGoal(text: 'volver'));
     expect(r.status, AutomationResultStatus.completedUnverified);
     expect(dispatcher.calls.single.tool, 'back');
+  });
+
+  test('ambigüedad → Koog selecciona candidateId → execution', () async {
+    final dispatcher = _FakeDispatcher();
+    final koog = KoogCandidateSelector(
+      _FakeKoogClient('{"candidateId":"app:launch:com.whatsapp"}'),
+    );
+    final c = AutomationCoordinator(
+      dispatcher: dispatcher,
+      mode: () => AgentAutomationMode.autonomous,
+      candidateFirst: planner([
+        InstalledAppCandidateProvider(
+          catalogWith([
+            app('WhatsApp', 'com.whatsapp'),
+            app('WhatsApp Business', 'com.whatsapp.w4b'),
+          ]),
+        ),
+      ], koogSelector: koog),
+      verifyGoal: (goal, {required planCompleted, expectation}) async =>
+          const GoalVerification(GoalStatus.satisfied, 'verified'),
+    );
+    final r = await c.execute(const AutomationGoal(text: 'abre Whats'));
+    expect(r.status, AutomationResultStatus.completed);
+    expect(dispatcher.calls.single.tool, 'launch_app');
+    expect(dispatcher.calls.single.args!['packageName'], 'com.whatsapp');
   });
 }

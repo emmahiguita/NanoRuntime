@@ -151,12 +151,28 @@ void main() {
       expect(critic.review(intent, cand), isA<ApprovedAction>());
     });
 
-    test('grounding insuficiente → more evidence', () {
+    test('grounding insuficiente (evidencia inferida) → more evidence', () {
       const intent = IntentSpec(
         id: 'x',
         allowedEffects: {ActionEffect.writeUi},
       );
-      final cand = candidate(id: 'a', tool: 'tap', grounding: 0.3);
+      final cand = CandidateAction(
+        id: CandidateId('a'),
+        semanticAction: 'act',
+        tool: 'tap',
+        args: const {},
+        channel: ActionChannel.vision,
+        groundingConfidence: 0.3,
+        risk: ToolRisk.device,
+        reversible: true,
+        evidence: [
+          ActionEvidence(
+            source: ActionEvidenceSource.vision,
+            reference: 'a',
+            confidence: 0.3,
+          ),
+        ],
+      );
       expect(critic.review(intent, cand), isA<MoreEvidenceRequiredAction>());
     });
 
