@@ -423,6 +423,9 @@ class AutomationCoordinator {
     var koogInvoked = false;
     var legacyFallback = false;
     var candidateLatency = Duration.zero;
+    // A15.3: métricas de tareas cross-app multi-paso.
+    var taskStepsCount = 0;
+    var zeroLlmTask = false;
     // Expectativa efectiva para el run (usada en aprendizaje SOUND). Por defecto
     // la del goal; un flujo determinista del catálogo puede aportar la suya.
     var runExpectation = goal.expectation;
@@ -452,6 +455,8 @@ class AutomationCoordinator {
           koogInvoked: koogInvoked,
           legacyFallback: legacyFallback,
           candidateLatency: candidateLatency,
+          taskSteps: taskStepsCount,
+          zeroLlmTask: zeroLlmTask,
         ),
       );
     }
@@ -474,6 +479,8 @@ class AutomationCoordinator {
       // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
       final crossApp = await runCrossAppTask(goal.text);
       if (crossApp != null) {
+        // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
+        taskStepsCount = crossApp.length;
         TaskStepResult? firstFailed;
         for (final s in crossApp) {
           if (!s.isCompleted) {

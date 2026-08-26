@@ -37,6 +37,14 @@ class C14Execution {
   final bool legacyFallback;
   final Duration candidateLatency;
 
+  // A15.3: métricas de tareas cross-app multi-paso.
+  final int taskSteps; // pasos del TaskPlan ejecutados
+  final int
+  crossDomainTransitions; // transiciones notification→linux/browser/app
+  final int routeSwitches; // cambios de ruta en recovery
+  final bool loopDetected; // se detectó un loop y se detuvo
+  final bool zeroLlmTask; // la tarea se descompuso sin LLM (template)
+
   const C14Execution({
     required this.goal,
     required this.planValid,
@@ -57,6 +65,11 @@ class C14Execution {
     this.koogInvoked = false,
     this.legacyFallback = false,
     this.candidateLatency = Duration.zero,
+    this.taskSteps = 0,
+    this.crossDomainTransitions = 0,
+    this.routeSwitches = 0,
+    this.loopDetected = false,
+    this.zeroLlmTask = false,
   });
 }
 
@@ -73,6 +86,12 @@ class C14BenchmarkReport {
   final double zeroLlmRate;
   final double koogInvocationRate;
 
+  // A15.3: métricas de tareas cross-app.
+  final int taskStepTotal;
+  final int crossDomainTransitions;
+  final int loopDetectedCount;
+  final double zeroLlmTaskRate;
+
   const C14BenchmarkReport({
     required this.executions,
     required this.gates,
@@ -82,6 +101,10 @@ class C14BenchmarkReport {
     required this.legacyFallbackRate,
     required this.zeroLlmRate,
     required this.koogInvocationRate,
+    this.taskStepTotal = 0,
+    this.crossDomainTransitions = 0,
+    this.loopDetectedCount = 0,
+    this.zeroLlmTaskRate = 0.0,
   });
 
   bool get gatedPass => gates.every((g) => g.pass);
@@ -162,6 +185,13 @@ class C14Gates {
         total,
       ),
       koogInvocationRate: _ratio(ex.where((e) => e.koogInvoked).length, total),
+      taskStepTotal: ex.fold<int>(0, (s, e) => s + e.taskSteps),
+      crossDomainTransitions: ex.fold<int>(
+        0,
+        (s, e) => s + e.crossDomainTransitions,
+      ),
+      loopDetectedCount: ex.where((e) => e.loopDetected).length,
+      zeroLlmTaskRate: _ratio(ex.where((e) => e.zeroLlmTask).length, total),
     );
   }
 
