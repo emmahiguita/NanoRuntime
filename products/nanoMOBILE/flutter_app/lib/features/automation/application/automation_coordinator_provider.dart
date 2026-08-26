@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
+import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
+import 'package:nanoai/features/automation/engine/orchestration/task_decomposer.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
@@ -55,6 +57,10 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         );
         return !r.feedback.startsWith('[');
       },
+    ),
+    // A15.2: descomposición template determinista + LLM validado.
+    taskDecomposer: LlmTaskDecomposer(
+      client: ref.read(runtimeEngineProvider.notifier).client,
     ),
   );
 });
