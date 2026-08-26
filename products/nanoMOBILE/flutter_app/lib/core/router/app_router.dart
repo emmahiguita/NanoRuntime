@@ -19,6 +19,13 @@ import 'scaffold_shell.dart';
 class AppRouter {
   static GoRouter router = _build('/dashboard');
 
+  /// Claves de Navigator por branch (orden: dashboard, chat, models,
+  /// terminal, settings). Permiten que ScaffoldShell resuelva el back real:
+  /// dentro de una pestaña, el gesto atrás debe hacer pop del stack interno
+  /// del branch (p.ej. /terminal/shell → /terminal) ANTES de saltar a Inicio.
+  static final List<GlobalKey<NavigatorState>> branchKeys =
+      List.generate(5, (_) => GlobalKey<NavigatorState>());
+
   /// (Re)construye el router. [initialRoute] permite arrancar en /settings
   /// cuando el sistema lanza la app desde Ajustes → Apps → Configuración
   /// (ACTION_APPLICATION_PREFERENCES). Null → dashboard por defecto.
@@ -33,6 +40,7 @@ class AppRouter {
         builder: (context, state, shell) => ScaffoldShell(shell: shell),
         branches: [
           StatefulShellBranch(
+            navigatorKey: branchKeys[0],
             routes: [
               GoRoute(
                 path: '/dashboard',
@@ -41,6 +49,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[1],
             routes: [
               GoRoute(
                 path: '/chat',
@@ -49,6 +58,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[2],
             routes: [
               GoRoute(
                 path: '/models',
@@ -57,6 +67,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[3],
             routes: [
               GoRoute(
                 path: '/terminal',
@@ -77,6 +88,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[4],
             routes: [
               GoRoute(
                 path: '/settings',

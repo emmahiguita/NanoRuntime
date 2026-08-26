@@ -31,7 +31,7 @@ class AutomationScreen extends ConsumerWidget {
               showBack: true,
               body: AutomationDashboard(
                 onDevTap: kDebugMode ? _openDev : null,
-                onMessagesTap: () => context.go('/automation/messages'),
+                onMessagesTap: () => context.push('/automation/messages'),
               ),
             ),
           ),

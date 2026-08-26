@@ -28,10 +28,7 @@ class AdaptiveTheme {
 class AdaptiveOrientationBuilder extends StatelessWidget {
   final Widget Function(BuildContext context, bool isLandscape) builder;
 
-  const AdaptiveOrientationBuilder({
-    super.key,
-    required this.builder,
-  });
+  const AdaptiveOrientationBuilder({super.key, required this.builder});
 
   @override
   Widget build(BuildContext context) {

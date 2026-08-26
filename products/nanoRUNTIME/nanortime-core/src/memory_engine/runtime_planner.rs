@@ -782,7 +782,7 @@ impl RuntimePlanner {
         profile: MeasuredExecutionProfile,
     ) -> std::io::Result<()> {
         let mut store = self.benchmark_store.lock().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "benchmark store lock poisoned")
+            std::io::Error::other("benchmark store lock poisoned")
         })?;
         store.upsert(profile);
         store.save()

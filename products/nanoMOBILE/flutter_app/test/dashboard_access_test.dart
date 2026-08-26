@@ -47,7 +47,9 @@ void main() {
     expect(tapped, 'chat');
   });
 
-  testWidgets('accesos del dashboard nunca quedan mudos (no-op)', (tester) async {
+  testWidgets('accesos del dashboard nunca quedan mudos (no-op)', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(

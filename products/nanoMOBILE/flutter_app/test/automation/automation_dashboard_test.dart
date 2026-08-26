@@ -59,14 +59,51 @@ void main() {
     // HONESTO en lenguaje humano (no el nombre interno del enum).
     expect(find.text('Sin plan'), findsOneWidget);
   });
+
+  testWidgets('el atajo Bluetooth promete abrir ajustes, no activar el radio', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app());
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // La activación no se puede demostrar con un simple tap; el atajo solo
+    // inicia el flujo verificable de apertura de Ajustes.
+    expect(find.text('Abrir Bluetooth'), findsOneWidget);
+    expect(find.text('Activar Bluetooth'), findsNothing);
+  });
+
+  testWidgets('una ejecución pausada se confirma y reanuda desde la UI', (
+    tester,
+  ) async {
+    final coordinator = _ConfirmingCoordinator();
+    await tester.pumpWidget(_app(coordinator: coordinator));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.enterText(find.byType(TextField).first, 'abrir Chrome');
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Esperando confirmación'), findsOneWidget);
+    expect(find.text('confirmation required'), findsOneWidget);
+    expect(find.text('Confirmar y continuar'), findsOneWidget);
+
+    await tester.tap(find.text('Confirmar y continuar'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Verificado'), findsOneWidget);
+    expect(find.text('verified'), findsOneWidget);
+    expect(coordinator.confirmedCalls, 1);
+  });
 }
 
-Widget _app() => ProviderScope(
-  overrides: _overrides(),
+Widget _app({AutomationCoordinator? coordinator}) => ProviderScope(
+  overrides: _overrides(coordinator: coordinator),
   child: MaterialApp(theme: AppTheme.light, home: const AutomationScreen()),
 );
 
-List<Override> _overrides() => [
+List<Override> _overrides({AutomationCoordinator? coordinator}) => [
   engineStatusProvider.overrideWith(
     (ref) => const EngineStatus(
       port: 8080,
@@ -76,7 +113,7 @@ List<Override> _overrides() => [
   ),
   automationEngineProvider.overrideWith(
     (ref) => AutomationEngine.from(
-      _FakeCoordinator(),
+      coordinator ?? _FakeCoordinator(),
       ref.read(actionLedgerProvider),
     ),
   ),
@@ -104,4 +141,37 @@ class _FakeCoordinator extends AutomationCoordinator {
 
 class _DummyDispatcher extends AgentToolDispatcher {
   _DummyDispatcher() : super();
+}
+
+class _ConfirmingCoordinator extends AutomationCoordinator {
+  _ConfirmingCoordinator()
+    : super(
+        dispatcher: _DummyDispatcher(),
+        mode: () => AgentAutomationMode.autonomous,
+      );
+
+  int confirmedCalls = 0;
+
+  @override
+  Future<AutomationResult> execute(
+    AutomationGoal goal, {
+    List<ToolCall>? plan,
+    AutomationOptions? options,
+  }) async {
+    if (options?.confirmed == true) {
+      confirmedCalls++;
+      return const AutomationResult(
+        executionId: 'confirmed',
+        status: AutomationResultStatus.completed,
+        reason: 'verified',
+      );
+    }
+    return const AutomationResult(
+      executionId: 'paused',
+      status: AutomationResultStatus.paused,
+      reason: 'confirmation required',
+      pauseIndex: 0,
+      pauseTool: 'launch',
+    );
+  }
 }

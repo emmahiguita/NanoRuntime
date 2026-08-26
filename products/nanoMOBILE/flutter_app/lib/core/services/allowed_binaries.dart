@@ -19,7 +19,9 @@ class AllowedBinaries {
 
   static Future<Set<String>> _loadFromAssets() async {
     try {
-      final json = await rootBundle.loadString('assets/config/allowed_binaries.json');
+      final json = await rootBundle.loadString(
+        'assets/config/allowed_binaries.json',
+      );
       final parsed = jsonDecode(json) as Map<String, dynamic>;
       final list = (parsed['allowed'] as List?)?.cast<String>() ?? [];
       _cache = list.toSet();

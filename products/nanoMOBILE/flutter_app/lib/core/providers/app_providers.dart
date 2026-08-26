@@ -1,9 +1,9 @@
 // ================================================================
 // NanoAI — Real State Management
-// 
+//
 // Este archivo es un BARREL que exporta todos los providers.
 // La lógica está distribuida en archivos individuales para mejor mantenimiento.
-// 
+//
 // Persistence: SharedPreferences. Reactivity: Riverpod StateNotifier.
 // ================================================================
 

@@ -15,8 +15,10 @@ import 'chat_models.dart';
 enum ModelTier {
   /// ≤3B: tiempo al primer token < ~5s en móvil. Default del chat.
   interactive,
+
   /// 4B–7B: usable pero lento en el primer token.
   deep,
+
   /// 9B+: solo batch/insistencia explícita. Nunca default del chat.
   extreme,
 }

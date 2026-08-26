@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../theme/design_tokens.dart';
 import 'nano_dock_controller.dart';
 
@@ -21,7 +21,8 @@ class NanoDockHandle extends StatelessWidget {
 
     return GestureDetector(
       onPanStart: dockController.onDragStart,
-      onPanUpdate: (details) => dockController.onDragUpdate(details, screenSize),
+      onPanUpdate: (details) =>
+          dockController.onDragUpdate(details, screenSize),
       onPanEnd: dockController.onDragEnd,
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -99,10 +100,7 @@ class NanoDockHandle extends StatelessWidget {
           return LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              colors.accentCyan,
-              colors.accentLavender,
-            ],
+            colors: [colors.accentCyan, colors.accentLavender],
           ).createShader(rect);
         },
         child: Text(

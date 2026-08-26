@@ -8,8 +8,12 @@ Prueba de estrés real y sostenida sobre el ejecutable `nanortime`:
 3. Mide estabilidad de rendimiento (tok/s, latencia, perplejidad/confianza).
 4. Verifica tolerancia a carga y uso continuo sin OOM ni degrada de velocidad.
 
+Telemetría por corrida (scripts/telemetry.py): antes/después/pico de memoria
+(RSS/VMS, y en Linux PSS/RssAnon/RssFile), CPU user/system, I/O y fallos de
+página. Resultados crudos en JSONL (una línea por corrida) + CSV derivado.
+
 Uso:
-    python3 scripts/stress_test.py --binary target/release/nanortime.exe --model "C:\llama-cpp-server\models\qwen2.5-1.5b-instruct-q4_k_m.gguf" --iterations 15
+    python3 scripts/stress_test.py --binary target/release/nanortime.exe --model "C:\\llama-cpp-server\\models\\qwen2.5-1.5b-instruct-q4_k_m.gguf" --iterations 15
 """
 
 import argparse
@@ -29,8 +33,14 @@ except ImportError:
     print("ERROR: psutil no instalado. Ejecuta: pip install psutil")
     sys.exit(1)
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import telemetry
+
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
+
+PROJECT = Path(__file__).resolve().parent.parent
 
 # Colección diversa de preguntas para la prueba de estrés
 STRESS_PROMPTS = [
@@ -52,7 +62,22 @@ STRESS_PROMPTS = [
 ]
 
 
-def run_prompt(binary: str, config: str, prompt: str, max_tokens: int = 128) -> dict:
+def _clk_tck() -> int:
+    try:
+        return os.sysconf("SC_CLK_TCK")
+    except (AttributeError, ValueError):
+        return 100
+
+
+def _make_collector(platform: str):
+    if platform == "windows":
+        return telemetry.WindowsProcCollector()
+    return telemetry.LinuxProcCollector(
+        telemetry.LocalProcReader(), clk_tck=_clk_tck())
+
+
+def run_prompt(binary: str, config: str, prompt: str, max_tokens: int = 128,
+               *, iteration: int, prompt_id: str, ctx: dict) -> dict:
     formatted = format_chat_prompt(prompt)
     cmd = [
         binary,
@@ -64,62 +89,56 @@ def run_prompt(binary: str, config: str, prompt: str, max_tokens: int = 128) -> 
     ]
 
     t0 = time.monotonic()
-    peak_rss = 0
+    creationflags = subprocess.CREATE_NO_WINDOW if ctx["platform"] == "windows" else 0
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, creationflags=creationflags)
+    pid = proc.pid
 
+    rt = telemetry.RunTelemetry(
+        platform=ctx["platform"], collector=ctx["collector"],
+        engine="nanortime", device=ctx["device"], model=ctx["model"],
+        configuration=ctx["configuration"])
+    rt.capture_before(pid)
+    rt.start_monitor(pid, interval=ctx["interval"])
+
+    # communicate() drains both pipes (avoids pipe-buffer deadlock); the
+    # telemetry monitor thread samples in parallel.
+    timed_out = False
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = proc.communicate(timeout=ctx["timeout"])
+        exit_code = proc.returncode
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        exit_code = -1
+        timed_out = True
+    rt.stop_monitor()
+    wall_ms = (time.monotonic() - t0) * 1000.0
 
-        # RSS monitor with deadline: previously the while-loop polled
-        # proc.poll() indefinitely, so if the process hung the timeout
-        # on communicate() was never reached. Now the loop checks a
-        # deadline so it exits after 125s (slightly exceeding the
-        # communicate timeout of 120s).
-        deadline = time.monotonic() + 125.0
-        try:
-            ps = psutil.Process(proc.pid)
-            while proc.poll() is None and time.monotonic() < deadline:
-                try:
-                    rss = ps.memory_info().rss
-                    if rss > peak_rss:
-                        peak_rss = rss
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    break
-                time.sleep(0.1)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+    tok_s, tokens, confidence = None, 0, 0.0
+    m = re.search(r'\[METRICS\] tokens=(\d+) elapsed_ms=[\d.]+ tok_s=([\d.]+) tier=\S+ confidence=([\d.]+)', stderr)
+    if m:
+        tokens = int(m.group(1))
+        tok_s = float(m.group(2))
+        confidence = float(m.group(3))
 
-        stdout, stderr = proc.communicate(timeout=120)
-        elapsed_ms = (time.monotonic() - t0) * 1000.0
+    run = rt.build_run(exit_code=exit_code, success=(exit_code == 0),
+                       wall_ms=wall_ms, latency_ms=round(wall_ms, 1),
+                       tokens=tokens, tok_s=tok_s, warmup=False,
+                       iteration=iteration, prompt_id=prompt_id)
+    telemetry.append_jsonl(ctx["jsonl"], run)
 
-        tok_s, tokens, confidence = None, 0, 0.0
-        m = re.search(r'\[METRICS\] tokens=(\d+) elapsed_ms=[\d.]+ tok_s=([\d.]+) tier=\S+ confidence=([\d.]+)', stderr)
-        if m:
-            tokens = int(m.group(1))
-            tok_s = float(m.group(2))
-            confidence = float(m.group(3))
-
-        return {
-            "output": stdout.strip()[:200],
-            "latency_ms": round(elapsed_ms, 1),
-            "peak_rss_mb": round(peak_rss / (1024 * 1024), 1),
-            "tokens": tokens,
-            "tok_s": tok_s,
-            "confidence": confidence,
-            "exit_code": proc.returncode,
-            "error": stderr[:300] if proc.returncode != 0 else None,
-        }
-
-    except Exception as e:
-        return {
-            "output": "",
-            "latency_ms": 0.0,
-            "peak_rss_mb": 0.0,
-            "tokens": 0,
-            "tok_s": None,
-            "confidence": 0.0,
-            "exit_code": -1,
-            "error": str(e),
-        }
+    peak_rss = run["memory_peak"].get("rss_mb")
+    return {
+        "output": stdout.strip()[:200],
+        "latency_ms": round(wall_ms, 1),
+        "peak_rss_mb": round(peak_rss, 1) if peak_rss is not None else 0.0,
+        "tokens": tokens,
+        "tok_s": tok_s,
+        "confidence": confidence,
+        "exit_code": exit_code,
+        "error": stderr[:300] if exit_code != 0 else None,
+    }
 
 
 def main():
@@ -130,11 +149,51 @@ def main():
     parser.add_argument("--iterations", type=int, default=15)
     parser.add_argument("--max-tokens", type=int, default=128)
     parser.add_argument("--output", default="data/research/stress_results.json")
+    parser.add_argument("--telemetry-dir", default=str(PROJECT / "data" / "research" / "telemetry"))
+    parser.add_argument("--interval", type=float, default=0.1,
+                        help="Intervalo de muestreo de telemetría (s)")
+    parser.add_argument("--timeout", type=float, default=120.0,
+                        help="Timeout por corrida (s)")
     args = parser.parse_args()
 
     if not Path(args.binary).exists():
         print(f"❌ Binario no encontrado: {args.binary}")
         sys.exit(1)
+
+    tdir = Path(args.telemetry_dir)
+    jsonl = tdir / "runs.jsonl"
+    csv_path = tdir / "runs.csv"
+    manifest_path = tdir / "manifest.jsonl"
+
+    platform = "windows" if os.name == "nt" else "linux"
+    collector = _make_collector(platform)
+
+    params, quant = telemetry.infer_model_meta(args.model)
+    model_meta = {
+        "path": args.model,
+        "sha256": telemetry.sha256_file(args.model) or "",
+        "parameters": params,
+        "quantization": quant,
+    }
+    device = telemetry.local_device_info()
+
+    ctx = {
+        "platform": platform,
+        "collector": collector,
+        "device": device,
+        "model": model_meta,
+        "configuration": {
+            "context_size": 0,
+            "batch_size": 0,
+            "prompt_id": "",
+            "output_token_limit": args.max_tokens,
+            "warmup": False,
+            "iteration": 0,
+        },
+        "jsonl": str(jsonl),
+        "interval": args.interval,
+        "timeout": args.timeout,
+    }
 
     # Crear manifest temporal con el modelo
     base_config = {}
@@ -154,7 +213,8 @@ def main():
     print(f"  PRUEBA DE ESTRÉS Y ESTABILIDAD SOSTENIDA ({args.iterations} ITERACIONES)")
     print("=" * 65)
     print(f"Binario: {args.binary}")
-    print(f"Modelo : {args.model}\n")
+    print(f"Modelo : {args.model}")
+    print(f"Telemetría JSONL: {jsonl}\n")
 
     results = []
     initial_rss = None
@@ -164,7 +224,8 @@ def main():
             prompt = STRESS_PROMPTS[i % len(STRESS_PROMPTS)]
             print(f"[{i+1:02d}/{args.iterations:02d}] Prompt: '{prompt[:45]}...'")
 
-            res = run_prompt(args.binary, temp_config, prompt, max_tokens=args.max_tokens)
+            res = run_prompt(args.binary, temp_config, prompt, max_tokens=args.max_tokens,
+                             iteration=i + 1, prompt_id=f"stress_{i % len(STRESS_PROMPTS)}", ctx=ctx)
             if initial_rss is None and res["peak_rss_mb"] > 0:
                 initial_rss = res["peak_rss_mb"]
 
@@ -183,6 +244,19 @@ def main():
     finally:
         os.unlink(temp_config)
 
+    telemetry.derive_csv(str(jsonl), str(csv_path))
+    telemetry.write_session_manifest(str(manifest_path), {
+        "timestamp_utc": telemetry.utcnow_iso(),
+        "git_commit": telemetry.git_commit(str(PROJECT)),
+        "platform": platform,
+        "device": device,
+        "engine": "nanortime",
+        "model": model_meta,
+        "configuration": ctx["configuration"],
+        "command": sys.argv[:],
+        "n_runs": args.iterations,
+    })
+
     # Análisis de estabilidad de memoria y velocidad
     successful = [r for r in results if r["exit_code"] == 0]
     avg_speed = sum(r["tok_s"] for r in successful if r["tok_s"]) / len(successful) if successful else 0.0
@@ -196,8 +270,8 @@ def main():
     print(f"  Peticiones Exitosas : {len(successful)} / {args.iterations}")
     print(f"  Velocidad Promedio  : {avg_speed:.2f} tok/s")
     print(f"  Latencia Promedio   : {avg_lat:.0f} ms")
-    print(f"  Memoria RSS Min/Max : {min_rss:.1f} MB / {max_rss:.1f} MB (Estable)")
-    print(f"  Variación de RAM    : {max_rss - min_rss:.1f} MB (Fuga de memoria: Ninguna)")
+    print(f"  Memoria RSS Min/Max : {min_rss:.1f} MB / {max_rss:.1f} MB")
+    print(f"  Variación de RAM    : {max_rss - min_rss:.1f} MB")
 
     out_data = {
         "iterations": args.iterations,
@@ -214,6 +288,7 @@ def main():
         json.dump(out_data, f, indent=2, ensure_ascii=False)
 
     print(f"\n📁 Resultados de estrés guardados en: {args.output}")
+    print(f"📁 Telemetría JSONL: {jsonl} | CSV: {csv_path}")
 
 
 if __name__ == "__main__":

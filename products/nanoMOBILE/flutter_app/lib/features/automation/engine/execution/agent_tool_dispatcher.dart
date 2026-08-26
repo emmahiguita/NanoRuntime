@@ -438,6 +438,11 @@ class AgentToolDispatcher {
       case 'pantalla':
       case 'screen':
         call = const ToolCall(tool: 'screen');
+      // A16 — extrae TODO el texto visible (observación de contenido, no solo
+      // el top de nodos). Base de "dime qué dice esta página".
+      case 'leer':
+      case 'leer_pantalla':
+        return _readScreenText();
       case 'resolver':
       case 'resolve':
         call = ToolCall(tool: 'resolve', selector: rest);
@@ -912,6 +917,30 @@ class AgentToolDispatcher {
         );
     return 'Pantalla "${snap.package}" · ${snap.nodes.length} nodos '
         '(${visible.length} visibles). Top visibles:\n${top.join('\n')}';
+  }
+
+  /// A16 — extrae todo el texto visible de la pantalla (label/text/description),
+  /// sin coordenadas. Es la base de "dime qué dice esta página" (observación de
+  /// contenido, no solo estructura).
+  Future<String> _readScreenText() async {
+    final snap = await _executor.snapshot();
+    if (snap == null) {
+      return '[serviceOff] Accesibilidad apagada o canal sin respuesta.';
+    }
+    if (snap.isEmpty) {
+      return '[snapshotEmpty] Sin ventana activa (rebind en curso).';
+    }
+    final texts = <String>[];
+    for (final n in snap.visibleNodes) {
+      final t = n.label.isNotEmpty
+          ? n.label
+          : (n.text.isNotEmpty ? n.text : n.description);
+      if (t.isNotEmpty && !texts.contains(t)) texts.add(t);
+    }
+    if (texts.isEmpty) {
+      return 'No hay texto visible en "${snap.package}".';
+    }
+    return 'Texto visible en "${snap.package}":\n${texts.join('\n')}';
   }
 
   Future<String> _resolve(String expr) async {

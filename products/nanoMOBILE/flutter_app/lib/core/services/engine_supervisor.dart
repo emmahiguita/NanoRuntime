@@ -79,6 +79,7 @@ class SupervisorPolicy {
   final int consecutiveFailuresBeforeAction;
   final int restartBackoffMs;
   final int maxRestartsPerWindow;
+
   /// Ticks de health fallido con proceso vivo (stalled) antes de escalar a
   /// restart. Distingue "modelo lento" de "engine colgado".
   final int stallTicksBeforeRestart;

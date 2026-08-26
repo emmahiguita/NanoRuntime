@@ -157,156 +157,63 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
       backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxWidth = constraints.maxWidth;
-                final maxHeight = constraints.maxHeight;
-                final isLandscape = maxWidth > maxHeight;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth;
+            final maxHeight = constraints.maxHeight;
+            final isLandscape = maxWidth > maxHeight;
 
-                if (isLandscape) {
-                  // ─────────────────────────────────────────────
-                  // COMPOSICIÓN LANDSCAPE HORIZONTAL ADAPTATIVA
-                  // ─────────────────────────────────────────────
-                  const headerRowHeight = 26.0;
-                  final telemetryRowHeight = _showTelemetry ? 46.0 : 34.0;
-                  final availableForCarousel =
-                      maxHeight -
-                      headerRowHeight -
-                      4.0 -
-                      telemetryRowHeight -
-                      12.0;
-                  // Sin mínimo forzado: el clamp(150, …) desbordaba el Column
-                  // en ventanas paisaje muy bajas (altura < ~238px). La card
-                  // escala al espacio real disponible, nunca fuerza overflow.
-                  final carouselHeight = availableForCarousel.clamp(0.0, 260.0);
+            if (isLandscape) {
+              // ─────────────────────────────────────────────
+              // COMPOSICIÓN LANDSCAPE HORIZONTAL ADAPTATIVA
+              // ─────────────────────────────────────────────
+              const headerRowHeight = 26.0;
+              final telemetryRowHeight = _showTelemetry ? 46.0 : 34.0;
+              final availableForCarousel =
+                  maxHeight - headerRowHeight - 4.0 - telemetryRowHeight - 12.0;
+              // Sin mínimo forzado: el clamp(150, …) desbordaba el Column
+              // en ventanas paisaje muy bajas (altura < ~238px). La card
+              // escala al espacio real disponible, nunca fuerza overflow.
+              final carouselHeight = availableForCarousel.clamp(0.0, 260.0);
 
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 960),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          20,
-                          4,
-                          20,
-                          math.max(4, media.padding.bottom),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedCrossFade(
-                              duration: const Duration(milliseconds: 240),
-                              crossFadeState: _showTelemetry
-                                  ? CrossFadeState.showFirst
-                                  : CrossFadeState.showSecond,
-                              firstChild: _TelemetryGlass(
-                                ram: widget.telemetry.ram,
-                                cpu: widget.telemetry.cpu,
-                                temperature: widget.telemetry.temperature,
-                                storage: widget.telemetry.freeStorage,
-                                battery: widget.telemetry.battery,
-                                kaliStatus: widget.kaliStatus,
-                                onKaliTap: widget.onKaliTap,
-                                compact: true,
-                                onCollapse: () =>
-                                    setState(() => _showTelemetry = false),
-                              ),
-                              secondChild: _TelemetryCornerBadge(
-                                onExpand: () =>
-                                    setState(() => _showTelemetry = true),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Expanded(
-                              child: Center(
-                                child: SizedBox(
-                                  height: carouselHeight,
-                                  child: _FeatureCarousel(
-                                    controller: _pageController,
-                                    reflectionController: _reflectionController,
-                                    currentPage: _currentPage,
-                                    terminalSubtitle: terminalSub,
-                                    chatSubtitle: chatSub,
-                                    onPageChanged: (index) {
-                                      setState(() => _currentPage = index);
-                                    },
-                                    onChat: widget.onChatTap,
-                                    onTerminal: widget.onTerminalTap,
-                                    onModels: widget.onModelsTap,
-                                    onDesktop: widget.onDesktopTap,
-                    onAutomation: widget.onAutomationTap ?? () {},
-                                    chatOn: widget.chatOn,
-                                    termOn: widget.termOn,
-                                    modelOn: widget.modelOn,
-                                    isLandscape: true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                        ),
-                      ),
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      4,
+                      20,
+                      math.max(4, media.padding.bottom),
                     ),
-                  );
-                }
-
-                // ─────────────────────────────────────────────
-                // COMPOSICIÓN PORTRAIT MOBILE-FIRST
-                // ─────────────────────────────────────────────
-                final carouselHeight =
-                    (_showTelemetry ? (maxHeight * 0.70) : (maxHeight * 0.82))
-                        .clamp(300.0, 540.0);
-                final horizontalPadding = maxWidth < 360
-                    ? 12.0
-                    : (maxWidth < 430 ? 16.0 : 20.0);
-
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        4,
-                        horizontalPadding,
-                        math.max(12, media.padding.bottom + 8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          AnimatedCrossFade(
-                            duration: const Duration(milliseconds: 240),
-                            crossFadeState: _showTelemetry
-                                ? CrossFadeState.showFirst
-                                : CrossFadeState.showSecond,
-                            firstChild: _AnimatedEntrance(
-                              controller: _entryController,
-                              begin: 0.05,
-                              end: 0.40,
-                              slideOffset: const Offset(0, -8),
-                              child: _TelemetryGlass(
-                                ram: widget.telemetry.ram,
-                                cpu: widget.telemetry.cpu,
-                                temperature: widget.telemetry.temperature,
-                                storage: widget.telemetry.freeStorage,
-                                battery: widget.telemetry.battery,
-                                kaliStatus: widget.kaliStatus,
-                                onKaliTap: widget.onKaliTap,
-                                compact: true,
-                                onCollapse: () =>
-                                    setState(() => _showTelemetry = false),
-                              ),
-                            ),
-                            secondChild: _TelemetryCornerBadge(
-                              onExpand: () =>
-                                  setState(() => _showTelemetry = true),
-                            ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 240),
+                          crossFadeState: _showTelemetry
+                              ? CrossFadeState.showFirst
+                              : CrossFadeState.showSecond,
+                          firstChild: _TelemetryGlass(
+                            ram: widget.telemetry.ram,
+                            cpu: widget.telemetry.cpu,
+                            temperature: widget.telemetry.temperature,
+                            storage: widget.telemetry.freeStorage,
+                            battery: widget.telemetry.battery,
+                            kaliStatus: widget.kaliStatus,
+                            onKaliTap: widget.onKaliTap,
+                            compact: true,
+                            onCollapse: () =>
+                                setState(() => _showTelemetry = false),
                           ),
-                          const Spacer(),
-                          _AnimatedEntrance(
-                            controller: _entryController,
-                            begin: 0.15,
-                            end: 0.75,
-                            slideOffset: const Offset(0, 16),
+                          secondChild: _TelemetryCornerBadge(
+                            onExpand: () =>
+                                setState(() => _showTelemetry = true),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Expanded(
+                          child: Center(
                             child: SizedBox(
                               height: carouselHeight,
                               child: _FeatureCarousel(
@@ -322,23 +229,111 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                 onTerminal: widget.onTerminalTap,
                                 onModels: widget.onModelsTap,
                                 onDesktop: widget.onDesktopTap,
-                    onAutomation: widget.onAutomationTap ?? () {},
+                                onAutomation: widget.onAutomationTap ?? () {},
                                 chatOn: widget.chatOn,
                                 termOn: widget.termOn,
                                 modelOn: widget.modelOn,
-                                isLandscape: false,
+                                isLandscape: true,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+              );
+            }
+
+            // ─────────────────────────────────────────────
+            // COMPOSICIÓN PORTRAIT MOBILE-FIRST
+            // ─────────────────────────────────────────────
+            final carouselHeight =
+                (_showTelemetry ? (maxHeight * 0.70) : (maxHeight * 0.82))
+                    .clamp(300.0, 540.0);
+            final horizontalPadding = maxWidth < 360
+                ? 12.0
+                : (maxWidth < 430 ? 16.0 : 20.0);
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    4,
+                    horizontalPadding,
+                    math.max(12, media.padding.bottom + 8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 240),
+                        crossFadeState: _showTelemetry
+                            ? CrossFadeState.showFirst
+                            : CrossFadeState.showSecond,
+                        firstChild: _AnimatedEntrance(
+                          controller: _entryController,
+                          begin: 0.05,
+                          end: 0.40,
+                          slideOffset: const Offset(0, -8),
+                          child: _TelemetryGlass(
+                            ram: widget.telemetry.ram,
+                            cpu: widget.telemetry.cpu,
+                            temperature: widget.telemetry.temperature,
+                            storage: widget.telemetry.freeStorage,
+                            battery: widget.telemetry.battery,
+                            kaliStatus: widget.kaliStatus,
+                            onKaliTap: widget.onKaliTap,
+                            compact: true,
+                            onCollapse: () =>
+                                setState(() => _showTelemetry = false),
+                          ),
+                        ),
+                        secondChild: _TelemetryCornerBadge(
+                          onExpand: () => setState(() => _showTelemetry = true),
+                        ),
+                      ),
+                      const Spacer(),
+                      _AnimatedEntrance(
+                        controller: _entryController,
+                        begin: 0.15,
+                        end: 0.75,
+                        slideOffset: const Offset(0, 16),
+                        child: SizedBox(
+                          height: carouselHeight,
+                          child: _FeatureCarousel(
+                            controller: _pageController,
+                            reflectionController: _reflectionController,
+                            currentPage: _currentPage,
+                            terminalSubtitle: terminalSub,
+                            chatSubtitle: chatSub,
+                            onPageChanged: (index) {
+                              setState(() => _currentPage = index);
+                            },
+                            onChat: widget.onChatTap,
+                            onTerminal: widget.onTerminalTap,
+                            onModels: widget.onModelsTap,
+                            onDesktop: widget.onDesktopTap,
+                            onAutomation: widget.onAutomationTap ?? () {},
+                            chatOn: widget.chatOn,
+                            termOn: widget.termOn,
+                            modelOn: widget.modelOn,
+                            isLandscape: false,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -1000,72 +995,72 @@ class NanoFeatureCard extends StatelessWidget {
                     child: Transform.translate(
                       offset: textOffset,
                       child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: isLandscape ? 0 : 2,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            data.title,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: colors.textPrimary,
-                              fontSize: isLandscape ? 13.5 : 17.5,
-                              height: isLandscape ? 1.1 : 1.2,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                          if (data.statusLabel.isNotEmpty &&
-                              data.statusColor != null) ...[
-                            SizedBox(height: isLandscape ? 1 : 3),
-                            _LiveStatusPill(
-                              color: data.statusColor!,
-                              label: data.statusLabel,
-                              isLandscape: isLandscape,
-                            ),
-                          ],
-                          if (data.line1.isNotEmpty) ...[
-                            SizedBox(height: isLandscape ? 0 : 2),
+                        padding: EdgeInsets.symmetric(
+                          vertical: isLandscape ? 0 : 2,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Text(
-                              data.line1,
+                              data.title,
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontFamily: 'Inter',
-                                color: colors.textSecondary,
-                                fontSize: isLandscape ? 10.5 : 12.5,
-                                height: isLandscape ? 1.05 : 1.15,
-                                fontWeight: FontWeight.w400,
+                                color: colors.textPrimary,
+                                fontSize: isLandscape ? 13.5 : 17.5,
+                                height: isLandscape ? 1.1 : 1.2,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.4,
                               ),
                             ),
-                          ],
-                          if (data.line2.isNotEmpty) ...[
-                            SizedBox(height: isLandscape ? 0 : 1),
-                            Text(
-                              data.line2,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: data.secondaryAccent,
-                                fontSize: isLandscape ? 10.5 : 12.5,
-                                height: isLandscape ? 1.05 : 1.15,
-                                fontWeight: FontWeight.w500,
+                            if (data.statusLabel.isNotEmpty &&
+                                data.statusColor != null) ...[
+                              SizedBox(height: isLandscape ? 1 : 3),
+                              _LiveStatusPill(
+                                color: data.statusColor!,
+                                label: data.statusLabel,
+                                isLandscape: isLandscape,
                               ),
-                            ),
+                            ],
+                            if (data.line1.isNotEmpty) ...[
+                              SizedBox(height: isLandscape ? 0 : 2),
+                              Text(
+                                data.line1,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: colors.textSecondary,
+                                  fontSize: isLandscape ? 10.5 : 12.5,
+                                  height: isLandscape ? 1.05 : 1.15,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                            if (data.line2.isNotEmpty) ...[
+                              SizedBox(height: isLandscape ? 0 : 1),
+                              Text(
+                                data.line2,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: data.secondaryAccent,
+                                  fontSize: isLandscape ? 10.5 : 12.5,
+                                  height: isLandscape ? 1.05 : 1.15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
                 ),
                 // Capa Z-Elevada: Botón interactivo de acción
                 Transform.translate(

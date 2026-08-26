@@ -63,7 +63,9 @@ class KaliDistribution implements LinuxDistribution {
     required void Function(String stage, int pct) onProgress,
   }) async {
     if (_kaliManager == null) {
-      throw StateError('KaliManager no inicializado. Inyectar KaliManager antes de usar.');
+      throw StateError(
+        'KaliManager no inicializado. Inyectar KaliManager antes de usar.',
+      );
     }
     // Delegar a KaliManager existente con callback de progreso
     final success = await _kaliManager.install(onProgress);
@@ -77,7 +79,9 @@ class KaliDistribution implements LinuxDistribution {
   @override
   Future<void> repair() async {
     if (_kaliManager == null) {
-      throw StateError('KaliManager no inicializado. Inyectar KaliManager antes de usar.');
+      throw StateError(
+        'KaliManager no inicializado. Inyectar KaliManager antes de usar.',
+      );
     }
     // Kali no tiene repair específico — reinstalar si está corrupto
     final success = await _kaliManager.install((stage, pct) {});
@@ -103,7 +107,9 @@ class KaliDistribution implements LinuxDistribution {
   @override
   Future<LinuxSession> start() async {
     if (_kaliManager == null) {
-      throw StateError('KaliManager no inicializado. Inyectar KaliManager antes de usar.');
+      throw StateError(
+        'KaliManager no inicializado. Inyectar KaliManager antes de usar.',
+      );
     }
     // Para MVP, retornar una sesión placeholder
     // La ejecución real de comandos se hace vía KaliManager.run()

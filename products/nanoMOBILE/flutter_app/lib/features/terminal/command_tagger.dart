@@ -9,8 +9,24 @@ class CommandTagger {
   static String tag(String cmd) {
     final name = cmd.split(' ').first;
     if ([
-      'ls', 'cat', 'cd', 'pwd', 'mkdir', 'touch', 'rm', 'cp', 'mv',
-      'echo', 'grep', 'find', 'wc', 'head', 'tail', 'diff', 'chmod', 'tree',
+      'ls',
+      'cat',
+      'cd',
+      'pwd',
+      'mkdir',
+      'touch',
+      'rm',
+      'cp',
+      'mv',
+      'echo',
+      'grep',
+      'find',
+      'wc',
+      'head',
+      'tail',
+      'diff',
+      'chmod',
+      'tree',
     ].contains(name)) {
       return 'fs';
     }

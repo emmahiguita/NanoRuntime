@@ -68,6 +68,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
 
   AutomationResultStatus? _lastStatus;
   String _lastGoal = '';
+  String _lastReason = '';
   bool _running = false;
 
   @override
@@ -76,7 +77,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     super.dispose();
   }
 
-  Future<void> _runTask(String text) async {
+  Future<void> _runTask(String text, {bool confirmed = false}) async {
     final goal = text.trim();
     if (goal.isEmpty || _running) return;
     _taskController.clear();
@@ -84,20 +85,28 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       _running = true;
       _lastGoal = goal;
       _lastStatus = null;
+      _lastReason = '';
     });
     try {
       final result = await ref
           .read(automationEngineProvider)
-          .runGoal(AutomationGoal(text: goal));
+          .runGoal(
+            AutomationGoal(text: goal),
+            options: confirmed
+                ? const AutomationOptions(confirmed: true)
+                : null,
+          );
       if (mounted)
         setState(() {
           _lastStatus = result.status;
+          _lastReason = result.reason;
           _running = false;
         });
     } catch (e) {
       if (mounted)
         setState(() {
           _lastStatus = AutomationResultStatus.failed;
+          _lastReason = 'Error inesperado al ejecutar la tarea.';
           _running = false;
         });
     }
@@ -168,6 +177,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                 goal: _lastGoal,
                 running: _running,
                 status: _lastStatus,
+                reason: _lastReason,
+                onConfirm: _lastStatus == AutomationResultStatus.paused
+                    ? () => _runTask(_lastGoal, confirmed: true)
+                    : null,
               )
             : null;
         final quick = QuickAutomationActions(
@@ -515,53 +528,149 @@ class _TaskComposer extends StatelessWidget {
   }
 }
 
-class _ActiveExecutionCard extends StatelessWidget {
+class _ActiveExecutionCard extends StatefulWidget {
   const _ActiveExecutionCard({
     required this.goal,
     required this.running,
     required this.status,
+    required this.reason,
+    this.onConfirm,
   });
   final String goal;
   final bool running;
   final AutomationResultStatus? status;
+  final String reason;
+  final VoidCallback? onConfirm;
+
+  @override
+  State<_ActiveExecutionCard> createState() => _ActiveExecutionCardState();
+}
+
+class _ActiveExecutionCardState extends State<_ActiveExecutionCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.running) _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveExecutionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.running && !oldWidget.running) {
+      _pulse.repeat(reverse: true);
+    } else if (!widget.running && oldWidget.running) {
+      _pulse.stop();
+      _pulse.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final done = !running && status != null;
-    final present = done ? _statusPresentation(status!, colors) : null;
-    return InteractiveGlassCard(
-      child: Padding(
-        padding: const EdgeInsets.all(NanoSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  present?.icon ?? Icons.auto_awesome_rounded,
-                  color: present?.color ?? colors.accentLavender,
-                  size: 20,
-                ),
-                const SizedBox(width: NanoSpacing.sm),
-                Expanded(
-                  child: Text(
-                    goal,
-                    maxLines: 4,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: colors.textPrimary,
+    final done = !widget.running && widget.status != null;
+    final present = done ? _statusPresentation(widget.status!, colors) : null;
+    final activeColor = present?.color ?? colors.accentLavender;
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: widget.running
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(
+                      alpha: 0.10 + _pulse.value * 0.18,
                     ),
+                    blurRadius: 14 + _pulse.value * 14,
+                    spreadRadius: _pulse.value * 1.5,
+                  ),
+                ]
+              : const [],
+        ),
+        child: child,
+      ),
+      child: InteractiveGlassCard(
+        child: Padding(
+          padding: const EdgeInsets.all(NanoSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: activeColor.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      present?.icon ?? Icons.auto_awesome_rounded,
+                      color: activeColor,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: NanoSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      widget.goal,
+                      maxLines: 4,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: NanoSpacing.sm),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  widget.running
+                      ? 'Ejecutando en el dispositivo…'
+                      : (present?.label ?? ''),
+                  key: ValueKey('${widget.running}-${widget.status}'),
+                  style: NanoType.label(
+                    present?.color ?? colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (!widget.running && widget.reason.trim().isNotEmpty) ...[
+                const SizedBox(height: NanoSpacing.xs),
+                Text(
+                  widget.reason.trim(),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: NanoType.caption(colors.onSurfaceVariant),
+                ),
+              ],
+              if (widget.onConfirm != null) ...[
+                const SizedBox(height: NanoSpacing.sm),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: widget.onConfirm,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Confirmar y continuar'),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: NanoSpacing.sm),
-            Text(
-              running ? 'Ejecutando…' : (present?.label ?? ''),
-              style: NanoType.label(present?.color ?? colors.onSurfaceVariant),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -577,7 +686,7 @@ class QuickAutomationActions extends StatelessWidget {
   final VoidCallback? onMessagesTap;
 
   static const _actions = [
-    ('Activar Bluetooth', 'activar Bluetooth', Icons.bluetooth_rounded),
+    ('Abrir Bluetooth', 'abrir Bluetooth', Icons.bluetooth_rounded),
     ('Abrir Chrome', 'abrir Chrome', Icons.public_rounded),
     ('Abrir Linux', 'abrir la terminal Linux', Icons.terminal_rounded),
     (

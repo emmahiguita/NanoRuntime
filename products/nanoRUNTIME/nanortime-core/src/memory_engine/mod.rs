@@ -80,8 +80,8 @@ pub mod utility;
 pub use auto_config::{KvCompression, PageStrategy, RuntimeConfig};
 pub use battery_guardian::{BatteryConfig, BatteryGuardian, BatteryMode};
 pub use benchmark_store::{
-    BenchmarkStore, DeviceFingerprint, MeasuredExecutionProfile, ModelFingerprint,
-    ResolutionLevel, BENCHMARK_SCHEMA_VERSION,
+    BenchmarkStore, DeviceFingerprint, MeasuredExecutionProfile, ModelFingerprint, ResolutionLevel,
+    BENCHMARK_SCHEMA_VERSION,
 };
 pub use cache_aware_loader::{can_stream_model, CacheAwareLoader, StreamingConfig};
 #[allow(deprecated)]
@@ -89,8 +89,8 @@ pub use execution_planner::{ExecutionPlanner, PlanResult};
 pub use hardware_hal::{classify_tier, profile_device, DeviceProfile, DeviceTier};
 pub use oom_guard::{OomGuard, OomRisk, OomSnapshot};
 pub use supervision::{
-    EngineHealth, EngineStopReason, EngineSupervisor, MemoryGuard, MemoryPressure,
-    RecoveryIntent, SupervisorPolicy,
+    EngineHealth, EngineStopReason, EngineSupervisor, MemoryGuard, MemoryPressure, RecoveryIntent,
+    SupervisorPolicy,
 };
 pub use thermal_controller::{ThermalAction, ThermalCondition, ThermalController, ThermalReading};
 pub use types::{ByteRange, QosMode};
@@ -102,8 +102,8 @@ pub use adaptive_scheduler::{
 pub use battery_guardian::BatteryStatus;
 pub use cache_aware_loader::{estimate_vma_bytes, LoadResult};
 pub use gguf_layout::{
-    GgufError, GgufMetadata, GgufValue, LayerInfo, NanoModelIndex, PageSizeInfo,
-    QuantizationType, TensorInfo, WorkingSetEstimate,
+    GgufError, GgufMetadata, GgufValue, LayerInfo, NanoModelIndex, PageSizeInfo, QuantizationType,
+    TensorInfo, WorkingSetEstimate,
 };
 pub use hardware_hal::StorageBench;
 pub use hardware_profiler::{DeviceClass, HardwareProfile, HardwareProfiler, ThermalState};

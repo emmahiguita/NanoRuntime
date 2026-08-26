@@ -38,12 +38,12 @@ void main() {
     await tester.tap(find.text('Oscuro'));
     await tester.pumpAndSettle();
 
-      final context = tester.element(find.byType(SettingsScreen));
-      expect(Theme.of(context).brightness, Brightness.dark);
-      // El selector de nivel de automatización ("Manual") vive ahora en
-      // /automation, no en Ajustes.
-      expect(find.text('Autónomo'), findsNothing);
-      expect(tester.takeException(), isNull);
+    final context = tester.element(find.byType(SettingsScreen));
+    expect(Theme.of(context).brightness, Brightness.dark);
+    // El selector de nivel de automatización ("Manual") vive ahora en
+    // /automation, no en Ajustes.
+    expect(find.text('Autónomo'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }
 

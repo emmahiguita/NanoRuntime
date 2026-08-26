@@ -69,7 +69,8 @@ class _NanoSelectionMorphBarState extends State<NanoSelectionMorphBar>
   }
 
   double _currentInterpolatedIndex() {
-    return _previousIndex + (_targetIndex - _previousIndex) * _morphAnimation.value;
+    return _previousIndex +
+        (_targetIndex - _previousIndex) * _morphAnimation.value;
   }
 
   @override
@@ -141,8 +142,7 @@ class _NanoSelectionMorphBarState extends State<NanoSelectionMorphBar>
               rimGradient: rimGradient,
               onTap: () => widget.onTabSelected(index),
             ),
-            if (index < widget.tabs.length - 1)
-              const SizedBox(height: 5),
+            if (index < widget.tabs.length - 1) const SizedBox(height: 5),
           ],
         ],
       );
@@ -189,8 +189,12 @@ class _TabChipState extends State<_TabChip> {
         : colors.textSecondary.withValues(alpha: 0.90);
 
     return AnimatedScale(
-      scale: _isPressed ? NanoPressResponse.scaleDown : (isSelected ? 1.025 : 1.0),
-      duration: _isPressed ? NanoMotionDurations.press : NanoMotionDurations.quick,
+      scale: _isPressed
+          ? NanoPressResponse.scaleDown
+          : (isSelected ? 1.025 : 1.0),
+      duration: _isPressed
+          ? NanoMotionDurations.press
+          : NanoMotionDurations.quick,
       curve: _isPressed ? NanoMotionCurves.press : NanoMotionCurves.glassSpring,
       child: AnimatedContainer(
         duration: NanoMotionDurations.quick,
@@ -216,10 +220,12 @@ class _TabChipState extends State<_TabChip> {
                 ? widget.rimGradient
                 : LinearGradient(
                     colors: [
-                      colors.borderSecondaryColor
-                          .withValues(alpha: isDark ? 0.18 : 0.35),
-                      colors.borderSecondaryColor
-                          .withValues(alpha: isDark ? 0.06 : 0.15),
+                      colors.borderSecondaryColor.withValues(
+                        alpha: isDark ? 0.18 : 0.35,
+                      ),
+                      colors.borderSecondaryColor.withValues(
+                        alpha: isDark ? 0.06 : 0.15,
+                      ),
                     ],
                   ),
           ),
@@ -227,8 +233,8 @@ class _TabChipState extends State<_TabChip> {
             color: isSelected
                 ? Colors.transparent
                 : (isDark
-                    ? colors.surfaceVariant.withValues(alpha: 0.30)
-                    : colors.surfaceVariant.withValues(alpha: 0.45)),
+                      ? colors.surfaceVariant.withValues(alpha: 0.30)
+                      : colors.surfaceVariant.withValues(alpha: 0.45)),
             borderRadius: NanoShapes.full,
             child: InkWell(
               onTap: widget.onTap,
@@ -247,7 +253,9 @@ class _TabChipState extends State<_TabChip> {
                   horizontal: widget.iconOnly ? 7 : 11,
                   vertical: 7.5,
                 ),
-                alignment: widget.iconOnly ? Alignment.center : Alignment.centerLeft,
+                alignment: widget.iconOnly
+                    ? Alignment.center
+                    : Alignment.centerLeft,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: widget.iconOnly
@@ -265,7 +273,9 @@ class _TabChipState extends State<_TabChip> {
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
                             color: fg,
                           ),
                         ),

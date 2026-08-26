@@ -41,16 +41,14 @@ class _NanoNavigationItemState extends State<NanoNavigationItem>
       vsync: this,
       duration: NanoMotionDurations.press,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: NanoPressResponse.scaleDown,
-    ).animate(
-      CurvedAnimation(
-        parent: _pressController,
-        curve: NanoMotionCurves.press,
-        reverseCurve: NanoMotionCurves.glassSpring,
-      ),
-    );
+    _scaleAnimation =
+        Tween<double>(begin: 1.0, end: NanoPressResponse.scaleDown).animate(
+          CurvedAnimation(
+            parent: _pressController,
+            curve: NanoMotionCurves.press,
+            reverseCurve: NanoMotionCurves.glassSpring,
+          ),
+        );
   }
 
   @override
@@ -87,10 +85,7 @@ class _NanoNavigationItemState extends State<NanoNavigationItem>
                     colors.primary.withValues(alpha: 0.95),
                     colors.accentMint.withValues(alpha: 0.85),
                   ]
-                : [
-                    colors.primary,
-                    colors.accentSky,
-                  ],
+                : [colors.primary, colors.accentSky],
           )
         : null;
 
@@ -99,7 +94,9 @@ class _NanoNavigationItemState extends State<NanoNavigationItem>
         : LinearGradient(
             colors: [
               colors.borderSecondaryColor.withValues(
-                alpha: isDark ? (_isHovered ? 0.25 : 0.12) : (_isHovered ? 0.40 : 0.25),
+                alpha: isDark
+                    ? (_isHovered ? 0.25 : 0.12)
+                    : (_isHovered ? 0.40 : 0.25),
               ),
               colors.borderSecondaryColor.withValues(
                 alpha: isDark ? 0.06 : 0.10,
@@ -113,17 +110,17 @@ class _NanoNavigationItemState extends State<NanoNavigationItem>
 
     Widget content = AnimatedBuilder(
       animation: _scaleAnimation,
-      builder: (context, child) => Transform.scale(
-        scale: _scaleAnimation.value,
-        child: child,
-      ),
+      builder: (context, child) =>
+          Transform.scale(scale: _scaleAnimation.value, child: child),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: NanoShapes.full,
           boxShadow: widget.selected
               ? [
                   BoxShadow(
-                    color: colors.primary.withValues(alpha: isDark ? 0.35 : 0.20),
+                    color: colors.primary.withValues(
+                      alpha: isDark ? 0.35 : 0.20,
+                    ),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -140,8 +137,12 @@ class _NanoNavigationItemState extends State<NanoNavigationItem>
             color: widget.selected
                 ? Colors.transparent
                 : (isDark
-                    ? colors.surfaceVariant.withValues(alpha: _isHovered ? 0.6 : 0.4)
-                    : colors.surfaceVariant.withValues(alpha: _isHovered ? 0.8 : 0.6)),
+                      ? colors.surfaceVariant.withValues(
+                          alpha: _isHovered ? 0.6 : 0.4,
+                        )
+                      : colors.surfaceVariant.withValues(
+                          alpha: _isHovered ? 0.8 : 0.6,
+                        )),
             borderRadius: NanoShapes.full,
             child: InkWell(
               onTapDown: _handleTapDown,
@@ -157,11 +158,14 @@ class _NanoNavigationItemState extends State<NanoNavigationItem>
                   horizontal: widget.iconOnly ? 0 : 12,
                   vertical: 10,
                 ),
-                alignment: widget.iconOnly ? Alignment.center : Alignment.centerLeft,
+                alignment: widget.iconOnly
+                    ? Alignment.center
+                    : Alignment.centerLeft,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment:
-                      widget.iconOnly ? MainAxisAlignment.center : MainAxisAlignment.start,
+                  mainAxisAlignment: widget.iconOnly
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
                   children: [
                     Icon(
                       widget.selected ? widget.selectedIcon : widget.icon,

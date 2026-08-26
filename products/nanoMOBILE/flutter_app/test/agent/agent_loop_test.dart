@@ -9,11 +9,11 @@ import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart'
 /// Ejecutor fake: devuelve resultados en secuencia (c├¡clico para reintentos).
 class _FakeExecutor implements AgentExecutor {
   final List<AgentExecutionResult> tapResults;
-  final List<AgentExecutionResult> setTextResults;
+  final List<AgentExecutionResult> setTextResults = const [];
   int tapCalls = 0;
   int setTextCalls = 0;
 
-  _FakeExecutor({this.tapResults = const [], this.setTextResults = const []});
+  _FakeExecutor({this.tapResults = const []});
 
   @override
   Future<NanoSnapshot?> snapshot() async => null;

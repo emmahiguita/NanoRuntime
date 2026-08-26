@@ -30,7 +30,11 @@ async fn twenty_load_generate_unload_cycles_no_state_leak() {
         mm.load_model(&model_str)
             .await
             .unwrap_or_else(|e| panic!("load en ciclo {}: {}", cycle, e));
-        assert!(mm.is_loaded().await, "load debe dejar modelo cargado (ciclo {})", cycle);
+        assert!(
+            mm.is_loaded().await,
+            "load debe dejar modelo cargado (ciclo {})",
+            cycle
+        );
 
         // GENERATE — un turno streaming completo.
         let (rx, mut tokens) = runtime

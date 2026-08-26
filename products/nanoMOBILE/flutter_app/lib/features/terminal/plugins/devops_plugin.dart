@@ -6,32 +6,46 @@ import '../../../core/services/kali_manager.dart';
 /// script, crontab, watch, plugin management.
 class DevOpsPlugin {
   void register(void Function(String, CmdFn) r, TerminalServices s) {
-
     r('docker', (a, c, o, af) {
       final d = s.docker;
-      if (d == null) { o('docker: runtime no disponible', Ln.stderr); return; }
+      if (d == null) {
+        o('docker: runtime no disponible', Ln.stderr);
+        return;
+      }
       final sub = a.isNotEmpty ? a[0] : '';
       switch (sub) {
         case 'pull':
-          if (a.length < 2) { o('docker pull <imagen>', Ln.stderr); return; }
+          if (a.length < 2) {
+            o('docker pull <imagen>', Ln.stderr);
+            return;
+          }
           final img = a[1];
           o('[docker] pull $img...', Ln.header);
           d.pull(img, (line) => o(line, Ln.system));
           break;
         case 'run':
-          if (a.length < 2) { o('docker run <imagen> [cmd...]', Ln.stderr); return; }
+          if (a.length < 2) {
+            o('docker run <imagen> [cmd...]', Ln.stderr);
+            return;
+          }
           final img = a[1];
           final cmd = a.sublist(2);
           o('[docker] run $img ${cmd.join(" ")}', Ln.header);
-          d.run(
-            img,
-            cmd,
-            onOut: (l) => o(l, Ln.stdout),
-            onErr: (l) => o(l, Ln.stderr),
-          ).then((id) {
-            if (!s.mounted) return;
-            if (id != null) o('[docker] container ${id.substring(0, 12)} terminado', Ln.success);
-          });
+          d
+              .run(
+                img,
+                cmd,
+                onOut: (l) => o(l, Ln.stdout),
+                onErr: (l) => o(l, Ln.stderr),
+              )
+              .then((id) {
+                if (!s.mounted) return;
+                if (id != null)
+                  o(
+                    '[docker] container ${id.substring(0, 12)} terminado',
+                    Ln.success,
+                  );
+              });
           break;
         case 'ps':
           final containers = d.ps();
@@ -40,7 +54,10 @@ class DevOpsPlugin {
           } else {
             o('CONTAINER ID   IMAGE       STATUS    CREATED', Ln.header);
             for (final c in containers) {
-              o('${c['id']}  ${c['image']}  ${c['status']}  ${c['created']}', Ln.stdout);
+              o(
+                '${c['id']}  ${c['image']}  ${c['status']}  ${c['created']}',
+                Ln.stdout,
+              );
             }
           }
           break;
@@ -56,7 +73,10 @@ class DevOpsPlugin {
           }
           break;
         case 'rm':
-          if (a.length < 2) { o('docker rm <id>', Ln.stderr); return; }
+          if (a.length < 2) {
+            o('docker rm <id>', Ln.stderr);
+            return;
+          }
           if (d.rm(a[1])) {
             o('[docker] contenedor ${a[1]} eliminado', Ln.success);
           } else {
@@ -64,7 +84,10 @@ class DevOpsPlugin {
           }
           break;
         case 'stop':
-          if (a.length < 2) { o('docker stop <id>', Ln.stderr); return; }
+          if (a.length < 2) {
+            o('docker stop <id>', Ln.stderr);
+            return;
+          }
           if (d.stop(a[1])) {
             o('[docker] contenedor ${a[1]} detenido', Ln.success);
           } else {
@@ -72,8 +95,14 @@ class DevOpsPlugin {
           }
           break;
         default:
-          o('docker pull <imagen>      → descargar imagen (ej: alpine)', Ln.info);
-          o('docker run <imagen> [cmd] → ejecutar contenedor via proot', Ln.info);
+          o(
+            'docker pull <imagen>      → descargar imagen (ej: alpine)',
+            Ln.info,
+          );
+          o(
+            'docker run <imagen> [cmd] → ejecutar contenedor via proot',
+            Ln.info,
+          );
           o('docker ps                 → listar contenedores', Ln.info);
           o('docker images             → listar imagenes', Ln.info);
           o('docker rm <id>            → eliminar contenedor', Ln.info);
@@ -86,9 +115,18 @@ class DevOpsPlugin {
       final sub = a.isNotEmpty ? a[0] : '';
       switch (sub) {
         case 'install':
-          if (k == null) { o('kali: manager no disponible', Ln.stderr); return; }
-          if (k.isInstalled) { o('kali: ya instalado en ${k.kaliRoot}', Ln.success); return; }
-          if (k.isDownloading) { o('kali: descarga en progreso...', Ln.info); return; }
+          if (k == null) {
+            o('kali: manager no disponible', Ln.stderr);
+            return;
+          }
+          if (k.isInstalled) {
+            o('kali: ya instalado en ${k.kaliRoot}', Ln.success);
+            return;
+          }
+          if (k.isDownloading) {
+            o('kali: descarga en progreso...', Ln.info);
+            return;
+          }
           o('[kali] Descargando Kali Linux ARM64 (~200 MB)...', Ln.header);
           o('  URL: ${KaliManager.rootfsUrl}', Ln.info);
           k.install((stage, pct) {
@@ -98,30 +136,53 @@ class DevOpsPlugin {
             } else if (stage == 'extract' && pct < 100) {
               o('[kali] extrayendo rootfs...', Ln.system);
             } else if (stage == 'done') {
-              o('[kali] Instalacion completa. Kali Linux ARM64 listo.', Ln.success);
+              o(
+                '[kali] Instalacion completa. Kali Linux ARM64 listo.',
+                Ln.success,
+              );
               o('  Usa: kali shell  (bash dentro de Kali)', Ln.info);
               o('  Usa: kali run <cmd> (un comando en Kali)', Ln.info);
               o('  Usa: kali audit  (inventario de herramientas)', Ln.info);
             } else if (stage == 'error') {
-              o('[kali] Fallo la instalacion. Verifica conexion y espacio (~300 MB libres).', Ln.stderr);
+              o(
+                '[kali] Fallo la instalacion. Verifica conexion y espacio (~300 MB libres).',
+                Ln.stderr,
+              );
             }
           });
           break;
         case 'shell':
-          if (k == null || !k.isInstalled) { o('kali: no instalado. Ejecuta "kali install" primero.', Ln.stderr); return; }
+          if (k == null || !k.isInstalled) {
+            o('kali: no instalado. Ejecuta "kali install" primero.', Ln.stderr);
+            return;
+          }
           o('[kali] Shell interactiva (Kali ARM64 via proot)', Ln.header);
           k.shell(onOut: (l) => o(l, Ln.stdout), onErr: (l) => o(l, Ln.stderr));
           break;
         case 'run':
-          if (a.length < 2) { o('kali run <comando>', Ln.stderr); return; }
-          if (k == null || !k.isInstalled) { o('kali: no instalado.', Ln.stderr); return; }
+          if (a.length < 2) {
+            o('kali run <comando>', Ln.stderr);
+            return;
+          }
+          if (k == null || !k.isInstalled) {
+            o('kali: no instalado.', Ln.stderr);
+            return;
+          }
           final cmd = a[1];
           final cmdArgs = a.sublist(2);
           o('[kali] $cmd ${cmdArgs.join(" ")}', Ln.system);
-          k.run(cmd, cmdArgs, onOut: (l) => o(l, Ln.stdout), onErr: (l) => o(l, Ln.stderr));
+          k.run(
+            cmd,
+            cmdArgs,
+            onOut: (l) => o(l, Ln.stdout),
+            onErr: (l) => o(l, Ln.stderr),
+          );
           break;
         case 'audit':
-          if (k == null || !k.isInstalled) { o('kali: no instalado.', Ln.stderr); return; }
+          if (k == null || !k.isInstalled) {
+            o('kali: no instalado.', Ln.stderr);
+            return;
+          }
           o('[kali] ${k.coverageSummary()}', Ln.header);
           final audit = k.auditTools();
           for (final group in KaliManager.auditGroups.entries) {
@@ -133,18 +194,30 @@ class DevOpsPlugin {
           }
           final missing = k.missingTools();
           if (missing.isEmpty) {
-            o('[kali] inventario completo dentro del catálogo auditado.', Ln.success);
+            o(
+              '[kali] inventario completo dentro del catálogo auditado.',
+              Ln.success,
+            );
           } else {
-            o('[kali] faltan ${missing.length} herramientas del catálogo: ${missing.take(20).join(", ")}${missing.length > 20 ? "…" : ""}', Ln.warn);
+            o(
+              '[kali] faltan ${missing.length} herramientas del catálogo: ${missing.take(20).join(", ")}${missing.length > 20 ? "…" : ""}',
+              Ln.warn,
+            );
           }
           break;
         default:
           o('kali install  → descargar Kali Linux ARM64 (~200 MB)', Ln.info);
           o('kali shell    → abrir shell bash dentro de Kali', Ln.info);
           o('kali run <cmd> → ejecutar un comando en Kali', Ln.info);
-          o('kali audit    → listar herramientas auditadas dentro del rootfs', Ln.info);
+          o(
+            'kali audit    → listar herramientas auditadas dentro del rootfs',
+            Ln.info,
+          );
           if (k != null) {
-            o('  Instalado: ${k.isInstalled ? "SI" : "NO"}', k.isInstalled ? Ln.success : Ln.warn);
+            o(
+              '  Instalado: ${k.isInstalled ? "SI" : "NO"}',
+              k.isInstalled ? Ln.success : Ln.warn,
+            );
             o('  Rootfs: ${k.kaliRoot ?? "?"}', Ln.info);
           }
           break;
@@ -153,24 +226,44 @@ class DevOpsPlugin {
 
     r('pty', (a, c, o, af) {
       final usr = s.rootfs?.usrDir;
-      if (usr == null) { o('pty: rootfs no instalado', Ln.stderr); return; }
+      if (usr == null) {
+        o('pty: rootfs no instalado', Ln.stderr);
+        return;
+      }
       // Este stub es pisado por terminal_core._buildRegistry, que registra
       // 'pty' con el manejador real (_ptyOpen). Si llegara a ejecutarse
       // (uso standalone del plugin), nunca se finge apertura.
       o('pty: gestor de sesiones no disponible en este contexto', Ln.stderr);
     });
 
-    for (final inter in ['vim', 'vi', 'nano', 'python', 'python3',
-                         'htop', 'less', 'more', 'man', 'mc', 'lynx']) {
+    for (final inter in [
+      'vim',
+      'vi',
+      'nano',
+      'python',
+      'python3',
+      'htop',
+      'less',
+      'more',
+      'man',
+      'mc',
+      'lynx',
+    ]) {
       r(inter, (a, c, o, af) {
         final usr = s.rootfs?.usrDir;
-        if (usr == null) { o('$inter: rootfs no instalado', Ln.stderr); return; }
+        if (usr == null) {
+          o('$inter: rootfs no instalado', Ln.stderr);
+          return;
+        }
         o('$inter: requiere PTY activo. Usa "pty $inter"', Ln.info);
       });
     }
 
     r('script', (a, c, o, af) {
-      if (a.isEmpty) { o('script: uso: script cmd1; cmd2; cmd3...', Ln.stderr); return; }
+      if (a.isEmpty) {
+        o('script: uso: script cmd1; cmd2; cmd3...', Ln.stderr);
+        return;
+      }
       // Ejecución real via ash -c. Nunca "ejecutando..." sin ejecutar.
       if (s.shell != null && s.shell!.initialized) {
         final cmd = a.join(' ');
@@ -188,14 +281,19 @@ class DevOpsPlugin {
     // que pisa estos registros. Aquí no se declaran stubs mentirosos.
 
     r('plugin', (a, c, o, af) {
-      if (a.isEmpty) { o('plugin: list, enable <plugin>, disable <plugin>', Ln.info); return; }
+      if (a.isEmpty) {
+        o('plugin: list, enable <plugin>, disable <plugin>', Ln.info);
+        return;
+      }
       if (a[0] == 'list') {
         final enabled = c.plugins.plugs.where((p) => p.enabled).toList();
         if (enabled.isEmpty) {
           o('plugin: no hay gestor de plugins', Ln.stderr);
           return;
         }
-        for (final p in enabled) { o('  ${p.name}: enabled', Ln.stdout); }
+        for (final p in enabled) {
+          o('  ${p.name}: enabled', Ln.stdout);
+        }
         return;
       }
       o('plugin: ${a.join(" ")} — no implementado', Ln.info);

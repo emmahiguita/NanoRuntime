@@ -54,7 +54,10 @@ async fn cancel_then_next_turn_same_session_works() {
         .expect("segundo turno tras cancel");
     while tokens2.recv().await.is_some() {}
     let resp2 = rx2.await.expect("oneshot2");
-    assert!(!resp2.text.is_empty(), "el turno tras cancel debe emitir texto");
+    assert!(
+        !resp2.text.is_empty(),
+        "el turno tras cancel debe emitir texto"
+    );
 }
 
 #[tokio::test]

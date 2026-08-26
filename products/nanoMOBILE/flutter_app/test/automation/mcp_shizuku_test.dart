@@ -20,12 +20,7 @@ const pipeline = ActionGovernancePipeline(
 );
 
 SystemGraph graphWithShizukuUnavailable() => const SystemGraph(
-  device: DeviceProfile(
-    manufacturer: '',
-    model: '',
-    sdkInt: 0,
-    release: '',
-  ),
+  device: DeviceProfile(manufacturer: '', model: '', sdkInt: 0, release: ''),
   apps: [],
   roles: [],
   capabilities: {

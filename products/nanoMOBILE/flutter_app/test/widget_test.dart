@@ -41,10 +41,14 @@ void main() {
 
   Future<void> pumpTerminal(WidgetTester tester) async {
     final deps = TerminalDependencies.forTest();
-    await tester.pumpWidget(MaterialApp(
-      theme: ThemeData(extensions: [NanoThemeExtension(colors: NanoDarkColors())]),
-      home: Scaffold(body: NanoTerminal(deps: deps)),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+        ),
+        home: Scaffold(body: NanoTerminal(deps: deps)),
+      ),
+    );
     // initState imprime el banner y arranca _initShell/_fetchDeviceIdentity.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
@@ -67,7 +71,9 @@ void main() {
     f.writeAsStringSync(content);
   }
 
-  testWidgets('banner y estado OFFLINE honesto (sin "SIMULADO")', (tester) async {
+  testWidgets('banner y estado OFFLINE honesto (sin "SIMULADO")', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -78,15 +84,26 @@ void main() {
     await pumpTerminal(tester);
 
     expect(find.byType(NanoTerminal), findsOneWidget);
-    expect(find.textContaining('NanoTerminal'), findsWidgets,
-        reason: 'banner de arranque presente');
-    expect(find.textContaining('OFFLINE (rootfs'), findsWidgets,
-        reason: 'status bar indica modo offline real, no simulado');
-    expect(find.textContaining('SIMULADO'), findsNothing,
-        reason: 'la capa de simulación fue eliminada');
+    expect(
+      find.textContaining('NanoTerminal'),
+      findsWidgets,
+      reason: 'banner de arranque presente',
+    );
+    expect(
+      find.textContaining('OFFLINE (rootfs'),
+      findsWidgets,
+      reason: 'status bar indica modo offline real, no simulado',
+    );
+    expect(
+      find.textContaining('SIMULADO'),
+      findsNothing,
+      reason: 'la capa de simulación fue eliminada',
+    );
   });
 
-  testWidgets('FS real: mkdir/touch/ls/cat/wc/grep/find/head/tail', (tester) async {
+  testWidgets('FS real: mkdir/touch/ls/cat/wc/grep/find/head/tail', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -97,45 +114,75 @@ void main() {
     await pumpTerminal(tester);
 
     await run(tester, 'mkdir testdir');
-    expect(Directory('$sandbox/testdir').existsSync(), isTrue,
-        reason: 'mkdir creó un directorio REAL en disco');
+    expect(
+      Directory('$sandbox/testdir').existsSync(),
+      isTrue,
+      reason: 'mkdir creó un directorio REAL en disco',
+    );
 
     write('testdir/data.txt', 'INFO boot\nERROR crash\nINFO done\n');
 
     await run(tester, 'touch testdir/hello.txt');
-    expect(File('$sandbox/testdir/hello.txt').existsSync(), isTrue,
-        reason: 'touch creó un archivo REAL en disco');
+    expect(
+      File('$sandbox/testdir/hello.txt').existsSync(),
+      isTrue,
+      reason: 'touch creó un archivo REAL en disco',
+    );
 
     await run(tester, 'ls testdir');
-    expect(find.textContaining('hello.txt'), findsWidgets,
-        reason: 'ls lista la entrada real del directorio');
+    expect(
+      find.textContaining('hello.txt'),
+      findsWidgets,
+      reason: 'ls lista la entrada real del directorio',
+    );
     expect(find.textContaining('data.txt'), findsWidgets);
 
     await run(tester, 'cat testdir/data.txt');
-    expect(find.textContaining('ERROR crash'), findsWidgets,
-        reason: 'cat imprime el contenido real del archivo');
+    expect(
+      find.textContaining('ERROR crash'),
+      findsWidgets,
+      reason: 'cat imprime el contenido real del archivo',
+    );
 
     await run(tester, 'wc -l testdir/data.txt');
-    expect(find.textContaining('3'), findsWidgets,
-        reason: 'wc cuenta 3 líneas reales del archivo');
+    expect(
+      find.textContaining('3'),
+      findsWidgets,
+      reason: 'wc cuenta 3 líneas reales del archivo',
+    );
 
     await run(tester, 'grep ERROR testdir/data.txt');
-    expect(find.textContaining('ERROR crash'), findsWidgets,
-        reason: 'grep filtra sobre contenido real');
+    expect(
+      find.textContaining('ERROR crash'),
+      findsWidgets,
+      reason: 'grep filtra sobre contenido real',
+    );
     await run(tester, 'grep -i error testdir/data.txt');
-    expect(find.textContaining('ERROR crash'), findsWidgets,
-        reason: 'grep -i hace match real sin distinción de mayúsculas');
+    expect(
+      find.textContaining('ERROR crash'),
+      findsWidgets,
+      reason: 'grep -i hace match real sin distinción de mayúsculas',
+    );
 
     await run(tester, 'find testdir');
-    expect(find.textContaining('testdir/data.txt'), findsWidgets,
-        reason: 'find recorre el árbol real');
+    expect(
+      find.textContaining('testdir/data.txt'),
+      findsWidgets,
+      reason: 'find recorre el árbol real',
+    );
 
     await run(tester, 'head -n 1 testdir/data.txt');
-    expect(find.textContaining('INFO boot'), findsWidgets,
-        reason: 'head imprime la primera línea real');
+    expect(
+      find.textContaining('INFO boot'),
+      findsWidgets,
+      reason: 'head imprime la primera línea real',
+    );
     await run(tester, 'tail -n 1 testdir/data.txt');
-    expect(find.textContaining('INFO done'), findsWidgets,
-        reason: 'tail imprime la última línea real');
+    expect(
+      find.textContaining('INFO done'),
+      findsWidgets,
+      reason: 'tail imprime la última línea real',
+    );
   });
 
   testWidgets('FS real: cp/mv/rm verificados contra disco', (tester) async {
@@ -150,24 +197,39 @@ void main() {
     write('src.txt', 'contenido real');
 
     await run(tester, 'cp src.txt dst.txt');
-    expect(File('$sandbox/dst.txt').existsSync(), isTrue,
-        reason: 'cp copió el archivo REAL');
+    expect(
+      File('$sandbox/dst.txt').existsSync(),
+      isTrue,
+      reason: 'cp copió el archivo REAL',
+    );
     expect(File('$sandbox/dst.txt').readAsStringSync(), 'contenido real');
 
     await run(tester, 'mv dst.txt moved.txt');
-    expect(File('$sandbox/dst.txt').existsSync(), isFalse,
-        reason: 'mv movió: origen ya no existe');
-    expect(File('$sandbox/moved.txt').existsSync(), isTrue,
-        reason: 'mv movió: destino existe');
+    expect(
+      File('$sandbox/dst.txt').existsSync(),
+      isFalse,
+      reason: 'mv movió: origen ya no existe',
+    );
+    expect(
+      File('$sandbox/moved.txt').existsSync(),
+      isTrue,
+      reason: 'mv movió: destino existe',
+    );
 
     await run(tester, 'rm src.txt');
-    expect(File('$sandbox/src.txt').existsSync(), isFalse,
-        reason: 'rm borró el archivo REAL');
+    expect(
+      File('$sandbox/src.txt').existsSync(),
+      isFalse,
+      reason: 'rm borró el archivo REAL',
+    );
 
     await run(tester, 'mkdir dirx');
     await run(tester, 'rm -r dirx');
-    expect(Directory('$sandbox/dirx').existsSync(), isFalse,
-        reason: 'rm -r borró el directorio real');
+    expect(
+      Directory('$sandbox/dirx').existsSync(),
+      isFalse,
+      reason: 'rm -r borró el directorio real',
+    );
   });
 
   testWidgets('cd/pwd reales: el cwd real sigue al filesystem', (tester) async {
@@ -183,17 +245,26 @@ void main() {
     await run(tester, 'mkdir sub');
     await run(tester, 'cd sub');
     await run(tester, 'touch inside-sub.txt');
-    expect(File('$sandbox/sub/inside-sub.txt').existsSync(), isTrue,
-        reason: 'cd real: touch escribe DENTRO de sub, no en el root');
+    expect(
+      File('$sandbox/sub/inside-sub.txt').existsSync(),
+      isTrue,
+      reason: 'cd real: touch escribe DENTRO de sub, no en el root',
+    );
     expect(File('$sandbox/inside-sub.txt').existsSync(), isFalse);
     await run(tester, 'pwd');
-    expect(find.textContaining('/sub'), findsWidgets,
-        reason: 'pwd refleja el cwd real tras cd');
+    expect(
+      find.textContaining('/sub'),
+      findsWidgets,
+      reason: 'pwd refleja el cwd real tras cd',
+    );
 
     await run(tester, 'cd ..');
     await run(tester, 'touch at-root.txt');
-    expect(File('$sandbox/at-root.txt').existsSync(), isTrue,
-        reason: 'cd .. real: touch escribe de vuelta en el root');
+    expect(
+      File('$sandbox/at-root.txt').existsSync(),
+      isTrue,
+      reason: 'cd .. real: touch escribe de vuelta en el root',
+    );
     expect(File('$sandbox/sub/at-root.txt').existsSync(), isFalse);
   });
 
@@ -211,8 +282,11 @@ void main() {
     expect(find.textContaining('hola-mundo'), findsWidgets);
 
     await run(tester, 'expr 2 + 3');
-    expect(find.textContaining('5'), findsWidgets,
-        reason: 'expr evalúa aritmética real');
+    expect(
+      find.textContaining('5'),
+      findsWidgets,
+      reason: 'expr evalúa aritmética real',
+    );
     await run(tester, 'expr 7 * 6');
     expect(find.textContaining('42'), findsWidgets);
 
@@ -236,14 +310,23 @@ void main() {
     });
 
     await pumpTerminal(tester);
-    write('script.sh', '# comentario\n\necho desde-script\nmkdir creado-por-source\n');
+    write(
+      'script.sh',
+      '# comentario\n\necho desde-script\nmkdir creado-por-source\n',
+    );
 
     await run(tester, 'source script.sh');
 
-    expect(find.textContaining('desde-script'), findsWidgets,
-        reason: 'source ejecuta el echo REAL del script');
-    expect(Directory('$sandbox/creado-por-source').existsSync(), isTrue,
-        reason: 'source ejecutó mkdir REAL del script en disco');
+    expect(
+      find.textContaining('desde-script'),
+      findsWidgets,
+      reason: 'source ejecuta el echo REAL del script',
+    );
+    expect(
+      Directory('$sandbox/creado-por-source').existsSync(),
+      isTrue,
+      reason: 'source ejecutó mkdir REAL del script en disco',
+    );
   });
 
   testWidgets('tree/diff reales sobre el filesystem', (tester) async {
@@ -263,12 +346,18 @@ void main() {
     write('tree_dir/dos.txt', 'y');
     await run(tester, 'tree tree_dir');
     expect(find.textContaining('uno.txt'), findsWidgets);
-    expect(find.textContaining('directorios'), findsWidgets,
-        reason: 'tree resume el conteo real de archivos');
+    expect(
+      find.textContaining('directorios'),
+      findsWidgets,
+      reason: 'tree resume el conteo real de archivos',
+    );
 
     await run(tester, 'diff a.txt b.txt');
-    expect(find.textContaining('linea2-cambiada'), findsWidgets,
-        reason: 'diff muestra la línea real divergente');
+    expect(
+      find.textContaining('linea2-cambiada'),
+      findsWidgets,
+      reason: 'diff muestra la línea real divergente',
+    );
   });
 
   testWidgets('errores honestos sin rootfs (cero simulación)', (tester) async {
@@ -282,34 +371,57 @@ void main() {
     await pumpTerminal(tester);
 
     await run(tester, 'ps');
-    expect(find.textContaining('rootfs no instalado'), findsWidgets,
-        reason: 'ps sin rootfs NO imprime procesos inventados');
-    expect(find.textContaining('nanortime-core'), findsNothing,
-        reason: 'la lista de procesos simulada legacy fue eliminada');
+    expect(
+      find.textContaining('rootfs no instalado'),
+      findsWidgets,
+      reason: 'ps sin rootfs NO imprime procesos inventados',
+    );
+    expect(
+      find.textContaining('nanortime-core'),
+      findsNothing,
+      reason: 'la lista de procesos simulada legacy fue eliminada',
+    );
 
     await run(tester, 'id');
-    expect(find.textContaining('uid=0'), findsNothing,
-        reason: 'id no finge ser root');
-    expect(find.textContaining('no disponible'), findsWidgets,
-        reason: 'id sin identity del device da error honesto');
+    expect(
+      find.textContaining('uid=0'),
+      findsNothing,
+      reason: 'id no finge ser root',
+    );
+    expect(
+      find.textContaining('no disponible'),
+      findsWidgets,
+      reason: 'id sin identity del device da error honesto',
+    );
 
     await run(tester, 'chmod +x nada.txt');
-    expect(find.textContaining('requiere rootfs'), findsWidgets,
-        reason: 'chmod sin rootfs no dice "operación completada"');
+    expect(
+      find.textContaining('requiere rootfs'),
+      findsWidgets,
+      reason: 'chmod sin rootfs no dice "operación completada"',
+    );
 
     await run(tester, 'plugin list');
-    expect(find.textContaining('no hay gestor de plugins'), findsWidgets,
-        reason: 'plugin ya no usa un registry simulado');
+    expect(
+      find.textContaining('no hay gestor de plugins'),
+      findsWidgets,
+      reason: 'plugin ya no usa un registry simulado',
+    );
 
     await run(tester, 'pkg install python');
-    expect(find.textContaining('rootfs no instalado'), findsWidgets,
-        reason: 'pkg sin rootfs NO simula una instalación');
+    expect(
+      find.textContaining('rootfs no instalado'),
+      findsWidgets,
+      reason: 'pkg sin rootfs NO simula una instalación',
+    );
 
     await run(tester, 'comando-inexistente-xyz');
     expect(find.textContaining('comando no encontrado'), findsWidgets);
   });
 
-  testWidgets('runtime managers offline: docker/kali/desktop sin crash', (tester) async {
+  testWidgets('runtime managers offline: docker/kali/desktop sin crash', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -331,29 +443,31 @@ void main() {
           path: '/desktop',
           builder: (_, __) => const DesktopLaunchScreen(),
         ),
-        GoRoute(
-          path: '/desktop/vnc',
-          builder: (_, __) => const VncScreen(),
-        ),
+        GoRoute(path: '/desktop/vnc', builder: (_, __) => const VncScreen()),
       ],
     );
     // DesktopLaunchScreen es ConsumerStateful: requiere ProviderScope.
     // Sin overrides: los providers reales fallan a error honesto, no crash.
-    await tester.pumpWidget(ProviderScope(
-      child: MaterialApp.router(
-        theme: ThemeData(
-          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          theme: ThemeData(
+            extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+          ),
+          routerConfig: router,
         ),
-        routerConfig: router,
       ),
-    ));
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
     // docker run con _docker null: NO debe crashear (bug .then sobre null).
     await run(tester, 'docker run alpine echo hola');
-    expect(find.textContaining('runtime no disponible'), findsWidgets,
-        reason: 'docker sin servicios da error honesto, no NoSuchMethodError');
+    expect(
+      find.textContaining('runtime no disponible'),
+      findsWidgets,
+      reason: 'docker sin servicios da error honesto, no NoSuchMethodError',
+    );
 
     await run(tester, 'docker ps');
     await run(tester, 'docker pull alpine');
@@ -368,14 +482,21 @@ void main() {
     // vncstop sin servidor → sin crash.
     await run(tester, 'vncstop');
 
-    expect(find.byType(NanoTerminal), findsOneWidget,
-        reason: 'terminal vivo tras comandos de runtime managers');
+    expect(
+      find.byType(NanoTerminal),
+      findsOneWidget,
+      reason: 'terminal vivo tras comandos de runtime managers',
+    );
 
     // desktop → navega al orquestador DesktopLaunchScreen (no crash).
     await run(tester, 'desktop');
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byType(DesktopLaunchScreen), findsOneWidget,
-        reason: 'desktop navega a DesktopLaunchScreen (orquestador real, no simulador)');
+    expect(
+      find.byType(DesktopLaunchScreen),
+      findsOneWidget,
+      reason:
+          'desktop navega a DesktopLaunchScreen (orquestador real, no simulador)',
+    );
 
     // Desmontar el árbol para que dispose() cancele el AnimationController
     // del orquestador (pulse.repeat() dejaría un timer pendiente al final).
@@ -385,7 +506,9 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('monitor offline: datos reales o error, nunca inventados', (tester) async {
+  testWidgets('monitor offline: datos reales o error, nunca inventados', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -397,16 +520,25 @@ void main() {
 
     await run(tester, 'free');
     if (hasProc) {
-      expect(find.textContaining('Mem:'), findsWidgets,
-          reason: 'free lee /proc/meminfo real en plataformas con /proc');
+      expect(
+        find.textContaining('Mem:'),
+        findsWidgets,
+        reason: 'free lee /proc/meminfo real en plataformas con /proc',
+      );
     } else {
-      expect(find.textContaining('memoria no disponible'), findsWidgets,
-          reason: 'free sin /proc ni device identity: error honesto');
+      expect(
+        find.textContaining('memoria no disponible'),
+        findsWidgets,
+        reason: 'free sin /proc ni device identity: error honesto',
+      );
     }
 
     await run(tester, 'df');
-    expect(find.textContaining('almacenamiento no disponible'), findsWidgets,
-        reason: 'df sin device identity: error honesto, no 128G falso');
+    expect(
+      find.textContaining('almacenamiento no disponible'),
+      findsWidgets,
+      reason: 'df sin device identity: error honesto, no 128G falso',
+    );
 
     await run(tester, 'dashboard');
     expect(find.textContaining('Rootfs: no instalado'), findsWidgets);
@@ -417,7 +549,10 @@ void main() {
     await run(tester, 'top');
     await run(tester, 'lsof');
 
-    expect(find.byType(NanoTerminal), findsOneWidget,
-        reason: 'terminal sigue vivo tras todos los comandos');
+    expect(
+      find.byType(NanoTerminal),
+      findsOneWidget,
+      reason: 'terminal sigue vivo tras todos los comandos',
+    );
   });
 }

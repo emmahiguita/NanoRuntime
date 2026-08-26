@@ -1,27 +1,18 @@
 import 'package:flutter/material.dart';
 
 /// Posiciones espaciales permitidas para el dock de navegación en NanoAI.
-enum NavPosition {
-  left,
-  right,
-  top,
-}
+enum NavPosition { left, right, top }
 
 /// Zonas de acoplamiento magnético detectadas durante el arrastre físico.
-enum DockDropZone {
-  none,
-  left,
-  right,
-  top,
-}
+enum DockDropZone { none, left, right, top }
 
 /// Controlador de física, posición y estado del panel de navegación dockable.
 class NanoDockController extends ChangeNotifier {
   NanoDockController({
     NavPosition initialPosition = NavPosition.left,
     bool initialMinimized = false,
-  })  : _position = initialPosition,
-        _isMinimized = initialMinimized;
+  }) : _position = initialPosition,
+       _isMinimized = initialMinimized;
 
   NavPosition _position;
   bool _isMinimized;
@@ -70,7 +61,8 @@ class NanoDockController extends ChangeNotifier {
     // Detectar zona magnética según cercanía a bordes y dirección de arrastre
     if (pointer.dy < magneticThreshold || _dragOffset.dy < -60) {
       _activeDropZone = DockDropZone.top;
-    } else if (pointer.dx > screenSize.width - magneticThreshold || _dragOffset.dx > 80) {
+    } else if (pointer.dx > screenSize.width - magneticThreshold ||
+        _dragOffset.dx > 80) {
       _activeDropZone = DockDropZone.right;
     } else if (pointer.dx < magneticThreshold || _dragOffset.dx < -80) {
       _activeDropZone = DockDropZone.left;

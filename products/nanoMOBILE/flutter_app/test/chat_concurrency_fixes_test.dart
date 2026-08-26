@@ -11,10 +11,10 @@ void main() {
         name: 'test.txt',
         content: 'Contenido de prueba',
       );
-      
+
       final contentSize = attachment.content.length * 2; // Aproximación UTF-16
       const maxAttachmentSizeBytes = 500000;
-      
+
       expect(contentSize, lessThan(maxAttachmentSizeBytes));
     });
 
@@ -22,7 +22,7 @@ void main() {
       const maxAttachmentSizeBytes = 500000;
       final largeContent = 'x' * (maxAttachmentSizeBytes ~/ 2 + 100);
       final contentSize = largeContent.length * 2;
-      
+
       expect(contentSize, greaterThan(maxAttachmentSizeBytes));
     });
   });

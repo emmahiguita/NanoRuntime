@@ -502,12 +502,7 @@ class ShellExecutor implements IBinExecutor {
         } catch (_) {
           // libnanoshell.so no disponible (build sin NDK, o dispositivo
           // que no extrajo jniLibs). Marcador para el fallback de afuera.
-          return (
-            stdout: '',
-            stderr: '',
-            exitCode: -2,
-            error: 'load failed',
-          );
+          return (stdout: '', stderr: '', exitCode: -2, error: 'load failed');
         }
         final r = ns.spawnBusyBox(args, env: env);
         return (
@@ -738,9 +733,6 @@ class ShellExecutor implements IBinExecutor {
 
   /// Variables de entorno que emulan el entorno Termux estándar.
   /// Los paquetes .deb de Termux esperan estas variables para funcionar.
-  Map<String, String> _linuxEnv() => RootfsEnv.build(
-    usr: _rootfs.usrDir!,
-    base: _baseDir!,
-    appPid: pid,
-  );
+  Map<String, String> _linuxEnv() =>
+      RootfsEnv.build(usr: _rootfs.usrDir!, base: _baseDir!, appPid: pid);
 }

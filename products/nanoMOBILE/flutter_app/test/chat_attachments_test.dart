@@ -436,7 +436,7 @@ class _FakeEngineClient extends LLMEngineClient {
 
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

@@ -7,11 +7,11 @@ import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
-  import 'package:nanoai/core/theme/nano_type.dart';
-  import 'package:nanoai/core/widgets/nano_choice_group.dart';
-  import 'package:nanoai/core/widgets/nano_components.dart';
-  import 'package:nanoai/core/widgets/nano_section.dart';
-  import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/core/widgets/nano_choice_group.dart';
+import 'package:nanoai/core/widgets/nano_components.dart';
+import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
 
 /// Opciones disponibles para el modo de tema.
 const _themeOptions = [
@@ -28,7 +28,7 @@ class SettingsScreen extends ConsumerWidget {
     final state = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final colors = NanoThemeExtension.of(context).colors;
-    
+
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return TweenAnimationBuilder<double>(
@@ -47,9 +47,7 @@ class SettingsScreen extends ConsumerWidget {
           final pagePadding = constraints.maxWidth >= 900
               ? NanoSpacing.xl
               : NanoSpacing.md;
-          final primary = <Widget>[
-            _themeSection(state, notifier, colors),
-          ];
+          final primary = <Widget>[_themeSection(state, notifier, colors)];
           final secondary = <Widget>[
             _inferenceSection(state, notifier, colors),
           ];
@@ -113,14 +111,14 @@ class SettingsScreen extends ConsumerWidget {
     required String title,
     required IconData icon,
     required NanoColors colors,
-        required Widget child,
+    required Widget child,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: NanoSpacing.lg),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(title, icon, colors: colors),
-          NanoCard(padding: EdgeInsets.zero, child: child),
+        NanoCard(padding: EdgeInsets.zero, child: child),
       ],
     ),
   );
@@ -129,11 +127,11 @@ class SettingsScreen extends ConsumerWidget {
     SettingsState state,
     SettingsNotifier notifier,
     NanoColors colors,
-      ) => _section(
+  ) => _section(
     title: 'Apariencia',
     icon: Icons.palette_rounded,
     colors: colors,
-        child: ChoiceGroup(
+    child: ChoiceGroup(
       label: 'Tema de la interfaz',
       description: 'Se aplica al instante y respeta el modo del sistema.',
       options: _themeOptions,
@@ -147,11 +145,11 @@ class SettingsScreen extends ConsumerWidget {
     SettingsState state,
     SettingsNotifier notifier,
     NanoColors colors,
-      ) => _section(
+  ) => _section(
     title: 'Generación de IA',
     icon: Icons.psychology_rounded,
     colors: colors,
-        child: Column(
+    child: Column(
       children: [
         _SliderRow(
           label: 'Creatividad',
@@ -185,7 +183,6 @@ class SettingsScreen extends ConsumerWidget {
       ],
     ),
   );
-
 }
 
 class _SettingsIntro extends StatelessWidget {
@@ -312,7 +309,7 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-        final vncProtected = ref.watch(settingsProvider).vncPassword.isNotEmpty;
+    final vncProtected = ref.watch(settingsProvider).vncPassword.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,9 +319,9 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
           Icons.desktop_windows,
           colors: colors,
         ),
-          NanoCard(
-            padding: EdgeInsets.zero,
-            child: Column(
+        NanoCard(
+          padding: EdgeInsets.zero,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(

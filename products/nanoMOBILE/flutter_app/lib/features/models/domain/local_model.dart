@@ -30,6 +30,7 @@ class LocalModel {
   final String fileName;
   final String description;
   final ChatTemplate template;
+
   /// Gate R9 — tier de rendimiento (interactive/deep/extreme). EXTREME solo
   /// con confirmación explícita del usuario en la UI.
   final ModelTier tier;

@@ -21,9 +21,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
   @override
   Future<List<LocalModel>> listModels() async {
     final dirPath = await modelsDir();
-    return [
-      for (final entry in NeuralCatalog.models) _toModel(entry, dirPath),
-    ];
+    return [for (final entry in NeuralCatalog.models) _toModel(entry, dirPath)];
   }
 
   LocalModel _toModel(LmCatalogEntry entry, String? dirPath) {
@@ -66,8 +64,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       'Mejor calidad de 3B: tarda más pero responde mejor.',
     'Qwen3.5-4B' =>
       'Generación 2026 (linear attention). Recomendado para dispositivos con 4GB de RAM.',
-    'Qwen3.5-4B-Q4_K_M' =>
-      'Variante Q4_K_M: máxima calidad de la clase 4B.',
+    'Qwen3.5-4B-Q4_K_M' => 'Variante Q4_K_M: máxima calidad de la clase 4B.',
     'DeepSeek-R1-Distill-Qwen-7B' =>
       'Razonamiento profundo. Pesado para móvil.',
     'DeepSeek-R1-Distill-Qwen-7B-Q2' =>

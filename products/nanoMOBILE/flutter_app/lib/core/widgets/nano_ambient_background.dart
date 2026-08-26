@@ -97,7 +97,9 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
           final ox3 = math.sin(t + 2.4) * 20.0;
           final oy3 = math.cos(t + 2.4) * 16.0;
 
-          final activeColor = widget.activeAccent ?? (isDark ? colors.accent : colors.accentCyan);
+          final activeColor =
+              widget.activeAccent ??
+              (isDark ? colors.accent : colors.accentCyan);
 
           if (!isDark) {
             return ColoredBox(color: colors.backgroundPrimary);
@@ -160,20 +162,12 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
             Positioned(
               top: -50,
               right: -100,
-              child: _Glow(
-                size: 400,
-                color: colors.nanoBlue,
-                alpha: 0.05,
-              ),
+              child: _Glow(size: 400, color: colors.nanoBlue, alpha: 0.05),
             ),
             Positioned(
               bottom: -100,
               left: -150,
-              child: _Glow(
-                size: 500,
-                color: colors.nanoCyan,
-                alpha: 0.04,
-              ),
+              child: _Glow(size: 500, color: colors.nanoCyan, alpha: 0.04),
             ),
           ],
         ),

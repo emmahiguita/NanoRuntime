@@ -221,8 +221,7 @@ class PtySession {
       byteCount: bytes.length,
       data: {'sessionId': _id},
     );
-    final written =
-        await _runtime.ptyWrite(_id, Uint8List.fromList(bytes));
+    final written = await _runtime.ptyWrite(_id, Uint8List.fromList(bytes));
     _logger?.event(
       'pty.write.ok',
       layer: 'pty',

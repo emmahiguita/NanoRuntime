@@ -108,10 +108,8 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             chatProvider.overrideWith(
-              (ref) => ChatNotifier.fixed(
-                ref,
-                const ChatState(engineOnline: true),
-              ),
+              (ref) =>
+                  ChatNotifier.fixed(ref, const ChatState(engineOnline: true)),
             ),
             runtimeEngineProvider.overrideWith(
               (ref) => _ManualEngineNotifier(client),
@@ -178,7 +176,7 @@ class _ManualEngineClient extends LLMEngineClient {
 
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

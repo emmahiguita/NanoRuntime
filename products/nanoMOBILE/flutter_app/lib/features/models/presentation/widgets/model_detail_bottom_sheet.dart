@@ -90,7 +90,8 @@ class ModelDetailBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final modelRam = verifiedInfo.estimatedRamGb.value ?? (isDetected ? 2.5 : 3.0);
+    final modelRam =
+        verifiedInfo.estimatedRamGb.value ?? (isDetected ? 2.5 : 3.0);
     final deviceTotalRamGb = phoneTotalRamGb > 0 ? phoneTotalRamGb : 8.0;
     final ramRatio = (modelRam / deviceTotalRamGb).clamp(0.0, 1.0);
     // Verdicto alineado con el RuntimePlanner (Rust, umbrales 0.7/1.0/2.0).
@@ -105,17 +106,20 @@ class ModelDetailBottomSheet extends StatelessWidget {
       case ModelViability.fast:
         compatibilityColor = colors.accentMint;
         compatibilityLabel = 'RÁPIDO';
-        compatibilityDescription = '✓ Ejecución rápida y ligera en este dispositivo.';
+        compatibilityDescription =
+            '✓ Ejecución rápida y ligera en este dispositivo.';
         break;
       case ModelViability.balanced:
         compatibilityColor = colors.accentSky;
         compatibilityLabel = 'EQUILIBRADO';
-        compatibilityDescription = '✓ Inferencia viable con residencia adaptativa.';
+        compatibilityDescription =
+            '✓ Inferencia viable con residencia adaptativa.';
         break;
       case ModelViability.streaming:
         compatibilityColor = colors.warning;
         compatibilityLabel = 'STREAMING';
-        compatibilityDescription = '⚠ Modelo mayor que la RAM: streaming de capas, lento.';
+        compatibilityDescription =
+            '⚠ Modelo mayor que la RAM: streaming de capas, lento.';
         break;
       case ModelViability.extreme:
         compatibilityColor = colors.error;
@@ -221,8 +225,11 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                       ),
                                     ),
                                     ProvenanceBadge(
-                                      label: verifiedInfo.license.value ?? 'Licencia',
-                                      provenance: verifiedInfo.license.provenance,
+                                      label:
+                                          verifiedInfo.license.value ??
+                                          'Licencia',
+                                      provenance:
+                                          verifiedInfo.license.provenance,
                                     ),
                                   ],
                                 ),
@@ -237,7 +244,8 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                     const SizedBox(width: 4),
                                     Flexible(
                                       child: Text(
-                                        verifiedInfo.developer.value ?? 'Desarrollador Oficial',
+                                        verifiedInfo.developer.value ??
+                                            'Desarrollador Oficial',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -294,19 +302,23 @@ class ModelDetailBottomSheet extends StatelessWidget {
                         children: [
                           VerifiedSpecBadge(
                             label: 'PARÁMETROS',
-                            value: '${verifiedInfo.parametersBillions.value ?? "-"}B',
-                            provenance: verifiedInfo.parametersBillions.provenance,
+                            value:
+                                '${verifiedInfo.parametersBillions.value ?? "-"}B',
+                            provenance:
+                                verifiedInfo.parametersBillions.provenance,
                             color: colors.accentMint,
                           ),
                           VerifiedSpecBadge(
                             label: 'VENTANA CONTEXTO',
-                            value: '${verifiedInfo.contextLength.value ?? "-"} tokens',
+                            value:
+                                '${verifiedInfo.contextLength.value ?? "-"} tokens',
                             provenance: verifiedInfo.contextLength.provenance,
                             color: colors.accentLavender,
                           ),
                           VerifiedSpecBadge(
                             label: 'VOCABULARIO',
-                            value: '${verifiedInfo.vocabularySize.value ?? "-"} tokens',
+                            value:
+                                '${verifiedInfo.vocabularySize.value ?? "-"} tokens',
                             provenance: verifiedInfo.vocabularySize.provenance,
                             color: colors.accentSky,
                           ),
@@ -364,13 +376,21 @@ class ModelDetailBottomSheet extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: colors.backgroundSecondary.withValues(alpha: 0.60),
+                            color: colors.backgroundSecondary.withValues(
+                              alpha: 0.60,
+                            ),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: colors.borderSecondaryColor),
+                            border: Border.all(
+                              color: colors.borderSecondaryColor,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.sd_storage_rounded, size: 16, color: colors.accentMint),
+                              Icon(
+                                Icons.sd_storage_rounded,
+                                size: 16,
+                                color: colors.accentMint,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -412,11 +432,18 @@ class ModelDetailBottomSheet extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: compatibilityColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: compatibilityColor.withValues(alpha: 0.35)),
+                              border: Border.all(
+                                color: compatibilityColor.withValues(
+                                  alpha: 0.35,
+                                ),
+                              ),
                             ),
                             child: Text(
                               compatibilityLabel,
@@ -437,9 +464,13 @@ class ModelDetailBottomSheet extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: colors.backgroundSecondary.withValues(alpha: 0.50),
+                          color: colors.backgroundSecondary.withValues(
+                            alpha: 0.50,
+                          ),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: colors.borderSecondaryColor),
+                          border: Border.all(
+                            color: colors.borderSecondaryColor,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,7 +482,8 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                   child: Wrap(
                                     spacing: 5,
                                     runSpacing: 2,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: [
                                       Text(
                                         'RAM estimada: ~${modelRam.toStringAsFixed(1)} GB',
@@ -464,7 +496,8 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                       ),
                                       const ProvenanceBadge(
                                         label: 'ESTIMADO',
-                                        provenance: ModelDataProvenance.estimated,
+                                        provenance:
+                                            ModelDataProvenance.estimated,
                                       ),
                                     ],
                                   ),
@@ -491,7 +524,9 @@ class ModelDetailBottomSheet extends StatelessWidget {
                               borderRadius: BorderRadius.circular(6),
                               child: Container(
                                 height: 8,
-                                color: colors.metalSilver.withValues(alpha: 0.35),
+                                color: colors.metalSilver.withValues(
+                                  alpha: 0.35,
+                                ),
                                 child: FractionallySizedBox(
                                   alignment: Alignment.centerLeft,
                                   widthFactor: ramRatio,
@@ -502,8 +537,11 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                         colors: ramRatio > 0.85
                                             ? [colors.warning, colors.error]
                                             : ramRatio > 0.65
-                                                ? [colors.accentSky, colors.warning]
-                                                : [colors.accentMint, colors.accentCyan],
+                                            ? [colors.accentSky, colors.warning]
+                                            : [
+                                                colors.accentMint,
+                                                colors.accentCyan,
+                                              ],
                                       ),
                                     ),
                                   ),
@@ -570,17 +608,25 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 6),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: colors.backgroundSecondary.withValues(alpha: 0.45),
+                                  color: colors.backgroundSecondary.withValues(
+                                    alpha: 0.45,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: colors.borderSecondaryColor),
+                                  border: Border.all(
+                                    color: colors.borderSecondaryColor,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             bench.name,
@@ -651,16 +697,25 @@ class ModelDetailBottomSheet extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: colors.accentSky.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: colors.accentSky.withValues(alpha: 0.20)),
+                                border: Border.all(
+                                  color: colors.accentSky.withValues(
+                                    alpha: 0.20,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.check_circle_outline_rounded, size: 15, color: colors.accentSky),
+                                  Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    size: 15,
+                                    color: colors.accentSky,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           cap.name,
@@ -724,7 +779,8 @@ class ModelDetailBottomSheet extends StatelessWidget {
                           title: 'Repositorio GGUF / Cuantización',
                           subtitle: sourceDef.quantizedRepo,
                           badgeLabel: 'GGUF',
-                          url: 'https://huggingface.co/${sourceDef.quantizedRepo}',
+                          url:
+                              'https://huggingface.co/${sourceDef.quantizedRepo}',
                           badgeProvenance: ModelDataProvenance.quantization,
                         ),
 
@@ -749,7 +805,9 @@ class ModelDetailBottomSheet extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isActive ? Icons.check_circle_rounded : Icons.play_arrow_rounded,
+                                  isActive
+                                      ? Icons.check_circle_rounded
+                                      : Icons.play_arrow_rounded,
                                   color: colors.textPrimary,
                                   size: 20,
                                 ),
@@ -821,7 +879,10 @@ class ProvenanceBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: badgeColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: badgeColor.withValues(alpha: 0.35), width: 0.7),
+        border: Border.all(
+          color: badgeColor.withValues(alpha: 0.35),
+          width: 0.7,
+        ),
       ),
       child: Text(
         label,
@@ -883,10 +944,10 @@ class VerifiedSpecBadge extends StatelessWidget {
                 label: provenance == ModelDataProvenance.official
                     ? 'OFICIAL'
                     : provenance == ModelDataProvenance.quantization
-                        ? 'GGUF'
-                        : provenance == ModelDataProvenance.localMeasured
-                            ? 'LOCAL'
-                            : 'EST.',
+                    ? 'GGUF'
+                    : provenance == ModelDataProvenance.localMeasured
+                    ? 'LOCAL'
+                    : 'EST.',
                 provenance: provenance,
               ),
             ],

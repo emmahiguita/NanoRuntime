@@ -138,86 +138,82 @@ class _NanoNavigationPanelState extends State<NanoNavigationPanel> {
             duration: isDragging
                 ? Duration.zero
                 : const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              width: isTop ? null : width,
-              height: height,
-              decoration: BoxDecoration(
-                borderRadius: panelBorderRadius,
-                boxShadow: [
+            curve: Curves.easeOutCubic,
+            width: isTop ? null : width,
+            height: height,
+            decoration: BoxDecoration(
+              borderRadius: panelBorderRadius,
+              boxShadow: [
+                BoxShadow(
+                  color: isDragging
+                      ? colors.primary.withValues(alpha: 0.35)
+                      : Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
+                  blurRadius: isDragging ? 26 : 18,
+                  spreadRadius: isDragging ? 2 : -4,
+                  offset: const Offset(0, 4),
+                ),
+                if (isDragging)
                   BoxShadow(
-                    color: isDragging
-                        ? colors.primary.withValues(alpha: 0.35)
-                        : Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
-                    blurRadius: isDragging ? 26 : 18,
-                    spreadRadius: isDragging ? 2 : -4,
-                    offset: const Offset(0, 4),
+                    color: colors.accentCyan.withValues(alpha: 0.25),
+                    blurRadius: 32,
+                    spreadRadius: 4,
                   ),
-                  if (isDragging)
-                    BoxShadow(
-                      color: colors.accentCyan.withValues(alpha: 0.25),
-                      blurRadius: 32,
-                      spreadRadius: 4,
-                    ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: panelBorderRadius,
-                child: RepaintBoundary(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                    child: Stack(
-                      children: [
-                        // Capa 1: Liquid Glass determinístico (sin shader GPU —
-                        // degradaba el render en device con halos/artefactos).
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: panelBorderRadius,
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: isDark
-                                    ? [
-                                        colors.backgroundPrimary.withValues(
-                                          alpha: 0.88,
-                                        ),
-                                        colors.surface.withValues(
-                                          alpha: 0.70,
-                                        ),
-                                        colors.surfaceVariant.withValues(
-                                          alpha: 0.50,
-                                        ),
-                                      ]
-                                    : [
-                                        Colors.white.withValues(alpha: 0.88),
-                                        colors.surface.withValues(
-                                          alpha: 0.75,
-                                        ),
-                                        colors.surfaceVariant.withValues(
-                                          alpha: 0.60,
-                                        ),
-                                      ],
-                              ),
-                              border: Border.all(
-                                width: isDragging ? 1.5 : 0.8,
-                                color: isDragging
-                                    ? colors.primary
-                                    : Colors.white.withValues(
-                                        alpha: isDark ? 0.18 : 0.55,
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: panelBorderRadius,
+              child: RepaintBoundary(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Stack(
+                    children: [
+                      // Capa 1: Liquid Glass determinístico (sin shader GPU —
+                      // degradaba el render en device con halos/artefactos).
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: panelBorderRadius,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: isDark
+                                  ? [
+                                      colors.backgroundPrimary.withValues(
+                                        alpha: 0.88,
                                       ),
-                              ),
+                                      colors.surface.withValues(alpha: 0.70),
+                                      colors.surfaceVariant.withValues(
+                                        alpha: 0.50,
+                                      ),
+                                    ]
+                                  : [
+                                      Colors.white.withValues(alpha: 0.88),
+                                      colors.surface.withValues(alpha: 0.75),
+                                      colors.surfaceVariant.withValues(
+                                        alpha: 0.60,
+                                      ),
+                                    ],
+                            ),
+                            border: Border.all(
+                              width: isDragging ? 1.5 : 0.8,
+                              color: isDragging
+                                  ? colors.primary
+                                  : Colors.white.withValues(
+                                      alpha: isDark ? 0.18 : 0.55,
+                                    ),
                             ),
                           ),
                         ),
+                      ),
 
-                        // Capa 2: Contenido interactivo
-                        innerContent,
-                      ],
-                    ),
+                      // Capa 2: Contenido interactivo
+                      innerContent,
+                    ],
                   ),
                 ),
               ),
             ),
+          ),
         ),
       ),
     );

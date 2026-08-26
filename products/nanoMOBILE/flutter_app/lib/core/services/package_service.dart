@@ -58,8 +58,10 @@ class DesktopStatus {
       port: raw['port'] as int? ?? 5901,
       installed: raw['installed'] == true,
       graphicalExtras: raw['graphicalExtras'] == true,
-      apps: (raw['apps'] as Map<dynamic, dynamic>?)
-              ?.map((k, v) => MapEntry(k.toString(), v == true)) ??
+      apps:
+          (raw['apps'] as Map<dynamic, dynamic>?)?.map(
+            (k, v) => MapEntry(k.toString(), v == true),
+          ) ??
           const {},
       stage: raw['stage'] as String? ?? 'idle',
       lastError: raw['lastError'] as String?,

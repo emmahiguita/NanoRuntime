@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../router/app_router.dart';
 import '../theme/design_tokens.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/nano_ambient_background.dart';
@@ -61,8 +62,18 @@ class _ScaffoldShellState extends State<ScaffoldShell> {
     final colors = NanoThemeExtension.of(context).colors;
     final currentIdx = widget.shell.currentIndex;
 
+    // El branch actual puede hacer pop de su stack interno si hay una ruta
+    // anidada (p.ej. /terminal/shell sobre /terminal). Si el gesto atrás se
+    // intercepta siempre en `goBranch(0)`, se pierde la posibilidad de volver
+    // a la pantalla previa DENTRO de la pestaña. Regla real:
+    //   - pestaña raíz (índice 0)            → pop natural (cierra la app)
+    //   - branch con subruta apilada          → pop interno del branch
+    //   - branch en su raíz (sin subruta)     → saltar a Inicio (goBranch 0)
+    final branchCanPop =
+        AppRouter.branchKeys[currentIdx].currentState?.canPop() ?? false;
+
     return PopScope(
-      canPop: currentIdx == 0,
+      canPop: currentIdx == 0 || branchCanPop,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && currentIdx != 0) {
           widget.shell.goBranch(0);

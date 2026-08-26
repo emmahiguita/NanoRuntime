@@ -116,13 +116,7 @@ class LinuxSession {
 }
 
 /// Estados de una sesión Linux.
-enum LinuxSessionState {
-  stopped,
-  starting,
-  running,
-  stopping,
-  failed,
-}
+enum LinuxSessionState { stopped, starting, running, stopping, failed }
 
 /// Información del sistema de una distribución.
 class LinuxDistributionInfo {

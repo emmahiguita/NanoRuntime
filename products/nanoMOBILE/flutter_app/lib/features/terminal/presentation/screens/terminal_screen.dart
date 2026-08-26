@@ -163,11 +163,7 @@ class _S extends State<TerminalTabScreen> {
                     ),
                     padding: const EdgeInsets.all(4),
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: Icon(
-                      Icons.arrow_back_rounded,
-                      size: 18,
-                      color: fg,
-                    ),
+                    icon: Icon(Icons.arrow_back_rounded, size: 18, color: fg),
                   ),
                   Expanded(
                     child: ListView(

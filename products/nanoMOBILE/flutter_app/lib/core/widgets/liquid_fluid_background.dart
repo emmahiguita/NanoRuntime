@@ -81,9 +81,14 @@ class _LiquidPainter extends CustomPainter {
       _Blob(colors.accentBlue, phase: 4.2, amp: 0.5, rad: 0.8),
     ];
     for (final b in blobs) {
-      final dx = w * (0.5 + 0.5 * b.amp * math.sin(2 * math.pi * (t + b.phase)));
-      final dy = h * (0.5 + 0.5 * b.amp * math.cos(2 * math.pi * (t * 0.9 + b.phase)));
-      final r = math.min(w, h) * b.rad * (0.9 + 0.1 * math.sin(2 * math.pi * (t * 1.3 + b.phase)));
+      final dx =
+          w * (0.5 + 0.5 * b.amp * math.sin(2 * math.pi * (t + b.phase)));
+      final dy =
+          h * (0.5 + 0.5 * b.amp * math.cos(2 * math.pi * (t * 0.9 + b.phase)));
+      final r =
+          math.min(w, h) *
+          b.rad *
+          (0.9 + 0.1 * math.sin(2 * math.pi * (t * 1.3 + b.phase)));
       final glow = Paint()
         ..shader = RadialGradient(
           colors: [
@@ -97,18 +102,24 @@ class _LiquidPainter extends CustomPainter {
     // Partículas de brillo que derivan + pulsan (hiperrealista).
     final sparkColor = colors.accentCyan;
     for (var i = 0; i < 7; i++) {
-      final px = w * (0.5 + 0.5 * 0.55 * math.sin(2 * math.pi * (t * 1.4 + i * 0.37)));
-      final py = h * (0.5 + 0.5 * 0.55 * math.cos(2 * math.pi * (t * 1.1 + i * 0.53)));
-      final pr = math.min(w, h) *
+      final px =
+          w * (0.5 + 0.5 * 0.55 * math.sin(2 * math.pi * (t * 1.4 + i * 0.37)));
+      final py =
+          h * (0.5 + 0.5 * 0.55 * math.cos(2 * math.pi * (t * 1.1 + i * 0.53)));
+      final pr =
+          math.min(w, h) *
           0.014 *
           (0.8 + 0.4 * math.sin(2 * math.pi * (t * 2.2 + i)));
       final halo = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            sparkColor.withValues(alpha: 0.45 * opacity),
-            sparkColor.withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: Offset(px, py), radius: pr * 3.2));
+        ..shader =
+            RadialGradient(
+              colors: [
+                sparkColor.withValues(alpha: 0.45 * opacity),
+                sparkColor.withValues(alpha: 0.0),
+              ],
+            ).createShader(
+              Rect.fromCircle(center: Offset(px, py), radius: pr * 3.2),
+            );
       canvas.drawCircle(Offset(px, py), pr * 3.2, halo);
     }
   }
@@ -123,5 +134,10 @@ class _Blob {
   final double phase;
   final double amp;
   final double rad;
-  const _Blob(this.color, {required this.phase, required this.amp, required this.rad});
+  const _Blob(
+    this.color, {
+    required this.phase,
+    required this.amp,
+    required this.rad,
+  });
 }

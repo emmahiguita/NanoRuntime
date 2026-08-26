@@ -66,11 +66,11 @@ nanortime --model qwen.gguf --prompt "explica X" --natural-stops --temperature 0
 ## Arquitectura
 
 ```text
-Core Engine Layer      -> nanortime-core/         Rust puro: orquestación, memoria, routing, RAG
-Inference Backend      -> nanortime-ffi/          puente FFI hacia llama.cpp / GGUF
-Platform Bridge        -> nanortime-cli/, server/ CLI, HTTP/SSE, métricas y herramientas dev
-Mobile Platform        -> platforms/mobile/flutter_app/ Flutter UI + Android nativo/JNI/C++
-Research Tooling       -> scripts/, docs/         benchmarks, paper, validación
+Core Engine Layer      -> products/nanoRUNTIME/nanortime-core/  Rust puro: orquestación, memoria, routing, RAG
+Inference Backend      -> products/nanoRUNTIME/nanortime-ffi/   puente FFI hacia llama.cpp / GGUF
+Platform Bridge        -> products/nanoRUNTIME/nanortime-cli/, server/  CLI, HTTP/SSE, métricas y herramientas dev
+Mobile Platform        -> products/nanoMOBILE/flutter_app/      Flutter UI + Android nativo/JNI/C++
+Research Tooling       -> scripts/, docs/                      benchmarks, paper, validación
 ```
 
 Regla de dependencia: `nanortime-core` no depende de Flutter ni Android. Las plataformas dependen del runtime mediante FFI, JNI, CLI o HTTP/SSE.
@@ -78,7 +78,7 @@ Regla de dependencia: `nanortime-core` no depende de Flutter ni Android. Las pla
 ## Core source map
 
 ```
-nanortime-core/src/
+products/nanoRUNTIME/nanortime-core/src/
 ├── memory_engine/       # 15+ módulos de gestión de memoria
 │   ├── hardware_hal.rs        # Detección de hardware
 │   ├── auto_config.rs         # Auto-configuración
@@ -96,4 +96,5 @@ nanortime-core/src/
 
 ## Licencia
 
-Código bajo licencia privada. Contacto: emmanuel.higuita.gomez@gmail.com
+Distribuido bajo la **Licencia MIT** (consulta [`LICENSE`](LICENSE)).
+Copyright © 2026 Emmanuel Higuita Gómez. Código de terceros en `vendor/` bajo sus propias licencias (ver `NOTICE.md`).

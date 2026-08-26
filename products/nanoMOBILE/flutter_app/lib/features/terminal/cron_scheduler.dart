@@ -34,10 +34,7 @@ class CronScheduler {
   List<Timer> get timers => List.unmodifiable(_timers);
 
   /// Registra comandos crontab y watch en el registry.
-  void register(
-    void Function(String, CmdFn) r,
-    void Function(String, Ln) o,
-  ) {
+  void register(void Function(String, CmdFn) r, void Function(String, Ln) o) {
     r('crontab', (a, c, out, af) {
       if (a.isEmpty || a[0] == '-l') {
         if (_cronJobs.isEmpty) {

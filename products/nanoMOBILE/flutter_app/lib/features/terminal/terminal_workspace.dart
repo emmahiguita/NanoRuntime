@@ -2,7 +2,6 @@ import 'dart:io';
 
 import '../../core/services/terminal_audit_logger.dart';
 
-
 /// Owns terminal-local infrastructure that should not live in the widget tree:
 /// - sandboxed real filesystem bootstrap
 /// - demo seed files

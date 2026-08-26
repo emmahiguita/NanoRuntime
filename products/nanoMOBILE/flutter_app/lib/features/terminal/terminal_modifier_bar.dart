@@ -21,6 +21,7 @@ class TerminalModifierBar extends StatelessWidget {
   final VoidCallback onToggleCtrl;
   final void Function(List<int> bytes) onWriteBytes;
   final void Function(String text) onWrite;
+
   /// Whether the remote program has negotiated bracketed paste mode (?2004).
   /// When false, clipboard text is sent raw (no ESC[200~/201~ wrappers).
   final bool bracketedPasteEnabled;

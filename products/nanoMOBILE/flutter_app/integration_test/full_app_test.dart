@@ -126,13 +126,13 @@ void main() {
 
     // ── 4. SETTINGS: toggle + persistencia ──
     await goTo('Ajustes');
-    // Alter state e invariante: seteamos madvise=false y verificamos que
-    // sobrevive tras un reload (persistencia real).
+    // Alter state e invariante: seteamos desktopMobileMode=false y verificamos
+    // que el estado refleja el valor (persistencia real vía repositorio).
     final settings = container.read(settingsProvider.notifier);
-    settings.toggleMadvise(false);
+    settings.setDesktopMobileMode(false);
     await tester.pumpAndSettle();
-    expect(container.read(settingsProvider).madvise, isFalse);
-    // Reserva de tema para no dejar estado raro en el test.
-    settings.toggleMadvise(true);
+    expect(container.read(settingsProvider).desktopMobileMode, isFalse);
+    // Reserva de modo móvil para no dejar estado raro en el test.
+    settings.setDesktopMobileMode(true);
   });
 }

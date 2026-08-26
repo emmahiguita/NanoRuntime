@@ -154,15 +154,11 @@ enum BadgeKind { success, warning, danger, info, accent, neutral }
 /// Número de métrica grande (RAM, temperatura, batería, etc.) con
 /// NanoType.metric y unidad opcional en caption.
 class NanoMetricText extends StatelessWidget {
-  const NanoMetricText(
-    this.value, {
-    super.key,
-    this.unit,
-    this.color,
-  });
+  const NanoMetricText(this.value, {super.key, this.unit, this.color});
 
   final String value;
   final String? unit;
+
   /// Tinte opcional del número; por defecto onSurface.
   final Color? color;
 
@@ -175,16 +171,10 @@ class NanoMetricText extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
-        Text(
-          value,
-          style: NanoType.metric(color ?? colors.onSurface),
-        ),
+        Text(value, style: NanoType.metric(color ?? colors.onSurface)),
         if (unit != null) ...[
           const SizedBox(width: 3),
-          Text(
-            unit!,
-            style: NanoType.caption(colors.onSurfaceVariant),
-          ),
+          Text(unit!, style: NanoType.caption(colors.onSurfaceVariant)),
         ],
       ],
     );
@@ -216,7 +206,8 @@ class NanoActionButton extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     final labelStyle = primary
         ? NanoType.label(
-            colors is NanoDarkColors ? const Color(0xFF000000) : Colors.white)
+            colors is NanoDarkColors ? const Color(0xFF000000) : Colors.white,
+          )
         : NanoType.label(colors.primary);
 
     final button = primary

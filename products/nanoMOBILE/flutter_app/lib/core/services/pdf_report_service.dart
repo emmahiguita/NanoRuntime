@@ -28,10 +28,7 @@ class PdfReportService {
 
     final cleanFileName =
         'informe_nanoai_${DateTime.now().millisecondsSinceEpoch}.pdf';
-    await Printing.sharePdf(
-      bytes: pdfBytes,
-      filename: cleanFileName,
-    );
+    await Printing.sharePdf(bytes: pdfBytes, filename: cleanFileName);
   }
 
   /// Exporta el contenido del mensaje como archivo Markdown (.md) real y abre
@@ -128,9 +125,7 @@ class PdfReportService {
             rowDecoration: const pw.BoxDecoration(
               color: PdfColor.fromInt(0xFFF8FAFC),
             ),
-            oddRowDecoration: const pw.BoxDecoration(
-              color: PdfColors.white,
-            ),
+            oddRowDecoration: const pw.BoxDecoration(color: PdfColors.white),
             cellStyle: const pw.TextStyle(
               fontSize: 8.5,
               color: PdfColors.black,
@@ -140,10 +135,7 @@ class PdfReportService {
               horizontal: 8,
               vertical: 5,
             ),
-            border: pw.TableBorder.all(
-              color: PdfColors.grey300,
-              width: 0.5,
-            ),
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
           ),
         ),
       );
@@ -167,7 +159,10 @@ class PdfReportService {
                 color: PdfColor.fromInt(0xFF040E1A),
                 borderRadius: pw.BorderRadius.all(pw.Radius.circular(6)),
                 border: pw.Border.fromBorderSide(
-                  pw.BorderSide(color: PdfColor.fromInt(0xFF0099CC), width: 0.5),
+                  pw.BorderSide(
+                    color: PdfColor.fromInt(0xFF0099CC),
+                    width: 0.5,
+                  ),
                 ),
               ),
               child: pw.Text(
@@ -263,11 +258,13 @@ class PdfReportService {
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('• ',
-                    style: const pw.TextStyle(
-                      color: PdfColor.fromInt(0xFF0099CC),
-                      fontSize: 10,
-                    )),
+                pw.Text(
+                  '• ',
+                  style: const pw.TextStyle(
+                    color: PdfColor.fromInt(0xFF0099CC),
+                    fontSize: 10,
+                  ),
+                ),
                 pw.Expanded(
                   child: pw.Text(
                     trimmed.substring(2),
@@ -386,11 +383,17 @@ class PdfReportService {
             children: [
               pw.Text(
                 'Generado on-device mediante NanoAI Engine (llama.cpp). Soberanía local.',
-                style: const pw.TextStyle(color: PdfColors.grey600, fontSize: 7.5),
+                style: const pw.TextStyle(
+                  color: PdfColors.grey600,
+                  fontSize: 7.5,
+                ),
               ),
               pw.Text(
                 'Página ${context.pageNumber} de ${context.pagesCount}',
-                style: const pw.TextStyle(color: PdfColors.grey600, fontSize: 7.5),
+                style: const pw.TextStyle(
+                  color: PdfColors.grey600,
+                  fontSize: 7.5,
+                ),
               ),
             ],
           ),

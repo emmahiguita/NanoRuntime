@@ -101,7 +101,9 @@ class _CursorShape extends StatelessWidget {
   Widget build(BuildContext context) {
     // El verde neón original (0xFF21F2B2) es invisible sobre blanco en modo
     // claro — success se adapta por tema (esmeralda en claro, verde en oscuro).
-    final cursor = Theme.of(context).extension<NanoThemeExtension>()!.colors.success;
+    final cursor = Theme.of(
+      context,
+    ).extension<NanoThemeExtension>()!.colors.success;
 
     return Container(
       width: 3,
@@ -111,10 +113,7 @@ class _CursorShape extends StatelessWidget {
         color: cursor,
         borderRadius: BorderRadius.circular(3),
         boxShadow: [
-          BoxShadow(
-            color: cursor.withValues(alpha: 0.55),
-            blurRadius: 7,
-          ),
+          BoxShadow(color: cursor.withValues(alpha: 0.55), blurRadius: 7),
         ],
       ),
     );

@@ -76,7 +76,11 @@ void main() {
       term.feed('data');
       term.dispose();
       // Second dispose may throw — ChangeNotifier asserts not disposed twice
-      try { term.dispose(); } catch (_) { /* expected */ }
+      try {
+        term.dispose();
+      } catch (_) {
+        /* expected */
+      }
       expect(true, isTrue);
     });
   });

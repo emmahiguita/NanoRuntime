@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum NanoFeatureType {
-  terminal,
-  chat,
-  models,
-}
+enum NanoFeatureType { terminal, chat, models }
 
 class NanoTelemetryData {
   final String ram;
@@ -46,13 +42,7 @@ class NanoFeature {
   });
 }
 
-enum KaliStatus {
-  notInitialized,
-  starting,
-  running,
-  stopped,
-  error,
-}
+enum KaliStatus { notInitialized, starting, running, stopped, error }
 
 extension KaliStatusPresentation on KaliStatus {
   String get label {

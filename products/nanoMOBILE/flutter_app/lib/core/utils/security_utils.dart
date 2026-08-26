@@ -4,32 +4,35 @@
 /// entre shell_executor y terminal_audit_logger.
 class SecurityUtils {
   /// Sanitiza una cadena de texto para prevenir inyección y loggear información sensible.
-  /// 
+  ///
   /// - Redacta paths de sistema (app-data, user-paths)
   /// - Redacta tokens/passwords/secrets
   /// - Trunca strings largos (>500 caracteres)
   static String sanitizeInput(String value) {
     var s = value;
-    
+
     // Redactar paths de sistema
     s = s.replaceAll(RegExp(r'/data/(user|data)/0/[^\s]+'), '<app-data>');
     s = s.replaceAll(
       RegExp(r'C:\\Users\\[^\s]+', caseSensitive: false),
       '<user-path>',
     );
-    
+
     // Redactar secrets
     s = s.replaceAll(
-      RegExp(r'(token|password|passwd|secret|key)=([^\s&]+)', caseSensitive: false),
+      RegExp(
+        r'(token|password|passwd|secret|key)=([^\s&]+)',
+        caseSensitive: false,
+      ),
       r'$1=<redacted>',
     );
-    
+
     // Truncar strings largos
     if (s.length > 500) s = '${s.substring(0, 500)}...';
-    
+
     return s;
   }
-  
+
   /// Sanitiza un comando para prevenir inyección de comandos.
   /// Bloquea caracteres peligrosos y patrones de inyección.
   static String sanitizeCommand(String cmd) {
@@ -49,7 +52,9 @@ class SecurityUtils {
 
     for (final pattern in dangerousPatterns) {
       if (pattern.hasMatch(cmd)) {
-        throw ArgumentError('Comando contiene patrón peligroso: ${pattern.pattern}');
+        throw ArgumentError(
+          'Comando contiene patrón peligroso: ${pattern.pattern}',
+        );
       }
     }
 

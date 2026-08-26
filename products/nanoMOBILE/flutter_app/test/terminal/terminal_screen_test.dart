@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 
 import 'package:nanoai/features/terminal/terminal_core.dart';
-import 'package:nanoai/features/terminal/terminal_screen.dart';
+import 'package:nanoai/features/terminal/presentation/screens/terminal_screen.dart';
 
 void main() {
   testWidgets('TerminalTabScreen renders a NanoTerminal after async restore', (
@@ -14,7 +14,12 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(
-      MaterialApp(theme: ThemeData(extensions: [NanoThemeExtension(colors: NanoDarkColors())]), home: const Scaffold(body: TerminalTabScreen())),
+      MaterialApp(
+        theme: ThemeData(
+          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+        ),
+        home: const Scaffold(body: TerminalTabScreen()),
+      ),
     );
 
     await tester.pumpAndSettle();
@@ -30,8 +35,12 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(extensions: [NanoThemeExtension(colors: NanoDarkColors())]),
-        home: const Scaffold(body: NanoTerminal(sessionId: 0, initialCwd: '/home/nanoai')),
+        theme: ThemeData(
+          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+        ),
+        home: const Scaffold(
+          body: NanoTerminal(sessionId: 0, initialCwd: '/home/nanoai'),
+        ),
       ),
     );
 

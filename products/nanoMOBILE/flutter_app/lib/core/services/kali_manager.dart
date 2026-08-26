@@ -19,9 +19,20 @@ class KaliManager {
     'Shell': ['vim', 'nano', 'less', 'more', 'man-db', 'tmux', 'screen'],
     'Net': ['openssh', 'curl', 'wget', 'rsync', 'netcat-openbsd', 'socat'],
     'Audit': ['nmap', 'tcpdump', 'sqlite', 'openssl', 'gpg', 'gnupg'],
-    'Dev': ['git', 'python3', 'perl', 'ruby', 'nodejs', 'npm', 'cargo', 'gcc', 'make'],
+    'Dev': [
+      'git',
+      'python3',
+      'perl',
+      'ruby',
+      'nodejs',
+      'npm',
+      'cargo',
+      'gcc',
+      'make',
+    ],
     'Web': ['lynx', 'w3m'],
   };
+
   /// Kali ARM64 minimal rootfs (basado en Debian, ~200MB).
   /// URL del build oficial de Kali NetHunter para ARM64.
   ///
@@ -31,6 +42,7 @@ class KaliManager {
   /// coincide o está vacío, la instalación aborta.
   static const rootfsUrl =
       'https://kali.download/nethunter-images/current/rootfs/kali-nethunter-rootfs-minimal-arm64.tar.xz';
+
   /// SHA256 oficial del tarball (SHA256SUMS, 2026-08-13). Actualizar cuando
   /// Kali publique un build nuevo — NUNCA dejar vacío (instalación aborta).
   /// Fuente: https://kali.download/nethunter-images/current/rootfs/SHA256SUMS
@@ -50,8 +62,12 @@ class KaliManager {
 
   final void Function(String msg)? onLog;
 
-  KaliManager({required ProotManager proot, required IBinExecutor shell, this.onLog})
-      : _proot = proot, _shell = shell;
+  KaliManager({
+    required ProotManager proot,
+    required IBinExecutor shell,
+    this.onLog,
+  }) : _proot = proot,
+       _shell = shell;
 
   /// Verifica si Kali ya está instalado (comprueba /bin/bash dentro del rootfs).
   Future<bool> checkInstalled() async {
@@ -84,9 +100,15 @@ class KaliManager {
       // Antes '' saltaba la verificación en silencio; ahora aborta.
       // Hash oficial: kali.download/nethunter-images/current/rootfs/SHA256SUMS
       if (expectedSha256.isEmpty) {
-        log('ERROR: SHA256 del rootfs no configurado (KaliManager.expectedSha256).');
-        log('       Instalación abortada: no se instala un rootfs sin verificar.');
-        log('       Fuente oficial: https://kali.download/nethunter-images/current/rootfs/SHA256SUMS');
+        log(
+          'ERROR: SHA256 del rootfs no configurado (KaliManager.expectedSha256).',
+        );
+        log(
+          '       Instalación abortada: no se instala un rootfs sin verificar.',
+        );
+        log(
+          '       Fuente oficial: https://kali.download/nethunter-images/current/rootfs/SHA256SUMS',
+        );
         onProgress('error', 0);
         return false;
       }
@@ -107,7 +129,9 @@ class KaliManager {
         log('  Got:      $actualHash');
         log('  The downloaded file may be corrupted or tampered with.');
         log('  Aborting installation for safety.');
-        try { tarballFile.deleteSync(); } catch (_) {}
+        try {
+          tarballFile.deleteSync();
+        } catch (_) {}
         onProgress('error', 0);
         return false;
       }
@@ -127,7 +151,9 @@ class KaliManager {
         timeout: const Duration(minutes: 5),
       );
       if (bashResult.exitCode != 0) {
-        log('Extracción fallida (exit=${bashResult.exitCode}): ${bashResult.stderr}');
+        log(
+          'Extracción fallida (exit=${bashResult.exitCode}): ${bashResult.stderr}',
+        );
         return false;
       }
 
@@ -135,12 +161,15 @@ class KaliManager {
 
       // 3. Configurar DNS para que Kali pueda resolver dominios
       try {
-        await File('$_kaliRoot/etc/resolv.conf')
-            .writeAsString('nameserver 8.8.8.8\nnameserver 1.1.1.1\n');
+        await File(
+          '$_kaliRoot/etc/resolv.conf',
+        ).writeAsString('nameserver 8.8.8.8\nnameserver 1.1.1.1\n');
       } catch (_) {}
 
       // 4. Limpiar tarball para ahorrar espacio
-      try { File(tarball).deleteSync(); } catch (_) {}
+      try {
+        File(tarball).deleteSync();
+      } catch (_) {}
 
       _installed = await checkInstalled();
       onProgress('done', _installed ? 100 : 0);
@@ -179,7 +208,12 @@ class KaliManager {
     void Function(String line)? onOut,
     void Function(String line)? onErr,
   }) async {
-    return run('/bin/bash', ['-c', 'exec bash --norc'], onOut: onOut, onErr: onErr);
+    return run(
+      '/bin/bash',
+      ['-c', 'exec bash --norc'],
+      onOut: onOut,
+      onErr: onErr,
+    );
   }
 
   Map<String, bool> auditTools() {
@@ -202,7 +236,10 @@ class KaliManager {
 
   List<String> missingTools() {
     final audit = auditTools();
-    final missing = audit.entries.where((entry) => !entry.value).map((entry) => entry.key).toList();
+    final missing = audit.entries
+        .where((entry) => !entry.value)
+        .map((entry) => entry.key)
+        .toList();
     missing.sort();
     return missing;
   }

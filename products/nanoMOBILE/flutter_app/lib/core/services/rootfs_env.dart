@@ -60,7 +60,8 @@ class RootfsEnv {
       // ── Fakechroot / redirección de rutas ──
       if (ldPreload != null && ldPreload.isNotEmpty) 'LD_PRELOAD': ldPreload,
       if (ldPreload != null && ldPreload.isNotEmpty) 'NANO_ROOTFS': usr,
-      if (extra != null) for (final e in extra.entries) e.key: e.value,
+      if (extra != null)
+        for (final e in extra.entries) e.key: e.value,
     };
   }
 }

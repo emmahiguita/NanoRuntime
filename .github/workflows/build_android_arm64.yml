@@ -3,7 +3,7 @@ name: Build NanoRuntime ARM64
 on:
   workflow_dispatch:
   push:
-    branches: [master, main]
+    branches: [main]
 
 jobs:
   build-android-arm64:

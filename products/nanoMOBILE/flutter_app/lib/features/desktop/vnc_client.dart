@@ -255,7 +255,8 @@ class VncClient {
     // ~2 KB útiles (B6). Además el orden viejo restaba _end ANTES de usarlo
     // como índice absoluto de la vista — con _readPos=522329 y _end=523917
     // la sublistView recibía (522329, 1588) y lanzaba RangeError.
-    if (_readPos > 262144) { // 256 KB en lugar de 64 KB
+    if (_readPos > 262144) {
+      // 256 KB en lugar de 64 KB
       final newLen = _end - _readPos;
       final compact = Uint8List(newLen);
       compact.setRange(0, newLen, _rawBuf, _readPos);
@@ -456,12 +457,14 @@ class VncClient {
     // dimensiones 0 (maliciosas) sin inflar desktops pequeños legítimos.
     const maxFbDimension = 4096;
     const minFbDimension = 1;
-    
+
     final clampedW = w.clamp(minFbDimension, maxFbDimension);
     final clampedH = h.clamp(minFbDimension, maxFbDimension);
-    
+
     if (w != clampedW || h != clampedH) {
-      _status('Framebuffer ajustado: $w x $h -> $clampedW x $clampedH (cap de seguridad)');
+      _status(
+        'Framebuffer ajustado: $w x $h -> $clampedW x $clampedH (cap de seguridad)',
+      );
     }
 
     _fbWidth = clampedW;

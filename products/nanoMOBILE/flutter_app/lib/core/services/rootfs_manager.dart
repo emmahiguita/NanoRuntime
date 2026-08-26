@@ -113,10 +113,14 @@ class RootfsManager {
       final expectedHash = await _fetchExpectedSha256();
       if (expectedHash == null) {
         onProgress?.call('error', 0);
-        debugPrint('[rootfs] No se pudo obtener el SHA-256 oficial. Instalación abortada por seguridad.');
+        debugPrint(
+          '[rootfs] No se pudo obtener el SHA-256 oficial. Instalación abortada por seguridad.',
+        );
         return false;
       }
-      debugPrint('[rootfs] SHA256 esperado para bootstrap-aarch64.zip: $expectedHash');
+      debugPrint(
+        '[rootfs] SHA256 esperado para bootstrap-aarch64.zip: $expectedHash',
+      );
       onProgress?.call('verify', 50);
 
       // 2. Descargar bootstrap-aarch64.zip a files/nano/
@@ -127,7 +131,8 @@ class RootfsManager {
       // 3. Verificar SHA256 del zip descargado
       onProgress?.call('verify', 50);
       final usr = _usrDir!; // files/nano/usr
-      final zipPath = '${usr.substring(0, usr.length - 4)}/bootstrap-aarch64.zip';
+      final zipPath =
+          '${usr.substring(0, usr.length - 4)}/bootstrap-aarch64.zip';
       final actualHash = await _computeSha256(zipPath);
       if (actualHash != expectedHash) {
         debugPrint('[rootfs] SHA256 mismatch del bootstrap!');
@@ -135,7 +140,9 @@ class RootfsManager {
         debugPrint('  Recibido: $actualHash');
         onProgress?.call('error', 0);
         // Eliminar zip corrupto
-        try { File(zipPath).deleteSync(); } catch (_) {}
+        try {
+          File(zipPath).deleteSync();
+        } catch (_) {}
         return false;
       }
       debugPrint('[rootfs] SHA256 verificado correctamente');
@@ -153,7 +160,9 @@ class RootfsManager {
       onProgress?.call('extract', 100);
 
       // 5. Limpiar zip para ahorrar espacio
-      try { File(zipPath).deleteSync(); } catch (_) {}
+      try {
+        File(zipPath).deleteSync();
+      } catch (_) {}
 
       onProgress?.call('done', count);
 
@@ -199,7 +208,9 @@ class RootfsManager {
         },
       );
       if (response.statusCode != 200) {
-        debugPrint('[rootfs] Error consultando releases API: HTTP ${response.statusCode}');
+        debugPrint(
+          '[rootfs] Error consultando releases API: HTTP ${response.statusCode}',
+        );
         return null;
       }
 
@@ -233,7 +244,9 @@ class RootfsManager {
     try {
       final response = await http.get(Uri.parse(sha256SumsUrl));
       if (response.statusCode != 200) {
-        debugPrint('[rootfs] Error descargando SHA256SUMS: HTTP ${response.statusCode}');
+        debugPrint(
+          '[rootfs] Error descargando SHA256SUMS: HTTP ${response.statusCode}',
+        );
         return null;
       }
 
@@ -247,7 +260,9 @@ class RootfsManager {
           }
         }
       }
-      debugPrint('[rootfs] No se encontró hash para bootstrap-aarch64.zip en SHA256SUMS');
+      debugPrint(
+        '[rootfs] No se encontró hash para bootstrap-aarch64.zip en SHA256SUMS',
+      );
       return null;
     } catch (e) {
       debugPrint('[rootfs] Error procesando SHA256SUMS: $e');

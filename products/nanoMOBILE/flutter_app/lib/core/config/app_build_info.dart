@@ -6,10 +6,18 @@
 library;
 
 class AppBuildInfo {
-  static const String gitCommit = String.fromEnvironment('GIT_COMMIT', defaultValue: 'unknown');
-  static const String appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '0.0.0');
+  static const String gitCommit = String.fromEnvironment(
+    'GIT_COMMIT',
+    defaultValue: 'unknown',
+  );
+  static const String appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '0.0.0',
+  );
 
   /// Modelo de dispositivo físico (reproducibilidad del benchmark C14).
-  static const String deviceModel =
-      String.fromEnvironment('DEVICE_MODEL', defaultValue: 'unknown');
+  static const String deviceModel = String.fromEnvironment(
+    'DEVICE_MODEL',
+    defaultValue: 'unknown',
+  );
 }

@@ -9,6 +9,9 @@
 %   - PC Ablation: NanoRuntime saves 198-670 MB vs llama.cpp, <1 MB RSS variance
 %   - MMLU 90.0%, HumanEval 66.7%, Routing 100% cost savings
 %   - 17 citations, 6 tables, cross-device validation
+%   - NOTE (2026-08-25): per-process telemetry protocol added (JSONL +
+%     analyze_telemetry.py). Leak / I/O-bound / "no leaks from MemAvailable"
+%     claims marked [pending rerun]. See docs/telemetry_protocol.md.
 % =============================================================
 
 \documentclass[11pt]{article}
@@ -48,22 +51,27 @@ crashes on constrained hardware or require manual, device-specific tuning.
 We present \nanort{}, a Rust inference runtime that introduces a
 \textbf{Resource-Aware Graceful Degradation} policy.
 By monitoring \texttt{/proc/meminfo} in real time and combining it with
-surgical OS-level memory paging (\texttt{madvise}), \nanort{} guarantees
-inference liveness on devices where standard baselines fail.
+surgical OS-level memory paging (\texttt{madvise}), \nanort{} is designed to
+preserve inference liveness on devices where standard baselines fail.
 %
-We demonstrate empirically that this approach trades a predictable
-$\sim$48\% reduction in throughput for a \textbf{26.7\% reduction in peak RAM usage}
-and \textbf{deterministic memory stability} (RSS variance $<$\,1\,MB across 10 iterations),
-preventing OOM crashes on devices with as little as 3.72\,GB of total RAM.
+We demonstrate empirically that this approach trades a
+$\sim$42--52\% reduction in throughput for a \textbf{14.8\%--30.8\% reduction
+in peak RSS} (PC ablation, measured via per-process telemetry), preventing
+OOM crashes on devices with as little as 3.72\,GB of total RAM (running the
+1.5B model; the 7B model targets $\geq$7.8\,GB devices). Peak RSS standard
+deviation was $<$0.3\,MB across 10 PC iterations.
 %
 Cross-device validation on two physical Android smartphones---mid-tier
 OPPO CPH2557 (7.8\,GB) and budget-tier Samsung Galaxy A30s (3.72\,GB)---over
-80 consecutive stress-test queries (50 and 30 per device, respectively)
-confirms zero observable memory leaks
-(RAM increased by $+$296\,MB and $+$351\,MB net, respectively).
+41 consecutive stress-test queries (20 and 21 per device, respectively, both
+1.5B Qwen-2.5) reports zero OOM crashes. Per-process anonymous RSS (RssAnon)
+was stable on both devices (Samsung $107\pm1.3$\,MB, OPPO $289\pm1.5$\,MB),
+giving no evidence of a per-process memory leak; system \texttt{MemAvailable}
+is reported only as a global pressure signal.
 %
 An entropy-driven hybrid router further reduces cloud API costs by up to
-100\% in edge-only mode while preserving 90.0\% MMLU accuracy.
+100\% in edge-only mode while preserving 90.0\% MMLU accuracy (pilot, 9/10
+items; full evaluation pending).
 We release all code, benchmarks, and evaluation datasets.
 \end{abstract}
 
@@ -92,27 +100,31 @@ This paper makes the following contributions:
   \item \textbf{Resource-Aware Graceful Degradation}:
     \nanort{} monitors available RAM in real time. Upon detecting that model weights
     exceed usable headroom, it dynamically rescales the KV context window
-    (from 8,192 to 512 tokens) and batch size, guaranteeing completion where
-    vanilla llama.cpp triggers OOM panic.
+    (from 8,192 to 512 tokens) and batch size, completing (in our measurements)
+    where vanilla llama.cpp triggers OOM panic.
 
   \item \textbf{Demonstrated 7B Inference on 7.8\,GB Android}:
     We demonstrate execution of DeepSeek-R1-Distill-Qwen-7B~\cite{deepseek2024} (Q4\_K\_M, 4.47\,GB)
     on an OPPO CPH2557 (7.8\,GB RAM, ARM64, Android 14), achieving a peak RSS of
     4.82\,GB ($1.08\times$ file-to-RAM ratio) with a 11.2\,s cold start.
 
-  \item \textbf{Zero-Leak Continuous Execution \& Mobile I/O Baseline}:
-    Sustained stress testing on physical hardware across two Android devices
-    confirms memory stability: 50/50 successful iterations on OPPO CPH2557
-    (RAM $+296$\,MB net, throughput 2.90\,tok/s), 30/30 on Samsung Galaxy A30s
-    (RAM $+351$\,MB net, 2.27\,tok/s). Zero OOM crashes in 80 total iterations.
-    For 7B models, we establish that CPU generation on mobile (0.43\,tok/s
-    measured, DeepSeek-7B on OPPO) is strictly I/O-bound by UFS storage
-    bandwidth (1,067\,MB/s).
+  \item \textbf{Continuous Execution Under Memory Pressure \& Mobile I/O}:
+    Sustained stress testing on physical hardware reports zero OOM crashes:
+    20/20 on OPPO CPH2557 (1.5B) and 21/21 on Samsung Galaxy A30s (1.5B) under
+    the per-run telemetry protocol of Section~\ref{sec:methodology}.
+    Per-process anonymous RSS (RssAnon) was stable on both devices
+    (OPPO $289\pm1.5$\,MB, regression $p{=}0.94$; Samsung $107\pm1.3$\,MB,
+    $p{=}0.66$), giving no evidence of a per-process memory leak. Throughput was
+    $2.26\pm0.08$\,tok/s on Samsung, while OPPO was bimodal---$\sim$2.2\,tok/s
+    cold, dropping to $\sim$0.25\,tok/s after $\sim$10 consecutive runs (thermal
+    throttling; regression slope $-0.13$\,tok/s per run, $p{<}10^{-5}$). The
+    claim that 7B mobile generation is ``strictly I/O-bound'' (0.43\,tok/s,
+    DeepSeek-7B on OPPO) remains \textbf{[pending rerun]}.
 
   \item \textbf{Entropy-Driven Hybrid Routing}:
     Normalized Shannon entropy~\cite{shannon1948} ($H_{\text{norm}}$) of token probabilities serves as a
     confidence signal ($c = 1 - H_{\text{norm}}$), preserving 90.0\% MMLU accuracy
-    and 66.7\% HumanEval Pass@1.
+    and 66.7\% HumanEval Pass@1 (pilots; full reproducible evaluation pending).
 \end{enumerate}
 
 % =============================================================
@@ -352,14 +364,42 @@ latency, tokens generated, throughput (tok/s), available RAM, exit code,
 and model confidence ($c = 1 - H_{\text{norm}}$). All runs use temperature
 0.0 for deterministic reproducibility.
 
-\textbf{PC ablation protocol.} On desktop, we use Python's \texttt{psutil}
-library to sample the Resident Set Size (RSS) of each inference process
-at 50\,ms intervals via a background thread. Peak RSS is recorded as the
-maximum observed value across the process lifetime. Three configurations
-are compared: \nanort{} (with \texttt{madvise} hints active),
-llama.cpp~\texttt{--no-mmap} (anonymous pages, worst-case footprint),
-and llama.cpp~\texttt{--mmap} (OS-level file mapping, best-case vanilla).
-Each configuration runs 10 iterations with the same prompt and model.
+\textbf{PC ablation protocol.} On desktop, the per-run telemetry layer
+(described below) samples the resident set size (RSS), per-process CPU, storage
+I/O, and page faults of each inference process during its lifetime; peak RSS is
+the maximum observed value. Three configurations are compared: \nanort{} (with
+\texttt{madvise} hints active), llama.cpp~\texttt{--no-mmap} (anonymous pages,
+worst-case footprint), and llama.cpp~\texttt{--mmap} (OS-level file mapping,
+best-case vanilla). Each configuration runs 10 iterations with the same prompt
+and model.
+
+\textbf{Per-run telemetry protocol (this revision).} To address reviewer
+concerns about leak attribution, I/O-boundedness, and per-process CPU cost,
+every harness now records a versioned JSONL record (one line per run) capturing,
+for the real inference process (not the launcher wrapper), memory
+\emph{before}, \emph{after}, and \emph{peak}, plus periodic samples during
+inference. On Linux/Android the layer reads
+\texttt{/proc/<pid>/smaps\_rollup} (PSS, RssAnon, RssFile),
+\texttt{/proc/<pid>/status} (VmRSS/VmSize), \texttt{/proc/<pid>/stat}
+(minor/major page faults and per-process CPU user/system time), and
+\texttt{/proc/<pid>/io} (storage read/write bytes); \texttt{/proc/meminfo}
+MemAvailable is retained only as a global pressure signal. On Windows, RSS/VMS,
+per-process CPU and I/O come from \texttt{psutil}, and page faults from
+\texttt{GetProcessMemoryInfo().PageFaultCount} (no minor/major split). Any
+metric unavailable on a platform is recorded as \texttt{null} with an explicit
+reason in \texttt{collection\_status}---never a fabricated value. All results
+that depend on these per-process measurements are marked
+\textbf{[pending rerun]} until the instrumented harnesses
+(\texttt{scripts/pc\_ablation.py}, \texttt{tests/pc\_benchmark.py},
+\texttt{scripts/android\_stress\_test.py}, \texttt{scripts/stress\_test.py})
+are executed and analyzed by \texttt{scripts/analyze\_telemetry.py}
+(protocol in \texttt{docs/telemetry\_protocol.md}). We further note two
+platform-specific clarifications requested in review: on Windows the paging
+mechanism is implemented with \texttt{PrefetchVirtualMemory} and
+\texttt{DiscardVirtualMemory} (not \texttt{madvise}; see
+Section~\ref{sec:paging}), and a \emph{matched} llama.cpp~\texttt{--mmap}
+baseline on Android (same model, context, batch, and prompt) is required to
+isolate \nanort{}'s paging policy on-device and is \textbf{[pending rerun]}.
 
 \textbf{Statistical methodology.} We apply: Shapiro-Wilk tests for normality;
 non-parametric Mann-Whitney $U$ tests for cross-device throughput comparison
@@ -395,14 +435,14 @@ PC Baseline (32GB RAM) & 1.07 & 2.04 & 1.84 & 1.72$\times$ \\
 
 \begin{table}[h]
 \centering
-\caption{Inference performance and adaptive context windowing on real hardware. The OPPO row uses DeepSeek-R1-Distill-Qwen-7B (4.47\,GB). The PC row uses Qwen-2.5-1.5B (1.07\,GB).}
+\caption{Inference performance and adaptive context windowing on real hardware. The OPPO row uses DeepSeek-R1-Distill-Qwen-7B (4.47\,GB). The PC row uses Qwen-2.5-1.5B (1.07\,GB), measured across the 10-run telemetry ablation of Table~\ref{tab:pc_ablation}. The OPPO 7B throughput is \textbf{[pending rerun]}: the stored 7B log (\texttt{android\_oppo\_7b.json}) records timeouts, not the cited 0.43\,tok/s.}
 \label{tab:tps}
 \begin{tabular}{lrrr}
 \toprule
 Platform & Throughput (tok/s) & Cold Start / Latency (s) & Context Window (tokens) \\
 \midrule
-OPPO CPH2557 (Android, 7B model) & 0.43 & 11.2s start / 79.0s & 512 (Auto-scaled) \\
-PC Baseline (32GB RAM, 1.5B model) & 20.28 & 1.30s start / — & 8,192 (Full context) \\
+OPPO CPH2557 (Android, 7B model) & 0.43\,\textbf{[pending rerun]} & 11.2s start / 79.0s & 512 (Auto-scaled) \\
+PC Baseline (32GB RAM, 1.5B model) & $9.33\pm1.12$ & --- & 8,192 (Full context) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -426,39 +466,48 @@ INFO Auto-configure: RAM 1426MB avail/3724MB total, ctx=512, batch=256
 INFO RAM optimization: reducing context from 8192 to 512, batch from 512 to 256
 \end{verbatim}
 
-Over 30 consecutive complex computer science queries on the Samsung A30s,
-the system maintained a 100\% success rate (30/30) with zero OOM terminations.
-Available RAM exhibited a net increase of 351\,MB (from 1,834\,MB to 2,185\,MB
-over 30 iterations), providing definitive empirical proof that no memory leaks
-occur in our per-layer \texttt{madvise} paging cycle. On the OPPO CPH2557,
-50 consecutive queries confirmed this pattern: available RAM increased by
-296\,MB net (3,665\,MB $\to$ 3,962\,MB, 50/50 success).
-The consistent upward trend in free RAM across both devices is consistent with
-the Android kernel's progressive page reclamation under
-\texttt{madvise(MADV\_DONTNEED)} hints; a downward trend would indicate leaks.
+Under the per-run telemetry protocol (Section~\ref{sec:methodology}), 20/20
+queries completed on the Samsung A30s and 20/20 on the OPPO CPH2557 with zero
+OOM terminations. Per-process anonymous RSS (RssAnon) was stable across runs
+on both devices---$107.0\pm1.3$\,MB on Samsung (regression slope
+$0.021$\,MB/iter, $p{=}0.66$) and $289.1\pm1.5$\,MB on OPPO (slope $-0.004$,
+$p{=}0.94$)---providing no evidence of a per-process leak. We do \emph{not}
+infer leak absence from \texttt{MemAvailable}: that system-wide signal moved in
+the opposite direction (declining $\sim$80\,MB over 20 runs on Samsung) and is
+confounded by page-cache and background-process activity. OPPO throughput was
+bimodal and thermally throttled ($\sim$2.2\,tok/s cold, $\sim$0.25\,tok/s after
+$\sim$10 runs), while Samsung stayed at $2.26\pm0.08$\,tok/s; the cross-device
+throughput difference is therefore confounded by throttling and should not be
+read as an architectural comparison.
 
 Table~\ref{tab:crossdevice} summarizes the cross-device comparison.
 
 \begin{table}[h]
 \centering
-\caption{Cross-device memory stability and performance comparison. Both devices
-ran the same ARM64 binary (\texttt{nanortime}) with identical Qwen-2.5-1.5B
-Q4\_K\_M model.}
+\caption{Cross-device memory stability and performance comparison under the
+per-run telemetry protocol (Section~\ref{sec:methodology}). Both devices ran the
+same ARM64 binary (\texttt{nanortime}) with identical Qwen-2.5-1.5B Q4\_K\_M
+model; 20 consecutive queries on OPPO, 21 on Samsung. RssAnon is the
+per-process anonymous RSS peak; its trend over runs is the leak signal.}
 \label{tab:crossdevice}
 \begin{tabular}{lrr}
 \toprule
 Metric & OPPO CPH2557 (7.8\,GB) & Samsung A30s (3.72\,GB) \\
 \midrule
 Classification & \texttt{DeviceClass::MidEnd} & \texttt{DeviceClass::LowEnd} \\
-Usable RAM at launch & $\sim$4,040\,MB & $\sim$1,426\,MB \\
 Context window & 8,192 (full) & 512 (auto-scaled) \\
 Batch size & 512 & 256 (auto-scaled) \\
-Avg throughput (tok/s) & 2.90 (50-iter) & 2.27 (30-iter) \\
-Avg latency (ms) & 24,743 & 30,562 \\
-Avg free RAM (MB) & 3,577 & 1,994 \\
-RAM net change & +296\,MB $\uparrow$ & +351\,MB $\uparrow$ \\
-Memory leaks observed & None & None \\
-Success rate (stress test) & 50/50 (100\%) & 30/30 (100\%) \\
+Success rate & 20/20 (100\%) & 21/21 (100\%) \\
+Avg throughput (tok/s) & $1.11\pm0.90$ (bimodal) & $2.26\pm0.08$ \\
+Cold throughput (tok/s) & $\sim$2.2 (runs 1--10) & $\sim$2.3 \\
+Throttled throughput (tok/s) & $\sim$0.25 (runs 11--20) & --- \\
+Peak RSS (MB) & $1{,}359\pm1.4$ & $1{,}172\pm0.9$ \\
+Peak RssAnon (MB) & $289\pm1.5$ & $107\pm1.3$ \\
+RssAnon trend & $-0.004$/iter ($p{=}0.94$) & $+0.021$/iter ($p{=}0.66$) \\
+Memory leak (RssAnon) & none detected & none detected \\
+CPU (\% wall) & $\sim$569\% (5.7 cores) & $\sim$197\% (2 cores) \\
+Minor page faults & $\sim$253k & $\sim$532k \\
+Major page faults & $\sim$0.25 & $\sim$2.5 \\
 Flash bandwidth (MB/s) & 1,067 & 364 \\
 \bottomrule
 \end{tabular}
@@ -478,47 +527,55 @@ To isolate the effect of our \texttt{madvise} policy from Android-specific
 variables, we conduct a controlled ablation on PC hardware (Windows~11,
 32\,GB RAM, NVMe SSD) comparing \nanort{} against vanilla llama.cpp under
 two configurations: \texttt{--no-mmap} (anonymous pages, worst-case footprint)
-and \texttt{--mmap} (OS-level file mapping, best-case vanilla).
+and \texttt{--mmap} (OS-level file mapping, best-case vanilla). Each run is
+instrumented with the per-run telemetry protocol of
+Section~\ref{sec:methodology} (10 iterations per engine, Qwen-2.5-1.5B
+Q4\_K\_M, 80 output tokens).
 
 \begin{table}[h]
 \centering
-\caption{PC ablation study: memory footprint and throughput for
-Qwen-2.5-1.5B Q4\_K\_M across 10 iterations each.
-Peak RSS measured via \texttt{psutil} background sampling at 50\,ms intervals.}
+\caption{PC ablation (Windows 11, 10 runs each, mean$\pm$std). Per-process
+CPU, storage I/O, and page faults collected by the telemetry layer
+(\texttt{scripts/pc\_ablation.py}). $p$ from Mann-Whitney $U$ vs.~\nanort{}.}
 \label{tab:pc_ablation}
-\begin{tabular}{lrrrc}
+\begin{tabular}{lccc}
 \toprule
-Engine & Success & Avg Tok/s & Peak RSS (MB) & RSS Variance \\
+Metric & \nanort{} (madvise) & llama.cpp (--no-mmap) & llama.cpp (--mmap) \\
 \midrule
-\textbf{\nanort{} (ours)} & \textbf{10/10} & \textbf{10.74} & \textbf{1,840} & \textbf{$<$1\,MB} \\
-llama.cpp (\texttt{--no-mmap}) & 10/10* & 20.28 & 2,038 & $\sim$2\,MB \\
-llama.cpp (\texttt{--mmap}) & 10/10* & 20.79 & 2,510 & $\sim$3\,MB \\
+Throughput (tok/s) & $9.33\pm1.12$ & $19.38\pm3.15$ ($p{=}0.00018$) & $16.14\pm1.82$ ($p{=}0.00018$) \\
+Peak RSS (MB) & $1{,}736\pm0.3$ & $2{,}038\pm0.1$ & $2{,}509\pm0.3$ \\
+RSS reduction vs \nanort{} & --- & 14.8\% & 30.8\% \\
+Per-process CPU (\%) & $\sim$487\% & $\sim$506\% & $\sim$459\% \\
+Storage read (MB) & 29.3 & 1,123 (full model) & 11.9 \\
+Page faults (total) & $\sim$628k & $\sim$562k & $\sim$680k \\
 \bottomrule
 \end{tabular}
 \par\smallskip
-\footnotesize *llama.cpp CLI returned exit code~2 due to a known upstream
-bug, but valid text output and \texttt{psutil} memory metrics were
-successfully captured for all 10 iterations.
+\footnotesize *llama.cpp CLI returned exit code~130 in 18/20 runs (a known
+upstream artifact: valid text output and per-process metrics are captured
+regardless). Exit codes are recorded verbatim in the JSONL.
 \end{table}
 
-As shown in Table~\ref{tab:pc_ablation}, \nanort{} trades $\sim$48\%
-throughput for a \textbf{26.7\% reduction in peak RAM} compared to
-llama.cpp~\texttt{--mmap}, and a 9.7\% reduction versus
-\texttt{--no-mmap}.
-More critically, \nanort{} exhibits a memory variance of
-\textbf{$<$\,1\,MB} across 10 iterations.
-This deterministic behavior, achieved via explicit
-\texttt{madvise(MADV\_DONTNEED)} calls, is the key differentiator:
-on a device with 3.72\,GB of total RAM (Samsung A30s),
-saving 200--600\,MB is the difference between stable execution
-and an OOM Killer termination.
+As shown in Table~\ref{tab:pc_ablation}, \nanort{} trades a $\sim$42--52\%
+throughput reduction for a \textbf{14.8\%--30.8\% reduction in peak RSS}
+relative to llama.cpp. The I/O characterization is the mechanistic point:
+llama.cpp~\texttt{--no-mmap} reads the entire 1.1\,GB model through
+\texttt{read()} syscalls (1{,}123\,MB measured), whereas \nanort{} (mmap +
+\texttt{madvise}) reads only 29.3\,MB and llama.cpp~\texttt{--mmap} reads
+11.9\,MB. All three engines are CPU-bound on this host ($\sim$460--506\%
+per-process CPU), so the throughput gap is compute-dominated, not storage.
+\nanort{}'s peak RSS standard deviation is $<0.3$\,MB across 10 iterations,
+consistent with deterministic page residency from explicit
+\texttt{madvise(MADV\_DONTNEED)}; on a 3.72\,GB device (Samsung A30s) the
+$+$302--773\,MB saved is the difference between stable execution and an OOM
+killer termination.
 
 \subsection{Output Quality}
 \label{sec:quality}
 
 \begin{table}[h]
 \centering
-\caption{Quality benchmarks on Qwen-2.5-1.5B Q4\_K\_M (PC, reproducible). MMLU~\cite{mmlu2020} measures multitask accuracy; HumanEval~\cite{humaneval2021} measures code generation Pass@1. Measured via \texttt{eval\_harness.py}.}
+\caption{Quality benchmarks on Qwen-2.5-1.5B Q4\_K\_M (PC, reproducible pilot). MMLU~\cite{mmlu2020} measures multitask accuracy; HumanEval~\cite{humaneval2021} measures code generation Pass@1. Measured via \texttt{eval\_harness.py}. Reported as pilots on a limited sample; full 14k/164-item evaluation pending.}
 \label{tab:quality}
 \begin{tabular}{lrrr}
 \toprule
@@ -528,7 +585,7 @@ Qwen-2.5-1.5B Q4\_K\_M & PC CPU (32 GB) & 90.0\% (9/10) & 66.7\% (2/3) \\
 \bottomrule
 \end{tabular}
 \par\smallskip
-\footnotesize DeepSeek-R1-Distill-Qwen-7B (4.47\,GB) was additionally stress-tested on the OPPO CPH2557: 4/5 successful inference queries at 0.43\,tok/s average (32 output tokens per query, 79,034\,ms mean latency). MMLU/HumanEval were not executed on the 7B model on Android due to I/O-bound latency constraints.
+\footnotesize DeepSeek-R1-Distill-Qwen-7B (4.47\,GB) was stress-tested on the OPPO CPH2557; the stored log (\texttt{android\_oppo\_7b.json}) records 5/5 timeouts, so the previously cited ``4/5 successful at 0.43\,tok/s'' is \textbf{[pending rerun]} and not corroborated by the retained evidence. MMLU/HumanEval were not executed on the 7B model on Android.
 \end{table}
 
 \subsection{Hybrid Routing Analysis (Paper Contribution 2)}
@@ -577,10 +634,11 @@ Complex prompts & 0 (Local edge-only) & 10 \\
 \textbf{The Throughput--Stability Trade-off.}
 Our PC ablation study (Section~\ref{sec:pc_ablation}) confirms that
 \nanort{}'s rigorous memory management incurs a throughput penalty
-($\sim$48\% on PC, and an I/O-bound limit of $\sim$0.43\,tok/s for
-7B models on mobile, versus $\sim$20\,tok/s unconstrained).
-However, we argue that in Edge computing, \textbf{liveness guarantees
-supersede raw speed}. A system that generates 10\,tok/s reliably
+($\sim$48\% on PC, and a suspected I/O-bound limit of $\sim$0.43\,tok/s for
+7B models on mobile, \textbf{[pending rerun]}, versus $\sim$20\,tok/s
+unconstrained).
+However, we argue that in Edge computing, \textbf{preserving liveness
+supersedes raw speed}. A system that generates 10\,tok/s reliably
 is infinitely more valuable than a system that attempts 20\,tok/s
 but crashes due to OOM. Future work will address this throughput
 ceiling via Speculative Decoding (draft model 1.5B + verifier 7B,
@@ -588,11 +646,11 @@ $5.1\times$ projected speedup) and NPU offloading to Adreno/Hexagon,
 building upon the stable memory foundation established in this work.
 
 \textbf{Inference speed.}
-At 0.43\,tok/s (7B) and 2.27--3.51\,tok/s (1.5B) on Android CPU,
-\nanort{} is not suitable for real-time dialogue. Graceful Degradation
-further reduces throughput when RAM is scarce (Samsung A30s: 2.27\,tok/s
-vs OPPO: 3.51\,tok/s). GPU offloading (Adreno OpenCL or Vulkan compute)
-is the highest-impact future improvement.
+At 0.43\,tok/s (7B, \textbf{[pending rerun]}) and $1.1$--$2.3$\,tok/s (1.5B) on Android CPU,
+\nanort{} is not suitable for real-time dialogue. The measured 1.5B throughput
+is $2.26\pm0.08$\,tok/s on Samsung, while OPPO thermally throttles from
+$\sim$2.2 to $\sim$0.25\,tok/s over $\sim$10 consecutive runs. GPU offloading
+(Adreno OpenCL or Vulkan compute) is the highest-impact future improvement.
 
 \textbf{RAM lower bound.}
 The system requires approximately 2.5\,GB of free RAM for 7B Q4 model weights
@@ -601,7 +659,7 @@ cannot run 7B models but successfully run 1.5B models with Graceful Degradation.
 Running 7B models on sub-4\,GB devices would require combining our
 \texttt{madvise} paging with sub-byte quantization (IQ2\_XXS) and
 KV-cache compression (proposed in Section~\ref{sec:future}), which
-incurs additional latency but remains within the liveness guarantee.
+incurs additional latency but remains within the liveness target.
 
 \textbf{Entropy threshold calibration.}
 The threshold $\tau = 0.85$ was set empirically on our prompt set.
@@ -662,13 +720,16 @@ normalized Shannon entropy as a task-agnostic confidence signal for
 multi-tier routing.
 %
 \nanort{} achieves a file-to-RAM ratio of 1.08$\times$ on Android,
-0.43\,tok/s (7B) and 2.90\,tok/s (1.5B, 50-iter OPPO avg) throughput, and reduces cloud API
-cost by up to 100\% in edge-only mode while preserving 90.0\% MMLU accuracy.
+0.43\,tok/s (7B, \textbf{[pending rerun]}) and 1.5B throughput of
+$2.26\pm0.08$\,tok/s (Samsung, 21 runs) with OPPO thermally throttled
+($\sim$2.2 cold $\to$ $\sim$0.25\,tok/s, 20 runs), and reduces cloud API cost by
+up to 100\% in edge-only mode while preserving 90.0\% MMLU accuracy (pilot).
 Cross-device validation on two Android devices spanning mid-tier
-(OPPO CPH2557, 7.8\,GB, 50/50 successful iterations)
-to budget-tier (Samsung A30s, 3.72\,GB, 30/30 successful iterations) confirms
-no observable memory leaks (RAM increased by $+296$\,MB and $+351$\,MB net, respectively)
-and deterministic Graceful Degradation across hardware tiers.
+(OPPO CPH2557, 7.8\,GB, 20/20 successful iterations)
+to budget-tier (Samsung A30s, 3.72\,GB, 21/21 successful iterations) reports
+zero OOM crashes and deterministic Graceful Degradation across hardware tiers;
+per-process anonymous RSS was stable on both devices (RssAnon regression
+$p{=}0.94$ and $p{=}0.66$), giving no evidence of a per-process memory leak.
 %
 We release all code, benchmark scripts, and evaluation datasets
 at \url{https://github.com/emman/nanortime}.

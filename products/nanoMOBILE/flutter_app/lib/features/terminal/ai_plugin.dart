@@ -20,7 +20,10 @@ class AiPlugin extends TerminalPlugin {
   ) {
     reg('infer', (a, c, o, af) {
       if (a.isEmpty) {
-        o('infer: prompt requerido. Ej: infer "responde en español"', Ln.stderr);
+        o(
+          'infer: prompt requerido. Ej: infer "responde en español"',
+          Ln.stderr,
+        );
         return;
       }
       final engine = getEngine();
@@ -32,13 +35,16 @@ class AiPlugin extends TerminalPlugin {
       try {
         final prompt = a.join(' ');
         o('[NanoRuntime] Enviando...', Ln.system);
-        (engine as dynamic).generate(prompt: prompt, maxTokens: 128).then((res) {
-          for (final line in (res.text as String).split('\n')) {
-            if (line.isNotEmpty) o(line, Ln.success);
-          }
-        }).catchError((e) {
-          o('infer: el motor no respondió — $e', Ln.stderr);
-        });
+        (engine as dynamic)
+            .generate(prompt: prompt, maxTokens: 128)
+            .then((res) {
+              for (final line in (res.text as String).split('\n')) {
+                if (line.isNotEmpty) o(line, Ln.success);
+              }
+            })
+            .catchError((e) {
+              o('infer: el motor no respondió — $e', Ln.stderr);
+            });
       } catch (e) {
         o('infer: engine type mismatch — $e', Ln.stderr);
       }
@@ -57,14 +63,20 @@ class AiPlugin extends TerminalPlugin {
       try {
         final prompt = a.join(' ');
         o('[NanoAI] Pensando...', Ln.info);
-        (engine as dynamic).generate(prompt: prompt, maxTokens: 512).then((res) {
-          for (final line in (res.text as String).split('\n')) {
-            if (line.isNotEmpty) o(line, Ln.stdout);
-          }
-        }).catchError((e) {
-          o('ai: el motor no respondió. ¿Está corriendo llama.cpp?', Ln.stderr);
-          o('  $e', Ln.stderr);
-        });
+        (engine as dynamic)
+            .generate(prompt: prompt, maxTokens: 512)
+            .then((res) {
+              for (final line in (res.text as String).split('\n')) {
+                if (line.isNotEmpty) o(line, Ln.stdout);
+              }
+            })
+            .catchError((e) {
+              o(
+                'ai: el motor no respondió. ¿Está corriendo llama.cpp?',
+                Ln.stderr,
+              );
+              o('  $e', Ln.stderr);
+            });
       } catch (e) {
         o('ai: engine error — $e', Ln.stderr);
       }

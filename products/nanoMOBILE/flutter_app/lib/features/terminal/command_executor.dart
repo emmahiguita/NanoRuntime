@@ -45,7 +45,8 @@ class CmdExecCtx {
   final Map<String, String> Function({
     String? ldPreload,
     Map<String, String>? extra,
-  }) rootfsEnv;
+  })
+  rootfsEnv;
   final void Function(ShellResult) shellOut;
 
   // ── Real commands (rootfs toybox como fuente de verdad) ──
@@ -182,8 +183,7 @@ class CommandExecutor {
       final shellCmd = cmd.substring(1).trim();
       if (shellCmd.isEmpty) return;
       if (shellCmd.startsWith('cd ') || shellCmd == 'cd') {
-        final target =
-            shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
+        final target = shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
         if (target == '..') {
           x.bashCwd = x.bashCwd == '/'
               ? '/'
@@ -192,8 +192,7 @@ class CommandExecutor {
         } else if (target.startsWith('/')) {
           x.bashCwd = target;
         } else if (target.isNotEmpty) {
-          x.bashCwd =
-              x.bashCwd == '/' ? '/$target' : '${x.bashCwd}/$target';
+          x.bashCwd = x.bashCwd == '/' ? '/$target' : '${x.bashCwd}/$target';
         }
         x.out('[ash] cd → ${x.bashCwd}', Ln.system);
       }
@@ -238,8 +237,7 @@ class CommandExecutor {
       final extraEnv = x.rootfs?.isInstalled == true
           ? x.rootfsEnv(ldPreload: 'libnanoroot.so')
           : null;
-      final r =
-          await x.shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
+      final r = await x.shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
       x.audit?.event(
         'command.shell.result',
         layer: 'shell',

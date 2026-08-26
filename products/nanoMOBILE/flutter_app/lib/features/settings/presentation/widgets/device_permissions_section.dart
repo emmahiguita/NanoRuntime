@@ -147,9 +147,9 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
           Icons.admin_panel_settings_rounded,
           colors: colors,
         ),
-          NanoCard(
-            padding: EdgeInsets.zero,
-            child: Padding(
+        NanoCard(
+          padding: EdgeInsets.zero,
+          child: Padding(
             padding: const EdgeInsets.all(NanoSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -183,6 +183,7 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
           borderStrength: 0.45,
           reflectionStrength: 0.28,
           blurSigma: 12,
+          padding: const EdgeInsets.all(NanoSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,17 +198,22 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
               // se estira al ancho de la card ni de la pantalla.
               FilledButton.icon(
                 onPressed: _busy ? null : _probe,
-                icon: const Icon(Icons.visibility, size: 18),
+                icon: const Icon(Icons.visibility, size: 16),
                 label: Text(
                   _busy ? 'Leyendo árbol…' : 'Leer pantalla actual',
-                  style: NanoType.body(colors.onSurface),
+                  style: NanoType.label(colors.onPrimaryContainer),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: colors.accentCyan,
-                  disabledBackgroundColor: colors.primary.withValues(
-                    alpha: 0.4,
-                  ),
+                  backgroundColor: colors.primaryContainer,
+                  foregroundColor: colors.onPrimaryContainer,
+                  disabledBackgroundColor: colors.surfaceVariant,
+                  disabledForegroundColor: colors.onSurfaceVariant,
                   visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                 ),
               ),
               if (_nodes.isNotEmpty) ...[
@@ -234,14 +240,18 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
                 controller: _selectorController,
                 decoration: InputDecoration(
                   labelText: 'Selector (mini-DSL)',
-                  helperText:
-                      'ej. text=Bluetooth · editable=true · '
-                      'editable=true;near=desc=Usuario',
-                  helperMaxLines: 2,
+                  helperText: 'ej. text=Bluetooth · editable=true',
+                  helperMaxLines: 1,
+                  labelStyle: NanoType.label(colors.onSurfaceVariant),
+                  helperStyle: NanoType.caption(colors.onSurfaceVariant),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                   isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: NanoSpacing.sm),
@@ -254,10 +264,17 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
                     icon: const Icon(Icons.search, size: 16),
                     label: Text(
                       'Resolver',
-                      style: NanoType.caption(colors.onSurface),
+                      style: NanoType.label(colors.onSurface),
                     ),
                     style: OutlinedButton.styleFrom(
+                      foregroundColor: colors.onSurface,
+                      side: BorderSide(color: colors.outlineVariant),
                       visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                   FilledButton.icon(
@@ -265,11 +282,19 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
                     icon: const Icon(Icons.touch_app, size: 16),
                     label: Text(
                       'Tap seguro',
-                      style: NanoType.caption(colors.onSurface),
+                      style: NanoType.label(colors.onPrimaryContainer),
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: colors.accentCyan,
+                      backgroundColor: colors.primaryContainer,
+                      foregroundColor: colors.onPrimaryContainer,
+                      disabledBackgroundColor: colors.surfaceVariant,
+                      disabledForegroundColor: colors.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ],
@@ -294,10 +319,15 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
                 controller: _setTextController,
                 decoration: InputDecoration(
                   labelText: 'Texto a escribir',
+                  labelStyle: NanoType.label(colors.onSurfaceVariant),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                   isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: NanoSpacing.sm),
@@ -306,10 +336,17 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
                 icon: const Icon(Icons.keyboard, size: 16),
                 label: Text(
                   'Escribir',
-                  style: NanoType.caption(colors.onSurface),
+                  style: NanoType.label(colors.onSurface),
                 ),
                 style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.onSurface,
+                  side: BorderSide(color: colors.outlineVariant),
                   visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
               ),
               const SizedBox(height: NanoSpacing.md),
@@ -368,10 +405,13 @@ class _GroupLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: NanoSpacing.xs),
+      padding: const EdgeInsets.only(
+        bottom: NanoSpacing.xs,
+        top: NanoSpacing.xs,
+      ),
       child: Text(
         text.toUpperCase(),
-        style: NanoType.overline(colors.accentCyan),
+        style: NanoType.overline(colors.onSurfaceVariant),
       ),
     );
   }
@@ -396,10 +436,13 @@ class _GestureButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16),
-      label: Text(label, style: NanoType.caption(colors.onSurface)),
+      label: Text(label, style: NanoType.label(colors.onSurface)),
       style: OutlinedButton.styleFrom(
+        foregroundColor: colors.onSurface,
+        side: BorderSide(color: colors.outlineVariant),
         visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
     );
   }

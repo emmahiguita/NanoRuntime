@@ -60,6 +60,26 @@ void main() {
       expect(r.status, GoalStatus.notSatisfied);
     });
 
+    test('espera la ventana destino tras un Intent Android', () async {
+      final chrome = snapshotAjustes()..['package'] = 'com.android.chrome';
+      final executor = _SequenceExecutor([snapshotAjustes(), chrome]);
+      final v = GoalVerifier(
+        executor: executor,
+        packageSettleDelay: Duration.zero,
+      );
+
+      final r = await v.verify(
+        'abre Chrome',
+        planCompleted: true,
+        expectation: const GoalExpectation(
+          expectedPackage: 'com.android.chrome',
+        ),
+      );
+
+      expect(r.status, GoalStatus.satisfied);
+      expect(executor.snapshotCalls, 2);
+    });
+
     test('sin snapshot final (canal off) → notSatisfied', () async {
       final v = GoalVerifier(executor: _FakeExecutor(null));
       final r = await v.verify(
@@ -85,7 +105,7 @@ class _FakeExecutor implements AgentExecutor {
 
   @override
   Future<NanoSnapshot?> snapshot() async =>
-      _raw == null ? null : NanoSnapshot.fromRaw(_raw!);
+      _raw == null ? null : NanoSnapshot.fromRaw(_raw);
 
   @override
   Future<AgentExecutionResult> setText(
@@ -99,4 +119,32 @@ class _FakeExecutor implements AgentExecutor {
   Future<AgentExecutionResult> tap(NanoSelector selector) async {
     throw UnimplementedError();
   }
+}
+
+class _SequenceExecutor implements AgentExecutor {
+  _SequenceExecutor(this._snapshots);
+
+  final List<Map<String, dynamic>> _snapshots;
+  int snapshotCalls = 0;
+
+  @override
+  Future<NanoSnapshot?> snapshot() async {
+    final index = snapshotCalls.clamp(0, _snapshots.length - 1);
+    snapshotCalls++;
+    return NanoSnapshot.fromRaw(_snapshots[index]);
+  }
+
+  @override
+  Future<ResolveOutcome> resolve(NanoSelector selector) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<AgentExecutionResult> setText(
+    NanoSelector selector,
+    String text,
+  ) async => throw UnimplementedError();
+
+  @override
+  Future<AgentExecutionResult> tap(NanoSelector selector) async =>
+      throw UnimplementedError();
 }

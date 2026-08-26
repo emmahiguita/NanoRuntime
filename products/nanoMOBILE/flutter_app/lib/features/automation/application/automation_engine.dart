@@ -38,8 +38,10 @@ class AutomationEngine {
   /// noPlan / failed / cancelled. El motor decide el camino (flujo verificado
   /// en cache → determinista, si no → planner LLM local → ejecuta → verifica
   /// → aprende solo de éxitos verificados).
-  Future<AutomationResult> runGoal(AutomationGoal goal) =>
-      _coordinator.execute(goal);
+  Future<AutomationResult> runGoal(
+    AutomationGoal goal, {
+    AutomationOptions? options,
+  }) => _coordinator.execute(goal, options: options);
 
   /// Qué hizo REALMENTE el motor (trazas del ledger, recientes primero).
   List<AutomationTrace> trace() => _ledger.entries;

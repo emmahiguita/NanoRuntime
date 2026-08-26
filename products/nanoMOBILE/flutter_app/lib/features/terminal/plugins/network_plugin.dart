@@ -4,7 +4,6 @@ import '../terminalservices.dart';
 /// Network commands: ssh, git, curl, wget, scp, rsync.
 class NetworkPlugin {
   void register(void Function(String, CmdFn) r, TerminalServices s) {
-
     /// Sanitiza argumentos de comandos de red para prevenir inyección
     bool sanitizeNetworkArgs(List<String> args) {
       for (final arg in args) {
@@ -13,7 +12,10 @@ class NetworkPlugin {
           return false;
         }
         // Bloquear intentos de command chaining
-        if (arg.contains(';') || arg.contains('|') || arg.contains('&') || arg.contains('`')) {
+        if (arg.contains(';') ||
+            arg.contains('|') ||
+            arg.contains('&') ||
+            arg.contains('`')) {
           return false;
         }
         // Bloquear redirecciones de shell
@@ -35,9 +37,12 @@ class NetworkPlugin {
         return;
       }
 
-      if (s.shell != null && s.shell!.initialized && s.rootfs?.isInstalled == true) {
+      if (s.shell != null &&
+          s.shell!.initialized &&
+          s.rootfs?.isInstalled == true) {
         final binPath = '${s.rootfs!.usrDir}/bin/$cmd';
-        s.shell!.execRootfs(binPath, [cmd, ...a], ldPreload: 'libnanoroot.so')
+        s.shell!
+            .execRootfs(binPath, [cmd, ...a], ldPreload: 'libnanoroot.so')
             .then((wr) {
               if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
               if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
@@ -55,8 +60,13 @@ class NetworkPlugin {
     }
 
     r('ssh', (a, c, o, af) {
-      if (a.isEmpty) { o('ssh: usage: ssh [user@]host', Ln.stderr); return; }
-      if (s.shell != null && s.shell!.initialized && s.rootfs?.isInstalled == true) {
+      if (a.isEmpty) {
+        o('ssh: usage: ssh [user@]host', Ln.stderr);
+        return;
+      }
+      if (s.shell != null &&
+          s.shell!.initialized &&
+          s.rootfs?.isInstalled == true) {
         execNet('ssh', a, o);
         return;
       }
@@ -65,7 +75,9 @@ class NetworkPlugin {
     });
 
     r('git', (a, c, o, af) {
-      if (s.shell != null && s.shell!.initialized && s.rootfs?.isInstalled == true) {
+      if (s.shell != null &&
+          s.shell!.initialized &&
+          s.rootfs?.isInstalled == true) {
         execNet('git', a, o);
         return;
       }

@@ -36,12 +36,7 @@ pub struct PrefixKey {
 }
 
 impl PrefixKey {
-    pub fn new(
-        model_hash: String,
-        template_hash: u64,
-        prefix_hash: u64,
-        n_ctx: usize,
-    ) -> Self {
+    pub fn new(model_hash: String, template_hash: u64, prefix_hash: u64, n_ctx: usize) -> Self {
         Self {
             model_hash,
             template_hash,
@@ -122,7 +117,10 @@ impl PrefixCache {
                     removed += 1;
                 }
             } else if ext == "kv" {
-                if let (Ok(meta), Ok(mtime)) = (entry.metadata(), entry.metadata().and_then(|m| m.modified())) {
+                if let (Ok(meta), Ok(mtime)) = (
+                    entry.metadata(),
+                    entry.metadata().and_then(|m| m.modified()),
+                ) {
                     let _ = meta;
                     kvs.push((mtime, path));
                 }
@@ -295,7 +293,10 @@ mod tests {
             content_hash(&["systen", "tools"]),
             4096,
         );
-        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&sys_changed));
+        assert_ne!(
+            cache.snapshot_path(&base),
+            cache.snapshot_path(&sys_changed)
+        );
 
         // tools cambian → MISS.
         let tools_changed = PrefixKey::new(
@@ -304,7 +305,10 @@ mod tests {
             content_hash(&["system", "toolz"]),
             4096,
         );
-        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&tools_changed));
+        assert_ne!(
+            cache.snapshot_path(&base),
+            cache.snapshot_path(&tools_changed)
+        );
 
         // model cambia → MISS.
         let model_changed = PrefixKey::new(
@@ -313,7 +317,10 @@ mod tests {
             content_hash(&["system", "tools"]),
             4096,
         );
-        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&model_changed));
+        assert_ne!(
+            cache.snapshot_path(&base),
+            cache.snapshot_path(&model_changed)
+        );
 
         // template cambia → MISS.
         let tpl_changed = PrefixKey::new(
@@ -322,7 +329,10 @@ mod tests {
             content_hash(&["system", "tools"]),
             4096,
         );
-        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&tpl_changed));
+        assert_ne!(
+            cache.snapshot_path(&base),
+            cache.snapshot_path(&tpl_changed)
+        );
 
         // n_ctx cambia → MISS.
         let ctx_changed = PrefixKey::new(
@@ -331,6 +341,9 @@ mod tests {
             content_hash(&["system", "tools"]),
             2048,
         );
-        assert_ne!(cache.snapshot_path(&base), cache.snapshot_path(&ctx_changed));
+        assert_ne!(
+            cache.snapshot_path(&base),
+            cache.snapshot_path(&ctx_changed)
+        );
     }
 }
