@@ -208,7 +208,7 @@ void main() {
         ]),
       );
       final mux = PerceptionMux(
-        memorySource: ObjectMemoryPerceptionSource(memory),
+        memorySource: ObjectMemoryPerceptionSource(() => memory),
         accessibilitySource: AccessibilityPerceptionSource(observer),
       );
       final r = await mux.perceive(
@@ -246,7 +246,7 @@ void main() {
         ]),
       );
       final mux = PerceptionMux(
-        memorySource: ObjectMemoryPerceptionSource(memory),
+        memorySource: ObjectMemoryPerceptionSource(() => memory),
         accessibilitySource: AccessibilityPerceptionSource(observer),
       );
       final r = await mux.perceive(

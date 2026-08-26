@@ -8,6 +8,8 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
+import 'package:nanoai/features/automation/engine/perception/mux/object_memory_perception_source.dart';
+import 'package:nanoai/features/automation/engine/perception/perception_mux.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart';
 
 class _SuccessDispatcher extends AgentToolDispatcher {
@@ -72,10 +74,16 @@ void main() {
         const UiObjectKey(concept: 'bluetooth'),
         const UiSelectorEvidence(resourceId: 'id_bt'),
       );
+      // A13.6: la memoria se consulta vía PerceptionMux (memory-first), no
+      // directamente por el coordinator.
+      final mux = PerceptionMux(
+        memorySource: ObjectMemoryPerceptionSource(() => memory),
+      );
       final c = AutomationCoordinator(
         dispatcher: dispatcher,
         mode: () => AgentAutomationMode.autonomous,
         objectMemory: memory,
+        perceptionMux: mux,
       );
 
       await c.execute(
@@ -103,6 +111,17 @@ void main() {
 
     expect(verifies, 1);
     expect(r.status, AutomationResultStatus.completed);
+  });
+
+  test('Chrome open flow launches its package instead of tapping NanoAI', () {
+    final flow = defaultDeterministicCatalog.forGoal('abre Chrome');
+
+    expect(flow, isNotNull);
+    expect(flow!.steps, hasLength(1));
+    expect(flow.steps.single.tool, 'launch_app');
+    expect(flow.steps.single.selector, 'com.android.chrome');
+    expect(flow.expectation?.expectedPackage, 'com.android.chrome');
+    expect(flow.expectation?.visibleText, isNull);
   });
 
   test(

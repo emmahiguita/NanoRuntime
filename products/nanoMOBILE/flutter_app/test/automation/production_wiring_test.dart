@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
+import 'package:nanoai/features/automation/benchmark/c14_metrics.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart';
@@ -239,5 +240,67 @@ void main() {
     expect(r.status, AutomationResultStatus.completed);
     expect(dispatcher.calls.single.tool, 'launch_app');
     expect(dispatcher.calls.single.args!['packageName'], 'com.whatsapp');
+  });
+
+  test('métricas C14: determinista vs legacy vs koog', () async {
+    // Chrome → determinista (0 LLM).
+    final execs = <C14Execution>[];
+    final c1 = AutomationCoordinator(
+      dispatcher: _FakeDispatcher(),
+      mode: () => AgentAutomationMode.autonomous,
+      candidateFirst: planner([
+        InstalledAppCandidateProvider(
+          catalogWith([app('Chrome', 'com.android.chrome')]),
+        ),
+      ]),
+      verifyGoal: (goal, {required planCompleted, expectation}) async =>
+          const GoalVerification(GoalStatus.satisfied, 'verified'),
+      c14Sink: execs.add,
+    );
+    await c1.execute(const AutomationGoal(text: 'abre Chrome'));
+    expect(execs.single.selectionMode, 'deterministic');
+    expect(execs.single.legacyFallback, isFalse);
+    expect(execs.single.koogInvoked, isFalse);
+
+    // unknown → legacy fallback.
+    execs.clear();
+    final c2 = AutomationCoordinator(
+      dispatcher: _FakeDispatcher(),
+      mode: () => AgentAutomationMode.autonomous,
+      candidateFirst: planner([
+        InstalledAppCandidateProvider(catalogWith(const [])),
+      ]),
+      c14Sink: execs.add,
+    );
+    await c2.execute(const AutomationGoal(text: 'abre nada'));
+    expect(execs.single.selectionMode, 'legacyFallback');
+    expect(execs.single.legacyFallback, isTrue);
+
+    // ambiguous → koog.
+    execs.clear();
+    final c3 = AutomationCoordinator(
+      dispatcher: _FakeDispatcher(),
+      mode: () => AgentAutomationMode.autonomous,
+      candidateFirst: planner(
+        [
+          InstalledAppCandidateProvider(
+            catalogWith([
+              app('WhatsApp', 'com.whatsapp'),
+              app('WhatsApp Business', 'com.whatsapp.w4b'),
+            ]),
+          ),
+        ],
+        koogSelector: KoogCandidateSelector(
+          _FakeKoogClient('{"candidateId":"app:launch:com.whatsapp"}'),
+        ),
+      ),
+      verifyGoal: (goal, {required planCompleted, expectation}) async =>
+          const GoalVerification(GoalStatus.satisfied, 'verified'),
+      c14Sink: execs.add,
+    );
+    await c3.execute(const AutomationGoal(text: 'abre Whats'));
+    expect(execs.single.selectionMode, 'koog');
+    expect(execs.single.koogInvoked, isTrue);
+    expect(execs.single.legacyFallback, isFalse);
   });
 }
