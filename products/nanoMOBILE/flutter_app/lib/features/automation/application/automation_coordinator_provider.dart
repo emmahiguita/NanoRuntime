@@ -57,6 +57,28 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         );
         return !r.feedback.startsWith('[');
       },
+      // A15.4: fuentes UI (delegan al dispatcher, que ya tiene governance).
+      launchApp: (appName) async {
+        final dispatcher = ref.read(agentDispatcherProvider);
+        final r = await dispatcher.runToolGuarded(
+          ToolCall(tool: 'launch_app', text: appName),
+        );
+        return !r.feedback.startsWith('[');
+      },
+      tap: (selector) async {
+        final dispatcher = ref.read(agentDispatcherProvider);
+        final r = await dispatcher.runToolGuarded(
+          ToolCall(tool: 'tap', selector: selector),
+        );
+        return !r.feedback.startsWith('[');
+      },
+      writeText: (selector, text) async {
+        final dispatcher = ref.read(agentDispatcherProvider);
+        final r = await dispatcher.runToolGuarded(
+          ToolCall(tool: 'write', selector: selector, text: text),
+        );
+        return !r.feedback.startsWith('[');
+      },
     ),
     // A15.2: descomposición template determinista + LLM validado.
     taskDecomposer: LlmTaskDecomposer(
