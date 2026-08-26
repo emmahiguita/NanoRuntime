@@ -486,6 +486,10 @@ class AgentToolDispatcher {
         return _runGrantPermission('archivos');
       case 'conceder_runtime':
         return _runGrantPermission('runtime');
+      // Automatiza la CONEXIÓN con Shizuku: Nano dispara la solicitud; el
+      // diálogo de Shizuku pide tocar "Permitir". @conceder shizuku.
+      case 'conceder_shizuku':
+        return _runGrantShizuku();
       // A14.5 — contestar una notificación desde el chat con control humano.
       // Sintaxis: @responder <texto> (a la primera respondible) o
       // @responder <indice> <texto> (a la notificación en esa posición tal como
@@ -494,7 +498,7 @@ class AgentToolDispatcher {
       case 'reply':
         return _respond(rest);
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso>.';
+        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
     }
     return (await runToolGuarded(call, humanInitiated: true)).feedback;
   }
@@ -530,6 +534,21 @@ class AgentToolDispatcher {
     return ok
         ? 'Abriendo $label... Concede el permiso y vuelve a la app.'
         : 'No se pudo abrir la pantalla de $label.';
+  }
+
+  /// Automatiza el EMPAREJAMIENTO con Shizuku (A14.4): Nano dispara la
+  /// solicitud de permiso; el diálogo de Shizuku pide tocar "Permitir".
+  Future<String> _runGrantShizuku() async {
+    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
+    if (shizuku['installed'] != true) {
+      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
+    }
+    final granted = await NanoRuntimeApi.instance.shizukuRequestPermission();
+    if (granted) {
+      return 'Shizuku ya estaba autorizado. Conectado con privilegios.';
+    }
+    return 'Solicitud de conexión enviada. Toca "Permitir" en el diálogo de '
+        'Shizuku y vuelve.';
   }
 
   // ── Tool-calling LLM ──────────────────────────────────────────────────────

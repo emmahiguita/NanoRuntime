@@ -734,6 +734,21 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A14.4 — solicita la conexión con Shizuku (automatiza el emparejamiento).
+  /// Si ya está autorizada devuelve true; si no, dispara el diálogo Shizuku
+  /// para que el usuario toque Permitir. El consentimiento humano no se salta.
+  Future<bool> shizukuRequestPermission() async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>(
+            'shizukuRequestPermission',
+          ) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuRequestPermission error: $e');
+      return false;
+    }
+  }
+
   /// A14.4 — primera acción Shizuku TIPADA: consulta metadatos de un paquete
   /// con privilegios (read-only, `cmd package dump`). El llamador debe verificar
   /// disponibilidad/autorización ANTES (queryShizukuStatus); el nativo valida el

@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import dev.nanoai.mobile.services.AgentAccessibilityService
@@ -23,6 +25,35 @@ class DevicePermissionsChannelHandler(
 
     companion object {
         const val CHANNEL_NAME = "com.nanoai/device_permissions"
+
+        /** Código de solicitud único para el diálogo de concesión Shizuku. */
+        private const val REQ_SHIZUKU_PERMISSION = 1001
+    }
+
+    /** Result pendiente del diálogo Shizuku; el listener lo resuelve al volver. */
+    private var pendingShizukuPermission: MethodChannel.Result? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Listener del resultado del diálogo Shizuku (una sola instancia). */
+    private val shizukuPermissionListener =
+        Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+            if (requestCode == REQ_SHIZUKU_PERMISSION) {
+                mainHandler.post {
+                    pendingShizukuPermission?.success(
+                        grantResult == PackageManager.PERMISSION_GRANTED,
+                    )
+                    pendingShizukuPermission = null
+                }
+            }
+        }
+
+    init {
+        // A14.4: escucha el resultado del diálogo de concesión Shizuku y lo
+        // resuelve en el hilo principal. Se registra una sola vez (defensa:
+        // un listener duplicado entre recreaciones de la Activity no deja
+        // resultados huérfanos — el nuevo sobrescribe al anterior).
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -32,6 +63,7 @@ class DevicePermissionsChannelHandler(
             "shizukuQueryPackage" -> result.success(
                 shizukuQueryPackage(call.argument<String>("packageName")),
             )
+            "shizukuRequestPermission" -> shizukuRequestPermission(result)
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -81,7 +113,8 @@ class DevicePermissionsChannelHandler(
         }
         val permissionGranted = if (binderAlive) {
             try {
-                Shizuku.checkSelfPermission()
+                // API 13.x: checkSelfPermission() devuelve int (0 = concedido).
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
             } catch (_: Throwable) {
                 false
             }
@@ -93,6 +126,37 @@ class DevicePermissionsChannelHandler(
             "binderAlive" to binderAlive,
             "permissionGranted" to permissionGranted,
         )
+    }
+
+    /**
+     * A14.4 — automatiza la SOLICITUD de conexión con Shizuku. Si Nano ya está
+     * autorizada responde de inmediato (true); si no, lanza `requestPermission`
+     * que muestra el diálogo Shizuku para que el usuario toque "Permitir". El
+     * resultado llega por el listener y se resuelve en el main thread. NO
+     * concede por sí solo: el consentimiento humano es innegociable.
+     */
+    private fun shizukuRequestPermission(result: MethodChannel.Result) {
+        val granted = try {
+            // API 13.x: checkSelfPermission() devuelve int (0 = concedido).
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        } catch (_: Throwable) {
+            false
+        }
+        if (granted) {
+            result.success(true)
+            return
+        }
+        if (pendingShizukuPermission != null) {
+            result.error("permission_pending", "solicitud Shizuku ya abierta", null)
+            return
+        }
+        pendingShizukuPermission = result
+        try {
+            Shizuku.requestPermission(REQ_SHIZUKU_PERMISSION)
+        } catch (e: Throwable) {
+            pendingShizukuPermission = null
+            result.error("shizuku_unsupported", e.message ?: "no soportado", null)
+        }
     }
 
     private fun isShizukuAppInstalled(): Boolean {
