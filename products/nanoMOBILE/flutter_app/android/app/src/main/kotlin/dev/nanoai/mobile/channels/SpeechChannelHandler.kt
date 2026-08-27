@@ -1,7 +1,6 @@
 package dev.nanoai.mobile.channels
 
 import android.Manifest
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,14 +30,6 @@ class SpeechChannelHandler(
 
     companion object {
         const val CHANNEL_NAME = "com.nanoai/speech"
-
-        /** Reconocedor de habla real (Google Search). Algunos OEM registran el
-         *  stub TTS como voice_recognition_service; forzamos GSA para habla libre. */
-        private const val GOOGLE_RECOGNIZER = "com.google.android.googlequicksearchbox"
-
-        /** Servicio de reconocimiento de Google Search (habla libre real). */
-        private const val GOOGLE_RECOGNIZER_SERVICE =
-            "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -169,29 +160,25 @@ class SpeechChannelHandler(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            // Reconocimiento offline preferido (privacidad + funciona sin red).
-            // Algunos proveedores lo ignoran; es un hint, no un hard fail.
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         }
         rec.startListening(intent)
     }
 
     /**
-     * Lógica REAL de audio: vincula el reconocedor de habla libre de Google
-     * Search. El sistema por defecto apunta al stub TTS (`voice_recognition_service`
-     * = GoogleTTSRecognitionService) que NO transcribe habla general — por eso
-     * "micrófono no disponible". API 33+ permite elegir el ComponentName exacto.
-     * Fallback al reconocedor del sistema si Google Search no está disponible.
+     * Lógica REAL de audio. API 31+: reconocimiento ON-DEVICE del sistema
+     * (`createOnDeviceSpeechRecognizer`) — transcribe offline con el modelo del
+     * dispositivo, sin depender del servicio configurado (`voice_recognition_service`
+     * apunta al stub TTS) ni de Google Search. Forzar el ComponentName de Google
+     * Search falla con error 10 (ERROR_CLIENT: servicio restringido para apps de
+     * terceros). Si el modelo on-device no está descargado, fallback al
+     * reconocedor por defecto del sistema.
      */
     private fun createRecognizer(): SpeechRecognizer {
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= 31) {
             try {
-                return SpeechRecognizer.createSpeechRecognizer(
-                    context,
-                    ComponentName(GOOGLE_RECOGNIZER, GOOGLE_RECOGNIZER_SERVICE),
-                )
+                return SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
             } catch (_: Exception) {
-                // Componente no disponible: fallback al reconocedor por defecto.
+                // Modelo on-device no disponible: fallback al reconocedor del sistema.
             }
         }
         return SpeechRecognizer.createSpeechRecognizer(context)
