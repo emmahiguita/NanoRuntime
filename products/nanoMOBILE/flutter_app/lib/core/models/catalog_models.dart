@@ -300,6 +300,21 @@ abstract final class NeuralCatalog {
       template: ChatTemplate.deepseek,
       tier: ModelTier.deep,
     ),
+    // A16 — wake word (detector local microWakeWord, modelo .tflite). SHA256
+    // verificado del release oficial OHF-Voice/micro-wake-word v2.1_models.
+    // No hay modelo "Nano" pre-entrenado: se usa "hey mycroft" como base; un
+    // modelo "Nano" se entrenaría con openWakeWord y se añadiría igual.
+    LmCatalogEntry(
+      'Hey Mycroft (wake word)',
+      'microWakeWord',
+      'tflite',
+      0.000055,
+      0.01,
+      'hey_mycroft.tflite',
+      'https://github.com/OHF-Voice/micro-wake-word/releases/download/v2.1_models/hey_mycroft.tflite',
+      'c2a9b6ed51182db72e014781d5a4ece1929dc232a40b5b4be384f0295f0e1571',
+      kind: ModelKind.wakeWord,
+    ),
   ];
 
   static LmCatalogEntry entryOf(String name) =>
