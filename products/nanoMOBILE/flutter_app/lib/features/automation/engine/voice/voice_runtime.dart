@@ -11,6 +11,8 @@ library;
 
 import 'dart:async';
 
+import 'execution_cancellation.dart';
+
 /// Estado tipado de la sesión de voz (sin bool soup).
 enum VoiceSessionState {
   idle,
@@ -89,6 +91,7 @@ class VoiceSessionManager {
     WakeWordDetector? wakeWord,
     required Future<String?> Function(String transcript) resolveGoal,
     this.followUpWindow = const Duration(seconds: 8),
+    this.listenTimeout = const Duration(seconds: 15),
   }) : _recognition = recognition,
        _synthesis = synthesis,
        _wakeWord = wakeWord,
@@ -99,6 +102,10 @@ class VoiceSessionManager {
   final WakeWordDetector? _wakeWord;
   final Future<String?> Function(String transcript) _resolveGoal;
   final Duration followUpWindow;
+
+  /// Timeout defensivo de escucha: si el reconocedor no devuelve (se cuelga),
+  /// se aborta el turno en vez de quedar escuchando indefinidamente.
+  final Duration listenTimeout;
 
   final _stateController = StreamController<VoiceSessionState>.broadcast();
   final VoiceConversationContext context = VoiceConversationContext();
@@ -112,10 +119,23 @@ class VoiceSessionManager {
   }
 
   /// Push-to-talk: escucha UNA vez, resuelve y devuelve el turno (sin hablar).
+  /// Si Nano estaba hablando, interrumpe primero (barge-in cooperativo).
   Future<VoiceTurn?> pushToTalk() async {
+    if (_state == VoiceSessionState.speaking) {
+      await bargeIn();
+    }
     _set(VoiceSessionState.listening);
     final sw = Stopwatch()..start();
-    final transcript = await _recognition.listen();
+    final String? transcript;
+    try {
+      transcript = await _recognition.listen().timeout(
+        listenTimeout,
+        onTimeout: () => null,
+      );
+    } on ExecutionCancelled {
+      _set(VoiceSessionState.idle);
+      return null;
+    }
     sw.stop();
     sttLatencyMs = sw.elapsedMilliseconds;
     if (transcript == null || transcript.trim().isEmpty) {
