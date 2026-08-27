@@ -12,6 +12,7 @@ import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/features/automation/engine/voice/voice_runtime.dart';
 import 'package:nanoai/features/automation/presentation/widgets/nano_voice_orb.dart';
+import '../widgets/chat_composer.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
@@ -21,11 +22,11 @@ import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
+/// Pantalla Chat â€” identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
-/// Los nombres de estado y métodos son los REALES de ChatNotifier:
+/// Los nombres de estado y mÃ©todos son los REALES de ChatNotifier:
 /// `send(text)`, `stop()`, `refreshEngine()`. El motor nunca se simula:
-/// cuando no está disponible, el envío queda desactivado y la UI lo dice.
+/// cuando no estÃ¡ disponible, el envÃ­o queda desactivado y la UI lo dice.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -38,15 +39,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
 
   // Dictado por voz real (speech_to_text) y adjunto de archivos real
-  // (file_picker → SAF de Android). Ambos fallan a mensaje honesto,
-  // nunca a excepción suelta.
+  // (file_picker â†’ SAF de Android). Ambos fallan a mensaje honesto,
+  // nunca a excepciÃ³n suelta.
   late final SpeechToText _speech;
   bool _speechEnabled = false;
   bool _listening = false;
   bool _isComposerMinimized = false;
   bool _isReadingMode = false;
 
-  /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
+  /// MÃ¡ximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
   static const _maxAttachBytes = 64 * 1024;
 
@@ -93,13 +94,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           onError: (error) {
             if (!mounted) return;
             setState(() => _listening = false);
-            _showHonestError('Micrófono no disponible: $error');
+            _showHonestError('MicrÃ³fono no disponible: $error');
           },
         );
       } catch (e) {
         _speechEnabled = false;
         if (!mounted) return;
-        _showHonestError('Micrófono no disponible: $e');
+        _showHonestError('MicrÃ³fono no disponible: $e');
         return;
       }
       if (!_speechEnabled) {
@@ -157,14 +158,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (byteLength > _maxAttachBytes) {
         _showHonestError(
           'El archivo supera ${_maxAttachBytes ~/ 1024} KB. '
-          'Adjunta un fragmento de texto más pequeño.',
+          'Adjunta un fragmento de texto mÃ¡s pequeÃ±o.',
         );
         return;
       }
       final bytes = await selected.readAsBytes();
       final text = utf8.decode(bytes, allowMalformed: true);
 
-      // Heurística honesta: si el contenido no es texto imprimible, no sirve.
+      // HeurÃ­stica honesta: si el contenido no es texto imprimible, no sirve.
       if (text.trim().isEmpty ||
           text.contains('\u0000') ||
           _looksBinary(text)) {
@@ -176,7 +177,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final clipped = text.length > _maxAttachChars
-          ? '${text.substring(0, _maxAttachChars)}\n…[truncado]'
+          ? '${text.substring(0, _maxAttachChars)}\nâ€¦[truncado]'
           : text;
       ref
           .read(chatProvider.notifier)
@@ -228,18 +229,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         screenSize.width > screenSize.height && screenSize.height < 520;
     // El teclado no debe cambiar la variante del compositor: hacerlo causaba
     // un segundo reflow (controles que aparecen/desaparecen) justo al enfocar
-    // el campo. Solo el ancho/orientación definen la composición compacta.
+    // el campo. Solo el ancho/orientaciÃ³n definen la composiciÃ³n compacta.
     final compactComposer = isNarrow || isCompactLandscape;
 
-    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
+    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generaciÃ³n.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
       _scrollToBottom();
     });
     ref.listen(chatProvider.select((s) => s.generating), (_, __) {
       _scrollToBottom();
     });
-    // Política §12: el tool-calling pidió una escritura externa — diálogo de
-    // confirmación obligatorio (sin dismiss lateral: decisión del humano).
+    // PolÃ­tica Â§12: el tool-calling pidiÃ³ una escritura externa â€” diÃ¡logo de
+    // confirmaciÃ³n obligatorio (sin dismiss lateral: decisiÃ³n del humano).
     ref.listen(chatProvider.select((s) => s.pendingTool), (prev, next) {
       if (next != null && prev != next) {
         _showToolConfirmDialog(next);
@@ -248,9 +249,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
-      // El shell conserva su geometría cuando aparece el teclado. El
+      // El shell conserva su geometrÃ­a cuando aparece el teclado. El
       // compositor se mueve de manera independiente sobre el inset para no
-      // desplazar lista, encabezado ni contenido ya leído.
+      // desplazar lista, encabezado ni contenido ya leÃ­do.
       hideHeader: _isReadingMode,
       resizeToAvoidBottomInset: false,
       trailing: Row(
@@ -270,7 +271,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           if (state.messages.isNotEmpty)
             IconButton(
-              tooltip: 'Limpiar conversación',
+              tooltip: 'Limpiar conversaciÃ³n',
               onPressed: state.generating
                   ? null
                   : () => _showClearDialog(notifier),
@@ -297,7 +298,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
-                  // márgenes muertos); se mantiene una cota por legibilidad.
+                  // mÃ¡rgenes muertos); se mantiene una cota por legibilidad.
                   maxWidth: isCompactLandscape ? 1440 : 1400,
                 ),
                 child: Stack(
@@ -323,7 +324,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 isCompactLandscape ? 10 : 18,
                                 8,
                                 isCompactLandscape ? 10 : 18,
-                                // Reserva estable para que la última
+                                // Reserva estable para que la Ãºltima
                                 // respuesta nunca quede bajo la barra.
                                 112 + mediaQuery.padding.bottom,
                               ),
@@ -380,7 +381,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
 
                     // Android ya redimensiona esta Activity con adjustResize.
-                    // No sumar viewInsets aquí: era un segundo desplazamiento
+                    // No sumar viewInsets aquÃ­: era un segundo desplazamiento
                     // que elevaba el compositor completo al abrir el teclado.
                     if (!_isReadingMode)
                       Positioned(
@@ -401,14 +402,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     listening: _listening,
                                   ),
                                 )
-                              : _Composer(
+                              : ChatComposer(
                                   key: const ValueKey('expanded_composer'),
                                   controller: _inputController,
                                   // El compositor no depende del GGUF:
                                   // comandos deterministas (p. ej.
                                   // notificaciones) usan Android nativo
                                   // y deben funcionar con el motor parado.
-                                  // Si el texto sí necesita LLM, send()
+                                  // Si el texto sÃ­ necesita LLM, send()
                                   // devuelve el error de modelo honesto.
                                   enabled: !state.generating,
                                   generating: state.generating,
@@ -439,7 +440,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  /// Diálogo de confirmación para limpiar todo el historial.
+  /// DiÃ¡logo de confirmaciÃ³n para limpiar todo el historial.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final confirmed = await showNanoModalDialog<bool>(
@@ -451,11 +452,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          '¿Limpiar conversación?',
+          'Â¿Limpiar conversaciÃ³n?',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
-          'Se eliminarán todos los mensajes. Esta acción no se puede deshacer.',
+          'Se eliminarÃ¡n todos los mensajes. Esta acciÃ³n no se puede deshacer.',
           style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
         ),
         actions: [
@@ -476,7 +477,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// Diálogo de confirmación para eliminar un mensaje individual.
+  /// DiÃ¡logo de confirmaciÃ³n para eliminar un mensaje individual.
   Future<void> _showDeleteDialog(
     ChatNotifier notifier,
     ChatMessage message,
@@ -491,12 +492,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          '¿Eliminar mensaje?',
+          'Â¿Eliminar mensaje?',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
           message.text.length > 80
-              ? '"${message.text.substring(0, 80)}…"'
+              ? '"${message.text.substring(0, 80)}â€¦"'
               : '"${message.text}"',
           style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
           maxLines: 3,
@@ -520,9 +521,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// Diálogo de confirmación de herramienta. Decisión obligatoria del
-  /// humano: aprobar ejecuta la acción (confirmed), rechazar la cancela con
-  /// evidencia en el trace. Si la pantalla se desmonta sin decisión, el
+  /// DiÃ¡logo de confirmaciÃ³n de herramienta. DecisiÃ³n obligatoria del
+  /// humano: aprobar ejecuta la acciÃ³n (confirmed), rechazar la cancela con
+  /// evidencia en el trace. Si la pantalla se desmonta sin decisiÃ³n, el
   /// pendiente queda descartado por el siguiente send().
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
@@ -537,7 +538,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Confirmar acción "$tool"',
+          'Confirmar acciÃ³n "$tool"',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
@@ -570,7 +571,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
 /// Mantiene anclado el compositor al borde inferior durante el cambio de
 /// estado. La escala y el deslizamiento conservan la continuidad espacial sin
-/// convertir la minimización en un simple fundido.
+/// convertir la minimizaciÃ³n en un simple fundido.
 class _ComposerTransition extends StatelessWidget {
   const _ComposerTransition({required this.child});
 
@@ -615,9 +616,9 @@ class _ComposerTransition extends StatelessWidget {
 // ================================================================
 
 /// Modo lectura REAL: superficie serena de bajo deslumbramiento, columna
-/// centrada legible (720px), tipografía amplia (17px/1.75), barra de progreso
+/// centrada legible (720px), tipografÃ­a amplia (17px/1.75), barra de progreso
 /// y salida elegante. Abandona el chrome del chat para enfocarse en el
-/// contenido — no es un simple ocultar barra.
+/// contenido â€” no es un simple ocultar barra.
 class _ReadingMode extends StatefulWidget {
   const _ReadingMode({
     required this.messages,
@@ -677,7 +678,7 @@ class _ReadingModeState extends State<_ReadingMode> {
         Positioned.fill(
           child: Center(
             child: ConstrainedBox(
-              // 680 dp mantiene 65–75 caracteres por línea en texto de 18dp,
+              // 680 dp mantiene 65â€“75 caracteres por lÃ­nea en texto de 18dp,
               // rango editorial que reduce los saltos oculares en lectura.
               constraints: const BoxConstraints(maxWidth: 680),
               child: ListView.builder(
@@ -700,7 +701,7 @@ class _ReadingModeState extends State<_ReadingMode> {
           right: 0,
           child: _ReadingProgress(scroll: _scroll),
         ),
-        // Salida elegante: píldora de vidrio fija, siempre accesible.
+        // Salida elegante: pÃ­ldora de vidrio fija, siempre accesible.
         Positioned(
           top: 8,
           right: 12,
@@ -712,7 +713,7 @@ class _ReadingModeState extends State<_ReadingMode> {
     if (reduceMotion) return surface;
 
     // Entrada inmersiva: fundido + escala suave al abrir el modo lectura
-    // (transición glass, respeta reduce-motion).
+    // (transiciÃ³n glass, respeta reduce-motion).
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 280),
@@ -728,7 +729,7 @@ class _ReadingModeState extends State<_ReadingMode> {
   }
 }
 
-/// Barra de progreso de lectura: refleja la fracción de scroll de forma sutil.
+/// Barra de progreso de lectura: refleja la fracciÃ³n de scroll de forma sutil.
 class _ReadingProgress extends StatefulWidget {
   const _ReadingProgress({required this.scroll});
 
@@ -759,8 +760,8 @@ class _ReadingProgressState extends State<_ReadingProgress> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final pos = widget.scroll.hasClients ? widget.scroll.position : null;
-    // hasViewportDimension: antes del layout el viewport no fijó su dimensión
-    // y maxScrollExtent es null (acceder a él revienta con un null-check).
+    // hasViewportDimension: antes del layout el viewport no fijÃ³ su dimensiÃ³n
+    // y maxScrollExtent es null (acceder a Ã©l revienta con un null-check).
     if (pos == null || !pos.hasViewportDimension) {
       return const SizedBox(height: 2.5);
     }
@@ -792,7 +793,7 @@ class _ReadingProgressState extends State<_ReadingProgress> {
   }
 }
 
-/// Píldora de vidrio para salir del modo lectura (con texto, no solo icono).
+/// PÃ­ldora de vidrio para salir del modo lectura (con texto, no solo icono).
 class _ReadingExitPill extends StatelessWidget {
   const _ReadingExitPill({required this.onExit});
 
@@ -837,7 +838,7 @@ class _ReadingExitPill extends StatelessWidget {
   }
 }
 
-/// Un párrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
+/// Un pÃ¡rrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
 class _ReadingParagraph extends StatelessWidget {
   const _ReadingParagraph({required this.message, required this.model});
 
@@ -853,9 +854,9 @@ class _ReadingParagraph extends StatelessWidget {
         '${message.timestamp.hour.toString().padLeft(2, '0')}:'
         '${message.timestamp.minute.toString().padLeft(2, '0')}';
     final label = isUser
-        ? 'Tú'
+        ? 'TÃº'
         : (message.source == MessageSource.device
-              ? 'Nano · Dispositivo'
+              ? 'Nano Â· Dispositivo'
               : (model.isEmpty ? 'NanoAI' : model));
 
     return Column(
@@ -929,7 +930,7 @@ class _ReadingParagraph extends StatelessWidget {
   }
 }
 
-/// Hoja de estilo Markdown para el modo lectura (tipografía amplia, cómoda).
+/// Hoja de estilo Markdown para el modo lectura (tipografÃ­a amplia, cÃ³moda).
 MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
   final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
   return MarkdownStyleSheet(
@@ -1048,8 +1049,8 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
   );
 }
 
-/// Badge de estado del motor con pulso lento cuando está online. Detenido:
-/// sin animación (estado quieto, honesto — solo lo vivo respira).
+/// Badge de estado del motor con pulso lento cuando estÃ¡ online. Detenido:
+/// sin animaciÃ³n (estado quieto, honesto â€” solo lo vivo respira).
 class _EngineBadge extends StatefulWidget {
   const _EngineBadge({required this.online, this.loading = false});
 
@@ -1259,17 +1260,17 @@ class _MessageBubble extends StatelessWidget {
   final MessageSource source;
   final bool isError;
 
-  /// Tokens por segundo de la generación (solo respuestas AI completadas).
+  /// Tokens por segundo de la generaciÃ³n (solo respuestas AI completadas).
   final double? tps;
 
-  /// Callback para reintentar el envío tras un error.
+  /// Callback para reintentar el envÃ­o tras un error.
   final VoidCallback? onRetry;
 
   /// Callback para eliminar el mensaje.
   final VoidCallback? onDelete;
 
   /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
-  /// el contenido se inyectó al prompt y no se persiste).
+  /// el contenido se inyectÃ³ al prompt y no se persiste).
   final List<String> attachmentNames;
 
   @override
@@ -1315,7 +1316,7 @@ class _MessageBubble extends StatelessWidget {
     final isDark = colors is NanoDarkColors;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final displayModel = source == MessageSource.device
-        ? 'Nano · Dispositivo'
+        ? 'Nano Â· Dispositivo'
         : (model.isEmpty ? 'NanoAI' : model);
 
     final bubbleBorderRadius = isUser
@@ -1559,11 +1560,11 @@ Widget _buildAiBody(BuildContext context, String text) {
 }
 
 // ================================================================
-// Menú de acciones de mensaje (3 puntos)
+// MenÃº de acciones de mensaje (3 puntos)
 // ================================================================
 
-/// Menú profesional de 3 puntos para cada burbuja AI completada.
-/// Organizado en 3 acciones: Copiar · Compartir · Exportar (PDF | Markdown).
+/// MenÃº profesional de 3 puntos para cada burbuja AI completada.
+/// Organizado en 3 acciones: Copiar Â· Compartir Â· Exportar (PDF | Markdown).
 class _MessageActions extends StatelessWidget {
   const _MessageActions({
     required this.text,
@@ -1612,7 +1613,7 @@ class _MessageActions extends StatelessWidget {
 
           case 'share':
             await SharePlus.instance.share(
-              ShareParams(text: text, subject: 'Respuesta NanoAI — $model'),
+              ShareParams(text: text, subject: 'Respuesta NanoAI â€” $model'),
             );
             break;
 
@@ -1622,7 +1623,7 @@ class _MessageActions extends StatelessWidget {
 
           case 'export_pdf':
             await PdfReportService.exportReport(
-              title: 'Informe de Análisis NanoAI',
+              title: 'Informe de AnÃ¡lisis NanoAI',
               content: text,
               modelName: model,
               timestamp: timestamp,
@@ -1631,7 +1632,7 @@ class _MessageActions extends StatelessWidget {
 
           case 'export_md':
             await PdfReportService.exportMarkdown(
-              title: 'Informe de Análisis NanoAI',
+              title: 'Informe de AnÃ¡lisis NanoAI',
               content: text,
               modelName: model,
               timestamp: timestamp,
@@ -1640,7 +1641,7 @@ class _MessageActions extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        // ── 1. Copiar ──────────────────────────────────────────
+        // â”€â”€ 1. Copiar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         PopupMenuItem<String>(
           value: 'copy',
           child: Row(
@@ -1661,7 +1662,7 @@ class _MessageActions extends StatelessWidget {
             ],
           ),
         ),
-        // ── 2. Compartir ───────────────────────────────────────
+        // â”€â”€ 2. Compartir â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         PopupMenuItem<String>(
           value: 'share',
           child: Row(
@@ -1700,9 +1701,9 @@ class _MessageActions extends StatelessWidget {
               ],
             ),
           ),
-        // ── Divisor ────────────────────────────────────────────
+        // â”€â”€ Divisor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const PopupMenuDivider(height: 1),
-        // ── 3a. Exportar → PDF ─────────────────────────────────
+        // â”€â”€ 3a. Exportar â†’ PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         PopupMenuItem<String>(
           value: 'export_pdf',
           child: Row(
@@ -1725,7 +1726,7 @@ class _MessageActions extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Informe técnico estructurado',
+                    'Informe tÃ©cnico estructurado',
                     style: TextStyle(
                       color: colors.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
@@ -1736,7 +1737,7 @@ class _MessageActions extends StatelessWidget {
             ],
           ),
         ),
-        // ── 3b. Exportar → Markdown ────────────────────────────
+        // â”€â”€ 3b. Exportar â†’ Markdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         PopupMenuItem<String>(
           value: 'export_md',
           child: Row(
@@ -1755,7 +1756,7 @@ class _MessageActions extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Archivo .md para Obsidian, Notion…',
+                    'Archivo .md para Obsidian, Notionâ€¦',
                     style: TextStyle(
                       color: colors.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
@@ -1788,8 +1789,8 @@ class _StreamingBubble extends StatelessWidget {
     final thought = parsed.thought;
     final response = parsed.response;
 
-    // Cuerpo vivo: sin texto aún → pensamiento en onda; con texto → contenido
-    // streaming + cursor respirando al final (hiperrealista, sin simulación).
+    // Cuerpo vivo: sin texto aÃºn â†’ pensamiento en onda; con texto â†’ contenido
+    // streaming + cursor respirando al final (hiperrealista, sin simulaciÃ³n).
     final Widget body;
     if (text.isEmpty) {
       body = const Padding(
@@ -1861,8 +1862,8 @@ class _StreamingBubble extends StatelessWidget {
       ),
     );
 
-    // Óptica premium idéntica al mensaje AI: bisel especular + sombra
-    // ambiental + vidrio desenfocado. El fondo living se refracta detrás.
+    // Ã“ptica premium idÃ©ntica al mensaje AI: bisel especular + sombra
+    // ambiental + vidrio desenfocado. El fondo living se refracta detrÃ¡s.
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -2001,16 +2002,16 @@ class _EmptyChat extends StatelessWidget {
                       alignment: WrapAlignment.center,
                       children: [
                         _SuggestionChip(
-                          label: 'Prueba de estrés y rendimiento',
+                          label: 'Prueba de estrÃ©s y rendimiento',
                           onTap: () => onSuggestion(
-                            'Realiza una prueba de estrés y análisis de rendimiento de inferencia en este dispositivo. '
-                            'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con métricas de RAM, CPU y TPS estimado.',
+                            'Realiza una prueba de estrÃ©s y anÃ¡lisis de rendimiento de inferencia en este dispositivo. '
+                            'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con mÃ©tricas de RAM, CPU y TPS estimado.',
                           ),
                         ),
                         _SuggestionChip(
-                          label: 'Informe técnico del sistema',
+                          label: 'Informe tÃ©cnico del sistema',
                           onTap: () => onSuggestion(
-                            'Genera un informe técnico completo y estructurado sobre el estado actual del dispositivo, '
+                            'Genera un informe tÃ©cnico completo y estructurado sobre el estado actual del dispositivo, '
                             'con tablas detalladas de hardware, arquitectura y almacenamiento, listo para exportar a PDF.',
                           ),
                         ),
@@ -2018,13 +2019,13 @@ class _EmptyChat extends StatelessWidget {
                           label: 'Diagrama de arquitectura',
                           onTap: () => onSuggestion(
                             'Explica la arquitectura del runtime de NanoAI (Flutter, Binder/SAF, nanortime, llama.cpp) '
-                            'e incluye un diagrama en bloque de código ```mermaid.',
+                            'e incluye un diagrama en bloque de cÃ³digo ```mermaid.',
                           ),
                         ),
                         _SuggestionChip(
                           label: 'Resumen ejecutivo',
                           onTap: () => onSuggestion(
-                            'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanía de datos '
+                            'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanÃ­a de datos '
                             'y directivas de seguridad.',
                           ),
                         ),
@@ -2203,394 +2204,7 @@ class _SuggestionChip extends StatelessWidget {
   }
 }
 
-class _Composer extends StatefulWidget {
-  const _Composer({
-    super.key,
-    required this.controller,
-    required this.enabled,
-    required this.generating,
-    required this.listening,
-    required this.attachments,
-    required this.onRemoveAttachment,
-    required this.onAttach,
-    required this.onMic,
-    required this.onMinimize,
-    required this.compact,
-    required this.onSend,
-    required this.onStop,
-  });
-
-  final TextEditingController controller;
-  final bool enabled;
-  final bool generating;
-  final bool listening;
-  final List<ChatAttachment> attachments;
-  final void Function(String) onRemoveAttachment;
-  final VoidCallback onAttach;
-  final VoidCallback onMic;
-  final VoidCallback onMinimize;
-  final bool compact;
-  final VoidCallback onSend;
-  final VoidCallback onStop;
-
-  @override
-  State<_Composer> createState() => _ComposerState();
-}
-
-class _ComposerState extends State<_Composer> {
-  late final FocusNode _focusNode;
-  bool _isFocused = false;
-  bool _hasText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode = FocusNode();
-    _focusNode.addListener(_onFocusChange);
-    // Desktop/Web: Enter envía, Shift+Enter inserta salto de línea.
-    // En móvil, la tecla "enviar" del teclado dispara onSubmitted.
-    _focusNode.onKeyEvent = (node, event) {
-      if (event is! KeyDownEvent) return KeyEventResult.ignored;
-      final key = event.logicalKey;
-      if (key != LogicalKeyboardKey.enter &&
-          key != LogicalKeyboardKey.numpadEnter) {
-        return KeyEventResult.ignored;
-      }
-      if (HardwareKeyboard.instance.isShiftPressed) {
-        return KeyEventResult.ignored;
-      }
-      _trySend();
-      return KeyEventResult.handled;
-    };
-    _hasText = widget.controller.text.trim().isNotEmpty;
-    widget.controller.addListener(_onTextChange);
-  }
-
-  void _onFocusChange() {
-    if (mounted) {
-      setState(() => _isFocused = _focusNode.hasFocus);
-    }
-  }
-
-  void _onTextChange() {
-    final has = widget.controller.text.trim().isNotEmpty;
-    if (has != _hasText && mounted) {
-      setState(() => _hasText = has);
-    }
-  }
-
-  /// Envío seguro: solo si el composer está habilitado y hay texto.
-  void _trySend() {
-    if (widget.enabled && _hasText) {
-      widget.onSend();
-    }
-  }
-
-  @override
-  void dispose() {
-    _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
-    widget.controller.removeListener(_onTextChange);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
-
-    return NanoOpticalSurface(
-      geometry: NanoSurfaceGeometry.roundedRectangle,
-      borderRadius: 24,
-      blurSigma: widget.compact ? 16.0 : 20.0,
-      borderStrength: _isFocused ? 1.0 : 0.80,
-      // El campo de texto es una superficie de trabajo: la caustica movil no
-      // debe atravesar las letras. En escritorio se conserva el barrido al
-      // estar inactivo; en movil se priorizan legibilidad y frame time.
-      reflectionStrength: _isFocused ? 0.42 : 0.32,
-      depth: 1.15,
-      tilt: !widget.compact,
-      autoReflect: !widget.compact && !_isFocused,
-      accent: _isFocused
-          ? (isDark ? colors.accent : colors.accentCyan)
-          : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.attachments.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 4,
-                right: 4,
-                bottom: 6,
-                top: 2,
-              ),
-              child: SizedBox(
-                height: 30,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: widget.attachments.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
-                  itemBuilder: (context, index) {
-                    final attachment = widget.attachments[index];
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.accent.withValues(
-                          alpha: isDark ? 0.18 : 0.10,
-                        ),
-                        borderRadius: BorderRadius.circular(99),
-                        border: Border.all(
-                          color: colors.accent.withValues(alpha: 0.35),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.insert_drive_file_rounded,
-                            size: 13,
-                            color: colors.accent,
-                          ),
-                          const SizedBox(width: 5),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 130),
-                            child: Text(
-                              attachment.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: colors.onSurface.withValues(alpha: 0.90),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () =>
-                                widget.onRemoveAttachment(attachment.name),
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 13,
-                                color: colors.onSurface.withValues(alpha: 0.65),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // La acción siempre está disponible; en móvil conserva un área
-              // táctil contenida y evita ocultar una función por el ancho.
-              ...[
-                Tooltip(
-                  message: 'Minimizar barra',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(99),
-                    child: InkWell(
-                      key: const ValueKey('chat_composer_minimize'),
-                      borderRadius: BorderRadius.circular(99),
-                      onTap: widget.onMinimize,
-                      child: SizedBox(
-                        width: 30,
-                        height: 36,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: colors.onSurface.withValues(alpha: 0.52),
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 2),
-              ],
-
-              // Botón Mic / Dictado
-              Tooltip(
-                message: 'Dictado por voz',
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(99),
-                  child: NanoVoiceOrb(
-                    state: widget.listening
-                        ? VoiceSessionState.listening
-                        : VoiceSessionState.idle,
-                    onTap: widget.onMic,
-                    size: widget.compact ? 34 : 38,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 2),
-
-              // Botón Adjuntar Archivo
-              Tooltip(
-                message: 'Adjuntar archivo',
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(99),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(99),
-                    onTap: widget.onAttach,
-                    child: SizedBox(
-                      width: widget.compact ? 32 : 36,
-                      height: widget.compact ? 34 : 36,
-                      child: Icon(
-                        Icons.attach_file_rounded,
-                        color: colors.onSurface.withValues(alpha: 0.58),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: widget.compact ? 1 : 4),
-
-              // Campo de texto expandible con tipografía y padding uniforme
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    enabled: widget.enabled,
-                    maxLines: widget.compact ? 3 : 5,
-                    minLines: 1,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _trySend(),
-                    style: TextStyle(
-                      color: colors.onSurface,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: 'Inter',
-                      height: 1.35,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: widget.listening
-                          ? 'Escuchando voz...'
-                          : 'Escribe un mensaje...',
-                      hintStyle: TextStyle(
-                        color: colors.onSurfaceVariant.withValues(alpha: 0.52),
-                        fontFamily: 'Inter',
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      border: InputBorder.none,
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: widget.compact ? 5 : 8,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: widget.compact ? 3 : 6),
-
-              // Botón Enviar / Detener con acabado de vidrio y gradiente dinámico
-              Tooltip(
-                message: widget.generating ? 'Detener generación' : 'Enviar',
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(99),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(99),
-                    onTap: widget.generating
-                        ? widget.onStop
-                        : (_hasText && widget.enabled ? widget.onSend : null),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      width: widget.compact ? 36 : 38,
-                      height: widget.compact ? 36 : 38,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: widget.generating
-                            ? null
-                            : (_hasText && widget.enabled
-                                  ? LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: isDark
-                                          ? [colors.accent, colors.accentMint]
-                                          : [colors.primary, colors.accentSky],
-                                    )
-                                  : null),
-                        color: widget.generating
-                            ? colors.danger.withValues(alpha: 0.18)
-                            : (_hasText && widget.enabled
-                                  ? null
-                                  : colors.onSurface.withValues(alpha: 0.08)),
-                        border: Border.all(
-                          color: widget.generating
-                              ? colors.danger.withValues(alpha: 0.65)
-                              : (_hasText && widget.enabled
-                                    ? Colors.white.withValues(alpha: 0.45)
-                                    : colors.onSurface.withValues(alpha: 0.12)),
-                          width: 0.9,
-                        ),
-                        boxShadow: _hasText && widget.enabled
-                            ? [
-                                BoxShadow(
-                                  color:
-                                      (isDark ? colors.accent : colors.primary)
-                                          .withValues(
-                                            alpha: isDark ? 0.35 : 0.22,
-                                          ),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Center(
-                        child: Icon(
-                          widget.generating
-                              ? Icons.stop_rounded
-                              : Icons.arrow_upward_rounded,
-                          size: 20,
-                          color: widget.generating
-                              ? colors.danger
-                              : (_hasText && widget.enabled
-                                    ? (isDark
-                                          ? const Color(0xFF000000)
-                                          : Colors.white)
-                                    : colors.onSurface.withValues(alpha: 0.30)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Cápsula líquida flotante que se muestra cuando la barra de chat está encogida/minimizada.
+/// CÃ¡psula lÃ­quida flotante que se muestra cuando la barra de chat estÃ¡ encogida/minimizada.
 class _MinimizedComposerBubble extends StatelessWidget {
   const _MinimizedComposerBubble({
     super.key,
