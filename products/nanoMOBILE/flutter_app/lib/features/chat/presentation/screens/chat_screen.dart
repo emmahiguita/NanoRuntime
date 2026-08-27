@@ -73,10 +73,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
   }
 
-  /// Dictado por voz REAL con streaming: los resultados parciales se escriben
-  /// en vivo en el input mientras el usuario habla; el texto final llega por
-  /// [startVoiceRecognition] y se consolida. El nativo solicita RECORD_AUDIO al
-  /// primer uso. Fallo = mensaje honesto, nunca excepción suelta.
+  /// Dictado por voz REAL con streaming + AUTOENVÍO del resultado final.
+  /// Los parciales solo actualizan el input visualmente; el texto final se
+  /// envía automáticamente (manos libres): Voz → send → Automation → Linux.
+  /// Nunca se envía un partial (evita ejecutar comandos incompletos).
   Future<void> _toggleMic() async {
     if (_listening) {
       setState(() => _listening = false);
@@ -106,10 +106,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
       return;
     }
-    _inputController.text = text.trim();
+    final trimmed = text.trim();
+    _inputController.text = trimmed;
     _inputController.selection = TextSelection.collapsed(
       offset: _inputController.text.length,
     );
+    // T1.7 — autoenvío del resultado FINAL (nunca partial). El partial solo
+    // actualiza el input; enviar aquí evita ejecutar comandos incompletos.
+    await ref.read(chatProvider.notifier).send(trimmed);
+    if (!mounted) return;
+    _inputController.clear();
   }
 
   /// Abre el selector de archivos (SAF) y registra el contenido textual como
