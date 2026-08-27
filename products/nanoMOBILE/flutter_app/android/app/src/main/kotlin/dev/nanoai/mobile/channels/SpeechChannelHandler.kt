@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,30 +11,55 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.Locale
 
 /**
- * Entrada por voz (A16): reconocimiento de voz del sistema Android. El texto
- * transcrito entra al MISMO pipeline de ejecución que una orden escrita (el
- * motor AutomationCoordinator). Sin segundo motor de voz.
+ * Entrada por voz (A16): reconocimiento de voz del sistema Android con STREAMING
+ * de resultados parciales. El texto transcrito entra al MISMO pipeline de
+ * ejecución que una orden escrita (AutomationCoordinator). Sin segundo motor.
+ *
+ * Dos canales:
+ *  - MethodChannel `com.nanoai/speech`  → startListening/speak/stop (resultado final).
+ *  - EventChannel `com.nanoai/speech_partial` → resultados parciales en vivo
+ *    (el texto crece mientras el usuario habla; la UI lo muestra en tiempo real).
  *
  * El resultado del MethodChannel se resuelve en el hilo principal cuando
  * onResults entrega el texto; onError devuelve un error tipado (no excepción).
  */
 class SpeechChannelHandler(
     private val context: Context,
-) : MethodChannel.MethodCallHandler {
+) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
 
     companion object {
         const val CHANNEL_NAME = "com.nanoai/speech"
+        const val PARTIAL_CHANNEL_NAME = "com.nanoai/speech_partial"
+
+        // Silencio antes de considerar que el usuario terminó (ms). Valores
+        // generosos para que el usuario no se quede corto al dictar.
+        private const val COMPLETE_SILENCE_MS = 2000L
+        private const val POSSIBLY_COMPLETE_SILENCE_MS = 1500L
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
 
+    // Sink del EventChannel de parciales. null = nadie escuchando.
+    private var partialSink: EventChannel.EventSink? = null
+
+    // ── EventChannel.StreamHandler (partial results) ─────────────────────────
+    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        partialSink = events
+    }
+
+    override fun onCancel(arguments: Any?) {
+        partialSink = null
+    }
+
+    // ── MethodChannel ────────────────────────────────────────────────────────
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "startListening" -> startListening(
@@ -45,6 +69,7 @@ class SpeechChannelHandler(
             "speak" -> speak(call.argument<String>("text").orEmpty(), result)
             "stop" -> {
                 tts?.stop()
+                recognizer?.stopListening()
                 result.success(null)
             }
             "cancel" -> {
@@ -93,8 +118,6 @@ class SpeechChannelHandler(
     }
 
     private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
-        // Pitch y rate neutros (natural). Locale auto: es si hay señales de
-        // español, si no el locale del dispositivo.
         engine.setPitch(1.0f)
         engine.setSpeechRate(1.0f)
         val lower = text.lowercase()
@@ -113,9 +136,9 @@ class SpeechChannelHandler(
     }
 
     private fun startListening(language: String, result: MethodChannel.Result) {
-        // A16: RECORD_AUDIO es permiso runtime. Sin él, SpeechRecognizer falla
-        // con ERROR_INSUFFICIENT_PERMISSIONS. Reportamos un error tipado para
-        // que Dart solicite el permiso (aquí solo hay Context, no Activity).
+        // RECORD_AUDIO es permiso runtime. Sin él, SpeechRecognizer falla con
+        // ERROR_INSUFFICIENT_PERMISSIONS. Reportamos tipado para que Dart
+        // solicite el permiso (aquí solo hay Context, no Activity).
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -130,7 +153,7 @@ class SpeechChannelHandler(
             result.error("speech_unavailable", "Reconocimiento de voz no disponible", null)
             return
         }
-        val rec = createRecognizer()
+        val rec = SpeechRecognizer.createSpeechRecognizer(context)
         recognizer = rec
         rec.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
@@ -138,13 +161,32 @@ class SpeechChannelHandler(
                 val text = matches?.firstOrNull().orEmpty()
                 rec.destroy()
                 recognizer = null
-                mainHandler.post { result.success(text) }
+                mainHandler.post {
+                    partialSink?.success(text)
+                    result.success(text)
+                }
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) {
+                // Streaming: el texto crece en vivo. La UI lo muestra mientras
+                // el usuario habla; el resultado final llega por onResults.
+                val partial = partialResults
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                if (!partial.isNullOrEmpty()) {
+                    mainHandler.post { partialSink?.success(partial) }
+                }
             }
 
             override fun onError(error: Int) {
                 rec.destroy()
                 recognizer = null
-                mainHandler.post { result.error("speech_error", "code=$error", null) }
+                mainHandler.post {
+                    // No-match o timeout = usuario no dijo nada (o silencio).
+                    // Se reporta tipado; la UI decide el mensaje.
+                    result.error("speech_error", "code=$error", null)
+                    partialSink?.endOfStream()
+                }
             }
 
             override fun onReadyForSpeech(params: Bundle?) {}
@@ -152,7 +194,6 @@ class SpeechChannelHandler(
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -160,27 +201,16 @@ class SpeechChannelHandler(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            // Tiempo de silencio generoso para no cortar el dictado a medias.
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+                COMPLETE_SILENCE_MS,
+            )
+            putExtra(
+                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                POSSIBLY_COMPLETE_SILENCE_MS,
+            )
         }
         rec.startListening(intent)
-    }
-
-    /**
-     * Lógica REAL de audio. API 31+: reconocimiento ON-DEVICE del sistema
-     * (`createOnDeviceSpeechRecognizer`) — transcribe offline con el modelo del
-     * dispositivo, sin depender del servicio configurado (`voice_recognition_service`
-     * apunta al stub TTS) ni de Google Search. Forzar el ComponentName de Google
-     * Search falla con error 10 (ERROR_CLIENT: servicio restringido para apps de
-     * terceros). Si el modelo on-device no está descargado, fallback al
-     * reconocedor por defecto del sistema.
-     */
-    private fun createRecognizer(): SpeechRecognizer {
-        if (Build.VERSION.SDK_INT >= 31) {
-            try {
-                return SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-            } catch (_: Exception) {
-                // Modelo on-device no disponible: fallback al reconocedor del sistema.
-            }
-        }
-        return SpeechRecognizer.createSpeechRecognizer(context)
     }
 }

@@ -3,6 +3,9 @@
 ///
 /// Widget de presentación: recibe controller, callbacks y estado por parámetros;
 /// no conoce el ChatNotifier ni la orquestación. Lógica intacta (solo movida).
+///
+/// Card de escritura profesional (ChatGPT/Gemini): header de estado + campo de
+/// texto amplio y multilínea + acciones organizadas sin solapamiento.
 library;
 
 import 'package:flutter/material.dart';
@@ -111,7 +114,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
     return NanoOpticalSurface(
       geometry: NanoSurfaceGeometry.roundedRectangle,
-      borderRadius: 24,
+      borderRadius: 26,
       blurSigma: widget.compact ? 16.0 : 20.0,
       borderStrength: _isFocused ? 1.0 : 0.80,
       // El campo de texto es una superficie de trabajo: la caustica movil no
@@ -124,19 +127,64 @@ class _ChatComposerState extends State<ChatComposer> {
       accent: _isFocused
           ? (isDark ? colors.accent : colors.accentCyan)
           : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.attachments.isNotEmpty) ...[
+          // Header sutil: estado (escuchando/generando) + minimizar a la derecha.
+          // El minimize sale de la fila de escritura para no robarle espacio al
+          // campo de texto.
+          SizedBox(
+            height: 26,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    widget.listening
+                        ? 'Escuchando…'
+                        : (widget.generating ? 'Generando…' : ''),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      color: widget.listening
+                          ? colors.accent
+                          : colors.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: 'Minimizar barra',
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                    child: InkWell(
+                      key: const ValueKey('chat_composer_minimize'),
+                      borderRadius: BorderRadius.circular(99),
+                      onTap: widget.onMinimize,
+                      child: SizedBox(
+                        width: 28,
+                        height: 24,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: colors.onSurface.withValues(alpha: 0.50),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Chips de adjuntos (solo si hay).
+          if (widget.attachments.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(
-                left: 4,
-                right: 4,
-                bottom: 6,
-                top: 2,
-              ),
+              padding: const EdgeInsets.only(left: 4, right: 4, bottom: 6),
               child: SizedBox(
                 height: 30,
                 child: ListView.separated(
@@ -204,37 +252,12 @@ class _ChatComposerState extends State<ChatComposer> {
                 ),
               ),
             ),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // La acción siempre está disponible; en móvil conserva un área
-              // táctil contenida y evita ocultar una función por el ancho.
-              ...[
-                Tooltip(
-                  message: 'Minimizar barra',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(99),
-                    child: InkWell(
-                      key: const ValueKey('chat_composer_minimize'),
-                      borderRadius: BorderRadius.circular(99),
-                      onTap: widget.onMinimize,
-                      child: SizedBox(
-                        width: 30,
-                        height: 36,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: colors.onSurface.withValues(alpha: 0.52),
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 2),
-              ],
 
+          // Fila de escritura: [mic] [attach] [ CAMPO AMPLIO ] [enviar].
+          // El campo es el protagonista; las acciones se agrupan a los lados.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
               // Botón Mic / Dictado
               Tooltip(
                 message: 'Dictado por voz',
@@ -250,7 +273,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
 
               // Botón Adjuntar Archivo
               Tooltip(
@@ -263,7 +286,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     onTap: widget.onAttach,
                     child: SizedBox(
                       width: widget.compact ? 32 : 36,
-                      height: widget.compact ? 34 : 36,
+                      height: widget.compact ? 34 : 38,
                       child: Icon(
                         Icons.attach_file_rounded,
                         color: colors.onSurface.withValues(alpha: 0.58),
@@ -273,51 +296,49 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 ),
               ),
-              SizedBox(width: widget.compact ? 1 : 4),
+              const SizedBox(width: 6),
 
-              // Campo de texto expandible con tipografía y padding uniforme
+              // Campo de texto amplio (card de escritura): multilínea con
+              // padding generoso para que el hint y el texto nunca se corten.
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    enabled: widget.enabled,
-                    maxLines: widget.compact ? 3 : 5,
-                    minLines: 1,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _trySend(),
-                    style: TextStyle(
-                      color: colors.onSurface,
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: _focusNode,
+                  enabled: widget.enabled,
+                  maxLines: widget.compact ? 4 : 6,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _trySend(),
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontSize: 15.0,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Inter',
+                    height: 1.35,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: widget.listening
+                        ? 'Escuchando voz…'
+                        : 'Escribe un mensaje…',
+                    hintStyle: TextStyle(
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.52),
+                      fontFamily: 'Inter',
                       fontSize: 14.5,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'Inter',
-                      height: 1.35,
                     ),
-                    decoration: InputDecoration(
-                      hintText: widget.listening
-                          ? 'Escuchando voz...'
-                          : 'Escribe un mensaje...',
-                      hintStyle: TextStyle(
-                        color: colors.onSurfaceVariant.withValues(alpha: 0.52),
-                        fontFamily: 'Inter',
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      border: InputBorder.none,
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: widget.compact ? 5 : 8,
-                      ),
+                    border: InputBorder.none,
+                    filled: false,
+                    fillColor: Colors.transparent,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 11,
+                      horizontal: 6,
                     ),
                   ),
                 ),
               ),
-              SizedBox(width: widget.compact ? 3 : 6),
+              const SizedBox(width: 6),
 
-              // Botón Enviar / Detener con acabado de vidrio y gradiente dinámico
+              // Botón Enviar / Detener (vidrio + gradiente dinámico)
               Tooltip(
                 message: widget.generating ? 'Detener generación' : 'Enviar',
                 child: Material(

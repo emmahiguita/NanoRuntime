@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -37,6 +38,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // reconocedor Google Search) y adjunto de archivos real (file_picker → SAF de
   // Android). Ambos fallan a mensaje honesto, nunca a excepción suelta.
   bool _listening = false;
+  StreamSubscription<String>? _partialSub;
   bool _isComposerMinimized = false;
   bool _isReadingMode = false;
 
@@ -51,6 +53,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _partialSub?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -70,23 +73,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
   }
 
-  /// Dictado por voz REAL (canal `com.nanoai/speech`, SpeechChannelHandler →
-  /// reconocedor Google Search). Alterna escucha y pone el texto transcrito en
-  /// el input. El nativo solicita RECORD_AUDIO al primer uso y vincula el
-  /// reconocedor real por ComponentName (no el stub TTS del device). Fallo =
-  /// mensaje honesto, nunca excepción suelta.
+  /// Dictado por voz REAL con streaming: los resultados parciales se escriben
+  /// en vivo en el input mientras el usuario habla; el texto final llega por
+  /// [startVoiceRecognition] y se consolida. El nativo solicita RECORD_AUDIO al
+  /// primer uso. Fallo = mensaje honesto, nunca excepción suelta.
   Future<void> _toggleMic() async {
     if (_listening) {
       setState(() => _listening = false);
+      await _partialSub?.cancel();
+      _partialSub = null;
       await NanoRuntimeApi.instance.stopSpeech();
       return;
     }
     setState(() => _listening = true);
+    _partialSub = NanoRuntimeApi.instance.voicePartialStream.listen((partial) {
+      if (!mounted || !_listening) return;
+      _inputController.text = partial;
+      _inputController.selection = TextSelection.collapsed(
+        offset: _inputController.text.length,
+      );
+    });
     final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+    await _partialSub?.cancel();
+    _partialSub = null;
     if (!mounted) return;
     setState(() => _listening = false);
     if (text == null || text.trim().isEmpty) {
-      _showHonestError('No se pudo reconocer el audio. Inténtalo de nuevo.');
+      // Sin texto final: si el dictado en vivo dejó algo se conserva; si no,
+      // aviso honesto.
+      if (_inputController.text.trim().isEmpty) {
+        _showHonestError('No se pudo reconocer el audio. Inténtalo de nuevo.');
+      }
       return;
     }
     _inputController.text = text.trim();

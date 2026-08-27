@@ -83,6 +83,7 @@ class NanoRuntimeApi {
     NanoRuntimeChannels.devicePermissions,
   );
   static const _speech = MethodChannel(NanoRuntimeChannels.speech);
+  static const _speechPartial = EventChannel('com.nanoai/speech_partial');
 
   Future<RuntimeInfo>? _handshake;
 
@@ -840,6 +841,14 @@ class NanoRuntimeApi {
       return false;
     }
   }
+
+  /// A16 — stream de resultados PARCIALES del reconocimiento (dictado en vivo).
+  /// El nativo emite el texto parcial mientras el usuario habla; el final llega
+  /// por [startVoiceRecognition]. Usado por la UI para escribir en tiempo real.
+  Stream<String> get voicePartialStream => _speechPartial
+      .receiveBroadcastStream()
+      .where((e) => e is String)
+      .cast<String>();
 
   /// A16 — detiene la reproducción de voz (barge-in). true si se detuvo.
   Future<bool> stopSpeech() async {

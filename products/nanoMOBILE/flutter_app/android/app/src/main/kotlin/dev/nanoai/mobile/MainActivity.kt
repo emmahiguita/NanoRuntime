@@ -25,6 +25,7 @@ import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -242,8 +243,11 @@ class MainActivity : FlutterActivity() {
                 },
             )
 
+        val speechHandler = SpeechChannelHandler(this)
         MethodChannel(messenger, ChannelNames.SPEECH)
-            .setMethodCallHandler(SpeechChannelHandler(this))
+            .setMethodCallHandler(speechHandler)
+        EventChannel(messenger, SpeechChannelHandler.PARTIAL_CHANNEL_NAME)
+            .setStreamHandler(speechHandler)
 
         MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->
             EngineChannelHandler(engineSupervisor, ioScope, mainHandler)
