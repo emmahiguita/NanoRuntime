@@ -14,6 +14,8 @@ import '../services/chat_system_prompt.dart';
 import '../services/llm_engine_client.dart';
 import '../services/nano_runtime_api.dart';
 import '../services/runtime_engine.dart';
+import '../../features/automation/engine/voice/voice_backends.dart';
+import '../../features/automation/engine/voice/voice_runtime.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
@@ -435,14 +437,26 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// queda degraded (motor vivo sin GGUF), se inserta un error honesto en
   /// el chat en lugar de una generación que siempre fallaría con 503.
   /// A16 — entrada por voz: transcribe y envía como orden (MISMO flujo que un
-  /// texto escrito). Lo invoca la UI con el botón de micrófono. Devuelve el
-  /// texto transcrito (o null si falló/canceló).
+  /// texto escrito). Usa el VoiceSessionManager (máquina de estados + contexto
+  /// conversacional) sobre los backends Android. La voz es I/O del MISMO agente.
   Future<String?> sendVoiceCommand() async {
-    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
-    if (text == null || text.trim().isEmpty) return null;
-    await send(text);
-    return text;
+    final session = _voiceSession;
+    final turn = await session.pushToTalk();
+    if (turn == null || turn.transcript.trim().isEmpty) return null;
+    await send(turn.transcript);
+    return turn.transcript;
   }
+
+  /// A16 — sesión de voz (state machine + referentes). resolveGoal devuelve el
+  /// transcript como goal (el MISMO send() lo ejecuta en el coordinador); la voz
+  /// NO crea un segundo agente ni llama al dispatcher directamente.
+  VoiceSessionManager get _voiceSession =>
+      _voiceSessionCache ??= VoiceSessionManager(
+        recognition: const AndroidSpeechRecognitionBackend(),
+        synthesis: const AndroidSpeechSynthesisBackend(),
+        resolveGoal: (transcript) async => transcript,
+      );
+  VoiceSessionManager? _voiceSessionCache;
 
   Future<void> send(String text) async {
     final t = text.trim();
