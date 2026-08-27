@@ -15,13 +15,13 @@ import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
-import 'package:speech_to_text/speech_to_text.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 
-/// Pantalla Chat Ã¢â‚¬â€ identidad visual de Inicio (glassmorphism, sin AppBar).
+/// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
-/// Los nombres de estado y mÃƒÂ©todos son los REALES de ChatNotifier:
+/// Los nombres de estado y métodos son los REALES de ChatNotifier:
 /// `send(text)`, `stop()`, `refreshEngine()`. El motor nunca se simula:
-/// cuando no estÃƒÂ¡ disponible, el envÃƒÂ­o queda desactivado y la UI lo dice.
+/// cuando no está disponible, el envío queda desactivado y la UI lo dice.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -33,30 +33,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
 
-  // Dictado por voz real (speech_to_text) y adjunto de archivos real
-  // (file_picker Ã¢â€ â€™ SAF de Android). Ambos fallan a mensaje honesto,
-  // nunca a excepciÃƒÂ³n suelta.
-  late final SpeechToText _speech;
-  bool _speechEnabled = false;
+  // Dictado por voz real (canal `com.nanoai/speech`, SpeechChannelHandler →
+  // reconocedor Google Search) y adjunto de archivos real (file_picker → SAF de
+  // Android). Ambos fallan a mensaje honesto, nunca a excepción suelta.
   bool _listening = false;
   bool _isComposerMinimized = false;
   bool _isReadingMode = false;
 
-  /// MÃƒÂ¡ximo de caracteres de un archivo adjunto que se insertan en el input.
+  /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
   static const _maxAttachBytes = 64 * 1024;
 
   @override
   void initState() {
     super.initState();
-    _speech = SpeechToText();
   }
 
   @override
   void dispose() {
-    if (_speechEnabled && _speech.isListening) {
-      _speech.stop();
-    }
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -76,61 +70,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
   }
 
-  /// Inicializa el motor de voz una sola vez (pide permiso RECORD_AUDIO
-  /// en el primer uso) y alterna escucha con resultados al input.
+  /// Dictado por voz REAL (canal `com.nanoai/speech`, SpeechChannelHandler →
+  /// reconocedor Google Search). Alterna escucha y pone el texto transcrito en
+  /// el input. El nativo solicita RECORD_AUDIO al primer uso y vincula el
+  /// reconocedor real por ComponentName (no el stub TTS del device). Fallo =
+  /// mensaje honesto, nunca excepción suelta.
   Future<void> _toggleMic() async {
-    if (!_speechEnabled) {
-      try {
-        _speechEnabled = await _speech.initialize(
-          onStatus: (status) {
-            if (!mounted) return;
-            setState(() => _listening = status == 'listening');
-          },
-          onError: (error) {
-            if (!mounted) return;
-            setState(() => _listening = false);
-            _showHonestError('MicrÃƒÂ³fono no disponible: $error');
-          },
-        );
-      } catch (e) {
-        _speechEnabled = false;
-        if (!mounted) return;
-        _showHonestError('MicrÃƒÂ³fono no disponible: $e');
-        return;
-      }
-      if (!_speechEnabled) {
-        if (!mounted) return;
-        _showHonestError(
-          'Reconocimiento de voz no disponible en este '
-          'dispositivo.',
-        );
-        return;
-      }
-    }
-
-    if (_speech.isListening) {
-      await _speech.stop();
+    if (_listening) {
+      setState(() => _listening = false);
+      await NanoRuntimeApi.instance.stopSpeech();
       return;
     }
-
-    try {
-      await _speech.listen(
-        onResult: (result) {
-          if (!mounted) return;
-          _inputController.text = result.recognizedWords;
-          _inputController.selection = TextSelection.collapsed(
-            offset: _inputController.text.length,
-          );
-        },
-        listenOptions: SpeechListenOptions(
-          listenFor: const Duration(seconds: 60),
-          pauseFor: const Duration(seconds: 5),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      _showHonestError('No se pudo iniciar el dictado: $e');
+    setState(() => _listening = true);
+    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+    if (!mounted) return;
+    setState(() => _listening = false);
+    if (text == null || text.trim().isEmpty) {
+      _showHonestError('No se pudo reconocer el audio. Inténtalo de nuevo.');
+      return;
     }
+    _inputController.text = text.trim();
+    _inputController.selection = TextSelection.collapsed(
+      offset: _inputController.text.length,
+    );
   }
 
   /// Abre el selector de archivos (SAF) y registra el contenido textual como
