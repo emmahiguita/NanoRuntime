@@ -40,6 +40,10 @@ class SpeechChannelHandler(
                 result,
             )
             "speak" -> speak(call.argument<String>("text").orEmpty(), result)
+            "stop" -> {
+                tts?.stop()
+                result.success(null)
+            }
             "cancel" -> {
                 recognizer?.cancel()
                 recognizer = null

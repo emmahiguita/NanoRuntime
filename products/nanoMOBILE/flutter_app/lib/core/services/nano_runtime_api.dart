@@ -818,6 +818,17 @@ class NanoRuntimeApi {
     }
   }
 
+  /// A16 — detiene la reproducción de voz (barge-in). true si se detuvo.
+  Future<bool> stopSpeech() async {
+    try {
+      await _speech.invokeMethod<void>('stop');
+      return true;
+    } catch (e) {
+      debugPrint('[runtime] stopSpeech error: $e');
+      return false;
+    }
+  }
+
   /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.
