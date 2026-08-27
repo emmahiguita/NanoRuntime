@@ -714,7 +714,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     for (final msg in window) {
       result.add({
         'role': msg.sender == MessageSender.user ? 'user' : 'assistant',
-        'content': _promptClip(msg.text, _maxHistoryChars),
+        'content': ChatSystemPrompt.promptClip(msg.text, _maxHistoryChars),
       });
     }
     // Trace de herramientas: la llamada JSON como assistant y el resultado
@@ -722,13 +722,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
     for (var i = 0; i + 1 < toolTrace.length; i += 2) {
       result.add({
         'role': 'assistant',
-        'content': _promptClip(toolTrace[i], _maxToolTraceChars),
+        'content': ChatSystemPrompt.promptClip(
+          toolTrace[i],
+          _maxToolTraceChars,
+        ),
       });
       result.add({
         'role': 'user',
         'content':
             'Resultado de la herramienta:\n'
-            '${_promptClip(toolTrace[i + 1], _maxToolTraceChars)}',
+            '${ChatSystemPrompt.promptClip(toolTrace[i + 1], _maxToolTraceChars)}',
       });
     }
     return result;
@@ -736,45 +739,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Neutraliza tokens especiales que podrían cerrar/abrir roles del modelo
   /// cuando provienen de usuario, historial, adjuntos o resultados de tools.
-  String _promptSafe(String value) => value
-      .replaceAll('<|im_start|>', '< |im_start| >')
-      .replaceAll('<|im_end|>', '< |im_end| >')
-      .replaceAll(
-        '<\uFF5Cbegin\u2581of\u2581sentence\uFF5C>',
-        '< |begin_of_sentence| >',
-      )
-      .replaceAll(
-        '<\uFF5Cend\u2581of\u2581sentence\uFF5C>',
-        '< |end_of_sentence| >',
-      )
-      .replaceAll('<|start_header_id|>', '< |start_header_id| >')
-      .replaceAll('<|end_header_id|>', '< |end_header_id| >')
-      .replaceAll('<|eot_id|>', '< |eot_id| >')
-      .replaceAll('<|begin_of_text|>', '< |begin_of_text| >')
-      .replaceAll('<start_of_turn>', '< start_of_turn >')
-      .replaceAll('<end_of_turn>', '< end_of_turn >')
-      .replaceAll('[INST]', '[ INST ]')
-      .replaceAll('[/INST]', '[ /INST ]');
-
-  String _promptClip(String value, int maxChars) {
-    final safe = _promptSafe(value);
-    if (safe.length <= maxChars) return safe;
-    return '${safe.substring(0, maxChars)}\n[recortado]';
-  }
-
-  /// Bloque de adjuntos que se inyecta al turno user del prompt: contenido
-  /// REAL del archivo, delimitado para que el modelo lo distinga del texto
-  /// escrito por el usuario.
-  String _attachmentsBlock(List<ChatAttachment> attachments) {
-    final buffer = StringBuffer();
-    for (final a in attachments) {
-      buffer
-        ..writeln('[Adjunto: ${_promptClip(a.name, 160)}]')
-        ..writeln(_promptClip(a.content, _maxAttachmentChars))
-        ..writeln('[Fin de adjunto]');
-    }
-    return buffer.toString();
-  }
 
   /// Programa el siguiente flush del texto parcial si no hay uno pendiente.
   void _scheduleStreamFlush(StringBuffer buffer) {
@@ -873,8 +837,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // turnos previos como role/content (el core los templatea bien).
     final history = _historyBeforeCurrentUser(text);
     final prompt =
-        '${toolTrace.isEmpty ? _attachmentsBlock(attachments) : ''}'
-        '${_promptClip(text, _maxUserChars)}';
+        '${toolTrace.isEmpty ? ChatSystemPrompt.attachmentsBlock(attachments, _maxAttachmentChars) : ''}'
+        '${ChatSystemPrompt.promptClip(text, _maxUserChars)}';
 
     _StreamLease? lease;
     try {
