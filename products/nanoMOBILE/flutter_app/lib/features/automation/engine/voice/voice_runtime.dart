@@ -114,7 +114,10 @@ class VoiceSessionManager {
   /// Push-to-talk: escucha UNA vez, resuelve y devuelve el turno (sin hablar).
   Future<VoiceTurn?> pushToTalk() async {
     _set(VoiceSessionState.listening);
+    final sw = Stopwatch()..start();
     final transcript = await _recognition.listen();
+    sw.stop();
+    sttLatencyMs = sw.elapsedMilliseconds;
     if (transcript == null || transcript.trim().isEmpty) {
       _set(VoiceSessionState.idle);
       return null;
@@ -131,7 +134,10 @@ class VoiceSessionManager {
   /// Habla una respuesta y queda escuchando follow-up (bounded).
   Future<void> respond(String text) async {
     _set(VoiceSessionState.speaking);
+    final sw = Stopwatch()..start();
     await _synthesis.speak(text);
+    sw.stop();
+    ttsLatencyMs = sw.elapsedMilliseconds;
     context.lastAssistantResponse = text;
     context.touch();
     _set(VoiceSessionState.waitingFollowUp);
@@ -141,6 +147,10 @@ class VoiceSessionManager {
       }
     });
   }
+
+  /// A16 — telemetría de voz (sección 19): latencias observadas de STT/TTS.
+  int sttLatencyMs = 0;
+  int ttsLatencyMs = 0;
 
   /// Barge-in: el usuario interrumpe la respuesta en curso.
   Future<void> bargeIn() async {

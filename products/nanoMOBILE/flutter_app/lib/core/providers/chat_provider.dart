@@ -443,6 +443,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final session = _voiceSession;
     final turn = await session.pushToTalk();
     if (turn == null || turn.transcript.trim().isEmpty) return null;
+    // Respuesta progresiva (sección 42): ack corto antes de ejecutar, para que
+    // el usuario sepa que fue escuchado sin esperar el resultado completo.
+    unawaited(session.respond('Voy.'));
     await send(turn.transcript);
     return turn.transcript;
   }
