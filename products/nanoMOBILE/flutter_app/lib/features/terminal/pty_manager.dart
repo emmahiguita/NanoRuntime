@@ -10,6 +10,14 @@ import 'ansi_terminal.dart';
 /// Single-responsibility: owns the PTY session lifecycle.
 /// Extracted from _TermState. Handles open, close, resize, signal,
 /// and ANSI buffer management.
+///
+/// T1.4 — DEFERRED BY DESIGN (no MISSING, no IMPLEMENTED):
+/// PtyManager/PtySession son la vía INTERACTIVA, ya aislada de la ejecución
+/// no-interactiva (LinuxExecutionBackend → ShellExecutor). Viven en
+/// features/terminal porque hoy el ÚNICO consumidor es el Terminal.
+/// Extraer a core/services/LinuxInteractiveBackend SOLO cuando aparezca un
+/// segundo consumidor no-Terminal (Automation interactivo, Voz shell/REPL,
+/// chat con PTY bidireccional). Hasta entonces, extraer = abstracción muerta.
 class PtyManager {
   PtySession? _session;
   AnsiTerminal? _ansi;

@@ -893,6 +893,14 @@ class AgentToolDispatcher {
     if (!result.ok) {
       return '[linux] ${result.infrastructureError}';
     }
+    // T1.5: exitCode != 0 = el comando falló (no es infraestructura). Se
+    // reporta como fallo factual (con stderr), NO como éxito. exitCode == null
+    // (vía legacy sin código determinable) se tolera como "se ejecutó".
+    if (result.exitCode != null && result.exitCode != 0) {
+      final err = result.stderr.trim();
+      return '[linux] comando terminó con exitCode=${result.exitCode}'
+          '${err.isNotEmpty ? ': $err' : ''}';
+    }
     // A14.5 — postcondición de plataforma. Para writeFile, si el lector puede
     // confirmar que el archivo existe, la escritura queda VERIFICADA (no solo
     // "ok" del backend). Si no es observable, se reporta solo "escrito".

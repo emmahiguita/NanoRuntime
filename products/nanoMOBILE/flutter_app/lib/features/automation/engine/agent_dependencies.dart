@@ -114,6 +114,7 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     // no-UI (archivo Linux, app fuera de foco) tras ejecutar.
     platformStateReader: PlatformVerificationRouter(
       snapshotFn: ref.watch(agentExecutorProvider).snapshot,
+      linuxAdapter: ref.watch(linuxToolAdapterProvider),
       systemStateSource: () => NanoRuntimeApi.instance.systemState(),
     ),
     // A14.5: fuentes REALES del informe ejecutivo (@capacidades) y apertura de
@@ -168,6 +169,7 @@ final goalVerifierProvider = Provider<GoalVerifier>((ref) {
     executor: executor,
     stateReader: PlatformVerificationRouter(
       snapshotFn: executor.snapshot,
+      linuxAdapter: ref.watch(linuxToolAdapterProvider),
       systemStateSource: () => NanoRuntimeApi.instance.systemState(),
     ),
   );

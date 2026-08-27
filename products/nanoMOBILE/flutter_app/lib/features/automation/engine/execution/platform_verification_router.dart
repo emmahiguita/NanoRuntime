@@ -174,8 +174,16 @@ class PlatformVerificationRouter implements PlatformStateReader {
     final result = await adapter
         .readFile(path)
         .catchError((_) => const LinuxCommandResult(duration: Duration.zero));
-    if (!result.ok) {
+    if (result.infrastructureError != null) {
       return PlatformPredicateUnsatisfied('No se pudo leer "$path".');
+    }
+    // T1.5: `cat` con exitCode != 0 = archivo inexistente/ilegible. El backend
+    // factual (ShellExecutor) expone exitCode real, así que distinguimos
+    // "existe" de "no existe" en vez de asumir legible por mero `ok`.
+    if (result.exitCode != 0) {
+      return PlatformPredicateUnsatisfied(
+        'Archivo inexistente o ilegible en "$path".',
+      );
     }
     return PlatformPredicateSatisfied('archivo legible en "$path"');
   }
@@ -193,8 +201,13 @@ class PlatformVerificationRouter implements PlatformStateReader {
     final result = await adapter
         .readFile(path)
         .catchError((_) => const LinuxCommandResult(duration: Duration.zero));
-    if (!result.ok) {
+    if (result.infrastructureError != null) {
       return PlatformPredicateUnsatisfied('No se pudo leer "$path".');
+    }
+    if (result.exitCode != 0) {
+      return PlatformPredicateUnsatisfied(
+        'Archivo inexistente o ilegible en "$path".',
+      );
     }
     if (!result.stdout.contains(content)) {
       return PlatformPredicateUnsatisfied(
