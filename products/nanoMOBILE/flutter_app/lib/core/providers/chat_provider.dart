@@ -24,6 +24,7 @@ import 'settings_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart'
     show AutomationResultStatus;
+import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/application/automation_planner_provider.dart';
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
     show NanoObjectMemory;
@@ -31,6 +32,7 @@ import 'package:nanoai/features/automation/engine/perception/perception_mux.dart
     show PerceptionMux;
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
+import 'package:nanoai/features/automation/engine/planning/linux_voice_command_parser.dart';
 import 'package:nanoai/features/automation/ledger/action_ledger_provider.dart';
 
 // ================================================================
@@ -162,6 +164,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// plan desde [_pendingPlanIndex] (la confirmación cubre solo ese paso).
   List<ToolCall>? _pendingPlan;
   int? _pendingPlanIndex;
+
+  /// T1.7 — último archivo creado/escrito por voz (contexto para "léelo").
+  /// Solo se puebla tras un write VERIFICADO (FileExists + FileContentContains).
+  /// null = sin contexto; "léelo" no inventa target.
+  String? _lastLinuxFilePath;
 
   ChatNotifier(
     this._ref, {
@@ -596,6 +603,55 @@ class ChatNotifier extends StateNotifier<ChatState> {
         );
         state = state.copyWith(
           messages: [...state.messages, toolMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // T1.7 — comandos Linux de voz/texto deterministas (list/write/read),
+      // SIN LLM. La voz es solo I/O del MISMO motor; el routing tipado evita
+      // raw-shell y mantiene gobernanza + verificación (GoalVerifier).
+      final linuxCmd = const LinuxVoiceCommandParser().parse(
+        t,
+        lastFilePath: _lastLinuxFilePath,
+      );
+      if (linuxCmd != null) {
+        if (!_isGenerationCurrent(generationId)) return;
+        final String linuxText;
+        if (linuxCmd.call.tool == 'linux.writeFile') {
+          // WRITE: verificación completa (FileExists + FileContentContains),
+          // NO éxito por exitCode == 0.
+          final result = await _coordinator.execute(
+            AutomationGoal(text: t, expectation: linuxCmd.expectation),
+            plan: [linuxCmd.call],
+          );
+          if (result.isVerifiedSuccess) {
+            _lastLinuxFilePath = linuxCmd.call.text;
+            linuxText =
+                'Creé ${linuxCmd.call.text} y verifiqué su contenido '
+                '(existe y contiene el texto).';
+          } else {
+            linuxText = 'No se pudo crear ${linuxCmd.call.text}: '
+                '${result.reason}';
+          }
+        } else {
+          // READ (list/readFile): el stdout factual ES la respuesta.
+          final outcome = await _coordinator.runTool(linuxCmd.call);
+          linuxText = outcome.feedback;
+        }
+        if (!_isGenerationCurrent(generationId)) return;
+        final linuxMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: linuxText,
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+          source: MessageSource.device,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, linuxMsg],
           generating: false,
           streamingText: '',
         );
