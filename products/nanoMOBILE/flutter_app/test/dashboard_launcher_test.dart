@@ -274,9 +274,11 @@ void main() {
     expect(find.text('Motor apagado — elige modelo'), findsOneWidget);
   });
 
-  // 11. Transición linuxReady false→true tras initState: el pulso de la
-  // card Terminal no debe crashear (bug pantalla roja del inicio).
-  testWidgets('linuxReady false->true does not crash pulse', (tester) async {
+  // 11. La creatividad de Terminal permanece limpia durante la transición
+  // de Linux: no muestra estado técnico ni produce una pantalla roja.
+  testWidgets('linuxReady false->true keeps terminal campaign clean', (
+    tester,
+  ) async {
     Widget build(bool ready) => ProviderScope(
       overrides: [kaliProvider.overrideWithValue(null)],
       child: MaterialApp(
@@ -300,16 +302,16 @@ void main() {
 
     await tester.pumpWidget(build(false));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Preparando Linux'), findsOneWidget);
+    expect(find.text('Preparando Linux'), findsNothing);
 
     await tester.pumpWidget(build(true));
     await tester.pump(const Duration(milliseconds: 100));
     expect(
       tester.takeException(),
       isNull,
-      reason: 'pulse false->true must not throw',
+      reason: 'Linux state change must not throw',
     );
-    expect(find.text('Linux listo'), findsOneWidget);
+    expect(find.text('Linux listo'), findsNothing);
   });
 
   // 12. Linux se concentra en el módulo Terminal y queda como telemetría,

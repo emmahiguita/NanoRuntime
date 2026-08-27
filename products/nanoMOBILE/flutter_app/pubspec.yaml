@@ -42,6 +42,9 @@ flutter:
     - assets/bin/
     - assets/exe/
     - assets/config/
+    - assets/terminal_campaign_1.png
+    - assets/terminal_campaign_2.png
+    - assets/terminal_campaign_3.png
   fonts:
     - family: Inter
       fonts:

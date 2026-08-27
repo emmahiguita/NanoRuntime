@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -64,7 +65,7 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _pageController = PageController(initialPage: 1, viewportFraction: 0.66);
+    _pageController = PageController(initialPage: 1, viewportFraction: 0.88);
 
     _reflectionController = AnimationController(
       vsync: this,
@@ -125,8 +126,8 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
 
   double _viewportFractionFor(Size size) {
     final isLandscape = size.width > size.height;
-    if (isLandscape) return 0.38;
-    return size.width < 360 ? 0.70 : 0.66;
+    if (isLandscape) return 0.62;
+    return size.width < 360 ? 0.84 : 0.88;
   }
 
   @override
@@ -916,6 +917,113 @@ class _LiveStatusPillState extends State<_LiveStatusPill>
   }
 }
 
+/// Creativo promocional exclusivo de Terminal. Es decorativo: el tap sigue
+/// perteneciendo a [NanoOpticalSurface], por lo que no altera la navegación.
+class _TerminalCampaignBanner extends StatefulWidget {
+  const _TerminalCampaignBanner({required this.isLandscape});
+
+  final bool isLandscape;
+
+  @override
+  State<_TerminalCampaignBanner> createState() =>
+      _TerminalCampaignBannerState();
+}
+
+class _TerminalCampaignBannerState extends State<_TerminalCampaignBanner>
+    with WidgetsBindingObserver {
+  static const _campaigns = [
+    'assets/terminal_campaign_1.png',
+    'assets/terminal_campaign_2.png',
+    'assets/terminal_campaign_3.png',
+  ];
+
+  Timer? _rotationTimer;
+  int _activeCampaign = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startRotation();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRotation();
+    } else {
+      _stopRotation();
+    }
+  }
+
+  void _startRotation() {
+    _rotationTimer ??= Timer.periodic(const Duration(seconds: 7), (_) {
+      if (!mounted || MediaQuery.disableAnimationsOf(context)) return;
+      setState(
+        () => _activeCampaign = (_activeCampaign + 1) % _campaigns.length,
+      );
+    });
+  }
+
+  void _stopRotation() {
+    _rotationTimer?.cancel();
+    _rotationTimer = null;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopRotation();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = NanoMotion.reduceMotion(context);
+    // Coincide con el borde de NanoOpticalSurface: la creatividad queda
+    // completamente integrada, sin doble radio ni franja perimetral.
+    final radius = BorderRadius.circular(NanoRadius.large);
+
+    return Semantics(
+      label: 'Promoción de NanoAI Terminal',
+      image: true,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 420),
+              child: Image.asset(
+                _campaigns[_activeCampaign],
+                key: ValueKey(_activeCampaign),
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+              ),
+            ),
+            Positioned(
+              top: 14,
+              right: 16,
+              child: Text(
+                'Terminal',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontSize: widget.isLandscape ? 12 : 14,
+                  fontWeight: FontWeight.w800,
+                  shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class NanoFeatureCard extends StatelessWidget {
   final NanoFeatureData data;
   final AnimationController reflectionController;
@@ -950,129 +1058,162 @@ class NanoFeatureCard extends StatelessWidget {
 
     return Center(
       child: AspectRatio(
-        aspectRatio: isLandscape ? 1.05 : 0.82,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: NanoOpticalSurface(
-            borderRadius: NanoRadius.large,
-            blurSigma: 18,
-            borderStrength: (0.92 - distance * 0.25).clamp(0.55, 0.92),
-            reflectionStrength: (0.92 - distance * 0.30).clamp(0.55, 0.92),
-            accent: data.accent,
-            reflectionController: reflectionController,
-            specularDrift: specularDrift,
-            onTap: data.onTap,
-            padding: EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: isLandscape ? 8 : 12,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Capa Z-Elevada: Icono flotante con parallax.
-                // Flexible + FittedBox(scaleDown): la caja (46px fija) no
-                // desborda el AspectRatio en alturas compactas (CPH2557);
-                // se escala manteniendo la proporción (sin franjas amarillas).
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Transform.translate(
-                      offset: iconOffset,
-                      child: _FeatureIcon(
-                        icon: data.icon,
-                        accent: data.accent,
-                        isLandscape: isLandscape,
-                        distance: distance,
-                      ),
-                    ),
+        aspectRatio: isLandscape ? 1.15 : 0.64,
+        child: data.id == 'terminal'
+            ? _TerminalCampaignCard(onTap: data.onTap, isLandscape: isLandscape)
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: NanoOpticalSurface(
+                  borderRadius: NanoRadius.large,
+                  blurSigma: 18,
+                  borderStrength: (0.92 - distance * 0.25).clamp(0.55, 0.92),
+                  reflectionStrength: (0.92 - distance * 0.30).clamp(
+                    0.55,
+                    0.92,
                   ),
-                ),
-                // Capa Z-Media: Textos con micro-desplazamiento
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Transform.translate(
-                      offset: textOffset,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: isLandscape ? 0 : 2,
+                  accent: data.accent,
+                  reflectionController: reflectionController,
+                  specularDrift: specularDrift,
+                  onTap: data.onTap,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: isLandscape ? 8 : 12,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Capa Z-Elevada: Icono flotante con parallax.
+                      // Flexible + FittedBox(scaleDown): la caja (46px fija) no
+                      // desborda el AspectRatio en alturas compactas (CPH2557);
+                      // se escala manteniendo la proporción (sin franjas amarillas).
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Transform.translate(
+                            offset: iconOffset,
+                            child: _FeatureIcon(
+                              icon: data.icon,
+                              accent: data.accent,
+                              isLandscape: isLandscape,
+                              distance: distance,
+                            ),
+                          ),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              data.title,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: colors.textPrimary,
-                                fontSize: isLandscape ? 13.5 : 17.5,
-                                height: isLandscape ? 1.1 : 1.2,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.4,
+                      ),
+                      // Capa Z-Media: Textos con micro-desplazamiento
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Transform.translate(
+                            offset: textOffset,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: isLandscape ? 0 : 2,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    data.title,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: colors.textPrimary,
+                                      fontSize: isLandscape ? 13.5 : 17.5,
+                                      height: isLandscape ? 1.1 : 1.2,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: -0.4,
+                                    ),
+                                  ),
+                                  if (data.statusLabel.isNotEmpty &&
+                                      data.statusColor != null) ...[
+                                    SizedBox(height: isLandscape ? 1 : 3),
+                                    _LiveStatusPill(
+                                      color: data.statusColor!,
+                                      label: data.statusLabel,
+                                      isLandscape: isLandscape,
+                                    ),
+                                  ],
+                                  if (data.line1.isNotEmpty) ...[
+                                    SizedBox(height: isLandscape ? 0 : 2),
+                                    Text(
+                                      data.line1,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        color: colors.textSecondary,
+                                        fontSize: isLandscape ? 10.5 : 12.5,
+                                        height: isLandscape ? 1.05 : 1.15,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                  if (data.line2.isNotEmpty) ...[
+                                    SizedBox(height: isLandscape ? 0 : 1),
+                                    Text(
+                                      data.line2,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        color: data.secondaryAccent,
+                                        fontSize: isLandscape ? 10.5 : 12.5,
+                                        height: isLandscape ? 1.05 : 1.15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            if (data.statusLabel.isNotEmpty &&
-                                data.statusColor != null) ...[
-                              SizedBox(height: isLandscape ? 1 : 3),
-                              _LiveStatusPill(
-                                color: data.statusColor!,
-                                label: data.statusLabel,
-                                isLandscape: isLandscape,
-                              ),
-                            ],
-                            if (data.line1.isNotEmpty) ...[
-                              SizedBox(height: isLandscape ? 0 : 2),
-                              Text(
-                                data.line1,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: colors.textSecondary,
-                                  fontSize: isLandscape ? 10.5 : 12.5,
-                                  height: isLandscape ? 1.05 : 1.15,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                            if (data.line2.isNotEmpty) ...[
-                              SizedBox(height: isLandscape ? 0 : 1),
-                              Text(
-                                data.line2,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: data.secondaryAccent,
-                                  fontSize: isLandscape ? 10.5 : 12.5,
-                                  height: isLandscape ? 1.05 : 1.15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
+                      // Capa Z-Elevada: Botón interactivo de acción
+                      Transform.translate(
+                        offset: buttonOffset,
+                        child: _ArrowGlass(
+                          accent: data.accent,
+                          isLandscape: isLandscape,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                // Capa Z-Elevada: Botón interactivo de acción
-                Transform.translate(
-                  offset: buttonOffset,
-                  child: _ArrowGlass(
-                    accent: data.accent,
-                    isLandscape: isLandscape,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+      ),
+    );
+  }
+}
+
+/// Variante full-bleed: conserva la acción de abrir Terminal sin aplicar el
+/// bisel de vidrio de las cards informativas sobre el arte publicitario.
+class _TerminalCampaignCard extends StatelessWidget {
+  const _TerminalCampaignCard({required this.onTap, required this.isLandscape});
+
+  final VoidCallback onTap;
+  final bool isLandscape;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Abrir Terminal',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(NanoRadius.large),
+          child: _TerminalCampaignBanner(isLandscape: isLandscape),
         ),
       ),
     );
