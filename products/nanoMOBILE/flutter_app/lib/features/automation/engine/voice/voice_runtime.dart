@@ -180,6 +180,43 @@ class VoiceSessionManager {
     }
   }
 
+  // ── Ciclo de vida (start/stop + modo asistente) ──────────────────────────
+
+  /// true si la sesión no está idle.
+  bool get isActive => _state != VoiceSessionState.idle;
+
+  bool _assistantMode = false;
+  bool get isAssistantMode => _assistantMode;
+
+  /// Inicia la sesión de voz (push-to-talk): deja al manager listo para
+  /// [pushToTalk]. Idempotente.
+  Future<void> start() async {
+    if (_state == VoiceSessionState.idle) {
+      _set(VoiceSessionState.wakeListening);
+    }
+  }
+
+  /// Detiene la sesión por completo: interrumpe habla, apaga síntesis y vuelve
+  /// a idle. No cierra el stream (reutilizable entre turnos).
+  Future<void> stop() async {
+    await bargeIn();
+    await _synthesis.stop();
+    _set(VoiceSessionState.idle);
+  }
+
+  /// Modo asistente: activa el wake word (si hay detector) para escucha pasiva.
+  Future<void> startAssistant() async {
+    _assistantMode = true;
+    await _wakeWord?.start();
+  }
+
+  /// Detiene el modo asistente: apaga el wake word y detiene la sesión.
+  Future<void> stopAssistant() async {
+    _assistantMode = false;
+    await _wakeWord?.stop();
+    await stop();
+  }
+
   Future<void> dispose() async {
     await _stateController.close();
     await _wakeWord?.stop();
