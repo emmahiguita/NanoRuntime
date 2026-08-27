@@ -117,6 +117,21 @@ const DeterministicFlow _notificationReadFlow = DeterministicFlow(
   requiredAny: _notificationReadTerms,
 );
 
+const _listFilesTerms = <String>[
+  'archivo',
+  'directorio',
+  'fichero',
+  'carpeta',
+];
+
+/// "lista los archivos" → ls de la raíz del rootfs. El listado (stdout factual
+/// de `ls`) ES la respuesta; no hay postcondición de estado que verificar.
+const DeterministicFlow _listFilesFlow = DeterministicFlow(
+  steps: [ToolCall(tool: 'linux.list', text: '/')],
+  outputProvesGoal: true,
+  requiredAny: _listFilesTerms,
+);
+
 const DeterministicFlowCatalog defaultDeterministicCatalog =
     DeterministicFlowCatalog({
       'bluetooth': _bluetoothOpenFlow,
@@ -136,6 +151,10 @@ const DeterministicFlowCatalog defaultDeterministicCatalog =
       ),
       'notificaciones': _notificationReadFlow,
       'notificación': _notificationReadFlow,
+      'archivo': _listFilesFlow,
+      'directorio': _listFilesFlow,
+      'fichero': _listFilesFlow,
+      'carpeta': _listFilesFlow,
       'volver': DeterministicFlow(steps: [ToolCall(tool: 'back')]),
       'atrás': DeterministicFlow(steps: [ToolCall(tool: 'back')]),
     });
