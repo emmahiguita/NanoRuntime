@@ -44,15 +44,15 @@ class NanoTerminal extends StatefulWidget {
   final LLMEngineClient? engine;
   final void Function(String title)? onTitle;
 
-  /// true = pestaña visible en el IndexedStack. Dirige pause/resume del
-  /// polling PTY: solo la pestaña activa consume 20 polls/seg (rate limit).
+  /// true = pestaÃ±a visible en el IndexedStack. Dirige pause/resume del
+  /// polling PTY: solo la pestaÃ±a activa consume 20 polls/seg (rate limit).
   final bool visible;
   final TerminalDependencies? deps; // optional override for testing
 
-  /// Comando que se ejecuta una sola vez cuando el shell está listo
+  /// Comando que se ejecuta una sola vez cuando el shell estÃ¡ listo
   /// (ej: "kali shell" desde la card Kali del dashboard). Cuando existe,
-  /// se suprime el bash PTY automático para que el stream del comando
-  /// sea el dueño del terminal.
+  /// se suprime el bash PTY automÃ¡tico para que el stream del comando
+  /// sea el dueÃ±o del terminal.
   final String? initialCommand;
   const NanoTerminal({
     super.key,
@@ -78,7 +78,7 @@ class _TermState extends State<NanoTerminal> {
   DockerManager? get _docker => _deps.docker;
 
   /// TerminalServices para plugins (DIP). Cached to avoid re-allocation on
-  /// every plugin call — the closures capture `this` so the instance stays
+  /// every plugin call â€” the closures capture `this` so the instance stays
   /// valid for the widget's lifetime.
   late final TerminalServices _services = TerminalServices(
     ctx: _ctx,
@@ -142,11 +142,11 @@ class _TermState extends State<NanoTerminal> {
 
   /// Fallback dart:io real (ver real_fs_shell.dart). Solo se usa en hosts sin
   /// binarios Android (desktop/tests): los comandos FS operan sobre el
-  /// filesystem real del host bajo un raíz sandbox. En Android manda el motor
-  /// NanoRuntime (BusyBox vía Nanoshell FFI / rootfs).
+  /// filesystem real del host bajo un raÃ­z sandbox. En Android manda el motor
+  /// NanoRuntime (BusyBox vÃ­a Nanoshell FFI / rootfs).
   late final RealFsShell _realFs;
 
-  /// Whitelist de comandos con ejecución real vía BusyBox (ver realCommands
+  /// Whitelist de comandos con ejecuciÃ³n real vÃ­a BusyBox (ver realCommands
   /// en terminal_types.dart). En hosts sin binarios Android, RealFsShell
   /// implementa el subconjunto dart:io como fallback real.
   String get _ps1 {
@@ -202,7 +202,7 @@ class _TermState extends State<NanoTerminal> {
     _buildRegistry(); // terminal-specific commands (ai, gpu, docker, kali, etc.)
     _fetchDeviceIdentity(); // async: uid, uname, hostname reales del device
     _initShell(); // async: extrae bash/toybox + verifica rootfs (crea ShellExecutor + RootfsManager compartidos)
-    _noar.load(); // async: carga librería de comandos guardados
+    _noar.load(); // async: carga librerÃ­a de comandos guardados
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_fabInit && mounted) {
         final sz = MediaQuery.of(context).size;
@@ -234,12 +234,12 @@ class _TermState extends State<NanoTerminal> {
     }
   }
 
-  /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info auténtica sin depender de execve() (bloqueado por SELinux en este device).
+  /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info autÃ©ntica sin depender de execve() (bloqueado por SELinux en este device).
   Future<void> _fetchDeviceIdentity() => _hw.fetchDeviceIdentity();
 
   Future<double?> _readCpuTemp() => _hw.readCpuTemp();
 
-  /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  ¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalación esté sincronizado.
+  /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  Â¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalaciÃ³n estÃ© sincronizado.
   Future<void> _initShell() async {
     if (_deps.rootfs == null) {
       await _deps.initAll(onProgress: (msg) => _out('[init] $msg', Ln.system));
@@ -257,8 +257,8 @@ class _TermState extends State<NanoTerminal> {
       rootfs: _rootfs,
       rootfsEnv: _deps.rootfsEnv,
       onTitle: widget.onTitle,
-      // P1: sin este callback, _ansi seguía apuntando al ChangeNotifier ya
-      // dispuesto por el manager tras el fin de la sesión (Ctrl-D/exit) —
+      // P1: sin este callback, _ansi seguÃ­a apuntando al ChangeNotifier ya
+      // dispuesto por el manager tras el fin de la sesiÃ³n (Ctrl-D/exit) â€”
       // cualquier rebuild posterior lanzaba "used after being disposed".
       onSessionEnd: () {
         if (!mounted) return;
@@ -302,9 +302,9 @@ class _TermState extends State<NanoTerminal> {
           Directory('$usr/var/log').createSync(recursive: true);
         } catch (_) {}
       }
-      // Sin comando inicial inyectado: bash PTY automático. Con comando
+      // Sin comando inicial inyectado: bash PTY automÃ¡tico. Con comando
       // inicial (ej: kali shell), el dispatcher y su stream proot son el
-      // dueño del terminal; abrir bash encima mezclaría las dos sesiones.
+      // dueÃ±o del terminal; abrir bash encima mezclarÃ­a las dos sesiones.
       if (widget.initialCommand == null) {
         _after(const Duration(milliseconds: 500), () => _ptyOpen(['bash']));
       }
@@ -312,7 +312,7 @@ class _TermState extends State<NanoTerminal> {
       _out('[rootfs] no instalado. Ejecuta "bootstrap".', Ln.info);
     }
     if (_proot != null && _proot!.isReady) {
-      _out('[proot] listo → chroot sin root disponible', Ln.system);
+      _out('[proot] listo â†’ chroot sin root disponible', Ln.system);
     } else {
       _out('[proot] no disponible (ptrace bloqueado por SELinux?)', Ln.warn);
     }
@@ -369,16 +369,16 @@ class _TermState extends State<NanoTerminal> {
     NetworkPlugin().register(r, s);
     DevOpsPlugin().register(r, s);
     DashboardPlugin().register(r, s);
-    // crontab/watch REALES: timers que ejecutan _execAsync de verdad.
-    // Registrados después de DevOpsPlugin para pisar cualquier stub.
-    // P2: la instancia se guarda — antes su dispose() nunca se llamaba y
+    // crontab/watch REALES: timers que ejecutan CommandExecutor de verdad.
+    // Registrados despuÃ©s de DevOpsPlugin para pisar cualquier stub.
+    // P2: la instancia se guarda â€” antes su dispose() nunca se llamaba y
     // los timers de crontab/watch quedaban vivos para siempre.
     _cron = CronScheduler(
       execCmd: (raw) => CommandExecutor.execute(raw, _execCtx()),
       isAlive: () => _alive,
     )..register(r, _out);
-    // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
-    // nunca finge apertura — este registro lo reemplaza por el real).
+    // pty REAL: abre sesiÃ³n interactiva via _ptyOpen (el stub del plugin
+    // nunca finge apertura â€” este registro lo reemplaza por el real).
     _cmds['pty'] = (a, c, o, af) {
       final usr = _rootfs?.usrDir;
       if (usr == null) {
@@ -392,7 +392,7 @@ class _TermState extends State<NanoTerminal> {
       final all = a.contains('--all'),
           mem = all || a.contains('--memory'),
           cpu = all || a.contains('--cpu');
-      o('══ NanoRuntime Status ══', Ln.header);
+      o('â•â• NanoRuntime Status â•â•', Ln.header);
       if (mem) {
         final d = _devId;
         final double totalKb = (d?['memTotalKb'] as num?)?.toDouble() ?? 0.0;
@@ -415,7 +415,7 @@ class _TermState extends State<NanoTerminal> {
           o('RAM: (leyendo /proc/meminfo...)', Ln.stdout);
         }
         o(
-          'Modelo/KV: sin datos del motor LLM — usa "tune" para diagnóstico real',
+          'Modelo/KV: sin datos del motor LLM â€” usa "tune" para diagnÃ³stico real',
           Ln.info,
         );
       }
@@ -425,7 +425,7 @@ class _TermState extends State<NanoTerminal> {
         final hw = _devId?['cpuHardware'] as String?;
         final tempC = await _readCpuTemp();
         final tempStr = tempC != null
-            ? ' | Temp: ${tempC.toStringAsFixed(1)}°C'
+            ? ' | Temp: ${tempC.toStringAsFixed(1)}Â°C'
             : '';
         o(
           'CPU: $cores cores${hw != null ? ' ($hw)' : ''}$tempStr | Procs: ${ProcFs.listPids().length}',
@@ -458,12 +458,12 @@ class _TermState extends State<NanoTerminal> {
           })
           .catchError((e) {
             if (!_alive || !mounted) return;
-            o('infer: el motor no respondió — $e', Ln.stderr);
+            o('infer: el motor no respondiÃ³ â€” $e', Ln.stderr);
           });
     };
     _cmds['ai'] = (a, c, o, af) {
       if (a.isEmpty) {
-        o('ai: escribe un prompt. Ej: ai ¿cómo optimizar RAM?', Ln.stderr);
+        o('ai: escribe un prompt. Ej: ai Â¿cÃ³mo optimizar RAM?', Ln.stderr);
         return;
       }
       final prompt = a.join(' ');
@@ -487,14 +487,14 @@ class _TermState extends State<NanoTerminal> {
           .catchError((e) {
             if (!_alive || !mounted) return;
             o(
-              'ai: el motor no respondió. ¿Está corriendo llama.cpp en 127.0.0.1:8080?',
+              'ai: el motor no respondiÃ³. Â¿EstÃ¡ corriendo llama.cpp en 127.0.0.1:8080?',
               Ln.stderr,
             );
             o('  $e', Ln.stderr);
           });
     };
     _cmds['tune'] = (a, c, o, af) async {
-      o('══ NanoAI Auto-Tune ══', Ln.header);
+      o('â•â• NanoAI Auto-Tune â•â•', Ln.header);
       final mem = ProcFs.meminfo();
       final totalMb = (mem['MemTotal'] ?? 0) ~/ 1024;
       final availMb = (mem['MemAvailable'] ?? mem['MemFree'] ?? 0) ~/ 1024;
@@ -502,7 +502,7 @@ class _TermState extends State<NanoTerminal> {
       final tempC = await _readCpuTemp();
       o(
         'Device: ${totalMb}MB RAM, ${availMb}MB libre, $cores cores'
-        '${tempC != null ? ', ${tempC.toStringAsFixed(1)}°C' : ''}',
+        '${tempC != null ? ', ${tempC.toStringAsFixed(1)}Â°C' : ''}',
         Ln.info,
       );
       final engine = _engine;
@@ -533,38 +533,38 @@ class _TermState extends State<NanoTerminal> {
         if (res.tps != null) {
           o('Velocidad: ${res.tps!.toStringAsFixed(1)} tok/s', Ln.success);
           if (res.tps! < 5) {
-            o('⚠ TPS bajo. Considera:', Ln.warn);
+            o('âš  TPS bajo. Considera:', Ln.warn);
             o(
-              '  - Usar un modelo más pequeño (Qwen 0.5B en vez de 1.5B)',
+              '  - Usar un modelo mÃ¡s pequeÃ±o (Qwen 0.5B en vez de 1.5B)',
               Ln.info,
             );
             o('  - Reducir context window (--ctx-size 512)', Ln.info);
-            o('  - Deshabilitar GPU layers si tenés poca RAM', Ln.info);
+            o('  - Deshabilitar GPU layers si tenÃ©s poca RAM', Ln.info);
           } else if (res.tps! < 20) {
             o('TPS aceptable. Optimizaciones:', Ln.info);
             o('  - Subir --threads a $cores para mejor rendimiento', Ln.info);
-            o('  - Aumentar --batch-size a 512 si tenés RAM', Ln.info);
+            o('  - Aumentar --batch-size a 512 si tenÃ©s RAM', Ln.info);
           } else {
             o('TPS excelente. Sugerencias:', Ln.info);
-            o('  - Podés usar modelos más grandes (Qwen 3B, 7B)', Ln.info);
+            o('  - PodÃ©s usar modelos mÃ¡s grandes (Qwen 3B, 7B)', Ln.info);
             o('  - Aumentar --ctx-size a 4096 para prompts largos', Ln.info);
           }
         }
         if (availMb < 500) {
           o(
-            '⚠ RAM baja (${availMb}MB libre). Riesgo de OOM con modelos grandes.',
+            'âš  RAM baja (${availMb}MB libre). Riesgo de OOM con modelos grandes.',
             Ln.warn,
           );
         } else if (availMb > 2000) {
           o(
-            'RAM suficiente para modelos de hasta ~2B parámetros (Qwen-1.5B, Gemma-2B).',
+            'RAM suficiente para modelos de hasta ~2B parÃ¡metros (Qwen-1.5B, Gemma-2B).',
             Ln.info,
           );
         } else {
-          o('RAM adecuada para modelos de ~1B parámetros.', Ln.info);
+          o('RAM adecuada para modelos de ~1B parÃ¡metros.', Ln.info);
         }
       } on LLMEngineException catch (e) {
-        o('Benchmark falló: ${e.message}', Ln.stderr);
+        o('Benchmark fallÃ³: ${e.message}', Ln.stderr);
       }
     };
     _cmds['gpu'] = (a, c, o, af) {
@@ -575,7 +575,7 @@ class _TermState extends State<NanoTerminal> {
       final temp = info['tempC'];
       final freqStr = freq != null ? ' | Freq: $freq MHz' : '';
       final tempStr = temp != null
-          ? ' | Temp: ${temp.toStringAsFixed(1)}°C'
+          ? ' | Temp: ${temp.toStringAsFixed(1)}Â°C'
           : '';
       o('GPU: $name$freqStr$tempStr', Ln.stdout);
       final load = info['gpuLoad'];
@@ -596,10 +596,11 @@ class _TermState extends State<NanoTerminal> {
       final info = _hw.readGpuInfo();
       final name = (info['name'] as String?) ?? 'desconocida';
       final freq = info['freqMhz'];
-      o('╔══ nvtop ══╗', Ln.header);
-      o('║ GPU: $name ${" ".padLeft(15 - name.length)}║', Ln.header);
-      if (freq != null) o('║ Freq: $freq MHz ${" ".padLeft(8)}║', Ln.header);
-      o('╚═══════════╝', Ln.header);
+      o('â•”â•â• nvtop â•â•â•—', Ln.header);
+      o('â•‘ GPU: $name ${" ".padLeft(15 - name.length)}â•‘', Ln.header);
+      if (freq != null)
+        o('â•‘ Freq: $freq MHz ${" ".padLeft(8)}â•‘', Ln.header);
+      o('â•šâ•â•â•â•â•â•â•â•â•â•â•â•', Ln.header);
     };
   }
 
@@ -629,7 +630,7 @@ class _TermState extends State<NanoTerminal> {
     return t;
   }
 
-  /// Detecta operadores de shell (| > < >> && || ;) fuera de comillas. Si están presentes, el comando debe delegarse a bash -c.
+  /// Detecta operadores de shell (| > < >> && || ;) fuera de comillas. Si estÃ¡n presentes, el comando debe delegarse a bash -c.
   bool _hasShellOps(String cmd) {
     bool sq = false, dq = false;
     for (int i = 0; i < cmd.length; i++) {
@@ -654,18 +655,18 @@ class _TermState extends State<NanoTerminal> {
 
   void _exec(String raw) {
     CommandExecutor.execute(raw, _execCtx());
-  } // puente sync→async para onSubmitted
+  } // puente syncâ†’async para onSubmitted
 
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
 
   int _ptyRows = 24, _ptyCols = 80;
 
-  /// Aplica el tamaño del área visible al PTY y al buffer ANSI. Los apps fullscreen (vim/htop) consultan TIOCGWINSZ en cada redibujo; sin resize real dibujan en 24x80 aunque la pantalla sea mayor. Se difiere a post-frame porque toca ChangeNotifier (evita rebuild en build).
+  /// Aplica el tamaÃ±o del Ã¡rea visible al PTY y al buffer ANSI. Los apps fullscreen (vim/htop) consultan TIOCGWINSZ en cada redibujo; sin resize real dibujan en 24x80 aunque la pantalla sea mayor. Se difiere a post-frame porque toca ChangeNotifier (evita rebuild en build).
   ///
-  /// Usa las MISMAS métricas de celda que AnsiTerminalView (AnsiMetrics):
-  /// antes se asumía 7.6px de ancho y 20px de alto a mano; con la fuente
-  /// real del device el grid del render y el del buffer divergían y las
-  /// cajas/columnas de apps fullscreen se descuadraban (errores de píxel).
+  /// Usa las MISMAS mÃ©tricas de celda que AnsiTerminalView (AnsiMetrics):
+  /// antes se asumÃ­a 7.6px de ancho y 20px de alto a mano; con la fuente
+  /// real del device el grid del render y el del buffer divergÃ­an y las
+  /// cajas/columnas de apps fullscreen se descuadraban (errores de pÃ­xel).
   void _applyPtySize(double w, double h) {
     if (_pty == null || !_ptyActive || _ansi == null) return;
     final m = AnsiMetrics.measure();
@@ -680,7 +681,7 @@ class _TermState extends State<NanoTerminal> {
     });
   }
 
-  /// Abre una sesión PTY con [argv]. Si falla, vuelca error por [o].
+  /// Abre una sesiÃ³n PTY con [argv]. Si falla, vuelca error por [o].
   Future<void> _ptyOpen(
     List<String> argv, {
     Map<String, String>? env,
@@ -688,13 +689,13 @@ class _TermState extends State<NanoTerminal> {
     void Function(String, Ln)? o,
   }) async {
     final out = o ?? _out;
-    // Diagnóstico temprano: binario ausente → sugerir pkg install.
+    // DiagnÃ³stico temprano: binario ausente â†’ sugerir pkg install.
     if (argv.isNotEmpty && argv.first.contains('/')) {
       try {
         if (!File(argv.first).existsSync()) {
           final name = argv.first.split('/').last;
           out(
-            'pty: "$name" no está en el rootfs. Ejecuta "pkg install $name".',
+            'pty: "$name" no estÃ¡ en el rootfs. Ejecuta "pkg install $name".',
             Ln.stderr,
           );
           return;
@@ -708,18 +709,18 @@ class _TermState extends State<NanoTerminal> {
     }
     final ok = await pm.open(argv, env: env, ldPreload: ldPreload);
     if (!ok) {
-      // Un único camino de apertura. El fallback histórico abría una segunda
-      // sesión PtySession paralela duplicando el ciclo de vida del
+      // Un Ãºnico camino de apertura. El fallback histÃ³rico abrÃ­a una segunda
+      // sesiÃ³n PtySession paralela duplicando el ciclo de vida del
       // AnsiTerminal y sus listeners (riesgo de doble dispose). El error se
       // reporta y PtyManager deja el estado limpio.
-      out('[pty] no se pudo abrir la sesión interactiva.', Ln.stderr);
+      out('[pty] no se pudo abrir la sesiÃ³n interactiva.', Ln.stderr);
       return;
     }
     _pty = pm.session;
     _ansi = pm.ansi;
     if (mounted) setState(() {});
     out(
-      '— terminal interactivo (Ctrl+C para SIGINT, escribe "exit") —',
+      'â€” terminal interactivo (Ctrl+C para SIGINT, escribe "exit") â€”',
       Ln.system,
     );
     out('pty> ', Ln.prompt);
@@ -751,7 +752,7 @@ class _TermState extends State<NanoTerminal> {
     if (notify && mounted) setState(() {});
   }
 
-  /// Persistencia Noar (librería de comandos). SRP: la lógica vive en
+  /// Persistencia Noar (librerÃ­a de comandos). SRP: la lÃ³gica vive en
   /// [NoarPersistence]; este campo es la instancia que la UI lee.
   final NoarPersistence _noar = NoarPersistence();
   List<Map<String, dynamic>> get _noarLib => _noar.entries;
@@ -759,9 +760,9 @@ class _TermState extends State<NanoTerminal> {
   /// Clasifica un comando en un tag basado en su nombre (canonical: CommandTagger).
   String _tagFor(String cmd) => CommandTagger.tag(cmd);
 
-  /// Construye el contexto de ejecución del CommandExecutor (T0.1B). Cada
+  /// Construye el contexto de ejecuciÃ³n del CommandExecutor (T0.1B). Cada
   /// campo mutable se toma del state en el momento de la llamada; el executor
-  /// es la única implementación del pipeline, el state solo presta sus campos.
+  /// es la Ãºnica implementaciÃ³n del pipeline, el state solo presta sus campos.
   CmdExecCtx _execCtx() => CmdExecCtx(
     out: _out,
     after: _after,
@@ -783,175 +784,12 @@ class _TermState extends State<NanoTerminal> {
     isAndroid: Platform.isAndroid,
     rootfsEnv: _deps.rootfsEnv,
     shellOut: _shellOut,
-    realCmds: realCommands,
     tokenize: _tok,
     ctx: _ctx,
     cmds: _cmds,
     audit: null,
     alive: _alive,
   );
-
-  Future<void> _execAsync(String raw) async {
-    if (_ptyActive) {
-      final cmd = raw.trim();
-      if (cmd == 'exit' || cmd == 'logout' || cmd == '^D') {
-        await _ptyClose();
-        return;
-      }
-      // In PTY mode, onChanged already sent each character as it was typed.
-      // onSubmitted only needs to send CR (Enter). Sending the full text again
-      // would duplicate every character the user typed.
-      _pty!.writeBytes([0x0d]);
-      return;
-    }
-    _out(_ps1 + raw, Ln.prompt);
-    final cmd = raw.trim();
-    if (cmd.isEmpty) return;
-    _hist.add(cmd);
-    _hIdx = -1;
-    _in.clear();
-    _noar.save(cmd, CommandTagger.tag(cmd));
-    if (cmd == 'exit' || cmd == 'logout') {
-      _out('— Sesion finalizada ($cmd) —', Ln.system);
-      return;
-    }
-    if (_dispatcher != null && !_hasShellOps(cmd)) {
-      final parts = cmd.split(RegExp(r'\s+'));
-      if (parts.isNotEmpty &&
-          _dispatcher!.dispatch(
-            parts[0],
-            parts.length > 1 ? parts.sublist(1) : <String>[],
-          )) {
-        return;
-      }
-    }
-    // persistir en libreria Noar
-
-    if (cmd.startsWith('!')) {
-      final shellCmd = cmd.substring(1).trim();
-      if (shellCmd.isEmpty) return;
-      if (shellCmd.startsWith('cd ') || shellCmd == 'cd') {
-        final target = shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
-        if (target == '..') {
-          _bashCwd = _bashCwd == '/'
-              ? '/'
-              : _bashCwd.substring(0, _bashCwd.lastIndexOf('/'));
-          if (_bashCwd.isEmpty) _bashCwd = '/';
-        } else if (target.startsWith('/')) {
-          _bashCwd = target;
-        } else if (target.isNotEmpty) {
-          _bashCwd = _bashCwd == '/' ? '/$target' : '$_bashCwd/$target';
-        }
-        _out('[ash] cd → $_bashCwd', Ln.system);
-      }
-      if (_shell != null && _shell!.initialized) {
-        _out('[ash] $shellCmd', Ln.system);
-        final extraEnv = _rootfs?.isInstalled == true
-            ? <String, String>{
-                'LD_PRELOAD': 'libnanoroot.so',
-                'NANO_ROOTFS': _shell!.usrDir!,
-                'LD_LIBRARY_PATH': '${_shell!.usrDir}/lib',
-                'HOME': '${_shell!.baseDir!}/home',
-                'PATH':
-                    '${_shell!.usrDir}/bin:${_shell!.usrDir}/bin/applets:/system/bin:/system/xbin',
-                'TERMUX': 'true',
-                'LANG': 'en_US.UTF-8',
-              }
-            : null;
-        final r = await _shell!.toybox([
-          'ash',
-          '-c',
-          shellCmd,
-        ], extraEnv: extraEnv);
-        _shellOut(r);
-      } else {
-        _out('! : shell no disponible (binarios no extraídos)', Ln.stderr);
-      }
-      return;
-    }
-    if (_hasShellOps(cmd)) {
-      // Host con sh real (Linux/macOS desktop): pipes/redirección/&& reales
-      // delegando a `sh -c` sobre el sandbox real. En Android manda toybox
-      // ash del motor NanoRuntime. Sin ninguno: error honesto.
-      if (!Platform.isAndroid && _realFs.hasRealShell) {
-        await _realFs.runShell(cmd, out: _out);
-        return;
-      }
-      if (_shell != null && _shell!.initialized) {
-        _out('[ash] $cmd', Ln.system);
-        final extraEnv = _rootfs?.isInstalled == true
-            ? _deps.rootfsEnv(ldPreload: 'libnanoroot.so')
-            : null;
-        final r = await _shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
-        _shellOut(r);
-        return;
-      }
-      _out('sh: no disponible (sin rootfs ni shell del host)', Ln.stderr);
-      return;
-    }
-    var parts = _tok(cmd);
-    if (parts.isNotEmpty && _ctx.aliases.containsKey(parts[0])) {
-      parts = _tok(_ctx.aliases[parts[0]]!);
-    }
-    if (parts.isEmpty) return;
-    final name = parts[0], args = parts.sublist(1);
-    if (name == 'bash' && _shell != null && _shell!.initialized) {
-      final shellCmd = args.isNotEmpty ? args.join(' ') : '-i';
-      _out('[ash] $shellCmd', Ln.system);
-      final r = await _shell!.toybox(['ash', '-c', shellCmd]);
-      _shellOut(r);
-      return;
-    }
-    if (name == 'toybox' && _shell != null && _shell!.initialized) {
-      final result = await _shell!.toybox(args);
-      _shellOut(result);
-      return;
-    }
-    if (realCommands.contains(name)) {
-      if (_shell != null && _shell!.initialized && Platform.isAndroid) {
-        final r = await _shell!.toybox([name, ...args]);
-        _shellOut(r);
-      } else if (!Platform.isAndroid &&
-          (_realFs.supports(name) || _realFs.hasRealShell)) {
-        // Desktop: binario real del host (sed/awk/tar/chmod... GNU reales)
-        // con fallback dart:io para el subconjunto soportado.
-        await _realFs.run(name, args, out: _out);
-        if (name == 'cd') _bashCwd = _realFs.cwd;
-      } else if (!Platform.isAndroid) {
-        _out('$name: no disponible (sin binarios en este host)', Ln.stderr);
-      } else {
-        _out('$name: shell engine not initialized.', Ln.stderr);
-      }
-      return;
-    }
-    // Fallback dart:io para comandos fuera de realCommands (tree, source)
-    // en hosts sin binarios Android.
-    if (!Platform.isAndroid && _realFs.supports(name)) {
-      await _realFs.run(name, args, out: _out);
-      if (name == 'cd') _bashCwd = _realFs.cwd;
-      return;
-    }
-    if (name == 'source') {
-      if (args.isEmpty) {
-        _out('source: falta archivo', Ln.stderr);
-        return;
-      }
-      if (_shell != null && _shell!.initialized) {
-        final r = await _shell!.toybox(['ash', '-c', 'source ${args[0]}']);
-        _shellOut(r);
-      } else {
-        _out('source: shell engine not initialized.', Ln.stderr);
-      }
-      return;
-    }
-    final handler = _cmds[name];
-    if (handler != null) {
-      final result = handler(args, _ctx, _out, _after);
-      if (result is Future) await result;
-    } else {
-      _out('$name: comando no encontrado. "help" para ver todos.', Ln.stderr);
-    }
-  }
 
   /// Vuelca la salida de un ShellResult en el buffer del terminal.
   void _shellOut(ShellResult r) {
@@ -964,7 +802,7 @@ class _TermState extends State<NanoTerminal> {
     }
   }
 
-  /// Handler global de teclado (HardwareKeyboard).  En modo PTY interactivo cada keydown se convierte a bytes y se envía al terminal (vim/htop/python necesitan teclas individuales, no líneas con Enter). Fuera de PTY conserva Ctrl+L/C de la shell integrada.
+  /// Handler global de teclado (HardwareKeyboard).  En modo PTY interactivo cada keydown se convierte a bytes y se envÃ­a al terminal (vim/htop/python necesitan teclas individuales, no lÃ­neas con Enter). Fuera de PTY conserva Ctrl+L/C de la shell integrada.
   bool _onKey(KeyEvent e) {
     if (e is! KeyDownEvent) {
       if (e is KeyUpEvent &&
@@ -1348,7 +1186,7 @@ class _TermState extends State<NanoTerminal> {
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                           hintText: _ptyActive
-                              ? 'terminal interactivo — escribe directo (Ctrl+C salir)'
+                              ? 'terminal interactivo â€” escribe directo (Ctrl+C salir)'
                               : 'comando o "ai <pregunta>"...',
                           hintStyle: TextStyle(
                             fontFamily: 'JetBrainsMono',

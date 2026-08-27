@@ -57,9 +57,6 @@ class CmdExecCtx {
   rootfsEnv;
   final void Function(ShellResult) shellOut;
 
-  // ── Real commands (rootfs toybox como fuente de verdad) ──
-  final Set<String> realCmds;
-
   // ── Tokenizer ──
   final List<String> Function(String) tokenize;
 
@@ -94,7 +91,6 @@ class CmdExecCtx {
     this.isAndroid = false,
     required this.rootfsEnv,
     required this.shellOut,
-    required this.realCmds,
     required this.tokenize,
     required this.ctx,
     required this.cmds,
@@ -316,7 +312,7 @@ class CommandExecutor {
     // (dart:io) — el usuario creía que el comando corría en Linux y
     // corría en Android. El rootfs es la fuente de verdad: su stderr se
     // muestra tal cual, sin fallback engañoso.
-    if (x.realCmds.contains(name)) {
+    if (realCommands.contains(name)) {
       if (x.shell != null && x.shell!.initialized) {
         final r = await x.shell!.toybox([name, ...args]);
         x.audit?.event(
