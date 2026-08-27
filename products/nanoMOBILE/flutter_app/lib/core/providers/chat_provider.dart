@@ -12,6 +12,7 @@ import '../services/device_info.dart';
 import '../services/chat_history_store.dart';
 import '../services/chat_system_prompt.dart';
 import '../services/llm_engine_client.dart';
+import '../services/nano_runtime_api.dart';
 import '../services/runtime_engine.dart';
 import '../../features/automation/engine/voice/voice_backends.dart';
 import '../../features/automation/engine/voice/voice_runtime.dart';
@@ -480,6 +481,23 @@ class ChatNotifier extends StateNotifier<ChatState> {
         ),
       );
       session.world.setActive(person: target);
+    } else {
+      // Sin target explícito: poblar desde la notificación más reciente
+      // (grounding real con evidencia, no adivinar). "respóndele" → sender.
+      final sender = await _latestNotificationSender();
+      if (sender != null && sender.isNotEmpty) {
+        session.world.setActive(person: sender);
+        session.world.remember(
+          sender,
+          ResolvedReference(
+            entity: sender,
+            source: ReferenceSource.notification,
+            confidence: 0.85,
+            evidence: 'notification sender',
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
     }
     return const TranscriptResolver().resolveTranscript(
       transcript,
@@ -492,6 +510,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
       r'\ba\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})',
     ).firstMatch(transcript);
     return m?.group(1);
+  }
+
+  /// Sender de la notificación activa más reciente (para grounding de voz).
+  Future<String?> _latestNotificationSender() async {
+    try {
+      final rows = await NanoRuntimeApi.instance.listActiveNotifications();
+      for (final raw in rows) {
+        if (raw is Map && raw['sender'] is String) {
+          final s = (raw['sender'] as String).trim();
+          if (s.isNotEmpty) return s;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> send(String text) async {
