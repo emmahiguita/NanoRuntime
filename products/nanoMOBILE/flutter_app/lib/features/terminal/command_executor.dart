@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'i_bin_executor.dart';
+import 'real_fs_shell.dart';
 import '../../core/services/rootfs_manager.dart';
 import '../../core/services/terminal_audit_logger.dart';
 import '../../core/services/pty_shell.dart';
@@ -42,6 +43,13 @@ class CmdExecCtx {
   final IBinExecutor? shell;
   String bashCwd;
   final RootfsManager? rootfs;
+
+  /// Filesystem shell REAL del host (desktop Linux/macOS). null en Android
+  /// (ahí manda NanoRuntime/toybox). Inyectado para tests con fake.
+  final RealFsShell? realFs;
+
+  /// true si la plataforma es Android. Inyectado para tests (fakes).
+  final bool isAndroid;
   final Map<String, String> Function({
     String? ldPreload,
     Map<String, String>? extra,
@@ -82,6 +90,8 @@ class CmdExecCtx {
     required this.shell,
     required this.bashCwd,
     required this.rootfs,
+    this.realFs,
+    this.isAndroid = false,
     required this.rootfsEnv,
     required this.shellOut,
     required this.realCmds,
@@ -131,9 +141,10 @@ class CommandExecutor {
           command: cmd,
           byteCount: cmd.length + 1,
         );
-        // P2: cmd.codeUnits (UTF-16) rompía cualquier comando con acentos o
-        // emojis escritos al PTY. El PTY espera UTF-8 + CR.
-        x.pty!.writeBytes([...utf8.encode(cmd), 0x0d]);
+        // _onKey ya transmitió cada tecla (UTF-8 via keyToPtyBytes) al PTY
+        // conforme se tecleó. Aquí solo se envía CR (Enter). Reenviar el
+        // comando completo duplicaría cada carácter (regresión real).
+        x.pty!.writeBytes([0x0d]);
       }
       return;
     }
@@ -232,22 +243,31 @@ class CommandExecutor {
     }
 
     // ── Detección pipes/redirección → ash -c ──
-    if (x.hasShellOps(cmd) && x.shell != null && x.shell!.initialized) {
-      x.out('[ash] $cmd', Ln.system);
-      final extraEnv = x.rootfs?.isInstalled == true
-          ? x.rootfsEnv(ldPreload: 'libnanoroot.so')
-          : null;
-      final r = await x.shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
-      x.audit?.event(
-        'command.shell.result',
-        layer: 'shell',
-        traceId: traceId,
-        command: cmd,
-        exitCode: r.exitCode,
-        duration: started.elapsed,
-        data: {'path': 'shell_ops'},
-      );
-      x.shellOut(r);
+    if (x.hasShellOps(cmd)) {
+      // Desktop: sh real del host (pipes/redirección/&& reales).
+      if (!x.isAndroid && x.realFs?.hasRealShell == true) {
+        await x.realFs!.runShell(cmd, out: x.out);
+        return;
+      }
+      if (x.shell != null && x.shell!.initialized) {
+        x.out('[ash] $cmd', Ln.system);
+        final extraEnv = x.rootfs?.isInstalled == true
+            ? x.rootfsEnv(ldPreload: 'libnanoroot.so')
+            : null;
+        final r = await x.shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
+        x.audit?.event(
+          'command.shell.result',
+          layer: 'shell',
+          traceId: traceId,
+          command: cmd,
+          exitCode: r.exitCode,
+          duration: started.elapsed,
+          data: {'path': 'shell_ops'},
+        );
+        x.shellOut(r);
+        return;
+      }
+      x.out('sh: no disponible (sin rootfs ni shell del host)', Ln.stderr);
       return;
     }
 
@@ -312,7 +332,41 @@ class CommandExecutor {
         x.shellOut(r);
         return;
       }
+      if (!x.isAndroid &&
+          (x.realFs?.supports(name) == true ||
+              x.realFs?.hasRealShell == true)) {
+        // Desktop: binario real del host con fallback dart:io.
+        await x.realFs!.run(name, args, out: x.out);
+        if (name == 'cd') x.bashCwd = x.realFs!.cwd;
+        return;
+      }
+      if (!x.isAndroid) {
+        x.out('$name: no disponible (sin binarios en este host)', Ln.stderr);
+        return;
+      }
       x.out('$name: shell engine not initialized.', Ln.stderr);
+      return;
+    }
+
+    // ── Fallback dart:io (desktop, comandos fuera de realCommands) ──
+    if (!x.isAndroid && x.realFs?.supports(name) == true) {
+      await x.realFs!.run(name, args, out: x.out);
+      if (name == 'cd') x.bashCwd = x.realFs!.cwd;
+      return;
+    }
+
+    // ── source: ejecuta un script línea a línea ──
+    if (name == 'source') {
+      if (args.isEmpty) {
+        x.out('source: falta archivo', Ln.stderr);
+        return;
+      }
+      if (x.shell != null && x.shell!.initialized) {
+        final r = await x.shell!.toybox(['ash', '-c', 'source ${args[0]}']);
+        x.shellOut(r);
+      } else {
+        x.out('source: shell engine not initialized.', Ln.stderr);
+      }
       return;
     }
 
