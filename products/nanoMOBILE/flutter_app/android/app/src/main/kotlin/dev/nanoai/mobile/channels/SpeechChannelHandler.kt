@@ -1,9 +1,11 @@
 package dev.nanoai.mobile.channels
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -33,6 +35,10 @@ class SpeechChannelHandler(
         /** Reconocedor de habla real (Google Search). Algunos OEM registran el
          *  stub TTS como voice_recognition_service; forzamos GSA para habla libre. */
         private const val GOOGLE_RECOGNIZER = "com.google.android.googlequicksearchbox"
+
+        /** Servicio de reconocimiento de Google Search (habla libre real). */
+        private const val GOOGLE_RECOGNIZER_SERVICE =
+            "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -133,7 +139,7 @@ class SpeechChannelHandler(
             result.error("speech_unavailable", "Reconocimiento de voz no disponible", null)
             return
         }
-        val rec = SpeechRecognizer.createSpeechRecognizer(context)
+        val rec = createRecognizer()
         recognizer = rec
         rec.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
@@ -167,12 +173,27 @@ class SpeechChannelHandler(
             // Algunos proveedores lo ignoran; es un hint, no un hard fail.
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         }
-        // Prefiere el reconocedor de habla REAL (Google Search) sobre el stub TTS
-        // que algunos OEM registran como voice_recognition_service. Sin esto, el
-        // reconocimiento de habla libre reporta "no disponible" o no transcribe.
-        if (context.packageManager.getLaunchIntentForPackage(GOOGLE_RECOGNIZER) != null) {
-            intent.setPackage(GOOGLE_RECOGNIZER)
-        }
         rec.startListening(intent)
+    }
+
+    /**
+     * Lógica REAL de audio: vincula el reconocedor de habla libre de Google
+     * Search. El sistema por defecto apunta al stub TTS (`voice_recognition_service`
+     * = GoogleTTSRecognitionService) que NO transcribe habla general — por eso
+     * "micrófono no disponible". API 33+ permite elegir el ComponentName exacto.
+     * Fallback al reconocedor del sistema si Google Search no está disponible.
+     */
+    private fun createRecognizer(): SpeechRecognizer {
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                return SpeechRecognizer.createSpeechRecognizer(
+                    context,
+                    ComponentName(GOOGLE_RECOGNIZER, GOOGLE_RECOGNIZER_SERVICE),
+                )
+            } catch (_: Exception) {
+                // Componente no disponible: fallback al reconocedor por defecto.
+            }
+        }
+        return SpeechRecognizer.createSpeechRecognizer(context)
     }
 }
