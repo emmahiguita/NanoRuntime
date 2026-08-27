@@ -1,7 +1,9 @@
 package dev.nanoai.mobile.channels
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -27,6 +29,10 @@ class SpeechChannelHandler(
 
     companion object {
         const val CHANNEL_NAME = "com.nanoai/speech"
+
+        /** Reconocedor de habla real (Google Search). Algunos OEM registran el
+         *  stub TTS como voice_recognition_service; forzamos GSA para habla libre. */
+        private const val GOOGLE_RECOGNIZER = "com.google.android.googlequicksearchbox"
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -110,6 +116,19 @@ class SpeechChannelHandler(
     }
 
     private fun startListening(language: String, result: MethodChannel.Result) {
+        // A16: RECORD_AUDIO es permiso runtime. Sin él, SpeechRecognizer falla
+        // con ERROR_INSUFFICIENT_PERMISSIONS. Reportamos un error tipado para
+        // que Dart solicite el permiso (aquí solo hay Context, no Activity).
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            result.error(
+                "mic_permission_denied",
+                "Permiso de micrófono no concedido",
+                null,
+            )
+            return
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             result.error("speech_unavailable", "Reconocimiento de voz no disponible", null)
             return
@@ -147,6 +166,12 @@ class SpeechChannelHandler(
             // Reconocimiento offline preferido (privacidad + funciona sin red).
             // Algunos proveedores lo ignoran; es un hint, no un hard fail.
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+        }
+        // Prefiere el reconocedor de habla REAL (Google Search) sobre el stub TTS
+        // que algunos OEM registran como voice_recognition_service. Sin esto, el
+        // reconocimiento de habla libre reporta "no disponible" o no transcribe.
+        if (context.packageManager.getLaunchIntentForPackage(GOOGLE_RECOGNIZER) != null) {
+            intent.setPackage(GOOGLE_RECOGNIZER)
         }
         rec.startListening(intent)
     }

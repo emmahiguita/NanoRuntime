@@ -802,6 +802,29 @@ class NanoRuntimeApi {
       return await _speech.invokeMethod<String>('startListening', {
         'language': language,
       });
+    } on PlatformException catch (e) {
+      // A16: sin RECORD_AUDIO concedido, el nativo reporta mic_permission_denied.
+      // Se solicita el permiso runtime y se reintenta UNA vez (método real de
+      // permisos: el diálogo del sistema concede y el reconocimiento continúa).
+      if (e.code == 'mic_permission_denied') {
+        final granted = await requestRuntimePermissions();
+        if (granted) {
+          try {
+            return await _speech.invokeMethod<String>('startListening', {
+              'language': language,
+            });
+          } catch (e2) {
+            debugPrint('[runtime] startVoiceRecognition reintento error: $e2');
+            return null;
+          }
+        }
+        debugPrint(
+          '[runtime] startVoiceRecognition: micrófono denegado por el usuario',
+        );
+        return null;
+      }
+      debugPrint('[runtime] startVoiceRecognition error: $e');
+      return null;
     } catch (e) {
       debugPrint('[runtime] startVoiceRecognition error: $e');
       return null;
