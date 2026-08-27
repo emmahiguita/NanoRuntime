@@ -11,6 +11,8 @@ library;
 
 import 'dart:async';
 
+import 'conversation/conversational_world_state.dart';
+import 'conversation/grounding_resolver.dart';
 import 'execution_cancellation.dart';
 
 /// Estado tipado de la sesión de voz (sin bool soup).
@@ -109,6 +111,15 @@ class VoiceSessionManager {
 
   final _stateController = StreamController<VoiceSessionState>.broadcast();
   final VoiceConversationContext context = VoiceConversationContext();
+
+  /// A16 — estado del mundo conversacional (entidades grounded con evidencia).
+  final ConversationalWorldState world = ConversationalWorldState();
+  final GroundingResolver _grounding = const GroundingResolver();
+
+  /// Resuelve un pronombre/referencia ("respóndele", "esa app") a la entidad
+  /// grounded activa. null = ambiguo/sin evidencia (el llamador pide aclaración).
+  String? resolveReference(String reference) =>
+      _grounding.resolve(reference, world);
 
   Stream<VoiceSessionState> get states => _stateController.stream;
   VoiceSessionState _state = VoiceSessionState.idle;
