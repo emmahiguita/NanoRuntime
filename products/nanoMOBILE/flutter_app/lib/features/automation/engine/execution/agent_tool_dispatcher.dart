@@ -830,6 +830,19 @@ class AgentToolDispatcher {
           return '[tool] force_stop_package requiere <packageName>.';
         }
         return _shizukuForceStop(pkgArg2);
+      case 'install_package':
+        final apkArg = (call.textArg ?? call.selectorArg ?? '').trim();
+        if (apkArg.isEmpty) {
+          return '[tool] install_package requiere <apkPath>.';
+        }
+        return _shizukuInstall(apkArg);
+      case 'grant_specific_permission':
+        final pkgArg3 = (call.textArg ?? call.selectorArg ?? '').trim();
+        final permArg = ((call.args?['permission'] as String?) ?? '').trim();
+        if (pkgArg3.isEmpty || permArg.isEmpty) {
+          return '[tool] grant_specific_permission requiere <packageName> y permission.';
+        }
+        return _shizukuGrant(pkgArg3, permArg);
       case 'reply_notification':
         final key = call.keyArg?.trim() ?? '';
         final text = call.textArg?.trim() ?? '';
@@ -1403,6 +1416,48 @@ class AgentToolDispatcher {
     }
     return 'Detención solicitada de "$pkg". No se pudo verificar el estado '
         'del proceso (visibilidad restringida).';
+  }
+
+  /// A14.4 — instala un APK local (irreversible). Verifica autorización Shizuku
+  /// ANTES; ruta validada por el nativo. Gobernada arriba (riesgo install).
+  Future<String> _shizukuInstall(String apkPath) async {
+    if (apkPath.isEmpty) {
+      return '[tool] install_package: ruta inválida.';
+    }
+    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
+    if (shizuku['installed'] != true) {
+      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
+    }
+    if (shizuku['binderAlive'] != true ||
+        shizuku['permissionGranted'] != true) {
+      return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
+          'Usa @conceder shizuku.';
+    }
+    final ok = await NanoRuntimeApi.instance.shizukuInstall(apkPath);
+    return ok
+        ? 'Instalación solicitada para "$apkPath".'
+        : '[install:failed] No se pudo instalar (¿ruta existe?).';
+  }
+
+  /// A14.4 — concede un permiso runtime (cambia seguridad). Verifica
+  /// autorización Shizuku ANTES. Gobernada arriba (riesgo grant).
+  Future<String> _shizukuGrant(String packageName, String permission) async {
+    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
+    if (shizuku['installed'] != true) {
+      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
+    }
+    if (shizuku['binderAlive'] != true ||
+        shizuku['permissionGranted'] != true) {
+      return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
+          'Usa @conceder shizuku.';
+    }
+    final ok = await NanoRuntimeApi.instance.shizukuGrantPermission(
+      packageName,
+      permission,
+    );
+    return ok
+        ? 'Permiso "$permission" solicitado para "$packageName".'
+        : '[grant:failed] No se pudo conceder el permiso.';
   }
 
   /// Responde a una notificación desde el chat con control humano (A14.5).  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o

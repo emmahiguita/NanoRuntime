@@ -829,7 +829,7 @@ class NanoRuntimeApi {
     }
   }
 
-  /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible).
+  /// A14.4 — acción Shizuku TIPADA: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.
   Future<bool> shizukuForceStop(String packageName) async {
@@ -840,6 +840,38 @@ class NanoRuntimeApi {
           true;
     } catch (e) {
       debugPrint('[runtime] shizukuForceStop error: $e');
+      return false;
+    }
+  }
+
+  /// A14.4 — acción Shizuku TIPADA (irreversible): instala un APK desde ruta
+  /// local. Gobernada arriba (riesgo install). El nativo valida que la ruta exista.
+  Future<bool> shizukuInstall(String apkPath) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>('shizukuInstall', {
+            'apkPath': apkPath,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuInstall error: $e');
+      return false;
+    }
+  }
+
+  /// A14.4 — acción Shizuku TIPADA (cambia seguridad): concede un permiso
+  /// runtime a un paquete. Gobernada arriba (riesgo grant).
+  Future<bool> shizukuGrantPermission(
+    String packageName,
+    String permission,
+  ) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>(
+            'shizukuGrantPermission',
+            {'packageName': packageName, 'permission': permission},
+          ) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuGrantPermission error: $e');
       return false;
     }
   }

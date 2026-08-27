@@ -77,6 +77,12 @@ class DevicePermissionsChannelHandler(
                 call.argument<String>("packageName"),
                 result,
             )
+            "shizukuInstall" -> shizukuInstall(call.argument<String>("apkPath"), result)
+            "shizukuGrantPermission" -> shizukuGrantPermission(
+                call.argument<String>("packageName"),
+                call.argument<String>("permission"),
+                result,
+            )
             "systemState" -> result.success(systemState())
             "openUrl" -> result.success(openUrl(call.argument<String>("url")))
             "requestRuntime" -> requestRuntimePermissions(result)
@@ -246,14 +252,17 @@ class DevicePermissionsChannelHandler(
      * en el proceso Shizuku (privilegios). Solo packageName validado; el estado
      * de autorización se valida (a nivel de broker) ANTES de llegar aquí.
      */
-    private fun shizukuForceStop(packageName: String?, result: MethodChannel.Result) {
-        val pkg = packageName?.trim().orEmpty()
-        if (pkg.isEmpty() || pkg.length > 255 ||
-            !pkg.matches(Regex("[a-zA-Z][a-zA-Z0-9._]*"))
-        ) {
-            result.success(false)
-            return
-        }
+    private fun validPkg(pkg: String): Boolean =
+        pkg.isNotEmpty() &&
+            pkg.length <= 255 &&
+            pkg.matches(Regex("[a-zA-Z][a-zA-Z0-9._]*"))
+
+    /**
+     * Helper: vincula el UserService Shizuku, ejecuta [block] sobre el Stub y
+     * resuelve el resultado en el main thread. Un solo camino de bind para todas
+     * las acciones Shizuku tipadas (forceStop/install/grant).
+     */
+    private fun shizukuCall(result: MethodChannel.Result, block: (IPackageAction) -> Boolean) {
         val args = Shizuku.UserServiceArgs(
             ComponentName(activity, PackageActionService::class.java),
         )
@@ -261,7 +270,7 @@ class DevicePermissionsChannelHandler(
             override fun onServiceConnected(name: ComponentName, service: IBinder) {
                 val stub = IPackageAction.Stub.asInterface(service)
                 val ok = try {
-                    stub.forceStop(pkg)
+                    block(stub)
                 } catch (_: Throwable) {
                     false
                 }
@@ -279,9 +288,43 @@ class DevicePermissionsChannelHandler(
         }
         try {
             Shizuku.bindUserService(args, connection)
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             result.success(false)
         }
+    }
+
+    private fun shizukuForceStop(packageName: String?, result: MethodChannel.Result) {
+        val pkg = packageName?.trim().orEmpty()
+        if (!validPkg(pkg)) {
+            result.success(false)
+            return
+        }
+        shizukuCall(result) { it.forceStop(pkg) }
+    }
+
+    /** A14.4 — instala un APK local (irreversible, gobernado arriba). */
+    private fun shizukuInstall(apkPath: String?, result: MethodChannel.Result) {
+        val path = apkPath?.trim().orEmpty()
+        if (path.isEmpty()) {
+            result.success(false)
+            return
+        }
+        shizukuCall(result) { it.installPackage(path) }
+    }
+
+    /** A14.4 — concede un permiso runtime (cambia seguridad, gobernado arriba). */
+    private fun shizukuGrantPermission(
+        packageName: String?,
+        permission: String?,
+        result: MethodChannel.Result,
+    ) {
+        val pkg = packageName?.trim().orEmpty()
+        val perm = permission?.trim().orEmpty()
+        if (!validPkg(pkg) || perm.isEmpty()) {
+            result.success(false)
+            return
+        }
+        shizukuCall(result) { it.grantPermission(pkg, perm) }
     }
 
     /**

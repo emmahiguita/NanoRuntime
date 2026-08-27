@@ -252,6 +252,23 @@ class ToolRegistry {
       description:
           'Detener una aplicación con privilegios Shizuku (reversible)',
     ),
+    // A14.4: instalar APK y conceder permiso (privilegios Shizuku). Irreversible/
+    // cambia seguridad → externalWrite + confirmación obligatoria.
+    ToolDefinition(
+      name: 'install_package',
+      risk: ToolRisk.externalWrite,
+      requiresConfirmation: true,
+      timeout: Duration(seconds: 60),
+      description:
+          'Instalar un APK local con privilegios Shizuku (irreversible)',
+    ),
+    ToolDefinition(
+      name: 'grant_specific_permission',
+      risk: ToolRisk.externalWrite,
+      requiresConfirmation: true,
+      timeout: Duration(seconds: 15),
+      description: 'Conceder un permiso runtime a un paquete con Shizuku',
+    ),
   ];
 
   /// Resuelve [name] (con alias) al registro canónico; null si no existe.

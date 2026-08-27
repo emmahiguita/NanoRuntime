@@ -1,10 +1,13 @@
 package dev.nanoai.mobile.shizuku
 
 import android.app.ActivityManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.os.IBinder
+import java.io.File
 
 /**
  * A14.4 — UserService de Shizuku que ejecuta operaciones TIPADAS de paquete con
@@ -45,6 +48,63 @@ class PackageActionService : Service() {
                 }
             } catch (_: Exception) {
                 ""
+            }
+        }
+
+        override fun installPackage(apkPath: String): Boolean {
+            val path = apkPath.trim()
+            if (path.isEmpty()) return false
+            val file = File(path)
+            if (!file.exists() || !file.isFile) return false
+            return try {
+                // PackageInstaller es la API PÚBLICA de instalación. Con el
+                // contexto Shizuku (uid shell) tiene privilegios para instalar.
+                val installer = packageManager.packageInstaller
+                val params = PackageInstaller.SessionParams(
+                    PackageInstaller.SessionParams.MODE_FULL_INSTALL,
+                )
+                val sessionId = installer.createSession(params)
+                val session = installer.openSession(sessionId)
+                try {
+                    session.openWrite("nano.apk", 0, -1).use { out ->
+                        file.inputStream().use { it.copyTo(out) }
+                    }
+                    val intent = Intent("dev.nanoai.mobile.INSTALL_DONE").apply {
+                        setPackage(packageName)
+                    }
+                    val sender = PendingIntent.getBroadcast(
+                        this@PackageActionService,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    ).intentSender
+                    session.commit(sender)
+                } finally {
+                    session.close()
+                }
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        }
+
+        override fun grantPermission(packageName: String, permission: String): Boolean {
+            val pkg = packageName.trim()
+            val perm = permission.trim()
+            if (!isValidPackage(pkg) || perm.isEmpty()) return false
+            // grantRuntimePermission es @hide. Reflection en contexto Shizuku.
+            // Solo permissionName validado; UserHandle es público.
+            return try {
+                val method = packageManager.javaClass.getMethod(
+                    "grantRuntimePermission",
+                    String::class.java,
+                    String::class.java,
+                    android.os.UserHandle::class.java,
+                )
+                method.invoke(packageManager, pkg, perm, android.os.Process.myUserHandle())
+                true
+            } catch (_: Throwable) {
+                false
             }
         }
     }

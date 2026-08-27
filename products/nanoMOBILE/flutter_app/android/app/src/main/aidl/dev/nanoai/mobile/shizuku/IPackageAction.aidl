@@ -10,4 +10,10 @@ interface IPackageAction {
 
     // Consulta el estado de un paquete con privilegios.
     String queryPackage(String packageName);
+
+    // Instala un APK desde una ruta local (irreversible; gobernado arriba).
+    boolean installPackage(String apkPath);
+
+    // Concede un permiso runtime a un paquete (cambia seguridad; gobernado).
+    boolean grantPermission(String packageName, String permission);
 }
