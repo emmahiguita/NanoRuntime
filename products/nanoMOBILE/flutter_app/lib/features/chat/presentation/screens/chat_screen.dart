@@ -1,32 +1,27 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
-import 'package:nanoai/features/automation/engine/voice/voice_runtime.dart';
-import 'package:nanoai/features/automation/presentation/widgets/nano_voice_orb.dart';
 import '../widgets/chat_composer.dart';
-import 'package:nanoai/core/services/pdf_report_service.dart';
+import '../widgets/chat_messages.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// Pantalla Chat â€” identidad visual de Inicio (glassmorphism, sin AppBar).
+/// Pantalla Chat Ã¢â‚¬â€ identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
-/// Los nombres de estado y mÃ©todos son los REALES de ChatNotifier:
+/// Los nombres de estado y mÃƒÂ©todos son los REALES de ChatNotifier:
 /// `send(text)`, `stop()`, `refreshEngine()`. El motor nunca se simula:
-/// cuando no estÃ¡ disponible, el envÃ­o queda desactivado y la UI lo dice.
+/// cuando no estÃƒÂ¡ disponible, el envÃƒÂ­o queda desactivado y la UI lo dice.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -39,15 +34,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
 
   // Dictado por voz real (speech_to_text) y adjunto de archivos real
-  // (file_picker â†’ SAF de Android). Ambos fallan a mensaje honesto,
-  // nunca a excepciÃ³n suelta.
+  // (file_picker Ã¢â€ â€™ SAF de Android). Ambos fallan a mensaje honesto,
+  // nunca a excepciÃƒÂ³n suelta.
   late final SpeechToText _speech;
   bool _speechEnabled = false;
   bool _listening = false;
   bool _isComposerMinimized = false;
   bool _isReadingMode = false;
 
-  /// MÃ¡ximo de caracteres de un archivo adjunto que se insertan en el input.
+  /// MÃƒÂ¡ximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
   static const _maxAttachBytes = 64 * 1024;
 
@@ -94,13 +89,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           onError: (error) {
             if (!mounted) return;
             setState(() => _listening = false);
-            _showHonestError('MicrÃ³fono no disponible: $error');
+            _showHonestError('MicrÃƒÂ³fono no disponible: $error');
           },
         );
       } catch (e) {
         _speechEnabled = false;
         if (!mounted) return;
-        _showHonestError('MicrÃ³fono no disponible: $e');
+        _showHonestError('MicrÃƒÂ³fono no disponible: $e');
         return;
       }
       if (!_speechEnabled) {
@@ -158,14 +153,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (byteLength > _maxAttachBytes) {
         _showHonestError(
           'El archivo supera ${_maxAttachBytes ~/ 1024} KB. '
-          'Adjunta un fragmento de texto mÃ¡s pequeÃ±o.',
+          'Adjunta un fragmento de texto mÃƒÂ¡s pequeÃƒÂ±o.',
         );
         return;
       }
       final bytes = await selected.readAsBytes();
       final text = utf8.decode(bytes, allowMalformed: true);
 
-      // HeurÃ­stica honesta: si el contenido no es texto imprimible, no sirve.
+      // HeurÃƒÂ­stica honesta: si el contenido no es texto imprimible, no sirve.
       if (text.trim().isEmpty ||
           text.contains('\u0000') ||
           _looksBinary(text)) {
@@ -177,7 +172,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final clipped = text.length > _maxAttachChars
-          ? '${text.substring(0, _maxAttachChars)}\nâ€¦[truncado]'
+          ? '${text.substring(0, _maxAttachChars)}\nÃ¢â‚¬Â¦[truncado]'
           : text;
       ref
           .read(chatProvider.notifier)
@@ -229,18 +224,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         screenSize.width > screenSize.height && screenSize.height < 520;
     // El teclado no debe cambiar la variante del compositor: hacerlo causaba
     // un segundo reflow (controles que aparecen/desaparecen) justo al enfocar
-    // el campo. Solo el ancho/orientaciÃ³n definen la composiciÃ³n compacta.
+    // el campo. Solo el ancho/orientaciÃƒÂ³n definen la composiciÃƒÂ³n compacta.
     final compactComposer = isNarrow || isCompactLandscape;
 
-    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generaciÃ³n.
+    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generaciÃƒÂ³n.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
       _scrollToBottom();
     });
     ref.listen(chatProvider.select((s) => s.generating), (_, __) {
       _scrollToBottom();
     });
-    // PolÃ­tica Â§12: el tool-calling pidiÃ³ una escritura externa â€” diÃ¡logo de
-    // confirmaciÃ³n obligatorio (sin dismiss lateral: decisiÃ³n del humano).
+    // PolÃƒÂ­tica Ã‚Â§12: el tool-calling pidiÃƒÂ³ una escritura externa Ã¢â‚¬â€ diÃƒÂ¡logo de
+    // confirmaciÃƒÂ³n obligatorio (sin dismiss lateral: decisiÃƒÂ³n del humano).
     ref.listen(chatProvider.select((s) => s.pendingTool), (prev, next) {
       if (next != null && prev != next) {
         _showToolConfirmDialog(next);
@@ -249,9 +244,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
-      // El shell conserva su geometrÃ­a cuando aparece el teclado. El
+      // El shell conserva su geometrÃƒÂ­a cuando aparece el teclado. El
       // compositor se mueve de manera independiente sobre el inset para no
-      // desplazar lista, encabezado ni contenido ya leÃ­do.
+      // desplazar lista, encabezado ni contenido ya leÃƒÂ­do.
       hideHeader: _isReadingMode,
       resizeToAvoidBottomInset: false,
       trailing: Row(
@@ -271,7 +266,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           if (state.messages.isNotEmpty)
             IconButton(
-              tooltip: 'Limpiar conversaciÃ³n',
+              tooltip: 'Limpiar conversaciÃƒÂ³n',
               onPressed: state.generating
                   ? null
                   : () => _showClearDialog(notifier),
@@ -298,7 +293,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
-                  // mÃ¡rgenes muertos); se mantiene una cota por legibilidad.
+                  // mÃƒÂ¡rgenes muertos); se mantiene una cota por legibilidad.
                   maxWidth: isCompactLandscape ? 1440 : 1400,
                 ),
                 child: Stack(
@@ -307,7 +302,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: state.messages.isEmpty
                           ? Padding(
                               padding: const EdgeInsets.only(bottom: 94),
-                              child: _EmptyChat(
+                              child: EmptyChat(
                                 engineOnline: state.engineOnline,
                                 hasModel: state.activeModelPath != null,
                                 onSuggestion: (text) {
@@ -324,7 +319,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 isCompactLandscape ? 10 : 18,
                                 8,
                                 isCompactLandscape ? 10 : 18,
-                                // Reserva estable para que la Ãºltima
+                                // Reserva estable para que la ÃƒÂºltima
                                 // respuesta nunca quede bajo la barra.
                                 112 + mediaQuery.padding.bottom,
                               ),
@@ -333,7 +328,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   (state.generating ? 1 : 0),
                               itemBuilder: (context, index) {
                                 if (index == state.messages.length) {
-                                  return _StreamingBubble(
+                                  return StreamingBubble(
                                     text: state.streamingText,
                                     model: state.activeModel,
                                   );
@@ -355,7 +350,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             notifier,
                                             message,
                                           ),
-                                    child: _MessageBubble(
+                                    child: MessageBubble(
                                       text: message.text,
                                       isUser: isUser,
                                       model: state.activeModel,
@@ -381,7 +376,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
 
                     // Android ya redimensiona esta Activity con adjustResize.
-                    // No sumar viewInsets aquÃ­: era un segundo desplazamiento
+                    // No sumar viewInsets aquÃƒÂ­: era un segundo desplazamiento
                     // que elevaba el compositor completo al abrir el teclado.
                     if (!_isReadingMode)
                       Positioned(
@@ -409,7 +404,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   // comandos deterministas (p. ej.
                                   // notificaciones) usan Android nativo
                                   // y deben funcionar con el motor parado.
-                                  // Si el texto sÃ­ necesita LLM, send()
+                                  // Si el texto sÃƒÂ­ necesita LLM, send()
                                   // devuelve el error de modelo honesto.
                                   enabled: !state.generating,
                                   generating: state.generating,
@@ -440,7 +435,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  /// DiÃ¡logo de confirmaciÃ³n para limpiar todo el historial.
+  /// DiÃƒÂ¡logo de confirmaciÃƒÂ³n para limpiar todo el historial.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final confirmed = await showNanoModalDialog<bool>(
@@ -452,11 +447,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Â¿Limpiar conversaciÃ³n?',
+          'Ã‚Â¿Limpiar conversaciÃƒÂ³n?',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
-          'Se eliminarÃ¡n todos los mensajes. Esta acciÃ³n no se puede deshacer.',
+          'Se eliminarÃƒÂ¡n todos los mensajes. Esta acciÃƒÂ³n no se puede deshacer.',
           style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
         ),
         actions: [
@@ -477,7 +472,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// DiÃ¡logo de confirmaciÃ³n para eliminar un mensaje individual.
+  /// DiÃƒÂ¡logo de confirmaciÃƒÂ³n para eliminar un mensaje individual.
   Future<void> _showDeleteDialog(
     ChatNotifier notifier,
     ChatMessage message,
@@ -492,12 +487,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Â¿Eliminar mensaje?',
+          'Ã‚Â¿Eliminar mensaje?',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
           message.text.length > 80
-              ? '"${message.text.substring(0, 80)}â€¦"'
+              ? '"${message.text.substring(0, 80)}Ã¢â‚¬Â¦"'
               : '"${message.text}"',
           style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
           maxLines: 3,
@@ -521,9 +516,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// DiÃ¡logo de confirmaciÃ³n de herramienta. DecisiÃ³n obligatoria del
-  /// humano: aprobar ejecuta la acciÃ³n (confirmed), rechazar la cancela con
-  /// evidencia en el trace. Si la pantalla se desmonta sin decisiÃ³n, el
+  /// DiÃƒÂ¡logo de confirmaciÃƒÂ³n de herramienta. DecisiÃƒÂ³n obligatoria del
+  /// humano: aprobar ejecuta la acciÃƒÂ³n (confirmed), rechazar la cancela con
+  /// evidencia en el trace. Si la pantalla se desmonta sin decisiÃƒÂ³n, el
   /// pendiente queda descartado por el siguiente send().
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
@@ -538,7 +533,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Confirmar acciÃ³n "$tool"',
+          'Confirmar acciÃƒÂ³n "$tool"',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
@@ -571,7 +566,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
 /// Mantiene anclado el compositor al borde inferior durante el cambio de
 /// estado. La escala y el deslizamiento conservan la continuidad espacial sin
-/// convertir la minimizaciÃ³n en un simple fundido.
+/// convertir la minimizaciÃƒÂ³n en un simple fundido.
 class _ComposerTransition extends StatelessWidget {
   const _ComposerTransition({required this.child});
 
@@ -616,9 +611,9 @@ class _ComposerTransition extends StatelessWidget {
 // ================================================================
 
 /// Modo lectura REAL: superficie serena de bajo deslumbramiento, columna
-/// centrada legible (720px), tipografÃ­a amplia (17px/1.75), barra de progreso
+/// centrada legible (720px), tipografÃƒÂ­a amplia (17px/1.75), barra de progreso
 /// y salida elegante. Abandona el chrome del chat para enfocarse en el
-/// contenido â€” no es un simple ocultar barra.
+/// contenido Ã¢â‚¬â€ no es un simple ocultar barra.
 class _ReadingMode extends StatefulWidget {
   const _ReadingMode({
     required this.messages,
@@ -678,7 +673,7 @@ class _ReadingModeState extends State<_ReadingMode> {
         Positioned.fill(
           child: Center(
             child: ConstrainedBox(
-              // 680 dp mantiene 65â€“75 caracteres por lÃ­nea en texto de 18dp,
+              // 680 dp mantiene 65Ã¢â‚¬â€œ75 caracteres por lÃƒÂ­nea en texto de 18dp,
               // rango editorial que reduce los saltos oculares en lectura.
               constraints: const BoxConstraints(maxWidth: 680),
               child: ListView.builder(
@@ -701,7 +696,7 @@ class _ReadingModeState extends State<_ReadingMode> {
           right: 0,
           child: _ReadingProgress(scroll: _scroll),
         ),
-        // Salida elegante: pÃ­ldora de vidrio fija, siempre accesible.
+        // Salida elegante: pÃƒÂ­ldora de vidrio fija, siempre accesible.
         Positioned(
           top: 8,
           right: 12,
@@ -713,7 +708,7 @@ class _ReadingModeState extends State<_ReadingMode> {
     if (reduceMotion) return surface;
 
     // Entrada inmersiva: fundido + escala suave al abrir el modo lectura
-    // (transiciÃ³n glass, respeta reduce-motion).
+    // (transiciÃƒÂ³n glass, respeta reduce-motion).
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 280),
@@ -729,7 +724,7 @@ class _ReadingModeState extends State<_ReadingMode> {
   }
 }
 
-/// Barra de progreso de lectura: refleja la fracciÃ³n de scroll de forma sutil.
+/// Barra de progreso de lectura: refleja la fracciÃƒÂ³n de scroll de forma sutil.
 class _ReadingProgress extends StatefulWidget {
   const _ReadingProgress({required this.scroll});
 
@@ -760,8 +755,8 @@ class _ReadingProgressState extends State<_ReadingProgress> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final pos = widget.scroll.hasClients ? widget.scroll.position : null;
-    // hasViewportDimension: antes del layout el viewport no fijÃ³ su dimensiÃ³n
-    // y maxScrollExtent es null (acceder a Ã©l revienta con un null-check).
+    // hasViewportDimension: antes del layout el viewport no fijÃƒÂ³ su dimensiÃƒÂ³n
+    // y maxScrollExtent es null (acceder a ÃƒÂ©l revienta con un null-check).
     if (pos == null || !pos.hasViewportDimension) {
       return const SizedBox(height: 2.5);
     }
@@ -793,7 +788,7 @@ class _ReadingProgressState extends State<_ReadingProgress> {
   }
 }
 
-/// PÃ­ldora de vidrio para salir del modo lectura (con texto, no solo icono).
+/// PÃƒÂ­ldora de vidrio para salir del modo lectura (con texto, no solo icono).
 class _ReadingExitPill extends StatelessWidget {
   const _ReadingExitPill({required this.onExit});
 
@@ -838,7 +833,7 @@ class _ReadingExitPill extends StatelessWidget {
   }
 }
 
-/// Un pÃ¡rrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
+/// Un pÃƒÂ¡rrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
 class _ReadingParagraph extends StatelessWidget {
   const _ReadingParagraph({required this.message, required this.model});
 
@@ -854,9 +849,9 @@ class _ReadingParagraph extends StatelessWidget {
         '${message.timestamp.hour.toString().padLeft(2, '0')}:'
         '${message.timestamp.minute.toString().padLeft(2, '0')}';
     final label = isUser
-        ? 'TÃº'
+        ? 'TÃƒÂº'
         : (message.source == MessageSource.device
-              ? 'Nano Â· Dispositivo'
+              ? 'Nano Ã‚Â· Dispositivo'
               : (model.isEmpty ? 'NanoAI' : model));
 
     return Column(
@@ -930,7 +925,7 @@ class _ReadingParagraph extends StatelessWidget {
   }
 }
 
-/// Hoja de estilo Markdown para el modo lectura (tipografÃ­a amplia, cÃ³moda).
+/// Hoja de estilo Markdown para el modo lectura (tipografÃƒÂ­a amplia, cÃƒÂ³moda).
 MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
   final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
   return MarkdownStyleSheet(
@@ -1049,8 +1044,8 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
   );
 }
 
-/// Badge de estado del motor con pulso lento cuando estÃ¡ online. Detenido:
-/// sin animaciÃ³n (estado quieto, honesto â€” solo lo vivo respira).
+/// Badge de estado del motor con pulso lento cuando estÃƒÂ¡ online. Detenido:
+/// sin animaciÃƒÂ³n (estado quieto, honesto Ã¢â‚¬â€ solo lo vivo respira).
 class _EngineBadge extends StatefulWidget {
   const _EngineBadge({required this.online, this.loading = false});
 
@@ -1169,1042 +1164,6 @@ class _EngineBadgeState extends State<_EngineBadge>
   }
 }
 
-MarkdownStyleSheet _buildChatMarkdownStyleSheet(
-  BuildContext context, {
-  required bool isUser,
-}) {
-  final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-  return MarkdownStyleSheet(
-    p: TextStyle(
-      color: isUser
-          ? colors.onSurface
-          : colors.onSurface.withValues(alpha: 0.95),
-      fontSize: 15,
-      height: 1.55,
-      letterSpacing: 0.15,
-    ),
-    h1: TextStyle(
-      color: colors.accent,
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-      height: 1.4,
-    ),
-    h2: TextStyle(
-      color: colors.accent,
-      fontSize: 18,
-      fontWeight: FontWeight.w700,
-      height: 1.4,
-    ),
-    h3: TextStyle(
-      color: colors.success,
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      height: 1.35,
-    ),
-    strong: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700),
-    em: TextStyle(
-      color: colors.onSurface.withValues(alpha: 0.9),
-      fontStyle: FontStyle.italic,
-    ),
-    listBullet: TextStyle(color: colors.accent, fontSize: 15),
-    code: TextStyle(
-      backgroundColor: colors.success.withValues(alpha: 0x20 / 0xFF),
-      color: colors.success,
-      fontFamily: 'monospace',
-      fontSize: 13.5,
-    ),
-    codeblockPadding: const EdgeInsets.all(12),
-    codeblockDecoration: BoxDecoration(
-      color: colors.codeBlockBg,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: colors.accent.withValues(alpha: 0.25)),
-    ),
-    blockquote: TextStyle(
-      color: colors.onSurface.withValues(alpha: 0.8),
-      fontSize: 14.5,
-      fontStyle: FontStyle.italic,
-    ),
-    blockquoteDecoration: BoxDecoration(
-      color: colors.quoteBg.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(8),
-      border: Border(left: BorderSide(color: colors.accent, width: 3)),
-    ),
-    tableBorder: TableBorder.all(
-      color: colors.onSurface.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    tableHead: TextStyle(color: colors.accent, fontWeight: FontWeight.w700),
-    tableBody: TextStyle(color: colors.onSurface.withValues(alpha: 0.9)),
-    tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-  );
-}
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({
-    required this.text,
-    required this.isUser,
-    required this.model,
-    required this.timestamp,
-    required this.source,
-    this.isError = false,
-    this.attachmentNames = const [],
-    this.tps,
-    this.onRetry,
-    this.onDelete,
-  });
-
-  final String text;
-  final bool isUser;
-  final String model;
-  final DateTime timestamp;
-  final MessageSource source;
-  final bool isError;
-
-  /// Tokens por segundo de la generaciÃ³n (solo respuestas AI completadas).
-  final double? tps;
-
-  /// Callback para reintentar el envÃ­o tras un error.
-  final VoidCallback? onRetry;
-
-  /// Callback para eliminar el mensaje.
-  final VoidCallback? onDelete;
-
-  /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
-  /// el contenido se inyectÃ³ al prompt y no se persiste).
-  final List<String> attachmentNames;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final time =
-        '${timestamp.hour.toString().padLeft(2, '0')}:'
-        '${timestamp.minute.toString().padLeft(2, '0')}';
-
-    // Pie del mensaje: hora + TPS (si hay)
-    final footerParts = <Widget>[
-      Text(
-        time,
-        style: TextStyle(
-          color: colors.onSurface.withValues(alpha: 0.48),
-          fontSize: 10,
-        ),
-      ),
-    ];
-
-    if (tps != null && !isUser) {
-      footerParts.addAll([
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: colors.success.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: colors.success.withValues(alpha: 0.30)),
-          ),
-          child: Text(
-            '${tps!.toStringAsFixed(1)} tok/s',
-            style: TextStyle(
-              color: colors.success,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ]);
-    }
-
-    final isDark = colors is NanoDarkColors;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final displayModel = source == MessageSource.device
-        ? 'Nano Â· Dispositivo'
-        : (model.isEmpty ? 'NanoAI' : model);
-
-    final bubbleBorderRadius = isUser
-        ? NanoShapes.userBubble
-        : NanoShapes.aiBubble;
-
-    final bubbleDecoration = isUser
-        ? BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      colors.primary.withValues(alpha: 0.35),
-                      colors.accentCyan.withValues(alpha: 0.20),
-                    ]
-                  : [
-                      colors.primary.withValues(alpha: 0.18),
-                      colors.accentSky.withValues(alpha: 0.10),
-                    ],
-            ),
-            borderRadius: bubbleBorderRadius,
-            border: Border.all(
-              color: isDark
-                  ? colors.accentCyan.withValues(alpha: 0.50)
-                  : colors.primary.withValues(alpha: 0.35),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (isDark ? colors.accentCyan : colors.primary).withValues(
-                  alpha: isDark ? 0.20 : 0.08,
-                ),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          )
-        : BoxDecoration(
-            gradient: NanoGlass.substrate(
-              colors,
-              opacity: isDark ? 0.78 : 0.88,
-            ),
-            borderRadius: bubbleBorderRadius,
-          );
-
-    Widget bubbleWidget = Container(
-      constraints: BoxConstraints(maxWidth: isUser ? 680 : double.infinity),
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: bubbleDecoration,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (attachmentNames.isNotEmpty) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: attachmentNames
-                  .map(
-                    (name) => Chip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.attach_file_rounded,
-                            size: 14,
-                            color: colors.onSurface.withValues(alpha: 0.72),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            name,
-                            style: TextStyle(
-                              color: colors.onSurface.withValues(alpha: 0.72),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: colors.onSurface.withValues(alpha: 0.08),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (!isUser) ...[
-            Row(
-              children: [
-                Icon(
-                  source == MessageSource.device
-                      ? Icons.phone_android_rounded
-                      : Icons.auto_awesome_rounded,
-                  size: 14,
-                  color: colors.accent.withValues(alpha: isDark ? 0.92 : 0.78),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    displayModel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.60),
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (isUser)
-            MarkdownBody(
-              data: text,
-              selectable: true,
-              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: isUser),
-            )
-          else
-            _buildAiBody(context, text),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: footerParts),
-              if (!isUser && !isError)
-                _MessageActions(
-                  text: text,
-                  model: displayModel,
-                  timestamp: timestamp,
-                  onDelete: onDelete,
-                ),
-              if (onRetry != null)
-                Semantics(
-                  button: true,
-                  label: 'Reintentar mensaje',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      onTap: onRetry,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.refresh_rounded,
-                              size: 14,
-                              color: colors.accent,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Reintentar',
-                              style: TextStyle(
-                                color: colors.accent,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    if (!isUser) {
-      bubbleWidget = Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          borderRadius: bubbleBorderRadius,
-          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(1.0),
-          decoration: BoxDecoration(
-            borderRadius: bubbleBorderRadius,
-            gradient: NanoBorders.specularChamfer(colors),
-          ),
-          child: ClipRRect(
-            borderRadius: bubbleBorderRadius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: reduceMotion ? 0.0 : 12.0,
-                sigmaY: reduceMotion ? 0.0 : 12.0,
-              ),
-              child: bubbleWidget,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: bubbleWidget,
-    );
-  }
-}
-
-Widget _buildAiBody(BuildContext context, String text) {
-  final parsed = parseThought(text);
-  final thought = parsed.thought;
-  final response = parsed.response;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (thought != null && thought.trim().isNotEmpty)
-        ModelReasoningBlock(thought: thought),
-      if (response.trim().isNotEmpty)
-        MarkdownBody(
-          data: response,
-          selectable: true,
-          styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-        )
-      else if (thought != null && response.isEmpty)
-        const SizedBox.shrink()
-      else
-        MarkdownBody(
-          data: text.isEmpty ? '...' : text,
-          selectable: true,
-          styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-        ),
-    ],
-  );
-}
-
-// ================================================================
-// MenÃº de acciones de mensaje (3 puntos)
-// ================================================================
-
-/// MenÃº profesional de 3 puntos para cada burbuja AI completada.
-/// Organizado en 3 acciones: Copiar Â· Compartir Â· Exportar (PDF | Markdown).
-class _MessageActions extends StatelessWidget {
-  const _MessageActions({
-    required this.text,
-    required this.model,
-    required this.timestamp,
-    this.onDelete,
-  });
-
-  final String text;
-  final String model;
-  final DateTime timestamp;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_horiz_rounded,
-        size: 18,
-        color: colors.onSurface.withValues(alpha: 0.48),
-      ),
-      tooltip: 'Acciones',
-      color: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: colors.accent.withValues(alpha: 0.25)),
-      ),
-      elevation: 8,
-      position: PopupMenuPosition.under,
-      onSelected: (value) async {
-        switch (value) {
-          case 'copy':
-            await Clipboard.setData(ClipboardData(text: text));
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                const SnackBar(
-                  content: Text('Texto copiado al portapapeles'),
-                  duration: Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            break;
-
-          case 'share':
-            await SharePlus.instance.share(
-              ShareParams(text: text, subject: 'Respuesta NanoAI â€” $model'),
-            );
-            break;
-
-          case 'delete':
-            if (onDelete != null) onDelete!();
-            break;
-
-          case 'export_pdf':
-            await PdfReportService.exportReport(
-              title: 'Informe de AnÃ¡lisis NanoAI',
-              content: text,
-              modelName: model,
-              timestamp: timestamp,
-            );
-            break;
-
-          case 'export_md':
-            await PdfReportService.exportMarkdown(
-              title: 'Informe de AnÃ¡lisis NanoAI',
-              content: text,
-              modelName: model,
-              timestamp: timestamp,
-            );
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        // â”€â”€ 1. Copiar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        PopupMenuItem<String>(
-          value: 'copy',
-          child: Row(
-            children: [
-              Icon(
-                Icons.copy_rounded,
-                size: 18,
-                color: colors.onSurface.withValues(alpha: 0.72),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Copiar',
-                style: TextStyle(
-                  color: colors.onSurface.withValues(alpha: 0.9),
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // â”€â”€ 2. Compartir â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        PopupMenuItem<String>(
-          value: 'share',
-          child: Row(
-            children: [
-              Icon(
-                Icons.share_rounded,
-                size: 18,
-                color: colors.onSurface.withValues(alpha: 0.72),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Compartir',
-                style: TextStyle(
-                  color: colors.onSurface.withValues(alpha: 0.9),
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (onDelete != null)
-          PopupMenuItem<String>(
-            value: 'delete',
-            child: Row(
-              children: [
-                Icon(
-                  Icons.delete_outline_rounded,
-                  size: 18,
-                  color: colors.danger,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Eliminar',
-                  style: TextStyle(color: colors.danger, fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        // â”€â”€ Divisor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        const PopupMenuDivider(height: 1),
-        // â”€â”€ 3a. Exportar â†’ PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        PopupMenuItem<String>(
-          value: 'export_pdf',
-          child: Row(
-            children: [
-              Icon(
-                Icons.picture_as_pdf_rounded,
-                size: 18,
-                color: colors.accent,
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Exportar como PDF',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.9),
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    'Informe tÃ©cnico estructurado',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.45),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        // â”€â”€ 3b. Exportar â†’ Markdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        PopupMenuItem<String>(
-          value: 'export_md',
-          child: Row(
-            children: [
-              Icon(Icons.description_rounded, size: 18, color: colors.success),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Exportar como Markdown',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.9),
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    'Archivo .md para Obsidian, Notionâ€¦',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.45),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StreamingBubble extends StatelessWidget {
-  const _StreamingBubble({required this.text, required this.model});
-
-  final String text;
-  final String model;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    const radius = NanoShapes.aiBubble;
-
-    final parsed = parseThought(text);
-    final thought = parsed.thought;
-    final response = parsed.response;
-
-    // Cuerpo vivo: sin texto aÃºn â†’ pensamiento en onda; con texto â†’ contenido
-    // streaming + cursor respirando al final (hiperrealista, sin simulaciÃ³n).
-    final Widget body;
-    if (text.isEmpty) {
-      body = const Padding(
-        padding: EdgeInsets.symmetric(vertical: 6),
-        child: Center(child: ThinkingIndicator()),
-      );
-    } else {
-      body = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (thought != null && thought.trim().isNotEmpty)
-            ModelReasoningBlock(thought: thought, initiallyExpanded: true),
-          if (response.trim().isNotEmpty)
-            MarkdownBody(
-              data: response,
-              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-            )
-          else if (thought != null && response.isEmpty)
-            const SizedBox.shrink()
-          else
-            MarkdownBody(
-              data: text.isEmpty ? '...' : text,
-              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-            ),
-          const SizedBox(height: 6),
-          const StreamingCursor(),
-        ],
-      );
-    }
-
-    Widget content = Container(
-      constraints: const BoxConstraints(maxWidth: double.infinity),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        gradient: NanoGlass.substrate(colors, opacity: isDark ? 0.78 : 0.88),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          body,
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: colors.success,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'Generando con $model...',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.48),
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    // Ã“ptica premium idÃ©ntica al mensaje AI: bisel especular + sombra
-    // ambiental + vidrio desenfocado. El fondo living se refracta detrÃ¡s.
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(1.0),
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            gradient: NanoBorders.specularChamfer(colors),
-          ),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: reduceMotion ? 0.0 : 12.0,
-                sigmaY: reduceMotion ? 0.0 : 12.0,
-              ),
-              child: content,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyChat extends StatelessWidget {
-  const _EmptyChat({
-    required this.engineOnline,
-    required this.hasModel,
-    required this.onSuggestion,
-    required this.onRetry,
-    required this.onGoModels,
-  });
-
-  final bool engineOnline;
-  final bool hasModel;
-  final void Function(String) onSuggestion;
-  final VoidCallback onRetry;
-  final VoidCallback onGoModels;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 64,
-                color: colors.onSurface.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Chat local',
-                style: TextStyle(
-                  color: colors.onSurface.withValues(alpha: 0.72),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (!engineOnline)
-                Column(
-                  children: [
-                    Text(
-                      'Motor local detenido',
-                      style: TextStyle(
-                        color: colors.onSurface.withValues(alpha: 0.48),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      key: const ValueKey('chat_retry_button'),
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('Reintentar'),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: colors.onSurface.withValues(
-                          alpha: 0.88,
-                        ),
-                        side: BorderSide(
-                          color: colors.onSurface.withValues(alpha: 0.24),
-                        ),
-                        elevation: 0,
-                      ),
-                    ),
-                  ],
-                )
-              else if (!hasModel)
-                Column(
-                  children: [
-                    Text(
-                      'No hay modelos cargados',
-                      style: TextStyle(
-                        color: colors.onSurface.withValues(alpha: 0.48),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: onGoModels,
-                      icon: const Icon(Icons.extension_rounded, size: 18),
-                      label: const Text('Ir a Modelos'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colors.accent,
-                        foregroundColor: colors.onSurface,
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Column(
-                  children: [
-                    Text(
-                      'Escribe un mensaje para comenzar',
-                      style: TextStyle(
-                        color: colors.onSurface.withValues(alpha: 0.48),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _SuggestionChip(
-                          label: 'Prueba de estrÃ©s y rendimiento',
-                          onTap: () => onSuggestion(
-                            'Realiza una prueba de estrÃ©s y anÃ¡lisis de rendimiento de inferencia en este dispositivo. '
-                            'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con mÃ©tricas de RAM, CPU y TPS estimado.',
-                          ),
-                        ),
-                        _SuggestionChip(
-                          label: 'Informe tÃ©cnico del sistema',
-                          onTap: () => onSuggestion(
-                            'Genera un informe tÃ©cnico completo y estructurado sobre el estado actual del dispositivo, '
-                            'con tablas detalladas de hardware, arquitectura y almacenamiento, listo para exportar a PDF.',
-                          ),
-                        ),
-                        _SuggestionChip(
-                          label: 'Diagrama de arquitectura',
-                          onTap: () => onSuggestion(
-                            'Explica la arquitectura del runtime de NanoAI (Flutter, Binder/SAF, nanortime, llama.cpp) '
-                            'e incluye un diagrama en bloque de cÃ³digo ```mermaid.',
-                          ),
-                        ),
-                        _SuggestionChip(
-                          label: 'Resumen ejecutivo',
-                          onTap: () => onSuggestion(
-                            'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanÃ­a de datos '
-                            'y directivas de seguridad.',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ================================================================
-// Soporte de Razonamiento (DeepSeek <thought>)
-// ================================================================
-
-class ParsedThoughtText {
-  final String? thought;
-  final String response;
-  const ParsedThoughtText({this.thought, required this.response});
-}
-
-ParsedThoughtText parseThought(String text) {
-  final thoughtStart = text.indexOf('<thought>');
-  if (thoughtStart == -1) {
-    return ParsedThoughtText(response: text);
-  }
-
-  final thoughtEnd = text.indexOf('</thought>', thoughtStart);
-  if (thoughtEnd == -1) {
-    final thought = text.substring(thoughtStart + 9);
-    return ParsedThoughtText(thought: thought, response: '');
-  }
-
-  final thought = text.substring(thoughtStart + 9, thoughtEnd);
-  final response = text.substring(thoughtEnd + 10).trim();
-  return ParsedThoughtText(thought: thought, response: response);
-}
-
-class ModelReasoningBlock extends StatefulWidget {
-  const ModelReasoningBlock({
-    super.key,
-    required this.thought,
-    this.initiallyExpanded = false,
-  });
-
-  final String thought;
-  final bool initiallyExpanded;
-
-  @override
-  State<ModelReasoningBlock> createState() => _ModelReasoningBlockState();
-}
-
-class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
-  late bool _expanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _expanded = widget.initiallyExpanded;
-  }
-
-  @override
-  void didUpdateWidget(covariant ModelReasoningBlock oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Si cambia el estado de inicialmente expandido (por ejemplo, en streaming)
-    if (oldWidget.initiallyExpanded != widget.initiallyExpanded) {
-      _expanded = widget.initiallyExpanded;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    if (widget.thought.trim().isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colors.codeBlockBg.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.success.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.psychology_rounded,
-                    size: 16,
-                    color: colors.success.withValues(alpha: 0.8),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Razonamiento del modelo',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: colors.success.withValues(alpha: 0.8),
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    size: 16,
-                    color: colors.onSurface.withValues(alpha: 0.48),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colors.codeBlockBg.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  widget.thought.trim(),
-                  style: TextStyle(
-                    fontFamily: 'JetBrainsMono',
-                    fontSize: 12,
-                    height: 1.5,
-                    color: colors.onSurface.withValues(alpha: 0.65),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return ActionChip(
-      label: Text(label),
-      onPressed: onTap,
-      backgroundColor: colors.onSurface.withValues(alpha: 0.08),
-      labelStyle: TextStyle(
-        color: colors.onSurface.withValues(alpha: 0.72),
-        fontSize: 13,
-      ),
-      side: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
-    );
-  }
-}
-
-/// CÃ¡psula lÃ­quida flotante que se muestra cuando la barra de chat estÃ¡ encogida/minimizada.
 class _MinimizedComposerBubble extends StatelessWidget {
   const _MinimizedComposerBubble({
     super.key,

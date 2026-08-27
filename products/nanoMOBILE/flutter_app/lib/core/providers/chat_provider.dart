@@ -12,7 +12,6 @@ import '../services/device_info.dart';
 import '../services/chat_history_store.dart';
 import '../services/chat_system_prompt.dart';
 import '../services/llm_engine_client.dart';
-import '../services/nano_runtime_api.dart';
 import '../services/runtime_engine.dart';
 import '../../features/automation/engine/voice/voice_backends.dart';
 import '../../features/automation/engine/voice/voice_runtime.dart';
