@@ -18,6 +18,7 @@ import '../../core/services/hardware_info_service.dart';
 import '../../core/services/terminal_dependencies.dart';
 import 'i_bin_executor.dart';
 import 'keyboard_mapper.dart';
+import 'command_executor.dart';
 import 'command_tagger.dart';
 import 'noar_persistence.dart';
 
@@ -328,7 +329,7 @@ class _TermState extends State<NanoTerminal> {
     // dispatcher ya construido, se ejecuta una sola vez.
     if (widget.initialCommand != null && !_initialCmdDone) {
       _initialCmdDone = true;
-      _execAsync(widget.initialCommand!);
+      CommandExecutor.execute(widget.initialCommand!, _execCtx());
     }
   }
 
@@ -373,7 +374,7 @@ class _TermState extends State<NanoTerminal> {
     // P2: la instancia se guarda — antes su dispose() nunca se llamaba y
     // los timers de crontab/watch quedaban vivos para siempre.
     _cron = CronScheduler(
-      execCmd: (raw) => _execAsync(raw),
+      execCmd: (raw) => CommandExecutor.execute(raw, _execCtx()),
       isAlive: () => _alive,
     )..register(r, _out);
     // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
@@ -652,7 +653,7 @@ class _TermState extends State<NanoTerminal> {
   }
 
   void _exec(String raw) {
-    _execAsync(raw);
+    CommandExecutor.execute(raw, _execCtx());
   } // puente sync→async para onSubmitted
 
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
@@ -757,6 +758,38 @@ class _TermState extends State<NanoTerminal> {
 
   /// Clasifica un comando en un tag basado en su nombre (canonical: CommandTagger).
   String _tagFor(String cmd) => CommandTagger.tag(cmd);
+
+  /// Construye el contexto de ejecución del CommandExecutor (T0.1B). Cada
+  /// campo mutable se toma del state en el momento de la llamada; el executor
+  /// es la única implementación del pipeline, el state solo presta sus campos.
+  CmdExecCtx _execCtx() => CmdExecCtx(
+    out: _out,
+    after: _after,
+    pty: _pty,
+    ptyActive: _ptyActive,
+    closePty: () => _ptyClose(),
+    ps1: _ps1,
+    history: _hist,
+    historyIndex: _hIdx,
+    input: _in,
+    saveToNoar: (cmd, tag) => _noar.save(cmd, tag),
+    tagFor: (cmd) => CommandTagger.tag(cmd),
+    dispatcher: _dispatcher,
+    hasShellOps: _hasShellOps,
+    shell: _shell,
+    bashCwd: _bashCwd,
+    rootfs: _rootfs,
+    realFs: _realFs,
+    isAndroid: Platform.isAndroid,
+    rootfsEnv: _deps.rootfsEnv,
+    shellOut: _shellOut,
+    realCmds: realCommands,
+    tokenize: _tok,
+    ctx: _ctx,
+    cmds: _cmds,
+    audit: null,
+    alive: _alive,
+  );
 
   Future<void> _execAsync(String raw) async {
     if (_ptyActive) {
