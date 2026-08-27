@@ -7,6 +7,7 @@
 library;
 
 import '../notifications/observed_data_extractor.dart';
+import '../voice/execution_cancellation.dart';
 import 'task_plan.dart';
 
 class TaskOrchestrator {
@@ -43,7 +44,10 @@ class TaskOrchestrator {
   /// Un paso no-completado detiene los dependientes. Los pasos fallidos
   /// recuperables se reintentan hasta el presupuesto; un reintento con el MISMO
   /// motivo (sin progreso) se detiene para evitar loops.
-  Future<List<TaskStepResult>> run(TaskPlan plan) async {
+  Future<List<TaskStepResult>> run(
+    TaskPlan plan, {
+    ExecutionCancellationToken? cancel,
+  }) async {
     final invalid = plan.validate();
     if (invalid != null) {
       return [TaskStepResult(status: TaskStepStatus.failed, reason: invalid)];
@@ -55,6 +59,19 @@ class TaskOrchestrator {
     final goalCtx = _parseGoal(plan.goal);
 
     for (final step in plan.ordered) {
+      // A16 — cancelación cooperativa: aborta ANTES del siguiente paso.
+      try {
+        cancel?.throwIfCancelled();
+      } on ExecutionCancelled {
+        results.add(
+          const TaskStepResult(
+            status: TaskStepStatus.failed,
+            reason: 'cancelado por el usuario',
+            failureKind: TaskFailureKind.terminal,
+          ),
+        );
+        break;
+      }
       var result = await _runStep(step, values, goalCtx);
       var attempts = 1;
 

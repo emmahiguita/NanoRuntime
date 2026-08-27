@@ -50,6 +50,7 @@ import 'package:nanoai/features/automation/engine/orchestration/task_orchestrato
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
     show TaskPlan, TaskStepResult;
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
+import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
@@ -119,6 +120,13 @@ class AutomationCoordinator {
 
   /// A15.2 — descomposición (template determinista + LLM validado).
   final LlmTaskDecomposer? _taskDecomposer;
+
+  /// A16 — cancelación cooperativa de la tarea activa (voz "para"/"cancela").
+  final ExecutionCancellationToken _cancelToken = ExecutionCancellationToken();
+
+  /// Cancela la tarea activa (cooperativo). Las acciones irreversibles ya
+  /// completadas no se revierten; se detiene el trabajo pendiente.
+  void cancelCurrent() => _cancelToken.cancel();
 
   /// A13.6 — callback para compartir la instancia de memoria actualizada con la
   /// DI (el notifier). null en tests/aislado.
@@ -309,7 +317,7 @@ class AutomationCoordinator {
       plan = _taskPlanner?.plan(goal);
     }
     if (plan == null) return null;
-    return orchestrator.run(plan);
+    return orchestrator.run(plan, cancel: _cancelToken);
   }
 
   /// OBJETIVO está verificado satisfecho ([GoalVerifier]); un plan que

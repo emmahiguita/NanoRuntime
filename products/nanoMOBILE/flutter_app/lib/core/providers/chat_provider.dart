@@ -462,6 +462,25 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final t = text.trim();
     if (t.isEmpty || state.generating) return;
     _historyTouched = true;
+
+    // A16 — cancelación local de máxima prioridad (sin LLM). "para"/"cancela"
+    // detiene la tarea activa del coordinador de forma cooperativa.
+    final lowerCmd = t.toLowerCase();
+    if (lowerCmd == 'para' ||
+        lowerCmd == 'cancela' ||
+        lowerCmd == 'detente' ||
+        lowerCmd == 'detén' ||
+        lowerCmd == 'stop') {
+      _coordinator.cancelCurrent();
+      final cancelMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: 'Tarea cancelada.',
+        timestamp: DateTime.now(),
+      );
+      state = state.copyWith(messages: [...state.messages, cancelMsg]);
+      return;
+    }
     // Nuevo turno del usuario: resetea el presupuesto de pasos de la
     // política y descarta cualquier confirmación pendiente vieja (tool o
     // plan multi-paso).
