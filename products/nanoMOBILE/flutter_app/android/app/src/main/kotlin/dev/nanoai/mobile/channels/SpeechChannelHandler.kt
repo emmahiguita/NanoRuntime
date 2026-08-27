@@ -60,18 +60,47 @@ class SpeechChannelHandler(
             speakNow(existing, text, result)
             return
         }
-        TextToSpeech(context) { status ->
-            val engine = tts
-            if (status == TextToSpeech.SUCCESS && engine != null) {
-                speakNow(engine, text, result)
-            } else {
-                result.error("tts_error", "init status=$status", null)
+        // Prefiere el motor de Google TTS (voz natural) sobre el Pico robótico.
+        // Fallback al motor por defecto del sistema si Google no está instalado.
+        val enginePref = listOf("com.google.android.tts", "com.android.tts", "")
+        fun tryInit(index: Int) {
+            if (index >= enginePref.size) {
+                result.error("tts_error", "sin motor TTS disponible", null)
+                return
             }
-        }.also { tts = it }
+            val pref = enginePref[index]
+            TextToSpeech(
+                context,
+                { status ->
+                    val engine = tts
+                    if (status == TextToSpeech.SUCCESS && engine != null) {
+                        speakNow(engine, text, result)
+                    } else {
+                        tryInit(index + 1)
+                    }
+                },
+                if (pref.isEmpty()) null else pref,
+            ).also { tts = it }
+        }
+        tryInit(0)
     }
 
     private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
-        engine.language = Locale("es", "ES")
+        // Pitch y rate neutros (natural). Locale auto: es si hay señales de
+        // español, si no el locale del dispositivo.
+        engine.setPitch(1.0f)
+        engine.setSpeechRate(1.0f)
+        val lower = text.lowercase()
+        val locale = if (
+            lower.contains('ñ') || lower.contains('á') || lower.contains('é') ||
+            lower.contains('í') || lower.contains('ó') || lower.contains('ú') ||
+            lower.contains('¿')
+        ) {
+            Locale("es", "ES")
+        } else {
+            Locale.getDefault()
+        }
+        engine.language = locale
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nano_tts")
         result.success(true)
     }
@@ -111,6 +140,9 @@ class SpeechChannelHandler(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            // Reconocimiento offline preferido (privacidad + funciona sin red).
+            // Algunos proveedores lo ignoran; es un hint, no un hard fail.
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         }
         rec.startListening(intent)
     }
