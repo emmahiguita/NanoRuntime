@@ -23,6 +23,10 @@ enum ModelTier {
   extreme,
 }
 
+/// Tipo de modelo (A16): el catálogo deja de ser solo LLM. Cada kind se
+/// carga/consume distinto (GGUF → runtime; .tflite → detector de wake word).
+enum ModelKind { llm, wakeWord }
+
 class LmCatalogEntry {
   final String name;
   final String params;
@@ -44,6 +48,9 @@ class LmCatalogEntry {
   /// Tier de rendimiento: guía la selección por defecto (Gate R9).
   final ModelTier tier;
 
+  /// Tipo de modelo (A16): llm por defecto; wakeWord para detectores .tflite.
+  final ModelKind kind;
+
   const LmCatalogEntry(
     this.name,
     this.params,
@@ -55,6 +62,7 @@ class LmCatalogEntry {
     this.sha256, {
     this.template = ChatTemplate.qwen,
     this.tier = ModelTier.interactive,
+    this.kind = ModelKind.llm,
   });
 }
 
@@ -309,6 +317,17 @@ abstract final class NeuralCatalog {
     }
     return models[0];
   }
+
+  /// Devuelve las entradas del catálogo por tipo de modelo (A16).
+  static List<LmCatalogEntry> modelsOf(ModelKind kind) =>
+      models.where((m) => m.kind == kind).toList();
+
+  /// Modelos de wake word (.tflite). A16: aún sin entradas — se añaden con el
+  /// SHA256 verificado del release oficial de microWakeWord (github.com/OHF-Voice/
+  /// micro-wake-word-models). Nunca se inventa un hash: sin SHA256 válido no se
+  /// instala (mismo gate que los GGUF).
+  static List<LmCatalogEntry> get wakeWordModels =>
+      modelsOf(ModelKind.wakeWord);
 
   /// Devuelve el [ChatTemplate] del modelo por nombre exacto de catálogo.
   ///
