@@ -18,6 +18,8 @@ import '../../core/services/hardware_info_service.dart';
 import '../../core/services/terminal_dependencies.dart';
 import 'i_bin_executor.dart';
 import 'keyboard_mapper.dart';
+import 'command_tagger.dart';
+import 'noar_persistence.dart';
 
 import 'noar_panel.dart';
 import 'ansi_terminal.dart';
@@ -199,7 +201,7 @@ class _TermState extends State<NanoTerminal> {
     _buildRegistry(); // terminal-specific commands (ai, gpu, docker, kali, etc.)
     _fetchDeviceIdentity(); // async: uid, uname, hostname reales del device
     _initShell(); // async: extrae bash/toybox + verifica rootfs (crea ShellExecutor + RootfsManager compartidos)
-    _loadNoar(); // async: carga librería de comandos guardados
+    _noar.load(); // async: carga librería de comandos guardados
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_fabInit && mounted) {
         final sz = MediaQuery.of(context).size;
@@ -748,74 +750,13 @@ class _TermState extends State<NanoTerminal> {
     if (notify && mounted) setState(() {});
   }
 
-  final List<Map<String, dynamic>> _noarLib = [];
+  /// Persistencia Noar (librería de comandos). SRP: la lógica vive en
+  /// [NoarPersistence]; este campo es la instancia que la UI lee.
+  final NoarPersistence _noar = NoarPersistence();
+  List<Map<String, dynamic>> get _noarLib => _noar.entries;
 
-  /// Guarda un comando ejecutado en la librería Noar con timestamp y tag.
-  void _saveToNoar(String cmd, String tag) {
-    _noarLib.insert(0, {
-      'cmd': cmd,
-      'tag': tag,
-      'ts': DateTime.now().toIso8601String(),
-    });
-    if (_noarLib.length > 500) _noarLib.removeRange(500, _noarLib.length);
-    SharedPreferences.getInstance().then((p) {
-      p.setString('noar_library', jsonEncode(_noarLib.take(500).toList()));
-    });
-  }
-
-  Future<void> _loadNoar() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final j = p.getString('noar_library');
-      if (j != null) {
-        final list = (jsonDecode(j) as List).cast<Map>();
-        _noarLib.addAll(list.map((m) => Map<String, dynamic>.from(m)));
-      }
-    } catch (_) {}
-  }
-
-  /// Clasifica un comando en un tag basado en su nombre.
-  String _tagFor(String cmd) {
-    final name = cmd.split(' ').first;
-    if ([
-      'ls',
-      'cat',
-      'cd',
-      'pwd',
-      'mkdir',
-      'touch',
-      'rm',
-      'cp',
-      'mv',
-      'echo',
-      'grep',
-      'find',
-      'wc',
-      'head',
-      'tail',
-      'diff',
-      'chmod',
-      'tree',
-    ].contains(name)) {
-      return 'fs';
-    }
-    if (['apt', 'pkg', 'pip', 'npm', 'gem', 'cargo'].contains(name)) {
-      return 'pkgs';
-    }
-    if (['docker'].contains(name)) return 'containers';
-    if (['kali'].contains(name)) return 'kali';
-    if (['ps', 'kill', 'htop', 'top', 'pstree', 'free', 'df'].contains(name)) {
-      return 'monitor';
-    }
-    if (['git', 'ssh', 'curl', 'wget', 'scp'].contains(name)) return 'remote';
-    if (['ai', 'infer', 'stat', 'tune', 'gpu', 'nvtop'].contains(name)) {
-      return 'ai';
-    }
-    if (['bootstrap'].contains(name)) return 'rootfs';
-    if (['bash', 'toybox'].contains(name)) return 'shell';
-    if (cmd.startsWith('!')) return 'shell';
-    return 'general';
-  }
+  /// Clasifica un comando en un tag basado en su nombre (canonical: CommandTagger).
+  String _tagFor(String cmd) => CommandTagger.tag(cmd);
 
   Future<void> _execAsync(String raw) async {
     if (_ptyActive) {
@@ -836,7 +777,7 @@ class _TermState extends State<NanoTerminal> {
     _hist.add(cmd);
     _hIdx = -1;
     _in.clear();
-    _saveToNoar(cmd, _tagFor(cmd));
+    _noar.save(cmd, CommandTagger.tag(cmd));
     if (cmd == 'exit' || cmd == 'logout') {
       _out('— Sesion finalizada ($cmd) —', Ln.system);
       return;
