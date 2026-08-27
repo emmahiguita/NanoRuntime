@@ -1,36 +1,31 @@
-/// NanoVoiceOrb (A16) — indicador profesional del estado de voz.
+/// NanoVoiceOrb (A16) — indicador profesional del estado de voz (presentación
+/// pura, sin acoplarse a un backend concreto).
 ///
-/// Un orb animado que refleja la máquina de estados del [VoiceSessionManager]:
-/// - idle/wakeListening: estático con micrófono (toca para hablar).
-/// - listening: pulso (escala oscilante + glow).
+/// Refleja [VoiceSessionState]:
+/// - idle/wakeListening: estático con micrófono.
+/// - listening: pulso (escala oscilante + halo).
 /// - speaking: ondas (glow intenso).
-/// - processing: anillo girando.
+/// - processing: anillo.
 /// - error: color de peligro.
 ///
-/// No ejecuta lógica de agente: solo escucha el stream y llama [onMicTap].
+/// No ejecuta lógica de agente: el llamador provee [state] y [onTap].
 library;
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../engine/voice/voice_runtime.dart';
-import '../core/theme/design_tokens.dart';
-import '../core/theme/nano_type.dart';
+import '../../../../core/theme/design_tokens.dart';
 
 class NanoVoiceOrb extends StatefulWidget {
   const NanoVoiceOrb({
     super.key,
-    required this.session,
-    this.onMicTap,
+    required this.state,
+    required this.onTap,
     this.size = 96,
   });
 
-  final VoiceSessionManager session;
-
-  /// Callback al tocar el orb (típicamente inicia la escucha). null = usa
-  /// [VoiceSessionManager.pushToTalk] y descarta el turno.
-  final Future<void> Function()? onMicTap;
+  final VoiceSessionState state;
+  final VoidCallback onTap;
   final double size;
 
   @override
@@ -44,38 +39,10 @@ class _NanoVoiceOrbState extends State<NanoVoiceOrb>
     duration: const Duration(milliseconds: 900),
   )..repeat(reverse: true);
 
-  StreamSubscription<VoiceSessionState>? _sub;
-  VoiceSessionState _state = VoiceSessionState.idle;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _state = widget.session.state;
-    _sub = widget.session.states.listen((s) {
-      if (mounted) setState(() => _state = s);
-    });
-  }
-
   @override
   void dispose() {
-    _sub?.cancel();
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _handleTap() async {
-    if (_busy) return;
-    _busy = true;
-    try {
-      if (widget.onMicTap != null) {
-        await widget.onMicTap!();
-      } else {
-        await widget.session.pushToTalk();
-      }
-    } finally {
-      if (mounted) _busy = false;
-    }
   }
 
   @override
@@ -83,7 +50,7 @@ class _NanoVoiceOrbState extends State<NanoVoiceOrb>
     final colors = NanoThemeExtension.of(context).colors;
     final t = _controller.value; // 0..1 oscilante
 
-    final (color, scale, showRing) = switch (_state) {
+    final (color, scale, showRing) = switch (widget.state) {
       VoiceSessionState.listening ||
       VoiceSessionState.wakeListening => (colors.accent, 1.0 + 0.18 * t, true),
       VoiceSessionState.speaking => (colors.accentCyan, 1.0 + 0.10 * t, true),
@@ -94,18 +61,17 @@ class _NanoVoiceOrbState extends State<NanoVoiceOrb>
 
     return Semantics(
       button: true,
-      label: _state == VoiceSessionState.speaking
+      label: widget.state == VoiceSessionState.speaking
           ? 'Nano hablando'
           : 'Activar voz',
       child: GestureDetector(
-        onTap: _handleTap,
+        onTap: widget.onTap,
         child: SizedBox(
           width: widget.size,
           height: widget.size,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Halo exterior (onda cuando activo).
               if (showRing)
                 AnimatedBuilder(
                   animation: _controller,
@@ -118,7 +84,6 @@ class _NanoVoiceOrbState extends State<NanoVoiceOrb>
                     ),
                   ),
                 ),
-              // Orb principal.
               AnimatedBuilder(
                 animation: _controller,
                 builder: (_, __) => Transform.scale(
@@ -140,7 +105,7 @@ class _NanoVoiceOrbState extends State<NanoVoiceOrb>
                       ],
                     ),
                     child: Icon(
-                      _state == VoiceSessionState.speaking
+                      widget.state == VoiceSessionState.speaking
                           ? Icons.graphic_eq_rounded
                           : Icons.mic_rounded,
                       color: Colors.white,

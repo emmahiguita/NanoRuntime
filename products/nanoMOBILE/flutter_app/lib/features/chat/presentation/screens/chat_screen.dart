@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
+import 'package:nanoai/features/automation/engine/voice/voice_runtime.dart';
+import 'package:nanoai/features/automation/presentation/widgets/nano_voice_orb.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
@@ -2429,35 +2431,12 @@ class _ComposerState extends State<_Composer> {
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(99),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(99),
+                  child: NanoVoiceOrb(
+                    state: widget.listening
+                        ? VoiceSessionState.listening
+                        : VoiceSessionState.idle,
                     onTap: widget.onMic,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: widget.compact ? 32 : 36,
-                      height: widget.compact ? 34 : 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: widget.listening
-                            ? colors.success.withValues(alpha: 0.22)
-                            : Colors.transparent,
-                        border: widget.listening
-                            ? Border.all(
-                                color: colors.success.withValues(alpha: 0.65),
-                                width: 1.2,
-                              )
-                            : null,
-                      ),
-                      child: Icon(
-                        widget.listening
-                            ? Icons.mic_rounded
-                            : Icons.mic_none_rounded,
-                        color: widget.listening
-                            ? colors.success
-                            : colors.onSurface.withValues(alpha: 0.58),
-                        size: 20,
-                      ),
-                    ),
+                    size: widget.compact ? 34 : 38,
                   ),
                 ),
               ),

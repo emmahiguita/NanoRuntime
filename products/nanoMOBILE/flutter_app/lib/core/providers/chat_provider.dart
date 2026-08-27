@@ -440,7 +440,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// texto escrito). Usa el VoiceSessionManager (máquina de estados + contexto
   /// conversacional) sobre los backends Android. La voz es I/O del MISMO agente.
   Future<String?> sendVoiceCommand() async {
-    final session = _voiceSession;
+    final session = voiceSession;
     final turn = await session.pushToTalk();
     if (turn == null || turn.transcript.trim().isEmpty) return null;
     // Respuesta progresiva (sección 42): ack corto antes de ejecutar, para que
@@ -453,7 +453,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// A16 — sesión de voz (state machine + referentes). resolveGoal devuelve el
   /// transcript como goal (el MISMO send() lo ejecuta en el coordinador); la voz
   /// NO crea un segundo agente ni llama al dispatcher directamente.
-  VoiceSessionManager get _voiceSession =>
+  VoiceSessionManager get voiceSession =>
       _voiceSessionCache ??= VoiceSessionManager(
         recognition: const AndroidSpeechRecognitionBackend(),
         synthesis: const AndroidSpeechSynthesisBackend(),
