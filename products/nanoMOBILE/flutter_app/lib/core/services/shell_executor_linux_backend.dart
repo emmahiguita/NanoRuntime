@@ -49,6 +49,12 @@ class ShellExecutorLinuxBackend implements LinuxExecutionBackend {
 
   @override
   Future<LinuxExecutionResult> execute(LinuxExecutionRequest request) async {
+    // Auto-init idempotente: el backend es autocontenido (el caller no debe
+    // recordar init()). ShellExecutor.init() es no-op si ya está inicializado,
+    // así que el Terminal (que ya llama init en bootstrap) no se ve afectado.
+    if (!_executor.initialized) {
+      await _executor.init();
+    }
     final started = DateTime.now();
     final Map<String, String>? env = request.environment.isEmpty
         ? null

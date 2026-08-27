@@ -4,6 +4,7 @@ import 'package:nanoai/features/automation/engine/perception/actionability_engin
 import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
+import 'package:nanoai/core/services/linux_execution_backend.dart';
 import 'package:nanoai/features/automation/engine/platform/linux_tool_adapter.dart';
 
 import 'fixtures.dart';
@@ -628,7 +629,7 @@ void main() {
 
     test('operación Linux correcta no aborta el plan por su prefijo', () async {
       final linuxDispatcher = AgentToolDispatcher(
-        linuxAdapter: LinuxToolAdapter(runner: _SuccessfulLinuxRunner()),
+        linuxAdapter: LinuxToolAdapter(backend: _FakeLinuxBackend()),
       );
 
       final outcome = await linuxDispatcher.runPlanGuarded(const [
@@ -641,10 +642,13 @@ void main() {
   });
 }
 
-class _SuccessfulLinuxRunner implements LinuxCommandRunner {
+class _FakeLinuxBackend implements LinuxExecutionBackend {
   @override
-  Future<LinuxCommandResult> run(
-    String command, {
-    Duration timeout = const Duration(seconds: 20),
-  }) async => const LinuxCommandResult(stdout: 'ok', duration: Duration.zero);
+  Future<LinuxExecutionResult> execute(LinuxExecutionRequest request) async =>
+      const LinuxExecutionResult(
+        exitCode: 0,
+        stdout: 'ok',
+        stderr: '',
+        duration: Duration.zero,
+      );
 }

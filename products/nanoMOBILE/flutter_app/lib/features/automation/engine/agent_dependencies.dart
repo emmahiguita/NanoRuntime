@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/linux/linux_distribution_registry.dart';
 import '../../../core/services/nano_runtime_api.dart';
 import '../../../core/services/runtime_engine.dart';
+import '../../../core/services/rootfs_manager.dart';
+import '../../../core/services/shell_executor.dart';
+import '../../../core/services/shell_executor_linux_backend.dart';
+import 'platform/linux_tool_adapter.dart';
 import 'execution/action_path_router.dart';
 import 'execution/action_verifier.dart';
 import 'execution/platform_verification_router.dart';
@@ -83,6 +87,18 @@ final policyEngineProvider = Provider<PolicyEngine>((ref) {
   return PolicyEngine(registry: ToolRegistry.builtin);
 });
 
+/// T1.2: adaptador Linux del agente sobre el backend CORE compartido con el
+/// Terminal ([ShellExecutorLinuxBackend] → [ShellExecutor] → Nanoshell FFI).
+/// Automation NO pasa por CommandExecutor ni por PTY para ejecución no
+/// interactiva. Comparte el mismo [RootfsManager.instance] (lifecycle canónico).
+final linuxToolAdapterProvider = Provider<LinuxToolAdapter>((ref) {
+  return LinuxToolAdapter(
+    backend: ShellExecutorLinuxBackend(
+      ShellExecutor(rootfs: RootfsManager.instance),
+    ),
+  );
+});
+
 /// Dispatcher con TODAS sus dependencias inyectadas (sin defaults internos
 /// en producción). El chat lo recibe vía `chatProvider`.
 final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
@@ -91,6 +107,7 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     registry: ToolRegistry.builtin,
     policy: ref.watch(policyEngineProvider),
     verifier: ref.watch(agentVerifierProvider),
+    linuxAdapter: ref.watch(linuxToolAdapterProvider),
     router: ref.watch(actionPathRouterProvider),
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
     // A14.5: lector de estado de plataforma para verificar postcondiciones

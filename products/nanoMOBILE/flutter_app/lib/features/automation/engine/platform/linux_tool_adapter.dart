@@ -13,6 +13,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../core/services/linux_execution_backend.dart';
 import '../../../../core/services/pty_shell.dart';
 
 /// Resultado estructurado de un comando Linux. El exitCode es null cuando la
@@ -41,40 +42,84 @@ class LinuxCommandResult {
   bool get ok => infrastructureError == null;
 }
 
-/// Ejecutor de un comando Linux. Interfaz mínima (ISP): el adapter no sabe
-/// de pty ni canales.
+/// LEGACY (T1.2): el adapter productivo ya consume [LinuxExecutionBackend].
+/// Este runner y [PtyLinuxCommandRunner] quedan SIN callers productivos; son
+/// candidatos a eliminación en T1.3 (no son fallback automático).
 abstract interface class LinuxCommandRunner {
   Future<LinuxCommandResult> run(String command, {Duration timeout});
 }
 
 /// Adapter de alto nivel: operaciones estructuradas sobre el subsistema.
+/// T1.2: consume el contrato core [LinuxExecutionBackend] (compartido con el
+/// Terminal), NO el runner PTY legacy. Operaciones estructuradas usan
+/// `executable + arguments`; solo writeFile/runCommand usan shell (heredoc/
+/// comando libre), y esa semántica shell queda gobernada aguas arriba.
 class LinuxToolAdapter {
-  LinuxToolAdapter({required LinuxCommandRunner runner}) : _runner = runner;
+  LinuxToolAdapter({required LinuxExecutionBackend backend})
+    : _backend = backend;
 
-  final LinuxCommandRunner _runner;
+  final LinuxExecutionBackend _backend;
 
   Future<LinuxCommandResult> list(String path) =>
-      _run('ls -la ${_quote(path)}');
+      _exec('ls', ['-la', path]);
 
-  Future<LinuxCommandResult> readFile(String path) =>
-      _run('cat ${_quote(path)}');
+  Future<LinuxCommandResult> readFile(String path) => _exec('cat', [path]);
 
   Future<LinuxCommandResult> writeFile(String path, String content) {
     // Heredoc con delimitador aleatorio: contenido arbitrario sin escapes.
     final marker = 'NANOEOF${DateTime.now().microsecondsSinceEpoch}';
-    final command = 'cat > ${_quote(path)} << "$marker"\n$content\n$marker';
-    return _run(command);
+    final script = 'cat > ${_quote(path)} << "$marker"\n$content\n$marker';
+    return _shell(script);
   }
 
   /// Comando libre (p.ej. git, python) — la política del dispatcher decide
   /// si es seguro; el adapter no valida contenido.
-  Future<LinuxCommandResult> runCommand(String command) => _run(command);
+  Future<LinuxCommandResult> runCommand(String command) => _shell(command);
 
-  Future<LinuxCommandResult> _run(
-    String command, {
-    Duration timeout = const Duration(seconds: 20),
-  }) {
-    return _runner.run(command, timeout: timeout);
+  Future<LinuxCommandResult> _exec(String executable, List<String> args) async {
+    try {
+      final r = await _backend.execute(
+        LinuxExecutionRequest(
+          executable: executable,
+          arguments: args,
+          timeout: const Duration(seconds: 20),
+        ),
+      );
+      return LinuxCommandResult(
+        stdout: r.stdout,
+        stderr: r.stderr,
+        exitCode: r.exitCode,
+        duration: r.duration,
+      );
+    } catch (e) {
+      return LinuxCommandResult(
+        duration: Duration.zero,
+        infrastructureError: '$e',
+      );
+    }
+  }
+
+  Future<LinuxCommandResult> _shell(String script) async {
+    try {
+      final r = await _backend.execute(
+        LinuxExecutionRequest(
+          executable: 'bash',
+          arguments: ['-c', script],
+          timeout: const Duration(seconds: 20),
+        ),
+      );
+      return LinuxCommandResult(
+        stdout: r.stdout,
+        stderr: r.stderr,
+        exitCode: r.exitCode,
+        duration: r.duration,
+      );
+    } catch (e) {
+      return LinuxCommandResult(
+        duration: Duration.zero,
+        infrastructureError: '$e',
+      );
+    }
   }
 
   static String _quote(String s) => "'${s.replaceAll("'", r"'\''")}'";
