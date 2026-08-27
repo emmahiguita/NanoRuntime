@@ -15,6 +15,8 @@ import '../services/llm_engine_client.dart';
 import '../services/runtime_engine.dart';
 import '../../features/automation/engine/voice/voice_backends.dart';
 import '../../features/automation/engine/voice/voice_runtime.dart';
+import '../../features/automation/engine/voice/conversation/conversational_world_state.dart';
+import '../../features/automation/engine/voice/conversation/grounding_resolver.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
@@ -456,9 +458,41 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _voiceSessionCache ??= VoiceSessionManager(
         recognition: const AndroidSpeechRecognitionBackend(),
         synthesis: const AndroidSpeechSynthesisBackend(),
-        resolveGoal: (transcript) async => transcript,
+        resolveGoal: _resolveVoiceGoal,
       );
   VoiceSessionManager? _voiceSessionCache;
+
+  /// A16 — resuelve pronombres y puebla el world state antes de ejecutar la
+  /// orden de voz. "respóndele" se resuelve contra la persona activa grounded;
+  /// "a Juan" se recuerda como referente para el siguiente turno.
+  Future<String> _resolveVoiceGoal(String transcript) async {
+    final session = voiceSession;
+    final target = _extractExplicitTarget(transcript);
+    if (target != null && target.isNotEmpty) {
+      session.world.remember(
+        target,
+        ResolvedReference(
+          entity: target,
+          source: ReferenceSource.explicit,
+          confidence: 1.0,
+          evidence: 'utterance',
+          timestamp: DateTime.now(),
+        ),
+      );
+      session.world.setActive(person: target);
+    }
+    return const TranscriptResolver().resolveTranscript(
+      transcript,
+      session.world,
+    );
+  }
+
+  String? _extractExplicitTarget(String transcript) {
+    final m = RegExp(
+      r'\ba\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})',
+    ).firstMatch(transcript);
+    return m?.group(1);
+  }
 
   Future<void> send(String text) async {
     final t = text.trim();

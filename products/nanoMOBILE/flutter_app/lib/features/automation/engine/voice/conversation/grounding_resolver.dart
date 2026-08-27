@@ -86,3 +86,45 @@ class GroundingResolver {
     return null;
   }
 }
+
+/// Resuelve pronombres en un transcript de voz completo contra el mundo activo.
+/// Determinista: solo reemplaza cuando hay evidencia grounded; nunca inventa un
+/// target de escritura.
+class TranscriptResolver {
+  const TranscriptResolver();
+
+  static const _replyVerbs = [
+    'respóndele',
+    'respondele',
+    'contéstale',
+    'contestale',
+    'dile',
+    'respóndela',
+    'respondela',
+  ];
+
+  /// "respóndele que X" → "respóndele a Juan que X" si hay persona activa y el
+  /// transcript NO nombra un target explícito. Sin persona → sin cambio.
+  String resolveTranscript(String transcript, ConversationalWorldState world) {
+    final t = transcript.trim();
+    final lower = t.toLowerCase();
+    final hasVerb = _replyVerbs.any(lower.contains);
+    if (!hasVerb) return t;
+
+    // Si ya nombra un target explícito ("a Juan"), no reemplazar.
+    final hasTarget = RegExp(r'\ba\s+\w+').hasMatch(lower);
+    if (hasTarget) return t;
+
+    final person = world.activePerson ?? world.activeConversation;
+    if (person == null || person.isEmpty) return t;
+
+    for (final v in _replyVerbs) {
+      final idx = lower.indexOf(v);
+      if (idx >= 0) {
+        final after = t.substring(idx + v.length);
+        return '${t.substring(0, idx + v.length)} a $person$after';
+      }
+    }
+    return t;
+  }
+}
