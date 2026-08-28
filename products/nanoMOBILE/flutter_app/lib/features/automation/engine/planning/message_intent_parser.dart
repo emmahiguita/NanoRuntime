@@ -15,12 +15,16 @@ library;
 /// Intención de mensaje parseada. Campos vacíos = no expresado en el objetivo
 /// (honesto; no se rellena con texto inventado).
 class MessageIntent {
+  /// App objetivo ("WhatsApp"), de "abre X"/"ve a X". '' = no expresada.
+  final String app;
+
+  /// Destinatario ("Juan").
   final String recipient;
 
   /// Texto a enviar (payload del mensaje, proveniente de la orden del usuario).
   final String message;
 
-  const MessageIntent({this.recipient = '', this.message = ''});
+  const MessageIntent({this.app = '', this.recipient = '', this.message = ''});
 
   bool get hasRecipient => recipient.isNotEmpty;
   bool get hasMessage => message.isNotEmpty;
@@ -59,6 +63,12 @@ class MessageIntentParser {
     'escribe a',
     'manda un mensaje a',
     'envía un mensaje a',
+    // W9: "envíale a X" (recipient tras verbo) y "envíale" (bare; recipient
+    // desde "busca a Y").
+    'envíale a',
+    'enviale a',
+    'envíale',
+    'enviale',
     'mensaje a',
     'escríbele',
     'escribele',
@@ -88,6 +98,8 @@ class MessageIntentParser {
     if (g.isEmpty) return const MessageIntent();
 
     final lower = g.toLowerCase();
+    final app = _extractApp(lower);
+
     String? verb;
     for (final v in _verbs) {
       if (lower.contains(v)) {
@@ -95,15 +107,44 @@ class MessageIntentParser {
         break;
       }
     }
-    if (verb == null) return const MessageIntent();
+    if (verb == null) return MessageIntent(app: app);
 
     // Recorta el verbo conservando el case original del resto (el mensaje no
     // se normaliza a minúsculas: es el payload real que se enviará).
     final verbIdx = lower.indexOf(verb);
     final rest = g.substring(verbIdx + verb.length).trim();
-    if (rest.isEmpty) return const MessageIntent();
+    if (rest.isEmpty) return MessageIntent(app: app);
 
-    return _split(rest);
+    final split = _split(rest);
+    var recipient = split.recipient;
+    // W9: "envíale" sin "a" → el recipient viene de "busca a Y" (compuesto).
+    if (recipient.isEmpty && (verb == 'envíale' || verb == 'enviale')) {
+      recipient = _recipientFromSearch(g);
+    }
+
+    return MessageIntent(
+      app: app,
+      recipient: recipient,
+      message: split.message,
+    );
+  }
+
+  /// App objetivo desde "abre X" / "ve a X" / "ir a X" / "entra a|en X".
+  String _extractApp(String lower) {
+    final m = RegExp(
+      r'(?:abre|abrir|ve a|ir a|entra a|entra en)\s+(\w+)',
+    ).firstMatch(lower);
+    return m?.group(1) ?? '';
+  }
+
+  /// Recipient desde "busca a Y" / "búscale a Y" (compuesto W9). Conserva el
+  /// case original del nombre.
+  String _recipientFromSearch(String g) {
+    final m = RegExp(
+      r'(?:busca a|búscale a|buscale a)\s+([\wáéíóúñÁÉÍÓÚÑ]+)',
+      caseSensitive: false,
+    ).firstMatch(g);
+    return m?.group(1) ?? '';
   }
 
   MessageIntent _split(String rest) {

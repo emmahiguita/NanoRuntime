@@ -412,6 +412,43 @@ void main() {
       await o.run(plan!);
       expect(launchLog, ['youtube']);
     });
+
+    test(
+      'W9: "abre WhatsApp, busca a Juan y envíale: X" → message plan (no search)',
+      () async {
+        final launchLog = <String>[];
+        final writeLog = <String>[];
+        final o = TaskOrchestrator(
+          listNotifications: () async => [],
+          openUrl: (_) async => false,
+          writeFile: (_, __) async => false,
+          launchApp: (app) async {
+            launchLog.add(app);
+            return true;
+          },
+          tap: (_) async => true,
+          writeText: (sel, text) async {
+            writeLog.add('$sel:$text');
+            return true;
+          },
+          resolveInputSurface: () async => 'id=composer',
+          resolveActionSurface: (kind) async =>
+              kind == 'send' ? 'id=send' : null,
+          observeInputText: () async => '',
+        );
+        final plan = const TaskPlanner().plan(
+          'abre WhatsApp, busca a Juan y envíale: llego a las 8',
+        );
+        expect(plan, isNotNull);
+        expect(
+          plan!.steps.map((s) => s.semanticAction).toList(),
+          ['openApp', 'openConversation', 'writeMessage', 'sendMessage'],
+        );
+        await o.run(plan);
+        expect(launchLog, ['whatsapp']);
+        expect(writeLog, ['id=composer:llego a las 8']);
+      },
+    );
   });
 
   group('TaskOrchestrator · T2.9-select selección de resultado', () {

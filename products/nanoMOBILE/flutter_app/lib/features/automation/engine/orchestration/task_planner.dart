@@ -61,6 +61,11 @@ class TaskPlanner {
     'mensaje a',
     'manda un mensaje a',
     'envía un mensaje a',
+    // W9: "envíale a X" y "envíale" (bare, con "busca a Y" antes).
+    'envíale a',
+    'enviale a',
+    'envíale',
+    'enviale',
     'message to',
   ];
 
@@ -85,8 +90,10 @@ class TaskPlanner {
     if (_saveVerbs.any(g.contains)) return _saveUrlPlan(goal);
     if (_openVerbs.any(g.contains)) return _openUrlPlan(goal);
     if (_selectResultVerbs.any(g.contains)) return _selectResultPlan(goal);
-    if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
+    // Mensajería ANTES que búsqueda: "abre WhatsApp, busca a Juan y envíale: X"
+    // contiene "busca " pero es intención de mensaje (verbo "envíale").
     if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
+    if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
     return null;
   }
 

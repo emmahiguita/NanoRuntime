@@ -83,5 +83,17 @@ void main() {
       expect(i.recipient, 'Pedro');
       expect(i.message, 'on my way');
     });
+
+    test(
+      'W9 compuesto: "abre WhatsApp, busca a Juan y envíale: X" → app+recipient+body',
+      () {
+        final i = parser.parse(
+          'abre WhatsApp, busca a Juan y envíale: llego a las 8',
+        );
+        expect(i.app, 'whatsapp');
+        expect(i.recipient, 'Juan');
+        expect(i.message, 'llego a las 8');
+      },
+    );
   });
 }

@@ -718,12 +718,12 @@ class TaskOrchestrator {
   _GoalContext _parseGoal(String goal) {
     final g = goal.toLowerCase();
 
-    // App: "abre X" / "ve a X" / "ir a X" / "entra a X" o "… en X" (búsqueda).
-    final appMatch = RegExp(
-      r'(?:abre|abrir|ve a|ir a|entra a|entra en)\s+(\w+)',
-    ).firstMatch(g);
+    // Intención de mensaje (app/recipient/message) vía el parser ÚNICO.
+    final intent = const MessageIntentParser().parse(goal);
+
+    // App: intent.app ("abre X"/"ve a X") o "… en X" (búsqueda "busca Y en X").
     final enAppMatch = RegExp(r'en\s+(\w+)\s*$').firstMatch(g);
-    var appName = appMatch?.group(1) ?? '';
+    var appName = intent.app;
     if (enAppMatch != null) appName = enAppMatch.group(1)!;
 
     // Query: "busca X…" — se recorta del ORIGINAL para conservar el case del
@@ -738,9 +738,6 @@ class TaskOrchestrator {
             .trim();
       }
     }
-
-    // Target/draft (mensajería) vía MessageIntentParser (":" y " que ").
-    final intent = const MessageIntentParser().parse(goal);
 
     // T2.9-select: ordinal ("segundo") o texto ("que dice X") del resultado.
     final resultOrdinal = _parseResultOrdinal(g);
