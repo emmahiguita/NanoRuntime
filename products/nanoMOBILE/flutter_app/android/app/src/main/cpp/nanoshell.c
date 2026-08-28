@@ -347,12 +347,13 @@ static int _spawn_internal(
             }
         }
 
-        // Preload libs of the rootfs (usr/lib) with RTLD_GLOBAL so the app
-        // namespace can resolve the target's DT_NEEDED. Android namespaces
-        // ignore LD_LIBRARY_PATH; dlopen manual registra las libs en el
-        // namespace del proceso y el linker las encuentra después.
-        // NANO_ROOTFS (inyectado por execRootfs) localiza usr/lib.
-        {
+        // Preload libs del rootfs (usr/lib) SOLO cuando hay ld_preload
+        // (libnanoroot): los binarios del rootfs (git, curl, python) dependen
+        // de usr/lib. Los binarios standalone (toybox) NO lo necesitan y
+        // precargar ~47 libs agota el espacio de direcciones del worker →
+        // linker_block_allocator create_new_page CHECK 'page != MAP_FAILED'
+        // (SIGABRT). Gateado por ld_preload.
+        if (ld_preload && ld_preload[0]) {
             const char* nano_rootfs = getenv("NANO_ROOTFS");
             if (nano_rootfs && nano_rootfs[0]) {
                 char libdir[512];
