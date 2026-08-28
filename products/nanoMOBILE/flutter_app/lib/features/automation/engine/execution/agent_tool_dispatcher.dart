@@ -1008,7 +1008,7 @@ class AgentToolDispatcher {
         'tap en "${sr.execution.targetNode!.label}" '
         '@(${b.centerX.round()},${b.centerY.round()})';
     if (result.completed) return base;
-    return '$base [verify:${sr.verification?.status.name}] '
+    return '[verify:${sr.verification?.status.name}] $base — '
         '${sr.verification?.reason}';
   }
 
@@ -1039,7 +1039,7 @@ class AgentToolDispatcher {
     }
     final base = '"$text" escrito en "${sr.execution.targetNode!.label}"';
     if (result.completed) return base;
-    return '$base [verify:${sr.verification?.status.name}] '
+    return '[verify:${sr.verification?.status.name}] $base — '
         '${sr.verification?.reason}';
   }
 
@@ -1051,8 +1051,11 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    return 'Botón atrás ejecutado.'
-        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+    return _verifiedFeedback(
+      'Botón atrás ejecutado.',
+      expectation,
+      preSnapshot: pre,
+    );
   }
 
   /// Global action de navegación (home/recents/shade/quick_settings). Aceptar
@@ -1065,8 +1068,11 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    return '$label ejecutado.'
-        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+    return _verifiedFeedback(
+      '$label ejecutado.',
+      expectation,
+      preSnapshot: pre,
+    );
   }
 
   /// Swipe por coordenadas explícitas. `args` = {startX,startY,endX,endY,
@@ -1089,8 +1095,11 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    return 'Deslizamiento ejecutado.'
-        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+    return _verifiedFeedback(
+      'Deslizamiento ejecutado.',
+      expectation,
+      preSnapshot: pre,
+    );
   }
 
   /// Scroll semántico: `args` = {direction: up|down|left|right}. Las
@@ -1134,8 +1143,11 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    return 'Scroll $direction ejecutado.'
-        '${await _verifySuffix(expectation, preSnapshot: snap)}';
+    return _verifiedFeedback(
+      'Scroll $direction ejecutado.',
+      expectation,
+      preSnapshot: snap,
+    );
   }
 
   /// Long press: `args` = {x,y,durationMs?}.
@@ -1153,8 +1165,11 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    return 'Pulsación larga ejecutada.'
-        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+    return _verifiedFeedback(
+      'Pulsación larga ejecutada.',
+      expectation,
+      preSnapshot: pre,
+    );
   }
 
   /// A3: navegación de sistema allowlisted. El destino viaja como ID semántico
@@ -1189,8 +1204,11 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    return '${destination.description} abiertos.'
-        '${await _verifySuffix(expectation, preSnapshot: pre)}';
+    return _verifiedFeedback(
+      '${destination.description} abiertos.',
+      expectation,
+      preSnapshot: pre,
+    );
   }
 
   /// Coordenadas de scroll según dirección del gesto (movimiento del dedo):
@@ -1251,20 +1269,23 @@ class AgentToolDispatcher {
     );
   }
 
-  /// Sufijo de feedback con el resultado de la verificación. Vacío si está
-  /// verificada; `[verify:<status>] motivo` si no — el éxito del gesto NO se
-  /// reporta sin la postcondición.
-  Future<String> _verifySuffix(
+  /// Produce feedback canónico: un fallo de verificación DEBE empezar por
+  /// `[verify:…]`, porque planes y adaptadores usan ese prefijo para abortar.
+  /// No se concatena al final de un texto de éxito.
+  Future<String> _verifiedFeedback(
+    String success,
     ActionExpectation expectation, {
     nano_snapshot.NanoSnapshot? preSnapshot,
   }) async {
-    if (!expectation.hasCriteria) return '';
+    if (!expectation.hasCriteria) {
+      return '[verificationRequired] $success sin postcondición declarada.';
+    }
     try {
       final out = await verifier.verify(expectation, preSnapshot: preSnapshot);
-      if (out.isVerified) return ' · verificado';
-      return ' [verify:${out.status.name}] ${out.reason}';
+      if (out.isVerified) return '$success · verificado';
+      return '[verify:${out.status.name}] $success — ${out.reason}';
     } catch (e) {
-      return ' [verify:error] $e';
+      return '[verify:error] $success — $e';
     }
   }
 
