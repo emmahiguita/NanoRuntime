@@ -197,7 +197,8 @@ class NanoAgentExecutor implements AgentExecutor {
       );
     }
 
-    var resolve = _engine.resolve(selector, snap);
+    var resolveSnapshot = snap;
+    var resolve = _engine.resolve(selector, resolveSnapshot);
     if (!resolve.isResolved) return _statusFailure(resolve);
 
     var node = resolve.best!.node;
@@ -224,13 +225,14 @@ class NanoAgentExecutor implements AgentExecutor {
         );
       }
       resolve = re;
+      resolveSnapshot = snap2;
     }
 
     final actionability = ActionabilityState.check(
       kind: ActionKind.input,
       node: node,
       unique: true,
-      snapshotPackage: snap.package,
+      snapshotPackage: resolveSnapshot.package,
       expectedPackage: selector.packageName,
     );
     if (!actionability.actionable) {
@@ -242,7 +244,16 @@ class NanoAgentExecutor implements AgentExecutor {
       );
     }
 
-    final ok = await _api.agentInputText(text);
+    final ok = await _api.agentInputTextAtTarget(
+      text,
+      targetResourceId: node.id,
+      targetBounds: [
+        node.bounds.left,
+        node.bounds.top,
+        node.bounds.right,
+        node.bounds.bottom,
+      ],
+    );
     if (!ok) {
       return AgentExecutionResult.failure(
         errorCode: AgentErrorCode.inputFailed,

@@ -218,9 +218,13 @@ class AgentAccessibilityService : AccessibilityService() {
         return dispatchGesture(gesture, null, null)
     }
 
-    /** Escribe texto en el nodo enfocado (ACTION_SET_TEXT). */
-    fun inputText(text: String): Boolean {
-        val node = findFocusedEditable() ?: return false
+    /**
+     * Escribe texto únicamente en el nodo resuelto por Dart. El foco, id y
+     * bounds deben seguir coincidiendo en el instante de ACTION_SET_TEXT;
+     * cualquier cambio de pantalla/foco aborta en vez de escribir en otro campo.
+     */
+    fun inputText(text: String, targetResourceId: String, targetBounds: IntArray): Boolean {
+        val node = findFocusedEditable(targetResourceId, targetBounds) ?: return false
         val args = Bundle().apply {
             putCharSequence(
                 AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
@@ -332,14 +336,26 @@ class AgentAccessibilityService : AccessibilityService() {
         return found
     }
 
-    private fun findFocusedEditable(): AccessibilityNodeInfo? {
+    private fun findFocusedEditable(
+        targetResourceId: String,
+        targetBounds: IntArray,
+    ): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
         var found: AccessibilityNodeInfo? = null
         val stack = ArrayDeque<AccessibilityNodeInfo>()
         stack.add(root)
         while (stack.isNotEmpty() && found == null) {
             val node = stack.removeLast()
-            if (node.isEditable && (node.isFocused || node.isFocusable)) {
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            val idMatches = targetResourceId.isBlank() ||
+                node.viewIdResourceName == targetResourceId
+            val boundsMatch = targetBounds.size == 4 &&
+                bounds.left == targetBounds[0] &&
+                bounds.top == targetBounds[1] &&
+                bounds.right == targetBounds[2] &&
+                bounds.bottom == targetBounds[3]
+            if (node.isEditable && node.isFocused && idMatches && boundsMatch) {
                 found = node
                 break
             }

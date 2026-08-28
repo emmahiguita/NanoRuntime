@@ -56,6 +56,7 @@ enum AgentErrorCode {
   notActionable,
   gestureFailed,
   inputFailed,
+  missingVerification,
   snapshotEmpty,
   timeout,
 }

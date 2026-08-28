@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
  * - `tapAt {x, y}`              → bool
  * - `longPressAt {x, y, durationMs}` → bool
  * - `swipe {x1,y1,x2,y2,durationMs}` → bool
- * - `inputText {text}`          → bool
+ * - `inputText {text,targetResourceId,targetBounds}` → bool
  * - `globalAction {action}`     → bool (back|home|recents|notifications|quick_settings)
  * - `launchPackage {packageName}` → bool
  *
@@ -141,7 +141,16 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                     result.error("BAD_ARG", "text requerido", null)
                     return
                 }
-                postToService(AgentAccessibilityBridge.service, result) { it.inputText(text) }
+                val targetResourceId = call.argument<String>("targetResourceId") ?: ""
+                val rawBounds = call.argument<List<*>>("targetBounds")
+                val targetBounds = rawBounds?.map { (it as? Number)?.toInt() }
+                if (targetBounds == null || targetBounds.size != 4 || targetBounds.any { it == null }) {
+                    result.error("BAD_ARG", "targetBounds [left,top,right,bottom] requerido", null)
+                    return
+                }
+                postToService(AgentAccessibilityBridge.service, result) {
+                    it.inputText(text, targetResourceId, targetBounds.filterNotNull().toIntArray())
+                }
             }
 
             "globalAction" -> {

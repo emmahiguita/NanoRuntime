@@ -115,6 +115,7 @@ class TaskOrchestrator {
 
       while (!result.isCompleted &&
           result.isRecoverable &&
+          _mayReplay(step) &&
           attempts < maxAttemptsPerStep &&
           replans < maxReplansPerTask) {
         replans++;
@@ -136,6 +137,15 @@ class TaskOrchestrator {
     }
     return results;
   }
+
+  /// Repetir una acción solo es seguro para operaciones que reemplazan un
+  /// estado local conocido. Navegar, abrir recursos o enviar mensajes puede
+  /// haber surtido efecto aunque su verificación posterior haya sido incierta;
+  /// esos pasos se detienen y requieren una nueva decisión humana.
+  bool _mayReplay(TaskStep step) => switch (step.semanticAction) {
+    'writeFile' || 'writeMessage' || 'writeQuery' => true,
+    _ => false,
+  };
 
   Future<TaskStepResult> _runStep(
     TaskStep step,
@@ -244,10 +254,10 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.recoverable,
       );
     }
-    return TaskStepResult(
+    return const TaskStepResult(
       status: TaskStepStatus.completed,
       reason: 'URL escrita a archivo',
-      output: const FilePathValue(path),
+      output: FilePathValue(path),
     );
   }
 

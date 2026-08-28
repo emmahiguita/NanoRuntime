@@ -989,15 +989,14 @@ class AgentToolDispatcher {
     final expectation = _expectationFor(
       call,
     ).copyWith(mustChangeSnapshot: true);
-    // AgentLoop orquestado: ejecuta + verifica. maxAttempts=1 para un tap:
-    // reintentar un gesto podría ser doble-tap (la verificación se reporta).
+    // AgentLoop ejecuta una vez y verifica. Repetir un gesto podría generar
+    // un doble-tap o confirmar un envío externo.
     final result = await loop.run([
       AgentStep(
         id: 'tap(${call.selectorArg})',
         selector: selector,
         action: AgentAction.tap,
         expectation: expectation,
-        maxAttempts: 1,
       ),
     ]);
     final sr = result.steps.first;
@@ -1020,8 +1019,8 @@ class AgentToolDispatcher {
     }
     final (selector, err) = _tryParse(call.selectorArg!);
     if (selector == null) return err!;
-    // AgentLoop orquestado: el texto escrito debe ser visible (verificación
-    // + retry; reescribir es idempotente, maxAttempts=3 es seguro).
+    // AgentLoop exige observar el borrador. Si la verificación queda incierta,
+    // no reescribe: el usuario conserva el control de cualquier efecto externo.
     final expectation = _expectationFor(call).copyWith(expectedText: text);
     final result = await loop.run([
       AgentStep(
@@ -1030,7 +1029,6 @@ class AgentToolDispatcher {
         action: AgentAction.setText,
         text: text,
         expectation: expectation,
-        maxAttempts: 3,
       ),
     ]);
     final sr = result.steps.first;

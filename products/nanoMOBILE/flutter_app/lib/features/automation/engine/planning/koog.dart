@@ -111,14 +111,14 @@ class Koog {
         id: 'tap(${step.selector})',
         selector: selector,
         action: AgentAction.tap,
-        expectation: const ActionExpectation(),
+        expectation: const ActionExpectation(mustChangeSnapshot: true),
       ),
       'write' => AgentStep(
         id: 'write(${step.selector})',
         selector: selector,
         action: AgentAction.setText,
         text: step.text ?? '',
-        expectation: const ActionExpectation(),
+        expectation: ActionExpectation(expectedText: step.text ?? ''),
       ),
       _ => throw UnsupportedError(
         'Tool "${step.tool}" no soportado por el spike Koog '

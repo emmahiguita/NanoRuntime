@@ -8,9 +8,9 @@
 ///   action → wait settle → new snapshot → verify expected state
 ///
 /// Flujo: [ActionVerifier.verify] sondea con [ActionExpectation.pollInterval]
-/// hasta [ActionExpectation.timeout]. Restricciones duras (forbiddenText,
-/// wrongPackage) fallan inmediatamente; condiciones pendientes al vencer el
-/// plazo devuelven [VerificationStatus.timeout].
+/// hasta [ActionExpectation.timeout]. `forbiddenText` falla inmediatamente;
+/// una transición de package se observa hasta estabilizarse, pues Android puede
+/// exponer por unos instantes la aplicación anterior o el launcher.
 ///
 /// Puro: la fuente de snapshots se inyecta ([snapshotFn]) — testeable con
 /// fixtures sin MethodChannel.
@@ -295,7 +295,7 @@ class ActionVerifier implements AgentVerifier {
     NanoSnapshot snap,
     NanoSnapshot? pre,
   ) {
-    // Restricciones duras: fallo inmediato, sin reintentos.
+    // Restricción dura: fallo inmediato, sin reintentos.
     if (e.forbiddenText != null && e.forbiddenText!.isNotEmpty) {
       if (_containsVisibleText(snap, e.forbiddenText!)) {
         return VerificationOutcome(
@@ -308,29 +308,9 @@ class ActionVerifier implements AgentVerifier {
       }
     }
 
-    if (e.expectedPackage != null && e.expectedPackage!.isNotEmpty) {
-      final pkg = snap.package;
-      // Ventanas OEM pueden no exponer package (""): no confirma ni refuta
-      // — se sigue sondeando; solo un package distinto y no vacío refuta.
-      if (pkg.isNotEmpty && pkg != e.expectedPackage) {
-        return VerificationOutcome(
-          status: VerificationStatus.wrongPackage,
-          reason:
-              'Package esperado "${e.expectedPackage}", en primer plano '
-              '"$pkg".',
-          snapshot: snap,
-        );
-      }
-    }
-
     // Condiciones de espera: si TODAS las evaluables se cumplen → verified.
     final pending = _pendingList(e, snap, pre);
 
-    if (e.expectedPackage != null &&
-        e.expectedPackage!.isNotEmpty &&
-        snap.package.isEmpty) {
-      pending.add('package no expuesto por la ventana');
-    }
     if (e.mustAppear != null &&
         !_engine.resolve(e.mustAppear!, snap).isResolved) {
       pending.add('mustAppear=${e.mustAppear!.toDebugString()} sin resolver');
@@ -383,6 +363,12 @@ class ActionVerifier implements AgentVerifier {
           e.expectedPackage!.isNotEmpty &&
           snap.package.isEmpty)
         'package no expuesto por la ventana',
+      if (e.expectedPackage != null &&
+          e.expectedPackage!.isNotEmpty &&
+          snap.package.isNotEmpty &&
+          snap.package != e.expectedPackage)
+        'package actual "${snap.package}", esperando '
+            '"${e.expectedPackage}"',
       if (e.mustAppear != null &&
           !_engine.resolve(e.mustAppear!, snap).isResolved)
         'mustAppear=${e.mustAppear!.toDebugString()} sin resolver',

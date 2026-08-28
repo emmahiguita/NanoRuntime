@@ -33,7 +33,10 @@ class AgentStep {
   /// Postcondiciones a verificar tras la acci├│n.
   final ActionExpectation expectation;
 
-  /// Reintentos m├íximos del paso (transitorios: gesto/input/target inestable).
+  /// Se conserva para compatibilidad de planes serializados previos. El loop
+  /// de producción no repite ACT: verifica una sola ejecución y devuelve la
+  /// incertidumbre al llamador.
+  @Deprecated('AgentLoop no reintenta acciones mutantes')
   final int maxAttempts;
 
   const AgentStep({
@@ -42,7 +45,7 @@ class AgentStep {
     required this.action,
     this.text,
     required this.expectation,
-    this.maxAttempts = 3,
+    this.maxAttempts = 1,
   });
 }
 
@@ -134,78 +137,51 @@ class AgentLoop {
   }
 
   Future<AgentStepResult> _runStep(AgentStep step) async {
-    for (var attempt = 1; attempt <= step.maxAttempts; attempt++) {
-      // OBSERVE (snapshot previo) para mustChangeSnapshot y evidencias.
-      final preSnapshot = await _executor.snapshot();
-
-      // ACT.
-      final execution = switch (step.action) {
-        AgentAction.tap => await _executor.tap(step.selector),
-        AgentAction.setText => await _executor.setText(
-          step.selector,
-          step.text ?? '',
-        ),
-      };
-
-      if (!execution.ok) {
-        // Falla transitoria ÔåÆ reintentar; estructural ÔåÆ abortar el paso.
-        if (attempt < step.maxAttempts && _isRetryable(execution.errorCode)) {
-          continue;
-        }
-        return AgentStepResult(
-          step: step,
-          execution: execution,
-          verification: null,
-          attempts: attempt,
-        );
-      }
-
-      // VERIFY.
-      final verification = await _verifier.verify(
-        step.expectation,
-        preSnapshot: preSnapshot,
-      );
-      if (verification.isVerified) {
-        return AgentStepResult(
-          step: step,
-          execution: execution,
-          verification: verification,
-          attempts: attempt,
-        );
-      }
-
-      // Postcondici├│n no cumplida ÔåÆ reintentar (la UI pudo quedar a medias).
-      if (attempt < step.maxAttempts) {
-        continue;
-      }
+    // Una acción mutante sin postcondición verificable no llega al dispositivo.
+    // El éxito del canal solo confirma el despacho, nunca el efecto real.
+    if (!step.expectation.hasCriteria) {
       return AgentStepResult(
         step: step,
-        execution: execution,
-        verification: verification,
-        attempts: attempt,
+        execution: const AgentExecutionResult.failure(
+          errorCode: AgentErrorCode.missingVerification,
+          reason: 'Acción mutante sin postcondición verificable.',
+        ),
+        verification: null,
+        attempts: 0,
       );
     }
 
-    // Inalcanzable: el bucle siempre retorna dentro de los intentos.
-    final execution = await _executor.tap(step.selector);
+    // OBSERVE antes de ACT para mustChangeSnapshot y para guardar evidencia.
+    final preSnapshot = await _executor.snapshot();
+    final execution = switch (step.action) {
+      AgentAction.tap => await _executor.tap(step.selector),
+      AgentAction.setText => await _executor.setText(
+        step.selector,
+        step.text ?? '',
+      ),
+    };
+    if (!execution.ok) {
+      return AgentStepResult(
+        step: step,
+        execution: execution,
+        verification: null,
+        attempts: 1,
+      );
+    }
+
+    // VERIFY ya observa hasta su timeout. Ante incertidumbre no se repite ACT:
+    // un tap o un input podían haber producido un efecto externo.
+    final verification = await _verifier.verify(
+      step.expectation,
+      preSnapshot: preSnapshot,
+    );
     return AgentStepResult(
       step: step,
       execution: execution,
-      verification: null,
-      attempts: step.maxAttempts,
+      verification: verification,
+      attempts: 1,
     );
   }
-
-  /// Errores transitorios que merecen reintento. Estructurales (serviceOff,
-  /// ambiguous/notFound/notActionable/snapshotEmpty) no: reintentar no cambia
-  /// el resultado y solo consume tiempo.
-  static bool _isRetryable(AgentErrorCode? code) => switch (code) {
-    AgentErrorCode.gestureFailed ||
-    AgentErrorCode.inputFailed ||
-    AgentErrorCode.unstableTarget ||
-    AgentErrorCode.timeout => true,
-    _ => false,
-  };
 
   String _failureSummary(AgentStepResult r) {
     if (!r.execution.ok) {

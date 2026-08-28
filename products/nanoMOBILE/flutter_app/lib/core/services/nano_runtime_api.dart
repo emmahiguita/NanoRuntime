@@ -584,13 +584,35 @@ class NanoRuntimeApi {
     }
   }
 
-  /// Escribe [text] en el campo enfocado (ACTION_SET_TEXT del nodo editable).
+  /// API heredada. El canal actual exige un objetivo ligado y devuelve false
+  /// si un cliente antiguo intenta escribir sin esa evidencia.
   Future<bool> agentInputText(String text) async {
     try {
       return await _agent.invokeMethod<bool>('inputText', {'text': text}) ==
           true;
     } catch (e) {
       debugPrint('[runtime] agentInputText error: $e');
+      return false;
+    }
+  }
+
+  /// Escribe [text] en el campo enfocado que además coincide con el objetivo
+  /// recién resuelto. El nativo rechaza la operación si foco, id o bounds ya
+  /// cambiaron: nunca degrada a "cualquier editable focusable".
+  Future<bool> agentInputTextAtTarget(
+    String text, {
+    required String targetResourceId,
+    required List<int> targetBounds,
+  }) async {
+    try {
+      return await _agent.invokeMethod<bool>('inputText', {
+            'text': text,
+            'targetResourceId': targetResourceId,
+            'targetBounds': targetBounds,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentInputTextAtTarget error: $e');
       return false;
     }
   }
