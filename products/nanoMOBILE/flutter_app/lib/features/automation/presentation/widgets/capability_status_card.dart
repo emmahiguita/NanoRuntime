@@ -107,6 +107,15 @@ class CapabilityStatusCard extends ConsumerWidget {
             description: 'Acciones avanzadas de sistema',
             icon: Icons.bolt_rounded,
             availability: shizuku,
+            onActivate: () async {
+              // Empareja con Shizuku (dispara el diálogo de autorización) y
+              // re-lee el estado real al volver.
+              await _open(
+                context,
+                NanoRuntimeApi.instance.shizukuRequestPermission,
+              );
+              ref.invalidate(systemGraphProvider);
+            },
             colors: colors,
           ),
         ],
@@ -230,7 +239,7 @@ class _CapRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: NanoSpacing.sm),
-          if (onActivate != null && avail != null && !avail.isAvailable)
+          if (onActivate != null && avail != null && _requiresAction(avail))
             TextButton(
               onPressed: onActivate,
               style: TextButton.styleFrom(
@@ -278,11 +287,7 @@ class _CapRow extends StatelessWidget {
         icon: Icons.check_circle_rounded,
       );
     }
-    final needsAction =
-        a.state == CapabilityAvailabilityKind.requiresAccessibility ||
-        a.state == CapabilityAvailabilityKind.requiresNotificationAccess ||
-        a.state == CapabilityAvailabilityKind.requiresUserEnablement;
-    if (needsAction) {
+    if (_requiresAction(a)) {
       return (
         color: colors.warning,
         label: 'Activar',
@@ -295,4 +300,10 @@ class _CapRow extends StatelessWidget {
       icon: Icons.block_rounded,
     );
   }
+
+  /// Estados que admiten acción del usuario (abrir ajuste / emparejar).
+  bool _requiresAction(CapabilityAvailability a) =>
+      a.state == CapabilityAvailabilityKind.requiresAccessibility ||
+      a.state == CapabilityAvailabilityKind.requiresNotificationAccess ||
+      a.state == CapabilityAvailabilityKind.requiresUserEnablement;
 }
