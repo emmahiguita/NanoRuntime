@@ -27,8 +27,13 @@ void apply_env(const char* const envp[]) {
     }
 }
 
-/* Límite de RAM virtual por proceso hijo (512 MB). */
-#define CHILD_RLIMIT_AS_MB (512ULL * 1024ULL * 1024ULL)
+/* Límite de RAM virtual por proceso hijo. El worker (:nanoshell) hereda sus
+ * libs (JVM + libnanoshell + sistema) al child vía fork, y el dlopen del
+ * binario (toybox) + CFI shadow del linker necesitan VMA adicional. 512 MB
+ * dejaba demasiado poco y el mmap fallaba (linker_block_allocator
+ * create_new_page CHECK 'page != MAP_FAILED'). 1 GB cubre el caso y sigue
+ * protegiendo contra runaway (tar/python con leak). */
+#define CHILD_RLIMIT_AS_MB (1024ULL * 1024ULL * 1024ULL)
 
 /*
  * Aplica RLIMIT_AS en el child process ANTES de dlopen/execve.
