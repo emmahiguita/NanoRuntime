@@ -448,30 +448,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// A16 — entrada por voz: transcribe y envía como orden (MISMO flujo que un
   /// texto escrito). Usa el VoiceSessionManager (máquina de estados + contexto
   /// conversacional) sobre los backends Android. La voz es I/O del MISMO agente.
-  Future<String?> sendVoiceCommand() async {
-    final session = voiceSession;
-    final turn = await session.pushToTalk();
-    if (turn == null || turn.transcript.trim().isEmpty) return null;
-    // Respuesta progresiva: ack corto antes de ejecutar, para que el usuario
-    // sepa que fue escuchado sin esperar el resultado completo.
-    unawaited(session.respond('Voy.'));
-    await send(turn.transcript);
-    // Responder a VOZ: hablar el último mensaje AI generado en este turno
-    // (la respuesta real, no solo el ack). Honestidad: habla el resultado del
-    // MISMO send(), nunca un texto fabricado.
-    final ai = _lastAiMessage();
-    if (ai != null && ai.text.isNotEmpty) {
-      await session.respond(ai.text);
-    }
-    return turn.transcript;
-  }
-
-  /// Último mensaje del agente en el historial (para la respuesta por voz).
-  ChatMessage? _lastAiMessage() {
+  /// Habla la última respuesta AI (para el flujo de voz). Honestidad: habla el
+  /// resultado del MISMO send(), nunca texto fabricado. La UI de voz llama esto
+  /// tras `send()`; no hay un segundo flujo de voz paralelo.
+  Future<void> speakLastResponse() async {
+    ChatMessage? ai;
     for (final m in state.messages.reversed) {
-      if (m.sender == MessageSender.ai) return m;
+      if (m.sender == MessageSender.ai) {
+        ai = m;
+        break;
+      }
     }
-    return null;
+    if (ai != null && ai.text.isNotEmpty) {
+      await voiceSession.respond(ai.text);
+    }
   }
 
   /// A16 — sesión de voz (state machine + referentes). resolveGoal devuelve el

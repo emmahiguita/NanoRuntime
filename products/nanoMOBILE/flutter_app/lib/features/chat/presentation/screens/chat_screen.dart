@@ -116,6 +116,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     await ref.read(chatProvider.notifier).send(trimmed);
     if (!mounted) return;
     _inputController.clear();
+    // Responder a VOZ: hablar la respuesta generada por el MISMO send().
+    await ref.read(chatProvider.notifier).speakLastResponse();
   }
 
   /// Abre el selector de archivos (SAF) y registra el contenido textual como
