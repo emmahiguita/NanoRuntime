@@ -5,6 +5,10 @@
 /// (nunca este registry). Puro + persistencia desacoplada ([RuleStore] DIP).
 library;
 
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'scheduled_rule.dart';
 
 /// Persistencia de reglas (DIP). Producción = shared_prefs JSON; tests = memoria.
@@ -23,6 +27,32 @@ class MemoryRuleStore implements RuleStore {
 
   @override
   Future<void> save(List<ScheduledRule> rules) async => _rules = List.of(rules);
+}
+
+/// Persistencia de reglas en shared_preferences (JSON). Producción.
+class SharedPrefsRuleStore implements RuleStore {
+  static const _key = 'automation.scheduled_rules.v1';
+
+  @override
+  Future<List<ScheduledRule>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null || raw.isEmpty) return const [];
+    final list = jsonDecode(raw) as List;
+    return [
+      for (final m in list)
+        ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
+    ];
+  }
+
+  @override
+  Future<void> save(List<ScheduledRule> rules) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _key,
+      jsonEncode([for (final r in rules) r.toJson()]),
+    );
+  }
 }
 
 class RuleRegistry {
