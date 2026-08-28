@@ -482,6 +482,56 @@ class ShellExecutor implements IBinExecutor {
     };
   }
 
+  /// Ejecuta un binario en el worker (`:nanoshell`, sin GPU) con argv
+  /// arbitrario. fork()+dlopen() en el worker es SEGURO (sin GPU → sin el
+  /// MapShadow CFI crash del bionic linker 15). Devuelve null si el worker
+  /// no está disponible o hace timeout (caer al in-process).
+  Future<ShellResult?> _execInWorker(
+    String binaryPath,
+    List<String> argv, {
+    Map<String, String>? env,
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    try {
+      final taskId = await NanoRuntimeApi.instance.workerSpawn(
+        binaryPath: binaryPath,
+        argv: argv,
+        envp: env,
+      );
+      if (taskId == null) return null;
+      final base = _baseDir ?? _fallbackBaseDir;
+      final outF = File('$base/worker_out_$taskId');
+      final errF = File('$base/worker_err_$taskId');
+      final rcF = File('$base/worker_rc_$taskId');
+      final deadline = DateTime.now().add(timeout);
+      while (DateTime.now().isBefore(deadline)) {
+        if (rcF.existsSync()) break;
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      if (!rcF.existsSync()) {
+        try {
+          await NanoRuntimeApi.instance.workerKill();
+        } catch (_) {}
+        return null; // timeout → caer al in-process
+      }
+      final rc = int.tryParse(rcF.readAsStringSync().trim()) ?? -1;
+      final out = outF.existsSync() ? outF.readAsStringSync() : '';
+      final err = errF.existsSync() ? errF.readAsStringSync() : '';
+      try {
+        outF.deleteSync();
+      } catch (_) {}
+      try {
+        errF.deleteSync();
+      } catch (_) {}
+      try {
+        rcF.deleteSync();
+      } catch (_) {}
+      return ShellResult(stdout: out, stderr: err, exitCode: rc);
+    } catch (_) {
+      return null; // worker no disponible
+    }
+  }
+
   /// Ejecuta un comando real vía BusyBox (Nanoshell FFI), con fallback a bash.
   ///
   /// A-28: spawnBusyBox hace fork + waitpid del hijo COMPLETO de forma
@@ -494,6 +544,16 @@ class ShellExecutor implements IBinExecutor {
     List<String> args, {
     Map<String, String>? env,
   }) async {
+    // Android 15: fork()+dlopen() en el proceso principal crashea con el CFI
+    // shadow del bionic linker (linker_cfi.cpp:158 MapShadow CHECK 'p !=
+    // MAP_FAILED' failed, SIGABRT). El worker (:nanoshell, sin GPU) hace
+    // fork+dlopen seguro. Se ejecuta el binario toybox ELF (assets/bin/toybox,
+    // extraído en init) con argv[0]="toybox" para que despache el applet.
+    final toyboxPath = _assetBinDir != null ? '$_assetBinDir/toybox' : null;
+    if (toyboxPath != null) {
+      final wr = await _execInWorker(toyboxPath, ['toybox', ...args], env: env);
+      if (wr != null) return wr;
+    }
     try {
       final result = await Isolate.run(() {
         final ns = Nanoshell.instance; // isolate nuevo: singleton propio
