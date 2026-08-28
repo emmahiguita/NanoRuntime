@@ -102,8 +102,8 @@ class NanoAgentExecutor implements AgentExecutor {
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
-  /// Tap seguro sobre [selector]: snapshot → resolve → actionability →
-  /// estabilidad → tapAt(centro del bounds).
+  /// Tap seguro sobre [selector]: snapshot → resolve → contenedor clicable →
+  /// actionability → estabilidad → tapAt(centro del bounds).
   @override
   Future<AgentExecutionResult> tap(NanoSelector selector) async {
     final snap = await snapshot();
@@ -124,9 +124,10 @@ class NanoAgentExecutor implements AgentExecutor {
     if (!resolve.isResolved) return _statusFailure(resolve);
 
     final best = resolve.best!;
+    final target = snap.tapTargetFor(best.node);
     final actionability = ActionabilityState.check(
       kind: ActionKind.tap,
-      node: best.node,
+      node: target,
       unique: true,
       snapshotPackage: snap.package,
       expectedPackage: selector.packageName,
@@ -140,8 +141,8 @@ class NanoAgentExecutor implements AgentExecutor {
       );
     }
 
-    // Settle + re-resolución: el nodo debe seguir donde estaba.
-    final stableNode = await _waitStable(selector, best.node);
+    // Settle + re-resolución: el mismo contenedor debe seguir donde estaba.
+    final stableNode = await _waitStableTapTarget(selector, target);
     if (stableNode == null) {
       return AgentExecutionResult.failure(
         errorCode: AgentErrorCode.unstableTarget,
@@ -271,19 +272,24 @@ class NanoAgentExecutor implements AgentExecutor {
 
   // ── Internos ──────────────────────────────────────────────────────────────
 
-  /// Re-resuelve [selector] tras [_stability.wait] y devuelve el nodo
-  /// re-resuelto solo si es estable (1 reintento extra).
-  Future<NanoNode?> _waitStable(
+  /// Re-resuelve [selector] tras [_stability.wait] y devuelve su contenedor
+  /// clicable solo si permanece estable (1 reintento extra).
+  Future<NanoNode?> _waitStableTapTarget(
     NanoSelector selector,
-    NanoNode original,
+    NanoNode originalTarget,
   ) async {
     for (var attempt = 1; attempt <= 2; attempt++) {
       await Future<void>.delayed(_stability.wait);
       final snap2 = await snapshot();
       if (snap2 == null || snap2.isEmpty) return null;
       final re = _engine.resolve(selector, snap2);
-      final reResolved = re.isResolved ? re.best!.node : null;
-      if (_stability.isStable(original: original, reResolved: reResolved)) {
+      final reResolved = re.isResolved
+          ? snap2.tapTargetFor(re.best!.node)
+          : null;
+      if (_stability.isStable(
+        original: originalTarget,
+        reResolved: reResolved,
+      )) {
         return reResolved;
       }
     }

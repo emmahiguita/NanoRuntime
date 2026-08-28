@@ -24,6 +24,10 @@ class ResolvedSurface {
   const ResolvedSurface(this.object, this.selector, this.reason);
 }
 
+/// Intención de la superficie editable. `any` queda para los consumidores
+/// genéricos; las acciones mutantes deben pedir una superficie específica.
+enum InputSurfaceKind { any, message, search }
+
 /// Selector más grounded posible para un objeto: resourceId > text > desc >
 /// flag estructural. El resourceId es el más estable; `editable=true` es el
 /// último recurso (puede ser ambiguo, pero nunca inventa un id/text).
@@ -36,11 +40,9 @@ String surfaceSelectorFor(NanoUiObject o) {
 
 /// Encuentra un nodo editable REAL para escribir (composer, buscador, campo).
 ///
-/// Escalera determinista (primero lo más específico):
-/// 1. editable enfocado (el usuario/la app ya puso foco ahí);
-/// 2. rol textField/searchField (clasificación semántica de Accessibility);
-/// 3. editable cuyo hint alude a mensaje/búsqueda ("mensaje", "buscar", "search");
-/// 4. cualquier editable visible (fallback honesto).
+/// La intención de la operación filtra los campos antes de priorizarlos: una
+/// búsqueda no puede escribir en el compositor, ni un mensaje en el buscador.
+/// Solo `any` admite el fallback a cualquier editable visible.
 class InputSurfaceResolver {
   const InputSurfaceResolver();
 
@@ -60,39 +62,56 @@ class InputSurfaceResolver {
     'find',
   ];
 
-  ResolvedSurface? resolve(ScreenGraph graph) {
+  ResolvedSurface? resolve(
+    ScreenGraph graph, {
+    InputSurfaceKind kind = InputSurfaceKind.any,
+  }) {
     final editables = graph.objects
         .where((o) => o.visible && o.editable)
         .toList(growable: false);
     if (editables.isEmpty) return null;
 
-    for (final o in editables) {
+    final candidates = editables
+        .where((o) => _matchesKind(o, kind))
+        .toList(growable: false);
+    if (candidates.isEmpty) return null;
+
+    for (final o in candidates) {
       if (o.focused) {
         return ResolvedSurface(o, surfaceSelectorFor(o), 'focused editable');
       }
     }
-    for (final o in editables) {
-      if (o.role == SemanticRole.textField ||
-          o.role == SemanticRole.searchField) {
-        return ResolvedSurface(
-          o,
-          surfaceSelectorFor(o),
-          '${o.role.name} role',
-        );
+    for (final o in candidates) {
+      if (_matchesRole(o, kind)) {
+        return ResolvedSurface(o, surfaceSelectorFor(o), '${o.role.name} role');
       }
     }
-    final hints = [..._messageHints, ..._searchHints];
-    for (final o in editables) {
-      final hay = '${o.text} ${o.description} ${o.label}'.toLowerCase();
-      for (final h in hints) {
-        if (hay.contains(h)) {
-          return ResolvedSurface(o, surfaceSelectorFor(o), 'hint "$h"');
-        }
-      }
-    }
-    final o = editables.first;
-    return ResolvedSurface(o, surfaceSelectorFor(o), 'visible editable');
+    final o = candidates.first;
+    return ResolvedSurface(o, surfaceSelectorFor(o), 'matching editable');
   }
+
+  bool _matchesKind(NanoUiObject object, InputSurfaceKind kind) {
+    if (kind == InputSurfaceKind.any) return true;
+
+    final hints = switch (kind) {
+      InputSurfaceKind.message => _messageHints,
+      InputSurfaceKind.search => _searchHints,
+      InputSurfaceKind.any => const <String>[],
+    };
+    final roleMatches = _matchesRole(object, kind);
+    final hay = '${object.text} ${object.description} ${object.label}'
+        .toLowerCase();
+    return roleMatches || hints.any(hay.contains);
+  }
+
+  bool _matchesRole(NanoUiObject object, InputSurfaceKind kind) =>
+      switch (kind) {
+        InputSurfaceKind.any =>
+          object.role == SemanticRole.textField ||
+              object.role == SemanticRole.searchField,
+        InputSurfaceKind.message => object.role == SemanticRole.textField,
+        InputSurfaceKind.search => object.role == SemanticRole.searchField,
+      };
 }
 
 /// Encuentra el botón de ACCIÓN semántica (enviar/buscar/ir) asociado al input
@@ -139,7 +158,12 @@ class ActionSurfaceResolver {
 
     var best = buttons.first;
     var reason = 'action button ($kind)';
-    final input = _input.resolve(graph);
+    final input = _input.resolve(
+      graph,
+      kind: kind == 'search'
+          ? InputSurfaceKind.search
+          : InputSurfaceKind.message,
+    );
     if (input != null) {
       var bestDist = double.infinity;
       for (final b in buttons) {

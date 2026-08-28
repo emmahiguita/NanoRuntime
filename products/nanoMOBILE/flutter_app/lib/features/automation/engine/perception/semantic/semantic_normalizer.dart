@@ -83,9 +83,10 @@ class SemanticNormalizer {
     if (cls.contains('button')) {
       return _isIconButton(n) ? SemanticRole.iconButton : SemanticRole.button;
     }
-    if (_hasClass(cls, ['recyclerview', 'listview', 'gridview'])) {
+    if (_hasClass(cls, ['recyclerview', 'listview'])) {
       return SemanticRole.list;
     }
+    if (cls.contains('gridview')) return SemanticRole.grid;
     if (cls.contains('toolbar')) return SemanticRole.toolbar;
     if (cls.contains('webview')) return SemanticRole.unknown; // contenedor web
     // 3. heurística estructural.

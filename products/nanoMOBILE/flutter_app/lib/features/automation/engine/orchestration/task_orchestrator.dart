@@ -22,6 +22,7 @@ class TaskOrchestrator {
     Future<bool> Function(String selector)? tap,
     Future<bool> Function(String selector, String text)? writeText,
     Future<String?> Function()? resolveInputSurface,
+    Future<String?> Function(String kind)? resolveInputSurfaceFor,
     Future<String?> Function(String kind)? resolveActionSurface,
     Future<String?> Function()? observeInputText,
     Future<ResultResolution?> Function(ResultTarget target)? resolveResult,
@@ -35,7 +36,7 @@ class TaskOrchestrator {
        _launchApp = launchApp,
        _tap = tap,
        _writeText = writeText,
-       _resolveInputSurface = resolveInputSurface,
+       _resolveInputSurfaceFor = resolveInputSurfaceFor,
        _resolveActionSurface = resolveActionSurface,
        _observeInputText = observeInputText,
        _resolveResult = resolveResult,
@@ -51,10 +52,9 @@ class TaskOrchestrator {
   final Future<bool> Function(String selector)? _tap;
   final Future<bool> Function(String selector, String text)? _writeText;
 
-  /// T2.0 — resolución grounded de superficies UI (input editable y botón de
-  /// acción). null = fuente no conectada (tests aislados o perfil sin
-  /// accesibilidad): el paso devuelve needsMoreEvidence, nunca inventa.
-  final Future<String?> Function()? _resolveInputSurface;
+  /// Variante con intención explícita (`message`/`search`). La usan los flujos
+  /// que mutan un campo para no confundir compositor y buscador.
+  final Future<String?> Function(String kind)? _resolveInputSurfaceFor;
   final Future<String?> Function(String kind)? _resolveActionSurface;
 
   /// T2.7 — lectura del texto ACTUAL de la superficie de entrada (para verificar
@@ -367,10 +367,10 @@ class TaskOrchestrator {
     // T2.9 — fallback de búsqueda: localizar la conversación vía la superficie
     // de búsqueda de la app (icono → campo → escribir → resultado). Sin fuentes
     // de búsqueda se reporta fallo recoverable, nunca se inventa nada.
-    final resolveInput = _resolveInputSurface;
+    final resolveSearchInput = _resolveInputSurfaceFor;
     final resolveAction = _resolveActionSurface;
     final write = _writeText;
-    if (resolveInput == null || resolveAction == null || write == null) {
+    if (resolveSearchInput == null || resolveAction == null || write == null) {
       return const TaskStepResult(
         status: TaskStepStatus.failed,
         reason: 'conversación no visible y sin búsqueda disponible',
@@ -378,14 +378,30 @@ class TaskOrchestrator {
       );
     }
 
-    // 1. Si hay un icono de búsqueda, tócalo para abrir el campo.
-    final searchIcon = await resolveAction('search');
-    if (searchIcon != null && searchIcon.isNotEmpty) {
-      await tap(searchIcon);
+    // 1. Si ya hay un campo de búsqueda semántico, usarlo. De lo contrario,
+    // abrirlo y comprobar que apareció antes de escribir. No se degrada al
+    // compositor: eso podría convertir el nombre del contacto en un mensaje.
+    var input = await resolveSearchInput('search');
+    if (input == null || input.isEmpty) {
+      final searchIcon = await resolveAction('search');
+      if (searchIcon == null || searchIcon.isEmpty) {
+        return const TaskStepResult(
+          status: TaskStepStatus.failed,
+          reason: 'sin icono ni campo de búsqueda identificable',
+          failureKind: TaskFailureKind.recoverable,
+        );
+      }
+      if (!await tap(searchIcon)) {
+        return const TaskStepResult(
+          status: TaskStepStatus.failed,
+          reason: 'no se pudo abrir la búsqueda de conversaciones',
+          failureKind: TaskFailureKind.recoverable,
+        );
+      }
+      input = await resolveSearchInput('search');
     }
 
-    // 2. Escribir el target en el campo de búsqueda.
-    final input = await resolveInput();
+    // 2. Escribir el target en el campo de búsqueda ya observado.
     if (input == null || input.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.failed,
@@ -424,7 +440,7 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final resolve = _resolveInputSurface;
+    final resolve = _resolveInputSurfaceFor;
     final write = _writeText;
     if (resolve == null || write == null) {
       return const TaskStepResult(
@@ -433,9 +449,8 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    // T2.0: resolver la superficie de entrada editable REAL (composer/buscador)
-    // en lugar de escribir en un selector vacío.
-    final selector = await resolve();
+    // Resolver el compositor REAL en lugar de escribir en un selector vacío.
+    final selector = await resolve('message');
     if (selector == null || selector.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
@@ -526,7 +541,7 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final resolveInput = _resolveInputSurface;
+    final resolveInput = _resolveInputSurfaceFor;
     final write = _writeText;
     if (resolveInput == null || write == null) {
       return const TaskStepResult(
@@ -536,7 +551,7 @@ class TaskOrchestrator {
       );
     }
 
-    var input = await resolveInput();
+    var input = await resolveInput('search');
     if (input == null || input.isEmpty) {
       // No hay campo visible: abrir la búsqueda tocando el icono (si existe).
       final resolveAction = _resolveActionSurface;
@@ -556,8 +571,14 @@ class TaskOrchestrator {
           failureKind: TaskFailureKind.recoverable,
         );
       }
-      await tap(icon);
-      input = await resolveInput();
+      if (!await tap(icon)) {
+        return const TaskStepResult(
+          status: TaskStepStatus.failed,
+          reason: 'no se pudo abrir la búsqueda',
+          failureKind: TaskFailureKind.recoverable,
+        );
+      }
+      input = await resolveInput('search');
       if (input == null || input.isEmpty) {
         return const TaskStepResult(
           status: TaskStepStatus.failed,

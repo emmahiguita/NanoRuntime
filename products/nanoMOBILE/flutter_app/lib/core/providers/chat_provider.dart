@@ -106,7 +106,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Máximo de rondas de herramienta por mensaje del usuario: evita bucles
   /// infinitos si el modelo insiste en llamar tools sin concluir.
-  static const int _maxToolRounds = 2;
+  static const int _maxToolRounds = 8;
 
   /// Genera un system prompt dinámico con contexto en tiempo real
   /// y telemetría 100% real del hardware (sin simulación).

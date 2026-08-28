@@ -59,6 +59,51 @@ abstract final class ScoringConstants {
   static const double centerRegionRatio = 0.12;
 }
 
+/// Índices derivados una vez por snapshot. El scoring debe ser lineal sobre el
+/// árbol; recalcular viewport y editables por candidato hacía que un dump grande
+/// recorriera el mismo árbol cientos de veces.
+class _SnapshotFeatures {
+  final List<NanoNode> visibleEnabledNodes;
+  final int? firstVisibleEditableIndex;
+  final int viewportWidth;
+  final int viewportHeight;
+
+  const _SnapshotFeatures({
+    required this.visibleEnabledNodes,
+    required this.firstVisibleEditableIndex,
+    required this.viewportWidth,
+    required this.viewportHeight,
+  });
+
+  factory _SnapshotFeatures.fromSnapshot(NanoSnapshot snapshot) {
+    final visibleEnabled = <NanoNode>[];
+    int? firstEditableIndex;
+    var viewportWidth = 0;
+    var viewportHeight = 0;
+
+    for (final node in snapshot.nodes) {
+      if (node.bounds.right > viewportWidth) {
+        viewportWidth = node.bounds.right;
+      }
+      if (node.bounds.bottom > viewportHeight) {
+        viewportHeight = node.bounds.bottom;
+      }
+      if (!node.visible || !node.enabled) continue;
+
+      visibleEnabled.add(node);
+      if (firstEditableIndex == null && node.editable) {
+        firstEditableIndex = node.index;
+      }
+    }
+    return _SnapshotFeatures(
+      visibleEnabledNodes: visibleEnabled,
+      firstVisibleEditableIndex: firstEditableIndex,
+      viewportWidth: viewportWidth,
+      viewportHeight: viewportHeight,
+    );
+  }
+}
+
 /// Motor de resolución ponderada. Puro: snapshot → outcome. Sin canal.
 class NanoSelectorEngine {
   NanoSelectorEngine({
@@ -93,15 +138,17 @@ class NanoSelectorEngine {
       );
     }
 
+    final features = _SnapshotFeatures.fromSnapshot(snapshot);
+
     // Score base de todos los candidatos válidos (sin filtro aún).
     final base = <ScoreEntry>[];
-    for (final node in snapshot.nodes) {
-      final entry = _scoreNode(selector, node, snapshot);
+    for (final node in features.visibleEnabledNodes) {
+      final entry = _scoreNode(selector, node, features);
       if (entry != null) base.add(entry);
     }
 
     // Bonus near: candidatos próximos a anclas del sub-selector near.
-    final withNear = _applyNearBonus(selector, base, snapshot);
+    final withNear = _applyNearBonus(selector, base, features);
 
     final ranked = withNear.where((e) => e.score >= minResolvedScore).toList()
       ..sort((a, b) => b.score.compareTo(a.score));
@@ -127,7 +174,7 @@ class NanoSelectorEngine {
   ScoreEntry? _scoreNode(
     NanoSelector selector,
     NanoNode node,
-    NanoSnapshot snapshot,
+    _SnapshotFeatures features,
   ) {
     if (!node.visible || !node.enabled) return null;
 
@@ -185,8 +232,7 @@ class NanoSelectorEngine {
         score += ScoringConstants.editableMatch;
         criteria.add('editable:+45');
         if (wantEditable) {
-          final editables = snapshot.visibleEditables();
-          if (editables.isNotEmpty && editables.first.index == node.index) {
+          if (features.firstVisibleEditableIndex == node.index) {
             score += ScoringConstants.editableFirstPosition;
             criteria.add('firstEditable:+15');
           }
@@ -202,7 +248,7 @@ class NanoSelectorEngine {
     }
 
     // centerRegion: nodo cerca del centro de la pantalla.
-    if (_isCenterRegion(node, snapshot)) {
+    if (_isCenterRegion(node, features)) {
       score += ScoringConstants.centerRegion;
       criteria.add('center:+10');
     }
@@ -221,23 +267,24 @@ class NanoSelectorEngine {
 
   /// +50 a candidatos próximos a un ancla resuelta por [NanoSelector.near].
   ///
-  /// Las anclas son los nodos que resuelven el sub-selector `near` (score >
-  /// 0 tras _scoreNode) — el patrón label→campo: `editable=true,
+  /// Las anclas solo aceptan evidencia fuerte (score ≥ 90 tras _scoreNode) —
+  /// el patrón label→campo: `editable=true,
   /// near: desc=Usuario`. Exige no-solapamiento en el eje principal: un
   /// contenedor raíz que envuelve todo el árbol no ancla a sus hijos.
   List<ScoreEntry> _applyNearBonus(
     NanoSelector selector,
     List<ScoreEntry> base,
-    NanoSnapshot snapshot,
+    _SnapshotFeatures features,
   ) {
     final nearSel = selector.near;
     if (nearSel == null) return base;
 
     final anchors = <NanoNode>[];
-    for (final node in snapshot.nodes) {
-      if (!node.visible || !node.enabled) continue;
-      final entry = _scoreNode(nearSel, node, snapshot);
-      if (entry != null && entry.score > 0) anchors.add(node);
+    for (final node in features.visibleEnabledNodes) {
+      final entry = _scoreNode(nearSel, node, features);
+      if (entry != null && entry.score >= ScoringConstants.anchorMinScore) {
+        anchors.add(node);
+      }
     }
     if (anchors.isEmpty) return base;
 
@@ -305,13 +352,9 @@ class NanoSelectorEngine {
   /// Centro del nodo dentro de ±12% de min(w,h) del centro de pantalla.
   /// Tamaño de pantalla aproximado por el bounds máximo del snapshot (el root
   /// suele cubrir toda la ventana) — sin fuente adicional del canal.
-  bool _isCenterRegion(NanoNode node, NanoSnapshot snapshot) {
-    var sw = 0;
-    var sh = 0;
-    for (final n in snapshot.nodes) {
-      if (n.bounds.right > sw) sw = n.bounds.right;
-      if (n.bounds.bottom > sh) sh = n.bounds.bottom;
-    }
+  bool _isCenterRegion(NanoNode node, _SnapshotFeatures features) {
+    final sw = features.viewportWidth;
+    final sh = features.viewportHeight;
     if (sw <= 0 || sh <= 0) return false;
     final maxDelta = (sw < sh ? sw : sh) * ScoringConstants.centerRegionRatio;
     final dx = (node.bounds.centerX - sw / 2).abs();

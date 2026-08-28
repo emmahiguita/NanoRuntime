@@ -48,7 +48,7 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     planner: ref.watch(llmAutomationPlannerProvider),
     verifyGoal: ref.watch(goalVerifierProvider).verify,
     catalog: defaultDeterministicCatalog,
-    objectMemory: NanoObjectMemory(),
+    objectMemory: const NanoObjectMemory(),
     // A13.6: compartir la instancia de memoria actualizada con el PerceptionMux
     // (vía el notifier), eliminando el split-brain.
     onMemoryUpdate: (m) => ref.read(objectMemoryProvider.notifier).replace(m),
@@ -130,6 +130,18 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         if (g == null) return null;
         return const InputSurfaceResolver().resolve(g)?.selector;
       },
+      resolveInputSurfaceFor: (kind) async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        final inputKind = switch (kind) {
+          'message' => InputSurfaceKind.message,
+          'search' => InputSurfaceKind.search,
+          _ => InputSurfaceKind.any,
+        };
+        return const InputSurfaceResolver()
+            .resolve(g, kind: inputKind)
+            ?.selector;
+      },
       resolveActionSurface: (kind) async {
         final g = await currentGraph();
         if (g == null) return null;
@@ -140,7 +152,10 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       observeInputText: () async {
         final g = await currentGraph();
         if (g == null) return null;
-        return const InputSurfaceResolver().resolve(g)?.object.text;
+        return const InputSurfaceResolver()
+            .resolve(g, kind: InputSurfaceKind.message)
+            ?.object
+            .text;
       },
       // T2.9-select — resolución grounded de un resultado observado
       // (ordinal/texto) desde el ScreenGraph real, nunca coordenadas.

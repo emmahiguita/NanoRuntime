@@ -301,7 +301,7 @@ class PolicyDecision {
 
 /// Motor de política: decide sin ejecutar. Puro y determinista.
 class PolicyEngine {
-  PolicyEngine({ToolRegistry? registry, this.maxStepsPerTurn = 6})
+  PolicyEngine({ToolRegistry? registry, this.maxStepsPerTurn = 8})
     : registry = registry ?? ToolRegistry.builtin;
 
   final ToolRegistry registry;
@@ -336,9 +336,11 @@ class PolicyEngine {
         reason: 'límite de pasos por turno alcanzado ($maxStepsPerTurn)',
       );
     }
-    final autonomousImpact =
-        !humanInitiated &&
-        (tool.requiresConfirmation || tool.risk.index >= ToolRisk.device.index);
+    // `risk` describe impacto técnico, no el consentimiento. Navegar (tap,
+    // back, launch) es necesario para completar una tarea y no debe duplicar
+    // el diálogo que ya gobierna AutomationPolicy. Solo las tools marcadas de
+    // forma explícita como sensibles requieren una aprobación autónoma.
+    final autonomousImpact = !humanInitiated && tool.requiresConfirmation;
     final needsConfirm = autonomousImpact && !confirmed;
     if (needsConfirm) {
       return PolicyDecision._(

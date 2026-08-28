@@ -179,6 +179,33 @@ class NanoSnapshot {
   List<NanoNode> visibleEditables() =>
       visibleNodes.where((n) => n.editable).toList();
 
+  /// Devuelve el propio [node] si recibe taps o su ancestro clicable visible
+  /// más cercano. El árbol llega plano en pre-order: al retroceder, cada depth
+  /// menor pertenece a la cadena de ancestros hasta alcanzar el root.
+  ///
+  /// Un selector semántico suele resolver un `TextView` dentro de una fila. El
+  /// gesto debe dirigirse a la fila/botón propietario, nunca a un ancestro de
+  /// otro subárbol ni a un nodo descubierto por proximidad de coordenadas.
+  NanoNode tapTargetFor(NanoNode node) {
+    if (node.visible && node.enabled && node.clickable) return node;
+
+    var ancestorDepth = node.depth;
+    for (
+      var cursor = node.index - 1;
+      cursor >= 0 && ancestorDepth > 0;
+      cursor--
+    ) {
+      final candidate = nodes[cursor];
+      if (candidate.depth >= ancestorDepth) continue;
+
+      ancestorDepth = candidate.depth;
+      if (candidate.visible && candidate.enabled && candidate.clickable) {
+        return candidate;
+      }
+    }
+    return node;
+  }
+
   /// Parsea `{package, nodes:[…]}` (respuesta de `dumpSnapshot`). Si [raw]
   /// es la lista plana de `dumpScreen`, package queda "" y depth 0.
   factory NanoSnapshot.fromRaw(Map<dynamic, dynamic> raw) {

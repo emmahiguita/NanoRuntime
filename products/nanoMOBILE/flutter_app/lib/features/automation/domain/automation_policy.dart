@@ -52,13 +52,32 @@ class AutomationPolicy {
   const AutomationPolicy(this.mode);
 
   /// Herramientas de solo lectura exentas de confirmación en modo manual.
-  static const _readOnlyTools = {'screen', 'resolve'};
+  static const _readOnlyTools = {
+    'screen',
+    'resolve',
+    'notifications',
+    'linux.list',
+    'linux.readFile',
+    'shizuku_query_package',
+  };
+
+  /// Operaciones con efecto externo o de privilegio que requieren una decisión
+  /// explícita en los modos asistido y autónomo. Navegación (`tap`, `back`,
+  /// `launch_app`, gestos) no entra aquí: es una precondición, no una acción
+  /// final por sí misma.
+  static const _sensitiveTools = {
+    'write',
+    'reply_notification',
+    'linux.writeFile',
+    'force_stop_package',
+    'install_package',
+    'grant_specific_permission',
+  };
 
   bool requiresConfirmation(String tool) => switch (mode) {
     AgentAutomationMode.manual => !_readOnlyTools.contains(tool),
-    AgentAutomationMode.assisted =>
-      tool == 'tap' || tool == 'back' || tool == 'write',
-    AgentAutomationMode.autonomous => tool == 'write',
+    AgentAutomationMode.assisted ||
+    AgentAutomationMode.autonomous => _sensitiveTools.contains(tool),
   };
 
   String confirmationDescription(String tool) =>
