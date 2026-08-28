@@ -134,6 +134,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Impeller Vulkan falla en algunos GPUs (cancelAndRedraw / pantalla
+             congelada en el icono). Skia (OpenGL) es el fallback estable. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
 
         <!-- A14.3: proveedor de binding Shizuku. Declarado por la API oficial
              dev.rikka.shizuku:api. Permite a NanoAI vincularse al servicio
