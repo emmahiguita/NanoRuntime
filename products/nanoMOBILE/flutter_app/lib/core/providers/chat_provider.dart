@@ -452,11 +452,26 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final session = voiceSession;
     final turn = await session.pushToTalk();
     if (turn == null || turn.transcript.trim().isEmpty) return null;
-    // Respuesta progresiva (sección 42): ack corto antes de ejecutar, para que
-    // el usuario sepa que fue escuchado sin esperar el resultado completo.
+    // Respuesta progresiva: ack corto antes de ejecutar, para que el usuario
+    // sepa que fue escuchado sin esperar el resultado completo.
     unawaited(session.respond('Voy.'));
     await send(turn.transcript);
+    // Responder a VOZ: hablar el último mensaje AI generado en este turno
+    // (la respuesta real, no solo el ack). Honestidad: habla el resultado del
+    // MISMO send(), nunca un texto fabricado.
+    final ai = _lastAiMessage();
+    if (ai != null && ai.text.isNotEmpty) {
+      await session.respond(ai.text);
+    }
     return turn.transcript;
+  }
+
+  /// Último mensaje del agente en el historial (para la respuesta por voz).
+  ChatMessage? _lastAiMessage() {
+    for (final m in state.messages.reversed) {
+      if (m.sender == MessageSender.ai) return m;
+    }
+    return null;
   }
 
   /// A16 — sesión de voz (state machine + referentes). resolveGoal devuelve el
