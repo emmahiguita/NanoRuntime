@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'i_bin_executor.dart';
 import 'real_fs_shell.dart';
@@ -390,7 +389,8 @@ class CommandExecutor {
           stackTrace: st,
           data: {'path': 'registry'},
         );
-        rethrow;
+        debugPrint('[terminal] Error en comando "$name": $e\n$st');
+        x.out('$name: error interno — $e', Ln.stderr);
       }
     } else {
       x.audit?.event(

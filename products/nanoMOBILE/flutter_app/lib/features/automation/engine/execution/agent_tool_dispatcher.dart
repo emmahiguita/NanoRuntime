@@ -905,7 +905,7 @@ class AgentToolDispatcher {
     // confirmar que el archivo existe, la escritura queda VERIFICADA (no solo
     // "ok" del backend). Si no es observable, se reporta solo "escrito".
     if (call.tool == 'linux.writeFile' && _platformStateReader != null) {
-      final r = await _platformStateReader!.evaluate(FileExists(arg));
+      final r = await _platformStateReader.evaluate(FileExists(arg));
       if (r is PlatformPredicateSatisfied) {
         return 'Archivo escrito y verificado en "$arg".';
       }

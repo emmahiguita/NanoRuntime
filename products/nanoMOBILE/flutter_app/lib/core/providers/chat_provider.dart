@@ -452,6 +452,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// resultado del MISMO send(), nunca texto fabricado. La UI de voz llama esto
   /// tras `send()`; no hay un segundo flujo de voz paralelo.
   Future<void> speakLastResponse() async {
+    // V1 — gate: si el usuario desactivó la voz, no hablar.
+    if (!_ref.read(settingsProvider).voiceEnabled) return;
     ChatMessage? ai;
     for (final m in state.messages.reversed) {
       if (m.sender == MessageSender.ai) {

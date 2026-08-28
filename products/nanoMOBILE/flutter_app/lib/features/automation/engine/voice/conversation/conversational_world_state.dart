@@ -5,8 +5,6 @@
 /// recibe la entidad resuelta desde aquí.
 library;
 
-import 'dart:async';
-
 /// Origen verificado de una referencia resuelta.
 enum ReferenceSource {
   notification,

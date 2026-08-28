@@ -41,6 +41,7 @@ class SettingsRepository {
         automationModelMode: _modeFromName(m['automationModelMode'] as String?),
         automationModelId: m['automationModelId'] as String? ?? '',
         automationModelPath: m['automationModelPath'] as String? ?? '',
+        voiceEnabled: m['voiceEnabled'] as bool? ?? true,
       );
     } catch (_) {
       return const SettingsState();
@@ -62,6 +63,7 @@ class SettingsRepository {
         'automationModelMode': s.automationModelMode.name,
         'automationModelId': s.automationModelId,
         'automationModelPath': s.automationModelPath,
+        'voiceEnabled': s.voiceEnabled,
       }),
     );
   }
@@ -86,6 +88,9 @@ class SettingsState {
   final String automationModelId;
   final String automationModelPath;
 
+  /// V1 — voz (TTS) activada. Cuando false, speakLastResponse() es no-op.
+  final bool voiceEnabled;
+
   const SettingsState({
     this.themeMode = 'Sistema',
     this.temperature = 0.7,
@@ -97,6 +102,7 @@ class SettingsState {
     this.automationModelMode = AutomationModelMode.sameAsChat,
     this.automationModelId = '',
     this.automationModelPath = '',
+    this.voiceEnabled = true,
   });
 
   SettingsState copyWith({
@@ -110,6 +116,7 @@ class SettingsState {
     AutomationModelMode? automationModelMode,
     String? automationModelId,
     String? automationModelPath,
+    bool? voiceEnabled,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -121,6 +128,7 @@ class SettingsState {
     automationModelMode: automationModelMode ?? this.automationModelMode,
     automationModelId: automationModelId ?? this.automationModelId,
     automationModelPath: automationModelPath ?? this.automationModelPath,
+    voiceEnabled: voiceEnabled ?? this.voiceEnabled,
   );
 }
 
@@ -166,6 +174,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setAutomationModel(String id, String path) => _persist(
     state.copyWith(automationModelId: id, automationModelPath: path),
   );
+  void setVoiceEnabled(bool v) => _persist(state.copyWith(voiceEnabled: v));
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(

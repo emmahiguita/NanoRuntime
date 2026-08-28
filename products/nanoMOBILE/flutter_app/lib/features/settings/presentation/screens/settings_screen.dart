@@ -50,6 +50,8 @@ class SettingsScreen extends ConsumerWidget {
           final primary = <Widget>[_themeSection(state, notifier, colors)];
           final secondary = <Widget>[
             _inferenceSection(state, notifier, colors),
+            const SizedBox(height: NanoSpacing.md),
+            _voiceSection(state, notifier, colors),
           ];
 
           return ListView(
@@ -181,6 +183,70 @@ class SettingsScreen extends ConsumerWidget {
           colors: colors,
         ),
       ],
+    ),
+  );
+  Widget _voiceSection(
+    SettingsState state,
+    SettingsNotifier notifier,
+    NanoColors colors,
+  ) => _section(
+    title: 'Voz',
+    icon: Icons.record_voice_over_rounded,
+    colors: colors,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: NanoSpacing.md,
+        vertical: NanoSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: state.voiceEnabled
+                  ? colors.primary.withValues(alpha: 0.12)
+                  : colors.outlineVariant.withValues(alpha: 0.18),
+            ),
+            child: Icon(
+              state.voiceEnabled
+                  ? Icons.volume_up_rounded
+                  : Icons.volume_off_rounded,
+              size: 18,
+              color: state.voiceEnabled
+                  ? colors.primary
+                  : colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: NanoSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Respuestas de voz',
+                  style: NanoType.body(colors.onSurface),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  state.voiceEnabled
+                      ? 'Nano habla las respuestas tras un mensaje de voz.'
+                      : 'Nano no hablará las respuestas (solo texto).',
+                  style: NanoType.caption(colors.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: NanoSpacing.sm),
+          Switch(
+            value: state.voiceEnabled,
+            onChanged: notifier.setVoiceEnabled,
+            activeThumbColor: colors.primary,
+            inactiveTrackColor: colors.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ],
+      ),
     ),
   );
 }
