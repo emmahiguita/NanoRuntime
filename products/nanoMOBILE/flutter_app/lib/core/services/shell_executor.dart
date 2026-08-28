@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'nano_runtime_api.dart';
-import 'allowed_binaries.dart';
 import 'rootfs_manager.dart';
 import 'nanoshell_ffi.dart';
 import 'rootfs_env.dart';
@@ -550,96 +548,42 @@ class ShellExecutor implements IBinExecutor {
     // fork+dlopen seguro. Se ejecuta el binario toybox ELF (assets/bin/toybox,
     // extraído en init) con argv[0]="toybox" para que despache el applet.
     final toyboxPath = _assetBinDir != null ? '$_assetBinDir/toybox' : null;
-    if (toyboxPath != null) {
-      final wr = await _execInWorker(toyboxPath, ['toybox', ...args], env: env);
-      if (wr != null) return wr;
-    }
-    try {
-      final result = await Isolate.run(() {
-        final ns = Nanoshell.instance; // isolate nuevo: singleton propio
-        try {
-          ns.load();
-        } catch (_) {
-          // libnanoshell.so no disponible (build sin NDK, o dispositivo
-          // que no extrajo jniLibs). Marcador para el fallback de afuera.
-          return (stdout: '', stderr: '', exitCode: -2, error: 'load failed');
-        }
-        final r = ns.spawnBusyBox(args, env: env);
-        return (
-          stdout: r.stdout,
-          stderr: r.stderr,
-          exitCode: r.exitCode,
-          // lastError es estado del isolate donde corrió el spawn — hay que
-          // sacarlo ANTES de que Isolate.run lo destruya.
-          error: r.exitCode == -1 ? ns.lastError : '',
-        );
-      });
-
-      if (result.exitCode == -2) {
-        return _execBusyBoxFallback(args, env: env);
-      }
-      if (result.exitCode == -1) {
-        // Error interno de nanoshell (fork/pipe/dlopen falló).
-        // Intentar fallback si es problema de dlopen.
-        if (result.error.contains('dlopen')) {
-          // libbusybox.so o sus deps no encontradas en jniLibs.
-          return _execBusyBoxFallback(args, env: env);
-        }
-        return ShellResult(
-          stdout: result.stdout,
-          stderr: 'nanoshell error: ${result.error}\n${result.stderr}',
-          exitCode: result.exitCode,
-        );
-      }
-
-      return ShellResult(
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
+    if (toyboxPath == null) {
+      return const ShellResult(
+        stdout: '',
+        stderr: 'WorkerUnavailable: binario toybox no extraído',
+        exitCode: -1,
       );
-    } catch (e) {
-      return _execBusyBoxFallback(args, env: env);
     }
+    final wr = await _execInWorker(toyboxPath, ['toybox', ...args], env: env);
+    if (wr != null) return wr;
+    return const ShellResult(
+      stdout: '',
+      stderr: 'WorkerUnavailable: el proceso :nanoshell no está disponible '
+          '(fork+dlopen in-process deshabilitado en Android 15)',
+      exitCode: -1,
+    );
   }
 
-  /// Fallback: ejecución vía bash/sh (Process.start). Solo funciona en
-  /// dispositivos con SELinux permisivo (no OPPO/ColorOS).
-  Future<ShellResult> _execBusyBoxFallback(
-    List<String> args, {
-    Map<String, String>? env,
-  }) async {
-    // Validar argumentos para prevenir inyección
-    for (final arg in args) {
-      if (arg.contains('\n') || arg.contains('\r') || arg.contains('\u0000')) {
-        return const ShellResult(
-          stdout: '',
-          stderr: 'busybox: argumento inválido contiene caracteres de control',
-          exitCode: 126,
-        );
-      }
-    }
-
-    String esc(String s) => "'${s.replaceAll("'", "'\\''")}'";
-    final cmd = args.map(esc).join(' ');
-    return bash(cmd, env: env);
-  }
-
-  /// Verifica si BusyBox real está disponible vía Nanoshell.
+  /// Verifica si BusyBox real está disponible (binario toybox extraído +
+  /// worker). Ya NO usa spawnBusyBox in-process (fork+dlopen crashea en
+  /// Android 15). La disponibilidad real se valida ejecutando en el worker.
   bool get busyboxRealAvailable {
     try {
-      if (!Nanoshell.instance.isLoaded) Nanoshell.instance.load();
-      final result = Nanoshell.instance.spawnBusyBox(['true']);
-      return result.exitCode == 0;
+      final toyboxPath = _assetBinDir != null ? '$_assetBinDir/toybox' : null;
+      if (toyboxPath == null || !File(toyboxPath).existsSync()) return false;
+      return true;
     } catch (_) {
       return false;
     }
   }
 
-  /// Ejecuta un binario genérico del rootfs vía nanoshell_spawn_generic.
+  /// Ejecuta un binario del rootfs en el worker (:nanoshell, sin GPU).
   /// Útil para git, curl, python, dpkg y cualquier PIE del rootfs Termux.
   ///
-  /// [binaryPath] debe ser path absoluto al binario (ej. /data/.../usr/bin/curl).
-  /// [ldPreload] opcional: si se pasa "libnanoroot.so", activa fakechroot.
+  /// Android 15: fork()+dlopen() en el proceso principal crashea (CFI shadow
+  /// MapShadow CHECK failed). Todo binario se ejecuta en el worker; NO hay
+  /// fallback in-process (nunca fork+dlopen en el proceso Flutter principal).
   @override
   Future<ShellResult> execRootfs(
     String binaryPath,
@@ -647,52 +591,19 @@ class ShellExecutor implements IBinExecutor {
     Map<String, String>? env,
     String? ldPreload,
   }) async {
-    try {
-      // Construir env con NANO_ROOTFS y LD_LIBRARY_PATH si se usa ldPreload.
-      // Sin esto, libnanoroot.so se carga pero no sabe dónde está el rootfs.
-      // OJO: nanoroot.c mapea /usr/X → {NANO_ROOTFS}/X, así que NANO_ROOTFS
-      // DEBE ser .../files/nano/usr (NO el baseDir). /etc → {parent}/etc.
-      final effectiveEnv = Map<String, String>.from(env ?? _defaultEnv);
-      if (ldPreload != null && ldPreload.isNotEmpty) {
-        effectiveEnv['LD_PRELOAD'] = ldPreload;
-        if (_rootfs.isInstalled && _rootfs.usrDir != null) {
-          effectiveEnv['NANO_ROOTFS'] = _rootfs.usrDir!;
-          effectiveEnv['LD_LIBRARY_PATH'] = '${_rootfs.usrDir}/lib';
-        } else if (_baseDir != null) {
-          // Sin rootfs: fallback al baseDir (los binarios viven en baseDir/).
-          effectiveEnv['NANO_ROOTFS'] = _baseDir!;
-        }
-      }
-
-      // A-28: spawnGeneric = fork + waitpid completo, síncrono. Isolate
-      // aparte (mismo motivo que _execBusyBox). El allowlist no cruza
-      // isolates (estático por isolate) — se carga afuera y se siembra
-      // dentro con seedAllowed; sin seed, fail-closed rechazaría todo.
-      final allowed = await AllowedBinaries.load();
-      final result = await Isolate.run(() {
-        final ns = Nanoshell.instance;
-        ns.seedAllowed(allowed);
-        ns.load();
-        return ns.spawnGeneric(
-          binaryPath,
-          args,
-          env: effectiveEnv,
-          ldPreload: ldPreload,
-        );
-      });
-
-      return ShellResult(
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-      );
-    } catch (e) {
-      return ShellResult(
-        stdout: '',
-        stderr: 'execRootfs error: $e',
-        exitCode: -1,
-      );
-    }
+    final wr = await execRootfsWorker(
+      binaryPath,
+      args,
+      env: env,
+      ldPreload: ldPreload,
+    );
+    if (wr != null) return wr;
+    return const ShellResult(
+      stdout: '',
+      stderr: 'WorkerUnavailable: el proceso :nanoshell no está disponible '
+          '(fork+dlopen in-process deshabilitado en Android 15)',
+      exitCode: -1,
+    );
   }
 
   /// Ejecuta un binario del rootfs en el proceso WORKER (sin GPU).
