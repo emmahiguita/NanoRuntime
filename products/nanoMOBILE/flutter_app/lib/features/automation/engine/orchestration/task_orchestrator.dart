@@ -8,6 +8,7 @@ library;
 
 import '../notifications/notification_object.dart';
 import '../notifications/observed_data_extractor.dart';
+import '../perception/search_result_resolver.dart';
 import '../planning/message_intent_parser.dart';
 import '../voice/execution_cancellation.dart';
 import 'task_plan.dart';
@@ -23,6 +24,7 @@ class TaskOrchestrator {
     Future<String?> Function()? resolveInputSurface,
     Future<String?> Function(String kind)? resolveActionSurface,
     Future<String?> Function()? observeInputText,
+    Future<ResultResolution?> Function(ResultTarget target)? resolveResult,
     this.maxAttemptsPerStep = 2,
     this.maxReplansPerTask = 2,
   }) : _listNotifications = listNotifications,
@@ -33,7 +35,8 @@ class TaskOrchestrator {
        _writeText = writeText,
        _resolveInputSurface = resolveInputSurface,
        _resolveActionSurface = resolveActionSurface,
-       _observeInputText = observeInputText;
+       _observeInputText = observeInputText,
+       _resolveResult = resolveResult;
 
   final Future<List<dynamic>> Function() _listNotifications;
   final Future<bool> Function(String url) _openUrl;
@@ -54,6 +57,10 @@ class TaskOrchestrator {
   /// el envío observando que el composer quedó vacío). null = sin observación;
   /// el paso degrada a completedUnverified (nunca afirma envío sin evidencia).
   final Future<String?> Function()? _observeInputText;
+
+  /// T2.9-select — resolución grounded de un resultado observado (ordinal/texto).
+  /// null = sin fuente de resolución; el paso devuelve needsMoreEvidence.
+  final Future<ResultResolution?> Function(ResultTarget target)? _resolveResult;
 
   /// A15.1 — presupuesto de recuperación acotado.
   final int maxAttemptsPerStep;
@@ -144,6 +151,8 @@ class TaskOrchestrator {
         return _writeQuery(goal);
       case 'submitSearch':
         return _submitSearch(goal);
+      case 'selectResult':
+        return _selectResult(goal);
       default:
         return const TaskStepResult(
           status: TaskStepStatus.needsMoreEvidence,
@@ -579,6 +588,71 @@ class TaskOrchestrator {
           );
   }
 
+  // ── T2.9-select — selección semántica de resultado observado ───────────────
+
+  Future<TaskStepResult> _selectResult(_GoalContext goal) async {
+    final resolve = _resolveResult;
+    final tap = _tap;
+    if (resolve == null || tap == null) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin fuente de resolución/tap de resultados',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+
+    final ResultTarget target;
+    if (goal.resultOrdinal != null) {
+      target = ResultOrdinal(goal.resultOrdinal!);
+    } else if (goal.resultText.isNotEmpty) {
+      target = ResultText(goal.resultText);
+    } else {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin ordinal ni texto de resultado',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+
+    final resolution = await resolve(target);
+    if (resolution == null) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin snapshot de pantalla para resolver resultados',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    if (resolution is ResultNotFound) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'resultado no encontrado en pantalla',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    if (resolution is ResultAmbiguous) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            'resultado ambiguo entre ${resolution.candidates.length} coincidencias (clarificación)',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final candidate = (resolution as ResultResolved).candidate;
+    final ok = await tap(candidate.selector);
+    // T2.9-select: `tap == true` NO es éxito; la verificación de apertura la
+    // añade SearchResultVerification (commit siguiente). Honesto: sin verificar.
+    return ok
+        ? const TaskStepResult(
+            status: TaskStepStatus.completedUnverified,
+            reason: 'resultado seleccionado (despacho aceptado, sin verificar apertura)',
+          )
+        : const TaskStepResult(
+            status: TaskStepStatus.failed,
+            reason: 'tap de resultado devolvió false',
+            failureKind: TaskFailureKind.recoverable,
+          );
+  }
+
   _GoalContext _parseGoal(String goal) {
     final g = goal.toLowerCase();
 
@@ -605,12 +679,52 @@ class TaskOrchestrator {
 
     // Target/draft (mensajería) vía MessageIntentParser (":" y " que ").
     final intent = const MessageIntentParser().parse(goal);
+
+    // T2.9-select: ordinal ("segundo") o texto ("que dice X") del resultado.
+    final resultOrdinal = _parseResultOrdinal(g);
+    final resultText = _parseResultText(goal);
+
     return _GoalContext(
       appName: appName,
       target: intent.recipient,
       draft: intent.message,
       query: query,
+      resultOrdinal: resultOrdinal,
+      resultText: resultText,
     );
+  }
+
+  /// Ordinal determinista de resultado: "primero"=1, "segundo"=2, "resultado 3",
+  /// "el de arriba"=1. null = sin ordinal explícito.
+  int? _parseResultOrdinal(String g) {
+    const words = {
+      'primero': 1,
+      'primer': 1,
+      'primera': 1,
+      'segundo': 2,
+      'segunda': 2,
+      'tercero': 3,
+      'tercer': 3,
+      'tercera': 3,
+      'cuarto': 4,
+      'cuarta': 4,
+      'quinto': 5,
+      'quinta': 5,
+    };
+    for (final e in words.entries) {
+      if (g.contains(e.key)) return e.value;
+    }
+    final nMatch = RegExp(r'resultado\s+(\d+)').firstMatch(g);
+    if (nMatch != null) return int.tryParse(nMatch.group(1)!);
+    if (g.contains('de arriba')) return 1;
+    return null;
+  }
+
+  /// Texto objetivo del resultado: "que dice X" / "dice X". '' = sin texto.
+  /// Se recorta del ORIGINAL para conservar el case ("NanoRuntime").
+  String _parseResultText(String goal) {
+    final m = RegExp(r'dice\s+(.+)$', caseSensitive: false).firstMatch(goal);
+    return m?.group(1)?.trim() ?? '';
   }
 }
 
@@ -622,10 +736,18 @@ class _GoalContext {
   /// T2.9 — query de búsqueda ("abre YouTube y busca X").
   final String query;
 
+  /// T2.9-select — ordinal del resultado (null = no expresado).
+  final int? resultOrdinal;
+
+  /// T2.9-select — texto objetivo del resultado ('' = no expresado).
+  final String resultText;
+
   const _GoalContext({
     this.appName = '',
     this.target = '',
     this.draft = '',
     this.query = '',
+    this.resultOrdinal,
+    this.resultText = '',
   });
 }

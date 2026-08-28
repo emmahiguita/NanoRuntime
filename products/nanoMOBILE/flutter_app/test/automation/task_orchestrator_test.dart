@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
+import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart';
+import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 
 void main() {
   group('TaskOrchestrator · write/send con superficie grounded (T2.0)', () {
@@ -405,6 +407,111 @@ void main() {
       expect(plan, isNotNull);
       await o.run(plan!);
       expect(launchLog, ['youtube']);
+    });
+  });
+
+  group('TaskOrchestrator · T2.9-select selección de resultado', () {
+    SearchResultCandidate cand(String title, int ordinal) =>
+        SearchResultCandidate(
+          ordinal: ordinal,
+          title: title,
+          subtitle: '',
+          resourceId: '',
+          bounds: const NanoBounds(left: 0, top: 0, right: 100, bottom: 100),
+          packageName: '',
+          confidence: 0.8,
+          source: SearchResultSource.accessibility,
+          selector: 'text=$title',
+        );
+
+    test('"abre el segundo resultado" → ordinal 2 → tap grounded', () async {
+      String? tapped;
+      ResultTarget? received;
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (sel) async {
+          tapped = sel;
+          return true;
+        },
+        resolveResult: (target) async {
+          received = target;
+          return ResultResolved(cand('Result B', 2));
+        },
+      );
+      final plan = const TaskPlanner().plan('abre el segundo resultado');
+      final results = await o.run(plan!);
+      expect(results.first.status, TaskStepStatus.completedUnverified);
+      expect(received, isA<ResultOrdinal>());
+      expect((received as ResultOrdinal).ordinal, 2);
+      expect(tapped, 'text=Result B');
+    });
+
+    test('"abre el resultado que dice NanoRuntime" → texto → tap grounded', () async {
+      String? tapped;
+      ResultTarget? received;
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (sel) async {
+          tapped = sel;
+          return true;
+        },
+        resolveResult: (target) async {
+          received = target;
+          return ResultResolved(cand('NanoRuntime', 1));
+        },
+      );
+      final plan = const TaskPlanner().plan(
+        'abre el resultado que dice NanoRuntime',
+      );
+      final results = await o.run(plan!);
+      expect(received, isA<ResultText>());
+      expect((received as ResultText).text, 'NanoRuntime');
+      expect(tapped, 'text=NanoRuntime');
+    });
+
+    test('ordinal inexistente → needsMoreEvidence (no tap)', () async {
+      var tapped = false;
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (_) async {
+          tapped = true;
+          return true;
+        },
+        resolveResult: (_) async => const ResultNotFound(),
+      );
+      final plan = const TaskPlanner().plan('abre el segundo resultado');
+      final results = await o.run(plan!);
+      expect(results.first.status, TaskStepStatus.needsMoreEvidence);
+      expect(tapped, isFalse);
+    });
+
+    test('resultado ambiguo → needsMoreEvidence (clarificación, no tap)', () async {
+      var tapped = false;
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (_) async {
+          tapped = true;
+          return true;
+        },
+        resolveResult: (_) async => ResultAmbiguous([
+          cand('A', 1),
+          cand('B', 2),
+        ]),
+      );
+      final plan = const TaskPlanner().plan(
+        'abre el resultado que dice X',
+      );
+      final results = await o.run(plan!);
+      expect(results.first.status, TaskStepStatus.needsMoreEvidence);
+      expect(tapped, isFalse);
     });
   });
 }

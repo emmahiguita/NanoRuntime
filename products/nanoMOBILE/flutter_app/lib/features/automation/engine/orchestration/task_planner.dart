@@ -72,12 +72,19 @@ class TaskPlanner {
     'search ',
   ];
 
+  /// T2.9-select — verbos de selección de resultado (ordinal o texto).
+  static const _selectResultVerbs = [
+    'resultado',
+    'result',
+  ];
+
   /// Devuelve el TaskPlan determinista si el objetivo matchea un template.
   /// null = sin template (requeriría descomposición LLM, fuera de esta fase).
   TaskPlan? plan(String goal) {
     final g = goal.toLowerCase();
     if (_saveVerbs.any(g.contains)) return _saveUrlPlan(goal);
     if (_openVerbs.any(g.contains)) return _openUrlPlan(goal);
+    if (_selectResultVerbs.any(g.contains)) return _selectResultPlan(goal);
     if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
     if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
     return null;
@@ -125,6 +132,16 @@ class TaskPlanner {
         semanticAction: 'submitSearch',
         dependencies: ['write_query'],
       ),
+    ],
+  );
+
+  /// T2.9-select — "abre el segundo resultado" / "abre el resultado que dice X"
+  /// → selectResult (un solo paso). El ordinal/texto lo parsea el orquestador;
+  /// la resolución física (nodo real) queda en Candidate-First/ScreenGraph.
+  TaskPlan _selectResultPlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'select_result', semanticAction: 'selectResult'),
     ],
   );
 

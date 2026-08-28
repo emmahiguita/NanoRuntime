@@ -13,6 +13,7 @@ import 'package:nanoai/features/automation/engine/planning/deterministic_catalog
     show defaultDeterministicCatalog;
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
+import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 
 import '../ledger/action_ledger_provider.dart';
@@ -135,6 +136,13 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         final g = await currentGraph();
         if (g == null) return null;
         return const InputSurfaceResolver().resolve(g)?.object.text;
+      },
+      // T2.9-select — resolución grounded de un resultado observado
+      // (ordinal/texto) desde el ScreenGraph real, nunca coordenadas.
+      resolveResult: (target) async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        return const SearchResultResolver().resolve(g, target);
       },
     ),
     // A15.2: descomposición template determinista + LLM validado.

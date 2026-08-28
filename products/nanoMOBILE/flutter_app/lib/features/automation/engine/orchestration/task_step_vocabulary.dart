@@ -20,6 +20,8 @@ const kAllowedTaskSemantics = <String>{
   // T2.9 — búsqueda genérica dentro de una app.
   'writeQuery',
   'submitSearch',
+  // T2.9-select — selección semántica de un resultado observado.
+  'selectResult',
 };
 
 /// Valida que una descomposición LLM solo use semántica permitida.
@@ -45,4 +47,5 @@ const Map<String, List<String>> kSemanticInputs = {
   'replyMessage': const ['key', 'text'],
   'writeQuery': const ['query'],
   'submitSearch': const [],
+  'selectResult': const ['ordinal', 'text'],
 };
