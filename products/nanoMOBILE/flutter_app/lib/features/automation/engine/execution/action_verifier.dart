@@ -37,8 +37,13 @@ class ActionExpectation {
   /// cerró).
   final NanoSelector? mustDisappear;
 
-  /// Texto que debe ser visible en algún nodo (contains, case-insensitive).
+  /// Texto que debe ser visible (contains, case-insensitive). Cuando
+  /// [expectedTextTarget] está definido se busca exclusivamente en ese nodo
+  /// re-resuelto, no en el historial ni en otro control de la pantalla.
   final String? expectedText;
+
+  /// Selector estable del control que debe contener [expectedText].
+  final NanoSelector? expectedTextTarget;
 
   /// Texto que NO debe ser visible; si aparece, fallo inmediato.
   final String? forbiddenText;
@@ -64,6 +69,7 @@ class ActionExpectation {
     this.mustAppear,
     this.mustDisappear,
     this.expectedText,
+    this.expectedTextTarget,
     this.forbiddenText,
     this.mustChangeSnapshot = false,
     this.platformPredicates = const [],
@@ -78,6 +84,7 @@ class ActionExpectation {
     NanoSelector? mustAppear,
     NanoSelector? mustDisappear,
     String? expectedText,
+    NanoSelector? expectedTextTarget,
     String? forbiddenText,
     bool? mustChangeSnapshot,
     List<PlatformPredicate>? platformPredicates,
@@ -89,6 +96,7 @@ class ActionExpectation {
       mustAppear: mustAppear ?? this.mustAppear,
       mustDisappear: mustDisappear ?? this.mustDisappear,
       expectedText: expectedText ?? this.expectedText,
+      expectedTextTarget: expectedTextTarget ?? this.expectedTextTarget,
       forbiddenText: forbiddenText ?? this.forbiddenText,
       mustChangeSnapshot: mustChangeSnapshot ?? this.mustChangeSnapshot,
       platformPredicates: platformPredicates ?? this.platformPredicates,
@@ -123,7 +131,9 @@ class ActionExpectation {
       if (mustAppear != null) 'mustAppear=${mustAppear!.toDebugString()}',
       if (mustDisappear != null)
         'mustDisappear=${mustDisappear!.toDebugString()}',
-      if (expectedText != null) 'text~=$expectedText',
+      if (expectedText != null)
+        'text~=$expectedText'
+            '${expectedTextTarget == null ? '' : '@${expectedTextTarget!.toDebugString()}'}',
       if (forbiddenText != null) 'forbidden~=$forbiddenText',
       if (mustChangeSnapshot) 'mustChangeSnapshot',
       for (final p in platformPredicates) p.toDebugString(),
@@ -308,30 +318,7 @@ class ActionVerifier implements AgentVerifier {
       }
     }
 
-    // Condiciones de espera: si TODAS las evaluables se cumplen → verified.
-    final pending = _pendingList(e, snap, pre);
-
-    if (e.mustAppear != null &&
-        !_engine.resolve(e.mustAppear!, snap).isResolved) {
-      pending.add('mustAppear=${e.mustAppear!.toDebugString()} sin resolver');
-    }
-    if (e.mustDisappear != null &&
-        _engine.resolve(e.mustDisappear!, snap).isResolved) {
-      pending.add(
-        'mustDisappear=${e.mustDisappear!.toDebugString()} '
-        'sigue presente',
-      );
-    }
-    if (e.expectedText != null &&
-        e.expectedText!.isNotEmpty &&
-        !_containsVisibleText(snap, e.expectedText!)) {
-      pending.add('texto "${e.expectedText}" no visible');
-    }
-    if (e.mustChangeSnapshot && pre != null) {
-      if (_signature(snap) == _signature(pre)) {
-        pending.add('el snapshot no cambió respecto al previo');
-      }
-    } else if (e.mustChangeSnapshot && pre == null) {
+    if (e.mustChangeSnapshot && pre == null) {
       // Sin preSnapshot no se puede evaluar el cambio: se declara no
       // verificable en vez de asumir el cambio.
       return VerificationOutcome(
@@ -340,6 +327,9 @@ class ActionVerifier implements AgentVerifier {
         snapshot: snap,
       );
     }
+
+    // Condiciones de espera: si TODAS las evaluables se cumplen → verified.
+    final pending = _pendingList(e, snap, pre);
 
     if (pending.isEmpty) {
       return VerificationOutcome(
@@ -377,8 +367,9 @@ class ActionVerifier implements AgentVerifier {
         'mustDisappear=${e.mustDisappear!.toDebugString()} sigue presente',
       if (e.expectedText != null &&
           e.expectedText!.isNotEmpty &&
-          !_containsVisibleText(snap, e.expectedText!))
-        'texto "${e.expectedText}" no visible',
+          !_hasExpectedText(e, snap))
+        'texto "${e.expectedText}" no visible en '
+            '${e.expectedTextTarget?.toDebugString() ?? 'la pantalla'}',
       if (e.mustChangeSnapshot &&
           pre != null &&
           _signature(snap) == _signature(pre))
@@ -390,13 +381,28 @@ class ActionVerifier implements AgentVerifier {
   bool _containsVisibleText(NanoSnapshot snap, String needle) {
     final n = needle.toLowerCase();
     for (final node in snap.visibleNodes) {
-      if (node.text.toLowerCase().contains(n) ||
-          node.description.toLowerCase().contains(n)) {
+      if (_nodeContainsText(node, n)) {
         return true;
       }
     }
     return false;
   }
+
+  bool _hasExpectedText(ActionExpectation expectation, NanoSnapshot snap) {
+    final expected = expectation.expectedText;
+    if (expected == null || expected.isEmpty) return true;
+
+    final target = expectation.expectedTextTarget;
+    if (target == null) return _containsVisibleText(snap, expected);
+
+    final resolved = _engine.resolve(target, snap);
+    if (!resolved.isResolved || resolved.best == null) return false;
+    return _nodeContainsText(resolved.best!.node, expected.toLowerCase());
+  }
+
+  bool _nodeContainsText(NanoNode node, String normalizedNeedle) =>
+      node.text.toLowerCase().contains(normalizedNeedle) ||
+      node.description.toLowerCase().contains(normalizedNeedle);
 
   /// Firma de contenido visible: detecta cambios de pantalla (set de labels
   /// + bounds). Dos snapshots con la misma firma se consideran iguales.

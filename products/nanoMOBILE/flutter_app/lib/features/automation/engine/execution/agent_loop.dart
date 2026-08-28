@@ -171,8 +171,14 @@ class AgentLoop {
 
     // VERIFY ya observa hasta su timeout. Ante incertidumbre no se repite ACT:
     // un tap o un input podían haber producido un efecto externo.
+    final expectation =
+        step.action == AgentAction.setText &&
+            step.expectation.expectedText?.isNotEmpty == true &&
+            step.expectation.expectedTextTarget == null
+        ? step.expectation.copyWith(expectedTextTarget: step.selector)
+        : step.expectation;
     final verification = await _verifier.verify(
-      step.expectation,
+      expectation,
       preSnapshot: preSnapshot,
     );
     return AgentStepResult(

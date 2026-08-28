@@ -118,7 +118,10 @@ class Koog {
         selector: selector,
         action: AgentAction.setText,
         text: step.text ?? '',
-        expectation: ActionExpectation(expectedText: step.text ?? ''),
+        expectation: ActionExpectation(
+          expectedText: step.text ?? '',
+          expectedTextTarget: selector,
+        ),
       ),
       _ => throw UnsupportedError(
         'Tool "${step.tool}" no soportado por el spike Koog '

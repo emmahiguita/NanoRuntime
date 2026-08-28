@@ -1021,7 +1021,9 @@ class AgentToolDispatcher {
     if (selector == null) return err!;
     // AgentLoop exige observar el borrador. Si la verificación queda incierta,
     // no reescribe: el usuario conserva el control de cualquier efecto externo.
-    final expectation = _expectationFor(call).copyWith(expectedText: text);
+    final expectation = _expectationFor(
+      call,
+    ).copyWith(expectedText: text, expectedTextTarget: selector);
     final result = await loop.run([
       AgentStep(
         id: 'write(${call.selectorArg})',
