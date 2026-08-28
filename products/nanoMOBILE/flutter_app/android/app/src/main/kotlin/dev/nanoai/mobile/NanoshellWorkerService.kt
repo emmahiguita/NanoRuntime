@@ -91,10 +91,15 @@ when (msg.what) {
 
         Thread({
             try {
-                // Preload de libs versionadas del rootfs: System.load() registra
-                // la lib en el namespace del proceso (clns-7), que dlopen luego
-                // resuelve. Sin esto, apt falla con "libz.so.1 not found".
-                preloadRootfsLibs(filesDir)
+                // Preload de libs versionadas del rootfs SOLO para binarios con
+                // libnanoroot (ldPreload). toybox (standalone, sin ldPreload) NO
+                // lo necesita; precargar ~72 libs por spawn agota la memoria del
+                // worker → linker_block_allocator create_new_page CHECK 'page !=
+                // MAP_FAILED' (SIGABRT). El C (nanoshell.c) también precarga
+                // gateado por ld_preload — no duplicar.
+                if (!ldPreload.isNullOrEmpty()) {
+                    preloadRootfsLibs(filesDir)
+                }
                 val rc = NanoshellBridge.workerSpawn(
                     binaryPath, argv.toTypedArray(), envp, ldPreload,
                     taskId, filesDir
