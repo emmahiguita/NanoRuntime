@@ -8,6 +8,7 @@ import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../engine/agent_dependencies.dart' show systemGraphProvider;
 import '../../engine/system/capability_availability.dart';
+import '../../engine/system/device_permission_requester.dart';
 import '../../engine/system/system_capability.dart';
 
 /// Estado de permisos/capacidades del agente — la pantalla "acorde a las
@@ -36,6 +37,10 @@ class CapabilityStatusCard extends ConsumerWidget {
       if (!(acc?.isAvailable ?? false)) 'Accesibilidad',
       if (!(notif?.isAvailable ?? false)) 'Notificaciones',
     ];
+    final hasMissing =
+        (acc != null && !acc.isAvailable) ||
+        (notif != null && !notif.isAvailable) ||
+        shizuku?.state == CapabilityAvailabilityKind.requiresUserEnablement;
 
     return NanoOpticalSurface(
       borderStrength: 0.5,
@@ -118,6 +123,25 @@ class CapabilityStatusCard extends ConsumerWidget {
             },
             colors: colors,
           ),
+          if (hasMissing) ...[
+            const SizedBox(height: NanoSpacing.sm),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: graph == null
+                    ? null
+                    : () async {
+                        await const DevicePermissionRequester()
+                            .requestAllMissing(graph);
+                        if (context.mounted) {
+                          ref.invalidate(systemGraphProvider);
+                        }
+                      },
+                icon: const Icon(Icons.shield_outlined),
+                label: const Text('Solicitar todos los permisos'),
+              ),
+            ),
+          ],
         ],
       ),
     );
