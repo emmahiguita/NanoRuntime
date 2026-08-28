@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
+import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
 // ================================================================
 // Settings Repository (real persistence)
@@ -37,6 +38,9 @@ class SettingsRepository {
         agentAutomationMode: AgentAutomationMode.fromName(
           m['agentAutomationMode'] as String?,
         ),
+        automationModelMode: _modeFromName(m['automationModelMode'] as String?),
+        automationModelId: m['automationModelId'] as String? ?? '',
+        automationModelPath: m['automationModelPath'] as String? ?? '',
       );
     } catch (_) {
       return const SettingsState();
@@ -55,6 +59,9 @@ class SettingsRepository {
         'vncPassword': s.vncPassword,
         'desktopMobileMode': s.desktopMobileMode,
         'agentAutomationMode': s.agentAutomationMode.name,
+        'automationModelMode': s.automationModelMode.name,
+        'automationModelId': s.automationModelId,
+        'automationModelPath': s.automationModelPath,
       }),
     );
   }
@@ -72,6 +79,13 @@ class SettingsState {
   final bool desktopMobileMode;
   final AgentAutomationMode agentAutomationMode;
 
+  /// T4 — cómo resuelve Automation su modelo (sameAsChat/specificModel/deterministicOnly).
+  final AutomationModelMode automationModelMode;
+
+  /// T4 — modelo específico de Automation (cuando mode == specificModel).
+  final String automationModelId;
+  final String automationModelPath;
+
   const SettingsState({
     this.themeMode = 'Sistema',
     this.temperature = 0.7,
@@ -80,6 +94,9 @@ class SettingsState {
     this.vncPassword = '',
     this.desktopMobileMode = false,
     this.agentAutomationMode = AgentAutomationMode.assisted,
+    this.automationModelMode = AutomationModelMode.sameAsChat,
+    this.automationModelId = '',
+    this.automationModelPath = '',
   });
 
   SettingsState copyWith({
@@ -90,6 +107,9 @@ class SettingsState {
     String? vncPassword,
     bool? desktopMobileMode,
     AgentAutomationMode? agentAutomationMode,
+    AutomationModelMode? automationModelMode,
+    String? automationModelId,
+    String? automationModelPath,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -98,6 +118,9 @@ class SettingsState {
     vncPassword: vncPassword ?? this.vncPassword,
     desktopMobileMode: desktopMobileMode ?? this.desktopMobileMode,
     agentAutomationMode: agentAutomationMode ?? this.agentAutomationMode,
+    automationModelMode: automationModelMode ?? this.automationModelMode,
+    automationModelId: automationModelId ?? this.automationModelId,
+    automationModelPath: automationModelPath ?? this.automationModelPath,
   );
 }
 
@@ -138,6 +161,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       _persist(state.copyWith(desktopMobileMode: v));
   void setAgentAutomationMode(AgentAutomationMode v) =>
       _persist(state.copyWith(agentAutomationMode: v));
+  void setAutomationModelMode(AutomationModelMode v) =>
+      _persist(state.copyWith(automationModelMode: v));
+  void setAutomationModel(String id, String path) => _persist(
+    state.copyWith(automationModelId: id, automationModelPath: path),
+  );
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
@@ -153,3 +181,12 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
       ? ThemeMode.light
       : ThemeMode.system;
 });
+
+/// Deserializa AutomationModelMode por nombre, degradando a sameAsChat si el
+/// valor persistido es desconocido (no inventa un modo).
+AutomationModelMode _modeFromName(String? name) {
+  for (final m in AutomationModelMode.values) {
+    if (m.name == name) return m;
+  }
+  return AutomationModelMode.sameAsChat;
+}
