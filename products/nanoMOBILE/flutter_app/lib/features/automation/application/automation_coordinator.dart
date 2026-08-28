@@ -491,7 +491,9 @@ class AutomationCoordinator {
         taskStepsCount = crossApp.length;
         TaskStepResult? firstFailed;
         for (final s in crossApp) {
-          if (!s.isCompleted) {
+          // T2.7: completedUnverified NO es fallo (paso ejecutado sin poder
+          // verificar); solo failed/denied/needs* detienen como error.
+          if (s.isFailure) {
             firstFailed = s;
             break;
           }

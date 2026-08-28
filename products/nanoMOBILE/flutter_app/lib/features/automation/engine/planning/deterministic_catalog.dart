@@ -132,6 +132,48 @@ const DeterministicFlow _listFilesFlow = DeterministicFlow(
   requiredAny: _listFilesTerms,
 );
 
+/// T2.10 — navegación: scroll. Deliberadamente se excluyen términos de estado
+/// (volumen/brillo/sonido) para que "baja el volumen" NO dispare un scroll.
+const _scrollStateTerms = <String>[
+  'volumen',
+  'brillo',
+  'sonido',
+  'temperatura',
+  'opacidad',
+];
+
+const DeterministicFlow _scrollDownFlow = DeterministicFlow(
+  steps: [ToolCall(tool: 'scroll', args: {'direction': 'down'})],
+  forbiddenAny: _scrollStateTerms,
+);
+
+const DeterministicFlow _scrollUpFlow = DeterministicFlow(
+  steps: [ToolCall(tool: 'scroll', args: {'direction': 'up'})],
+  forbiddenAny: _scrollStateTerms,
+);
+
+/// "lee la pantalla" / "qué dice la pantalla" → leer contenido visible (read-only).
+/// El snapshot de accesibilidad ES la respuesta (`outputProvesGoal`): no hay
+/// postcondición de estado que verificar, solo leer lo observado.
+const _readScreenTerms = <String>[
+  'lee',
+  'leer',
+  'ver',
+  'muestra',
+  'mostrar',
+  'dice',
+  'dime',
+  'qué hay',
+  'que hay',
+  'read',
+];
+
+const DeterministicFlow _readScreenFlow = DeterministicFlow(
+  steps: [ToolCall(tool: 'screen')],
+  outputProvesGoal: true,
+  requiredAny: _readScreenTerms,
+);
+
 const DeterministicFlowCatalog defaultDeterministicCatalog =
     DeterministicFlowCatalog({
       'bluetooth': _bluetoothOpenFlow,
@@ -151,10 +193,16 @@ const DeterministicFlowCatalog defaultDeterministicCatalog =
       ),
       'notificaciones': _notificationReadFlow,
       'notificación': _notificationReadFlow,
+      'pantalla': _readScreenFlow,
+      'screen': _readScreenFlow,
       'archivo': _listFilesFlow,
       'directorio': _listFilesFlow,
       'fichero': _listFilesFlow,
       'carpeta': _listFilesFlow,
       'volver': DeterministicFlow(steps: [ToolCall(tool: 'back')]),
       'atrás': DeterministicFlow(steps: [ToolCall(tool: 'back')]),
+      'baja': _scrollDownFlow,
+      'bajar': _scrollDownFlow,
+      'sube': _scrollUpFlow,
+      'subir': _scrollUpFlow,
     });

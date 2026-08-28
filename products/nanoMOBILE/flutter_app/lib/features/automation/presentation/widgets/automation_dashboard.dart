@@ -17,6 +17,7 @@ import '../../ledger/action_ledger_provider.dart';
 import '../../ledger/automation_trace.dart';
 
 import 'engine_status_card.dart';
+import 'capability_status_card.dart';
 import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 
 /// Estado del engine (ligero) para la capa de presentación. Lee el ENDPOINT
@@ -199,6 +200,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         ];
         final right = <Widget>[
           const EngineStatusCard(),
+          const SizedBox(height: NanoSpacing.sm),
+          const CapabilityStatusCard(),
           const SizedBox(height: NanoSpacing.sm),
           const RecentExecutionsCard(),
         ];

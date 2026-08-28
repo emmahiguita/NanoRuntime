@@ -11,6 +11,8 @@ import 'package:nanoai/features/automation/engine/orchestration/task_orchestrato
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
+import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
+import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 
 import '../ledger/action_ledger_provider.dart';
@@ -22,6 +24,15 @@ import 'automation_planner_provider.dart';
 /// eventos, scheduler, C10+) consumen este provider para invocar el MISMO
 /// motor con `execute(goal)`. Es la fuente de verdad de la DI del módulo.
 final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
+  // Observación de la pantalla actual (Accessibility → ScreenGraph). Fuente
+  // ÚNICA del snapshot para los resolvers de superficie y la verificación de
+  // envío, evitando duplicar el boilerplate snapshot→ScreenGraph.
+  Future<ScreenGraph?> currentGraph() async {
+    final snap = await ref.read(agentExecutorProvider).snapshot();
+    if (snap == null || snap.isEmpty) return null;
+    return ScreenGraph.fromSnapshot(snap);
+  }
+
   return AutomationCoordinator(
     dispatcher: ref.watch(agentDispatcherProvider),
     mode: () => ref.read(settingsProvider).agentAutomationMode,
@@ -60,20 +71,34 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       },
       // A15.4: fuentes UI (delegan al dispatcher, que ya tiene governance).
       launchApp: (appName) async {
+        final dispatcher = ref.read(agentDispatcherProvider);
+        // Destino de sistema primero (Ajustes/Bluetooth/WiFi → open_system
+        // allowlisted). "Ve a Ajustes y busca X" NO es launch_app: es un intent
+        // oficial de sistema, no una app instalada.
+        final known = defaultDeterministicCatalog.forGoal('abre $appName');
+        if (known != null &&
+            known.steps.length == 1 &&
+            known.steps.single.tool == 'open_system') {
+          final dest = known.steps.single.destinationArg;
+          if (dest == null) return false;
+          final r = await dispatcher.runToolGuarded(
+            ToolCall(tool: 'open_system', args: {'destination': dest}),
+          );
+          return !r.feedback.startsWith('[');
+        }
         // Resolver nombre de app → packageName real (el dispatcher launch_app
         // espera package, no nombre). Evita "whatsapp" inválido.
         final catalog = ref.read(installedAppCatalogProvider);
         final match = await catalog.findApp(appName);
-        String? pkg;
-        if (match is AppMatchResolved) {
-          pkg = match.app.packageName;
-        } else if (match is AppMatchAmbiguous && match.candidates.isNotEmpty) {
-          pkg = match.candidates.first.packageName;
-        }
+        // Seguridad: ante AppMatchAmbiguous NO se elige `candidates.first` a
+        // ciegas (WhatsApp vs WhatsApp Business). Solo se lanza si la resolución
+        // es ÚNICA; la ambigüedad la resuelve Candidate-First (Koog) aguas
+        // arriba con evidencia contextual, o se reporta sin lanzar.
+        final String? pkg =
+            match is AppMatchResolved ? match.app.packageName : null;
         if (pkg == null) return false;
-        final dispatcher = ref.read(agentDispatcherProvider);
         final r = await dispatcher.runToolGuarded(
-          ToolCall(tool: 'launch_app', text: pkg),
+          ToolCall(tool: 'launch_app', args: {'packageName': pkg}),
         );
         return !r.feedback.startsWith('[');
       },
@@ -90,6 +115,26 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
           ToolCall(tool: 'write', selector: selector, text: text),
         );
         return !r.feedback.startsWith('[');
+      },
+      // T2.0 — resolución grounded de superficies UI desde el snapshot real
+      // (Accessibility → ScreenGraph). Sin superficie → null (el paso reporta
+      // needsMoreEvidence, no inventa selector).
+      resolveInputSurface: () async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        return const InputSurfaceResolver().resolve(g)?.selector;
+      },
+      resolveActionSurface: (kind) async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        return const ActionSurfaceResolver().resolve(g, kind: kind)?.selector;
+      },
+      // T2.7 — texto ACTUAL del campo editable (para verificar el envío
+      // observando que el composer quedó vacío, no el booleano del tap).
+      observeInputText: () async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        return const InputSurfaceResolver().resolve(g)?.object.text;
       },
     ),
     // A15.2: descomposición template determinista + LLM validado.

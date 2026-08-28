@@ -14,6 +14,7 @@ import '../../execution/tool_registry.dart' show ToolRisk;
 import '../../execution/action_verifier.dart' show ActionExpectation;
 import '../../execution/platform_verification.dart'
     show ForegroundPackageEquals;
+import '../message_intent_parser.dart';
 import 'candidate_action.dart';
 import 'candidate_provider.dart';
 
@@ -39,8 +40,13 @@ class NotificationCandidateProvider implements CandidateProvider {
 
   @override
   Future<List<CandidateAction>> provide(CandidateRequest request) async {
-    final goal = request.goal.toLowerCase();
-    if (!_replyTerms.any(goal.contains)) return const [];
+    final goalLower = request.goal.toLowerCase();
+    if (!_replyTerms.any(goalLower.contains)) return const [];
+
+    // T2.0 — separar target ("Juan") del texto a enviar ("llego a las 8").
+    // Sin esta separación, el needle de matching incluía el mensaje y el reply
+    // nunca llevaba `text` (el dispatcher exige key + text).
+    final intent = const MessageIntentParser().parse(request.goal);
 
     final raw = await _listNotifications();
     final notifications = raw
@@ -50,38 +56,45 @@ class NotificationCandidateProvider implements CandidateProvider {
         .toList();
     if (notifications.isEmpty) return const [];
 
-    final target = _match(goal, notifications);
+    final target = _match(intent.recipient, notifications);
     if (target == null) return const [];
 
     // Ruta más barata primero (A14.7): si la notificación expone RemoteInput,
-    // se responde directamente sin abrir la app.
-    if (target.canReply) {
-      return [_replyCandidate(target)];
+    // se responde directamente sin abrir la app. Se requiere `text` real: sin
+    // mensaje no hay reply (no se inventa texto), se cae al path de apertura.
+    if (target.canReply && intent.hasMessage) {
+      return [_replyCandidate(target, intent.message)];
     }
-    // Fallback de continuidad: no hay RemoteInput → abrir la app origen (grounded
-    // en el packageName real de la notificación) y continuar por UI.
+    // Fallback de continuidad: no hay RemoteInput (o no hay texto) → abrir la
+    // app origen (grounded en el packageName real de la notificación) y
+    // continuar por UI.
     if (target.packageName.isEmpty) return const [];
     return [_launchCandidate(target)];
   }
 
-  CandidateAction _replyCandidate(NotificationObject target) => CandidateAction(
-    id: CandidateId('notification:reply:${target.key}'),
-    semanticAction: 'reply',
-    tool: 'reply_notification',
-    args: {'key': target.key, 'conversation': target.identity},
-    channel: ActionChannel.notification,
-    groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
-    risk: ToolRisk.externalWrite,
-    reversible: false,
-    requiredCapabilities: const {SystemCapability.replyNotifications},
-    evidence: [
-      ActionEvidence(
-        source: ActionEvidenceSource.notificationCapability,
-        reference: 'remoteInput:${target.remoteInputKey}',
-        confidence: 0.85,
-      ),
-    ],
-  );
+  CandidateAction _replyCandidate(NotificationObject target, String text) =>
+      CandidateAction(
+        id: CandidateId('notification:reply:${target.key}'),
+        semanticAction: 'reply',
+        tool: 'reply_notification',
+        args: {
+          'key': target.key,
+          'text': text,
+          'conversation': target.identity,
+        },
+        channel: ActionChannel.notification,
+        groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
+        risk: ToolRisk.externalWrite,
+        reversible: false,
+        requiredCapabilities: const {SystemCapability.replyNotifications},
+        evidence: [
+          ActionEvidence(
+            source: ActionEvidenceSource.notificationCapability,
+            reference: 'remoteInput:${target.remoteInputKey}',
+            confidence: 0.85,
+          ),
+        ],
+      );
 
   /// Candidato de continuación: abre la app origen de la notificación para
   /// responder por UI cuando no hay RemoteInput. El package sale de la
@@ -117,20 +130,18 @@ class NotificationCandidateProvider implements CandidateProvider {
   /// nombra un remitente ("responde a Juan"), se busca por coincidencia en
   /// sender/conversationTitle. Si es genérico ("responde"), se toma la más
   /// reciente contestable (la lista ya viene ordenada por postTime desc).
-  NotificationObject? _match(String goal, List<NotificationObject> candidates) {
-    // El fragmento tras el verbo es el target deseado.
-    final verb = _replyTerms.firstWhere(goal.contains, orElse: () => '');
-    final rest = verb.isEmpty
-        ? goal
-        : goal.substring(goal.indexOf(verb) + verb.length);
-    final target = rest.trim().replaceAll(RegExp(r'[?!.,]'), '');
+  ///
+  /// [recipient] ya viene separado del mensaje por el MessageIntentParser: aquí
+  /// solo se compara el NOMBRE, nunca el texto a enviar.
+  NotificationObject? _match(
+    String recipient,
+    List<NotificationObject> candidates,
+  ) {
+    final needle = recipient.trim();
+    if (needle.isEmpty) return candidates.first;
 
-    if (target.isEmpty) return candidates.first;
-
-    final needle = target.toLowerCase();
     for (final n in candidates) {
-      final hay = '${n.sender} ${n.conversationTitle} ${n.title}'.toLowerCase();
-      if (hay.contains(needle)) return n;
+      if (n.matchesRecipient(needle)) return n;
     }
     // Sin coincidencia por nombre, devolver la más reciente (el humano/planner
     // confirmará). No se inventa una conversación que no exista.

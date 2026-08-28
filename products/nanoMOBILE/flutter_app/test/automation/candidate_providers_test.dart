@@ -44,6 +44,51 @@ void main() {
         expect(await p.provide(const CandidateRequest('abre Chrome')), isEmpty);
       },
     );
+
+    test('"baja un poco" → scroll down grounded', () async {
+      final p = DeterministicCandidateProvider(defaultDeterministicCatalog);
+      final c = await p.provide(const CandidateRequest('baja un poco'));
+      expect(c, hasLength(1));
+      expect(c.single.tool, 'scroll');
+      expect(c.single.args['direction'], 'down');
+      expect(c.single.channel, ActionChannel.deterministic);
+    });
+
+    test('"sube" → scroll up grounded', () async {
+      final p = DeterministicCandidateProvider(defaultDeterministicCatalog);
+      final c = await p.provide(const CandidateRequest('sube'));
+      expect(c.single.tool, 'scroll');
+      expect(c.single.args['direction'], 'up');
+    });
+
+    test('"baja el volumen" → sin scroll (cambio de estado, no navegación)', () async {
+      final p = DeterministicCandidateProvider(defaultDeterministicCatalog);
+      expect(await p.provide(const CandidateRequest('baja el volumen')), isEmpty);
+    });
+
+    test('"lee la pantalla" → screen (lectura de contenido visible)', () async {
+      final p = DeterministicCandidateProvider(defaultDeterministicCatalog);
+      final c = await p.provide(const CandidateRequest('lee la pantalla'));
+      expect(c, hasLength(1));
+      expect(c.single.tool, 'screen');
+      expect(c.single.channel, ActionChannel.deterministic);
+    });
+
+    test('"qué dice la pantalla" → screen (read-only)', () async {
+      final p = DeterministicCandidateProvider(defaultDeterministicCatalog);
+      final c = await p.provide(
+        const CandidateRequest('qué dice la pantalla'),
+      );
+      expect(c.single.tool, 'screen');
+    });
+
+    test('"captura la pantalla" → sin candidato (no es leer)', () async {
+      final p = DeterministicCandidateProvider(defaultDeterministicCatalog);
+      expect(
+        await p.provide(const CandidateRequest('captura la pantalla')),
+        isEmpty,
+      );
+    });
   });
 
   group('InstalledAppCandidateProvider', () {

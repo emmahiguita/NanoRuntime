@@ -64,12 +64,21 @@ class TaskPlanner {
     'message to',
   ];
 
+  /// T2.9 — verbos de búsqueda genérica (dentro de una app).
+  static const _searchVerbs = [
+    'busca ',
+    'buscar ',
+    'search for ',
+    'search ',
+  ];
+
   /// Devuelve el TaskPlan determinista si el objetivo matchea un template.
   /// null = sin template (requeriría descomposición LLM, fuera de esta fase).
   TaskPlan? plan(String goal) {
     final g = goal.toLowerCase();
     if (_saveVerbs.any(g.contains)) return _saveUrlPlan(goal);
     if (_openVerbs.any(g.contains)) return _openUrlPlan(goal);
+    if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
     if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
     return null;
   }
@@ -95,6 +104,26 @@ class TaskPlanner {
         id: 'send_message',
         semanticAction: 'sendMessage',
         dependencies: ['write_message'],
+      ),
+    ],
+  );
+
+  /// T2.9 — "abre YouTube y busca X" / "busca X en YouTube" → openApp →
+  /// writeQuery → submitSearch. El query y la app los resuelve la capa
+  /// Candidate-First/parse; el plan fija la semántica y el orden.
+  TaskPlan _searchPlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'open_app', semanticAction: 'openApp'),
+      TaskStep(
+        id: 'write_query',
+        semanticAction: 'writeQuery',
+        dependencies: ['open_app'],
+      ),
+      TaskStep(
+        id: 'submit_search',
+        semanticAction: 'submitSearch',
+        dependencies: ['write_query'],
       ),
     ],
   );

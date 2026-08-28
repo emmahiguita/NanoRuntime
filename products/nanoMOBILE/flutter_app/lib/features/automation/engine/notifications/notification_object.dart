@@ -89,6 +89,17 @@ final class NotificationObject {
   /// Texto más relevante para interpretar: mensaje individual > texto grande.
   String get interpretableText => messageText.isNotEmpty ? messageText : text;
 
+  /// true si esta notificación se refiere a [recipient] (coincidencia en
+  /// sender/conversationTitle/title). Fuente única de matching por remitente:
+  /// la usan NotificationCandidateProvider (reply) y TaskOrchestrator (T2.8,
+  /// derivar la app de mensajería), evitando duplicar la lógica.
+  bool matchesRecipient(String recipient) {
+    final needle = recipient.trim().toLowerCase();
+    if (needle.isEmpty) return false;
+    final hay = '$sender $conversationTitle $title'.toLowerCase();
+    return hay.contains(needle);
+  }
+
   @override
   String toString() =>
       'NotificationObject($identity, canReply=$canReply, group=$isGroup)';

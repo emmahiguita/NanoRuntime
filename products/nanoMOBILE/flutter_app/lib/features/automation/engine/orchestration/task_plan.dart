@@ -191,6 +191,13 @@ final class TaskStepResult {
 
   bool get isCompleted => status == TaskStepStatus.completed;
 
+  /// Fallo REAL (detiene la tarea): todo lo que no es completed ni
+  /// completedUnverified. T2.7: completedUnverified NO es fallo (se ejecutó,
+  /// solo falta verificación), no debe mapearse a `failed` aguas arriba.
+  bool get isFailure =>
+      status != TaskStepStatus.completed &&
+      status != TaskStepStatus.completedUnverified;
+
   /// Si el fallo admite recuperación acotada (reintento/cambio de ruta).
   bool get isRecoverable => failureKind == TaskFailureKind.recoverable;
 }
