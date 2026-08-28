@@ -9,7 +9,13 @@ import '../perception/actionability_engine.dart';
 import '../perception/nano_snapshot.dart';
 
 /// Estado de una resolución de selector.
-enum ResolveStatus { resolved, ambiguous, notFound, serviceOff }
+enum ResolveStatus {
+  resolved,
+  ambiguous,
+  notFound,
+  incompleteSnapshot,
+  serviceOff,
+}
 
 /// Un candidato con su puntuación y los criterios que aportaron puntos.
 class ScoreEntry {
@@ -52,6 +58,7 @@ enum AgentErrorCode {
   serviceOff,
   ambiguousTarget,
   notFound,
+  incompleteSnapshot,
   unstableTarget,
   notActionable,
   gestureFailed,

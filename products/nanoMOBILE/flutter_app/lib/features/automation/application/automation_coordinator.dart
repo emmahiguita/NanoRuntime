@@ -12,7 +12,12 @@
 library;
 
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
-    show AgentToolDispatcher, PlanOutcome, ToolCall, ToolOutcome;
+    show
+        AgentToolDispatcher,
+        PlanOutcome,
+        ToolCall,
+        ToolExecutionStatus,
+        ToolOutcome;
 import 'package:nanoai/features/automation/engine/planning/automation_planner.dart'
     show AutomationPlanner;
 import 'package:nanoai/features/automation/engine/memory/experience_cache.dart'
@@ -48,7 +53,7 @@ import 'package:nanoai/features/automation/engine/planning/candidate_first_plann
 import 'package:nanoai/features/automation/engine/orchestration/task_decomposer.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
-    show TaskPlan, TaskStepResult;
+    show TaskPlan, TaskStepResult, TaskStepStatus;
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
 
@@ -59,6 +64,7 @@ import '../domain/automation_result.dart'
     show AutomationResult, AutomationResultStatus;
 import '../benchmark/c14_metrics.dart' show C14Execution;
 import '../engine/execution/tool_registry.dart' show PolicyVerdict;
+import '../engine/governance/action_confirmation.dart' show ActionConfirmation;
 import '../ledger/action_ledger.dart' show ActionLedger;
 import '../ledger/automation_trace.dart' show AutomationTrace;
 
@@ -253,7 +259,11 @@ class AutomationCoordinator {
   /// Incluye las [steps] del flujo para que el llamador pueda reanudar si un
   /// paso del flujo pide confirmación ([FlowExecutionResult.plan.pauseIndex]).
   Future<({FlowExecutionResult result, List<ToolCall> steps})?>
-  tryDeterministic(String goal, {GoalExpectation? expectation}) async {
+  tryDeterministic(
+    String goal, {
+    GoalExpectation? expectation,
+    ActionConfirmation? confirmation,
+  }) async {
     final startedAt = DateTime.now();
     final cache = _cache;
     final flow = _flowExecutor;
@@ -262,6 +272,7 @@ class AutomationCoordinator {
     if (verified == null) return null;
     final result = await flow.execute(
       NanoFlow(goal: goal, steps: verified.steps, goalExpectation: expectation),
+      confirmation: confirmation,
     );
     // Degradar confianza SOLO en fallo REAL (no completado y SIN pausa).
     // Una pausa (pauseIndex != null) es un estado normal (pedir confirmación),
@@ -305,25 +316,83 @@ class AutomationCoordinator {
   /// A15.0/A15.2 — seam cross-app: descompone el objetivo (template determinista
   /// primero, LLM validado después) y ejecuta el TaskOrchestrator con data flow
   /// tipado. null = no es un objetivo cross-app (usar el flujo simple).
-  Future<List<TaskStepResult>?> runCrossAppTask(String goal) async {
+  Future<List<TaskStepResult>?> runCrossAppTask(
+    String goal, {
+    ActionConfirmation? confirmation,
+    bool deterministicOnly = false,
+  }) async {
     final orchestrator = _taskOrchestrator;
     if (orchestrator == null) return null;
 
     final TaskPlan? plan;
-    final decomposer = _taskDecomposer;
+    final decomposer = deterministicOnly ? null : _taskDecomposer;
     if (decomposer != null) {
       plan = await decomposer.decompose(goal);
     } else {
       plan = _taskPlanner?.plan(goal);
     }
     if (plan == null) return null;
-    return orchestrator.run(plan, cancel: _cancelToken);
+    return orchestrator.run(
+      plan,
+      cancel: _cancelToken,
+      confirmation: confirmation,
+    );
+  }
+
+  /// Intenta exclusivamente la ruta TaskPlanner/TaskOrchestrator. No invoca el
+  /// planner LLM ni el catálogo legacy; permite al chat resolver lenguaje
+  /// natural determinista antes de exigir un modelo cargado.
+  Future<({AutomationResult result, List<TaskStepResult> steps})?> tryCrossApp(
+    String goal, {
+    ActionConfirmation? confirmation,
+    String? executionId,
+  }) async {
+    final steps = await runCrossAppTask(
+      goal,
+      confirmation: confirmation,
+      deterministicOnly: true,
+    );
+    if (steps == null) return null;
+
+    TaskStepResult? firstFailed;
+    TaskStepResult? paused;
+    TaskStepResult? unknown;
+    for (final step in steps) {
+      if (!step.isFailure) continue;
+      if (step.status == TaskStepStatus.needsConfirmation) paused = step;
+      if (step.status == TaskStepStatus.outcomeUnknown) unknown = step;
+      firstFailed = step;
+      break;
+    }
+    final allVerified = steps.isNotEmpty && steps.every((step) => step.isCompleted);
+    final result = AutomationResult(
+      executionId: executionId ?? _newId(),
+      status: paused != null
+          ? AutomationResultStatus.paused
+          : unknown != null
+          ? AutomationResultStatus.outcomeUnknown
+          : firstFailed == null
+          ? allVerified
+                ? AutomationResultStatus.completed
+                : AutomationResultStatus.completedUnverified
+          : AutomationResultStatus.failed,
+      reason: paused != null
+          ? paused.reason
+          : firstFailed == null
+          ? 'Tarea cross-app completada (${steps.length} pasos).'
+          : 'Tarea cross-app no completada: ${firstFailed.reason}',
+      pauseIndex: paused?.confirmation?.stepIndex,
+      pauseTool: paused == null ? null : 'task:${paused.confirmation?.stepId}',
+      confirmation: paused?.confirmation,
+    );
+    return (result: result, steps: steps);
   }
 
   /// OBJETIVO está verificado satisfecho ([GoalVerifier]); un plan que
   /// completó a nivel pasos pero NO logró el objetivo NO se memoriza.
   Future<PlanOutcome> runPlan(
     List<ToolCall> plan, {
+    ActionConfirmation? confirmation,
     bool confirmed = false,
     String? recordGoal,
     GoalExpectation? expectation,
@@ -331,6 +400,7 @@ class AutomationCoordinator {
     final startedAt = DateTime.now();
     final outcome = await _dispatcher.runPlanGuarded(
       plan,
+      confirmation: confirmation,
       confirmed: confirmed,
     );
     if (recordGoal != null) {
@@ -416,6 +486,7 @@ class AutomationCoordinator {
   }) async {
     final sw = Stopwatch()..start();
     final confirmed = options?.confirmed ?? false;
+    final confirmation = options?.confirmation;
     final executionId = options?.executionId ?? _newId();
 
     // Métricas C14 acumuladas a lo largo del camino (diagnóstico del planner).
@@ -485,28 +556,16 @@ class AutomationCoordinator {
       // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
       // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
       // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
-      final crossApp = await runCrossAppTask(goal.text);
+      final crossApp = await tryCrossApp(
+        goal.text,
+        confirmation: confirmation,
+        executionId: executionId,
+      );
       if (crossApp != null) {
         // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
-        taskStepsCount = crossApp.length;
-        TaskStepResult? firstFailed;
-        for (final s in crossApp) {
-          // T2.7: completedUnverified NO es fallo (paso ejecutado sin poder
-          // verificar); solo failed/denied/needs* detienen como error.
-          if (s.isFailure) {
-            firstFailed = s;
-            break;
-          }
-        }
-        final r = AutomationResult(
-          executionId: executionId,
-          status: firstFailed == null
-              ? AutomationResultStatus.completedUnverified
-              : AutomationResultStatus.failed,
-          reason: firstFailed == null
-              ? 'Tarea cross-app completada (${crossApp.length} pasos).'
-              : 'Tarea cross-app no completada: ${firstFailed.reason}',
-        );
+        taskStepsCount = crossApp.steps.length;
+        zeroLlmTask = true;
+        final r = crossApp.result;
         emit(r);
         return r;
       }
@@ -514,6 +573,7 @@ class AutomationCoordinator {
       final deterministic = await tryDeterministic(
         goal.text,
         expectation: goal.expectation,
+        confirmation: confirmation,
       );
       if (deterministic != null) {
         cacheHit = true;
@@ -607,6 +667,7 @@ class AutomationCoordinator {
       final t = Stopwatch()..start();
       final outcome = await runPlan(
         plan,
+        confirmation: confirmation,
         confirmed: confirmed,
         recordGoal: goal.text,
         expectation: runExpectation,
@@ -808,6 +869,7 @@ class AutomationCoordinator {
         reason: r.plan.summary,
         pauseIndex: r.plan.pauseIndex,
         pauseTool: r.plan.pauseCall?.tool,
+        confirmation: r.plan.confirmation,
       );
 
   AutomationResult _resultFromPlan(String id, PlanOutcome o) =>
@@ -817,6 +879,7 @@ class AutomationCoordinator {
         reason: o.summary,
         pauseIndex: o.pauseIndex,
         pauseTool: o.pauseCall?.tool,
+        confirmation: o.confirmation,
       );
 
   AutomationResult _resultFromTool(String id, ToolOutcome o) =>
@@ -834,6 +897,11 @@ class AutomationCoordinator {
 
   AutomationResultStatus _statusFromFlow(FlowExecutionResult r) {
     if (r.plan.pauseIndex != null) return AutomationResultStatus.paused;
+    if (r.plan.steps.any(
+      (step) => step.executionStatus == ToolExecutionStatus.outcomeUnknown,
+    )) {
+      return AutomationResultStatus.outcomeUnknown;
+    }
     if (!r.completed) return AutomationResultStatus.failed;
     return r.goal.status == GoalStatus.satisfied
         ? AutomationResultStatus.completed
@@ -842,8 +910,15 @@ class AutomationCoordinator {
 
   AutomationResultStatus _statusFromPlan(PlanOutcome o) {
     if (o.pauseIndex != null) return AutomationResultStatus.paused;
+    if (o.steps.any(
+      (step) => step.executionStatus == ToolExecutionStatus.outcomeUnknown,
+    )) {
+      return AutomationResultStatus.outcomeUnknown;
+    }
     if (!o.completed) return AutomationResultStatus.failed;
-    return AutomationResultStatus.completed;
+    return o.hasUnverifiedSteps
+        ? AutomationResultStatus.completedUnverified
+        : AutomationResultStatus.completed;
   }
 
   AutomationResultStatus _statusFromTool(ToolOutcome o) => switch (o.verdict) {
@@ -853,16 +928,15 @@ class AutomationCoordinator {
     // '[timeout]', '[verify:...]'). Un tool permitido pero que falló es
     // FAILED, no completed — evita false success (mismo criterio tipado que
     // el dispatcher usa en runPlanGuarded vía _isFailedFeedback).
-    PolicyVerdict.allow =>
-      _isFailedFeedback(o.feedback)
-          ? AutomationResultStatus.failed
-          : AutomationResultStatus.completed,
+    PolicyVerdict.allow => switch (o.executionStatus) {
+      ToolExecutionStatus.completed => AutomationResultStatus.completed,
+      ToolExecutionStatus.completedUnverified =>
+        AutomationResultStatus.completedUnverified,
+      ToolExecutionStatus.outcomeUnknown => AutomationResultStatus.outcomeUnknown,
+      ToolExecutionStatus.failed ||
+      ToolExecutionStatus.notExecuted => AutomationResultStatus.failed,
+    },
   };
-
-  /// Feedback de fallo: arranca con `[codigo]`/`[codigo:...]` (p.ej.
-  /// `[notFound]`, `[policy]`). Los éxitos nunca empiezan con `[`.
-  static bool _isFailedFeedback(String feedback) =>
-      RegExp(r'^\[[a-zA-Z]+(:|\])').hasMatch(feedback);
 
   void _record({
     required String goal,

@@ -11,6 +11,8 @@ library;
 
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation;
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart'
+    show ActionConfirmation;
 
 class AutomationGoal {
   /// Texto libre del objetivo (p. ej. "abre Bluetooth").
@@ -32,5 +34,12 @@ class AutomationOptions {
   /// (externalWrite). Permite reanudar un plan pausado.
   final bool confirmed;
 
-  const AutomationOptions({this.executionId, this.confirmed = false});
+  /// Consentimiento vinculado a un único paso/acción del plan.
+  final ActionConfirmation? confirmation;
+
+  const AutomationOptions({
+    this.executionId,
+    this.confirmed = false,
+    this.confirmation,
+  });
 }

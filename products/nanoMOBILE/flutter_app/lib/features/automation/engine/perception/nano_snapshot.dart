@@ -162,9 +162,17 @@ class NanoSnapshot {
   /// Momento de captura (reloj local del dispositivo).
   final DateTime capturedAt;
 
+  /// El recorrido nativo alcanzó al menos uno de sus límites de seguridad.
+  final bool truncated;
+  final bool nodeLimitReached;
+  final bool depthLimitReached;
+
   NanoSnapshot({
     required this.package,
     required this.nodes,
+    this.truncated = false,
+    this.nodeLimitReached = false,
+    this.depthLimitReached = false,
     DateTime? capturedAt,
   }) : capturedAt = capturedAt ?? DateTime.now();
 
@@ -216,6 +224,12 @@ class NanoSnapshot {
         NanoNode.fromMap(i, Map<dynamic, dynamic>.from(rawNodes[i] as Map)),
       );
     }
-    return NanoSnapshot(package: raw['package'] as String? ?? '', nodes: nodes);
+    return NanoSnapshot(
+      package: raw['package'] as String? ?? '',
+      nodes: nodes,
+      truncated: raw['truncated'] == true,
+      nodeLimitReached: raw['nodeLimitReached'] == true,
+      depthLimitReached: raw['depthLimitReached'] == true,
+    );
   }
 }

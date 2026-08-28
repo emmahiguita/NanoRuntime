@@ -70,18 +70,16 @@ class TaskPlanner {
   ];
 
   /// T2.9 — verbos de búsqueda genérica (dentro de una app).
-  static const _searchVerbs = [
-    'busca ',
-    'buscar ',
-    'search for ',
-    'search ',
-  ];
+  static const _searchVerbs = ['busca ', 'buscar ', 'search for ', 'search '];
 
-  /// T2.9-select — verbos de selección de resultado (ordinal o texto).
-  static const _selectResultVerbs = [
-    'resultado',
-    'result',
-  ];
+  /// T2.9-select — una mención aislada a "resultado" no basta: también debe
+  /// existir una acción de selección o una referencia inequívoca al elemento.
+  static final _selectResultAction = RegExp(
+    r'\b(abre|abrir|selecciona|seleccionar|pulsa|pulsar|toca|tocar|elige|elegir|open|select|click|tap)\b',
+  );
+  static final _selectResultOrdinal = RegExp(
+    r'\b(primer[oa]?|segund[oa]?|tercer[oa]?|cuart[oa]?|quint[oa]?|resultado\s+\d+|result\s+\d+)\b',
+  );
 
   /// Devuelve el TaskPlan determinista si el objetivo matchea un template.
   /// null = sin template (requeriría descomposición LLM, fuera de esta fase).
@@ -89,12 +87,22 @@ class TaskPlanner {
     final g = goal.toLowerCase();
     if (_saveVerbs.any(g.contains)) return _saveUrlPlan(goal);
     if (_openVerbs.any(g.contains)) return _openUrlPlan(goal);
-    if (_selectResultVerbs.any(g.contains)) return _selectResultPlan(goal);
     // Mensajería ANTES que búsqueda: "abre WhatsApp, busca a Juan y envíale: X"
     // contiene "busca " pero es intención de mensaje (verbo "envíale").
     if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
+    if (_isSelectResultIntent(g)) return _selectResultPlan(goal);
     if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
     return null;
+  }
+
+  bool _isSelectResultIntent(String goal) {
+    final mentionsResult =
+        goal.contains('resultado') || goal.contains('result');
+    if (!mentionsResult) return false;
+    return _selectResultAction.hasMatch(goal) ||
+        _selectResultOrdinal.hasMatch(goal) ||
+        goal.contains('que dice') ||
+        goal.contains('that says');
   }
 
   /// "escríbele a X" → openApp → openConversation → writeMessage → sendMessage.

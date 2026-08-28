@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
@@ -71,6 +72,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   String _lastGoal = '';
   String _lastReason = '';
   bool _running = false;
+  ActionConfirmation? _lastConfirmation;
 
   @override
   void dispose() {
@@ -78,7 +80,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     super.dispose();
   }
 
-  Future<void> _runTask(String text, {bool confirmed = false}) async {
+  Future<void> _runTask(String text, {ActionConfirmation? confirmation}) async {
     final goal = text.trim();
     if (goal.isEmpty || _running) return;
     _taskController.clear();
@@ -93,23 +95,26 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           .read(automationEngineProvider)
           .runGoal(
             AutomationGoal(text: goal),
-            options: confirmed
-                ? const AutomationOptions(confirmed: true)
+            options: confirmation != null
+                ? AutomationOptions(confirmation: confirmation)
                 : null,
           );
-      if (mounted)
+      if (mounted) {
         setState(() {
           _lastStatus = result.status;
           _lastReason = result.reason;
+          _lastConfirmation = result.confirmation;
           _running = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _lastStatus = AutomationResultStatus.failed;
           _lastReason = 'Error inesperado al ejecutar la tarea.';
           _running = false;
         });
+      }
     }
   }
 
@@ -180,7 +185,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                 status: _lastStatus,
                 reason: _lastReason,
                 onConfirm: _lastStatus == AutomationResultStatus.paused
-                    ? () => _runTask(_lastGoal, confirmed: true)
+                    ? () => _runTask(_lastGoal, confirmation: _lastConfirmation)
                     : null,
               )
             : null;
@@ -521,6 +526,12 @@ class _TaskComposer extends StatelessWidget {
         icon: Icons.cancel_rounded,
         color: colors.error,
         label: 'No completado',
+      );
+    case AutomationResultStatus.outcomeUnknown:
+      return (
+        icon: Icons.help_outline_rounded,
+        color: colors.warning,
+        label: 'Resultado desconocido',
       );
     case AutomationResultStatus.cancelled:
       return (

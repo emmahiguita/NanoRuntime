@@ -13,6 +13,7 @@ library;
 
 import 'agent_tool_dispatcher.dart';
 import 'goal_verifier.dart';
+import '../governance/action_confirmation.dart';
 
 /// Flujo determinista: objetivo + pasos verificados + expectativa final.
 class NanoFlow {
@@ -63,10 +64,12 @@ class NanoFlowExecutor {
   /// re-llama con `confirmed: true` (el flujo completo queda autorizado).
   Future<FlowExecutionResult> execute(
     NanoFlow flow, {
+    ActionConfirmation? confirmation,
     bool confirmed = false,
   }) async {
     final plan = await _dispatcher.runPlanGuarded(
       flow.steps,
+      confirmation: confirmation,
       confirmed: confirmed,
     );
     if (plan.pauseIndex != null) {

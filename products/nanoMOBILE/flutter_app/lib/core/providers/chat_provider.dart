@@ -6,8 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/automation/engine/agent_dependencies.dart';
 import '../../features/automation/engine/execution/agent_tool_dispatcher.dart';
-import '../../features/automation/engine/memory/experience_cache.dart';
-import '../../features/automation/engine/execution/nano_flow.dart';
 import '../services/device_info.dart';
 import '../services/chat_history_store.dart';
 import '../services/chat_system_prompt.dart';
@@ -22,18 +20,12 @@ import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart'
     show AutomationResultStatus;
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
-import 'package:nanoai/features/automation/application/automation_planner_provider.dart';
-import 'package:nanoai/features/automation/engine/memory/object_memory.dart'
-    show NanoObjectMemory;
-import 'package:nanoai/features/automation/engine/perception/perception_mux.dart'
-    show PerceptionMux;
-import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
-    show defaultDeterministicCatalog;
 import 'package:nanoai/features/automation/engine/planning/linux_voice_command_parser.dart';
-import 'package:nanoai/features/automation/ledger/action_ledger_provider.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 
 // ================================================================
 // Chat State and Notifier
@@ -108,6 +100,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// infinitos si el modelo insiste en llamar tools sin concluir.
   static const int _maxToolRounds = 8;
 
+  /// Reutiliza el detector del dispatcher también entre rondas del modelo.
+  final ToolLoopDetector _roundLoopDetector = ToolLoopDetector();
+
   /// Genera un system prompt dinámico con contexto en tiempo real
   /// y telemetría 100% real del hardware (sin simulación).
   String _buildSystemPrompt() {
@@ -122,29 +117,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// Ejecutor de herramientas del chat (comandos `@` y tool-calling del LLM).
   final AgentToolDispatcher _tools;
 
-  /// Memoria de flujos verificados (C7) — null = flujo determinista off
-  /// (tests sin inyección mantienen el comportamiento actual).
-  final ExperienceCache? _experienceCache;
-
-  /// Ejecutor de flujos deterministas (C8) — null = off.
-  final NanoFlowExecutor? _flowExecutor;
-
-  /// Único dueño del ciclo de ejecución (policy + cache + flow + dispatcher).
-  /// Cacheado: se construye una vez con las dependencias inyectadas.
-  AutomationCoordinator? _coordinatorCache;
+  /// Único dueño del ciclo de ejecución. El chat consume el mismo composition
+  /// root que dashboard, voz y scheduler; así no existe un segundo coordinador
+  /// incompleto que omita TaskPlanner/TaskOrchestrator.
+  final AutomationCoordinator? _coordinatorOverride;
   AutomationCoordinator get _coordinator =>
-      _coordinatorCache ??= AutomationCoordinator(
-        dispatcher: _tools,
-        mode: () => _ref.read(settingsProvider).agentAutomationMode,
-        cache: _experienceCache,
-        flowExecutor: _flowExecutor,
-        ledger: _ref.read(actionLedgerProvider),
-        planner: _ref.read(llmAutomationPlannerProvider),
-        verifyGoal: _ref.read(goalVerifierProvider).verify,
-        catalog: defaultDeterministicCatalog,
-        objectMemory: const NanoObjectMemory(),
-        perceptionMux: const PerceptionMux(),
-      );
+      _coordinatorOverride ?? _ref.read(automationCoordinatorProvider);
 
   // ── Confirmación de herramienta (política externalWrite) ──
   // Cuando el tool-calling del LLM pide una escritura externa, la política
@@ -164,6 +142,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// plan desde [_pendingPlanIndex] (la confirmación cubre solo ese paso).
   List<ToolCall>? _pendingPlan;
   int? _pendingPlanIndex;
+  ActionConfirmation? _pendingPlanConfirmation;
+
+  /// Tarea semántica (TaskPlanner/TaskOrchestrator) pausada. Se replanifica de
+  /// forma determinista y el token solo autoriza la acción exacta pendiente.
+  String? _pendingTaskGoal;
+  ActionConfirmation? _pendingTaskConfirmation;
 
   /// T1.7 — último archivo creado/escrito por voz (contexto para "léelo").
   /// Solo se puebla tras un write VERIFICADO (FileExists + FileContentContains).
@@ -173,12 +157,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
   ChatNotifier(
     this._ref, {
     AgentToolDispatcher? toolDispatcher,
-    ExperienceCache? experienceCache,
-    NanoFlowExecutor? flowExecutor,
+    AutomationCoordinator? coordinator,
     ChatHistoryStore? historyStore,
   }) : _tools = toolDispatcher ?? AgentToolDispatcher(),
-       _experienceCache = experienceCache,
-       _flowExecutor = flowExecutor,
+       _coordinatorOverride = coordinator,
        _historyStore = historyStore ?? ChatHistoryStore(),
        super(
          ChatState(
@@ -195,13 +177,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     Ref ref,
     super.initial, {
     AgentToolDispatcher? toolDispatcher,
-    ExperienceCache? experienceCache,
-    NanoFlowExecutor? flowExecutor,
+    AutomationCoordinator? coordinator,
     ChatHistoryStore? historyStore,
   }) : _ref = ref,
        _tools = toolDispatcher ?? AgentToolDispatcher(),
-       _experienceCache = experienceCache,
-       _flowExecutor = flowExecutor,
+       _coordinatorOverride = coordinator,
        _historyStore = historyStore ?? ChatHistoryStore();
 
   /// Restaura la última selección de modelo para que sobreviva al reinicio.
@@ -342,27 +322,85 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final trace = _pendingTrace;
     final callText = _pendingCallText;
     final plan = _pendingPlan;
+    final taskGoal = _pendingTaskGoal;
 
-    if (plan != null) {
-      // Plan multi-paso en pausa: reanudar desde el paso aprobado.
-      final from = _pendingPlanIndex ?? 0;
-      final resume = plan.sublist(from);
-      _pendingPlan = null;
-      _pendingPlanIndex = null;
+    if (taskGoal != null) {
+      final confirmation = _pendingTaskConfirmation;
+      _pendingTaskGoal = null;
+      _pendingTaskConfirmation = null;
       _pendingCall = null;
-      if (!mounted) return;
+      if (!mounted || confirmation == null) return;
       state = state.copyWith(
         generating: true,
         pendingTool: null,
         pendingToolDescription: null,
       );
       final generationId = _beginGeneration();
-      final outcome = await _coordinator.runPlan(resume, confirmed: true);
+      final resumed = await _coordinator.tryCrossApp(
+        taskGoal,
+        confirmation: confirmation,
+      );
+      if (!_isGenerationCurrent(generationId) || resumed == null) return;
+      final result = resumed.result;
+      if (result.isPaused && result.confirmation != null) {
+        _pendingTaskGoal = taskGoal;
+        _pendingTaskConfirmation = result.confirmation;
+        state = state.copyWith(
+          generating: false,
+          pendingTool: result.pauseTool,
+          pendingToolDescription: result.reason,
+        );
+        return;
+      }
+      final message = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: 'Ejecutado en el dispositivo (sin LLM):\n${result.reason}',
+        timestamp: DateTime.now(),
+        source: MessageSource.device,
+        status:
+            const {
+              AutomationResultStatus.failed,
+              AutomationResultStatus.outcomeUnknown,
+              AutomationResultStatus.denied,
+              AutomationResultStatus.cancelled,
+            }.contains(result.status)
+            ? MessageStatus.error
+            : MessageStatus.sent,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, message],
+        generating: false,
+        streamingText: '',
+      );
+      _persistMessages();
+      return;
+    }
+
+    if (plan != null) {
+      // Plan multi-paso en pausa: reanudar desde el paso aprobado.
+      final confirmation = _pendingPlanConfirmation;
+      _pendingPlan = null;
+      _pendingPlanIndex = null;
+      _pendingPlanConfirmation = null;
+      _pendingCall = null;
+      if (!mounted || confirmation == null) return;
+      state = state.copyWith(
+        generating: true,
+        pendingTool: null,
+        pendingToolDescription: null,
+      );
+      final generationId = _beginGeneration();
+      final outcome = await _coordinator.runPlan(
+        plan,
+        confirmation: confirmation,
+      );
       if (!_isGenerationCurrent(generationId)) return;
       if (outcome.pauseIndex != null && outcome.pauseCall != null) {
         // Otro paso del plan pidió confirmación → nueva pausa.
-        _pendingPlan = resume;
+        _pendingPlan = plan;
         _pendingPlanIndex = outcome.pauseIndex;
+        _pendingPlanConfirmation = outcome.confirmation;
         state = state.copyWith(
           generating: false,
           pendingTool: outcome.pauseCall!.tool,
@@ -412,13 +450,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final trace = _pendingTrace;
     final callText = _pendingCallText;
     final plan = _pendingPlan;
+    final taskGoal = _pendingTaskGoal;
     final call = _pendingCall;
-    if ((call == null && plan == null) || state.pendingTool == null) return;
-    final toolName = plan != null
+    if ((call == null && plan == null && taskGoal == null) ||
+        state.pendingTool == null) {
+      return;
+    }
+    final toolName = taskGoal != null
+        ? (state.pendingTool ?? 'task')
+        : plan != null
         ? (plan[_pendingPlanIndex ?? 0].tool)
         : call!.tool;
     _pendingPlan = null;
     _pendingPlanIndex = null;
+    _pendingPlanConfirmation = null;
+    _pendingTaskGoal = null;
+    _pendingTaskConfirmation = null;
     _pendingCall = null;
 
     // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
@@ -640,7 +687,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
                 'Creé ${linuxCmd.call.text} y verifiqué su contenido '
                 '(existe y contiene el texto).';
           } else {
-            linuxText = 'No se pudo crear ${linuxCmd.call.text}: '
+            linuxText =
+                'No se pudo crear ${linuxCmd.call.text}: '
                 '${result.reason}';
           }
         } else {
@@ -677,6 +725,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           // el plan del LLM.
           _pendingPlan = deterministic.steps;
           _pendingPlanIndex = flowResult.plan.pauseIndex;
+          _pendingPlanConfirmation = flowResult.plan.confirmation;
           _pendingUserText = t;
           _pendingTrace = const [];
           _pendingCallText = '';
@@ -719,6 +768,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         if (result.isPaused) {
           _pendingPlan = known.steps;
           _pendingPlanIndex = result.pauseIndex;
+          _pendingPlanConfirmation = result.confirmation;
           _pendingUserText = t;
           _pendingTrace = const [];
           _pendingCallText = '';
@@ -740,6 +790,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
                 AutomationResultStatus.denied,
                 AutomationResultStatus.noPlan,
                 AutomationResultStatus.failed,
+                AutomationResultStatus.outcomeUnknown,
                 AutomationResultStatus.cancelled,
               }.contains(result.status)
               ? MessageStatus.error
@@ -747,6 +798,52 @@ class ChatNotifier extends StateNotifier<ChatState> {
         );
         state = state.copyWith(
           messages: [...state.messages, knownMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // Lenguaje natural determinista (TaskPlanner): mensajería y tareas
+      // cross-app se resuelven antes del gate GGUF. El resultado conserva
+      // needsConfirmation tipado y un consentimiento ligado a la acción exacta.
+      final crossApp = await _coordinator.tryCrossApp(t);
+      if (!_isGenerationCurrent(generationId)) return;
+      if (crossApp != null) {
+        final result = crossApp.result;
+        if (result.isPaused && result.confirmation != null) {
+          _pendingTaskGoal = t;
+          _pendingTaskConfirmation = result.confirmation;
+          _pendingUserText = t;
+          _pendingTrace = const [];
+          _pendingCallText = '';
+          state = state.copyWith(
+            generating: false,
+            pendingTool: result.pauseTool,
+            pendingToolDescription: result.reason,
+          );
+          return;
+        }
+        final taskMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: 'Ejecutado en el dispositivo (sin LLM):\n${result.reason}',
+          timestamp: DateTime.now(),
+          source: MessageSource.device,
+          status:
+              const {
+                AutomationResultStatus.denied,
+                AutomationResultStatus.noPlan,
+                AutomationResultStatus.failed,
+                AutomationResultStatus.outcomeUnknown,
+                AutomationResultStatus.cancelled,
+              }.contains(result.status)
+              ? MessageStatus.error
+              : MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, taskMsg],
           generating: false,
           streamingText: '',
         );
@@ -909,7 +1006,45 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final generationId = ++_generationSequence;
     _activeGenerationId = generationId;
     _generationCancelled = false;
+    _roundLoopDetector.reset();
     return generationId;
+  }
+
+  bool _isStalledToolRound({
+    required List<ToolCall> calls,
+    required String before,
+    required String after,
+    required String feedback,
+  }) {
+    final callSignature = calls
+        .map((call) => call.confirmationSignature)
+        .join('\u001f');
+    final fingerprint =
+        '$callSignature\u001d$before\u001d$after\u001d$feedback';
+    return _roundLoopDetector.isLoop(
+      fingerprint,
+      repeatThreshold: 2,
+      minimumHistory: 2,
+      detectAlternating: false,
+    );
+  }
+
+  void _stopStalledToolLoop() {
+    final message = ChatMessage(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      sender: MessageSender.ai,
+      text:
+          '[loopDetected] La misma herramienta devolvió el mismo resultado '
+          'sin cambiar la pantalla. Se detuvo para evitar repetir acciones.',
+      timestamp: DateTime.now(),
+      status: MessageStatus.error,
+    );
+    state = state.copyWith(
+      messages: [...state.messages, message],
+      generating: false,
+      streamingText: '',
+    );
+    _persistMessages();
   }
 
   Future<void> _startGenerationRound(
@@ -1078,6 +1213,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         // Plan multi-paso: ejecutar secuencialmente y re-generar UNA vez con
         // el resumen del plan (evita N rondas LLM para N pasos).
         if (toolCalls.length > 1) {
+          final worldBefore = await _tools.worldFingerprint();
           final planOutcome = await _coordinator.runPlan(
             toolCalls,
             recordGoal: text,
@@ -1087,6 +1223,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
             // Un paso pidió confirmación → pausar el plan completo.
             _pendingPlan = toolCalls;
             _pendingPlanIndex = planOutcome.pauseIndex;
+            _pendingPlanConfirmation = planOutcome.confirmation;
             _pendingUserText = text;
             _pendingTrace = toolTrace;
             _pendingCallText = fullText;
@@ -1095,6 +1232,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
               pendingTool: planOutcome.pauseCall!.tool,
               pendingToolDescription: planOutcome.summary,
             );
+            return;
+          }
+          final worldAfter = await _tools.worldFingerprint();
+          if (_isStalledToolRound(
+            calls: toolCalls,
+            before: worldBefore,
+            after: worldAfter,
+            feedback: planOutcome.summary,
+          )) {
+            _releaseStream(lease, 'loop de herramientas');
+            _stopStalledToolLoop();
             return;
           }
           _releaseStream(lease, 'entre rondas');
@@ -1121,6 +1269,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           return;
         }
 
+        final worldBefore = await _tools.worldFingerprint();
         final outcome = await _coordinator.runTool(toolCall);
         if (!_isGenerationCurrent(generationId)) return;
         if (outcome.needsConfirmation) {
@@ -1134,6 +1283,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
             pendingTool: toolCall.tool,
             pendingToolDescription: outcome.feedback,
           );
+          return;
+        }
+        final worldAfter = await _tools.worldFingerprint();
+        if (_isStalledToolRound(
+          calls: [toolCall],
+          before: worldBefore,
+          after: worldAfter,
+          feedback: outcome.feedback,
+        )) {
+          _releaseStream(lease, 'loop de herramientas');
+          _stopStalledToolLoop();
           return;
         }
         // El stream de esta ronda ya terminó. Libera su cliente ANTES de
@@ -1401,7 +1561,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
+final StateNotifierProvider<ChatNotifier, ChatState>
+chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
   // Inyección real (DI): el dispatcher viene del composition root
   // (agent_dependencies.dart) con sus dependencias reales cableadas una vez.
   // El fallback interno de ChatNotifier solo existe para tests que no pasan
@@ -1409,7 +1570,6 @@ final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
   (ref) => ChatNotifier(
     ref,
     toolDispatcher: ref.watch(agentDispatcherProvider),
-    experienceCache: ref.watch(experienceCacheProvider),
-    flowExecutor: ref.watch(nanoFlowExecutorProvider),
+    coordinator: ref.watch(automationCoordinatorProvider),
   ),
 );

@@ -47,6 +47,11 @@ class AgentAccessibilityService : AccessibilityService() {
     private val executor = Executors.newSingleThreadExecutor()
     private val mainThreadHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    private data class TraversalState(
+        var nodeLimitReached: Boolean = false,
+        var depthLimitReached: Boolean = false,
+    )
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         // NOTA: no reasignar serviceInfo aquí. Hacerlo dispara un rebind del
@@ -115,12 +120,25 @@ class AgentAccessibilityService : AccessibilityService() {
      */
     fun dumpSnapshot(): Map<String, Any?> {
         val root = rootInActiveWindow
-            ?: return mapOf("package" to "", "nodes" to emptyList<Map<String, Any?>>())
+            ?: return mapOf(
+                "package" to "",
+                "nodes" to emptyList<Map<String, Any?>>(),
+                "truncated" to false,
+                "nodeLimitReached" to false,
+                "depthLimitReached" to false,
+            )
         val result = mutableListOf<Map<String, Any?>>()
-        walk(root, 0, result, withDepth = true)
+        val traversal = TraversalState()
+        walk(root, 0, result, withDepth = true, traversal = traversal)
         val pkg = root.packageName?.toString() ?: ""
         root.recycle()
-        return mapOf("package" to pkg, "nodes" to result)
+        return mapOf(
+            "package" to pkg,
+            "nodes" to result,
+            "truncated" to (traversal.nodeLimitReached || traversal.depthLimitReached),
+            "nodeLimitReached" to traversal.nodeLimitReached,
+            "depthLimitReached" to traversal.depthLimitReached,
+        )
     }
 
     private fun walk(
@@ -128,12 +146,21 @@ class AgentAccessibilityService : AccessibilityService() {
         depth: Int,
         out: MutableList<Map<String, Any?>>,
         withDepth: Boolean = false,
+        traversal: TraversalState? = null,
     ) {
-        if (node == null || depth > MAX_DEPTH || out.size >= MAX_NODES) return
+        if (node == null) return
+        if (depth > MAX_DEPTH) {
+            traversal?.depthLimitReached = true
+            return
+        }
+        if (out.size >= MAX_NODES) {
+            traversal?.nodeLimitReached = true
+            return
+        }
         out.add(if (withDepth) nodeToMap(node, depth) else nodeToMap(node))
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
-            walk(child, depth + 1, out, withDepth)
+            walk(child, depth + 1, out, withDepth, traversal)
             child?.recycle()
         }
     }

@@ -154,6 +154,19 @@ class NanoSelectorEngine {
       ..sort((a, b) => b.score.compareTo(a.score));
 
     if (ranked.isEmpty) {
+      if (snapshot.truncated) {
+        final limits = <String>[
+          if (snapshot.nodeLimitReached) 'nodos',
+          if (snapshot.depthLimitReached) 'profundidad',
+        ].join(' y ');
+        return ResolveOutcome(
+          status: ResolveStatus.incompleteSnapshot,
+          candidates: const [],
+          reason:
+              'Objetivo no encontrado en snapshot incompleto '
+              '(límite de $limits alcanzado).',
+        );
+      }
       return ResolveOutcome(
         status: ResolveStatus.notFound,
         candidates: const [],

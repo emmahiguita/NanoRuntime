@@ -5,6 +5,8 @@
 /// tipos, y la ejecución sigue siendo Candidate-First aguas abajo.
 library;
 
+import '../governance/action_confirmation.dart';
+
 /// Referencia estable a un valor intermedio producido por un paso.
 final class TaskValueId {
   final String value;
@@ -149,6 +151,37 @@ final class TaskPlan {
   }
 }
 
+/// Resultado de una acción concreta ejecutada por un adaptador del task.
+/// Conserva gobernanza y certeza; nunca degrada `needsConfirmation` a `false`.
+enum TaskActionStatus {
+  completed,
+  completedUnverified,
+  needsConfirmation,
+  denied,
+  outcomeUnknown,
+  failed,
+}
+
+final class TaskActionResult {
+  final TaskActionStatus status;
+  final String reason;
+
+  /// Firma de la llamada exacta que pidió confirmación.
+  final String? actionSignature;
+
+  const TaskActionResult({
+    required this.status,
+    required this.reason,
+    this.actionSignature,
+  });
+
+  bool get completed =>
+      status == TaskActionStatus.completed ||
+      status == TaskActionStatus.completedUnverified;
+
+  bool get mayFallback => status == TaskActionStatus.failed;
+}
+
 /// Resultado tipado de un paso (sección 20). Sin bool genérico.
 enum TaskStepStatus {
   completed,
@@ -156,6 +189,7 @@ enum TaskStepStatus {
   denied,
   needsConfirmation,
   needsMoreEvidence,
+  outcomeUnknown,
   failed,
 }
 
@@ -182,11 +216,19 @@ final class TaskStepResult {
   /// Clasificación del fallo (A15.1). null/`none` = no es un fallo.
   final TaskFailureKind failureKind;
 
+  /// Presente solo en [TaskStepStatus.needsConfirmation].
+  final ActionConfirmation? confirmation;
+
+  /// Firma temporal devuelta por el adaptador; el orquestador la liga al plan.
+  final String? pendingActionSignature;
+
   const TaskStepResult({
     required this.status,
     required this.reason,
     this.output,
     this.failureKind = TaskFailureKind.none,
+    this.confirmation,
+    this.pendingActionSignature,
   });
 
   bool get isCompleted => status == TaskStepStatus.completed;

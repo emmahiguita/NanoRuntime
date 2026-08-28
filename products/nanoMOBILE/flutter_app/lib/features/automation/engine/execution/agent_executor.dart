@@ -301,6 +301,7 @@ class NanoAgentExecutor implements AgentExecutor {
     final code = switch (resolve.status) {
       ResolveStatus.ambiguous => AgentErrorCode.ambiguousTarget,
       ResolveStatus.notFound => AgentErrorCode.notFound,
+      ResolveStatus.incompleteSnapshot => AgentErrorCode.incompleteSnapshot,
       ResolveStatus.resolved ||
       ResolveStatus.serviceOff => AgentErrorCode.serviceOff,
     };

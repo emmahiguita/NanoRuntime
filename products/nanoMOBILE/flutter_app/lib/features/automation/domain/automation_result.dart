@@ -4,6 +4,9 @@
 /// la UI). Nunca inventa éxito; todo estado es un veredicto real.
 library;
 
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart'
+    show ActionConfirmation;
+
 /// Estado honesto de una ejecución.
 enum AutomationResultStatus {
   /// Objetivo satisfecho contra el estado real.
@@ -25,6 +28,9 @@ enum AutomationResultStatus {
   /// El plan no completó o el objetivo resultó no satisfecho.
   failed,
 
+  /// El caller agotó su espera, pero la operación subyacente puede continuar.
+  outcomeUnknown,
+
   /// Cancelación cooperativa solicitada.
   cancelled,
 }
@@ -41,12 +47,16 @@ class AutomationResult {
   /// Tool que pidió confirmación (solo [paused]).
   final String? pauseTool;
 
+  /// Consentimiento exacto que la UI puede devolver al reanudar.
+  final ActionConfirmation? confirmation;
+
   const AutomationResult({
     required this.executionId,
     required this.status,
     required this.reason,
     this.pauseIndex,
     this.pauseTool,
+    this.confirmation,
   });
 
   bool get isPaused => status == AutomationResultStatus.paused;

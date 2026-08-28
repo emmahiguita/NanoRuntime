@@ -66,7 +66,7 @@ class ActionabilityState {
     required String snapshotPackage,
     String? expectedPackage,
   }) {
-    final exists = node.bounds.width > 0 || node.bounds.height > 0;
+    final exists = node.bounds.width > 0 && node.bounds.height > 0;
     final visible = node.visible;
     final enabled = node.enabled;
     final expectedPackageOk =

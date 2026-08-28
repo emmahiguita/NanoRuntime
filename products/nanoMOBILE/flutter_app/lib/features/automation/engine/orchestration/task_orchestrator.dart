@@ -10,17 +10,46 @@ import '../notifications/notification_object.dart';
 import '../notifications/observed_data_extractor.dart';
 import '../perception/search_result_resolver.dart';
 import '../planning/message_intent_parser.dart';
+import '../governance/action_confirmation.dart';
 import '../voice/execution_cancellation.dart';
 import 'task_plan.dart';
+
+typedef TaskOpenUrl =
+    Future<TaskActionResult> Function(
+      String url, {
+      String? confirmedActionSignature,
+    });
+typedef TaskWriteFile =
+    Future<TaskActionResult> Function(
+      String path,
+      String content, {
+      String? confirmedActionSignature,
+    });
+typedef TaskLaunchApp =
+    Future<TaskActionResult> Function(
+      String appName, {
+      String? confirmedActionSignature,
+    });
+typedef TaskTap =
+    Future<TaskActionResult> Function(
+      String selector, {
+      String? confirmedActionSignature,
+    });
+typedef TaskWriteText =
+    Future<TaskActionResult> Function(
+      String selector,
+      String text, {
+      String? confirmedActionSignature,
+    });
 
 class TaskOrchestrator {
   TaskOrchestrator({
     required Future<List<dynamic>> Function() listNotifications,
-    required Future<bool> Function(String url) openUrl,
-    required Future<bool> Function(String path, String content) writeFile,
-    Future<bool> Function(String appName)? launchApp,
-    Future<bool> Function(String selector)? tap,
-    Future<bool> Function(String selector, String text)? writeText,
+    required TaskOpenUrl openUrl,
+    required TaskWriteFile writeFile,
+    TaskLaunchApp? launchApp,
+    TaskTap? tap,
+    TaskWriteText? writeText,
     Future<String?> Function()? resolveInputSurface,
     Future<String?> Function(String kind)? resolveInputSurfaceFor,
     Future<String?> Function(String kind)? resolveActionSurface,
@@ -44,13 +73,13 @@ class TaskOrchestrator {
        _detectSearchResults = detectSearchResults;
 
   final Future<List<dynamic>> Function() _listNotifications;
-  final Future<bool> Function(String url) _openUrl;
-  final Future<bool> Function(String path, String content) _writeFile;
+  final TaskOpenUrl _openUrl;
+  final TaskWriteFile _writeFile;
 
   /// A15.4 — fuentes UI (delegan al dispatcher/ScreenGraph).
-  final Future<bool> Function(String appName)? _launchApp;
-  final Future<bool> Function(String selector)? _tap;
-  final Future<bool> Function(String selector, String text)? _writeText;
+  final TaskLaunchApp? _launchApp;
+  final TaskTap? _tap;
+  final TaskWriteText? _writeText;
 
   /// Variante con intención explícita (`message`/`search`). La usan los flujos
   /// que mutan un campo para no confundir compositor y buscador.
@@ -85,6 +114,7 @@ class TaskOrchestrator {
   Future<List<TaskStepResult>> run(
     TaskPlan plan, {
     ExecutionCancellationToken? cancel,
+    ActionConfirmation? confirmation,
   }) async {
     final invalid = plan.validate();
     if (invalid != null) {
@@ -96,7 +126,34 @@ class TaskOrchestrator {
     var replans = 0;
     final goalCtx = _parseGoal(plan.goal);
 
-    for (final step in plan.ordered) {
+    final ordered = plan.ordered;
+    final planSignature = _planSignature(plan, ordered);
+    final validConfirmation =
+        confirmation != null &&
+        confirmation.stepIndex >= 0 &&
+        confirmation.stepIndex < ordered.length &&
+        confirmation.planSignature == planSignature &&
+        confirmation.stepId == ordered[confirmation.stepIndex].id;
+    final startIndex = validConfirmation ? confirmation.stepIndex : 0;
+
+    // Al reanudar no se repiten acciones previas. Solo se reconstruyen valores
+    // de pasos observacionales/puros necesarios por el paso confirmado.
+    for (var index = 0; index < startIndex; index++) {
+      final prior = ordered[index];
+      if (prior.semanticAction != 'readNotification' &&
+          prior.semanticAction != 'extractUrl') {
+        continue;
+      }
+      final rebuilt = await _runStep(prior, values, goalCtx);
+      results.add(rebuilt);
+      if (rebuilt.isFailure) return results;
+      if (prior.produces != null && rebuilt.output != null) {
+        values[prior.produces!] = rebuilt.output!;
+      }
+    }
+
+    for (var stepIndex = startIndex; stepIndex < ordered.length; stepIndex++) {
+      final step = ordered[stepIndex];
       // A16 — cancelación cooperativa: aborta ANTES del siguiente paso.
       try {
         cancel?.throwIfCancelled();
@@ -110,7 +167,30 @@ class TaskOrchestrator {
         );
         break;
       }
-      var result = await _runStep(step, values, goalCtx);
+      var result = await _runStep(
+        step,
+        values,
+        goalCtx,
+        confirmedActionSignature:
+            validConfirmation && stepIndex == confirmation.stepIndex
+            ? confirmation.actionSignature
+            : null,
+      );
+      if (result.status == TaskStepStatus.needsConfirmation &&
+          result.pendingActionSignature != null) {
+        result = TaskStepResult(
+          status: result.status,
+          reason: result.reason,
+          failureKind: result.failureKind,
+          pendingActionSignature: result.pendingActionSignature,
+          confirmation: ActionConfirmation(
+            planSignature: planSignature,
+            stepIndex: stepIndex,
+            stepId: step.id,
+            actionSignature: result.pendingActionSignature!,
+          ),
+        );
+      }
       var attempts = 1;
 
       while (!result.isCompleted &&
@@ -130,7 +210,7 @@ class TaskOrchestrator {
       }
 
       results.add(result);
-      if (!result.isCompleted) break;
+      if (result.isFailure) break;
       if (step.produces != null && result.output != null) {
         values[step.produces!] = result.output!;
       }
@@ -150,31 +230,61 @@ class TaskOrchestrator {
   Future<TaskStepResult> _runStep(
     TaskStep step,
     Map<TaskValueId, TaskValue> values,
-    _GoalContext goal,
-  ) async {
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     switch (step.semanticAction) {
       case 'readNotification':
         return _readNotification();
       case 'extractUrl':
         return _extractUrl(step, values);
       case 'writeFile':
-        return _writeFileStep(step, values);
+        return _writeFileStep(
+          step,
+          values,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'openUrl':
-        return _openUrlStep(step, values);
+        return _openUrlStep(
+          step,
+          values,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'openApp':
-        return _openApp(goal);
+        return _openApp(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'openConversation':
-        return _openConversation(goal);
+        return _openConversation(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'writeMessage':
-        return _writeMessage(goal);
+        return _writeMessage(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'sendMessage':
-        return _sendMessage(goal);
+        return _sendMessage(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'writeQuery':
-        return _writeQuery(goal);
+        return _writeQuery(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'submitSearch':
-        return _submitSearch(goal);
+        return _submitSearch(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       case 'selectResult':
-        return _selectResult(goal);
+        return _selectResult(
+          goal,
+          confirmedActionSignature: confirmedActionSignature,
+        );
       default:
         return const TaskStepResult(
           status: TaskStepStatus.needsMoreEvidence,
@@ -235,8 +345,9 @@ class TaskOrchestrator {
 
   Future<TaskStepResult> _writeFileStep(
     TaskStep step,
-    Map<TaskValueId, TaskValue> values,
-  ) async {
+    Map<TaskValueId, TaskValue> values, {
+    String? confirmedActionSignature,
+  }) async {
     final binding = step.inputBindings['content'];
     final value = binding == null ? null : values[binding.source];
     if (value is! UrlValue) {
@@ -246,25 +357,24 @@ class TaskOrchestrator {
       );
     }
     const path = '/root/nano_observed_link.txt';
-    final ok = await _writeFile(path, value.url);
-    if (!ok) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'writeFile devolvió false',
-        failureKind: TaskFailureKind.recoverable,
-      );
-    }
-    return const TaskStepResult(
-      status: TaskStepStatus.completed,
-      reason: 'URL escrita a archivo',
-      output: FilePathValue(path),
+    final action = await _writeFile(
+      path,
+      value.url,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    return _stepFromAction(
+      action,
+      completedReason: 'URL escrita a archivo',
+      output: const FilePathValue(path),
+      recoverable: true,
     );
   }
 
   Future<TaskStepResult> _openUrlStep(
     TaskStep step,
-    Map<TaskValueId, TaskValue> values,
-  ) async {
+    Map<TaskValueId, TaskValue> values, {
+    String? confirmedActionSignature,
+  }) async {
     final binding = step.inputBindings['url'];
     final value = binding == null ? null : values[binding.source];
     if (value is! UrlValue) {
@@ -274,22 +384,23 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final ok = await _openUrl(value.url);
-    return ok
-        ? const TaskStepResult(
-            status: TaskStepStatus.completed,
-            reason: 'URL abierta',
-          )
-        : const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'openUrl devolvió false',
-            failureKind: TaskFailureKind.recoverable,
-          );
+    final action = await _openUrl(
+      value.url,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    return _stepFromAction(
+      action,
+      completedReason: 'URL abierta',
+      recoverable: true,
+    );
   }
 
   // ── A15.4 — pasos UI (delegan al dispatcher/ScreenGraph) ──────────────────
 
-  Future<TaskStepResult> _openApp(_GoalContext goal) async {
+  Future<TaskStepResult> _openApp(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     // T2.8: si el objetivo no nombra la app ("escríbele a Juan"), derivarla de
     // la notificación activa cuyo sender/conversación matchea el target. El
     // package sale de la evidencia real, nunca se inventa. Sin app derivable →
@@ -310,17 +421,15 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final ok = await launch(app);
-    return ok
-        ? const TaskStepResult(
-            status: TaskStepStatus.completed,
-            reason: 'app abierta',
-          )
-        : const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'launch devolvió false',
-            failureKind: TaskFailureKind.recoverable,
-          );
+    final action = await launch(
+      app,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    return _stepFromAction(
+      action,
+      completedReason: 'app abierta',
+      recoverable: true,
+    );
   }
 
   /// Deriva la app de mensajería a abrir: el nombre explícito del objetivo si
@@ -339,7 +448,10 @@ class TaskOrchestrator {
     return null;
   }
 
-  Future<TaskStepResult> _openConversation(_GoalContext goal) async {
+  Future<TaskStepResult> _openConversation(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     if (goal.target.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
@@ -357,10 +469,21 @@ class TaskOrchestrator {
     }
 
     // T2.9 — ruta directa: la conversación ya está visible como texto.
-    if (await tap('text=${goal.target}')) {
+    final direct = await tap(
+      'text=${goal.target}',
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    if (direct.completed) {
       return const TaskStepResult(
         status: TaskStepStatus.completed,
         reason: 'conversación abierta',
+      );
+    }
+    if (!direct.mayFallback) {
+      return _stepFromAction(
+        direct,
+        completedReason: 'conversación abierta',
+        recoverable: true,
       );
     }
 
@@ -391,11 +514,15 @@ class TaskOrchestrator {
           failureKind: TaskFailureKind.recoverable,
         );
       }
-      if (!await tap(searchIcon)) {
-        return const TaskStepResult(
-          status: TaskStepStatus.failed,
-          reason: 'no se pudo abrir la búsqueda de conversaciones',
-          failureKind: TaskFailureKind.recoverable,
+      final openSearch = await tap(
+        searchIcon,
+        confirmedActionSignature: confirmedActionSignature,
+      );
+      if (!openSearch.completed) {
+        return _stepFromAction(
+          openSearch,
+          completedReason: 'búsqueda de conversaciones abierta',
+          recoverable: true,
         );
       }
       input = await resolveSearchInput('search');
@@ -409,30 +536,42 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.recoverable,
       );
     }
-    if (!await write(input, goal.target)) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'no se pudo escribir el target en la búsqueda',
-        failureKind: TaskFailureKind.recoverable,
+    final written = await write(
+      input,
+      goal.target,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    if (!written.completed) {
+      return _stepFromAction(
+        written,
+        completedReason: 'target escrito en la búsqueda',
+        recoverable: true,
       );
     }
 
     // 3. Tocar el resultado. `editable=false` excluye el propio campo de
     // búsqueda (que ahora contiene el target) y apunta al item de resultado.
-    if (await tap('text=${goal.target};editable=false')) {
+    final resultTap = await tap(
+      'text=${goal.target};editable=false',
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    if (resultTap.completed) {
       return const TaskStepResult(
         status: TaskStepStatus.completed,
         reason: 'conversación abierta vía búsqueda',
       );
     }
-    return const TaskStepResult(
-      status: TaskStepStatus.failed,
-      reason: 'resultado de búsqueda no encontrado',
-      failureKind: TaskFailureKind.recoverable,
+    return _stepFromAction(
+      resultTap,
+      completedReason: 'conversación abierta vía búsqueda',
+      recoverable: true,
     );
   }
 
-  Future<TaskStepResult> _writeMessage(_GoalContext goal) async {
+  Future<TaskStepResult> _writeMessage(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     if (goal.draft.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
@@ -458,20 +597,22 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final ok = await write(selector, goal.draft);
-    return ok
-        ? const TaskStepResult(
-            status: TaskStepStatus.completed,
-            reason: 'mensaje escrito en superficie editable',
-          )
-        : const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'write devolvió false',
-            failureKind: TaskFailureKind.recoverable,
-          );
+    final action = await write(
+      selector,
+      goal.draft,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    return _stepFromAction(
+      action,
+      completedReason: 'mensaje escrito en superficie editable',
+      recoverable: true,
+    );
   }
 
-  Future<TaskStepResult> _sendMessage(_GoalContext goal) async {
+  Future<TaskStepResult> _sendMessage(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     final resolve = _resolveActionSurface;
     final tap = _tap;
     if (resolve == null || tap == null) {
@@ -491,12 +632,15 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final ok = await tap(selector);
-    if (!ok) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'tap de enviar devolvió false',
-        failureKind: TaskFailureKind.recoverable,
+    final action = await tap(
+      selector,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    if (!action.completed) {
+      return _stepFromAction(
+        action,
+        completedReason: 'botón de envío pulsado',
+        recoverable: true,
       );
     }
 
@@ -533,7 +677,10 @@ class TaskOrchestrator {
 
   // ── T2.9 — búsqueda genérica dentro de una app ─────────────────────────────
 
-  Future<TaskStepResult> _writeQuery(_GoalContext goal) async {
+  Future<TaskStepResult> _writeQuery(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     if (goal.query.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
@@ -571,11 +718,15 @@ class TaskOrchestrator {
           failureKind: TaskFailureKind.recoverable,
         );
       }
-      if (!await tap(icon)) {
-        return const TaskStepResult(
-          status: TaskStepStatus.failed,
-          reason: 'no se pudo abrir la búsqueda',
-          failureKind: TaskFailureKind.recoverable,
+      final openSearch = await tap(
+        icon,
+        confirmedActionSignature: confirmedActionSignature,
+      );
+      if (!openSearch.completed) {
+        return _stepFromAction(
+          openSearch,
+          completedReason: 'búsqueda abierta',
+          recoverable: true,
         );
       }
       input = await resolveInput('search');
@@ -588,20 +739,22 @@ class TaskOrchestrator {
       }
     }
 
-    final ok = await write(input, goal.query);
-    return ok
-        ? const TaskStepResult(
-            status: TaskStepStatus.completed,
-            reason: 'query escrita en el campo de búsqueda',
-          )
-        : const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'write devolvió false',
-            failureKind: TaskFailureKind.recoverable,
-          );
+    final action = await write(
+      input,
+      goal.query,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    return _stepFromAction(
+      action,
+      completedReason: 'query escrita en el campo de búsqueda',
+      recoverable: true,
+    );
   }
 
-  Future<TaskStepResult> _submitSearch(_GoalContext goal) async {
+  Future<TaskStepResult> _submitSearch(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     final resolveAction = _resolveActionSurface;
     final tap = _tap;
     if (resolveAction == null || tap == null) {
@@ -624,12 +777,15 @@ class TaskOrchestrator {
     final detect = _detectSearchResults;
     final before = readText != null ? await readText() : null;
 
-    final ok = await tap(action);
-    if (!ok) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'tap de submit devolvió false',
-        failureKind: TaskFailureKind.recoverable,
+    final submitted = await tap(
+      action,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    if (!submitted.completed) {
+      return _stepFromAction(
+        submitted,
+        completedReason: 'búsqueda enviada',
+        recoverable: true,
       );
     }
 
@@ -648,7 +804,8 @@ class TaskOrchestrator {
     if (changed || hasResults) {
       return const TaskStepResult(
         status: TaskStepStatus.completedUnverified,
-        reason: 'evidencia parcial de búsqueda (cambio de pantalla o resultados)',
+        reason:
+            'evidencia parcial de búsqueda (cambio de pantalla o resultados)',
       );
     }
     return const TaskStepResult(
@@ -659,7 +816,10 @@ class TaskOrchestrator {
 
   // ── T2.9-select — selección semántica de resultado observado ───────────────
 
-  Future<TaskStepResult> _selectResult(_GoalContext goal) async {
+  Future<TaskStepResult> _selectResult(
+    _GoalContext goal, {
+    String? confirmedActionSignature,
+  }) async {
     final resolve = _resolveResult;
     final tap = _tap;
     if (resolve == null || tap == null) {
@@ -712,12 +872,15 @@ class TaskOrchestrator {
     final readText = _readVisibleText;
     final before = readText != null ? await readText() : null;
 
-    final ok = await tap(candidate.selector);
-    if (!ok) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'tap de resultado devolvió false',
-        failureKind: TaskFailureKind.recoverable,
+    final selected = await tap(
+      candidate.selector,
+      confirmedActionSignature: confirmedActionSignature,
+    );
+    if (!selected.completed) {
+      return _stepFromAction(
+        selected,
+        completedReason: 'resultado seleccionado',
+        recoverable: true,
       );
     }
 
@@ -726,7 +889,9 @@ class TaskOrchestrator {
     final changed = before != null && after != null && before != after;
     final title = candidate.title.toLowerCase();
     final contentObserved =
-        after != null && title.isNotEmpty && after.toLowerCase().contains(title);
+        after != null &&
+        title.isNotEmpty &&
+        after.toLowerCase().contains(title);
 
     if (changed && contentObserved) {
       return const TaskStepResult(
@@ -744,6 +909,64 @@ class TaskOrchestrator {
       status: TaskStepStatus.completedUnverified,
       reason: 'tap aceptado; sin cambio detectable de pantalla',
     );
+  }
+
+  TaskStepResult _stepFromAction(
+    TaskActionResult action, {
+    required String completedReason,
+    TaskValue? output,
+    bool recoverable = false,
+  }) {
+    return switch (action.status) {
+      TaskActionStatus.completed => TaskStepResult(
+        status: TaskStepStatus.completed,
+        reason: completedReason,
+        output: output,
+      ),
+      TaskActionStatus.completedUnverified => TaskStepResult(
+        status: TaskStepStatus.completedUnverified,
+        reason: action.reason,
+        output: output,
+      ),
+      TaskActionStatus.needsConfirmation => TaskStepResult(
+        status: TaskStepStatus.needsConfirmation,
+        reason: action.reason,
+        failureKind: TaskFailureKind.terminal,
+        pendingActionSignature: action.actionSignature,
+      ),
+      TaskActionStatus.denied => TaskStepResult(
+        status: TaskStepStatus.denied,
+        reason: action.reason,
+        failureKind: TaskFailureKind.terminal,
+      ),
+      TaskActionStatus.outcomeUnknown => TaskStepResult(
+        status: TaskStepStatus.outcomeUnknown,
+        reason: action.reason,
+        failureKind: TaskFailureKind.terminal,
+      ),
+      TaskActionStatus.failed => TaskStepResult(
+        status: TaskStepStatus.failed,
+        reason: action.reason,
+        failureKind: recoverable
+            ? TaskFailureKind.recoverable
+            : TaskFailureKind.terminal,
+      ),
+    };
+  }
+
+  String _planSignature(TaskPlan plan, List<TaskStep> ordered) {
+    final steps = <String>[];
+    for (var index = 0; index < ordered.length; index++) {
+      final step = ordered[index];
+      final bindings = step.inputBindings.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      steps.add(
+        '$index:${step.id}:${step.semanticAction}:'
+        '${step.dependencies.join(',')}:'
+        '${bindings.map((e) => '${e.key}=${e.value.source.value}').join(',')}',
+      );
+    }
+    return '${plan.goal}|${steps.join('|')}';
   }
 
   _GoalContext _parseGoal(String goal) {

@@ -29,6 +29,7 @@ import 'platform_verification.dart';
 import '../system/system_destination.dart' show SystemDestination;
 import '../system/system_graph.dart' show SystemGraph;
 import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
+import '../governance/action_confirmation.dart';
 import 'tool_registry.dart';
 
 /// Llamada a herramienta extraída de una respuesta del LLM.
@@ -74,6 +75,33 @@ class ToolCall {
 
   /// destination para open_system (A3). Solo `args.destination`.
   String? get destinationArg => args?['destination'] as String?;
+
+  /// Firma canónica para vincular una aprobación a esta llamada exacta.
+  /// Incluye argumentos y postcondiciones; cambiar cualquier campo invalida
+  /// el consentimiento pendiente.
+  String get confirmationSignature => jsonEncode(
+    _canonicalValue({
+      'tool': tool,
+      'selector': selector,
+      'text': text,
+      'key': key,
+      'expect': expect,
+      'args': args,
+    }),
+  );
+
+  static Object? _canonicalValue(Object? value) {
+    if (value is Map) {
+      final keys = value.keys.map((key) => key.toString()).toList()..sort();
+      return <String, Object?>{
+        for (final key in keys) key: _canonicalValue(value[key]),
+      };
+    }
+    if (value is Iterable) {
+      return value.map(_canonicalValue).toList(growable: false);
+    }
+    return value;
+  }
 }
 
 /// Parseo tolerante del bloque JSON de herramientas en texto generado.
@@ -256,18 +284,31 @@ abstract final class AgentToolProtocol {
 /// de la política y el feedback legible para el chat/trace. Si
 /// [needsConfirmation], [pendingCall] guarda la llamada a re-ejecutar con
 /// `confirmed: true` cuando el usuario apruebe.
+enum ToolExecutionStatus {
+  notExecuted,
+  completed,
+  completedUnverified,
+  outcomeUnknown,
+  failed,
+}
+
 class ToolOutcome {
   const ToolOutcome({
     required this.verdict,
     required this.feedback,
     this.pendingCall,
+    this.executionStatus = ToolExecutionStatus.notExecuted,
   });
 
   final PolicyVerdict verdict;
   final String feedback;
   final ToolCall? pendingCall;
+  final ToolExecutionStatus executionStatus;
 
   bool get needsConfirmation => verdict == PolicyVerdict.needsConfirmation;
+  bool get executionFailed =>
+      executionStatus == ToolExecutionStatus.failed ||
+      executionStatus == ToolExecutionStatus.outcomeUnknown;
 }
 
 /// Resultado de ejecutar un plan multi-paso ([AgentToolDispatcher.runPlanGuarded]).
@@ -281,6 +322,7 @@ class PlanOutcome {
   final List<ToolOutcome> steps;
   final int? pauseIndex;
   final ToolCall? pauseCall;
+  final ActionConfirmation? confirmation;
   final String summary;
 
   /// Ruta de ejecución elegida por cada paso (paralelo a [steps]) — C6
@@ -292,9 +334,14 @@ class PlanOutcome {
     required this.steps,
     this.pauseIndex,
     this.pauseCall,
+    this.confirmation,
     required this.summary,
     this.paths = const [],
   });
+
+  bool get hasUnverifiedSteps => steps.any(
+    (step) => step.executionStatus == ToolExecutionStatus.completedUnverified,
+  );
 }
 
 /// Ejecutor de comandos `@` y de [ToolCall] del LLM.
@@ -408,6 +455,17 @@ class AgentToolDispatcher {
   int get stepsUsed => _stepsUsed;
 
   void resetTurn() => _stepsUsed = 0;
+
+  /// Huella observable del mundo para detectar tool loops entre rondas LLM.
+  /// No expone el snapshot ni ejecuta acciones; solo resume estado real.
+  Future<String> worldFingerprint() async {
+    final snapshot = await _executor.snapshot();
+    if (snapshot == null) return 'serviceOff';
+    final nodes = snapshot.visibleNodes
+        .map((node) => '${node.id}|${node.label}|${node.bounds}')
+        .join('\u001e');
+    return '${snapshot.package}|${snapshot.truncated}|$nodes';
+  }
 
   /// True si [text] es un comando de herramienta del usuario (`@comando`).
   /// `@@` escapa: permite enviar texto literal que empiece con @.
@@ -633,9 +691,11 @@ class AgentToolDispatcher {
             '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
       );
     }
+    final feedback = await _executeWithTimeout(call, decision.tool!);
     return ToolOutcome(
       verdict: PolicyVerdict.allow,
-      feedback: await _executeWithTimeout(call, decision.tool!),
+      feedback: feedback,
+      executionStatus: _executionStatusFor(feedback),
     );
   }
 
@@ -649,15 +709,29 @@ class AgentToolDispatcher {
   Future<PlanOutcome> runPlanGuarded(
     List<ToolCall> plan, {
     bool humanInitiated = false,
+    ActionConfirmation? confirmation,
     bool confirmed = false,
   }) async {
     final outcomes = <ToolOutcome>[];
     final feedbacks = <String>[];
     final paths = <ExecutionPath>[];
     final total = plan.length;
-    final loopDetector = _LoopDetector();
+    final loopDetector = ToolLoopDetector();
+    final planSignature = _planSignature(plan);
+    final validConfirmation =
+        confirmation != null &&
+        confirmation.stepIndex >= 0 &&
+        confirmation.stepIndex < plan.length &&
+        confirmation.authorizes(
+          planSignature: planSignature,
+          stepIndex: confirmation.stepIndex,
+          stepId: 'tool:${confirmation.stepIndex}',
+          actionSignature: plan[confirmation.stepIndex].confirmationSignature,
+        );
+    final startIndex = validConfirmation ? confirmation.stepIndex : 0;
+    var confirmationConsumed = false;
 
-    for (var i = 0; i < total; i++) {
+    for (var i = startIndex; i < total; i++) {
       final call = plan[i];
       paths.add(_router.route(call).path);
       // Detección de bucle (C5): abortar ANTES de repetir una acción contra
@@ -680,28 +754,40 @@ class AgentToolDispatcher {
         );
       }
 
-      // `confirmed` autoriza el plan COMPLETO (el usuario aprobó ejecutar
-      // este plan): ningún paso vuelve a pedir confirmación.
+      // Una aprobación autoriza exactamente UNA llamada. El fallback legacy
+      // `confirmed` se limita al primer paso ejecutado y nunca se propaga al
+      // resto del plan.
+      final stepConfirmed =
+          !confirmationConsumed &&
+          ((validConfirmation && i == confirmation.stepIndex) ||
+              (confirmation == null && confirmed && i == startIndex));
       final outcome = await runToolGuarded(
         call,
         humanInitiated: humanInitiated,
-        confirmed: confirmed,
+        confirmed: stepConfirmed,
       );
+      if (stepConfirmed) confirmationConsumed = true;
       outcomes.add(outcome);
 
       if (outcome.needsConfirmation) {
+        final request = ActionConfirmation(
+          planSignature: planSignature,
+          stepIndex: i,
+          stepId: 'tool:$i',
+          actionSignature: call.confirmationSignature,
+        );
         return PlanOutcome(
           completed: false,
           steps: outcomes,
           pauseIndex: i,
           pauseCall: call,
-          summary: feedbacks.join('\n'),
+          confirmation: request,
+          summary: [...feedbacks, outcome.feedback].join('\n'),
           paths: paths,
         );
       }
       feedbacks.add('${i + 1}/$total ${outcome.feedback}');
-      if (outcome.verdict != PolicyVerdict.allow ||
-          _isFailedFeedback(outcome.feedback)) {
+      if (outcome.verdict != PolicyVerdict.allow || outcome.executionFailed) {
         // Denegado por política o fallo de ejecución/verificación → abortar.
         return PlanOutcome(
           completed: false,
@@ -721,8 +807,11 @@ class AgentToolDispatcher {
   }
 
   /// Huella de una acción del plan (tool + selector + texto).
-  static String _fingerprint(ToolCall c) =>
-      '${c.tool}|${c.selector ?? ''}|${c.text ?? ''}';
+  static String _fingerprint(ToolCall c) => c.confirmationSignature;
+
+  static String _planSignature(List<ToolCall> plan) => jsonEncode(
+    plan.map((call) => call.confirmationSignature).toList(growable: false),
+  );
 
   /// Un feedback de ejecución que no representa éxito. El contrato visible
   /// del dispatcher es tipado: cualquier feedback que ARRANCA con un código
@@ -731,6 +820,17 @@ class AgentToolDispatcher {
   /// denegación. Los éxitos nunca empiezan con `[`.
   static bool _isFailedFeedback(String feedback) {
     return RegExp(r'^\[[a-zA-Z]+(:|\])').hasMatch(feedback);
+  }
+
+  static ToolExecutionStatus _executionStatusFor(String feedback) {
+    if (feedback.startsWith('[completedUnverified]')) {
+      return ToolExecutionStatus.completedUnverified;
+    }
+    if (feedback.startsWith('[timeoutOutcomeUnknown]')) {
+      return ToolExecutionStatus.outcomeUnknown;
+    }
+    if (_isFailedFeedback(feedback)) return ToolExecutionStatus.failed;
+    return ToolExecutionStatus.completed;
   }
 
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
@@ -754,7 +854,9 @@ class AgentToolDispatcher {
       return await _executeTool(call).timeout(
         tool.timeout,
         onTimeout: () =>
-            '[timeout] "${tool.name}" excedió ${tool.timeout.inSeconds}s — acción cancelada.',
+            '[timeoutOutcomeUnknown] "${tool.name}" excedió '
+            '${tool.timeout.inSeconds}s. El caller dejó de esperar, pero la '
+            'operación nativa puede seguir activa; resultado desconocido.',
       );
     } catch (e) {
       return '[error] "${tool.name}" falló: $e';
@@ -813,9 +915,17 @@ class AgentToolDispatcher {
           return '[tool] launch_app requiere args {packageName}.';
         }
         final launched = await _launchPackage(packageName);
-        return launched
-            ? 'Aplicación abierta por Intent: $packageName.'
-            : '[launchFailed] Android no pudo abrir el paquete "$packageName".';
+        if (!launched) {
+          return '[launchFailed] Android no pudo abrir el paquete '
+              '"$packageName".';
+        }
+        final expectation = _expectationFor(
+          call,
+        ).copyWith(expectedPackage: packageName);
+        return _verifiedFeedback(
+          'Aplicación abierta por Intent: $packageName.',
+          expectation,
+        );
       case 'notifications':
         return _notifications();
       case 'shizuku_query_package':
@@ -1369,7 +1479,10 @@ class AgentToolDispatcher {
       confirmed: true,
     );
     if (result['ok'] == true) {
-      return 'Android entregó la respuesta a la aplicación de mensajería.';
+      final code = result['code'] ?? 'REMOTE_INPUT_ACCEPTED';
+      return '[completedUnverified] Android aceptó la respuesta mediante '
+          'RemoteInput ($code); la entrega final del mensaje no está '
+          'verificada.';
     }
     final code = result['code'] ?? 'UNKNOWN';
     return '[notificationReply:$code] No se pudo enviar la respuesta.';
@@ -1531,9 +1644,8 @@ class AgentToolDispatcher {
       for (final raw in rows) {
         final row = raw is Map ? raw : const <dynamic, dynamic>{};
         if (row['canReply'] != true) continue;
-        final hay =
-            '${row['sender'] ?? ''} ${row['conversationTitle'] ?? ''}'
-                .toLowerCase();
+        final hay = '${row['sender'] ?? ''} ${row['conversationTitle'] ?? ''}'
+            .toLowerCase();
         if (hay.contains(nameToken)) {
           matched = true;
           final key = _notificationKey(row['key']);
@@ -1577,19 +1689,29 @@ class AgentToolDispatcher {
 /// Detector de bucles del plan (C5). Heurística bounded, nunca infinito:
 /// - patrón alternante A→B→A→B (los últimos 4 pasos son dos pares iguales);
 /// - la misma acción 3+ veces en un plan de 5+ pasos.
-class _LoopDetector {
+class ToolLoopDetector {
   final List<String> _history = [];
 
-  bool isLoop(String fingerprint) {
+  void reset() => _history.clear();
+
+  bool isLoop(
+    String fingerprint, {
+    int repeatThreshold = 3,
+    int minimumHistory = 5,
+    bool detectAlternating = true,
+  }) {
     _history.add(fingerprint);
     final n = _history.length;
-    if (n >= 4 &&
+    if (detectAlternating &&
+        n >= 4 &&
         _history[n - 4] == _history[n - 2] &&
         _history[n - 3] == _history[n - 1]) {
       return true; // A→B→A→B
     }
     final count = _history.where((h) => h == fingerprint).length;
-    if (count >= 3 && _history.length >= 5) return true;
+    if (count >= repeatThreshold && _history.length >= minimumHistory) {
+      return true;
+    }
     return false;
   }
 }
