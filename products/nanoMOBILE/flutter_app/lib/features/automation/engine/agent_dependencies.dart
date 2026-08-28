@@ -6,6 +6,9 @@ import '../../../core/services/runtime_engine.dart';
 import '../../../core/services/rootfs_manager.dart';
 import '../../../core/services/shell_executor.dart';
 import '../../../core/services/shell_executor_linux_backend.dart';
+import '../../../core/providers/settings_provider.dart';
+import '../../../core/providers/chat_provider.dart';
+import 'model/automation_model_resolver.dart';
 import 'platform/linux_tool_adapter.dart';
 import 'execution/action_path_router.dart';
 import 'execution/action_verifier.dart';
@@ -293,10 +296,24 @@ final systemGraphProvider = FutureProvider<SystemGraph>((ref) {
   return ref.watch(systemGraphBuilderProvider).build();
 });
 
+/// Resolución Modelo ↔ Automation (T4.2): un solo runtime, modo + modelo actual.
+/// El modo `deterministicOnly` o un modelo ausente → llmAllowed=false.
+final automationModelResolverProvider = Provider<AutomationModelResolver>((ref) {
+  return AutomationModelResolver(
+    mode: () => ref.read(settingsProvider).automationModelMode,
+    chatModelPath: () => ref.read(chatProvider).activeModelPath,
+    automationModelPath: () => ref.read(settingsProvider).automationModelPath,
+  );
+});
+
 /// Koog selector (A15.8): resuelve ambigüedad Candidate-First con candidateId
-/// (mismo runtime local que el planner LLM, no un segundo modelo).
+/// (mismo runtime local que el planner LLM, no un segundo modelo). Gateado por
+/// el resolver de modelo: deterministicOnly/sin modelo → 0 LLM.
 final koogCandidateSelectorProvider = Provider<CandidateSelector>((ref) {
-  return KoogCandidateSelector(ref.read(runtimeEngineProvider.notifier).client);
+  return ModelGatedCandidateSelector(
+    inner: KoogCandidateSelector(ref.read(runtimeEngineProvider.notifier).client),
+    resolver: ref.watch(automationModelResolverProvider),
+  );
 });
 
 /// Planificador Candidate-First de producción (A13.5/A15.7): generator →
