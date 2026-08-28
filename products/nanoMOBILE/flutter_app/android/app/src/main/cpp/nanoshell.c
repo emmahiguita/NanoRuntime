@@ -397,9 +397,6 @@ static int _spawn_internal(
 
             static const uint64_t ANDROID_NAMESPACE_TYPE_ISOLATED_ = 0x1;
             static const uint64_t ANDROID_DLEXT_USE_NAMESPACE_ = 0x200;
-            // ANDROID_DLEXT_EXTEND_RELAXED = 0x8000: permite que un dlopen
-            // extienda el namespace actual con rutas no estándar.
-            static const uint64_t ANDROID_DLEXT_EXTEND_RELAXED_ = 0x8000;
 
             android_create_namespace_t create_ns =
                 (android_create_namespace_t)dlsym(RTLD_DEFAULT, "android_create_namespace");
@@ -443,17 +440,12 @@ static int _spawn_internal(
                     if (!handle) fprintf(stderr, "nanoshell: ns1+parent: %s\n", dlerror());
                 }
             }
-            // Intento 2: EXTEND_RELAXED + library_path=usr/lib: el campo
-            // library_path del dlextinfo extiende la ruta de búsqueda de libs
-            // para la lib CARGADA (apt), permitiendo resolver DT_NEEDED de
-            // usr/lib (libz.so.1, libssl.so.3...) en el namespace del proceso.
-            if (!handle && dlopen_ext) {
-                memset(&ext, 0, sizeof(ext));
-                ext.flags = ANDROID_DLEXT_EXTEND_RELAXED_;
-                ext.library_path = libdir;
-                handle = dlopen_ext(dl_path, RTLD_NOW | RTLD_GLOBAL, &ext);
-                if (!handle) fprintf(stderr, "nanoshell: ns2 relaxed: %s\n", dlerror());
-            }
+            // Intento 2 ELIMINADO: ANDROID_DLEXT_EXTEND_RELAXED (0x8000) es
+            // inválido en Android 14+; el bionic linker de Android 15 lo
+            // rechaza con 'invalid extended flags' y ABORTA el proceso child
+            // (CHECK 'page != MAP_FAILED' failed, SIGABRT). Intentarlo mataba
+            // el child (exitCode 134). Los Intentos 1/3 + dlopen simple de
+            // abajo cubren la carga sin el flag.
             if (!handle && create_ns) {
                 // Intento 3: namespace sin parent (raíz) con usr/lib.
                 android_namespace_t* ns = create_ns("nanoai_rootfs2", libdir, libdir,
