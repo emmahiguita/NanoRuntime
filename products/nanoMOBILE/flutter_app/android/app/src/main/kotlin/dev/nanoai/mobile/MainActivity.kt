@@ -162,6 +162,9 @@ class MainActivity : FlutterActivity() {
         }
         val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= 33) {
+            // Notificaciones propias del agente (avisos T3). Sin request runtime
+            // el sistema suprime las notificaciones (POST_NOTIFICATION=ignore).
+            permissions += Manifest.permission.POST_NOTIFICATIONS
             permissions += Manifest.permission.READ_MEDIA_IMAGES
             permissions += Manifest.permission.READ_MEDIA_VIDEO
             permissions += Manifest.permission.READ_MEDIA_AUDIO

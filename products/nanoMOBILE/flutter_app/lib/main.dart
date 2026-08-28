@@ -8,6 +8,7 @@ import 'core/linux/linux_init.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/services/boot_orchestrator.dart';
+import 'core/services/nano_runtime_api.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/nano_motion.dart';
 
@@ -52,6 +53,10 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     unawaited(ref.read(settingsProvider.notifier).init());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(BootOrchestrator().run());
+      // Pide los permisos runtime que falten (micrófono, medios y, en Android
+      // 13+, POST_NOTIFICATIONS) tras el primer frame. Solo muestra diálogos de
+      // los que faltan; los ya concedidos no molestan.
+      unawaited(NanoRuntimeApi.instance.requestRuntimePermissions());
     });
   }
 
