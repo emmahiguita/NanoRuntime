@@ -9,6 +9,7 @@ import '../../../core/services/shell_executor_linux_backend.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/chat_provider.dart';
 import 'model/automation_model_resolver.dart';
+import 'model/draft_writer.dart';
 import 'platform/linux_tool_adapter.dart';
 import 'execution/action_path_router.dart';
 import 'execution/action_verifier.dart';
@@ -313,6 +314,16 @@ final koogCandidateSelectorProvider = Provider<CandidateSelector>((ref) {
   return ModelGatedCandidateSelector(
     inner: KoogCandidateSelector(ref.read(runtimeEngineProvider.notifier).client),
     resolver: ref.watch(automationModelResolverProvider),
+  );
+});
+
+/// Redacción de borradores (T4.3): MISMO runtime, role=draftWriter.
+final automationDraftWriterProvider = Provider<AutomationDraftWriter>((ref) {
+  final engine = ref.read(runtimeEngineProvider.notifier);
+  return RuntimeAutomationDraftWriter(
+    resolver: ref.watch(automationModelResolverProvider),
+    client: engine.client,
+    ensureReady: (p) => engine.ensureReady(modelPath: p),
   );
 });
 
