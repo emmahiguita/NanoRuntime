@@ -984,6 +984,17 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Evento en vivo de notificación entrante (EventChannel). null-safe: si el
+  /// listener nativo no está conectado, simplemente no emite.
+  static const EventChannel _notificationEvents = EventChannel(
+    'com.nanoai/notification_events',
+  );
+
+  Stream<Map<dynamic, dynamic>> get notificationEvents =>
+      _notificationEvents.receiveBroadcastStream().map(
+        (e) => Map<dynamic, dynamic>.from(e as Map),
+      );
+
   Future<Map<dynamic, dynamic>> replyToNotification({
     required String key,
     required String text,

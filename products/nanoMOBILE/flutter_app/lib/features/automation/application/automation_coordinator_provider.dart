@@ -14,6 +14,11 @@ import 'package:nanoai/features/automation/engine/planning/deterministic_catalog
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
+import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
+import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
+import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart';
+import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 
 import '../ledger/action_ledger_provider.dart';
@@ -165,4 +170,34 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       client: ref.read(runtimeEngineProvider.notifier).client,
     ),
   );
+});
+
+/// Registro de reglas persistentes (T3.1): shared_prefs JSON. La carga es
+/// asíncrona (arranque); el pipeline consulta `rules` en memoria.
+final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
+  final registry = RuleRegistry(SharedPrefsRuleStore());
+  registry.load();
+  return registry;
+});
+
+/// Pipeline WhatsApp-first (T3.3): notificación → match → AutomationCoordinator.
+/// El dispatcher ejecuta el goal por el MISMO coordinator (nunca un motor aparte).
+final rulePipelineProvider = Provider<RulePipeline>((ref) {
+  return RulePipeline(
+    registry: ref.watch(ruleRegistryProvider),
+    engine: const RuleEngine(),
+    dispatcher: RuleDispatcher(
+      (goal) => ref.read(automationCoordinatorProvider).execute(goal),
+    ),
+  );
+});
+
+/// Router de eventos en vivo de notificación (T3.2): EventChannel nativo →
+/// RulePipeline. Arranca al leerse por primera vez (escucha de por vida).
+final notificationEventRouterProvider = Provider<NotificationEventRouter>((ref) {
+  final router = NotificationEventRouter(
+    pipeline: ref.watch(rulePipelineProvider),
+  )..start();
+  ref.onDispose(router.stop);
+  return router;
 });

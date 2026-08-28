@@ -18,6 +18,7 @@ import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
+import dev.nanoai.mobile.services.NotificationAutomationBridge
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
@@ -235,6 +236,16 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(messenger, ChannelNames.NOTIFICATIONS)
             .setMethodCallHandler(NotificationAutomationChannelHandler(this))
+        EventChannel(messenger, "com.nanoai/notification_events").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    NotificationAutomationBridge.notificationEventsSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    NotificationAutomationBridge.notificationEventsSink = null
+                }
+            },
+        )
 
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
             .setMethodCallHandler(

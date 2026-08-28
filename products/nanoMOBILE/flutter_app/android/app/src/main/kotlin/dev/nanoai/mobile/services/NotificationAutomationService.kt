@@ -34,6 +34,20 @@ class NotificationAutomationService : NotificationListenerService() {
         super.onDestroy()
     }
 
+    /**
+     * Notificación entrante → evento en vivo al bridge (EventChannel). El
+     * contenido NO se persiste ni se envía por red: solo se retransmite al
+     * proceso Flutter para triggers/reglas. No dispara para la propia app ni
+     * para resúmenes de grupo.
+     */
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        super.onNotificationPosted(sbn)
+        if (sbn == null) return
+        if (sbn.packageName == packageName) return
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        NotificationAutomationBridge.notificationEventsSink?.success(toMap(sbn))
+    }
+
     fun snapshot(limit: Int = 30): List<Map<String, Any?>> =
         (activeNotifications ?: emptyArray())
             .asSequence()
@@ -159,4 +173,8 @@ class NotificationAutomationService : NotificationListenerService() {
 object NotificationAutomationBridge {
     @Volatile
     var service: NotificationAutomationService? = null
+
+    /** Sink del EventChannel de eventos en vivo (null = nadie escuchando). */
+    @Volatile
+    var notificationEventsSink: io.flutter.plugin.common.EventChannel.EventSink? = null
 }
