@@ -116,24 +116,43 @@ bool evaluateTrigger(Trigger trigger, TriggerEvent event) {
   return false;
 }
 
-/// Regla persistente: un [Trigger] + el objetivo de automatización a ejecutar.
-class ScheduledRule {
-  final String id;
-  final Trigger trigger;
-  final String goal;
-  final bool enabled;
+/// Serialización de [Trigger] (para persistencia del RuleRegistry). Pura.
+Map<String, dynamic> triggerToJson(Trigger t) => switch (t) {
+  TimeTrigger() => {
+    'type': 'time',
+    'hour': t.hour,
+    'minute': t.minute,
+    'weekdays': t.weekdays.toList(),
+  },
+  NotificationTrigger() => {
+    'type': 'notification',
+    'packageName': t.packageName,
+    'senderMatch': t.senderMatch,
+  },
+  ConnectivityTrigger() => {'type': 'connectivity', 'wifiOnly': t.wifiOnly},
+  BatteryTrigger() => {'type': 'battery', 'belowPercent': t.belowPercent},
+};
 
-  const ScheduledRule({
-    required this.id,
-    required this.trigger,
-    required this.goal,
-    this.enabled = true,
-  });
-
-  ScheduledRule copyWith({bool? enabled}) => ScheduledRule(
-    id: id,
-    trigger: trigger,
-    goal: goal,
-    enabled: enabled ?? this.enabled,
-  );
+/// Reconstruye un [Trigger] desde JSON. Lanza [FormatException] si el tipo es
+/// desconocido (no se inventa un trigger).
+Trigger triggerFromJson(Map<String, dynamic> m) {
+  switch (m['type']) {
+    case 'time':
+      return TimeTrigger(
+        hour: (m['hour'] as num).toInt(),
+        minute: (m['minute'] as num).toInt(),
+        weekdays: Set<int>.from((m['weekdays'] as List?) ?? const []),
+      );
+    case 'notification':
+      return NotificationTrigger(
+        packageName: m['packageName'] as String?,
+        senderMatch: m['senderMatch'] as String?,
+      );
+    case 'connectivity':
+      return ConnectivityTrigger(wifiOnly: m['wifiOnly'] == true);
+    case 'battery':
+      return BatteryTrigger((m['belowPercent'] as num).toInt());
+    default:
+      throw FormatException('trigger type desconocido: ${m['type']}');
+  }
 }
