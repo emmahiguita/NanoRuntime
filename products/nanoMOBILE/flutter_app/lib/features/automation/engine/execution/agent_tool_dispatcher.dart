@@ -1484,8 +1484,8 @@ class AgentToolDispatcher {
 
     final trimmed = rest.trim();
     if (trimmed.isEmpty) {
-      return 'Uso: @responder [indice] <texto>. Ej: @responder texto, '
-          '@responder 1 texto.';
+      return 'Uso: @responder [nombre|indice] <texto>. Ej: @responder hola, '
+          '@responder Edgar hola, @responder 1 hola.';
     }
     final firstSpace = trimmed.indexOf(RegExp(r'\s'));
     final firstToken =
@@ -1496,7 +1496,35 @@ class AgentToolDispatcher {
     final index = parsedIndex;
     final replyText = parsedIndex != null ? body : trimmed;
     if (replyText.isEmpty) {
-      return 'Uso: @responder <texto> o @responder <indice> <texto>.';
+      return 'Uso: @responder <texto>, @responder <nombre> <texto> o '
+          '@responder <indice> <texto>.';
+    }
+
+    // Contacto ESPECÍFICO por nombre: "@responder Edgar hola" → matchea el
+    // remitente real (sender/conversationTitle). Solo es nombre si MATCHEA un
+    // remitente; si no, `firstToken` es parte del texto (respuesta a la primera
+    // respondible, comportamiento previo).
+    if (parsedIndex == null && body.isNotEmpty) {
+      final nameToken = firstToken.toLowerCase();
+      var matched = false;
+      for (final raw in rows) {
+        final row = raw is Map ? raw : const <dynamic, dynamic>{};
+        if (row['canReply'] != true) continue;
+        final hay =
+            '${row['sender'] ?? ''} ${row['conversationTitle'] ?? ''}'
+                .toLowerCase();
+        if (hay.contains(nameToken)) {
+          matched = true;
+          final key = _notificationKey(row['key']);
+          if (key.isNotEmpty) {
+            return _replyNotification(key: key, text: body);
+          }
+        }
+      }
+      if (matched) {
+        return 'Encontré "$firstToken" pero sin clave válida para responder.';
+      }
+      // Sin coincidencia por nombre → el token es texto; sigue abajo.
     }
 
     // Recorre respondibles en el orden en que @notificaciones las numera (1-based
