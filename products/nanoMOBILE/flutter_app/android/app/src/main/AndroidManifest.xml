@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Conexion al motor llama.cpp local (loopback 127.0.0.1) y descarga de modelos -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+: sin este permiso declarado, el sistema suprime las
+         notificaciones de la app (POST_NOTIFICATION=ignore) y el usuario ve
+         "no permitir". Necesario para avisos locales del agente (T3 notify). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- A14.5: visibilidad de TODAS las apps instaladas para el inventario del
          agente (SystemInventory -> DeviceProfile / catálogo de apps). Con solo
          QUERIES de launcher, apps que no exponen launcher quedan invisibles y
