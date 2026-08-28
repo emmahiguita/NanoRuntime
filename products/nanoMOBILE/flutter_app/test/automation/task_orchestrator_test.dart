@@ -2,40 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
-import 'package:nanoai/features/automation/engine/orchestration/step_environment.dart';
 import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
-
-/// Helper: construye un TaskOrchestrator con fuentes inyectadas (fakes).
-TaskOrchestrator orch({
-  Future<List<dynamic>> Function()? listNotifications,
-  Future<bool> Function(String url)? openUrl,
-  Future<bool> Function(String path, String content)? writeFile,
-  Future<bool> Function(String appName)? launchApp,
-  Future<bool> Function(String selector)? tap,
-  Future<bool> Function(String selector, String text)? writeText,
-  Future<String?> Function()? resolveInputSurface,
-  Future<String?> Function(String kind)? resolveActionSurface,
-  Future<String?> Function()? observeInputText,
-  Future<ResultResolution?> Function(ResultTarget target)? resolveResult,
-  Future<String?> Function()? readVisibleText,
-  Future<int?> Function()? detectSearchResults,
-}) => TaskOrchestrator(
-  env: StepEnvironment(
-    listNotifications: listNotifications ?? () async => [],
-    openUrl: openUrl ?? (_) async => false,
-    writeFile: writeFile ?? (_, __) async => false,
-    launchApp: launchApp,
-    tap: tap,
-    writeText: writeText,
-    resolveInputSurface: resolveInputSurface,
-    resolveActionSurface: resolveActionSurface,
-    observeInputText: observeInputText,
-    resolveResult: resolveResult,
-    readVisibleText: readVisibleText,
-    detectSearchResults: detectSearchResults,
-  ),
-);
 
 void main() {
   group('TaskOrchestrator · write/send con superficie grounded (T2.0)', () {
@@ -43,7 +11,7 @@ void main() {
       'writeMessage usa resolveInputSurface (no selector vacío)',
       () async {
         String? writtenSelector;
-        final o = orch(
+        final o = TaskOrchestrator(
           listNotifications: () async => [],
           openUrl: (_) async => false,
           writeFile: (_, __) async => false,
@@ -66,7 +34,7 @@ void main() {
       'sendMessage usa resolveActionSurface (no desc=Enviar hardcodeado)',
       () async {
         String? tappedSelector;
-        final o = orch(
+        final o = TaskOrchestrator(
           listNotifications: () async => [],
           openUrl: (_) async => false,
           writeFile: (_, __) async => false,
@@ -87,7 +55,7 @@ void main() {
     );
 
     test('sin superficie de entrada → needsMoreEvidence (no inventa)', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -106,7 +74,7 @@ void main() {
     TaskOrchestrator sender({
       Future<String?> Function()? observeInputText,
       Future<bool> Function(String)? tap,
-    }) => orch(
+    }) => TaskOrchestrator(
       listNotifications: () async => [],
       openUrl: (_) async => false,
       writeFile: (_, __) async => false,
@@ -152,7 +120,7 @@ void main() {
       'sin app nombrada, deriva el package de la notificación que matchea',
       () async {
         String? launched;
-        final o = orch(
+        final o = TaskOrchestrator(
           listNotifications: () async => [
             {'package': 'com.whatsapp', 'sender': 'Juan', 'title': 'WhatsApp'},
           ],
@@ -174,7 +142,7 @@ void main() {
 
     test('app nombrada explícita gana sobre la derivada', () async {
       String? launched;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [
           {'package': 'com.whatsapp', 'sender': 'Juan', 'title': 'WhatsApp'},
         ],
@@ -195,7 +163,7 @@ void main() {
     });
 
     test('sin app ni notificación que matchee → needsMoreEvidence', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [
           {'package': 'com.whatsapp', 'sender': 'María', 'title': 'WhatsApp'},
         ],
@@ -215,7 +183,7 @@ void main() {
     test('conversación no visible → la localiza vía búsqueda', () async {
       final tapLog = <String>[];
       final writeLog = <String>[];
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -243,7 +211,7 @@ void main() {
     });
 
     test('sin fuentes de búsqueda → failed recoverable (no inventa)', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -266,7 +234,7 @@ void main() {
         final tapLog = <String>[];
         final writeLog = <String>[];
         final launchLog = <String>[];
-        final o = orch(
+        final o = TaskOrchestrator(
           listNotifications: () async => [
             {'package': 'com.whatsapp', 'sender': 'Juan', 'title': 'WhatsApp'},
           ],
@@ -311,7 +279,7 @@ void main() {
         final writeLog = <String>[];
         final launchLog = <String>[];
         var textSeq = 0;
-        final o = orch(
+        final o = TaskOrchestrator(
           listNotifications: () async => [],
           openUrl: (_) async => false,
           writeFile: (_, __) async => false,
@@ -355,7 +323,7 @@ void main() {
       () async {
         final launchLog = <String>[];
         final writeLog = <String>[];
-        final o = orch(
+        final o = TaskOrchestrator(
           listNotifications: () async => [],
           openUrl: (_) async => false,
           writeFile: (_, __) async => false,
@@ -383,7 +351,7 @@ void main() {
     test('writeQuery abre la búsqueda tocando el icono si no hay campo', () async {
       final tapLog = <String>[];
       var inputCalls = 0;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -409,7 +377,7 @@ void main() {
     });
 
     test('submitSearch sin botón → completedUnverified (búsqueda en vivo)', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -425,7 +393,7 @@ void main() {
 
     test('"ve a YouTube y busca X" → app desde "ve a"', () async {
       final launchLog = <String>[];
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -463,7 +431,7 @@ void main() {
     test('"abre el segundo resultado" → ordinal 2 → tap grounded', () async {
       String? tapped;
       ResultTarget? received;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -487,7 +455,7 @@ void main() {
     test('"abre el resultado que dice NanoRuntime" → texto → tap grounded', () async {
       String? tapped;
       ResultTarget? received;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -511,7 +479,7 @@ void main() {
 
     test('ordinal inexistente → needsMoreEvidence (no tap)', () async {
       var tapped = false;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -529,7 +497,7 @@ void main() {
 
     test('resultado ambiguo → needsMoreEvidence (clarificación, no tap)', () async {
       var tapped = false;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -571,7 +539,7 @@ void main() {
     );
 
     test('submit: pantalla cambió + resultados → completed (verificada)', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -588,7 +556,7 @@ void main() {
     });
 
     test('submit: sin cambio detectable → completedUnverified (no verificada)', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -607,7 +575,7 @@ void main() {
     test('selectResult: contenido objetivo observado → completed', () async {
       final texts = ['lista de resultados', 'NanoRuntime GitHub'];
       var i = 0;
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
@@ -623,7 +591,7 @@ void main() {
     });
 
     test('selectResult: misma pantalla → completedUnverified (no goal satisfecho)', () async {
-      final o = orch(
+      final o = TaskOrchestrator(
         listNotifications: () async => [],
         openUrl: (_) async => false,
         writeFile: (_, __) async => false,
