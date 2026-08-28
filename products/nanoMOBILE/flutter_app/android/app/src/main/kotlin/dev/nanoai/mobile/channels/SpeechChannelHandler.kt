@@ -118,19 +118,12 @@ class SpeechChannelHandler(
     }
 
     private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
-        engine.setPitch(1.0f)
+        // Voz propia de Nano: identidad vocal consistente. Tono ligeramente
+        // más agudo que la voz genérica del sistema + ritmo natural + español
+        // (es-ES) SIEMPRE (sin heurística de acentos que mezclaba locales).
+        engine.setPitch(1.1f)
         engine.setSpeechRate(1.0f)
-        val lower = text.lowercase()
-        val locale = if (
-            lower.contains('ñ') || lower.contains('á') || lower.contains('é') ||
-            lower.contains('í') || lower.contains('ó') || lower.contains('ú') ||
-            lower.contains('¿')
-        ) {
-            Locale("es", "ES")
-        } else {
-            Locale.getDefault()
-        }
-        engine.language = locale
+        engine.language = Locale("es", "ES")
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nano_tts")
         result.success(true)
     }
