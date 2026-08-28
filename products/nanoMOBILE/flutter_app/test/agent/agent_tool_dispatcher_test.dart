@@ -58,10 +58,15 @@ void main() {
           switch (call.method) {
             case 'dumpSnapshot':
               return dumpProvider();
-            case 'tapAt':
+            case 'clickTarget':
               final args = call.arguments as Map;
-              tapCalls.add([args['x'] as int, args['y'] as int]);
-              return true;
+              final bounds = (args['bounds'] as List).cast<int>();
+              tapCalls.add([
+                (bounds[0] + bounds[2]) ~/ 2,
+                (bounds[1] + bounds[3]) ~/ 2,
+              ]);
+              focused = true;
+              return const {'ok': true, 'method': 'ACTION_CLICK', 'code': 'OK'};
             case 'inputText':
               inputCalls.add((call.arguments as Map)['text'] as String);
               return true;
@@ -148,7 +153,7 @@ void main() {
       // dispatchGesture devolvió true pero la pantalla no cambió: NO se
       // reporta éxito limpio — el sufijo [verify:*] hace visible la sospecha.
       final r = await dispatcher.runCommand('@tap text=Bluetooth');
-      expect(r, startsWith('tap en "Bluetooth" @(540,340) [verify:'));
+      expect(r, startsWith('[verify:timeout] tap en "Bluetooth" @(540,340)'));
       expect(tapCalls, hasLength(1));
     });
 
@@ -284,18 +289,17 @@ void main() {
   });
 
   group('runTool (tool-calling LLM)', () {
-    test('tap autonomo sin confirmacion queda frenado por politica', () async {
+    test('tap autónomo navega sin duplicar confirmación de commit', () async {
       final r = await dispatcher.runTool(
         const ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
       );
-      expect(r, contains('[policy]'));
-      expect(r, contains('confirm'));
-      expect(tapCalls, isEmpty);
+      expect(r, isNot(contains('[policy]')));
+      expect(tapCalls, hasLength(1));
     });
 
-    test('tap sin selector autonomo queda frenado antes de ejecutar', () async {
+    test('tap sin selector falla por contrato antes de ejecutar', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'tap'));
-      expect(r, contains('[policy]'));
+      expect(r, contains('[tool]'));
       expect(tapCalls, isEmpty);
     });
 
@@ -379,31 +383,21 @@ void main() {
         ),
         confirmed: true,
       );
-      expect(
-        outcome.feedback,
-        'Android entregó la respuesta a la aplicación de mensajería.',
-      );
+      expect(outcome.feedback, startsWith('[completedUnverified]'));
+      expect(outcome.executionStatus, ToolExecutionStatus.completedUnverified);
       expect(notificationReplies, hasLength(1));
       expect(notificationReplies.single['key'], 'notification-key-1');
       expect(notificationReplies.single['text'], 'Sí, en cinco minutos.');
       expect(notificationReplies.single['confirmed'], isTrue);
     });
 
-    test('launch_app solo abre el paquete después de confirmación', () async {
+    test('launch_app navega sin confirmación de escritura', () async {
       dispatcher.resetTurn();
-      final pending = await dispatcher.runToolGuarded(
+      final outcome = await dispatcher.runToolGuarded(
         const ToolCall(tool: 'launch_app', selector: 'com.android.chrome'),
       );
-
-      expect(pending.needsConfirmation, isTrue);
-      expect(launchedPackages, isEmpty);
-
-      final approved = await dispatcher.runToolGuarded(
-        pending.pendingCall!,
-        confirmed: true,
-      );
-      expect(approved.verdict, PolicyVerdict.allow);
-      expect(approved.feedback, contains('com.android.chrome'));
+      expect(outcome.verdict, PolicyVerdict.allow);
+      expect(outcome.feedback, contains('com.android.chrome'));
       expect(launchedPackages, ['com.android.chrome']);
     });
 
@@ -515,18 +509,28 @@ void main() {
       expect(tapCalls, hasLength(1));
     });
 
-    test('respuesta RemoteInput aceptada completa el plan', () async {
-      final outcome = await dispatcher.runPlanGuarded(const [
+    test('RemoteInput aceptado completa sin inventar entrega final', () async {
+      const plan = [
         ToolCall(
           tool: 'reply_notification',
           key: 'notification-key-1',
           text: 'Llego en cinco minutos.',
         ),
-      ], confirmed: true);
+      ];
+      final paused = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'reply-run',
+      );
+      final outcome = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'reply-run',
+        confirmation: paused.confirmation,
+      );
 
       expect(outcome.completed, isTrue);
+      expect(outcome.hasUnverifiedSteps, isTrue);
       expect(notificationReplies, hasLength(1));
-      expect(outcome.summary, contains('Android entregó la respuesta'));
+      expect(outcome.summary, contains('[completedUnverified]'));
     });
 
     test('paso 2 denegado por política → plan aborta tras el paso 1', () async {
@@ -556,36 +560,45 @@ void main() {
       expect(tapCalls, hasLength(1));
     });
 
-    test(
-      'plan sensible sin confirmar → pausa en paso 1 y reanuda completo',
-      () async {
-        dumpProvider = () {
-          if (methodCalls.contains('globalAction')) return snapshotAjustes();
-          if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
-          return snapshotAjustes();
-        };
-        // Flujo E2E real del chat: el LLM emite [tap, back] sin autorización.
-        final paused = await dispatcher.runPlanGuarded(const [
-          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-          ToolCall(tool: 'back'),
-        ]);
-        expect(paused.completed, isFalse);
-        expect(paused.pauseIndex, 0);
-        expect(paused.pauseCall!.tool, 'tap');
-        // Nada se ejecutó todavía.
-        expect(tapCalls, isEmpty);
+    test('confirmación liga ejecución y se consume una sola vez', () async {
+      const plan = [
+        ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Confirmado.',
+        ),
+      ];
+      final paused = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-a',
+      );
+      expect(paused.pauseIndex, 0);
+      expect(notificationReplies, isEmpty);
 
-        // El usuario aprueba el plan → se reanuda COMPLETO y autorizado.
-        final resumed = await dispatcher.runPlanGuarded(const [
-          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
-          ToolCall(tool: 'back'),
-        ], confirmed: true);
-        expect(resumed.completed, isTrue);
-        expect(resumed.steps, hasLength(2));
-        expect(tapCalls, hasLength(1));
-        expect(resumed.summary, contains('2/2 Botón atrás'));
-      },
-    );
+      final wrongRun = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-b',
+        confirmation: paused.confirmation,
+      );
+      expect(wrongRun.pauseIndex, 0);
+      expect(notificationReplies, isEmpty);
+
+      final resumed = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-a',
+        confirmation: paused.confirmation,
+      );
+      expect(resumed.completed, isTrue);
+      expect(notificationReplies, hasLength(1));
+
+      final replay = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-a',
+        confirmation: paused.confirmation,
+      );
+      expect(replay.pauseIndex, 0);
+      expect(notificationReplies, hasLength(1));
+    });
 
     test('plan cíclico A→B→A→B → loopDetected antes de repetir', () async {
       // El mundo avanza con cada acción (tap → dobleAceptar, back → ajustes),
@@ -638,6 +651,25 @@ void main() {
 
       expect(outcome.completed, isTrue);
       expect(outcome.summary, contains('Linux linux.list'));
+    });
+  });
+
+  group('ToolLoopDetector · acción + estado', () {
+    test('misma herramienta con estados distintos no es un loop', () {
+      final detector = ToolLoopDetector();
+      expect(detector.isLoop('tap@screen-a'), isFalse);
+      expect(detector.isLoop('tap@screen-b'), isFalse);
+      expect(detector.isLoop('tap@screen-c'), isFalse);
+      expect(detector.isLoop('tap@screen-d'), isFalse);
+      expect(detector.isLoop('tap@screen-e'), isFalse);
+    });
+
+    test('misma acción y mismo estado repetidos se detienen', () {
+      final detector = ToolLoopDetector();
+      expect(detector.isLoop('tap@screen-a'), isFalse);
+      expect(detector.isLoop('back@screen-b'), isFalse);
+      expect(detector.isLoop('tap@screen-a'), isFalse);
+      expect(detector.isLoop('back@screen-b'), isTrue);
     });
   });
 }

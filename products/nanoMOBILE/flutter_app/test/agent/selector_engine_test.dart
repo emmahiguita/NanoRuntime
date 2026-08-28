@@ -34,6 +34,16 @@ void main() {
       expect(r.best!.matchedCriteria, contains('resourceId:+100'));
     });
 
+    test('snapshot truncado no prueba unicidad aunque haya un candidato', () {
+      final raw = snapshotAjustes()..['truncated'] = true;
+      final result = engine.resolve(
+        const NanoSelector(text: 'Bluetooth'),
+        NanoSnapshot.fromRaw(raw),
+      );
+      expect(result.status, ResolveStatus.incompleteSnapshot);
+      expect(result.candidates, isNotEmpty);
+    });
+
     test('desc exacta da 90', () {
       final r = engine.resolve(
         const NanoSelector(description: 'Buscar ajustes'),

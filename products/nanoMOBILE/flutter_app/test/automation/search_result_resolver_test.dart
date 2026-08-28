@@ -34,8 +34,11 @@ NanoNode n(
   bounds: NanoBounds(left: l, top: t, right: r, bottom: b),
 );
 
-ScreenGraph graph(List<NanoNode> nodes) => ScreenGraph.fromSnapshot(
-  NanoSnapshot(package: 'com.t', nodes: nodes),
+ScreenGraph graph(List<NanoNode> nodes) =>
+    ScreenGraph.fromSnapshot(NanoSnapshot(package: 'com.t', nodes: nodes));
+
+ScreenGraph truncatedGraph(List<NanoNode> nodes) => ScreenGraph.fromSnapshot(
+  NanoSnapshot(package: 'com.t', nodes: nodes, truncated: true),
 );
 
 void main() {
@@ -93,12 +96,18 @@ void main() {
 
     test('sin resultados → lista vacía', () {
       final results = resolver.resolveResults(
-        graph([
-          n(0, type: 'android.widget.EditText', editable: true),
-        ]),
+        graph([n(0, type: 'android.widget.EditText', editable: true)]),
       );
       expect(results, isEmpty);
     });
+  });
+
+  test('snapshot truncado devuelve evidencia incompleta, no notFound', () {
+    final resolution = resolver.resolve(
+      truncatedGraph([n(0, type: 'android.widget.EditText', editable: true)]),
+      const ResultOrdinal(1),
+    );
+    expect(resolution, isA<ResultIncompleteEvidence>());
   });
 
   group('SearchResultResolver.resolve', () {

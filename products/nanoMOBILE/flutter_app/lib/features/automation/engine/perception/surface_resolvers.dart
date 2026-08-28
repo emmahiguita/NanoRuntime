@@ -54,18 +54,13 @@ class InputSurfaceResolver {
     'compose',
   ];
 
-  static const _searchHints = [
-    'buscar',
-    'search',
-    'busca',
-    'consulta',
-    'find',
-  ];
+  static const _searchHints = ['buscar', 'search', 'busca', 'consulta', 'find'];
 
   ResolvedSurface? resolve(
     ScreenGraph graph, {
     InputSurfaceKind kind = InputSurfaceKind.any,
   }) {
+    if (graph.truncated) return null;
     final editables = graph.objects
         .where((o) => o.visible && o.editable)
         .toList(growable: false);
@@ -143,17 +138,20 @@ class ActionSurfaceResolver {
   ];
 
   ResolvedSurface? resolve(ScreenGraph graph, {String kind = 'send'}) {
+    if (graph.truncated) return null;
     final terms = kind == 'search' ? _searchTerms : _sendTerms;
 
-    final buttons = graph.objects.where((o) {
-      if (!o.visible) return false;
-      if (o.role != SemanticRole.button &&
-          o.role != SemanticRole.iconButton) {
-        return false;
-      }
-      final hay = '${o.label} ${o.text} ${o.description}'.toLowerCase();
-      return terms.any(hay.contains);
-    }).toList(growable: false);
+    final buttons = graph.objects
+        .where((o) {
+          if (!o.visible) return false;
+          if (o.role != SemanticRole.button &&
+              o.role != SemanticRole.iconButton) {
+            return false;
+          }
+          final hay = '${o.label} ${o.text} ${o.description}'.toLowerCase();
+          return terms.any(hay.contains);
+        })
+        .toList(growable: false);
     if (buttons.isEmpty) return null;
 
     var best = buttons.first;

@@ -177,7 +177,7 @@ class NanoSelectorEngine {
     }
 
     final top5 = ranked.take(5).toList();
-    return _classify(selector, ranked, top5);
+    return _classify(selector, ranked, top5, snapshot);
   }
 
   // ── Scoring por nodo ─────────────────────────────────────────────────────
@@ -382,9 +382,19 @@ class NanoSelectorEngine {
     NanoSelector selector,
     List<ScoreEntry> ranked,
     List<ScoreEntry> top5,
+    NanoSnapshot snapshot,
   ) {
     final expected = selector.expectedCount;
     if (ranked.length <= expected) {
+      if (snapshot.truncated) {
+        return ResolveOutcome(
+          status: ResolveStatus.incompleteSnapshot,
+          candidates: top5,
+          reason:
+              'Hay ${ranked.length} candidato(s), pero el snapshot está '
+              'truncado y no permite demostrar unicidad.',
+        );
+      }
       final best = ranked.first;
       return ResolveOutcome(
         status: ResolveStatus.resolved,

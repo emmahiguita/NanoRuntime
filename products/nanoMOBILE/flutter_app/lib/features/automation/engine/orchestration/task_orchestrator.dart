@@ -12,6 +12,8 @@ import '../perception/search_result_resolver.dart';
 import '../planning/message_intent_parser.dart';
 import '../governance/action_confirmation.dart';
 import '../voice/execution_cancellation.dart';
+import 'commit_guard.dart';
+import 'execution_journal.dart';
 import 'task_plan.dart';
 
 typedef TaskOpenUrl =
@@ -53,10 +55,11 @@ class TaskOrchestrator {
     Future<String?> Function()? resolveInputSurface,
     Future<String?> Function(String kind)? resolveInputSurfaceFor,
     Future<String?> Function(String kind)? resolveActionSurface,
-    Future<String?> Function()? observeInputText,
     Future<ResultResolution?> Function(ResultTarget target)? resolveResult,
     Future<String?> Function()? readVisibleText,
     Future<int?> Function()? detectSearchResults,
+    CommitGuard? commitGuard,
+    ExecutionJournal? journal,
     this.maxAttemptsPerStep = 2,
     this.maxReplansPerTask = 2,
   }) : _listNotifications = listNotifications,
@@ -65,12 +68,15 @@ class TaskOrchestrator {
        _launchApp = launchApp,
        _tap = tap,
        _writeText = writeText,
-       _resolveInputSurfaceFor = resolveInputSurfaceFor,
+       _resolveInputSurfaceFor =
+           resolveInputSurfaceFor ??
+           (resolveInputSurface == null ? null : (_) => resolveInputSurface()),
        _resolveActionSurface = resolveActionSurface,
-       _observeInputText = observeInputText,
        _resolveResult = resolveResult,
        _readVisibleText = readVisibleText,
-       _detectSearchResults = detectSearchResults;
+       _detectSearchResults = detectSearchResults,
+       _commitGuard = commitGuard,
+       _journal = journal;
 
   final Future<List<dynamic>> Function() _listNotifications;
   final TaskOpenUrl _openUrl;
@@ -86,11 +92,6 @@ class TaskOrchestrator {
   final Future<String?> Function(String kind)? _resolveInputSurfaceFor;
   final Future<String?> Function(String kind)? _resolveActionSurface;
 
-  /// T2.7 — lectura del texto ACTUAL de la superficie de entrada (para verificar
-  /// el envío observando que el composer quedó vacío). null = sin observación;
-  /// el paso degrada a completedUnverified (nunca afirma envío sin evidencia).
-  final Future<String?> Function()? _observeInputText;
-
   /// T2.9-select — resolución grounded de un resultado observado (ordinal/texto).
   /// null = sin fuente de resolución; el paso devuelve needsMoreEvidence.
   final Future<ResultResolution?> Function(ResultTarget target)? _resolveResult;
@@ -102,6 +103,8 @@ class TaskOrchestrator {
   /// T2.9-verify — nº de resultados de búsqueda detectados en pantalla.
   /// null = sin observación.
   final Future<int?> Function()? _detectSearchResults;
+  final CommitGuard? _commitGuard;
+  final ExecutionJournal? _journal;
 
   /// A15.1 — presupuesto de recuperación acotado.
   final int maxAttemptsPerStep;
@@ -115,6 +118,7 @@ class TaskOrchestrator {
     TaskPlan plan, {
     ExecutionCancellationToken? cancel,
     ActionConfirmation? confirmation,
+    String? executionId,
   }) async {
     final invalid = plan.validate();
     if (invalid != null) {
@@ -123,18 +127,68 @@ class TaskOrchestrator {
 
     final values = <TaskValueId, TaskValue>{};
     final results = <TaskStepResult>[];
+    final resultsByStep = <String, TaskStepResult>{};
     var replans = 0;
     final goalCtx = _parseGoal(plan.goal);
 
     final ordered = plan.ordered;
     final planSignature = _planSignature(plan, ordered);
+    final runId = executionId ?? confirmation?.executionId ?? _newRunId();
+    final goalFingerprint = canonicalFingerprint(plan.goal);
+    final journal = _journal;
+    if (journal != null) {
+      await journal.recoverInterrupted();
+      final unresolved = (await journal.all()).where(
+        (entry) =>
+            entry.goalFingerprint == goalFingerprint &&
+            entry.irreversible &&
+            entry.status == ExecutionJournalStatus.outcomeUnknown,
+      );
+      if (unresolved.any((entry) => entry.runId != runId)) {
+        return const [
+          TaskStepResult(
+            status: TaskStepStatus.outcomeUnknown,
+            reason:
+                'existe un commit irreversible interrumpido para este objetivo; '
+                'se requiere reconciliación antes de repetir',
+            failureKind: TaskFailureKind.terminal,
+          ),
+        ];
+      }
+    }
     final validConfirmation =
         confirmation != null &&
         confirmation.stepIndex >= 0 &&
         confirmation.stepIndex < ordered.length &&
-        confirmation.planSignature == planSignature &&
-        confirmation.stepId == ordered[confirmation.stepIndex].id;
+        confirmation.consumeIfAuthorizes(
+          executionId: runId,
+          planSignature: planSignature,
+          stepIndex: confirmation.stepIndex,
+          stepId: ordered[confirmation.stepIndex].id,
+          actionSignature: confirmation.actionSignature,
+        );
     final startIndex = validConfirmation ? confirmation.stepIndex : 0;
+    if (journal != null && ordered.isNotEmpty) {
+      final first = ordered[startIndex];
+      await journal.save(
+        ExecutionJournalEntry(
+          runId: runId,
+          planSignature: planSignature,
+          goalFingerprint: goalFingerprint,
+          currentStep: startIndex,
+          stepId: first.id,
+          status: ExecutionJournalStatus.planned,
+          irreversible: _isIrreversible(first),
+          actionSignature: _semanticActionSignature(
+            planSignature: planSignature,
+            step: first,
+            goal: plan.goal,
+          ),
+          verificationState: 'plan validado; acción aún no iniciada',
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
+    }
 
     // Al reanudar no se repiten acciones previas. Solo se reconstruyen valores
     // de pasos observacionales/puros necesarios por el paso confirmado.
@@ -146,6 +200,7 @@ class TaskOrchestrator {
       }
       final rebuilt = await _runStep(prior, values, goalCtx);
       results.add(rebuilt);
+      resultsByStep[prior.id] = rebuilt;
       if (rebuilt.isFailure) return results;
       if (prior.produces != null && rebuilt.output != null) {
         values[prior.produces!] = rebuilt.output!;
@@ -154,6 +209,17 @@ class TaskOrchestrator {
 
     for (var stepIndex = startIndex; stepIndex < ordered.length; stepIndex++) {
       final step = ordered[stepIndex];
+      final insufficient = _insufficientDependency(step, resultsByStep);
+      if (insufficient != null) {
+        final blocked = TaskStepResult(
+          status: TaskStepStatus.needsMoreEvidence,
+          reason: insufficient,
+          failureKind: TaskFailureKind.terminal,
+        );
+        results.add(blocked);
+        resultsByStep[step.id] = blocked;
+        break;
+      }
       // A16 — cancelación cooperativa: aborta ANTES del siguiente paso.
       try {
         cancel?.throwIfCancelled();
@@ -167,6 +233,26 @@ class TaskOrchestrator {
         );
         break;
       }
+      final irreversible = _isIrreversible(step);
+      final semanticActionSignature = _semanticActionSignature(
+        planSignature: planSignature,
+        step: step,
+        goal: plan.goal,
+      );
+      await journal?.save(
+        ExecutionJournalEntry(
+          runId: runId,
+          planSignature: planSignature,
+          goalFingerprint: goalFingerprint,
+          currentStep: stepIndex,
+          stepId: step.id,
+          status: ExecutionJournalStatus.executing,
+          irreversible: irreversible,
+          actionSignature: semanticActionSignature,
+          verificationState: 'acción iniciada',
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
       var result = await _runStep(
         step,
         values,
@@ -184,6 +270,7 @@ class TaskOrchestrator {
           failureKind: result.failureKind,
           pendingActionSignature: result.pendingActionSignature,
           confirmation: ActionConfirmation(
+            executionId: runId,
             planSignature: planSignature,
             stepIndex: stepIndex,
             stepId: step.id,
@@ -191,6 +278,21 @@ class TaskOrchestrator {
           ),
         );
       }
+      await journal?.save(
+        ExecutionJournalEntry(
+          runId: runId,
+          planSignature: planSignature,
+          goalFingerprint: goalFingerprint,
+          currentStep: stepIndex,
+          stepId: step.id,
+          status: _journalStatus(result.status),
+          irreversible: irreversible,
+          actionSignature: semanticActionSignature,
+          verificationState: result.reason,
+          timestamp: DateTime.now().toUtc(),
+          pendingConfirmation: result.confirmation,
+        ),
+      );
       var attempts = 1;
 
       while (!result.isCompleted &&
@@ -210,6 +312,7 @@ class TaskOrchestrator {
       }
 
       results.add(result);
+      resultsByStep[step.id] = result;
       if (result.isFailure) break;
       if (step.produces != null && result.output != null) {
         values[step.produces!] = result.output!;
@@ -217,6 +320,42 @@ class TaskOrchestrator {
     }
     return results;
   }
+
+  String? _insufficientDependency(
+    TaskStep step,
+    Map<String, TaskStepResult> results,
+  ) {
+    for (final dependency in step.dependencies) {
+      final observed = results[dependency];
+      // En una reanudación exacta, los pasos previos no se repiten. Su estado
+      // se vuelve a comprobar por el context lock del commit irreversible.
+      if (observed == null) continue;
+      final required = step.evidenceRequiredFrom(dependency);
+      final actual = observed.evidence;
+      if (actual == null ||
+          (required == RequiredEvidence.verified &&
+              actual != RequiredEvidence.verified)) {
+        return 'La dependencia "$dependency" no aporta evidencia '
+            '${required.name}; se bloquea ${step.semanticAction}.';
+      }
+    }
+    return null;
+  }
+
+  static int _runSequence = 0;
+  static String _newRunId() =>
+      'task-${DateTime.now().microsecondsSinceEpoch}-${++_runSequence}';
+
+  String _semanticActionSignature({
+    required String planSignature,
+    required TaskStep step,
+    required String goal,
+  }) => canonicalFingerprint({
+    'plan': planSignature,
+    'step': step.id,
+    'action': step.semanticAction,
+    'goal': goal,
+  });
 
   /// Repetir una acción solo es seguro para operaciones que reemplazan un
   /// estado local conocido. Navegar, abrir recursos o enviar mensajes puede
@@ -226,6 +365,24 @@ class TaskOrchestrator {
     'writeFile' || 'writeMessage' || 'writeQuery' => true,
     _ => false,
   };
+
+  bool _isIrreversible(TaskStep step) => switch (step.semanticAction) {
+    'sendMessage' => true,
+    _ => false,
+  };
+
+  ExecutionJournalStatus _journalStatus(TaskStepStatus status) =>
+      switch (status) {
+        TaskStepStatus.completed => ExecutionJournalStatus.verified,
+        TaskStepStatus.completedUnverified =>
+          ExecutionJournalStatus.completedUnverified,
+        TaskStepStatus.needsConfirmation =>
+          ExecutionJournalStatus.waitingConfirmation,
+        TaskStepStatus.outcomeUnknown => ExecutionJournalStatus.outcomeUnknown,
+        TaskStepStatus.denied => ExecutionJournalStatus.cancelled,
+        TaskStepStatus.needsMoreEvidence ||
+        TaskStepStatus.failed => ExecutionJournalStatus.failed,
+      };
 
   Future<TaskStepResult> _runStep(
     TaskStep step,
@@ -613,66 +770,67 @@ class TaskOrchestrator {
     _GoalContext goal, {
     String? confirmedActionSignature,
   }) async {
-    final resolve = _resolveActionSurface;
+    final guard = _commitGuard;
     final tap = _tap;
-    if (resolve == null || tap == null) {
+    if (guard == null || tap == null) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
-        reason: 'sin fuente de tap/observación de pantalla',
+        reason: 'sin ContextGuard/observación para envío irreversible',
         failureKind: TaskFailureKind.terminal,
       );
     }
-    // T2.0: botón de acción SEMÁNTICO (enviar) asociado al input, no un
-    // `desc=Enviar` hardcodeado que no es universal.
-    final selector = await resolve('send');
-    if (selector == null || selector.isEmpty) {
-      return const TaskStepResult(
+    final captured = await guard.capture(
+      conversation: goal.target,
+      draft: goal.draft,
+    );
+    if (!captured.ready) {
+      return TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
-        reason: 'sin botón de envío identificable',
+        reason: 'context lock rechazó el envío: ${captured.reason}',
         failureKind: TaskFailureKind.terminal,
       );
     }
+    final context = captured.context!;
+    final locked = await guard.revalidate(context);
+    if (!locked.ready) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'contexto cambió antes de enviar: ${locked.reason}',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+
+    // ACT ONCE. Desde este punto nunca se reintenta el tap automáticamente.
     final action = await tap(
-      selector,
+      context.sendSelector,
       confirmedActionSignature: confirmedActionSignature,
     );
     if (!action.completed) {
       return _stepFromAction(
         action,
         completedReason: 'botón de envío pulsado',
-        recoverable: true,
+        recoverable: false,
       );
     }
-
-    // T2.7 — el `tap == true` NO es éxito: observar el estado real. El composer
-    // debe quedar vacío tras enviar. Si aún conserva el borrador, el envío no
-    // se produjo (reintentable). Sin fuente de observación → completedUnverified
-    // honesto, nunca completed.
-    final observe = _observeInputText;
-    if (observe == null) {
-      return const TaskStepResult(
+    final evidence = await guard.verifyAfterDispatch(context);
+    return switch (evidence.status) {
+      SendEvidenceStatus.localSendVerified => TaskStepResult(
+        status: TaskStepStatus.completed,
+        reason:
+            'envío local verificado: ${evidence.reason}; entrega remota desconocida',
+      ),
+      SendEvidenceStatus.dispatchedUnverified => TaskStepResult(
         status: TaskStepStatus.completedUnverified,
-        reason: 'envío despachado; sin fuente de observación para verificar',
-      );
-    }
-    final remaining = await observe();
-    if (remaining == null) {
-      return const TaskStepResult(
-        status: TaskStepStatus.completedUnverified,
-        reason: 'envío despachado; superficie de entrada no observable',
-      );
-    }
-    if (goal.draft.isNotEmpty && remaining.contains(goal.draft)) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'composer aún contiene el borrador tras enviar',
-        failureKind: TaskFailureKind.recoverable,
-      );
-    }
-    return const TaskStepResult(
-      status: TaskStepStatus.completed,
-      reason: 'mensaje enviado y composer vaciado',
-    );
+        reason: evidence.reason,
+      ),
+      SendEvidenceStatus.outcomeUnknown ||
+      SendEvidenceStatus.contextChanged ||
+      SendEvidenceStatus.incompleteEvidence => TaskStepResult(
+        status: TaskStepStatus.outcomeUnknown,
+        reason: evidence.reason,
+        failureKind: TaskFailureKind.terminal,
+      ),
+    };
   }
 
   // ── T2.9 — búsqueda genérica dentro de una app ─────────────────────────────
@@ -858,6 +1016,15 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
+    if (resolution is ResultIncompleteEvidence) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            'snapshot incompleto: ${resolution.observed.length} resultado(s) '
+            'observados no prueban una selección única',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
     if (resolution is ResultAmbiguous) {
       return TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
@@ -954,20 +1121,27 @@ class TaskOrchestrator {
     };
   }
 
-  String _planSignature(TaskPlan plan, List<TaskStep> ordered) {
-    final steps = <String>[];
-    for (var index = 0; index < ordered.length; index++) {
-      final step = ordered[index];
-      final bindings = step.inputBindings.entries.toList()
-        ..sort((a, b) => a.key.compareTo(b.key));
-      steps.add(
-        '$index:${step.id}:${step.semanticAction}:'
-        '${step.dependencies.join(',')}:'
-        '${bindings.map((e) => '${e.key}=${e.value.source.value}').join(',')}',
-      );
-    }
-    return '${plan.goal}|${steps.join('|')}';
-  }
+  String _planSignature(TaskPlan plan, List<TaskStep> ordered) =>
+      canonicalFingerprint({
+        'goal': plan.goal,
+        'steps': [
+          for (var index = 0; index < ordered.length; index++)
+            {
+              'index': index,
+              'id': ordered[index].id,
+              'action': ordered[index].semanticAction,
+              'dependencies': ordered[index].dependencies,
+              'bindings': {
+                for (final entry in ordered[index].inputBindings.entries)
+                  entry.key: entry.value.source.value,
+              },
+              'evidence': {
+                for (final entry in ordered[index].dependencyEvidence.entries)
+                  entry.key: entry.value.name,
+              },
+            },
+        ],
+      });
 
   _GoalContext _parseGoal(String goal) {
     final g = goal.toLowerCase();

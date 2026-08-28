@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 import 'package:nanoai/features/automation/engine/memory/experience_cache.dart';
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
@@ -27,6 +28,25 @@ class _FailedToolDispatcher extends AgentToolDispatcher {
     verdict: PolicyVerdict.allow,
     feedback: '[notFound] objetivo no visible',
   );
+
+  @override
+  Future<PlanOutcome> runPlanGuarded(
+    List<ToolCall> plan, {
+    bool humanInitiated = false,
+    ActionConfirmation? confirmation,
+    String? executionId,
+    bool confirmed = false,
+  }) async {
+    final failure = ToolOutcome(
+      verdict: PolicyVerdict.allow,
+      feedback: '[notFound] objetivo no visible',
+    );
+    return PlanOutcome(
+      completed: false,
+      steps: [failure],
+      summary: failure.feedback,
+    );
+  }
 }
 
 /// Pruebas del AutomationCoordinator (único dueño del ciclo de ejecución).
@@ -51,10 +71,10 @@ void main() {
       expect(c.requiresConfirmation('resolve'), isFalse);
     });
 
-    test('assisted: tap/back/write piden; screen/resolve/read no', () {
+    test('assisted: commits sensibles piden; navegación y lectura no', () {
       final c = coord(AgentAutomationMode.assisted);
-      expect(c.requiresConfirmation('tap'), isTrue);
-      expect(c.requiresConfirmation('back'), isTrue);
+      expect(c.requiresConfirmation('tap'), isFalse);
+      expect(c.requiresConfirmation('back'), isFalse);
       expect(c.requiresConfirmation('write'), isTrue);
       expect(c.requiresConfirmation('screen'), isFalse);
       expect(c.requiresConfirmation('resolve'), isFalse);

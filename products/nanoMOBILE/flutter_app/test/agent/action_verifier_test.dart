@@ -50,6 +50,16 @@ void main() {
     expect(out.reason, contains('mustAppear'));
   });
 
+  test('snapshot truncado no prueba una ausencia', () async {
+    final raw = snapshotAjustes()..['truncated'] = true;
+    final v = verifierWith([snap(raw)]);
+    final out = await v.verify(
+      fast.copyWith(mustDisappear: NanoSelector.parse('text=No visible')),
+    );
+    expect(out.status, VerificationStatus.incompleteEvidence);
+    expect(out.reason, contains('snapshot incompleto'));
+  });
+
   test('mustAppear aparece en el 2º sondeo → verified', () async {
     final v = verifierWith([snap(snapshotAjustes()), snap(snapshotAjustes())]);
     final out = await v.verify(

@@ -1,644 +1,451 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
+import 'package:nanoai/features/automation/engine/orchestration/commit_guard.dart';
+import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart';
-import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart';
-import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
+import 'package:nanoai/features/automation/engine/perception/semantic/nano_ui_object.dart';
+import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
+import 'package:nanoai/features/automation/engine/perception/semantic/semantic_role.dart';
+
+const _completed = TaskActionResult(
+  status: TaskActionStatus.completed,
+  reason: 'acción verificada',
+);
+const _completedUnverified = TaskActionResult(
+  status: TaskActionStatus.completedUnverified,
+  reason: 'acción ejecutada sin evidencia suficiente',
+);
+const _failed = TaskActionResult(
+  status: TaskActionStatus.failed,
+  reason: 'acción no disponible',
+);
+
+TaskOrchestrator _orchestrator({
+  TaskLaunchApp? launchApp,
+  TaskTap? tap,
+  TaskWriteText? writeText,
+  Future<String?> Function(String kind)? resolveInputSurfaceFor,
+  Future<String?> Function(String kind)? resolveActionSurface,
+  CommitGuard? commitGuard,
+  ExecutionJournal? journal,
+}) {
+  return TaskOrchestrator(
+    listNotifications: () async => [],
+    openUrl: (_, {confirmedActionSignature}) async => _failed,
+    writeFile: (_, __, {confirmedActionSignature}) async => _failed,
+    launchApp: launchApp,
+    tap: tap,
+    writeText: writeText,
+    resolveInputSurfaceFor: resolveInputSurfaceFor,
+    resolveActionSurface: resolveActionSurface,
+    commitGuard: commitGuard,
+    journal: journal,
+  );
+}
+
+NanoUiObject _object({
+  required String id,
+  required SemanticRole role,
+  required String text,
+  required NanoBounds bounds,
+  required int sourceIndex,
+  String description = '',
+  String resourceId = '',
+  bool editable = false,
+  bool clickable = false,
+}) {
+  return NanoUiObject(
+    id: id,
+    role: role,
+    label: text.isNotEmpty ? text : description,
+    text: text,
+    description: description,
+    bounds: bounds,
+    enabled: true,
+    visible: true,
+    clickable: clickable,
+    editable: editable,
+    scrollable: false,
+    checked: false,
+    focusable: editable || clickable,
+    focused: editable,
+    nativeClass: switch (role) {
+      SemanticRole.textField => 'android.widget.EditText',
+      SemanticRole.button || SemanticRole.iconButton => 'android.widget.Button',
+      _ => 'android.widget.TextView',
+    },
+    resourceId: resourceId,
+    parentId: null,
+    confidence: 1,
+    evidence: const [SemanticEvidenceSource.accessibilityFlag],
+    sourceIndex: sourceIndex,
+    packageName: 'com.chat',
+    windowId: 7,
+    rootIdentity: 'root-7',
+  );
+}
+
+ScreenGraph _chatGraph({
+  required String draft,
+  bool includeConversation = true,
+  bool includeLocalEcho = false,
+  bool truncated = false,
+}) {
+  final objects = <NanoUiObject>[
+    if (includeConversation)
+      _object(
+        id: 'title',
+        role: SemanticRole.text,
+        text: 'Juan',
+        bounds: const NanoBounds(left: 20, top: 30, right: 300, bottom: 80),
+        sourceIndex: 0,
+      ),
+    _object(
+      id: 'composer',
+      role: SemanticRole.textField,
+      text: draft,
+      description: 'Escribe un mensaje',
+      resourceId: 'com.chat:id/composer',
+      editable: true,
+      bounds: const NanoBounds(left: 20, top: 700, right: 850, bottom: 790),
+      sourceIndex: 1,
+    ),
+    _object(
+      id: 'send',
+      role: SemanticRole.button,
+      text: '',
+      description: 'Enviar',
+      resourceId: 'com.chat:id/send',
+      clickable: true,
+      bounds: const NanoBounds(left: 870, top: 700, right: 980, bottom: 790),
+      sourceIndex: 2,
+    ),
+    if (includeLocalEcho)
+      _object(
+        id: 'bubble-new',
+        role: SemanticRole.text,
+        text: 'hola',
+        bounds: const NanoBounds(left: 500, top: 600, right: 950, bottom: 680),
+        sourceIndex: 3,
+      ),
+  ];
+  return ScreenGraph(
+    package: 'com.chat',
+    objects: objects,
+    relations: const [],
+    truncated: truncated,
+  );
+}
+
+TaskPlan _sendPlan() => const TaskPlan(
+  goal: 'escríbele a Juan: hola',
+  steps: [TaskStep(id: 'send', semanticAction: 'sendMessage')],
+);
 
 void main() {
-  group('TaskOrchestrator · write/send con superficie grounded (T2.0)', () {
+  group('TaskOrchestrator · contratos tipados', () {
     test(
-      'writeMessage usa resolveInputSurface (no selector vacío)',
+      'writeMessage usa una superficie observada y conserva certeza',
       () async {
-        String? writtenSelector;
-        final o = TaskOrchestrator(
-          listNotifications: () async => [],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          writeText: (selector, text) async {
-            writtenSelector = selector;
-            return true;
+        String? selector;
+        String? text;
+        final orchestrator = _orchestrator(
+          writeText: (value, valueText, {confirmedActionSignature}) async {
+            selector = value;
+            text = valueText;
+            return _completed;
           },
-          resolveInputSurface: () async => 'id=com.t:id/composer',
+          resolveInputSurfaceFor: (kind) async =>
+              kind == 'message' ? 'id=com.chat:id/composer' : null,
         );
-        final plan = TaskPlan(goal: 'escribe a Juan: hola', steps: const [
-          TaskStep(id: 'w', semanticAction: 'writeMessage'),
-        ]);
-        final results = await o.run(plan);
-        expect(results.first.status, TaskStepStatus.completed);
-        expect(writtenSelector, 'id=com.t:id/composer');
+
+        final result = await orchestrator.run(
+          const TaskPlan(
+            goal: 'escríbele a Juan: hola',
+            steps: [TaskStep(id: 'write', semanticAction: 'writeMessage')],
+          ),
+        );
+
+        expect(result.single.status, TaskStepStatus.completed);
+        expect(selector, 'id=com.chat:id/composer');
+        expect(text, 'hola');
       },
     );
 
+    test('no inventa un selector cuando no observa el compositor', () async {
+      var writes = 0;
+      final orchestrator = _orchestrator(
+        writeText: (_, __, {confirmedActionSignature}) async {
+          writes++;
+          return _completed;
+        },
+        resolveInputSurfaceFor: (_) async => null,
+      );
+
+      final result = await orchestrator.run(
+        const TaskPlan(
+          goal: 'escríbele a Juan: hola',
+          steps: [TaskStep(id: 'write', semanticAction: 'writeMessage')],
+        ),
+      );
+
+      expect(result.single.status, TaskStepStatus.needsMoreEvidence);
+      expect(writes, 0);
+    });
+
     test(
-      'sendMessage usa resolveActionSurface (no desc=Enviar hardcodeado)',
+      'una dependencia ejecutada pero no verificada bloquea el envío',
       () async {
-        String? tappedSelector;
-        final o = TaskOrchestrator(
-          listNotifications: () async => [],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          tap: (selector) async {
-            tappedSelector = selector;
-            return true;
+        var taps = 0;
+        final orchestrator = _orchestrator(
+          writeText: (_, __, {confirmedActionSignature}) async =>
+              _completedUnverified,
+          resolveInputSurfaceFor: (_) async => 'id=com.chat:id/composer',
+          tap: (_, {confirmedActionSignature}) async {
+            taps++;
+            return _completed;
           },
-          resolveActionSurface: (_) async => 'id=com.t:id/send',
-          observeInputText: () async => '',
+          commitGuard: CommitGuard(
+            observe: () async => _chatGraph(draft: 'hola'),
+          ),
         );
-        final plan = TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-          TaskStep(id: 's', semanticAction: 'sendMessage'),
-        ]);
-        final results = await o.run(plan);
-        expect(results.first.status, TaskStepStatus.completed);
-        expect(tappedSelector, 'id=com.t:id/send');
-      },
-    );
-
-    test('sin superficie de entrada → needsMoreEvidence (no inventa)', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        writeText: (_, __) async => true,
-        resolveInputSurface: () async => null,
-      );
-      final plan = TaskPlan(goal: 'escribe a Juan: hola', steps: const [
-        TaskStep(id: 'w', semanticAction: 'writeMessage'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.needsMoreEvidence);
-    });
-  });
-
-  group('TaskOrchestrator · T2.7 verificación de envío', () {
-    TaskOrchestrator sender({
-      Future<String?> Function()? observeInputText,
-      Future<bool> Function(String)? tap,
-    }) => TaskOrchestrator(
-      listNotifications: () async => [],
-      openUrl: (_) async => false,
-      writeFile: (_, __) async => false,
-      tap: tap ?? (_) async => true,
-      resolveActionSurface: (_) async => 'id=com.t:id/send',
-      observeInputText: observeInputText,
-    );
-
-    test('composer vaciado → completed', () async {
-      final o = sender(observeInputText: () async => '');
-      final r = await o.run(
-        TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-          TaskStep(id: 's', semanticAction: 'sendMessage'),
-        ]),
-      );
-      expect(r.first.status, TaskStepStatus.completed);
-    });
-
-    test('composer aún contiene el borrador → failed (reintentable)', () async {
-      final o = sender(observeInputText: () async => 'hola');
-      final r = await o.run(
-        TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-          TaskStep(id: 's', semanticAction: 'sendMessage'),
-        ]),
-      );
-      expect(r.first.status, TaskStepStatus.failed);
-      expect(r.first.failureKind, TaskFailureKind.recoverable);
-    });
-
-    test('sin fuente de observación → completedUnverified (no inventa éxito)', () async {
-      final o = sender(observeInputText: null);
-      final r = await o.run(
-        TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-          TaskStep(id: 's', semanticAction: 'sendMessage'),
-        ]),
-      );
-      expect(r.first.status, TaskStepStatus.completedUnverified);
-    });
-  });
-
-  group('TaskOrchestrator · T2.8 app de mensajería derivada de notificación', () {
-    test(
-      'sin app nombrada, deriva el package de la notificación que matchea',
-      () async {
-        String? launched;
-        final o = TaskOrchestrator(
-          listNotifications: () async => [
-            {'package': 'com.whatsapp', 'sender': 'Juan', 'title': 'WhatsApp'},
+        const plan = TaskPlan(
+          goal: 'escríbele a Juan: hola',
+          steps: [
+            TaskStep(id: 'write', semanticAction: 'writeMessage'),
+            TaskStep(
+              id: 'send',
+              semanticAction: 'sendMessage',
+              dependencies: ['write'],
+              dependencyEvidence: {'write': RequiredEvidence.verified},
+            ),
           ],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          launchApp: (app) async {
-            launched = app;
-            return true;
-          },
         );
-        final plan = TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-          TaskStep(id: 'open_app', semanticAction: 'openApp'),
+
+        final result = await orchestrator.run(plan);
+
+        expect(result.map((item) => item.status), [
+          TaskStepStatus.completedUnverified,
+          TaskStepStatus.needsMoreEvidence,
         ]);
-        final results = await o.run(plan);
-        expect(results.first.status, TaskStepStatus.completed);
-        expect(launched, 'com.whatsapp');
+        expect(taps, 0);
+      },
+    );
+  });
+
+  group('TaskOrchestrator · CommitGuard y exactamente una vez', () {
+    test('verifica un envío local con un único tap', () async {
+      var observations = 0;
+      var taps = 0;
+      final guard = CommitGuard(
+        observe: () async {
+          observations++;
+          return observations < 3
+              ? _chatGraph(draft: 'hola')
+              : _chatGraph(draft: '', includeLocalEcho: true);
+        },
+      );
+      final orchestrator = _orchestrator(
+        tap: (_, {confirmedActionSignature}) async {
+          taps++;
+          return _completed;
+        },
+        commitGuard: guard,
+      );
+
+      final result = await orchestrator.run(_sendPlan());
+
+      expect(result.single.status, TaskStepStatus.completed);
+      expect(result.single.reason, contains('entrega remota desconocida'));
+      expect(taps, 1);
+    });
+
+    test('si cambia la conversación antes del commit hace cero taps', () async {
+      var observations = 0;
+      var taps = 0;
+      final guard = CommitGuard(
+        observe: () async {
+          observations++;
+          return observations == 1
+              ? _chatGraph(draft: 'hola')
+              : _chatGraph(draft: 'hola', includeConversation: false);
+        },
+      );
+      final orchestrator = _orchestrator(
+        tap: (_, {confirmedActionSignature}) async {
+          taps++;
+          return _completed;
+        },
+        commitGuard: guard,
+      );
+
+      final result = await orchestrator.run(_sendPlan());
+
+      expect(result.single.status, TaskStepStatus.needsMoreEvidence);
+      expect(taps, 0);
+    });
+
+    test(
+      'tras despachar no reintenta si el resultado es desconocido',
+      () async {
+        var taps = 0;
+        final guard = CommitGuard(
+          observe: () async => _chatGraph(draft: 'hola'),
+        );
+        final orchestrator = _orchestrator(
+          tap: (_, {confirmedActionSignature}) async {
+            taps++;
+            return _completed;
+          },
+          commitGuard: guard,
+        );
+
+        final result = await orchestrator.run(_sendPlan());
+
+        expect(result.single.status, TaskStepStatus.outcomeUnknown);
+        expect(taps, 1);
       },
     );
 
-    test('app nombrada explícita gana sobre la derivada', () async {
-      String? launched;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [
-          {'package': 'com.whatsapp', 'sender': 'Juan', 'title': 'WhatsApp'},
-        ],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        launchApp: (app) async {
-          launched = app;
-          return true;
+    test('snapshot truncado bloquea el commit antes del tap', () async {
+      var taps = 0;
+      final orchestrator = _orchestrator(
+        tap: (_, {confirmedActionSignature}) async {
+          taps++;
+          return _completed;
         },
+        commitGuard: CommitGuard(
+          observe: () async => _chatGraph(draft: 'hola', truncated: true),
+        ),
       );
-      final plan = TaskPlan(
-        goal: 'abre Telegram y escríbele a Juan: hola',
-        steps: const [TaskStep(id: 'open_app', semanticAction: 'openApp')],
-      );
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.completed);
-      expect(launched, 'telegram');
+
+      final result = await orchestrator.run(_sendPlan());
+
+      expect(result.single.status, TaskStepStatus.needsMoreEvidence);
+      expect(taps, 0);
     });
 
-    test('sin app ni notificación que matchee → needsMoreEvidence', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [
-          {'package': 'com.whatsapp', 'sender': 'María', 'title': 'WhatsApp'},
-        ],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        launchApp: (_) async => true,
-      );
-      final plan = TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-        TaskStep(id: 'open_app', semanticAction: 'openApp'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.needsMoreEvidence);
-    });
-  });
-
-  group('TaskOrchestrator · T2.9 búsqueda de conversación', () {
-    test('conversación no visible → la localiza vía búsqueda', () async {
-      final tapLog = <String>[];
-      final writeLog = <String>[];
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (sel) async {
-          tapLog.add(sel);
-          // La ruta directa falla; solo el tap del RESULTADO tiene éxito.
-          return sel == 'text=Juan;editable=false';
-        },
-        writeText: (sel, text) async {
-          writeLog.add('$sel:$text');
-          return true;
-        },
-        resolveInputSurface: () async => 'id=search_field',
-        resolveActionSurface: (kind) async =>
-            kind == 'search' ? 'id=search_icon' : null,
-      );
-      final plan = TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-        TaskStep(id: 'open_conv', semanticAction: 'openConversation'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.completed);
-      expect(results.first.reason, 'conversación abierta vía búsqueda');
-      expect(tapLog, ['text=Juan', 'id=search_icon', 'text=Juan;editable=false']);
-      expect(writeLog, ['id=search_field:Juan']);
-    });
-
-    test('sin fuentes de búsqueda → failed recoverable (no inventa)', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async => false,
-        // Sin resolvers de búsqueda (null) → fallo honesto.
-      );
-      final plan = TaskPlan(goal: 'escríbele a Juan: hola', steps: const [
-        TaskStep(id: 'open_conv', semanticAction: 'openConversation'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.failed);
-      expect(results.first.failureKind, TaskFailureKind.recoverable);
-    });
-  });
-
-  group('TaskOrchestrator · flujo de mensajería completo (E2E con fakes)', () {
     test(
-      'openApp → openConversation → writeMessage → sendMessage, todo verified',
+      'resume confirmado no vuelve a escribir ni reproduce pasos previos',
       () async {
-        final tapLog = <String>[];
-        final writeLog = <String>[];
-        final launchLog = <String>[];
-        final o = TaskOrchestrator(
-          listNotifications: () async => [
-            {'package': 'com.whatsapp', 'sender': 'Juan', 'title': 'WhatsApp'},
+        var writes = 0;
+        var physicalTaps = 0;
+        final orchestrator = _orchestrator(
+          writeText: (_, __, {confirmedActionSignature}) async {
+            writes++;
+            return _completed;
+          },
+          resolveInputSurfaceFor: (_) async => 'id=com.chat:id/composer',
+          tap: (_, {confirmedActionSignature}) async {
+            if (confirmedActionSignature != 'tap-send') {
+              return const TaskActionResult(
+                status: TaskActionStatus.needsConfirmation,
+                reason: 'confirmación requerida',
+                actionSignature: 'tap-send',
+              );
+            }
+            physicalTaps++;
+            return _completed;
+          },
+          commitGuard: CommitGuard(
+            observe: () async => physicalTaps == 0
+                ? _chatGraph(draft: 'hola')
+                : _chatGraph(draft: '', includeLocalEcho: true),
+          ),
+        );
+        const plan = TaskPlan(
+          goal: 'escríbele a Juan: hola',
+          steps: [
+            TaskStep(id: 'write', semanticAction: 'writeMessage'),
+            TaskStep(
+              id: 'send',
+              semanticAction: 'sendMessage',
+              dependencies: ['write'],
+              dependencyEvidence: {'write': RequiredEvidence.verified},
+            ),
           ],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          launchApp: (app) async {
-            launchLog.add(app);
-            return true;
-          },
-          tap: (sel) async {
-            tapLog.add(sel);
-            return true;
-          },
-          writeText: (sel, text) async {
-            writeLog.add('$sel:$text');
-            return true;
-          },
-          resolveInputSurface: () async => 'id=composer',
-          resolveActionSurface: (kind) async =>
-              kind == 'send' ? 'id=send' : null,
-          observeInputText: () async => '',
         );
-        final plan = const TaskPlanner().plan('escríbele a Juan: hola');
-        expect(plan, isNotNull);
-        final results = await o.run(plan!);
-        expect(
-          results.map((r) => r.status),
-          everyElement(TaskStepStatus.completed),
-        );
-        expect(launchLog, ['com.whatsapp']);
-        expect(tapLog, ['text=Juan', 'id=send']);
-        expect(writeLog, ['id=composer:hola']);
-      },
-    );
-  });
 
-  group('TaskOrchestrator · T2.9 búsqueda genérica', () {
-    test(
-      '"abre YouTube y busca NanoRuntime" → openApp → writeQuery → submitSearch',
-      () async {
-        final tapLog = <String>[];
-        final writeLog = <String>[];
-        final launchLog = <String>[];
-        var textSeq = 0;
-        final o = TaskOrchestrator(
-          listNotifications: () async => [],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          launchApp: (app) async {
-            launchLog.add(app);
-            return true;
-          },
-          tap: (sel) async {
-            tapLog.add(sel);
-            return true;
-          },
-          writeText: (sel, text) async {
-            writeLog.add('$sel:$text');
-            return true;
-          },
-          resolveInputSurface: () async => 'id=search_field',
-          resolveActionSurface: (kind) async =>
-              kind == 'search' ? 'id=search_icon' : null,
-          readVisibleText: () async =>
-              (textSeq++ == 0) ? 'antes' : 'después con resultados',
-          detectSearchResults: () async => 2,
+        final paused = await orchestrator.run(plan, executionId: 'run-1');
+        expect(paused.last.status, TaskStepStatus.needsConfirmation);
+        expect(writes, 1);
+        expect(physicalTaps, 0);
+
+        final resumed = await orchestrator.run(
+          plan,
+          executionId: 'run-1',
+          confirmation: paused.last.confirmation,
         );
-        final plan = const TaskPlanner().plan(
-          'abre YouTube y busca NanoRuntime',
-        );
-        expect(plan, isNotNull);
-        final results = await o.run(plan!);
-        expect(
-          results.map((r) => r.status),
-          everyElement(TaskStepStatus.completed),
-        );
-        expect(launchLog, ['youtube']);
-        // El query conserva el case original (NanoRuntime, no nanoruntime).
-        expect(writeLog, ['id=search_field:NanoRuntime']);
-        expect(tapLog, ['id=search_icon']); // submit
+        expect(resumed.single.status, TaskStepStatus.completed);
+        expect(writes, 1);
+        expect(physicalTaps, 1);
       },
     );
 
-    test(
-      '"busca NanoRuntime en YouTube" → app desde "en X" + query con case',
-      () async {
-        final launchLog = <String>[];
-        final writeLog = <String>[];
-        final o = TaskOrchestrator(
-          listNotifications: () async => [],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          launchApp: (app) async {
-            launchLog.add(app);
-            return true;
-          },
-          tap: (_) async => true,
-          writeText: (sel, text) async {
-            writeLog.add('$sel:$text');
-            return true;
-          },
-          resolveInputSurface: () async => 'id=search_field',
-          resolveActionSurface: (kind) async =>
-              kind == 'search' ? 'id=search_icon' : null,
-        );
-        final plan = const TaskPlanner().plan('busca NanoRuntime en YouTube');
-        expect(plan, isNotNull);
-        await o.run(plan!);
-        expect(launchLog, ['youtube']);
-        expect(writeLog, ['id=search_field:NanoRuntime']);
-      },
-    );
-
-    test('writeQuery abre la búsqueda tocando el icono si no hay campo', () async {
-      final tapLog = <String>[];
-      var inputCalls = 0;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (sel) async {
-          tapLog.add(sel);
-          return true;
+    test('denegación detiene los pasos posteriores', () async {
+      var writes = 0;
+      final orchestrator = _orchestrator(
+        launchApp: (_, {confirmedActionSignature}) async =>
+            const TaskActionResult(
+              status: TaskActionStatus.denied,
+              reason: 'denegado',
+            ),
+        writeText: (_, __, {confirmedActionSignature}) async {
+          writes++;
+          return _completed;
         },
-        writeText: (_, __) async => true,
-        resolveInputSurface: () async {
-          inputCalls++;
-          // 1ª llamada: sin campo visible; 2ª: campo abierto tras tocar el icono.
-          return inputCalls == 1 ? null : 'id=search_field';
-        },
-        resolveActionSurface: (kind) async =>
-            kind == 'search' ? 'id=search_icon' : null,
+        resolveInputSurfaceFor: (_) async => 'id=com.chat:id/composer',
       );
-      final plan = TaskPlan(goal: 'abre YouTube y busca X', steps: const [
-        TaskStep(id: 'wq', semanticAction: 'writeQuery'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.completed);
-      expect(tapLog, ['id=search_icon']);
-    });
+      const plan = TaskPlan(
+        goal: 'abre WhatsApp y escríbele a Juan: hola',
+        steps: [
+          TaskStep(id: 'open', semanticAction: 'openApp'),
+          TaskStep(
+            id: 'write',
+            semanticAction: 'writeMessage',
+            dependencies: ['open'],
+          ),
+        ],
+      );
 
-    test('submitSearch sin botón → completedUnverified (búsqueda en vivo)', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async => true,
-        resolveActionSurface: (_) async => null,
-      );
-      final plan = TaskPlan(goal: 'abre YouTube y busca X', steps: const [
-        TaskStep(id: 'ss', semanticAction: 'submitSearch'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.completedUnverified);
-    });
+      final result = await orchestrator.run(plan);
 
-    test('"ve a YouTube y busca X" → app desde "ve a"', () async {
-      final launchLog = <String>[];
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        launchApp: (app) async {
-          launchLog.add(app);
-          return true;
-        },
-        tap: (_) async => true,
-        writeText: (_, __) async => true,
-        resolveInputSurface: () async => 'id=search_field',
-        resolveActionSurface: (kind) async =>
-            kind == 'search' ? 'id=search_icon' : null,
-      );
-      final plan = const TaskPlanner().plan('ve a YouTube y busca X');
-      expect(plan, isNotNull);
-      await o.run(plan!);
-      expect(launchLog, ['youtube']);
-    });
-
-    test(
-      'W9: "abre WhatsApp, busca a Juan y envíale: X" → message plan (no search)',
-      () async {
-        final launchLog = <String>[];
-        final writeLog = <String>[];
-        final o = TaskOrchestrator(
-          listNotifications: () async => [],
-          openUrl: (_) async => false,
-          writeFile: (_, __) async => false,
-          launchApp: (app) async {
-            launchLog.add(app);
-            return true;
-          },
-          tap: (_) async => true,
-          writeText: (sel, text) async {
-            writeLog.add('$sel:$text');
-            return true;
-          },
-          resolveInputSurface: () async => 'id=composer',
-          resolveActionSurface: (kind) async =>
-              kind == 'send' ? 'id=send' : null,
-          observeInputText: () async => '',
-        );
-        final plan = const TaskPlanner().plan(
-          'abre WhatsApp, busca a Juan y envíale: llego a las 8',
-        );
-        expect(plan, isNotNull);
-        expect(
-          plan!.steps.map((s) => s.semanticAction).toList(),
-          ['openApp', 'openConversation', 'writeMessage', 'sendMessage'],
-        );
-        await o.run(plan);
-        expect(launchLog, ['whatsapp']);
-        expect(writeLog, ['id=composer:llego a las 8']);
-      },
-    );
-  });
-
-  group('TaskOrchestrator · T2.9-select selección de resultado', () {
-    SearchResultCandidate cand(String title, int ordinal) =>
-        SearchResultCandidate(
-          ordinal: ordinal,
-          title: title,
-          subtitle: '',
-          resourceId: '',
-          bounds: const NanoBounds(left: 0, top: 0, right: 100, bottom: 100),
-          packageName: '',
-          confidence: 0.8,
-          source: SearchResultSource.accessibility,
-          selector: 'text=$title',
-        );
-
-    test('"abre el segundo resultado" → ordinal 2 → tap grounded', () async {
-      String? tapped;
-      ResultTarget? received;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (sel) async {
-          tapped = sel;
-          return true;
-        },
-        resolveResult: (target) async {
-          received = target;
-          return ResultResolved(cand('Result B', 2));
-        },
-      );
-      final plan = const TaskPlanner().plan('abre el segundo resultado');
-      final results = await o.run(plan!);
-      expect(results.first.status, TaskStepStatus.completedUnverified);
-      expect(received, isA<ResultOrdinal>());
-      expect((received as ResultOrdinal).ordinal, 2);
-      expect(tapped, 'text=Result B');
-    });
-
-    test('"abre el resultado que dice NanoRuntime" → texto → tap grounded', () async {
-      String? tapped;
-      ResultTarget? received;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (sel) async {
-          tapped = sel;
-          return true;
-        },
-        resolveResult: (target) async {
-          received = target;
-          return ResultResolved(cand('NanoRuntime', 1));
-        },
-      );
-      final plan = const TaskPlanner().plan(
-        'abre el resultado que dice NanoRuntime',
-      );
-      final results = await o.run(plan!);
-      expect(received, isA<ResultText>());
-      expect((received as ResultText).text, 'NanoRuntime');
-      expect(tapped, 'text=NanoRuntime');
-    });
-
-    test('ordinal inexistente → needsMoreEvidence (no tap)', () async {
-      var tapped = false;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async {
-          tapped = true;
-          return true;
-        },
-        resolveResult: (_) async => const ResultNotFound(),
-      );
-      final plan = const TaskPlanner().plan('abre el segundo resultado');
-      final results = await o.run(plan!);
-      expect(results.first.status, TaskStepStatus.needsMoreEvidence);
-      expect(tapped, isFalse);
-    });
-
-    test('resultado ambiguo → needsMoreEvidence (clarificación, no tap)', () async {
-      var tapped = false;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async {
-          tapped = true;
-          return true;
-        },
-        resolveResult: (_) async => ResultAmbiguous([
-          cand('A', 1),
-          cand('B', 2),
-        ]),
-      );
-      final plan = const TaskPlanner().plan(
-        'abre el resultado que dice X',
-      );
-      final results = await o.run(plan!);
-      expect(results.first.status, TaskStepStatus.needsMoreEvidence);
-      expect(tapped, isFalse);
+      expect(result.single.status, TaskStepStatus.denied);
+      expect(writes, 0);
     });
   });
 
-  group('TaskOrchestrator · T2.9-verify SearchResultVerification', () {
-    /// Fuente de texto visible que cambia en la 2ª llamada (PRE→POST).
-    Future<String?> Function() changingText() {
-      var i = 0;
-      return () async => (i++ == 0) ? 'pantalla A' : 'pantalla B';
-    }
-
-    SearchResultCandidate rCand(String title) => SearchResultCandidate(
-      ordinal: 1,
-      title: title,
-      subtitle: '',
-      resourceId: '',
-      bounds: const NanoBounds(left: 0, top: 0, right: 100, bottom: 100),
-      packageName: '',
-      confidence: 0.8,
-      source: SearchResultSource.accessibility,
-      selector: 'text=$title',
+  test('un commit interrumpido impide repetir el mismo objetivo', () async {
+    final journal = InMemoryExecutionJournal();
+    await journal.save(
+      ExecutionJournalEntry(
+        runId: 'previous-run',
+        planSignature: 'plan',
+        goalFingerprint: canonicalFingerprint('escríbele a Juan: hola'),
+        currentStep: 0,
+        stepId: 'send',
+        status: ExecutionJournalStatus.executing,
+        irreversible: true,
+        actionSignature: 'action',
+        verificationState: 'tap iniciado',
+        timestamp: DateTime.now().toUtc(),
+      ),
+    );
+    var taps = 0;
+    final orchestrator = _orchestrator(
+      journal: journal,
+      tap: (_, {confirmedActionSignature}) async {
+        taps++;
+        return _completed;
+      },
+      commitGuard: CommitGuard(observe: () async => _chatGraph(draft: 'hola')),
     );
 
-    test('submit: pantalla cambió + resultados → completed (verificada)', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async => true,
-        resolveActionSurface: (_) async => 'id=search_go',
-        readVisibleText: changingText(),
-        detectSearchResults: () async => 3,
-      );
-      final plan = TaskPlan(goal: 'abre YouTube y busca X', steps: const [
-        TaskStep(id: 'ss', semanticAction: 'submitSearch'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.completed);
-    });
+    final result = await orchestrator.run(_sendPlan(), executionId: 'new-run');
 
-    test('submit: sin cambio detectable → completedUnverified (no verificada)', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async => true,
-        resolveActionSurface: (_) async => 'id=search_go',
-        readVisibleText: () async => 'misma pantalla',
-        detectSearchResults: () async => 0,
-      );
-      final plan = TaskPlan(goal: 'abre YouTube y busca X', steps: const [
-        TaskStep(id: 'ss', semanticAction: 'submitSearch'),
-      ]);
-      final results = await o.run(plan);
-      expect(results.first.status, TaskStepStatus.completedUnverified);
-    });
-
-    test('selectResult: contenido objetivo observado → completed', () async {
-      final texts = ['lista de resultados', 'NanoRuntime GitHub'];
-      var i = 0;
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async => true,
-        resolveResult: (_) async => ResultResolved(rCand('NanoRuntime')),
-        readVisibleText: () async => texts[i++ % 2],
-      );
-      final plan = const TaskPlanner().plan(
-        'abre el resultado que dice NanoRuntime',
-      );
-      final results = await o.run(plan!);
-      expect(results.first.status, TaskStepStatus.completed);
-    });
-
-    test('selectResult: misma pantalla → completedUnverified (no goal satisfecho)', () async {
-      final o = TaskOrchestrator(
-        listNotifications: () async => [],
-        openUrl: (_) async => false,
-        writeFile: (_, __) async => false,
-        tap: (_) async => true,
-        resolveResult: (_) async => ResultResolved(rCand('Result B')),
-        readVisibleText: () async => 'misma pantalla',
-      );
-      final plan = const TaskPlanner().plan('abre el segundo resultado');
-      final results = await o.run(plan!);
-      expect(results.first.status, TaskStepStatus.completedUnverified);
-    });
+    expect(result.single.status, TaskStepStatus.outcomeUnknown);
+    expect(taps, 0);
   });
 }

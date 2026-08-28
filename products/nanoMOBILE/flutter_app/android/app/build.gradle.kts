@@ -98,6 +98,7 @@ flutter {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     // Coroutines para operaciones async en platform channel handlers
     // (download/extract del rootfs Termux en background thread).
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")

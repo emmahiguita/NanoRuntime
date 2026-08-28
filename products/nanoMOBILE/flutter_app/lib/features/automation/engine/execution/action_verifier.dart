@@ -160,6 +160,9 @@ enum VerificationStatus {
 
   /// El canal de accesibilidad no responde (servicio off o rebind).
   serviceUnavailable,
+
+  /// La percepción fue parcial y no permite probar una ausencia.
+  incompleteEvidence,
 }
 
 /// Resultado de [ActionVerifier.verify] con evidencia.
@@ -286,8 +289,24 @@ class ActionVerifier implements AgentVerifier {
       }
 
       if (DateTime.now().isAfter(deadline)) {
+        final expectedPackage = expectation.expectedPackage;
+        if (!lastSnap.truncated &&
+            expectedPackage != null &&
+            expectedPackage.isNotEmpty &&
+            lastSnap.package.isNotEmpty &&
+            lastSnap.package != expectedPackage) {
+          return VerificationOutcome(
+            status: VerificationStatus.wrongPackage,
+            reason:
+                'Package actual "${lastSnap.package}", esperando '
+                '"$expectedPackage".',
+            snapshot: lastSnap,
+          );
+        }
         return VerificationOutcome(
-          status: VerificationStatus.timeout,
+          status: lastSnap.truncated
+              ? VerificationStatus.incompleteEvidence
+              : VerificationStatus.timeout,
           reason:
               'Plazo de ${expectation.timeout.inMilliseconds}ms agotado — '
               'pendiente: $pending',
@@ -348,6 +367,7 @@ class ActionVerifier implements AgentVerifier {
     NanoSnapshot? pre,
   ) {
     if (snap.isEmpty) return const ['snapshot vacío (sin ventana activa)'];
+    final incomplete = snap.truncated;
     return <String>[
       if (e.expectedPackage != null &&
           e.expectedPackage!.isNotEmpty &&
@@ -361,15 +381,28 @@ class ActionVerifier implements AgentVerifier {
             '"${e.expectedPackage}"',
       if (e.mustAppear != null &&
           !_engine.resolve(e.mustAppear!, snap).isResolved)
-        'mustAppear=${e.mustAppear!.toDebugString()} sin resolver',
+        incomplete
+            ? 'snapshot incompleto no prueba mustAppear=${e.mustAppear!.toDebugString()}'
+            : 'mustAppear=${e.mustAppear!.toDebugString()} sin resolver',
       if (e.mustDisappear != null &&
           _engine.resolve(e.mustDisappear!, snap).isResolved)
         'mustDisappear=${e.mustDisappear!.toDebugString()} sigue presente',
+      if (e.mustDisappear != null &&
+          !_engine.resolve(e.mustDisappear!, snap).isResolved &&
+          incomplete)
+        'snapshot incompleto no prueba la ausencia de mustDisappear=${e.mustDisappear!.toDebugString()}',
       if (e.expectedText != null &&
           e.expectedText!.isNotEmpty &&
           !_hasExpectedText(e, snap))
-        'texto "${e.expectedText}" no visible en '
-            '${e.expectedTextTarget?.toDebugString() ?? 'la pantalla'}',
+        incomplete
+            ? 'snapshot incompleto no prueba expectedText="${e.expectedText}"'
+            : 'texto "${e.expectedText}" no visible en '
+                  '${e.expectedTextTarget?.toDebugString() ?? 'la pantalla'}',
+      if (e.forbiddenText != null &&
+          e.forbiddenText!.isNotEmpty &&
+          !_containsVisibleText(snap, e.forbiddenText!) &&
+          incomplete)
+        'snapshot incompleto no prueba la ausencia de forbiddenText="${e.forbiddenText}"',
       if (e.mustChangeSnapshot &&
           pre != null &&
           _signature(snap) == _signature(pre))

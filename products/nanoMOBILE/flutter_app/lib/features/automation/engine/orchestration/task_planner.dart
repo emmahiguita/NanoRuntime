@@ -126,6 +126,7 @@ class TaskPlanner {
         id: 'send_message',
         semanticAction: 'sendMessage',
         dependencies: ['write_message'],
+        dependencyEvidence: {'write_message': RequiredEvidence.verified},
       ),
     ],
   );

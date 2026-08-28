@@ -5,7 +5,7 @@
 /// Es un modelo de datos transitorio: NO genera prompts, NO persiste, NO ejecuta.
 library;
 
-import '../nano_snapshot.dart' show NanoSnapshot;
+import '../nano_snapshot.dart' show NanoSnapshot, NanoWindow;
 import 'nano_ui_object.dart';
 import 'relationship_engine.dart';
 import 'screen_relation.dart';
@@ -16,6 +16,10 @@ class ScreenGraph {
   final String package;
   final List<NanoUiObject> objects;
   final List<ScreenRelation> relations;
+  final bool truncated;
+  final bool nodeLimitReached;
+  final bool depthLimitReached;
+  final List<NanoWindow> windows;
 
   final Map<String, NanoUiObject> _byId;
   final Map<String, List<ScreenRelation>> _bySource;
@@ -24,6 +28,10 @@ class ScreenGraph {
     required this.package,
     required this.objects,
     required this.relations,
+    this.truncated = false,
+    this.nodeLimitReached = false,
+    this.depthLimitReached = false,
+    this.windows = const [],
   }) : _byId = {for (final o in objects) o.id: o},
        _bySource = _index(relations);
 
@@ -34,10 +42,15 @@ class ScreenGraph {
       package: snapshot.package,
       objects: objects,
       relations: relations,
+      truncated: snapshot.truncated,
+      nodeLimitReached: snapshot.nodeLimitReached,
+      depthLimitReached: snapshot.depthLimitReached,
+      windows: snapshot.windows,
     );
   }
 
   bool get isEmpty => objects.isEmpty;
+  bool get complete => !truncated;
 
   NanoUiObject? objectById(String id) => _byId[id];
 

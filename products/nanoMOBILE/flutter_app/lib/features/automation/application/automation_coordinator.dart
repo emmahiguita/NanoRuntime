@@ -319,6 +319,7 @@ class AutomationCoordinator {
   Future<List<TaskStepResult>?> runCrossAppTask(
     String goal, {
     ActionConfirmation? confirmation,
+    String? executionId,
     bool deterministicOnly = false,
   }) async {
     final orchestrator = _taskOrchestrator;
@@ -336,6 +337,7 @@ class AutomationCoordinator {
       plan,
       cancel: _cancelToken,
       confirmation: confirmation,
+      executionId: executionId,
     );
   }
 
@@ -350,6 +352,7 @@ class AutomationCoordinator {
     final steps = await runCrossAppTask(
       goal,
       confirmation: confirmation,
+      executionId: executionId,
       deterministicOnly: true,
     );
     if (steps == null) return null;
@@ -364,7 +367,8 @@ class AutomationCoordinator {
       firstFailed = step;
       break;
     }
-    final allVerified = steps.isNotEmpty && steps.every((step) => step.isCompleted);
+    final allVerified =
+        steps.isNotEmpty && steps.every((step) => step.isCompleted);
     final result = AutomationResult(
       executionId: executionId ?? _newId(),
       status: paused != null
@@ -393,6 +397,7 @@ class AutomationCoordinator {
   Future<PlanOutcome> runPlan(
     List<ToolCall> plan, {
     ActionConfirmation? confirmation,
+    String? executionId,
     bool confirmed = false,
     String? recordGoal,
     GoalExpectation? expectation,
@@ -401,6 +406,7 @@ class AutomationCoordinator {
     final outcome = await _dispatcher.runPlanGuarded(
       plan,
       confirmation: confirmation,
+      executionId: executionId,
       confirmed: confirmed,
     );
     if (recordGoal != null) {
@@ -662,36 +668,22 @@ class AutomationCoordinator {
     // C10/C12: anclar selectores semánticos a selectores reales (memoria/percepción).
     plan = await _resolveSelectors(plan, goal.text);
 
-    if (plan.length > 1) {
-      steps = plan.length;
-      final t = Stopwatch()..start();
-      final outcome = await runPlan(
-        plan,
-        confirmation: confirmation,
-        confirmed: confirmed,
-        recordGoal: goal.text,
-        expectation: runExpectation,
-      );
-      t.stop();
-      toolLatency = t.elapsed;
-      final base = _resultFromPlan(executionId, outcome);
-      final r = await _finalizeExecution(
-        executionId: executionId,
-        goal: goal.text,
-        base: base,
-        expectation: runExpectation,
-        outputProvesGoal: outputProvesGoal,
-      );
-      _recordMemory(goal.text, plan, r.status);
-      emit(r);
-      return r;
-    }
-    steps = 1;
+    // Una única acción usa la misma ruta gobernada que un plan de varios
+    // pasos. Así no existe una puerta de confirmación paralela capaz de
+    // aceptar un bool genérico ni de perder executionId/plan/paso/acción.
+    steps = plan.length;
     final t = Stopwatch()..start();
-    final outcome = await runTool(plan.single, confirmed: confirmed);
+    final outcome = await runPlan(
+      plan,
+      confirmation: confirmation,
+      executionId: executionId,
+      confirmed: confirmed,
+      recordGoal: goal.text,
+      expectation: runExpectation,
+    );
     t.stop();
     toolLatency = t.elapsed;
-    final base = _resultFromTool(executionId, outcome);
+    final base = _resultFromPlan(executionId, outcome);
     final r = await _finalizeExecution(
       executionId: executionId,
       goal: goal.text,
@@ -882,13 +874,6 @@ class AutomationCoordinator {
         confirmation: o.confirmation,
       );
 
-  AutomationResult _resultFromTool(String id, ToolOutcome o) =>
-      AutomationResult(
-        executionId: id,
-        status: _statusFromTool(o),
-        reason: o.feedback,
-      );
-
   static int _seq = 0;
   static String _newId() =>
       'auto-${DateTime.now().microsecondsSinceEpoch}-${++_seq}';
@@ -932,7 +917,8 @@ class AutomationCoordinator {
       ToolExecutionStatus.completed => AutomationResultStatus.completed,
       ToolExecutionStatus.completedUnverified =>
         AutomationResultStatus.completedUnverified,
-      ToolExecutionStatus.outcomeUnknown => AutomationResultStatus.outcomeUnknown,
+      ToolExecutionStatus.outcomeUnknown =>
+        AutomationResultStatus.outcomeUnknown,
       ToolExecutionStatus.failed ||
       ToolExecutionStatus.notExecuted => AutomationResultStatus.failed,
     },

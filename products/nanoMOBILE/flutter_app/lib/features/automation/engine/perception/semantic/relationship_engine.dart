@@ -45,6 +45,7 @@ class RelationshipEngine {
     final visible = objects.where((o) => o.visible).toList(growable: false);
     for (var i = 0; i < visible.length; i++) {
       for (var j = i + 1; j < visible.length; j++) {
+        if (visible[i].windowId != visible[j].windowId) continue;
         _addSpatial(visible[i], visible[j], relations, viewport);
         _addLabelFor(visible[i], visible[j], relations, viewport);
       }

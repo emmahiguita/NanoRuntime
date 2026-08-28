@@ -77,6 +77,14 @@ class NanoNode {
   /// Profundidad en el árbol (solo presente en snapshots `dumpSnapshot`).
   /// 0 para dumps planos antiguos sin depth.
   final int depth;
+  final String packageName;
+  final int windowId;
+  final int windowType;
+  final int displayId;
+  final String rootIdentity;
+  final int? parentIndex;
+  final int siblingIndex;
+  final bool hasExplicitParent;
 
   /// viewIdResourceName ("" si el nodo no expone id).
   final String id;
@@ -99,6 +107,14 @@ class NanoNode {
   const NanoNode({
     required this.index,
     required this.depth,
+    this.packageName = '',
+    this.windowId = 0,
+    this.windowType = 1,
+    this.displayId = 0,
+    this.rootIdentity = '',
+    this.parentIndex,
+    this.siblingIndex = 0,
+    this.hasExplicitParent = false,
     required this.id,
     required this.type,
     required this.text,
@@ -132,6 +148,14 @@ class NanoNode {
     return NanoNode(
       index: index,
       depth: (m['depth'] as num?)?.toInt() ?? 0,
+      packageName: m['package'] as String? ?? '',
+      windowId: (m['windowId'] as num?)?.toInt() ?? 0,
+      windowType: (m['windowType'] as num?)?.toInt() ?? 1,
+      displayId: (m['displayId'] as num?)?.toInt() ?? 0,
+      rootIdentity: m['rootIdentity'] as String? ?? '',
+      parentIndex: (m['parentIndex'] as num?)?.toInt(),
+      siblingIndex: (m['siblingIndex'] as num?)?.toInt() ?? 0,
+      hasExplicitParent: m.containsKey('parentIndex'),
       id: m['id'] as String? ?? '',
       type: m['type'] as String? ?? '',
       text: m['text'] as String? ?? '',
@@ -151,6 +175,36 @@ class NanoNode {
   }
 }
 
+final class NanoWindow {
+  final int windowId;
+  final int windowType;
+  final int displayId;
+  final String packageName;
+  final String rootIdentity;
+  final bool active;
+  final bool focused;
+
+  const NanoWindow({
+    required this.windowId,
+    required this.windowType,
+    required this.displayId,
+    required this.packageName,
+    required this.rootIdentity,
+    required this.active,
+    required this.focused,
+  });
+
+  factory NanoWindow.fromMap(Map<dynamic, dynamic> map) => NanoWindow(
+    windowId: (map['windowId'] as num?)?.toInt() ?? 0,
+    windowType: (map['windowType'] as num?)?.toInt() ?? 1,
+    displayId: (map['displayId'] as num?)?.toInt() ?? 0,
+    packageName: map['package'] as String? ?? '',
+    rootIdentity: map['rootIdentity'] as String? ?? '',
+    active: map['active'] == true,
+    focused: map['focused'] == true,
+  );
+}
+
 /// Snapshot completo de la ventana activa.
 class NanoSnapshot {
   /// packageName del root ("" si null — ventanas OEM pueden no exponerlo).
@@ -158,6 +212,7 @@ class NanoSnapshot {
 
   /// Nodos en orden pre-order (plano, con [NanoNode.depth]).
   final List<NanoNode> nodes;
+  final List<NanoWindow> windows;
 
   /// Momento de captura (reloj local del dispositivo).
   final DateTime capturedAt;
@@ -170,6 +225,7 @@ class NanoSnapshot {
   NanoSnapshot({
     required this.package,
     required this.nodes,
+    this.windows = const [],
     this.truncated = false,
     this.nodeLimitReached = false,
     this.depthLimitReached = false,
@@ -197,6 +253,19 @@ class NanoSnapshot {
   NanoNode tapTargetFor(NanoNode node) {
     if (node.visible && node.enabled && node.clickable) return node;
 
+    if (node.hasExplicitParent) {
+      var parent = node.parentIndex;
+      while (parent != null && parent >= 0 && parent < nodes.length) {
+        final candidate = nodes[parent];
+        if (candidate.windowId != node.windowId) break;
+        if (candidate.visible && candidate.enabled && candidate.clickable) {
+          return candidate;
+        }
+        parent = candidate.parentIndex;
+      }
+      return node;
+    }
+
     var ancestorDepth = node.depth;
     for (
       var cursor = node.index - 1;
@@ -218,6 +287,7 @@ class NanoSnapshot {
   /// es la lista plana de `dumpScreen`, package queda "" y depth 0.
   factory NanoSnapshot.fromRaw(Map<dynamic, dynamic> raw) {
     final rawNodes = raw['nodes'] as List? ?? const <dynamic>[];
+    final rawWindows = raw['windows'] as List? ?? const <dynamic>[];
     final nodes = <NanoNode>[];
     for (var i = 0; i < rawNodes.length; i++) {
       nodes.add(
@@ -227,6 +297,10 @@ class NanoSnapshot {
     return NanoSnapshot(
       package: raw['package'] as String? ?? '',
       nodes: nodes,
+      windows: [
+        for (final window in rawWindows.whereType<Map>())
+          NanoWindow.fromMap(window),
+      ],
       truncated: raw['truncated'] == true,
       nodeLimitReached: raw['nodeLimitReached'] == true,
       depthLimitReached: raw['depthLimitReached'] == true,

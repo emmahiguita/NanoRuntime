@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.RuntimeHeartbeat
 import java.io.File
@@ -119,22 +120,69 @@ class AgentAccessibilityService : AccessibilityService() {
      * "" (nunca excepción).
      */
     fun dumpSnapshot(): Map<String, Any?> {
-        val root = rootInActiveWindow
-            ?: return mapOf(
+        val availableWindows = windows.orEmpty()
+        val roots = mutableListOf<Pair<AccessibilityWindowInfo?, AccessibilityNodeInfo>>()
+        for (window in availableWindows) {
+            window.root?.let { roots.add(window to it) }
+        }
+        if (roots.isEmpty()) {
+            rootInActiveWindow?.let { roots.add(null to it) }
+        }
+        if (roots.isEmpty()) {
+            return mapOf(
                 "package" to "",
                 "nodes" to emptyList<Map<String, Any?>>(),
+                "windows" to emptyList<Map<String, Any?>>(),
                 "truncated" to false,
                 "nodeLimitReached" to false,
                 "depthLimitReached" to false,
             )
+        }
         val result = mutableListOf<Map<String, Any?>>()
+        val windowRows = mutableListOf<Map<String, Any?>>()
         val traversal = TraversalState()
-        walk(root, 0, result, withDepth = true, traversal = traversal)
-        val pkg = root.packageName?.toString() ?: ""
-        root.recycle()
+        var activePackage = ""
+        for ((window, root) in roots) {
+            val windowId = window?.id ?: root.windowId
+            val windowType = window?.type ?: AccessibilityWindowInfo.TYPE_APPLICATION
+            val displayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window?.displayId ?: Display.DEFAULT_DISPLAY
+            } else {
+                Display.DEFAULT_DISPLAY
+            }
+            val pkg = root.packageName?.toString() ?: ""
+            if (window?.isActive == true || activePackage.isEmpty()) activePackage = pkg
+            val rootIdentity = nodeIdentity(root, windowId)
+            windowRows.add(
+                mapOf(
+                    "windowId" to windowId,
+                    "windowType" to windowType,
+                    "displayId" to displayId,
+                    "package" to pkg,
+                    "rootIdentity" to rootIdentity,
+                    "active" to (window?.isActive ?: true),
+                    "focused" to (window?.isFocused ?: true),
+                ),
+            )
+            walk(
+                root,
+                0,
+                result,
+                withDepth = true,
+                traversal = traversal,
+                windowId = windowId,
+                windowType = windowType,
+                displayId = displayId,
+                rootIdentity = rootIdentity,
+                parentIndex = null,
+                siblingIndex = 0,
+            )
+            root.recycle()
+        }
         return mapOf(
-            "package" to pkg,
+            "package" to activePackage,
             "nodes" to result,
+            "windows" to windowRows,
             "truncated" to (traversal.nodeLimitReached || traversal.depthLimitReached),
             "nodeLimitReached" to traversal.nodeLimitReached,
             "depthLimitReached" to traversal.depthLimitReached,
@@ -147,6 +195,12 @@ class AgentAccessibilityService : AccessibilityService() {
         out: MutableList<Map<String, Any?>>,
         withDepth: Boolean = false,
         traversal: TraversalState? = null,
+        windowId: Int = 0,
+        windowType: Int = AccessibilityWindowInfo.TYPE_APPLICATION,
+        displayId: Int = Display.DEFAULT_DISPLAY,
+        rootIdentity: String = "",
+        parentIndex: Int? = null,
+        siblingIndex: Int = 0,
     ) {
         if (node == null) return
         if (depth > MAX_DEPTH) {
@@ -157,15 +211,52 @@ class AgentAccessibilityService : AccessibilityService() {
             traversal?.nodeLimitReached = true
             return
         }
-        out.add(if (withDepth) nodeToMap(node, depth) else nodeToMap(node))
+        val currentIndex = out.size
+        out.add(
+            if (withDepth) {
+                nodeToMap(
+                    node,
+                    depth,
+                    windowId,
+                    windowType,
+                    displayId,
+                    rootIdentity,
+                    parentIndex,
+                    siblingIndex,
+                )
+            } else {
+                nodeToMap(node)
+            },
+        )
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
-            walk(child, depth + 1, out, withDepth, traversal)
+            walk(
+                child,
+                depth + 1,
+                out,
+                withDepth,
+                traversal,
+                windowId,
+                windowType,
+                displayId,
+                rootIdentity,
+                currentIndex,
+                i,
+            )
             child?.recycle()
         }
     }
 
-    private fun nodeToMap(node: AccessibilityNodeInfo, depth: Int? = null): Map<String, Any?> {
+    private fun nodeToMap(
+        node: AccessibilityNodeInfo,
+        depth: Int? = null,
+        windowId: Int = 0,
+        windowType: Int = AccessibilityWindowInfo.TYPE_APPLICATION,
+        displayId: Int = Display.DEFAULT_DISPLAY,
+        rootIdentity: String = "",
+        parentIndex: Int? = null,
+        siblingIndex: Int = 0,
+    ): Map<String, Any?> {
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
         return buildMap {
@@ -181,10 +272,25 @@ class AgentAccessibilityService : AccessibilityService() {
             put("focused", node.isFocused)
             put("visible", node.isVisibleToUser)
             put("enabled", node.isEnabled)
+            put("package", node.packageName?.toString() ?: "")
             put("bounds", intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom))
             // Solo dumpSnapshot incluye depth; dumpScreen conserva su contrato.
-            if (depth != null) put("depth", depth)
+            if (depth != null) {
+                put("depth", depth)
+                put("windowId", windowId)
+                put("windowType", windowType)
+                put("displayId", displayId)
+                put("rootIdentity", rootIdentity)
+                put("parentIndex", parentIndex)
+                put("siblingIndex", siblingIndex)
+            }
         }
+    }
+
+    private fun nodeIdentity(node: AccessibilityNodeInfo, windowId: Int): String {
+        val bounds = Rect().also(node::getBoundsInScreen)
+        return "$windowId|${node.viewIdResourceName ?: ""}|${node.className ?: ""}|" +
+            "${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}"
     }
 
     // ── Búsqueda ─────────────────────────────────────────────────────────────
@@ -229,6 +335,75 @@ class AgentAccessibilityService : AccessibilityService() {
 
     /** Tap en coordenadas absolutas de pantalla. */
     fun tapAt(x: Int, y: Int): Boolean = gestureTap(x, y)
+
+    /** Click ligado al target reidentificado. ACTION_CLICK primero; gesto sólo
+     * después de confirmar exactamente package, id/clase/texto y bounds. */
+    fun clickTarget(
+        packageName: String,
+        resourceId: String,
+        className: String,
+        text: String,
+        description: String,
+        targetBounds: IntArray,
+    ): Map<String, Any?> {
+        if (targetBounds.size != 4) return mapOf("ok" to false, "code" to "BAD_BOUNDS")
+        val matches = mutableListOf<AccessibilityNodeInfo>()
+        val roots = windows.orEmpty().mapNotNull { it.root }.ifEmpty {
+            listOfNotNull(rootInActiveWindow)
+        }
+        for (root in roots) {
+            val stack = ArrayDeque<AccessibilityNodeInfo>()
+            stack.add(root)
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                val bounds = Rect().also(node::getBoundsInScreen)
+                val compatible = TargetMatchPolicy.matches(
+                    TargetIdentity(
+                        packageName = node.packageName?.toString().orEmpty(),
+                        resourceId = node.viewIdResourceName.orEmpty(),
+                        className = node.className?.toString().orEmpty(),
+                        text = node.text?.toString().orEmpty(),
+                        description = node.contentDescription?.toString().orEmpty(),
+                        bounds = intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                    ),
+                    TargetIdentity(
+                        packageName = packageName,
+                        resourceId = resourceId,
+                        className = className,
+                        text = text,
+                        description = description,
+                        bounds = targetBounds,
+                    ),
+                )
+                if (compatible) matches.add(AccessibilityNodeInfo.obtain(node))
+                for (i in 0 until node.childCount) node.getChild(i)?.let(stack::add)
+                if (node !== root) node.recycle()
+            }
+            root.recycle()
+        }
+        if (matches.size != 1) {
+            matches.forEach(AccessibilityNodeInfo::recycle)
+            return mapOf(
+                "ok" to false,
+                "code" to if (matches.isEmpty()) "TARGET_CHANGED" else "TARGET_AMBIGUOUS",
+            )
+        }
+        val node = matches.single()
+        if (!node.isVisibleToUser || !node.isEnabled || !node.isClickable) {
+            node.recycle()
+            return mapOf("ok" to false, "code" to "NOT_ACTIONABLE")
+        }
+        val bounds = Rect().also(node::getBoundsInScreen)
+        val nativeClicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        node.recycle()
+        if (nativeClicked) return mapOf("ok" to true, "method" to "node")
+        val gestured = gestureTap(bounds.centerX(), bounds.centerY())
+        return mapOf(
+            "ok" to gestured,
+            "method" to if (gestured) "verifiedGesture" else "none",
+            "code" to if (gestured) "OK" else "GESTURE_REJECTED",
+        )
+    }
 
     fun longPressAt(x: Int, y: Int, durationMs: Int = 600): Boolean =
         gestureTap(x, y, durationMs.coerceAtLeast(400))

@@ -7,6 +7,8 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
     show ToolCall, ToolExecutionStatus, ToolOutcome;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_decomposer.dart';
+import 'package:nanoai/features/automation/engine/orchestration/commit_guard.dart';
+import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
     show TaskActionResult, TaskActionStatus;
@@ -185,16 +187,6 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         if (g == null) return null;
         return const ActionSurfaceResolver().resolve(g, kind: kind)?.selector;
       },
-      // T2.7 — texto ACTUAL del campo editable (para verificar el envío
-      // observando que el composer quedó vacío, no el booleano del tap).
-      observeInputText: () async {
-        final g = await currentGraph();
-        if (g == null) return null;
-        return const InputSurfaceResolver()
-            .resolve(g, kind: InputSurfaceKind.message)
-            ?.object
-            .text;
-      },
       // T2.9-select — resolución grounded de un resultado observado
       // (ordinal/texto) desde el ScreenGraph real, nunca coordenadas.
       resolveResult: (target) async {
@@ -217,6 +209,8 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         if (g == null) return null;
         return const SearchResultResolver().resolveResults(g).length;
       },
+      commitGuard: CommitGuard(observe: currentGraph),
+      journal: SharedPreferencesExecutionJournal(),
     ),
     // A15.2: descomposición template determinista + LLM validado.
     taskDecomposer: LlmTaskDecomposer(

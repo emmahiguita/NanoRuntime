@@ -55,11 +55,19 @@ void main() {
             case 'dumpSnapshot':
               if (channelDead) throw PlatformException(code: 'dead');
               return dumpProvider(dumpCalls++);
-            case 'tapAt':
+            case 'clickTarget':
               focusedAfterTap = true;
               final args = call.arguments as Map;
-              tapCalls.add([args['x'] as int, args['y'] as int]);
-              return tapResult;
+              final bounds = (args['bounds'] as List).cast<int>();
+              tapCalls.add([
+                (bounds[0] + bounds[2]) ~/ 2,
+                (bounds[1] + bounds[3]) ~/ 2,
+              ]);
+              return {
+                'ok': tapResult,
+                'method': 'ACTION_CLICK',
+                'code': tapResult ? 'OK' : 'ACTION_REJECTED',
+              };
             case 'inputText':
               inputCalls.add((call.arguments as Map)['text'] as String);
               return inputResult;
@@ -75,7 +83,7 @@ void main() {
   });
 
   test(
-    'tap ok → un solo tapAt en el centro del bounds, nunca tapOnText',
+    'tap ok → un solo clickTarget ligado al nodo, nunca tapOnText',
     () async {
       final r = await executor.tap(const NanoSelector(text: 'Bluetooth'));
       expect(r.ok, isTrue);

@@ -35,8 +35,11 @@ NanoNode n(
   bounds: NanoBounds(left: l, top: t, right: r, bottom: b),
 );
 
-ScreenGraph graph(List<NanoNode> nodes) => ScreenGraph.fromSnapshot(
-  NanoSnapshot(package: 'com.t', nodes: nodes),
+ScreenGraph graph(List<NanoNode> nodes) =>
+    ScreenGraph.fromSnapshot(NanoSnapshot(package: 'com.t', nodes: nodes));
+
+ScreenGraph truncatedGraph(List<NanoNode> nodes) => ScreenGraph.fromSnapshot(
+  NanoSnapshot(package: 'com.t', nodes: nodes, truncated: true),
 );
 
 void main() {
@@ -70,9 +73,18 @@ void main() {
 
     test('sin editable → null (honesto, no inventa selector)', () {
       final s = const InputSurfaceResolver().resolve(
-        graph([n(0, type: 'android.widget.Button', text: 'OK', clickable: true)]),
+        graph([
+          n(0, type: 'android.widget.Button', text: 'OK', clickable: true),
+        ]),
       );
       expect(s, isNull);
+    });
+
+    test('snapshot truncado → null aunque exista un editable', () {
+      final surface = const InputSurfaceResolver().resolve(
+        truncatedGraph([n(0, type: 'android.widget.EditText', editable: true)]),
+      );
+      expect(surface, isNull);
     });
   });
 

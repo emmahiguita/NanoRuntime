@@ -6,9 +6,8 @@
 /// 2. Ambigüedad o notFound abortan con [AgentErrorCode] tipado.
 /// 3. Antes del gesto: actionability + espera de settle + re-resolución con
 ///    [StabilityChecker] (el UI pudo moverse — rebind ColorOS, animaciones).
-/// 4. Gestos solo por coordenadas del CENTRO del bounds del nodo resuelto
-///    ([NanoRuntimeApi.agentTapAt]) — jamás el método legacy agentTapOnText
-///    (primer nodo con contains, sin unicidad).
+/// 4. Click nativo ligado a la identidad del nodo resuelto. El fallback de
+///    coordenadas vive en Kotlin y sólo ocurre tras reidentificación única.
 /// 5. El canal puede morir (cached-kill ColorOS): [snapshot] reintenta
 ///    3 × 250ms y degrada a error tipado, nunca excepción.
 library;
@@ -155,16 +154,26 @@ class NanoAgentExecutor implements AgentExecutor {
       );
     }
 
-    final ok = await _api.agentTapAt(
-      stableNode.bounds.centerX.round(),
-      stableNode.bounds.centerY.round(),
+    final native = await _api.agentClickTarget(
+      packageName: stableNode.packageName.isNotEmpty
+          ? stableNode.packageName
+          : snap.package,
+      resourceId: stableNode.id,
+      className: stableNode.type,
+      text: stableNode.text,
+      description: stableNode.description,
+      bounds: [
+        stableNode.bounds.left,
+        stableNode.bounds.top,
+        stableNode.bounds.right,
+        stableNode.bounds.bottom,
+      ],
     );
-    if (!ok) {
+    if (native == null || native['ok'] != true) {
       return AgentExecutionResult.failure(
         errorCode: AgentErrorCode.gestureFailed,
         reason:
-            'El gesto tapAt(${stableNode.bounds.centerX.round()}, '
-            '${stableNode.bounds.centerY.round()}) falló en el canal.',
+            'clickTarget rechazado: ${native?['code'] ?? 'CHANNEL_UNAVAILABLE'}.',
         resolve: resolve,
         actionability: actionability,
       );

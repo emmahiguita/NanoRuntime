@@ -83,6 +83,11 @@ class ResultNotFound extends ResultResolution {
   const ResultNotFound();
 }
 
+class ResultIncompleteEvidence extends ResultResolution {
+  final List<SearchResultCandidate> observed;
+  const ResultIncompleteEvidence(this.observed);
+}
+
 class SearchResultResolver {
   const SearchResultResolver();
 
@@ -120,6 +125,7 @@ class SearchResultResolver {
 
   ResultResolution resolve(ScreenGraph graph, ResultTarget target) {
     final results = resolveResults(graph);
+    if (graph.truncated) return ResultIncompleteEvidence(results);
     return switch (target) {
       ResultOrdinal(:final ordinal) => _resolveOrdinal(results, ordinal),
       ResultText(:final text) => _resolveText(results, text),

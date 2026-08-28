@@ -8,6 +8,7 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
 import 'package:nanoai/features/automation/engine/governance/action_governance_pipeline.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 import 'package:nanoai/features/automation/engine/governance/intent_firewall.dart';
 import 'package:nanoai/features/automation/engine/governance/pre_action_critic.dart';
 import 'package:nanoai/features/automation/engine/governance/privilege_broker.dart';
@@ -23,6 +24,7 @@ import 'package:nanoai/features/automation/engine/planning/candidates/candidate_
 import 'package:nanoai/features/automation/engine/planning/candidates/koog_candidate_selector.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart';
+import 'package:nanoai/features/automation/engine/planning/automation_planner.dart';
 import 'package:nanoai/features/automation/engine/system/capability_availability.dart';
 import 'package:nanoai/features/automation/engine/system/system_capability.dart';
 import 'package:nanoai/features/automation/engine/system/system_graph.dart';
@@ -42,6 +44,40 @@ class _FakeDispatcher extends AgentToolDispatcher {
   }) async {
     calls.add(call);
     return const ToolOutcome(verdict: PolicyVerdict.allow, feedback: 'ok');
+  }
+
+  @override
+  Future<PlanOutcome> runPlanGuarded(
+    List<ToolCall> plan, {
+    bool humanInitiated = false,
+    ActionConfirmation? confirmation,
+    String? executionId,
+    bool confirmed = false,
+  }) async {
+    calls.addAll(plan);
+    return PlanOutcome(
+      completed: true,
+      steps: [
+        for (final _ in plan)
+          const ToolOutcome(verdict: PolicyVerdict.allow, feedback: 'ok'),
+      ],
+      summary: 'ok',
+    );
+  }
+}
+
+class _CountingPlanner implements AutomationPlanner {
+  int calls = 0;
+
+  @override
+  Future<PlannedPlan> plan(String goal) async {
+    calls++;
+    return const PlannedPlan(
+      calls: [],
+      generated: 0,
+      rejected: 0,
+      llmLatency: Duration.zero,
+    );
   }
 }
 
@@ -138,9 +174,11 @@ AutomationCoordinator coordinator(CandidateFirstPlanner candidateFirst) =>
 void main() {
   test('"abre Chrome" → Candidate-First → launch_app, 0 LLM', () async {
     final dispatcher = _FakeDispatcher();
+    final llm = _CountingPlanner();
     final c = AutomationCoordinator(
       dispatcher: dispatcher,
       mode: () => AgentAutomationMode.autonomous,
+      planner: llm,
       candidateFirst: planner([
         InstalledAppCandidateProvider(
           catalogWith([app('Chrome', 'com.android.chrome')]),
@@ -153,6 +191,7 @@ void main() {
     expect(r.status, AutomationResultStatus.completed);
     expect(dispatcher.calls.single.tool, 'launch_app');
     expect(dispatcher.calls.single.args!['packageName'], 'com.android.chrome');
+    expect(llm.calls, 0, reason: 'la ruta conocida no debe invocar el modelo');
   });
 
   test('"abre Bluetooth" → Candidate-First → open_system, 0 LLM', () async {

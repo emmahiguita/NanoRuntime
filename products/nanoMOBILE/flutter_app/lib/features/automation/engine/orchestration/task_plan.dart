@@ -60,6 +60,9 @@ final class TaskInputBinding {
   const TaskInputBinding(this.paramName, this.source);
 }
 
+/// Nivel mínimo de evidencia que un paso exige de cada dependencia.
+enum RequiredEvidence { executed, verified }
+
 /// Paso semántico de un plan. NO ejecuta directamente; pide CandidateActions al
 /// pipeline Candidate-First. La semántica es acotada (taxonomía finita).
 final class TaskStep {
@@ -73,13 +76,21 @@ final class TaskStep {
   /// Ids de pasos de los que depende (para validación topológica).
   final List<String> dependencies;
 
+  /// Contrato por dependencia. Las no listadas requieren al menos ejecución;
+  /// los commits irreversibles deben declarar `verified` explícitamente.
+  final Map<String, RequiredEvidence> dependencyEvidence;
+
   const TaskStep({
     required this.id,
     required this.semanticAction,
     this.inputBindings = const {},
     this.produces,
     this.dependencies = const [],
+    this.dependencyEvidence = const {},
   });
+
+  RequiredEvidence evidenceRequiredFrom(String dependencyId) =>
+      dependencyEvidence[dependencyId] ?? RequiredEvidence.executed;
 }
 
 /// Plan tipado. Se compila UNA vez desde el goal confiable; los pasos comparten
@@ -232,6 +243,12 @@ final class TaskStepResult {
   });
 
   bool get isCompleted => status == TaskStepStatus.completed;
+
+  RequiredEvidence? get evidence => switch (status) {
+    TaskStepStatus.completed => RequiredEvidence.verified,
+    TaskStepStatus.completedUnverified => RequiredEvidence.executed,
+    _ => null,
+  };
 
   /// Fallo REAL (detiene la tarea): todo lo que no es completed ni
   /// completedUnverified. T2.7: completedUnverified NO es fallo (se ejecutó,

@@ -14,10 +14,16 @@ NanoNode n(
   bool clickable = false,
   bool editable = false,
   bool scrollable = false,
+  int windowId = 0,
+  int? parentIndex,
+  bool hasExplicitParent = false,
   NanoBounds bounds = const NanoBounds(left: 0, top: 0, right: 0, bottom: 0),
 }) => NanoNode(
   index: index,
   depth: depth,
+  windowId: windowId,
+  parentIndex: parentIndex,
+  hasExplicitParent: hasExplicitParent,
   id: id,
   type: type,
   text: text,
@@ -52,6 +58,31 @@ void main() {
       );
       expect(g.isEmpty, isTrue);
       expect(g.editableObjects, isEmpty);
+    });
+
+    test('preserva flags de truncación y metadatos de ventanas', () {
+      final window = NanoWindow(
+        windowId: 9,
+        windowType: 2,
+        displayId: 0,
+        packageName: 'com.overlay',
+        rootIdentity: 'root-9',
+        active: false,
+        focused: true,
+      );
+      final graph = ScreenGraph.fromSnapshot(
+        NanoSnapshot(
+          package: 'com.main',
+          nodes: [n(0, type: 'android.widget.TextView', text: 'A')],
+          windows: [window],
+          truncated: true,
+          nodeLimitReached: true,
+        ),
+      );
+
+      expect(graph.complete, isFalse);
+      expect(graph.nodeLimitReached, isTrue);
+      expect(graph.windows.single.windowId, 9);
     });
 
     test('objectsByRole / editableObjects / clickableObjects', () {
@@ -107,6 +138,60 @@ void main() {
         g.relationsOf('ui:1').any((r) => r.type == ScreenRelationType.insideOf),
         isTrue,
       );
+    });
+
+    test('parentIndex explícito define jerarquía sin inferir por depth', () {
+      final graph = ScreenGraph.fromSnapshot(
+        NanoSnapshot(
+          package: 'com.t',
+          nodes: [
+            n(0, depth: 0, type: 'android.widget.LinearLayout', windowId: 3),
+            n(
+              1,
+              depth: 0,
+              type: 'android.widget.TextView',
+              text: 'Hijo',
+              windowId: 3,
+              parentIndex: 0,
+              hasExplicitParent: true,
+            ),
+          ],
+        ),
+      );
+
+      expect(graph.parentOf('ui:1')?.id, 'ui:0');
+      expect(graph.childrenOf('ui:0').map((item) => item.id), ['ui:1']);
+    });
+
+    test('no crea relaciones espaciales entre ventanas diferentes', () {
+      final graph = ScreenGraph.fromSnapshot(
+        NanoSnapshot(
+          package: 'com.t',
+          nodes: [
+            n(
+              0,
+              type: 'android.widget.TextView',
+              text: 'Etiqueta',
+              windowId: 1,
+              bounds: const NanoBounds(left: 0, top: 0, right: 200, bottom: 50),
+            ),
+            n(
+              1,
+              type: 'android.widget.EditText',
+              editable: true,
+              windowId: 2,
+              bounds: const NanoBounds(
+                left: 0,
+                top: 60,
+                right: 200,
+                bottom: 120,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      expect(graph.relations, isEmpty);
     });
 
     test('label arriba del campo → above/below + labelFor', () {

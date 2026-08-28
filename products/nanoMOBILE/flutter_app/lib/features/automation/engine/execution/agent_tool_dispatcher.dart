@@ -79,29 +79,14 @@ class ToolCall {
   /// Firma canónica para vincular una aprobación a esta llamada exacta.
   /// Incluye argumentos y postcondiciones; cambiar cualquier campo invalida
   /// el consentimiento pendiente.
-  String get confirmationSignature => jsonEncode(
-    _canonicalValue({
-      'tool': tool,
-      'selector': selector,
-      'text': text,
-      'key': key,
-      'expect': expect,
-      'args': args,
-    }),
-  );
-
-  static Object? _canonicalValue(Object? value) {
-    if (value is Map) {
-      final keys = value.keys.map((key) => key.toString()).toList()..sort();
-      return <String, Object?>{
-        for (final key in keys) key: _canonicalValue(value[key]),
-      };
-    }
-    if (value is Iterable) {
-      return value.map(_canonicalValue).toList(growable: false);
-    }
-    return value;
-  }
+  String get confirmationSignature => canonicalFingerprint({
+    'tool': tool,
+    'selector': selector,
+    'text': text,
+    'key': key,
+    'expect': expect,
+    'args': args,
+  });
 }
 
 /// Parseo tolerante del bloque JSON de herramientas en texto generado.
@@ -710,6 +695,7 @@ class AgentToolDispatcher {
     List<ToolCall> plan, {
     bool humanInitiated = false,
     ActionConfirmation? confirmation,
+    String? executionId,
     bool confirmed = false,
   }) async {
     final outcomes = <ToolOutcome>[];
@@ -718,25 +704,25 @@ class AgentToolDispatcher {
     final total = plan.length;
     final loopDetector = ToolLoopDetector();
     final planSignature = _planSignature(plan);
+    final runId = executionId ?? confirmation?.executionId ?? _newRunId();
     final validConfirmation =
         confirmation != null &&
         confirmation.stepIndex >= 0 &&
         confirmation.stepIndex < plan.length &&
-        confirmation.authorizes(
+        confirmation.consumeIfAuthorizes(
+          executionId: runId,
           planSignature: planSignature,
           stepIndex: confirmation.stepIndex,
           stepId: 'tool:${confirmation.stepIndex}',
           actionSignature: plan[confirmation.stepIndex].confirmationSignature,
         );
     final startIndex = validConfirmation ? confirmation.stepIndex : 0;
-    var confirmationConsumed = false;
-
     for (var i = startIndex; i < total; i++) {
       final call = plan[i];
       paths.add(_router.route(call).path);
       // Detección de bucle (C5): abortar ANTES de repetir una acción contra
       // el mismo estado (A→B→A→B o misma acción 3+ en plan de 5+).
-      final fp = _fingerprint(call);
+      final fp = await _loopFingerprint(call);
       if (loopDetector.isLoop(fp)) {
         final loopOutcome = ToolOutcome(
           verdict: PolicyVerdict.denied,
@@ -754,23 +740,19 @@ class AgentToolDispatcher {
         );
       }
 
-      // Una aprobación autoriza exactamente UNA llamada. El fallback legacy
-      // `confirmed` se limita al primer paso ejecutado y nunca se propaga al
-      // resto del plan.
-      final stepConfirmed =
-          !confirmationConsumed &&
-          ((validConfirmation && i == confirmation.stepIndex) ||
-              (confirmation == null && confirmed && i == startIndex));
+      // Sólo un token exacto y consumido autoriza. `confirmed` se conserva en
+      // la firma pública por compatibilidad, pero nunca eleva privilegios.
+      final stepConfirmed = validConfirmation && i == confirmation.stepIndex;
       final outcome = await runToolGuarded(
         call,
         humanInitiated: humanInitiated,
         confirmed: stepConfirmed,
       );
-      if (stepConfirmed) confirmationConsumed = true;
       outcomes.add(outcome);
 
       if (outcome.needsConfirmation) {
         final request = ActionConfirmation(
+          executionId: runId,
           planSignature: planSignature,
           stepIndex: i,
           stepId: 'tool:$i',
@@ -809,9 +791,51 @@ class AgentToolDispatcher {
   /// Huella de una acción del plan (tool + selector + texto).
   static String _fingerprint(ToolCall c) => c.confirmationSignature;
 
-  static String _planSignature(List<ToolCall> plan) => jsonEncode(
+  static const _uiStateSensitiveTools = {
+    'tap',
+    'back',
+    'launch_app',
+    'write',
+    'home',
+    'recents',
+    'open_notifications',
+    'open_quick_settings',
+    'swipe',
+    'scroll',
+    'long_press',
+  };
+
+  /// El mismo gesto sobre un estado diferente puede ser progreso legítimo.
+  /// Sólo las acciones UI capturan estado; notificaciones/Linux conservan una
+  /// huella barata y no dependen de que Accessibility esté conectado.
+  Future<String> _loopFingerprint(ToolCall call) async {
+    final action = _fingerprint(call);
+    if (!_uiStateSensitiveTools.contains(call.tool)) return action;
+    final snapshot = await _executor.snapshot();
+    if (snapshot == null) {
+      return canonicalFingerprint({'action': action, 'state': 'unavailable'});
+    }
+    return canonicalFingerprint({
+      'action': action,
+      'state': {
+        'package': snapshot.package,
+        'truncated': snapshot.truncated,
+        'nodes': [
+          for (final node in snapshot.visibleNodes)
+            '${node.windowId}:${node.id}:${node.type}:${node.text}:'
+                '${node.description}:${node.bounds}',
+        ],
+      },
+    });
+  }
+
+  static String _planSignature(List<ToolCall> plan) => canonicalFingerprint(
     plan.map((call) => call.confirmationSignature).toList(growable: false),
   );
+
+  static int _runSequence = 0;
+  static String _newRunId() =>
+      'tool-${DateTime.now().microsecondsSinceEpoch}-${++_runSequence}';
 
   /// Un feedback de ejecución que no representa éxito. El contrato visible
   /// del dispatcher es tipado: cualquier feedback que ARRANCA con un código

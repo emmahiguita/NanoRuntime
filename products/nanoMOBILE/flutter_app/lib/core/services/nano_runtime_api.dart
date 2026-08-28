@@ -548,6 +548,31 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Click ligado a la identidad de un nodo observado. El nativo revalida el
+  /// target y prefiere ACTION_CLICK; sólo usa gesto tras una coincidencia única.
+  Future<Map<dynamic, dynamic>?> agentClickTarget({
+    required String packageName,
+    required String resourceId,
+    required String className,
+    required String text,
+    required String description,
+    required List<int> bounds,
+  }) async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>('clickTarget', {
+        'packageName': packageName,
+        'resourceId': resourceId,
+        'className': className,
+        'text': text,
+        'description': description,
+        'bounds': bounds,
+      });
+    } catch (e) {
+      debugPrint('[runtime] agentClickTarget error: $e');
+      return null;
+    }
+  }
+
   Future<bool> agentLongPressAt(int x, int y, {int durationMs = 600}) async {
     try {
       return await _agent.invokeMethod<bool>('longPressAt', {
@@ -1012,10 +1037,9 @@ class NanoRuntimeApi {
     'com.nanoai/notification_events',
   );
 
-  Stream<Map<dynamic, dynamic>> get notificationEvents =>
-      _notificationEvents.receiveBroadcastStream().map(
-        (e) => Map<dynamic, dynamic>.from(e as Map),
-      );
+  Stream<Map<dynamic, dynamic>> get notificationEvents => _notificationEvents
+      .receiveBroadcastStream()
+      .map((e) => Map<dynamic, dynamic>.from(e as Map));
 
   Future<Map<dynamic, dynamic>> replyToNotification({
     required String key,

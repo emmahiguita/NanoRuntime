@@ -32,6 +32,12 @@ class NanoUiObject {
 
   /// Ordinal del nodo fuente en el snapshot (para trazar de vuelta).
   final int sourceIndex;
+  final String packageName;
+  final int windowId;
+  final int windowType;
+  final int displayId;
+  final String rootIdentity;
+  final int siblingIndex;
 
   const NanoUiObject({
     required this.id,
@@ -54,6 +60,12 @@ class NanoUiObject {
     required this.confidence,
     required this.evidence,
     required this.sourceIndex,
+    this.packageName = '',
+    this.windowId = 0,
+    this.windowType = 1,
+    this.displayId = 0,
+    this.rootIdentity = '',
+    this.siblingIndex = 0,
   });
 
   bool get isEditableRole =>
@@ -87,6 +99,12 @@ class NanoUiObject {
       confidence: confidence ?? this.confidence,
       evidence: List.unmodifiable(evidence ?? this.evidence),
       sourceIndex: sourceIndex,
+      packageName: packageName,
+      windowId: windowId,
+      windowType: windowType,
+      displayId: displayId,
+      rootIdentity: rootIdentity,
+      siblingIndex: siblingIndex,
     );
   }
 }

@@ -23,7 +23,9 @@ class SemanticNormalizer {
       while (stack.isNotEmpty && nodes[stack.last].depth >= node.depth) {
         stack.removeLast();
       }
-      final parentIndex = stack.isEmpty ? null : stack.last;
+      final parentIndex = node.hasExplicitParent
+          ? node.parentIndex
+          : (stack.isEmpty ? null : stack.last);
       final hasChildren =
           i + 1 < nodes.length && nodes[i + 1].depth > node.depth;
       objects.add(_classify(node, parentIndex, hasChildren));
@@ -56,6 +58,12 @@ class SemanticNormalizer {
       confidence: _confidenceFor(n, cls, role),
       evidence: _evidenceFor(n, cls, role),
       sourceIndex: n.index,
+      packageName: n.packageName,
+      windowId: n.windowId,
+      windowType: n.windowType,
+      displayId: n.displayId,
+      rootIdentity: n.rootIdentity,
+      siblingIndex: n.siblingIndex,
     );
   }
 

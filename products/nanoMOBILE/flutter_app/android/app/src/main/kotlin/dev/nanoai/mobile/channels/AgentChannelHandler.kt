@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit
  * - `findText {query, maxResults}` → List<Map>
  * - `tapOnText {text}`          → bool
  * - `tapAt {x, y}`              → bool
+ * - `clickTarget {...identity}` → {ok,method,code}
  * - `longPressAt {x, y, durationMs}` → bool
  * - `swipe {x1,y1,x2,y2,durationMs}` → bool
  * - `inputText {text,targetResourceId,targetBounds}` → bool
@@ -44,6 +45,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             "dump-screen",  // dumpScreen / findText
             "snapshot",     // dumpSnapshot {package, nodes+depth}
             "gestures",     // tapAt / longPressAt / swipe
+            "target-click", // clickTarget ACTION_CLICK + verified fallback
             "text-input",   // inputText
             "global",       // globalAction back/home/recents
             "launch",       // launchPackage
@@ -105,6 +107,30 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                     return
                 }
                 postToService(AgentAccessibilityBridge.service, result) { it.tapAt(x, y) }
+            }
+
+            "clickTarget" -> {
+                val packageName = call.argument<String>("packageName") ?: ""
+                val resourceId = call.argument<String>("resourceId") ?: ""
+                val className = call.argument<String>("className") ?: ""
+                val text = call.argument<String>("text") ?: ""
+                val description = call.argument<String>("description") ?: ""
+                val rawBounds = call.argument<List<*>>("bounds")
+                val bounds = rawBounds?.map { (it as? Number)?.toInt() }
+                if (packageName.isBlank() || bounds == null || bounds.size != 4 || bounds.any { it == null }) {
+                    result.error("BAD_ARG", "packageName y bounds requeridos", null)
+                    return
+                }
+                postToService(AgentAccessibilityBridge.service, result) {
+                    it.clickTarget(
+                        packageName,
+                        resourceId,
+                        className,
+                        text,
+                        description,
+                        bounds.filterNotNull().toIntArray(),
+                    )
+                }
             }
 
             "longPressAt" -> {
