@@ -272,8 +272,10 @@ static int _spawn_internal(
 ) {
     *out_stdout = NULL;
     *out_stderr = NULL;
-    *out_stdout_len = 0;
-    *out_stderr_len = 0;
+    // Null-safe: los callers sin tracking de longitud (nanoshell_spawn_busybox,
+    // nanoshell_spawn_generic) pasan NULL aquí; no dereferenciar (SIGSEGV).
+    if (out_stdout_len) *out_stdout_len = 0;
+    if (out_stderr_len) *out_stderr_len = 0;
     g_last_error[0] = '\0';
 
     if (!argv || !argv[0]) {
