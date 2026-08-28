@@ -138,14 +138,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (byteLength > _maxAttachBytes) {
         _showHonestError(
           'El archivo supera ${_maxAttachBytes ~/ 1024} KB. '
-          'Adjunta un fragmento de texto mÃƒÂ¡s pequeÃƒÂ±o.',
+          'Adjunta un fragmento de texto más pequeño.',
         );
         return;
       }
       final bytes = await selected.readAsBytes();
       final text = utf8.decode(bytes, allowMalformed: true);
 
-      // HeurÃƒÂ­stica honesta: si el contenido no es texto imprimible, no sirve.
+      // Heurística honesta: si el contenido no es texto imprimible, no sirve.
       if (text.trim().isEmpty ||
           text.contains('\u0000') ||
           _looksBinary(text)) {
@@ -157,7 +157,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
 
       final clipped = text.length > _maxAttachChars
-          ? '${text.substring(0, _maxAttachChars)}\nÃ¢â‚¬Â¦[truncado]'
+          ? '${text.substring(0, _maxAttachChars)}\n…[truncado]'
           : text;
       ref
           .read(chatProvider.notifier)
@@ -209,18 +209,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         screenSize.width > screenSize.height && screenSize.height < 520;
     // El teclado no debe cambiar la variante del compositor: hacerlo causaba
     // un segundo reflow (controles que aparecen/desaparecen) justo al enfocar
-    // el campo. Solo el ancho/orientaciÃƒÂ³n definen la composiciÃƒÂ³n compacta.
+    // el campo. Solo el ancho/orientación definen la composición compacta.
     final compactComposer = isNarrow || isCompactLandscape;
 
-    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generaciÃƒÂ³n.
+    // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
       _scrollToBottom();
     });
     ref.listen(chatProvider.select((s) => s.generating), (_, __) {
       _scrollToBottom();
     });
-    // PolÃƒÂ­tica Ã‚Â§12: el tool-calling pidiÃƒÂ³ una escritura externa Ã¢â‚¬â€ diÃƒÂ¡logo de
-    // confirmaciÃƒÂ³n obligatorio (sin dismiss lateral: decisiÃƒÂ³n del humano).
+    // Política §12: el tool-calling pidió una escritura externa — diálogo de
+    // confirmación obligatorio (sin dismiss lateral: decisión del humano).
     ref.listen(chatProvider.select((s) => s.pendingTool), (prev, next) {
       if (next != null && prev != next) {
         _showToolConfirmDialog(next);
@@ -229,9 +229,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
-      // El shell conserva su geometrÃƒÂ­a cuando aparece el teclado. El
+      // El shell conserva su geometría cuando aparece el teclado. El
       // compositor se mueve de manera independiente sobre el inset para no
-      // desplazar lista, encabezado ni contenido ya leÃƒÂ­do.
+      // desplazar lista, encabezado ni contenido ya leído.
       hideHeader: _isReadingMode,
       resizeToAvoidBottomInset: false,
       trailing: Row(
@@ -251,7 +251,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           if (state.messages.isNotEmpty)
             IconButton(
-              tooltip: 'Limpiar conversaciÃƒÂ³n',
+              tooltip: 'Limpiar conversación',
               onPressed: state.generating
                   ? null
                   : () => _showClearDialog(notifier),
@@ -278,7 +278,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
-                  // mÃƒÂ¡rgenes muertos); se mantiene una cota por legibilidad.
+                  // márgenes muertos); se mantiene una cota por legibilidad.
                   maxWidth: isCompactLandscape ? 1440 : 1400,
                 ),
                 child: Stack(
@@ -304,7 +304,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 isCompactLandscape ? 10 : 18,
                                 8,
                                 isCompactLandscape ? 10 : 18,
-                                // Reserva estable para que la ÃƒÂºltima
+                                // Reserva estable para que la última
                                 // respuesta nunca quede bajo la barra.
                                 112 + mediaQuery.padding.bottom,
                               ),
@@ -361,7 +361,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
 
                     // Android ya redimensiona esta Activity con adjustResize.
-                    // No sumar viewInsets aquÃƒÂ­: era un segundo desplazamiento
+                    // No sumar viewInsets aquí: era un segundo desplazamiento
                     // que elevaba el compositor completo al abrir el teclado.
                     if (!_isReadingMode)
                       Positioned(
@@ -389,7 +389,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   // comandos deterministas (p. ej.
                                   // notificaciones) usan Android nativo
                                   // y deben funcionar con el motor parado.
-                                  // Si el texto sÃƒÂ­ necesita LLM, send()
+                                  // Si el texto sí necesita LLM, send()
                                   // devuelve el error de modelo honesto.
                                   enabled: !state.generating,
                                   generating: state.generating,
@@ -420,7 +420,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  /// DiÃƒÂ¡logo de confirmaciÃƒÂ³n para limpiar todo el historial.
+  /// Diálogo de confirmación para limpiar todo el historial.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final confirmed = await showNanoModalDialog<bool>(
@@ -432,11 +432,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Ã‚Â¿Limpiar conversaciÃƒÂ³n?',
+          '¿Limpiar conversación?',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
-          'Se eliminarÃƒÂ¡n todos los mensajes. Esta acciÃƒÂ³n no se puede deshacer.',
+          'Se eliminarán todos los mensajes. Esta acción no se puede deshacer.',
           style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
         ),
         actions: [
@@ -457,7 +457,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// DiÃƒÂ¡logo de confirmaciÃƒÂ³n para eliminar un mensaje individual.
+  /// Diálogo de confirmación para eliminar un mensaje individual.
   Future<void> _showDeleteDialog(
     ChatNotifier notifier,
     ChatMessage message,
@@ -472,12 +472,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Ã‚Â¿Eliminar mensaje?',
+          '¿Eliminar mensaje?',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
           message.text.length > 80
-              ? '"${message.text.substring(0, 80)}Ã¢â‚¬Â¦"'
+              ? '"${message.text.substring(0, 80)}…"'
               : '"${message.text}"',
           style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
           maxLines: 3,
@@ -501,9 +501,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  /// DiÃƒÂ¡logo de confirmaciÃƒÂ³n de herramienta. DecisiÃƒÂ³n obligatoria del
-  /// humano: aprobar ejecuta la acciÃƒÂ³n (confirmed), rechazar la cancela con
-  /// evidencia en el trace. Si la pantalla se desmonta sin decisiÃƒÂ³n, el
+  /// Diálogo de confirmación de herramienta. Decisión obligatoria del
+  /// humano: aprobar ejecuta la acción (confirmed), rechazar la cancela con
+  /// evidencia en el trace. Si la pantalla se desmonta sin decisión, el
   /// pendiente queda descartado por el siguiente send().
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
@@ -518,7 +518,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
-          'Confirmar acciÃƒÂ³n "$tool"',
+          'Confirmar acción "$tool"',
           style: TextStyle(color: colors.onSurface),
         ),
         content: Text(
@@ -551,7 +551,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
 /// Mantiene anclado el compositor al borde inferior durante el cambio de
 /// estado. La escala y el deslizamiento conservan la continuidad espacial sin
-/// convertir la minimizaciÃƒÂ³n en un simple fundido.
+/// convertir la minimización en un simple fundido.
 class _ComposerTransition extends StatelessWidget {
   const _ComposerTransition({required this.child});
 
@@ -596,9 +596,9 @@ class _ComposerTransition extends StatelessWidget {
 // ================================================================
 
 /// Modo lectura REAL: superficie serena de bajo deslumbramiento, columna
-/// centrada legible (720px), tipografÃƒÂ­a amplia (17px/1.75), barra de progreso
+/// centrada legible (720px), tipografía amplia (17px/1.75), barra de progreso
 /// y salida elegante. Abandona el chrome del chat para enfocarse en el
-/// contenido Ã¢â‚¬â€ no es un simple ocultar barra.
+/// contenido — no es un simple ocultar barra.
 class _ReadingMode extends StatefulWidget {
   const _ReadingMode({
     required this.messages,
@@ -658,7 +658,7 @@ class _ReadingModeState extends State<_ReadingMode> {
         Positioned.fill(
           child: Center(
             child: ConstrainedBox(
-              // 680 dp mantiene 65Ã¢â‚¬â€œ75 caracteres por lÃƒÂ­nea en texto de 18dp,
+              // 680 dp mantiene 65—œ75 caracteres por línea en texto de 18dp,
               // rango editorial que reduce los saltos oculares en lectura.
               constraints: const BoxConstraints(maxWidth: 680),
               child: ListView.builder(
@@ -681,7 +681,7 @@ class _ReadingModeState extends State<_ReadingMode> {
           right: 0,
           child: _ReadingProgress(scroll: _scroll),
         ),
-        // Salida elegante: pÃƒÂ­ldora de vidrio fija, siempre accesible.
+        // Salida elegante: píldora de vidrio fija, siempre accesible.
         Positioned(
           top: 8,
           right: 12,
@@ -693,7 +693,7 @@ class _ReadingModeState extends State<_ReadingMode> {
     if (reduceMotion) return surface;
 
     // Entrada inmersiva: fundido + escala suave al abrir el modo lectura
-    // (transiciÃƒÂ³n glass, respeta reduce-motion).
+    // (transición glass, respeta reduce-motion).
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 280),
@@ -709,7 +709,7 @@ class _ReadingModeState extends State<_ReadingMode> {
   }
 }
 
-/// Barra de progreso de lectura: refleja la fracciÃƒÂ³n de scroll de forma sutil.
+/// Barra de progreso de lectura: refleja la fracción de scroll de forma sutil.
 class _ReadingProgress extends StatefulWidget {
   const _ReadingProgress({required this.scroll});
 
@@ -740,8 +740,8 @@ class _ReadingProgressState extends State<_ReadingProgress> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final pos = widget.scroll.hasClients ? widget.scroll.position : null;
-    // hasViewportDimension: antes del layout el viewport no fijÃƒÂ³ su dimensiÃƒÂ³n
-    // y maxScrollExtent es null (acceder a ÃƒÂ©l revienta con un null-check).
+    // hasViewportDimension: antes del layout el viewport no fijó su dimensión
+    // y maxScrollExtent es null (acceder a él revienta con un null-check).
     if (pos == null || !pos.hasViewportDimension) {
       return const SizedBox(height: 2.5);
     }
@@ -773,7 +773,7 @@ class _ReadingProgressState extends State<_ReadingProgress> {
   }
 }
 
-/// PÃƒÂ­ldora de vidrio para salir del modo lectura (con texto, no solo icono).
+/// Píldora de vidrio para salir del modo lectura (con texto, no solo icono).
 class _ReadingExitPill extends StatelessWidget {
   const _ReadingExitPill({required this.onExit});
 
@@ -818,7 +818,7 @@ class _ReadingExitPill extends StatelessWidget {
   }
 }
 
-/// Un pÃƒÂ¡rrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
+/// Un párrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
 class _ReadingParagraph extends StatelessWidget {
   const _ReadingParagraph({required this.message, required this.model});
 
@@ -834,9 +834,9 @@ class _ReadingParagraph extends StatelessWidget {
         '${message.timestamp.hour.toString().padLeft(2, '0')}:'
         '${message.timestamp.minute.toString().padLeft(2, '0')}';
     final label = isUser
-        ? 'TÃƒÂº'
+        ? 'Tú'
         : (message.source == MessageSource.device
-              ? 'Nano Ã‚Â· Dispositivo'
+              ? 'Nano · Dispositivo'
               : (model.isEmpty ? 'NanoAI' : model));
 
     return Column(
@@ -910,7 +910,7 @@ class _ReadingParagraph extends StatelessWidget {
   }
 }
 
-/// Hoja de estilo Markdown para el modo lectura (tipografÃƒÂ­a amplia, cÃƒÂ³moda).
+/// Hoja de estilo Markdown para el modo lectura (tipografía amplia, cómoda).
 MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
   final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
   return MarkdownStyleSheet(
@@ -1029,8 +1029,8 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
   );
 }
 
-/// Badge de estado del motor con pulso lento cuando estÃƒÂ¡ online. Detenido:
-/// sin animaciÃƒÂ³n (estado quieto, honesto Ã¢â‚¬â€ solo lo vivo respira).
+/// Badge de estado del motor con pulso lento cuando está online. Detenido:
+/// sin animación (estado quieto, honesto — solo lo vivo respira).
 class _EngineBadge extends StatefulWidget {
   const _EngineBadge({required this.online, this.loading = false});
 

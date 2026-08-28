@@ -100,17 +100,17 @@ class MessageBubble extends StatelessWidget {
   final MessageSource source;
   final bool isError;
 
-  /// Tokens por segundo de la generaciÃƒÂ³n (solo respuestas AI completadas).
+  /// Tokens por segundo de la generación (solo respuestas AI completadas).
   final double? tps;
 
-  /// Callback para reintentar el envÃƒÂ­o tras un error.
+  /// Callback para reintentar el envío tras un error.
   final VoidCallback? onRetry;
 
   /// Callback para eliminar el mensaje.
   final VoidCallback? onDelete;
 
   /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
-  /// el contenido se inyectÃƒÂ³ al prompt y no se persiste).
+  /// el contenido se inyectó al prompt y no se persiste).
   final List<String> attachmentNames;
 
   @override
@@ -156,7 +156,7 @@ class MessageBubble extends StatelessWidget {
     final isDark = colors is NanoDarkColors;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final displayModel = source == MessageSource.device
-        ? 'Nano Ã‚Â· Dispositivo'
+        ? 'Nano · Dispositivo'
         : (model.isEmpty ? 'NanoAI' : model);
 
     final bubbleBorderRadius = isUser
@@ -400,11 +400,11 @@ Widget _buildAiBody(BuildContext context, String text) {
 }
 
 // ================================================================
-// MenÃƒÂº de acciones de mensaje (3 puntos)
+// Menú de acciones de mensaje (3 puntos)
 // ================================================================
 
-/// MenÃƒÂº profesional de 3 puntos para cada burbuja AI completada.
-/// Organizado en 3 acciones: Copiar Ã‚Â· Compartir Ã‚Â· Exportar (PDF | Markdown).
+/// Menú profesional de 3 puntos para cada burbuja AI completada.
+/// Organizado en 3 acciones: Copiar · Compartir · Exportar (PDF | Markdown).
 class MessageActions extends StatelessWidget {
   const MessageActions({
     required this.text,
@@ -455,7 +455,7 @@ class MessageActions extends StatelessWidget {
             await SharePlus.instance.share(
               ShareParams(
                 text: text,
-                subject: 'Respuesta NanoAI Ã¢â‚¬â€ $model',
+                subject: 'Respuesta NanoAI — $model',
               ),
             );
             break;
@@ -466,7 +466,7 @@ class MessageActions extends StatelessWidget {
 
           case 'export_pdf':
             await PdfReportService.exportReport(
-              title: 'Informe de AnÃƒÂ¡lisis NanoAI',
+              title: 'Informe de Análisis NanoAI',
               content: text,
               modelName: model,
               timestamp: timestamp,
@@ -475,7 +475,7 @@ class MessageActions extends StatelessWidget {
 
           case 'export_md':
             await PdfReportService.exportMarkdown(
-              title: 'Informe de AnÃƒÂ¡lisis NanoAI',
+              title: 'Informe de Análisis NanoAI',
               content: text,
               modelName: model,
               timestamp: timestamp,
@@ -569,7 +569,7 @@ class MessageActions extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Informe tÃƒÂ©cnico estructurado',
+                    'Informe técnico estructurado',
                     style: TextStyle(
                       color: colors.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
@@ -599,7 +599,7 @@ class MessageActions extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Archivo .md para Obsidian, NotionÃ¢â‚¬Â¦',
+                    'Archivo .md para Obsidian, Notion…',
                     style: TextStyle(
                       color: colors.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
@@ -632,8 +632,8 @@ class StreamingBubble extends StatelessWidget {
     final thought = parsed.thought;
     final response = parsed.response;
 
-    // Cuerpo vivo: sin texto aÃƒÂºn Ã¢â€ â€™ pensamiento en onda; con texto Ã¢â€ â€™ contenido
-    // streaming + cursor respirando al final (hiperrealista, sin simulaciÃƒÂ³n).
+    // Cuerpo vivo: sin texto aún Ã¢â€ â€™ pensamiento en onda; con texto Ã¢â€ â€™ contenido
+    // streaming + cursor respirando al final (hiperrealista, sin simulación).
     final Widget body;
     if (text.isEmpty) {
       body = const Padding(
@@ -705,8 +705,8 @@ class StreamingBubble extends StatelessWidget {
       ),
     );
 
-    // Ãƒâ€œptica premium idÃƒÂ©ntica al mensaje AI: bisel especular + sombra
-    // ambiental + vidrio desenfocado. El fondo living se refracta detrÃƒÂ¡s.
+    // Ãƒâ€œptica premium idéntica al mensaje AI: bisel especular + sombra
+    // ambiental + vidrio desenfocado. El fondo living se refracta detrás.
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -845,16 +845,16 @@ class EmptyChat extends StatelessWidget {
                       alignment: WrapAlignment.center,
                       children: [
                         SuggestionChip(
-                          label: 'Prueba de estrÃƒÂ©s y rendimiento',
+                          label: 'Prueba de estrés y rendimiento',
                           onTap: () => onSuggestion(
-                            'Realiza una prueba de estrÃƒÂ©s y anÃƒÂ¡lisis de rendimiento de inferencia en este dispositivo. '
-                            'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con mÃƒÂ©tricas de RAM, CPU y TPS estimado.',
+                            'Realiza una prueba de estrés y análisis de rendimiento de inferencia en este dispositivo. '
+                            'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con métricas de RAM, CPU y TPS estimado.',
                           ),
                         ),
                         SuggestionChip(
-                          label: 'Informe tÃƒÂ©cnico del sistema',
+                          label: 'Informe técnico del sistema',
                           onTap: () => onSuggestion(
-                            'Genera un informe tÃƒÂ©cnico completo y estructurado sobre el estado actual del dispositivo, '
+                            'Genera un informe técnico completo y estructurado sobre el estado actual del dispositivo, '
                             'con tablas detalladas de hardware, arquitectura y almacenamiento, listo para exportar a PDF.',
                           ),
                         ),
@@ -862,13 +862,13 @@ class EmptyChat extends StatelessWidget {
                           label: 'Diagrama de arquitectura',
                           onTap: () => onSuggestion(
                             'Explica la arquitectura del runtime de NanoAI (Flutter, Binder/SAF, nanortime, llama.cpp) '
-                            'e incluye un diagrama en bloque de cÃƒÂ³digo ```mermaid.',
+                            'e incluye un diagrama en bloque de código ```mermaid.',
                           ),
                         ),
                         SuggestionChip(
                           label: 'Resumen ejecutivo',
                           onTap: () => onSuggestion(
-                            'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanÃƒÂ­a de datos '
+                            'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanía de datos '
                             'y directivas de seguridad.',
                           ),
                         ),
@@ -1047,4 +1047,4 @@ class SuggestionChip extends StatelessWidget {
   }
 }
 
-/// CÃƒÂ¡psula lÃƒÂ­quida flotante que se muestra cuando la barra de chat estÃƒÂ¡ encogida/minimizada.
+/// Cápsula líquida flotante que se muestra cuando la barra de chat está encogida/minimizada.
