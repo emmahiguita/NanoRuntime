@@ -25,6 +25,8 @@ class TaskOrchestrator {
     Future<String?> Function(String kind)? resolveActionSurface,
     Future<String?> Function()? observeInputText,
     Future<ResultResolution?> Function(ResultTarget target)? resolveResult,
+    Future<String?> Function()? readVisibleText,
+    Future<int?> Function()? detectSearchResults,
     this.maxAttemptsPerStep = 2,
     this.maxReplansPerTask = 2,
   }) : _listNotifications = listNotifications,
@@ -36,7 +38,9 @@ class TaskOrchestrator {
        _resolveInputSurface = resolveInputSurface,
        _resolveActionSurface = resolveActionSurface,
        _observeInputText = observeInputText,
-       _resolveResult = resolveResult;
+       _resolveResult = resolveResult,
+       _readVisibleText = readVisibleText,
+       _detectSearchResults = detectSearchResults;
 
   final Future<List<dynamic>> Function() _listNotifications;
   final Future<bool> Function(String url) _openUrl;
@@ -61,6 +65,14 @@ class TaskOrchestrator {
   /// T2.9-select — resolución grounded de un resultado observado (ordinal/texto).
   /// null = sin fuente de resolución; el paso devuelve needsMoreEvidence.
   final Future<ResultResolution?> Function(ResultTarget target)? _resolveResult;
+
+  /// T2.9-verify — texto visible de la pantalla (fingerprint de snapshot, para
+  /// detectar cambio PRE/POST). null = sin observación → completedUnverified.
+  final Future<String?> Function()? _readVisibleText;
+
+  /// T2.9-verify — nº de resultados de búsqueda detectados en pantalla.
+  /// null = sin observación.
+  final Future<int?> Function()? _detectSearchResults;
 
   /// A15.1 — presupuesto de recuperación acotado.
   final int maxAttemptsPerStep;
@@ -575,17 +587,43 @@ class TaskOrchestrator {
         reason: 'query escrita; sin botón de submit (búsqueda en vivo)',
       );
     }
+
+    // PRE: snapshot A (fingerprint de texto visible).
+    final readText = _readVisibleText;
+    final detect = _detectSearchResults;
+    final before = readText != null ? await readText() : null;
+
     final ok = await tap(action);
-    return ok
-        ? const TaskStepResult(
-            status: TaskStepStatus.completed,
-            reason: 'búsqueda enviada',
-          )
-        : const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'tap de submit devolvió false',
-            failureKind: TaskFailureKind.recoverable,
-          );
+    if (!ok) {
+      return const TaskStepResult(
+        status: TaskStepStatus.failed,
+        reason: 'tap de submit devolvió false',
+        failureKind: TaskFailureKind.recoverable,
+      );
+    }
+
+    // POST: SearchResultVerification — "tecla aceptada" NO es búsqueda.
+    final after = readText != null ? await readText() : null;
+    final results = detect != null ? await detect() : null;
+    final changed = before != null && after != null && before != after;
+    final hasResults = results != null && results > 0;
+
+    if (changed && hasResults) {
+      return TaskStepResult(
+        status: TaskStepStatus.completed,
+        reason: 'búsqueda verificada: pantalla cambió y $results resultado(s)',
+      );
+    }
+    if (changed || hasResults) {
+      return const TaskStepResult(
+        status: TaskStepStatus.completedUnverified,
+        reason: 'evidencia parcial de búsqueda (cambio de pantalla o resultados)',
+      );
+    }
+    return const TaskStepResult(
+      status: TaskStepStatus.completedUnverified,
+      reason: 'submit aceptado; sin cambio detectable de pantalla',
+    );
   }
 
   // ── T2.9-select — selección semántica de resultado observado ───────────────
@@ -638,19 +676,43 @@ class TaskOrchestrator {
       );
     }
     final candidate = (resolution as ResultResolved).candidate;
+
+    // PRE: snapshot A (fingerprint de texto visible).
+    final readText = _readVisibleText;
+    final before = readText != null ? await readText() : null;
+
     final ok = await tap(candidate.selector);
-    // T2.9-select: `tap == true` NO es éxito; la verificación de apertura la
-    // añade SearchResultVerification (commit siguiente). Honesto: sin verificar.
-    return ok
-        ? const TaskStepResult(
-            status: TaskStepStatus.completedUnverified,
-            reason: 'resultado seleccionado (despacho aceptado, sin verificar apertura)',
-          )
-        : const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'tap de resultado devolvió false',
-            failureKind: TaskFailureKind.recoverable,
-          );
+    if (!ok) {
+      return const TaskStepResult(
+        status: TaskStepStatus.failed,
+        reason: 'tap de resultado devolvió false',
+        failureKind: TaskFailureKind.recoverable,
+      );
+    }
+
+    // POST: SearchResultVerification de apertura — "tap aceptado" NO es apertura.
+    final after = readText != null ? await readText() : null;
+    final changed = before != null && after != null && before != after;
+    final title = candidate.title.toLowerCase();
+    final contentObserved =
+        after != null && title.isNotEmpty && after.toLowerCase().contains(title);
+
+    if (changed && contentObserved) {
+      return const TaskStepResult(
+        status: TaskStepStatus.completed,
+        reason: 'resultado abierto: contenido objetivo observado',
+      );
+    }
+    if (changed) {
+      return const TaskStepResult(
+        status: TaskStepStatus.completedUnverified,
+        reason: 'pantalla cambió (evidencia parcial de apertura)',
+      );
+    }
+    return const TaskStepResult(
+      status: TaskStepStatus.completedUnverified,
+      reason: 'tap aceptado; sin cambio detectable de pantalla',
+    );
   }
 
   _GoalContext _parseGoal(String goal) {

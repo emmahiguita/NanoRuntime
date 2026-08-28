@@ -278,6 +278,7 @@ void main() {
         final tapLog = <String>[];
         final writeLog = <String>[];
         final launchLog = <String>[];
+        var textSeq = 0;
         final o = TaskOrchestrator(
           listNotifications: () async => [],
           openUrl: (_) async => false,
@@ -297,6 +298,9 @@ void main() {
           resolveInputSurface: () async => 'id=search_field',
           resolveActionSurface: (kind) async =>
               kind == 'search' ? 'id=search_icon' : null,
+          readVisibleText: () async =>
+              (textSeq++ == 0) ? 'antes' : 'después con resultados',
+          detectSearchResults: () async => 2,
         );
         final plan = const TaskPlanner().plan(
           'abre YouTube y busca NanoRuntime',
@@ -512,6 +516,92 @@ void main() {
       final results = await o.run(plan!);
       expect(results.first.status, TaskStepStatus.needsMoreEvidence);
       expect(tapped, isFalse);
+    });
+  });
+
+  group('TaskOrchestrator · T2.9-verify SearchResultVerification', () {
+    /// Fuente de texto visible que cambia en la 2ª llamada (PRE→POST).
+    Future<String?> Function() changingText() {
+      var i = 0;
+      return () async => (i++ == 0) ? 'pantalla A' : 'pantalla B';
+    }
+
+    SearchResultCandidate rCand(String title) => SearchResultCandidate(
+      ordinal: 1,
+      title: title,
+      subtitle: '',
+      resourceId: '',
+      bounds: const NanoBounds(left: 0, top: 0, right: 100, bottom: 100),
+      packageName: '',
+      confidence: 0.8,
+      source: SearchResultSource.accessibility,
+      selector: 'text=$title',
+    );
+
+    test('submit: pantalla cambió + resultados → completed (verificada)', () async {
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (_) async => true,
+        resolveActionSurface: (_) async => 'id=search_go',
+        readVisibleText: changingText(),
+        detectSearchResults: () async => 3,
+      );
+      final plan = TaskPlan(goal: 'abre YouTube y busca X', steps: const [
+        TaskStep(id: 'ss', semanticAction: 'submitSearch'),
+      ]);
+      final results = await o.run(plan);
+      expect(results.first.status, TaskStepStatus.completed);
+    });
+
+    test('submit: sin cambio detectable → completedUnverified (no verificada)', () async {
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (_) async => true,
+        resolveActionSurface: (_) async => 'id=search_go',
+        readVisibleText: () async => 'misma pantalla',
+        detectSearchResults: () async => 0,
+      );
+      final plan = TaskPlan(goal: 'abre YouTube y busca X', steps: const [
+        TaskStep(id: 'ss', semanticAction: 'submitSearch'),
+      ]);
+      final results = await o.run(plan);
+      expect(results.first.status, TaskStepStatus.completedUnverified);
+    });
+
+    test('selectResult: contenido objetivo observado → completed', () async {
+      final texts = ['lista de resultados', 'NanoRuntime GitHub'];
+      var i = 0;
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (_) async => true,
+        resolveResult: (_) async => ResultResolved(rCand('NanoRuntime')),
+        readVisibleText: () async => texts[i++ % 2],
+      );
+      final plan = const TaskPlanner().plan(
+        'abre el resultado que dice NanoRuntime',
+      );
+      final results = await o.run(plan!);
+      expect(results.first.status, TaskStepStatus.completed);
+    });
+
+    test('selectResult: misma pantalla → completedUnverified (no goal satisfecho)', () async {
+      final o = TaskOrchestrator(
+        listNotifications: () async => [],
+        openUrl: (_) async => false,
+        writeFile: (_, __) async => false,
+        tap: (_) async => true,
+        resolveResult: (_) async => ResultResolved(rCand('Result B')),
+        readVisibleText: () async => 'misma pantalla',
+      );
+      final plan = const TaskPlanner().plan('abre el segundo resultado');
+      final results = await o.run(plan!);
+      expect(results.first.status, TaskStepStatus.completedUnverified);
     });
   });
 }

@@ -144,6 +144,21 @@ final automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         if (g == null) return null;
         return const SearchResultResolver().resolve(g, target);
       },
+      // T2.9-verify — fingerprint de texto visible (PRE/POST) y conteo de
+      // resultados, para verificar submit/selección observando el estado real.
+      readVisibleText: () async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        return g.objects
+            .where((o) => o.visible && o.text.isNotEmpty)
+            .map((o) => o.text)
+            .join(' | ');
+      },
+      detectSearchResults: () async {
+        final g = await currentGraph();
+        if (g == null) return null;
+        return const SearchResultResolver().resolveResults(g).length;
+      },
     ),
     // A15.2: descomposición template determinista + LLM validado.
     taskDecomposer: LlmTaskDecomposer(
