@@ -5484,7 +5484,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_runtimechannelhandler",
-      "community": 455,
+      "community": 172,
       "norm_label": "runtimechannelhandler.kt"
     },
     {
@@ -5494,7 +5494,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_runtimechannelhandler_runtimechannelhandler",
-      "community": 455,
+      "community": 172,
       "norm_label": "runtimechannelhandler"
     },
     {
@@ -5504,7 +5504,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_runtimechannelhandler_kt_methodchannel",
-      "community": 455,
+      "community": 172,
       "norm_label": "methodchannel"
     },
     {
@@ -5514,7 +5514,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_runtimechannelhandler_runtimechannelhandler_onmethodcall",
-      "community": 455,
+      "community": 172,
       "norm_label": ".onmethodcall()"
     },
     {
@@ -5524,7 +5524,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_runtimechannelhandler_kt_methodcall",
-      "community": 455,
+      "community": 172,
       "norm_label": "methodcall"
     },
     {
@@ -8124,7 +8124,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_flutter_foundation_dart",
-      "community": 65,
+      "community": 78,
       "norm_label": "package:flutter/foundation.dart"
     },
     {
@@ -8254,7 +8254,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_integration_test_c14_automation_benchmark_test",
-      "community": 65,
+      "community": 78,
       "norm_label": "c14_automation_benchmark_test.dart"
     },
     {
@@ -8264,7 +8264,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_integration_test_c14_automation_benchmark_test_prevonerror",
-      "community": 65,
+      "community": 78,
       "norm_label": "prevonerror"
     },
     {
@@ -8274,7 +8274,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_integration_test_c14_automation_benchmark_test_main",
-      "community": 65,
+      "community": 78,
       "norm_label": "main"
     },
     {
@@ -8304,7 +8304,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_nanoai_features_automation_benchmark_c14_runner_dart",
-      "community": 65,
+      "community": 78,
       "norm_label": "package:nanoai/features/automation/benchmark/c14_runner.dart"
     },
     {
@@ -8394,7 +8394,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_integration_test_full_app_test",
-      "community": 8,
+      "community": 65,
       "norm_label": "full_app_test.dart"
     },
     {
@@ -8404,7 +8404,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_integration_test_full_app_test_main",
-      "community": 8,
+      "community": 65,
       "norm_label": "main"
     },
     {
@@ -8414,7 +8414,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_shared_preferences_shared_preferences_dart",
-      "community": 8,
+      "community": 65,
       "norm_label": "package:shared_preferences/shared_preferences.dart"
     },
     {
@@ -8714,7 +8714,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "bool",
-      "community": 35,
+      "community": 36,
       "norm_label": "bool?"
     },
     {
@@ -10254,7 +10254,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "modeltier",
-      "community": 151,
+      "community": 162,
       "norm_label": "modeltier"
     },
     {
@@ -10404,7 +10404,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_models_chat_models_chattemplate",
-      "community": 162,
+      "community": 151,
       "norm_label": "chattemplate"
     },
     {
@@ -12814,7 +12814,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "theme_nano_motion_dart",
-      "community": 324,
+      "community": 88,
       "norm_label": "../../theme/nano_motion.dart"
     },
     {
@@ -20124,7 +20124,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_adaptive_theme",
-      "community": 157,
+      "community": 54,
       "norm_label": "adaptive_theme.dart"
     },
     {
@@ -20134,7 +20134,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_adaptive_theme_adaptivetheme",
-      "community": 157,
+      "community": 54,
       "norm_label": "adaptivetheme"
     },
     {
@@ -20144,7 +20144,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_adaptive_theme_adaptiveorientationbuilder",
-      "community": 157,
+      "community": 54,
       "norm_label": "adaptiveorientationbuilder"
     },
     {
@@ -20164,7 +20164,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_adaptive_theme_islandscape",
-      "community": 157,
+      "community": 54,
       "norm_label": "islandscape"
     },
     {
@@ -20174,7 +20174,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_adaptive_theme_getthemetransitionduration",
-      "community": 157,
+      "community": 54,
       "norm_label": "getthemetransitionduration"
     },
     {
@@ -20184,7 +20184,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_adaptive_theme_build",
-      "community": 157,
+      "community": 54,
       "norm_label": "build"
     },
     {
@@ -22244,7 +22244,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions",
-      "community": 54,
+      "community": 36,
       "norm_label": "nano_transitions.dart"
     },
     {
@@ -22254,7 +22254,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_nanoglassmorphtransition",
-      "community": 54,
+      "community": 36,
       "norm_label": "nanoglassmorphtransition"
     },
     {
@@ -22264,7 +22264,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_nanoexpressiveslidetransition",
-      "community": 54,
+      "community": 36,
       "norm_label": "nanoexpressiveslidetransition"
     },
     {
@@ -22274,7 +22274,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_nanomodalglasstransition",
-      "community": 54,
+      "community": 36,
       "norm_label": "nanomodalglasstransition"
     },
     {
@@ -22284,7 +22284,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_nanoheroflightbuilder",
-      "community": 54,
+      "community": 36,
       "norm_label": "nanoheroflightbuilder"
     },
     {
@@ -22294,7 +22294,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_nanopredictivebackpagetransitionsbuilder",
-      "community": 54,
+      "community": 36,
       "norm_label": "nanopredictivebackpagetransitionsbuilder"
     },
     {
@@ -22304,7 +22304,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "pagetransitionsbuilder",
-      "community": 54,
+      "community": 36,
       "norm_label": "pagetransitionsbuilder"
     },
     {
@@ -22314,7 +22314,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_animation",
-      "community": 54,
+      "community": 36,
       "norm_label": "animation"
     },
     {
@@ -22324,7 +22324,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "animation",
-      "community": 54,
+      "community": 36,
       "norm_label": "animation"
     },
     {
@@ -22334,7 +22334,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_secondaryanimation",
-      "community": 54,
+      "community": 36,
       "norm_label": "secondaryanimation"
     },
     {
@@ -22344,7 +22344,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_child",
-      "community": 54,
+      "community": 36,
       "norm_label": "child"
     },
     {
@@ -22354,7 +22354,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "widget",
-      "community": 35,
+      "community": 36,
       "norm_label": "widget"
     },
     {
@@ -22364,7 +22364,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_barrierdismissible",
-      "community": 54,
+      "community": 36,
       "norm_label": "barrierdismissible"
     },
     {
@@ -22374,7 +22374,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "required_widgetbuilder_builder_bool",
-      "community": 54,
+      "community": 36,
       "norm_label": "required widgetbuilder builder,\n  bool"
     },
     {
@@ -22384,7 +22384,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_theme_nano_transitions_build",
-      "community": 54,
+      "community": 36,
       "norm_label": "build"
     },
     {
@@ -22394,7 +22394,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "dart_ui",
-      "community": 54,
+      "community": 36,
       "norm_label": "dart:ui"
     },
     {
@@ -22404,7 +22404,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "nano_motion_dart",
-      "community": 54,
+      "community": 36,
       "norm_label": "nano_motion.dart"
     },
     {
@@ -22674,7 +22674,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "color",
-      "community": 88,
+      "community": 35,
       "norm_label": "color"
     },
     {
@@ -22754,7 +22754,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "animationcontroller",
-      "community": 62,
+      "community": 88,
       "norm_label": "animationcontroller"
     },
     {
@@ -23354,7 +23354,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background",
-      "community": 324,
+      "community": 88,
       "norm_label": "nano_ambient_background.dart"
     },
     {
@@ -23384,7 +23384,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_glow",
-      "community": 324,
+      "community": 88,
       "norm_label": "_glow"
     },
     {
@@ -23394,7 +23394,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_animated",
-      "community": 324,
+      "community": 88,
       "norm_label": "animated"
     },
     {
@@ -23404,7 +23404,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_activeaccent",
-      "community": 324,
+      "community": 88,
       "norm_label": "activeaccent"
     },
     {
@@ -23414,7 +23414,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_orbitcontroller",
-      "community": 324,
+      "community": 88,
       "norm_label": "_orbitcontroller"
     },
     {
@@ -23424,7 +23424,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_size",
-      "community": 324,
+      "community": 88,
       "norm_label": "size"
     },
     {
@@ -23434,7 +23434,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_color",
-      "community": 324,
+      "community": 88,
       "norm_label": "color"
     },
     {
@@ -23444,7 +23444,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_alpha",
-      "community": 324,
+      "community": 88,
       "norm_label": "alpha"
     },
     {
@@ -23454,7 +23454,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_createstate",
-      "community": 324,
+      "community": 88,
       "norm_label": "createstate"
     },
     {
@@ -23464,7 +23464,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_initstate",
-      "community": 324,
+      "community": 88,
       "norm_label": "initstate"
     },
     {
@@ -23474,7 +23474,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_didchangeapplifecyclestate",
-      "community": 324,
+      "community": 88,
       "norm_label": "didchangeapplifecyclestate"
     },
     {
@@ -23484,7 +23484,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_didupdatewidget",
-      "community": 324,
+      "community": 88,
       "norm_label": "didupdatewidget"
     },
     {
@@ -23494,7 +23494,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_dispose",
-      "community": 324,
+      "community": 88,
       "norm_label": "dispose"
     },
     {
@@ -23504,7 +23504,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_build",
-      "community": 324,
+      "community": 88,
       "norm_label": "build"
     },
     {
@@ -23514,7 +23514,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_ambient_background_buildstaticbackground",
-      "community": 324,
+      "community": 88,
       "norm_label": "_buildstaticbackground"
     },
     {
@@ -23804,7 +23804,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "voidcallback",
-      "community": 62,
+      "community": 197,
       "norm_label": "voidcallback"
     },
     {
@@ -24524,7 +24524,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell",
-      "community": 35,
+      "community": 36,
       "norm_label": "nano_screen_shell.dart"
     },
     {
@@ -24534,7 +24534,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_nanoscreenshell",
-      "community": 35,
+      "community": 36,
       "norm_label": "nanoscreenshell"
     },
     {
@@ -24544,7 +24544,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_title",
-      "community": 35,
+      "community": 36,
       "norm_label": "title"
     },
     {
@@ -24554,7 +24554,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_body",
-      "community": 35,
+      "community": 36,
       "norm_label": "body"
     },
     {
@@ -24564,7 +24564,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_trailing",
-      "community": 35,
+      "community": 36,
       "norm_label": "trailing"
     },
     {
@@ -24574,7 +24574,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_hideheaderinportrait",
-      "community": 35,
+      "community": 36,
       "norm_label": "hideheaderinportrait"
     },
     {
@@ -24584,7 +24584,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_hideheader",
-      "community": 35,
+      "community": 36,
       "norm_label": "hideheader"
     },
     {
@@ -24594,7 +24594,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_showback",
-      "community": 35,
+      "community": 36,
       "norm_label": "showback"
     },
     {
@@ -24604,7 +24604,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_resizetoavoidbottominset",
-      "community": 35,
+      "community": 36,
       "norm_label": "resizetoavoidbottominset"
     },
     {
@@ -24614,7 +24614,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_nano_screen_shell_build",
-      "community": 35,
+      "community": 36,
       "norm_label": "build"
     },
     {
@@ -24984,7 +24984,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item",
-      "community": 324,
+      "community": 88,
       "norm_label": "nano_navigation_item.dart"
     },
     {
@@ -25014,7 +25014,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_label",
-      "community": 324,
+      "community": 88,
       "norm_label": "label"
     },
     {
@@ -25024,7 +25024,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_icon",
-      "community": 324,
+      "community": 88,
       "norm_label": "icon"
     },
     {
@@ -25034,7 +25034,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_selectedicon",
-      "community": 324,
+      "community": 88,
       "norm_label": "selectedicon"
     },
     {
@@ -25044,7 +25044,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_selected",
-      "community": 324,
+      "community": 88,
       "norm_label": "selected"
     },
     {
@@ -25054,7 +25054,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_colors",
-      "community": 324,
+      "community": 88,
       "norm_label": "colors"
     },
     {
@@ -25064,7 +25064,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_ontap",
-      "community": 324,
+      "community": 88,
       "norm_label": "ontap"
     },
     {
@@ -25074,7 +25074,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_icononly",
-      "community": 324,
+      "community": 88,
       "norm_label": "icononly"
     },
     {
@@ -25084,7 +25084,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_presscontroller",
-      "community": 324,
+      "community": 88,
       "norm_label": "_presscontroller"
     },
     {
@@ -25094,7 +25094,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_scaleanimation",
-      "community": 324,
+      "community": 88,
       "norm_label": "_scaleanimation"
     },
     {
@@ -25104,7 +25104,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_ishovered",
-      "community": 324,
+      "community": 88,
       "norm_label": "_ishovered"
     },
     {
@@ -25114,7 +25114,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_createstate",
-      "community": 324,
+      "community": 88,
       "norm_label": "createstate"
     },
     {
@@ -25124,7 +25124,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_initstate",
-      "community": 324,
+      "community": 88,
       "norm_label": "initstate"
     },
     {
@@ -25134,7 +25134,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_dispose",
-      "community": 324,
+      "community": 88,
       "norm_label": "dispose"
     },
     {
@@ -25144,7 +25144,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_handletapdown",
-      "community": 324,
+      "community": 88,
       "norm_label": "_handletapdown"
     },
     {
@@ -25154,7 +25154,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_handletapup",
-      "community": 324,
+      "community": 88,
       "norm_label": "_handletapup"
     },
     {
@@ -25164,7 +25164,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_handletapcancel",
-      "community": 324,
+      "community": 88,
       "norm_label": "_handletapcancel"
     },
     {
@@ -25174,7 +25174,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_core_widgets_navigation_nano_navigation_item_build",
-      "community": 324,
+      "community": 88,
       "norm_label": "build"
     },
     {
@@ -28494,7 +28494,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_agent_dependencies_systemgraphprovider",
-      "community": 435,
+      "community": 157,
       "norm_label": "systemgraphprovider"
     },
     {
@@ -29114,7 +29114,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "planning_candidates_candidate_selector_dart",
-      "community": 418,
+      "community": 328,
       "norm_label": "../planning/candidates/candidate_selector.dart"
     },
     {
@@ -29424,7 +29424,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "planning_candidates_candidate_selection_dart",
-      "community": 328,
+      "community": 418,
       "norm_label": "../planning/candidates/candidate_selection.dart"
     },
     {
@@ -31378,14 +31378,14 @@
       "norm_label": "_expectationfor"
     },
     {
-      "label": "_verifySuffix",
+      "label": "_verifiedFeedback",
       "file_type": "code",
       "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
       "source_location": null,
       "_origin": "ast",
-      "id": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher_verifysuffix",
+      "id": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher_verifiedfeedback",
       "community": 63,
-      "norm_label": "_verifysuffix"
+      "norm_label": "_verifiedfeedback"
     },
     {
       "label": "_notifications",
@@ -47654,7 +47654,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_voice_voice_runtime_voicesessionstate",
-      "community": 62,
+      "community": 88,
       "norm_label": "voicesessionstate"
     },
     {
@@ -50184,7 +50184,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card",
-      "community": 435,
+      "community": 157,
       "norm_label": "capability_status_card.dart"
     },
     {
@@ -50194,7 +50194,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_capabilitystatuscard",
-      "community": 435,
+      "community": 157,
       "norm_label": "capabilitystatuscard"
     },
     {
@@ -50204,7 +50204,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_summarybanner",
-      "community": 435,
+      "community": 157,
       "norm_label": "_summarybanner"
     },
     {
@@ -50214,7 +50214,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_caprow",
-      "community": 435,
+      "community": 157,
       "norm_label": "_caprow"
     },
     {
@@ -50224,7 +50224,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_complete",
-      "community": 435,
+      "community": 157,
       "norm_label": "complete"
     },
     {
@@ -50234,7 +50234,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_missing",
-      "community": 435,
+      "community": 157,
       "norm_label": "missing"
     },
     {
@@ -50244,7 +50244,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_colors",
-      "community": 435,
+      "community": 157,
       "norm_label": "colors"
     },
     {
@@ -50254,7 +50254,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_label",
-      "community": 435,
+      "community": 157,
       "norm_label": "label"
     },
     {
@@ -50264,7 +50264,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_description",
-      "community": 435,
+      "community": 157,
       "norm_label": "description"
     },
     {
@@ -50274,7 +50274,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_icon",
-      "community": 435,
+      "community": 157,
       "norm_label": "icon"
     },
     {
@@ -50284,7 +50284,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_availability",
-      "community": 435,
+      "community": 157,
       "norm_label": "availability"
     },
     {
@@ -50294,7 +50294,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_onactivate",
-      "community": 435,
+      "community": 157,
       "norm_label": "onactivate"
     },
     {
@@ -50304,7 +50304,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_build",
-      "community": 435,
+      "community": 157,
       "norm_label": "build"
     },
     {
@@ -50314,7 +50314,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_open",
-      "community": 435,
+      "community": 157,
       "norm_label": "_open"
     },
     {
@@ -50324,7 +50324,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_chip",
-      "community": 435,
+      "community": 157,
       "norm_label": "_chip"
     },
     {
@@ -50334,7 +50334,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_capability_status_card_requiresaction",
-      "community": 435,
+      "community": 157,
       "norm_label": "_requiresaction"
     },
     {
@@ -50344,7 +50344,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "engine_agent_dependencies_dart",
-      "community": 435,
+      "community": 157,
       "norm_label": "../../engine/agent_dependencies.dart"
     },
     {
@@ -50354,7 +50354,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "engine_system_capability_availability_dart",
-      "community": 435,
+      "community": 157,
       "norm_label": "../../engine/system/capability_availability.dart"
     },
     {
@@ -50364,7 +50364,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "engine_system_device_permission_requester_dart",
-      "community": 435,
+      "community": 157,
       "norm_label": "../../engine/system/device_permission_requester.dart"
     },
     {
@@ -50374,7 +50374,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "engine_system_system_capability_dart",
-      "community": 435,
+      "community": 157,
       "norm_label": "../../engine/system/system_capability.dart"
     },
     {
@@ -50514,7 +50514,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb",
-      "community": 62,
+      "community": 88,
       "norm_label": "nano_voice_orb.dart"
     },
     {
@@ -50544,7 +50544,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_state",
-      "community": 62,
+      "community": 88,
       "norm_label": "state"
     },
     {
@@ -50554,7 +50554,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_ontap",
-      "community": 62,
+      "community": 88,
       "norm_label": "ontap"
     },
     {
@@ -50564,7 +50564,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_size",
-      "community": 62,
+      "community": 88,
       "norm_label": "size"
     },
     {
@@ -50574,7 +50574,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_controller",
-      "community": 62,
+      "community": 88,
       "norm_label": "_controller"
     },
     {
@@ -50584,7 +50584,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_createstate",
-      "community": 62,
+      "community": 88,
       "norm_label": "createstate"
     },
     {
@@ -50594,7 +50594,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_dispose",
-      "community": 62,
+      "community": 88,
       "norm_label": "dispose"
     },
     {
@@ -50604,7 +50604,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_widgets_nano_voice_orb_build",
-      "community": 62,
+      "community": 88,
       "norm_label": "build"
     },
     {
@@ -50614,7 +50614,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "engine_voice_voice_runtime_dart",
-      "community": 62,
+      "community": 88,
       "norm_label": "../../engine/voice/voice_runtime.dart"
     },
     {
@@ -50624,7 +50624,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "core_theme_design_tokens_dart",
-      "community": 62,
+      "community": 88,
       "norm_label": "../../core/theme/design_tokens.dart"
     },
     {
@@ -63524,7 +63524,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel",
-      "community": 88,
+      "community": 35,
       "norm_label": "noar_panel.dart"
     },
     {
@@ -63534,7 +63534,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_noarpanel",
-      "community": 88,
+      "community": 35,
       "norm_label": "noarpanel"
     },
     {
@@ -63544,7 +63544,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_noarpanelstate",
-      "community": 88,
+      "community": 35,
       "norm_label": "_noarpanelstate"
     },
     {
@@ -63554,7 +63554,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_library",
-      "community": 88,
+      "community": 35,
       "norm_label": "library"
     },
     {
@@ -63564,7 +63564,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_fg",
-      "community": 88,
+      "community": 35,
       "norm_label": "fg"
     },
     {
@@ -63574,7 +63574,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_dark",
-      "community": 88,
+      "community": 35,
       "norm_label": "dark"
     },
     {
@@ -63584,7 +63584,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_search",
-      "community": 88,
+      "community": 35,
       "norm_label": "_search"
     },
     {
@@ -63594,7 +63594,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_activetag",
-      "community": 88,
+      "community": 35,
       "norm_label": "_activetag"
     },
     {
@@ -63604,7 +63604,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_searchctl",
-      "community": 88,
+      "community": 35,
       "norm_label": "_searchctl"
     },
     {
@@ -63614,7 +63614,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_tags",
-      "community": 88,
+      "community": 35,
       "norm_label": "_tags"
     },
     {
@@ -63624,7 +63624,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_createstate",
-      "community": 88,
+      "community": 35,
       "norm_label": "createstate"
     },
     {
@@ -63634,7 +63634,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_copy",
-      "community": 88,
+      "community": 35,
       "norm_label": "_copy"
     },
     {
@@ -63644,7 +63644,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_dispose",
-      "community": 88,
+      "community": 35,
       "norm_label": "dispose"
     },
     {
@@ -63654,7 +63654,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_noar_panel_build",
-      "community": 88,
+      "community": 35,
       "norm_label": "build"
     },
     {
@@ -63664,7 +63664,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "noar_builtin_commands_dart",
-      "community": 88,
+      "community": 35,
       "norm_label": "noar_builtin_commands.dart"
     },
     {
@@ -67124,7 +67124,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar",
-      "community": 62,
+      "community": 197,
       "norm_label": "terminal_modifier_bar.dart"
     },
     {
@@ -67134,7 +67134,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_terminalmodifierbar",
-      "community": 62,
+      "community": 197,
       "norm_label": "terminalmodifierbar"
     },
     {
@@ -67144,7 +67144,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_fg",
-      "community": 62,
+      "community": 197,
       "norm_label": "fg"
     },
     {
@@ -67154,7 +67154,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_chrome",
-      "community": 62,
+      "community": 197,
       "norm_label": "chrome"
     },
     {
@@ -67164,7 +67164,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_ctrlactive",
-      "community": 62,
+      "community": 197,
       "norm_label": "ctrlactive"
     },
     {
@@ -67174,7 +67174,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_ontogglectrl",
-      "community": 62,
+      "community": 197,
       "norm_label": "ontogglectrl"
     },
     {
@@ -67184,7 +67184,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_bracketedpasteenabled",
-      "community": 62,
+      "community": 197,
       "norm_label": "bracketedpasteenabled"
     },
     {
@@ -67194,7 +67194,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_terminal_modifier_bar_build",
-      "community": 62,
+      "community": 197,
       "norm_label": "build"
     },
     {
@@ -85132,7 +85132,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_hardware_hal_devicetier_fmt",
-      "community": 515,
+      "community": 119,
       "norm_label": ".fmt()"
     },
     {
@@ -85142,7 +85142,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_hardware_hal_rs_formatter",
-      "community": 515,
+      "community": 119,
       "norm_label": "formatter"
     },
     {
@@ -85152,7 +85152,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_hardware_hal_rs_result",
-      "community": 515,
+      "community": 119,
       "norm_label": "result"
     },
     {
@@ -102202,7 +102202,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_rs_result",
-      "community": 41,
+      "community": 66,
       "norm_label": "result"
     },
     {
@@ -102282,7 +102282,7 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_llamacontext_model_decode",
-      "community": 41,
+      "community": 66,
       "norm_label": ".decode()"
     },
     {
@@ -102292,7 +102292,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_llamacontext_model_encode",
-      "community": 41,
+      "community": 66,
       "norm_label": ".encode()"
     },
     {
@@ -102302,7 +102302,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_llamacontext_model_embeddings_seq_ith",
-      "community": 41,
+      "community": 66,
       "norm_label": ".embeddings_seq_ith()"
     },
     {
@@ -102312,7 +102312,7 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_llamacontext_model_embeddings_ith",
-      "community": 41,
+      "community": 66,
       "norm_label": ".embeddings_ith()"
     },
     {
@@ -102422,7 +102422,7 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_llamacontext_model_lora_adapter_set",
-      "community": 41,
+      "community": 66,
       "norm_label": ".lora_adapter_set()"
     },
     {
@@ -102432,7 +102432,7 @@
       "source_location": "L365",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_context_llamacontext_model_lora_adapter_remove",
-      "community": 41,
+      "community": 66,
       "norm_label": ".lora_adapter_remove()"
     },
     {
@@ -104462,7 +104462,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_decodeerror",
-      "community": 41,
+      "community": 66,
       "norm_label": "decodeerror"
     },
     {
@@ -104472,7 +104472,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_rs_c_int",
-      "community": 41,
+      "community": 66,
       "norm_label": "c_int"
     },
     {
@@ -104482,7 +104482,7 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_encodeerror",
-      "community": 41,
+      "community": 66,
       "norm_label": "encodeerror"
     },
     {
@@ -104492,7 +104492,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_embeddingserror",
-      "community": 41,
+      "community": 66,
       "norm_label": "embeddingserror"
     },
     {
@@ -104512,7 +104512,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_rs_from",
-      "community": 41,
+      "community": 66,
       "norm_label": "from"
     },
     {
@@ -104522,7 +104522,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "nonzeroi32",
-      "community": 41,
+      "community": 66,
       "norm_label": "nonzeroi32"
     },
     {
@@ -104532,7 +104532,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_decodeerror_from",
-      "community": 41,
+      "community": 66,
       "norm_label": ".from()"
     },
     {
@@ -104542,7 +104542,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_rs_self",
-      "community": 41,
+      "community": 66,
       "norm_label": "self"
     },
     {
@@ -104552,7 +104552,7 @@
       "source_location": "L223",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_encodeerror_from",
-      "community": 41,
+      "community": 66,
       "norm_label": ".from()"
     },
     {
@@ -104592,7 +104592,7 @@
       "source_location": "L262",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_llamaloraadapterseterror",
-      "community": 41,
+      "community": 66,
       "norm_label": "llamaloraadapterseterror"
     },
     {
@@ -104602,7 +104602,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_lib_llamaloraadapterremoveerror",
-      "community": 41,
+      "community": 66,
       "norm_label": "llamaloraadapterremoveerror"
     },
     {
@@ -105142,7 +105142,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_llama_batch",
-      "community": 41,
+      "community": 66,
       "norm_label": "llama_batch.rs"
     },
     {
@@ -105152,7 +105152,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_llama_batch_llamabatch",
-      "community": 41,
+      "community": 66,
       "norm_label": "llamabatch"
     },
     {
@@ -105162,7 +105162,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_llama_batch_rs_vec",
-      "community": 41,
+      "community": 66,
       "norm_label": "vec"
     },
     {
@@ -105172,7 +105172,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "llama_batch",
-      "community": 41,
+      "community": 66,
       "norm_label": "llama_batch"
     },
     {
@@ -105182,7 +105182,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "phantomdata",
-      "community": 41,
+      "community": 66,
       "norm_label": "phantomdata"
     },
     {
@@ -105882,7 +105882,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_model_rs_nonnull",
-      "community": 41,
+      "community": 66,
       "norm_label": "nonnull"
     },
     {
@@ -105902,7 +105902,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_model_llamaloraadapter",
-      "community": 41,
+      "community": 66,
       "norm_label": "llamaloraadapter"
     },
     {
@@ -105912,7 +105912,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "llama_adapter_lora",
-      "community": 41,
+      "community": 66,
       "norm_label": "llama_adapter_lora"
     },
     {
@@ -108632,7 +108632,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_sampling_llamasampler_apply",
-      "community": 307,
+      "community": 41,
       "norm_label": ".apply()"
     },
     {
@@ -109732,7 +109732,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array",
-      "community": 307,
+      "community": 41,
       "norm_label": "data_array.rs"
     },
     {
@@ -109742,7 +109742,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray",
-      "community": 307,
+      "community": 41,
       "norm_label": "llamatokendataarray"
     },
     {
@@ -109752,7 +109752,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_rs_vec",
-      "community": 307,
+      "community": 41,
       "norm_label": "vec"
     },
     {
@@ -109762,7 +109762,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_rs_option",
-      "community": 307,
+      "community": 41,
       "norm_label": "option"
     },
     {
@@ -109772,7 +109772,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_new",
-      "community": 307,
+      "community": 41,
       "norm_label": ".new()"
     },
     {
@@ -109782,7 +109782,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_rs_self",
-      "community": 307,
+      "community": 41,
       "norm_label": "self"
     },
     {
@@ -109792,7 +109792,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_from_iter",
-      "community": 307,
+      "community": 41,
       "norm_label": ".from_iter()"
     },
     {
@@ -109802,7 +109802,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_rs_t",
-      "community": 307,
+      "community": 41,
       "norm_label": "t"
     },
     {
@@ -109812,7 +109812,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_selected_token",
-      "community": 307,
+      "community": 41,
       "norm_label": ".selected_token()"
     },
     {
@@ -109822,7 +109822,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_modify_as_c_llama_token_data_array",
-      "community": 307,
+      "community": 41,
       "norm_label": ".modify_as_c_llama_token_data_array()"
     },
     {
@@ -109832,7 +109832,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "fnonce",
-      "community": 307,
+      "community": 41,
       "norm_label": "fnonce"
     },
     {
@@ -109842,7 +109842,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_rs_llama_token_data_array",
-      "community": 307,
+      "community": 41,
       "norm_label": "llama_token_data_array"
     },
     {
@@ -109852,7 +109852,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_apply_sampler",
-      "community": 307,
+      "community": 41,
       "norm_label": ".apply_sampler()"
     },
     {
@@ -109862,7 +109862,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_rs_llamasampler",
-      "community": 307,
+      "community": 41,
       "norm_label": "llamasampler"
     },
     {
@@ -109872,7 +109872,7 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_with_sampler",
-      "community": 307,
+      "community": 41,
       "norm_label": ".with_sampler()"
     },
     {
@@ -109882,7 +109882,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_sample_token",
-      "community": 307,
+      "community": 41,
       "norm_label": ".sample_token()"
     },
     {
@@ -109892,7 +109892,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "vendor_llama_cpp_2_src_token_data_array_llamatokendataarray_sample_token_greedy",
-      "community": 307,
+      "community": 41,
       "norm_label": ".sample_token_greedy()"
     },
     {
@@ -180488,7 +180488,7 @@
       "source_location": null,
       "weight": 1.0,
       "source": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher",
-      "target": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher_verifier"
+      "target": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher_verifiedfeedback"
     },
     {
       "relation": "defines",
@@ -180498,7 +180498,7 @@
       "source_location": null,
       "weight": 1.0,
       "source": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher",
-      "target": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher_verifysuffix"
+      "target": "products_nanomobile_flutter_app_lib_features_automation_engine_execution_agent_tool_dispatcher_verifier"
     },
     {
       "relation": "defines",
@@ -322490,5 +322490,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "45aa83c363c5852df4ffe0761ea554078f07092b"
+  "built_at_commit": "5f6dddd586848fa598e2799f871f8a00e7d44a2e"
 }

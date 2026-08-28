@@ -1,16 +1,16 @@
 # Graph Report - Nanoai  (2026-08-28)
 
 ## Corpus Check
-- 770 files · ~1,131,452 words
+- 770 files · ~1,131,472 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 12251 nodes · 19277 edges · 538 communities (482 shown, 56 thin omitted)
+- 12251 nodes · 19277 edges · 534 communities (479 shown, 55 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 102 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `45aa83c3`
+- Built from commit: `5f6dddd5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -321,7 +321,6 @@
 - .walkFileTree
 - models_state.dart
 - Diseño: Módulo Chat — acciones reales + arreglo de arranque del motor
-- linux_distribution_registry.dart
 - LlamaBatch<'a>
 - model_storage_repository.dart
 - Global Constraints
@@ -432,7 +431,6 @@
 - .sample
 - test_telemetry.py
 - rule_dispatcher.dart
-- capability_status_card.dart
 - mcp_candidate_provider.dart
 - notification_object.dart
 - ocr_contracts.dart
@@ -452,7 +450,6 @@
 - A9 — Targeted OCR Perception
 - SpeechChannelHandler
 - rule_registry.dart
-- validate.rs
 - analyze_telemetry.py
 - Sample
 - A10 — Targeted Vision Perception
@@ -500,7 +497,6 @@
 - .label
 - mcp_tool.dart
 - .open
-- .fmt
 - AndroidSpeechRecognitionBackend
 - AndroidSpeechSynthesisBackend
 - DeviceProfile
@@ -545,7 +541,7 @@
 ## Import Cycles
 - 2-file cycle: `vendor/llama-cpp-2/src/model/params.rs -> vendor/llama-cpp-2/src/model/params/kv_overrides.rs -> vendor/llama-cpp-2/src/model/params.rs`
 
-## Communities (538 total, 56 thin omitted)
+## Communities (534 total, 55 thin omitted)
 
 ### Community 0 - "Config"
 Cohesion: 0.01
@@ -581,7 +577,7 @@ Nodes (36): llama_seq_id, mtmd_bitmap, mtmd_context, mtmd_context_params, mtmd_i
 
 ### Community 8 - "ModelManager"
 Cohesion: 0.04
-Nodes (66): ../engine/planning/automation_planner.dart, _FakeEngineClient, FractionallySizedBox, InkWell, LLMEngineClient get, OutlinedButton, package:http/testing.dart, package:nanoai/core/models/catalog_models.dart (+58 more)
+Nodes (64): ../engine/planning/automation_planner.dart, _FakeEngineClient, FractionallySizedBox, InkWell, LLMEngineClient get, OutlinedButton, package:http/testing.dart, package:nanoai/core/models/catalog_models.dart (+56 more)
 
 ### Community 9 - "hallucination_detector.rs"
 Cohesion: 0.07
@@ -689,11 +685,11 @@ Nodes (14): CacheEntry, PromptCache, HashMap, Option, Self, String, Vec, VecDequ
 
 ### Community 35 - "NanoAI Runtime"
 Cohesion: 0.06
-Nodes (30): bool?, accent, blurSigma, borderStrength, build, child, createState, dispose (+22 more)
+Nodes (34): Color, noar_builtin_commands.dart, accent, blurSigma, borderStrength, build, child, createState (+26 more)
 
 ### Community 36 - "adaptive_scheduler.rs"
-Cohesion: 0.04
-Nodes (52): Alignment, BorderRadius?, accent, _ambientController, _AnimatedReflection, autoReflect, blurSigma, borderRadius (+44 more)
+Cohesion: 0.03
+Nodes (78): Alignment, Animation, bool?, BorderRadius?, dart:ui, nano_motion.dart, PageTransitionsBuilder, animation (+70 more)
 
 ### Community 37 - "kv_cache_optimizer.rs"
 Cohesion: 0.06
@@ -713,7 +709,7 @@ Nodes (80): local_model.dart, package:nanoai/features/models/application/models_
 
 ### Community 41 - "NanoRuntime.kt"
 Cohesion: 0.05
-Nodes (33): llama_adapter_lora, llama_batch, llama_context, llama_token_data, NonZeroI32, PhantomData, LlamaContext, LlamaContext<'model> (+25 more)
+Nodes (24): FnOnce, llama_context, llama_token_data, LlamaContext, LlamaContext<'model>, Debug, Drop, Formatter (+16 more)
 
 ### Community 42 - "compilerOptions"
 Cohesion: 0.13
@@ -765,7 +761,7 @@ Nodes (27): MmapConfig, OffloadCompression, c_void, Default, Drop, Duration, Has
 
 ### Community 54 - "📸 EMMANUEL — CAPTURA DE PANTALLA Y EVIDENCIA EMPÍRICA EN ANDROID (OPPO CPH2557)"
 Cohesion: 0.03
-Nodes (90): Animation, ../../../../core/widgets/nano_optical_surface.dart, CustomPainter, dart:ui, EdgeInsetsGeometry?, nano_motion.dart, nano_optical_surface.dart, PageTransitionsBuilder (+82 more)
+Nodes (80): ../../../../core/widgets/nano_optical_surface.dart, CustomPainter, EdgeInsetsGeometry?, nano_optical_surface.dart, AdaptiveOrientationBuilder, AdaptiveTheme, build, getThemeTransitionDuration (+72 more)
 
 ### Community 55 - "NanoAI Runtime — Android ARM64 Setup & Deployment Guide"
 Cohesion: 0.05
@@ -792,8 +788,8 @@ Cohesion: 0.08
 Nodes (27): _Client, LanExecutor, LanRequest, LanResponse, Option, Result, Self, String (+19 more)
 
 ### Community 62 - "graphify reference: extra exports and benchmark"
-Cohesion: 0.03
-Nodes (57): AnimationController, ../../core/theme/design_tokens.dart, ../../../../core/widgets/live_animations.dart, ../../../../core/widgets/nano_components.dart, ../../data/model_source_registry.dart, ../../domain/model_viability.dart, ../../engine/voice/voice_runtime.dart, model_brand_logos.dart (+49 more)
+Cohesion: 0.05
+Nodes (38): ../../../../core/widgets/live_animations.dart, ../../../../core/widgets/nano_components.dart, ../../data/model_source_registry.dart, ../../domain/model_viability.dart, model_brand_logos.dart, package:url_launcher/url_launcher.dart, ModelDataProvenance, VerifiedModelInfo (+30 more)
 
 ### Community 63 - "run_nanortime"
 Cohesion: 0.02
@@ -805,11 +801,11 @@ Nodes (38): 🔌 API Usage (Server Mode), Build from Source, 🔧 Configuration,
 
 ### Community 65 - "NanoAI Android Benchmark Report"
 Cohesion: 0.04
-Nodes (57): package:flutter/foundation.dart, package:flutter_riverpod/flutter_riverpod.dart, package:integration_test/integration_test.dart, package:nanoai/core/providers/app_providers.dart, package:nanoai/core/providers/dashboard_provider.dart, package:nanoai/core/providers/kali_provider.dart, package:nanoai/core/providers/rootfs_provider.dart, package:nanoai/core/services/kali_manager.dart (+49 more)
+Nodes (55): package:flutter_riverpod/flutter_riverpod.dart, package:integration_test/integration_test.dart, package:nanoai/core/providers/app_providers.dart, package:nanoai/core/providers/dashboard_provider.dart, package:nanoai/core/providers/kali_provider.dart, package:nanoai/core/providers/rootfs_provider.dart, package:nanoai/core/services/kali_manager.dart, package:nanoai/core/services/rootfs_manager.dart (+47 more)
 
 ### Community 66 - "pc_ablation.py"
-Cohesion: 0.10
-Nodes (25): FromUtf8Error, ApplyChatTemplateError, ChatTemplateError, json_schema_string_api_returns_grammar(), json_schema_to_grammar(), list_llama_ggml_backend_devices(), llama_supports_mlock(), LlamaBackendDevice (+17 more)
+Cohesion: 0.06
+Nodes (42): FromUtf8Error, llama_adapter_lora, llama_batch, NonZeroI32, PhantomData, Result, ApplyChatTemplateError, ChatTemplateError (+34 more)
 
 ### Community 67 - "💻 GUÍA DE EJECUCIÓN NATIVA EN TERMUX (ANDROID)"
 Cohesion: 0.24
@@ -856,8 +852,8 @@ Cohesion: 0.24
 Nodes (11): oppo_profile(), DeviceProfile, Self, String, RuntimeConfig, samsung_profile(), test_adapt_to_ram_abundant(), test_adapt_to_ram_critical() (+3 more)
 
 ### Community 78 - "graphify reference: add a URL and watch a folder"
-Cohesion: 0.05
-Nodes (40): dart:convert, Future, ChatHistoryStore, clear, _enqueue, _historyKey, restore, save (+32 more)
+Cohesion: 0.04
+Nodes (44): dart:convert, Future, package:flutter/foundation.dart, package:nanoai/features/automation/benchmark/c14_runner.dart, main, prevOnError, ChatHistoryStore, clear (+36 more)
 
 ### Community 79 - "graphify reference: commit hook and native CLAUDE.md integration"
 Cohesion: 0.09
@@ -896,8 +892,8 @@ Cohesion: 0.09
 Nodes (24): common_params_speculative, common_speculative, llama_pos, llama_rs_status, llama_token, vector, llama_rs_assign_tokens(), llama_rs_json_schema_to_grammar() (+16 more)
 
 ### Community 88 - "graphify.js"
-Cohesion: 0.06
-Nodes (30): Color, dart:math, noar_builtin_commands.dart, amp, _Blob, build, color, colors (+22 more)
+Cohesion: 0.03
+Nodes (58): AnimationController, ../../core/theme/design_tokens.dart, dart:math, ../../engine/voice/voice_runtime.dart, amp, _Blob, build, color (+50 more)
 
 ### Community 89 - "AUDITORÍA TÉCNICA INTEGRAL — NanoAI Terminal v1.0.0+1"
 Cohesion: 0.06
@@ -1020,8 +1016,8 @@ Cohesion: 0.04
 Nodes (86): AtomicI32, DefaultGuard, Field, Level, Metadata, ScaffoldShell, _ScaffoldShellState, InteractiveGlassCard (+78 more)
 
 ### Community 119 - "Sesión de Pruebas Documentada — NanoRuntime v1.0"
-Cohesion: 0.15
-Nodes (25): bench_storage(), classify_tier(), detect_big_cores(), detect_big_cores_linux(), detect_platform(), DeviceProfile, DeviceTier, Platform (+17 more)
+Cohesion: 0.12
+Nodes (27): bench_storage(), classify_tier(), detect_big_cores(), detect_big_cores_linux(), detect_platform(), DeviceProfile, DeviceTier, Platform (+19 more)
 
 ### Community 120 - "export_docx.py"
 Cohesion: 0.15
@@ -1149,7 +1145,7 @@ Nodes (22): actionability, AgentErrorCode, AgentExecutionResult, best, candidate
 
 ### Community 151 - "monitor_plugin.dart"
 Cohesion: 0.08
-Nodes (23): ModelTier, active, copyWith, description, downloadState, error, fileName, id (+15 more)
+Nodes (23): ChatTemplate, active, copyWith, description, downloadState, error, fileName, id (+15 more)
 
 ### Community 152 - "map"
 Cohesion: 0.09
@@ -1173,7 +1169,7 @@ Nodes (17): ggml_backend_dev_t, llama_load_mode, llama_model_params, llama_model
 
 ### Community 157 - "generate_hallucination_dataset.py"
 Cohesion: 0.03
-Nodes (66): ../agent_console_section.dart, automation_dev_screen.dart, IconData, ../notification_automation_section.dart, Offset, package:flutter/material.dart, package:go_router/go_router.dart, package:nanoai/core/router/scaffold_shell.dart (+58 more)
+Nodes (81): ../agent_console_section.dart, automation_dev_screen.dart, ../../engine/agent_dependencies.dart, ../../engine/system/capability_availability.dart, ../../engine/system/device_permission_requester.dart, ../../engine/system/system_capability.dart, IconData, ../notification_automation_section.dart (+73 more)
 
 ### Community 158 - "ma_hpf_reinit__internal"
 Cohesion: 0.19
@@ -1193,7 +1189,7 @@ Nodes (13): _find_nanortime_pid(), main(), Resolve the real nanortime PID on-dev
 
 ### Community 162 - "llama_hparams"
 Cohesion: 0.08
-Nodes (24): chat_models.dart, entryOf, file, fileOf, kind, LmCatalogEntry, ModelKind, models (+16 more)
+Nodes (24): chat_models.dart, ModelTier, entryOf, file, fileOf, kind, LmCatalogEntry, ModelKind (+16 more)
 
 ### Community 163 - "ClientImpl"
 Cohesion: 0.10
@@ -1232,8 +1228,8 @@ Cohesion: 0.08
 Nodes (24): ../../features/automation/presentation/screens/automation_messages_screen.dart, ../../features/automation/presentation/screens/automation_screen.dart, ../../features/chat/presentation/screens/chat_screen.dart, ../../features/dashboard/presentation/screens/dashboard_screen.dart, ../../features/desktop/presentation/screens/desktop_audit_screen.dart, ../../features/desktop/presentation/screens/desktop_launch_screen.dart, ../../features/desktop/presentation/screens/vnc_screen.dart, ../../features/linux/presentation/screens/mobile_linux_screen.dart (+16 more)
 
 ### Community 172 - "socket_t"
-Cohesion: 0.13
-Nodes (11): FlutterActivity, Array, Bundle, EngineSupervisor, FlutterEngine, Int, IntArray, Intent (+3 more)
+Cohesion: 0.10
+Nodes (14): FlutterActivity, MethodCall, MethodChannel, RuntimeChannelHandler, Array, Bundle, EngineSupervisor, FlutterEngine (+6 more)
 
 ### Community 173 - "cache_aware_loader.rs"
 Cohesion: 0.12
@@ -1332,8 +1328,8 @@ Cohesion: 0.22
 Nodes (14): compute_stats(), generate_latex_figure(), load_oppo_from_json(), load_samsung_from_json(), main(), plot_comparison(), plot_single_device(), Path (+6 more)
 
 ### Community 197 - "fattn-mma-f16.cuh"
-Cohesion: 0.11
-Nodes (19): accent, actionLabel, battery, cpu, description, freeStorage, icon, KaliStatus (+11 more)
+Cohesion: 0.07
+Nodes (27): accent, actionLabel, battery, cpu, description, freeStorage, icon, KaliStatus (+19 more)
 
 ### Community 198 - "cache_aware_loader.rs"
 Cohesion: 0.10
@@ -1739,10 +1735,6 @@ Nodes (4): @Deprecated, agentFindText, agentTapOnText, NanoAgentOrchestrator
 Cohesion: 0.04
 Nodes (61): package:nanoai/features/automation/engine/system/app_graph.dart, package:nanoai/features/automation/engine/system/app_launch_resolver.dart, package:nanoai/features/automation/engine/system/capability_availability.dart, package:nanoai/features/automation/engine/system/capability_probes.dart, package:nanoai/features/automation/engine/system/installed_app_catalog.dart, package:nanoai/features/automation/engine/system/system_inventory.dart, package:nanoai/features/automation/engine/system/system_models.dart, package:nanoai/features/automation/engine/system/system_role.dart (+53 more)
 
-### Community 307 - "linux_distribution_registry.dart"
-Cohesion: 0.19
-Nodes (8): FnOnce, LlamaTokenDataArray, llama_token_data_array, LlamaSampler, Option, Self, T, Vec
-
 ### Community 311 - "model_storage_repository.dart"
 Cohesion: 0.67
 Nodes (3): 11. Inyección, Dependency Injection, Inyección de seguridad
@@ -1764,8 +1756,8 @@ Cohesion: 0.06
 Nodes (33): ActionVerifier, AgentVerifier, _checkOnce, _containsVisibleText, copyWith, _engine, expectedPackage, expectedText (+25 more)
 
 ### Community 324 - "Auditoría Delta — Sprint B6+ (tarde 2026-08-13)"
-Cohesion: 0.03
-Nodes (76): Gradient, nano_dock_controller.dart, nano_navigation_panel.dart, _LerpedNanoColors, NanoColors, NanoDarkColors, NanoLightColors, activeAccent (+68 more)
+Cohesion: 0.05
+Nodes (44): Gradient, nano_dock_controller.dart, nano_navigation_panel.dart, _LerpedNanoColors, NanoColors, NanoDarkColors, NanoLightColors, NavPosition (+36 more)
 
 ### Community 328 - "fixtures.dart"
 Cohesion: 0.06
@@ -2021,7 +2013,7 @@ Nodes (4): Cómo reproducir, NanoRuntime V1 — Release Gates, Notas honestas, V
 
 ### Community 418 - "mmq.cpp"
 Cohesion: 0.08
-Nodes (24): automation_model.dart, ../planning/candidates/candidate_selector.dart, AutomationModelMode, AutomationModelProfile, AutomationModelRole, enabledForAutomation, fromJson, hasRole (+16 more)
+Nodes (24): automation_model.dart, ../planning/candidates/candidate_selection.dart, AutomationModelMode, AutomationModelProfile, AutomationModelRole, enabledForAutomation, fromJson, hasRole (+16 more)
 
 ### Community 419 - "args_set_input_kq_mask"
 Cohesion: 0.18
@@ -2066,10 +2058,6 @@ Nodes (3): _NullReader, test_build_run_collection_status_marks_unavailable(), te
 ### Community 434 - "rule_dispatcher.dart"
 Cohesion: 0.07
 Nodes (27): ../../domain/automation_goal.dart, ../../domain/automation_result.dart, notification_event_adapter.dart, ../notifications/notification_object.dart, fromMap, fromNotification, NotificationEventAdapter, automationResult (+19 more)
-
-### Community 435 - "capability_status_card.dart"
-Cohesion: 0.10
-Nodes (20): ../../engine/agent_dependencies.dart, ../../engine/system/capability_availability.dart, ../../engine/system/device_permission_requester.dart, ../../engine/system/system_capability.dart, systemGraphProvider, availability, build, CapabilityStatusCard (+12 more)
 
 ### Community 436 - "mcp_candidate_provider.dart"
 Cohesion: 0.13
@@ -2146,10 +2134,6 @@ Nodes (8): EventChannel, Any, MethodCall, MethodChannel, String, SpeechChannelHa
 ### Community 454 - "rule_registry.dart"
 Cohesion: 0.15
 Nodes (14): add, _key, load, _loaded, markFired, MemoryRuleStore, _persist, remove (+6 more)
-
-### Community 455 - "validate.rs"
-Cohesion: 0.50
-Nodes (3): MethodCall, MethodChannel, RuntimeChannelHandler
 
 ### Community 456 - "analyze_telemetry.py"
 Cohesion: 0.28
@@ -2338,12 +2322,12 @@ Nodes (3): AndroidSystemIntentExecutor, IntentResult, String
 ## Knowledge Gaps
 - **5844 isolated node(s):** `fix_names.sh script`, `patch_vnc.sh script`, `recordToolUse.sh script`, `ChannelNames`, `TCP` (+5839 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **56 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **55 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `State` connect `nanoColors` to `pc_ablation.py`, `adaptive_scheduler.rs`, `Auditoría Delta — Sprint B6+ (tarde 2026-08-13)`, `RuntimePlan`, `RateLimiter`, `ggml_cuda_get_device`, `TokenStreamBuilder`, `integration_test.rs`, `Promptdeanalisis.md`, `graphify.js`, `professional_analysis.py`?**
+- **Why does `State` connect `nanoColors` to `pc_ablation.py`, `NanoAI Runtime`, `adaptive_scheduler.rs`, `Auditoría Delta — Sprint B6+ (tarde 2026-08-13)`, `RuntimePlan`, `RateLimiter`, `ggml_cuda_get_device`, `TokenStreamBuilder`, `integration_test.rs`, `Promptdeanalisis.md`, `professional_analysis.py`?**
   _High betweenness centrality (0.086) - this node is a cross-community bridge._
 - **Why does `LogOptions` connect `pc_ablation.py` to `nanoColors`?**
   _High betweenness centrality (0.069) - this node is a cross-community bridge._
