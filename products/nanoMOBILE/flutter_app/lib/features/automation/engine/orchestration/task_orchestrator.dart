@@ -127,7 +127,7 @@ class TaskOrchestrator {
 
     final values = <TaskValueId, TaskValue>{};
     final results = <TaskStepResult>[];
-    final resultsByStep = <String, TaskStepResult>{};
+    final evidenceByStep = <String, RequiredEvidence>{};
     var replans = 0;
     final goalCtx = _parseGoal(plan.goal);
 
@@ -144,7 +144,7 @@ class TaskOrchestrator {
             entry.irreversible &&
             entry.status == ExecutionJournalStatus.outcomeUnknown,
       );
-      if (unresolved.any((entry) => entry.runId != runId)) {
+      if (unresolved.isNotEmpty) {
         return const [
           TaskStepResult(
             status: TaskStepStatus.outcomeUnknown,
@@ -156,19 +156,42 @@ class TaskOrchestrator {
         ];
       }
     }
-    final validConfirmation =
-        confirmation != null &&
+    var validConfirmation = false;
+    ExecutionJournalEntry? resumedEntry;
+    if (confirmation != null &&
+        confirmation.executionId == runId &&
+        confirmation.planSignature == planSignature &&
         confirmation.stepIndex >= 0 &&
         confirmation.stepIndex < ordered.length &&
-        confirmation.consumeIfAuthorizes(
+        confirmation.stepId == ordered[confirmation.stepIndex].id) {
+      if (journal != null) {
+        resumedEntry = await journal.consumeConfirmation(confirmation);
+        validConfirmation = resumedEntry != null;
+      } else {
+        validConfirmation = confirmation.consumeIfAuthorizes(
           executionId: runId,
           planSignature: planSignature,
           stepIndex: confirmation.stepIndex,
           stepId: ordered[confirmation.stepIndex].id,
           actionSignature: confirmation.actionSignature,
         );
+      }
+    }
+    if (confirmation != null && !validConfirmation) {
+      return const [
+        TaskStepResult(
+          status: TaskStepStatus.denied,
+          reason:
+              'confirmación inválida, expirada, consumida o no pendiente en el journal',
+          failureKind: TaskFailureKind.terminal,
+        ),
+      ];
+    }
+    if (resumedEntry != null) {
+      evidenceByStep.addAll(resumedEntry.evidenceByStep);
+    }
     final startIndex = validConfirmation ? confirmation.stepIndex : 0;
-    if (journal != null && ordered.isNotEmpty) {
+    if (journal != null && ordered.isNotEmpty && !validConfirmation) {
       final first = ordered[startIndex];
       await journal.save(
         ExecutionJournalEntry(
@@ -200,8 +223,11 @@ class TaskOrchestrator {
       }
       final rebuilt = await _runStep(prior, values, goalCtx);
       results.add(rebuilt);
-      resultsByStep[prior.id] = rebuilt;
       if (rebuilt.isFailure) return results;
+      final rebuiltEvidence = rebuilt.evidence;
+      if (rebuiltEvidence != null) {
+        evidenceByStep[prior.id] = rebuiltEvidence;
+      }
       if (prior.produces != null && rebuilt.output != null) {
         values[prior.produces!] = rebuilt.output!;
       }
@@ -209,7 +235,7 @@ class TaskOrchestrator {
 
     for (var stepIndex = startIndex; stepIndex < ordered.length; stepIndex++) {
       final step = ordered[stepIndex];
-      final insufficient = _insufficientDependency(step, resultsByStep);
+      final insufficient = _insufficientDependency(step, evidenceByStep);
       if (insufficient != null) {
         final blocked = TaskStepResult(
           status: TaskStepStatus.needsMoreEvidence,
@@ -217,7 +243,6 @@ class TaskOrchestrator {
           failureKind: TaskFailureKind.terminal,
         );
         results.add(blocked);
-        resultsByStep[step.id] = blocked;
         break;
       }
       // A16 — cancelación cooperativa: aborta ANTES del siguiente paso.
@@ -251,6 +276,7 @@ class TaskOrchestrator {
           actionSignature: semanticActionSignature,
           verificationState: 'acción iniciada',
           timestamp: DateTime.now().toUtc(),
+          evidenceByStep: Map.unmodifiable(evidenceByStep),
         ),
       );
       var result = await _runStep(
@@ -278,21 +304,6 @@ class TaskOrchestrator {
           ),
         );
       }
-      await journal?.save(
-        ExecutionJournalEntry(
-          runId: runId,
-          planSignature: planSignature,
-          goalFingerprint: goalFingerprint,
-          currentStep: stepIndex,
-          stepId: step.id,
-          status: _journalStatus(result.status),
-          irreversible: irreversible,
-          actionSignature: semanticActionSignature,
-          verificationState: result.reason,
-          timestamp: DateTime.now().toUtc(),
-          pendingConfirmation: result.confirmation,
-        ),
-      );
       var attempts = 1;
 
       while (!result.isCompleted &&
@@ -311,8 +322,27 @@ class TaskOrchestrator {
         result = next;
       }
 
+      final finalEvidence = result.evidence;
+      if (finalEvidence != null) {
+        evidenceByStep[step.id] = finalEvidence;
+      }
+      await journal?.save(
+        ExecutionJournalEntry(
+          runId: runId,
+          planSignature: planSignature,
+          goalFingerprint: goalFingerprint,
+          currentStep: stepIndex,
+          stepId: step.id,
+          status: _journalStatus(result.status),
+          irreversible: irreversible,
+          actionSignature: semanticActionSignature,
+          verificationState: result.reason,
+          timestamp: DateTime.now().toUtc(),
+          pendingConfirmation: result.confirmation,
+          evidenceByStep: Map.unmodifiable(evidenceByStep),
+        ),
+      );
       results.add(result);
-      resultsByStep[step.id] = result;
       if (result.isFailure) break;
       if (step.produces != null && result.output != null) {
         values[step.produces!] = result.output!;
@@ -323,15 +353,11 @@ class TaskOrchestrator {
 
   String? _insufficientDependency(
     TaskStep step,
-    Map<String, TaskStepResult> results,
+    Map<String, RequiredEvidence> evidenceByStep,
   ) {
     for (final dependency in step.dependencies) {
-      final observed = results[dependency];
-      // En una reanudación exacta, los pasos previos no se repiten. Su estado
-      // se vuelve a comprobar por el context lock del commit irreversible.
-      if (observed == null) continue;
       final required = step.evidenceRequiredFrom(dependency);
-      final actual = observed.evidence;
+      final actual = evidenceByStep[dependency];
       if (actual == null ||
           (required == RequiredEvidence.verified &&
               actual != RequiredEvidence.verified)) {

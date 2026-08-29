@@ -301,13 +301,26 @@ class PolicyDecision {
 
 /// Motor de política: decide sin ejecutar. Puro y determinista.
 class PolicyEngine {
-  PolicyEngine({ToolRegistry? registry, this.maxStepsPerTurn = 8})
-    : registry = registry ?? ToolRegistry.builtin;
+  PolicyEngine({
+    ToolRegistry? registry,
+    this.maxStepsPerTurn = 8,
+    bool Function(String toolName)? confirmationPolicy,
+  }) : registry = registry ?? ToolRegistry.builtin,
+       _confirmationPolicy = confirmationPolicy;
 
   final ToolRegistry registry;
+  final bool Function(String toolName)? _confirmationPolicy;
 
   /// Pasos máximos ejecutados por turno del usuario (anti-bucle).
   final int maxStepsPerTurn;
+
+  /// Fuente semántica única para confirmación. Producción inyecta la política
+  /// del modo actual; instancias aisladas conservan el metadata del registro.
+  bool requiresConfirmation(String toolName) {
+    final tool = registry.lookup(toolName);
+    if (tool == null) return false;
+    return _confirmationPolicy?.call(tool.name) ?? tool.requiresConfirmation;
+  }
 
   /// Decide sobre [toolName] con el contexto de uso actual.
   ///
@@ -340,7 +353,8 @@ class PolicyEngine {
     // back, launch) es necesario para completar una tarea y no debe duplicar
     // el diálogo que ya gobierna AutomationPolicy. Solo las tools marcadas de
     // forma explícita como sensibles requieren una aprobación autónoma.
-    final autonomousImpact = !humanInitiated && tool.requiresConfirmation;
+    final autonomousImpact =
+        !humanInitiated && requiresConfirmation(tool.name);
     final needsConfirm = autonomousImpact && !confirmed;
     if (needsConfirm) {
       return PolicyDecision._(

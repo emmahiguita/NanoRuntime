@@ -8,6 +8,7 @@ import '../../../core/services/shell_executor.dart';
 import '../../../core/services/shell_executor_linux_backend.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/chat_provider.dart';
+import '../domain/automation_policy.dart';
 import 'model/automation_model_resolver.dart';
 import 'model/draft_writer.dart';
 import 'platform/linux_tool_adapter.dart';
@@ -88,7 +89,12 @@ final agentVerifierProvider = Provider<AgentVerifier>((ref) {
 
 /// Política de gobernanza con el registro canónico de tools.
 final policyEngineProvider = Provider<PolicyEngine>((ref) {
-  return PolicyEngine(registry: ToolRegistry.builtin);
+  return PolicyEngine(
+    registry: ToolRegistry.builtin,
+    confirmationPolicy: (toolName) => AutomationPolicy(
+      ref.read(settingsProvider).agentAutomationMode,
+    ).requiresConfirmation(toolName),
+  );
 });
 
 /// T1.2: adaptador Linux del agente sobre el backend CORE compartido con el
@@ -106,6 +112,7 @@ final linuxToolAdapterProvider = Provider<LinuxToolAdapter>((ref) {
 /// Dispatcher con TODAS sus dependencias inyectadas (sin defaults internos
 /// en producción). El chat lo recibe vía `chatProvider`.
 final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
+  final api = NanoRuntimeApi.instance;
   return AgentToolDispatcher(
     executor: ref.watch(agentExecutorProvider),
     registry: ToolRegistry.builtin,
@@ -113,6 +120,10 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     verifier: ref.watch(agentVerifierProvider),
     linuxAdapter: ref.watch(linuxToolAdapterProvider),
     router: ref.watch(actionPathRouterProvider),
+    launchPackage: api.agentLaunchPackage,
+    globalAction: api.agentGlobalAction,
+    swipe: api.agentSwipe,
+    longPress: api.agentLongPressAt,
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
     // A14.5: lector de estado de plataforma para verificar postcondiciones
     // no-UI (archivo Linux, app fuera de foco) tras ejecutar.

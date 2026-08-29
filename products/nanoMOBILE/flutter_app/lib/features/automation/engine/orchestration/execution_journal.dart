@@ -1,11 +1,13 @@
 /// Journal durable mínimo para ejecución exactly-once de commits irreversibles.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../governance/action_confirmation.dart';
+import 'task_plan.dart';
 
 enum ExecutionJournalStatus {
   planned,
@@ -32,6 +34,7 @@ final class ExecutionJournalEntry {
   final String verificationState;
   final DateTime timestamp;
   final ActionConfirmation? pendingConfirmation;
+  final Map<String, RequiredEvidence> evidenceByStep;
 
   const ExecutionJournalEntry({
     required this.runId,
@@ -45,6 +48,7 @@ final class ExecutionJournalEntry {
     required this.verificationState,
     required this.timestamp,
     this.pendingConfirmation,
+    this.evidenceByStep = const {},
   });
 
   ExecutionJournalEntry copyWith({
@@ -64,6 +68,7 @@ final class ExecutionJournalEntry {
     verificationState: verificationState ?? this.verificationState,
     timestamp: timestamp ?? this.timestamp,
     pendingConfirmation: pendingConfirmation ?? this.pendingConfirmation,
+    evidenceByStep: evidenceByStep,
   );
 
   Map<String, Object?> toJson() => {
@@ -78,10 +83,14 @@ final class ExecutionJournalEntry {
     'verificationState': verificationState,
     'timestamp': timestamp.toUtc().toIso8601String(),
     'pendingConfirmation': pendingConfirmation?.toJson(),
+    'evidenceByStep': {
+      for (final entry in evidenceByStep.entries) entry.key: entry.value.name,
+    },
   };
 
   factory ExecutionJournalEntry.fromJson(Map<String, Object?> json) {
     final pending = json['pendingConfirmation'];
+    final evidence = json['evidenceByStep'];
     return ExecutionJournalEntry(
       runId: json['runId'] as String,
       planSignature: json['planSignature'] as String,
@@ -98,6 +107,14 @@ final class ExecutionJournalEntry {
               pending.map((key, value) => MapEntry('$key', value)),
             )
           : null,
+      evidenceByStep: evidence is Map
+          ? {
+              for (final entry in evidence.entries)
+                '${entry.key}': RequiredEvidence.values.byName(
+                  '${entry.value}',
+                ),
+            }
+          : const {},
     );
   }
 }
@@ -106,12 +123,44 @@ abstract interface class ExecutionJournal {
   Future<void> save(ExecutionJournalEntry entry);
   Future<ExecutionJournalEntry?> load(String runId);
   Future<List<ExecutionJournalEntry>> all();
+  Future<ExecutionJournalEntry?> consumeConfirmation(
+    ActionConfirmation confirmation,
+  );
   Future<void> recoverInterrupted();
+}
+
+ExecutionJournalEntry? _consumePendingConfirmation(
+  ExecutionJournalEntry? entry,
+  ActionConfirmation presented,
+) {
+  if (entry == null ||
+      entry.status != ExecutionJournalStatus.waitingConfirmation) {
+    return null;
+  }
+  final pending = entry.pendingConfirmation;
+  if (pending == null || pending.confirmationId != presented.confirmationId) {
+    return null;
+  }
+  final consumed = pending.consumeIfAuthorizes(
+    executionId: presented.executionId,
+    planSignature: presented.planSignature,
+    stepIndex: presented.stepIndex,
+    stepId: presented.stepId,
+    actionSignature: presented.actionSignature,
+  );
+  if (!consumed) return null;
+  return entry.copyWith(
+    status: ExecutionJournalStatus.planned,
+    verificationState: 'confirmación consumida; acción aún no iniciada',
+    timestamp: DateTime.now().toUtc(),
+    pendingConfirmation: pending,
+  );
 }
 
 final class SharedPreferencesExecutionJournal implements ExecutionJournal {
   static const _indexKey = 'nano.executionJournal.index.v1';
   static const _entryPrefix = 'nano.executionJournal.entry.v1.';
+  static Future<void> _confirmationQueue = Future<void>.value();
 
   @override
   Future<void> save(ExecutionJournalEntry entry) async {
@@ -149,6 +198,27 @@ final class SharedPreferencesExecutionJournal implements ExecutionJournal {
   }
 
   @override
+  Future<ExecutionJournalEntry?> consumeConfirmation(
+    ActionConfirmation confirmation,
+  ) async {
+    final previous = _confirmationQueue;
+    final release = Completer<void>();
+    _confirmationQueue = release.future;
+    await previous;
+    try {
+      final claimed = _consumePendingConfirmation(
+        await load(confirmation.executionId),
+        confirmation,
+      );
+      if (claimed == null) return null;
+      await save(claimed);
+      return claimed;
+    } finally {
+      release.complete();
+    }
+  }
+
+  @override
   Future<void> recoverInterrupted() async {
     for (final entry in await all()) {
       final interrupted =
@@ -183,6 +253,19 @@ final class InMemoryExecutionJournal implements ExecutionJournal {
   @override
   Future<List<ExecutionJournalEntry>> all() async =>
       List.unmodifiable(_entries.values);
+
+  @override
+  Future<ExecutionJournalEntry?> consumeConfirmation(
+    ActionConfirmation confirmation,
+  ) async {
+    final claimed = _consumePendingConfirmation(
+      _entries[confirmation.executionId],
+      confirmation,
+    );
+    if (claimed == null) return null;
+    _entries[claimed.runId] = claimed;
+    return claimed;
+  }
 
   @override
   Future<void> recoverInterrupted() async {

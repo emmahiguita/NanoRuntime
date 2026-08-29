@@ -127,12 +127,17 @@ class AutomationCoordinator {
   /// A15.2 — descomposición (template determinista + LLM validado).
   final LlmTaskDecomposer? _taskDecomposer;
 
-  /// A16 — cancelación cooperativa de la tarea activa (voz "para"/"cancela").
-  final ExecutionCancellationToken _cancelToken = ExecutionCancellationToken();
+  /// A16 — cancelaciones cooperativas actualmente en ejecución. Cada run
+  /// conserva su propio token para que una cancelación no contamine el siguiente.
+  final List<ExecutionCancellationToken> _activeRunCancellations = [];
 
   /// Cancela la tarea activa (cooperativo). Las acciones irreversibles ya
   /// completadas no se revierten; se detiene el trabajo pendiente.
-  void cancelCurrent() => _cancelToken.cancel();
+  void cancelCurrent() {
+    if (_activeRunCancellations.isNotEmpty) {
+      _activeRunCancellations.last.cancel();
+    }
+  }
 
   /// A13.6 — callback para compartir la instancia de memoria actualizada con la
   /// DI (el notifier). null en tests/aislado.
@@ -245,7 +250,8 @@ class AutomationCoordinator {
   // ── Política de gobernanza ────────────────────────────────────────────────
 
   /// ¿Este tool requiere confirmación humana antes de actuar? (modo actual).
-  bool requiresConfirmation(String tool) => _policy.requiresConfirmation(tool);
+  bool requiresConfirmation(String tool) =>
+      _dispatcher.requiresConfirmation(tool);
 
   /// Descripción legible para mostrar al usuario por qué pide confirmación.
   String confirmationDescription(String tool) =>
@@ -325,20 +331,26 @@ class AutomationCoordinator {
     final orchestrator = _taskOrchestrator;
     if (orchestrator == null) return null;
 
-    final TaskPlan? plan;
-    final decomposer = deterministicOnly ? null : _taskDecomposer;
-    if (decomposer != null) {
-      plan = await decomposer.decompose(goal);
-    } else {
-      plan = _taskPlanner?.plan(goal);
+    final cancelToken = ExecutionCancellationToken();
+    _activeRunCancellations.add(cancelToken);
+    try {
+      final TaskPlan? plan;
+      final decomposer = deterministicOnly ? null : _taskDecomposer;
+      if (decomposer != null) {
+        plan = await decomposer.decompose(goal);
+      } else {
+        plan = _taskPlanner?.plan(goal);
+      }
+      if (plan == null) return null;
+      return await orchestrator.run(
+        plan,
+        cancel: cancelToken,
+        confirmation: confirmation,
+        executionId: executionId,
+      );
+    } finally {
+      _activeRunCancellations.remove(cancelToken);
     }
-    if (plan == null) return null;
-    return orchestrator.run(
-      plan,
-      cancel: _cancelToken,
-      confirmation: confirmation,
-      executionId: executionId,
-    );
   }
 
   /// Intenta exclusivamente la ruta TaskPlanner/TaskOrchestrator. No invoca el

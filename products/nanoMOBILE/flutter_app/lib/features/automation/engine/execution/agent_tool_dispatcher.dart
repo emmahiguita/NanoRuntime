@@ -382,6 +382,11 @@ class AgentToolDispatcher {
   /// Fuente única para política y prompt del modelo local.
   ToolRegistry get registry => _policy.registry;
 
+  /// Misma decisión semántica usada justo antes de ejecutar, expuesta para
+  /// que la UI pueda anticipar la pausa sin mantener una segunda política.
+  bool requiresConfirmation(String toolName) =>
+      _policy.requiresConfirmation(toolName);
+
   /// Router de ruta de ejecución (C6): etiqueta cada paso del plan con el
   /// mecanismo más eficiente (Intent / Linux / Accessibility / ...).
   final ActionPathRouter _router;

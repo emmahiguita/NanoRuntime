@@ -18,7 +18,11 @@ final class ActionContext {
   final String sendIdentity;
   final String sendSelector;
   final String preSnapshotSignature;
-  final Set<String> preExistingDraftObjects;
+  final String conversationIdentity;
+  final int composerCenterX;
+  final int composerTop;
+  final bool outgoingOnRight;
+  final int preOutgoingDraftCount;
 
   const ActionContext({
     required this.packageName,
@@ -30,7 +34,11 @@ final class ActionContext {
     required this.sendIdentity,
     required this.sendSelector,
     required this.preSnapshotSignature,
-    required this.preExistingDraftObjects,
+    required this.conversationIdentity,
+    required this.composerCenterX,
+    required this.composerTop,
+    required this.outgoingOnRight,
+    required this.preOutgoingDraftCount,
   });
 }
 
@@ -102,20 +110,27 @@ final class CommitGuard {
         'el composer no contiene el borrador esperado',
       );
     }
-    if (!_conversationVisible(graph, conversation, composer.object)) {
+    final conversationObject = _conversationObject(
+      graph,
+      conversation,
+      composer.object,
+    );
+    if (conversationObject == null) {
       return ContextGuardOutcome(
         ContextGuardStatus.changed,
         'la conversación "$conversation" no está identificada en pantalla',
       );
     }
-    final existing = graph.objects
-        .where(
-          (object) =>
-              !object.editable &&
-              _normalized(object.text) == _normalized(draft),
-        )
-        .map(_identity)
-        .toSet();
+    final outgoingOnRight =
+        send.object.bounds.centerX >= composer.object.bounds.centerX;
+    final draftFingerprint = canonicalFingerprint(_normalized(draft));
+    final preOutgoingDraftCount = _outgoingDraftObjects(
+      graph,
+      draftFingerprint: draftFingerprint,
+      composerCenterX: composer.object.bounds.centerX,
+      composerTop: composer.object.bounds.top,
+      outgoingOnRight: outgoingOnRight,
+    ).length;
     return ContextGuardOutcome(
       ContextGuardStatus.ready,
       'contexto capturado',
@@ -123,13 +138,17 @@ final class CommitGuard {
         packageName: graph.package,
         conversation: conversation,
         draft: draft,
-        draftFingerprint: canonicalFingerprint(_normalized(draft)),
+        draftFingerprint: draftFingerprint,
         composerIdentity: _identity(composer.object),
         composerSelector: composer.selector,
         sendIdentity: _identity(send.object),
         sendSelector: send.selector,
         preSnapshotSignature: _graphSignature(graph),
-        preExistingDraftObjects: existing,
+        conversationIdentity: _identity(conversationObject),
+        composerCenterX: composer.object.bounds.centerX,
+        composerTop: composer.object.bounds.top,
+        outgoingOnRight: outgoingOnRight,
+        preOutgoingDraftCount: preOutgoingDraftCount,
       ),
     );
   }
@@ -169,7 +188,7 @@ final class CommitGuard {
       );
     }
     if (!_contains(composer.object.text, context.draft) ||
-        !_conversationVisible(graph, context.conversation, composer.object)) {
+        !_conversationIdentityVisible(graph, context)) {
       return const ContextGuardOutcome(
         ContextGuardStatus.changed,
         'conversación o borrador cambiaron antes del commit',
@@ -191,7 +210,7 @@ final class CommitGuard {
       );
     }
     if (graph.package != context.packageName ||
-        !_conversationVisibleAfterSend(graph, context.conversation)) {
+        !_conversationIdentityVisible(graph, context)) {
       return const SendEvidence(
         SendEvidenceStatus.contextChanged,
         'tap despachado, pero el contexto posterior cambió',
@@ -207,19 +226,34 @@ final class CommitGuard {
       graph,
       kind: InputSurfaceKind.message,
     );
-    if (composer != null && _contains(composer.object.text, context.draft)) {
+    if (composer == null ||
+        _identity(composer.object) != context.composerIdentity) {
+      return const SendEvidence(
+        SendEvidenceStatus.contextChanged,
+        'tap despachado, pero el composer cambió o dejó de ser observable',
+      );
+    }
+    if (_contains(composer.object.text, context.draft)) {
       return const SendEvidence(
         SendEvidenceStatus.outcomeUnknown,
         'tap despachado, pero el composer aún contiene el borrador',
       );
     }
+    if (_graphSignature(graph) == context.preSnapshotSignature) {
+      return const SendEvidence(
+        SendEvidenceStatus.outcomeUnknown,
+        'tap despachado, pero no se observó transición de pantalla',
+      );
+    }
 
-    final localEcho = graph.objects.where((object) {
-      if (!object.visible || object.editable) return false;
-      if (_normalized(object.text) != _normalized(context.draft)) return false;
-      return !context.preExistingDraftObjects.contains(_identity(object));
-    }).isNotEmpty;
-    if (localEcho) {
+    final outgoingDraftCount = _outgoingDraftObjects(
+      graph,
+      draftFingerprint: context.draftFingerprint,
+      composerCenterX: context.composerCenterX,
+      composerTop: context.composerTop,
+      outgoingOnRight: context.outgoingOnRight,
+    ).length;
+    if (outgoingDraftCount > context.preOutgoingDraftCount) {
       return const SendEvidence(
         SendEvidenceStatus.localSendVerified,
         'composer vaciado y nueva burbuja local saliente observada',
@@ -231,38 +265,57 @@ final class CommitGuard {
     );
   }
 
-  static bool _conversationVisible(
+  static NanoUiObject? _conversationObject(
     ScreenGraph graph,
     String conversation,
     NanoUiObject composer,
   ) {
     final target = _normalized(conversation);
-    if (target.isEmpty) return false;
-    return graph.objects.any((object) {
-      if (!object.visible || object.editable) return false;
-      if (object.bounds.bottom > composer.bounds.top) return false;
+    if (target.isEmpty) return null;
+    NanoUiObject? best;
+    for (final object in graph.objects) {
+      if (!object.visible || object.editable) continue;
+      if (object.bounds.bottom > composer.bounds.top) continue;
       final hay = _normalized(
         '${object.text} ${object.description} ${object.label}',
       );
-      return hay.contains(target);
-    });
+      if (!hay.contains(target)) continue;
+      if (best == null || object.bounds.top < best.bounds.top) {
+        best = object;
+      }
+    }
+    return best;
   }
 
-  static bool _conversationVisibleAfterSend(
+  static bool _conversationIdentityVisible(
     ScreenGraph graph,
-    String conversation,
-  ) {
-    final target = _normalized(conversation);
-    return target.isNotEmpty &&
-        graph.objects.any(
-          (object) =>
-              object.visible &&
-              !object.editable &&
-              _normalized(
-                '${object.text} ${object.description} ${object.label}',
-              ).contains(target),
-        );
-  }
+    ActionContext context,
+  ) => graph.objects.any(
+    (object) =>
+        object.visible &&
+        !object.editable &&
+        _identity(object) == context.conversationIdentity &&
+        _normalized(
+          '${object.text} ${object.description} ${object.label}',
+        ).contains(_normalized(context.conversation)),
+  );
+
+  static List<NanoUiObject> _outgoingDraftObjects(
+    ScreenGraph graph, {
+    required String draftFingerprint,
+    required int composerCenterX,
+    required int composerTop,
+    required bool outgoingOnRight,
+  }) => graph.objects.where((object) {
+    if (!object.visible || object.editable) return false;
+    if (object.bounds.bottom > composerTop) return false;
+    if (canonicalFingerprint(_normalized(object.text)) != draftFingerprint) {
+      return false;
+    }
+    return outgoingOnRight
+        ? object.bounds.centerX >= composerCenterX
+        : object.bounds.centerX <= composerCenterX;
+  }).toList(growable: false);
 
   static String _identity(NanoUiObject object) => canonicalFingerprint({
     'resourceId': object.resourceId,
