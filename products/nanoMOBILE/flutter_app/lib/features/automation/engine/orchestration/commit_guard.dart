@@ -306,23 +306,45 @@ final class CommitGuard {
     required int composerCenterX,
     required int composerTop,
     required bool outgoingOnRight,
-  }) => graph.objects.where((object) {
-    if (!object.visible || object.editable) return false;
-    if (object.bounds.bottom > composerTop) return false;
-    if (canonicalFingerprint(_normalized(object.text)) != draftFingerprint) {
-      return false;
-    }
-    return outgoingOnRight
-        ? object.bounds.centerX >= composerCenterX
-        : object.bounds.centerX <= composerCenterX;
-  }).toList(growable: false);
+  }) => graph.objects
+      .where((object) {
+        if (!object.visible || object.editable) return false;
+        if (object.bounds.bottom > composerTop) return false;
+        if (canonicalFingerprint(_normalized(object.text)) !=
+            draftFingerprint) {
+          return false;
+        }
+        return outgoingOnRight
+            ? object.bounds.centerX >= composerCenterX
+            : object.bounds.centerX <= composerCenterX;
+      })
+      .toList(growable: false);
 
-  static String _identity(NanoUiObject object) => canonicalFingerprint({
-    'resourceId': object.resourceId,
-    'nativeClass': object.nativeClass,
-    'bounds': object.bounds.toString(),
-    'sourceIndex': object.sourceIndex,
-  });
+  static String _identity(NanoUiObject object) {
+    // `sourceIndex` y bounds describen una captura, no la identidad del
+    // control: al insertar la burbuja enviada WhatsApp reordena el árbol y el
+    // compositor puede moverse unos píxeles aunque siga siendo el mismo nodo.
+    // Un resourceId observado dentro de la misma ventana es el ancla estable.
+    if (object.resourceId.isNotEmpty) {
+      return canonicalFingerprint({
+        'package': object.packageName,
+        'windowId': object.windowId,
+        'resourceId': object.resourceId,
+        'nativeClass': object.nativeClass,
+      });
+    }
+    // Fallback para controles sin id: conserva suficiente estructura sin usar
+    // el ordinal volátil del snapshot.
+    return canonicalFingerprint({
+      'package': object.packageName,
+      'windowId': object.windowId,
+      'root': object.rootIdentity,
+      'nativeClass': object.nativeClass,
+      'label': object.label,
+      'description': object.description,
+      'bounds': object.bounds.toString(),
+    });
+  }
 
   static String _graphSignature(ScreenGraph graph) => canonicalFingerprint({
     'package': graph.package,

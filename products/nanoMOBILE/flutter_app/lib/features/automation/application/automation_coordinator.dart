@@ -505,7 +505,11 @@ class AutomationCoordinator {
     final sw = Stopwatch()..start();
     final confirmed = options?.confirmed ?? false;
     final confirmation = options?.confirmation;
-    final executionId = options?.executionId ?? _newId();
+    // Una reanudación debe conservar la identidad firmada por el token. La UI
+    // solo necesita devolver la confirmación recibida; generar aquí un id
+    // nuevo hacía que el journal rechazara siempre su propio token.
+    final executionId =
+        options?.executionId ?? confirmation?.executionId ?? _newId();
 
     // Métricas C14 acumuladas a lo largo del camino (diagnóstico del planner).
     var cacheHit = false;

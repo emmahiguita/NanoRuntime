@@ -41,7 +41,11 @@ class AgentAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "nanoagent"
-        private const val MAX_DEPTH = 10
+        // UIs modernas como WhatsApp anidan barras y filas accionables por
+        // encima de 10 niveles. El límite de nodos sigue acotando el costo del
+        // snapshot; esta profundidad evita truncar evidencia útil antes de
+        // llegar a esos controles reales.
+        private const val MAX_DEPTH = 24
         private const val MAX_NODES = 800
     }
 

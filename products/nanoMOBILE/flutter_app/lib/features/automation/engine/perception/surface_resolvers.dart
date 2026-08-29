@@ -60,7 +60,11 @@ class InputSurfaceResolver {
     ScreenGraph graph, {
     InputSurfaceKind kind = InputSurfaceKind.any,
   }) {
-    if (graph.truncated) return null;
+    // Un snapshot truncado invalida una conclusión negativa, pero no una
+    // superficie positiva ya observada y anclada. Apps con árboles profundos
+    // (WhatsApp) pueden superar el límite en una rama irrelevante mientras el
+    // input buscado sí está presente. El ejecutor volverá a resolver el
+    // selector sobre un snapshot fresco y exigirá unicidad/actionability.
     final editables = graph.objects
         .where((o) => o.visible && o.editable)
         .toList(growable: false);
@@ -138,17 +142,28 @@ class ActionSurfaceResolver {
   ];
 
   ResolvedSurface? resolve(ScreenGraph graph, {String kind = 'send'}) {
-    if (graph.truncated) return null;
+    // Igual que en InputSurfaceResolver: la truncación impide afirmar
+    // ausencia, no descarta evidencia positiva ya observada. La acción final
+    // conserva re-resolución, estabilidad y actionability en el executor.
     final terms = kind == 'search' ? _searchTerms : _sendTerms;
 
     final buttons = graph.objects
         .where((o) {
-          if (!o.visible) return false;
-          if (o.role != SemanticRole.button &&
-              o.role != SemanticRole.iconButton) {
+          if (!o.visible || !o.enabled) return false;
+          final isSemanticButton =
+              o.role == SemanticRole.button ||
+              o.role == SemanticRole.iconButton;
+          // Algunas apps modernas (WhatsApp incluido) modelan la barra que
+          // abre la búsqueda como un contenedor clickable con hijos. El
+          // normalizador la clasifica correctamente como `card`, no como
+          // botón. Para `search` aceptamos esa superficie accionable siempre
+          // que tenga evidencia semántica explícita; para `send` mantenemos el
+          // contrato estricto de botón y evitamos tocar contenedores amplios.
+          if (!isSemanticButton && !(kind == 'search' && o.clickable)) {
             return false;
           }
-          final hay = '${o.label} ${o.text} ${o.description}'.toLowerCase();
+          final hay = '${o.label} ${o.text} ${o.description} ${o.resourceId}'
+              .toLowerCase();
           return terms.any(hay.contains);
         })
         .toList(growable: false);

@@ -46,6 +46,7 @@ const kSemanticActionRegistry = <String, SemanticActionDefinition>{
   'openApp': SemanticActionDefinition(
     inputs: ['package'],
     risk: SemanticActionRisk.navigation,
+    rebuildOnResume: true,
   ),
   'openUrl': SemanticActionDefinition(
     inputs: ['url'],
@@ -53,6 +54,7 @@ const kSemanticActionRegistry = <String, SemanticActionDefinition>{
   ),
   'openConversation': SemanticActionDefinition(
     risk: SemanticActionRisk.navigation,
+    rebuildOnResume: true,
   ),
   'writeMessage': SemanticActionDefinition(
     risk: SemanticActionRisk.reversibleWrite,
@@ -71,9 +73,7 @@ const kSemanticActionRegistry = <String, SemanticActionDefinition>{
     risk: SemanticActionRisk.reversibleWrite,
     replayPolicy: SemanticReplayPolicy.safeReplace,
   ),
-  'submitSearch': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-  ),
+  'submitSearch': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
   'selectResult': SemanticActionDefinition(
     inputs: ['ordinal', 'text'],
     risk: SemanticActionRisk.navigation,

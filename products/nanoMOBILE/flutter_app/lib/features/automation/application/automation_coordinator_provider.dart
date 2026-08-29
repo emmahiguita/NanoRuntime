@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
@@ -185,7 +186,31 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       resolveActionSurface: (kind) async {
         final g = await currentGraph();
         if (g == null) return null;
-        return const ActionSurfaceResolver().resolve(g, kind: kind)?.selector;
+        final surface = const ActionSurfaceResolver().resolve(g, kind: kind);
+        if (surface == null && kDebugMode) {
+          final candidates = g.objects
+              .where((object) {
+                final evidence =
+                    '${object.label} ${object.text} ${object.description} '
+                            '${object.resourceId}'
+                        .toLowerCase();
+                return evidence.contains('search') ||
+                    evidence.contains('buscar') ||
+                    evidence.contains('busca');
+              })
+              .map(
+                (object) =>
+                    '${object.role.name}|click=${object.clickable}|'
+                    'enabled=${object.enabled}|id=${object.resourceId}|'
+                    'text=${object.text}|desc=${object.description}',
+              );
+          debugPrint(
+            '[automation-surface] unresolved kind=$kind '
+            'package=${g.package} truncated=${g.truncated} '
+            'objects=${g.objects.length} candidates=${candidates.join(' || ')}',
+          );
+        }
+        return surface?.selector;
       },
       // T2.9-select — resolución grounded de un resultado observado
       // (ordinal/texto) desde el ScreenGraph real, nunca coordenadas.
