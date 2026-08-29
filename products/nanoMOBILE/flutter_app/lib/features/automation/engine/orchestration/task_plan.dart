@@ -6,6 +6,7 @@
 library;
 
 import '../governance/action_confirmation.dart';
+import 'task_step_vocabulary.dart';
 
 /// Referencia estable a un valor intermedio producido por un paso.
 final class TaskValueId {
@@ -107,8 +108,24 @@ final class TaskPlan {
   String? validate() {
     if (steps.isEmpty) return 'plan vacío';
     if (steps.length > maxSteps) return 'excede maxSteps=$maxSteps';
+    final semanticsError = validateSemantics(
+      steps.map((step) => step.semanticAction).toList(growable: false),
+    );
+    if (semanticsError != null) return semanticsError;
     final ids = steps.map((s) => s.id).toSet();
     if (ids.length != steps.length) return 'ids duplicados';
+
+    for (final step in steps) {
+      final definition = semanticActionDefinition(step.semanticAction)!;
+      for (final binding in step.inputBindings.entries) {
+        if (binding.value.paramName != binding.key) {
+          return 'binding inconsistente ${binding.key} en ${step.id}';
+        }
+        if (!definition.inputs.contains(binding.key)) {
+          return 'input no permitido ${binding.key} en ${step.semanticAction}';
+        }
+      }
+    }
 
     // Detección de ciclos por DFS (topológica simple).
     final visiting = <String>{};

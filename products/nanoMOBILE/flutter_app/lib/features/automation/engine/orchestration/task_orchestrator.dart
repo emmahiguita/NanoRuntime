@@ -15,6 +15,7 @@ import '../voice/execution_cancellation.dart';
 import 'commit_guard.dart';
 import 'execution_journal.dart';
 import 'task_plan.dart';
+import 'task_step_vocabulary.dart';
 
 typedef TaskOpenUrl =
     Future<TaskActionResult> Function(
@@ -190,9 +191,10 @@ class TaskOrchestrator {
     if (resumedEntry != null) {
       evidenceByStep.addAll(resumedEntry.evidenceByStep);
     }
-    final startIndex = validConfirmation ? confirmation.stepIndex : 0;
+    final startIndex = validConfirmation ? confirmation!.stepIndex : 0;
     if (journal != null && ordered.isNotEmpty && !validConfirmation) {
       final first = ordered[startIndex];
+      final firstDefinition = semanticActionDefinition(first.semanticAction)!;
       await journal.save(
         ExecutionJournalEntry(
           runId: runId,
@@ -201,7 +203,7 @@ class TaskOrchestrator {
           currentStep: startIndex,
           stepId: first.id,
           status: ExecutionJournalStatus.planned,
-          irreversible: _isIrreversible(first),
+          irreversible: firstDefinition.irreversible,
           actionSignature: _semanticActionSignature(
             planSignature: planSignature,
             step: first,
@@ -217,8 +219,8 @@ class TaskOrchestrator {
     // de pasos observacionales/puros necesarios por el paso confirmado.
     for (var index = 0; index < startIndex; index++) {
       final prior = ordered[index];
-      if (prior.semanticAction != 'readNotification' &&
-          prior.semanticAction != 'extractUrl') {
+      final priorDefinition = semanticActionDefinition(prior.semanticAction)!;
+      if (!priorDefinition.rebuildOnResume) {
         continue;
       }
       final rebuilt = await _runStep(prior, values, goalCtx);
@@ -258,7 +260,8 @@ class TaskOrchestrator {
         );
         break;
       }
-      final irreversible = _isIrreversible(step);
+      final definition = semanticActionDefinition(step.semanticAction)!;
+      final irreversible = definition.irreversible;
       final semanticActionSignature = _semanticActionSignature(
         planSignature: planSignature,
         step: step,
@@ -284,8 +287,8 @@ class TaskOrchestrator {
         values,
         goalCtx,
         confirmedActionSignature:
-            validConfirmation && stepIndex == confirmation.stepIndex
-            ? confirmation.actionSignature
+            validConfirmation && stepIndex == confirmation!.stepIndex
+            ? confirmation!.actionSignature
             : null,
       );
       if (result.status == TaskStepStatus.needsConfirmation &&
@@ -308,7 +311,7 @@ class TaskOrchestrator {
 
       while (!result.isCompleted &&
           result.isRecoverable &&
-          _mayReplay(step) &&
+          definition.replayPolicy == SemanticReplayPolicy.safeReplace &&
           attempts < maxAttemptsPerStep &&
           replans < maxReplansPerTask) {
         replans++;
@@ -382,20 +385,6 @@ class TaskOrchestrator {
     'action': step.semanticAction,
     'goal': goal,
   });
-
-  /// Repetir una acción solo es seguro para operaciones que reemplazan un
-  /// estado local conocido. Navegar, abrir recursos o enviar mensajes puede
-  /// haber surtido efecto aunque su verificación posterior haya sido incierta;
-  /// esos pasos se detienen y requieren una nueva decisión humana.
-  bool _mayReplay(TaskStep step) => switch (step.semanticAction) {
-    'writeFile' || 'writeMessage' || 'writeQuery' => true,
-    _ => false,
-  };
-
-  bool _isIrreversible(TaskStep step) => switch (step.semanticAction) {
-    'sendMessage' => true,
-    _ => false,
-  };
 
   ExecutionJournalStatus _journalStatus(TaskStepStatus status) =>
       switch (status) {
