@@ -18,6 +18,8 @@
 /// Puro: sin MethodChannel ni UI — testeable con fixtures.
 library;
 
+import '../governance/semantic_policy.dart';
+
 /// Riesgo de una herramienta. Orden creciente de impacto.
 enum ToolRisk { none, read, device, externalWrite }
 
@@ -27,16 +29,53 @@ enum ToolRisk { none, read, device, externalWrite }
 class ToolDefinition {
   const ToolDefinition({
     required this.name,
-    this.risk = ToolRisk.read,
-    this.requiresConfirmation = false,
+    ToolRisk? risk,
+    bool? requiresConfirmation,
+    bool? irreversible,
     this.timeout = const Duration(seconds: 10),
     this.description = '',
     this.promptSyntax,
-  });
+  }) : _riskOverride = risk,
+       _confirmationOverride = requiresConfirmation,
+       _irreversibleOverride = irreversible,
+       _usesCanonicalPolicy =
+           risk == null && requiresConfirmation == null && irreversible == null;
 
   final String name;
-  final ToolRisk risk;
-  final bool requiresConfirmation;
+  final ToolRisk? _riskOverride;
+  final bool? _confirmationOverride;
+  final bool? _irreversibleOverride;
+  final bool _usesCanonicalPolicy;
+
+  SemanticActionDefinition get semanticPolicy =>
+      automationSemanticPolicy(name) ??
+      const SemanticActionDefinition(risk: SemanticActionRisk.observation);
+
+  ToolRisk get risk =>
+      _riskOverride ??
+      (_usesCanonicalPolicy
+          ? switch (semanticPolicy.risk) {
+              SemanticActionRisk.observation => ToolRisk.read,
+              SemanticActionRisk.navigation => ToolRisk.device,
+              SemanticActionRisk.reversibleWrite ||
+              SemanticActionRisk.irreversibleCommit => ToolRisk.externalWrite,
+            }
+          : ToolRisk.read);
+
+  bool get requiresConfirmation =>
+      _confirmationOverride ??
+      (_usesCanonicalPolicy ? semanticPolicy.requiresConfirmation : false);
+
+  /// La acción puede producir un efecto externo no repetible o cuyo resultado
+  /// quede incierto. Debe reclamar el journal durable antes de ejecutar.
+  bool get irreversible =>
+      _irreversibleOverride ??
+      (_usesCanonicalPolicy ? semanticPolicy.irreversible : false);
+
+  SemanticReplayPolicy get replayPolicy => semanticPolicy.replayPolicy;
+  RequiredEvidence get requiredEvidence => semanticPolicy.requiredEvidence;
+  List<String> get requiredInputs => semanticPolicy.requiredInputs;
+  bool get requiresContextLock => semanticPolicy.requiresContextLock;
 
   /// Tiempo máximo de ejecución. Al vencer, la acción se cancela con
   /// feedback legible (nunca cuelga el turno del chat).
@@ -86,52 +125,44 @@ class ToolRegistry {
   static const List<ToolDefinition> _builtinDefs = [
     ToolDefinition(
       name: 'screen',
-      risk: ToolRisk.read,
       description: 'Leer la pantalla actual del dispositivo',
       promptSyntax: '{"tool":"screen"}',
     ),
     ToolDefinition(
       name: 'resolve',
-      risk: ToolRisk.read,
       description: 'Resolver un selector contra el árbol de accesibilidad',
       promptSyntax: '{"tool":"resolve","selector":"<selector>"}',
     ),
     ToolDefinition(
       name: 'tap',
-      risk: ToolRisk.device,
+      // Un tap genérico puede ser navegación o el botón de envío. Al no poder
+      // distinguirlo sin observar el contexto, se protege de forma conservadora.
       description: 'Tocar un elemento de la pantalla',
       promptSyntax: '{"tool":"tap","selector":"<selector>"}',
     ),
     ToolDefinition(
       name: 'back',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Presionar el botón atrás',
       promptSyntax: '{"tool":"back"}',
     ),
     ToolDefinition(
       name: 'launch_app',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 10),
       description: 'Abrir una aplicación instalada por su paquete Android',
     ),
     ToolDefinition(
       name: 'write',
-      risk: ToolRisk.externalWrite,
-      requiresConfirmation: true,
       description: 'Escribir texto en un campo de una aplicación',
       promptSyntax: '{"tool":"write","selector":"<selector>","text":"<texto>"}',
     ),
     ToolDefinition(
       name: 'notifications',
-      risk: ToolRisk.read,
       description: 'Leer las notificaciones activas del dispositivo',
       promptSyntax: '{"tool":"notifications"}',
     ),
     ToolDefinition(
       name: 'reply_notification',
-      risk: ToolRisk.externalWrite,
-      requiresConfirmation: true,
       description: 'Responder una notificación en una aplicación externa',
       promptSyntax:
           '{"tool":"reply_notification","key":"<key>","text":"<texto>"}',
@@ -141,26 +172,21 @@ class ToolRegistry {
     // destructivo: la política evalúa por comando en el dispatcher).
     ToolDefinition(
       name: 'linux.list',
-      risk: ToolRisk.read,
       timeout: Duration(seconds: 15),
       description: 'Listar archivos en el subsistema Linux',
     ),
     ToolDefinition(
       name: 'linux.readFile',
-      risk: ToolRisk.read,
       timeout: Duration(seconds: 15),
       description: 'Leer un archivo del subsistema Linux',
     ),
     ToolDefinition(
       name: 'linux.writeFile',
-      risk: ToolRisk.externalWrite,
-      requiresConfirmation: true,
       timeout: Duration(seconds: 20),
       description: 'Escribir un archivo en el subsistema Linux',
     ),
     ToolDefinition(
       name: 'linux.run',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 30),
       description: 'Ejecutar un comando en el subsistema Linux',
     ),
@@ -173,43 +199,36 @@ class ToolRegistry {
     // estado del dispositivo.
     ToolDefinition(
       name: 'home',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Ir a la pantalla de inicio',
     ),
     ToolDefinition(
       name: 'recents',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Abrir la vista de aplicaciones recientes',
     ),
     ToolDefinition(
       name: 'open_notifications',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Abrir la sombra de notificaciones',
     ),
     ToolDefinition(
       name: 'open_quick_settings',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Abrir los ajustes rápidos',
     ),
     ToolDefinition(
       name: 'swipe',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Deslizar entre dos puntos de la pantalla',
     ),
     ToolDefinition(
       name: 'scroll',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Desplazar la pantalla en una dirección',
     ),
     ToolDefinition(
       name: 'long_press',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Mantener pulsado un punto de la pantalla',
     ),
@@ -219,14 +238,12 @@ class ToolRegistry {
     // crudo de Intent inventable por el modelo.
     ToolDefinition(
       name: 'open_system',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 5),
       description: 'Abrir un destino de sistema allowlisted',
     ),
     // A14.9: abrir URL externa (solo http/https, validada en el nativo).
     ToolDefinition(
       name: 'open_url',
-      risk: ToolRisk.device,
       timeout: Duration(seconds: 10),
       description: 'Abrir una URL http/https en el navegador',
     ),
@@ -236,7 +253,6 @@ class ToolRegistry {
     // no inflar el prompt móvil.
     ToolDefinition(
       name: 'shizuku_query_package',
-      risk: ToolRisk.read,
       timeout: Duration(seconds: 15),
       description:
           'Consultar metadatos de un paquete con privilegios Shizuku (solo lectura)',
@@ -246,8 +262,6 @@ class ToolRegistry {
     // humana/planner, no LLM) para no inflar el prompt móvil.
     ToolDefinition(
       name: 'force_stop_package',
-      risk: ToolRisk.device,
-      requiresConfirmation: true,
       timeout: Duration(seconds: 15),
       description:
           'Detener una aplicación con privilegios Shizuku (reversible)',
@@ -256,16 +270,12 @@ class ToolRegistry {
     // cambia seguridad → externalWrite + confirmación obligatoria.
     ToolDefinition(
       name: 'install_package',
-      risk: ToolRisk.externalWrite,
-      requiresConfirmation: true,
       timeout: Duration(seconds: 60),
       description:
           'Instalar un APK local con privilegios Shizuku (irreversible)',
     ),
     ToolDefinition(
       name: 'grant_specific_permission',
-      risk: ToolRisk.externalWrite,
-      requiresConfirmation: true,
       timeout: Duration(seconds: 15),
       description: 'Conceder un permiso runtime a un paquete con Shizuku',
     ),
@@ -317,9 +327,11 @@ class PolicyEngine {
   /// Fuente semántica única para confirmación. Producción inyecta la política
   /// del modo actual; instancias aisladas conservan el metadata del registro.
   bool requiresConfirmation(String toolName) {
-    final tool = registry.lookup(toolName);
-    if (tool == null) return false;
-    return _confirmationPolicy?.call(tool.name) ?? tool.requiresConfirmation;
+    final canonicalName = registry.lookup(toolName)?.name ?? toolName;
+    final definition = automationSemanticPolicy(canonicalName);
+    if (definition == null) return false;
+    return _confirmationPolicy?.call(canonicalName) ??
+        definition.requiresConfirmation;
   }
 
   /// Decide sobre [toolName] con el contexto de uso actual.
@@ -334,12 +346,21 @@ class PolicyEngine {
     required int stepsUsed,
     bool humanInitiated = false,
     bool confirmed = false,
+    String? semanticAction,
   }) {
     final tool = registry.lookup(toolName);
     if (tool == null) {
       return PolicyDecision._(
         PolicyVerdict.denied,
         reason: 'Herramienta desconocida "$toolName": no está en el registro',
+      );
+    }
+    if (semanticAction != null &&
+        automationSemanticPolicy(semanticAction) == null) {
+      return PolicyDecision._(
+        PolicyVerdict.denied,
+        tool: tool,
+        reason: 'Semántica desconocida "$semanticAction": sin política',
       );
     }
     if (stepsUsed >= maxStepsPerTurn) {
@@ -353,15 +374,21 @@ class PolicyEngine {
     // back, launch) es necesario para completar una tarea y no debe duplicar
     // el diálogo que ya gobierna AutomationPolicy. Solo las tools marcadas de
     // forma explícita como sensibles requieren una aprobación autónoma.
+    // Una ejecución semántica ya fue validada por IntentFirewall y usa la
+    // política canónica de esa acción. Volver a sumar la política de la tool
+    // física convertiría una sola acción reversible en varias confirmaciones
+    // (p. ej. escribir el término de búsqueda y luego el borrador). Las llamadas
+    // crudas, sin semántica, conservan la política conservadora de la tool.
+    final policySubject = semanticAction ?? tool.name;
     final autonomousImpact =
-        !humanInitiated && requiresConfirmation(tool.name);
+        !humanInitiated && requiresConfirmation(policySubject);
     final needsConfirm = autonomousImpact && !confirmed;
     if (needsConfirm) {
       return PolicyDecision._(
         PolicyVerdict.needsConfirmation,
         tool: tool,
         reason:
-            '${tool.name} escribe en otra app — requiere confirmación '
+            '${semanticAction ?? tool.name} requiere confirmación '
             'del usuario',
       );
     }

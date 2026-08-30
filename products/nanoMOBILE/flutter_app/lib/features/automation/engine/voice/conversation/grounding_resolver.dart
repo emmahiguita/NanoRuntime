@@ -55,6 +55,10 @@ class GroundingResolver {
   /// Resuelve una referencia de voz a la entidad grounded del mundo activo.
   /// Devuelve la entidad (string) o null si no es resoluble de forma segura.
   String? resolve(String reference, ConversationalWorldState world) {
+    if (world.isStale) {
+      world.clear();
+      return null;
+    }
     final r = reference.toLowerCase().trim();
     if (r.isEmpty) return null;
 
@@ -107,6 +111,10 @@ class TranscriptResolver {
   /// transcript NO nombra un target explícito. Sin persona → sin cambio.
   String resolveTranscript(String transcript, ConversationalWorldState world) {
     final t = transcript.trim();
+    if (world.isStale) {
+      world.clear();
+      return t;
+    }
     final lower = t.toLowerCase();
     final hasVerb = _replyVerbs.any(lower.contains);
     if (!hasVerb) return t;

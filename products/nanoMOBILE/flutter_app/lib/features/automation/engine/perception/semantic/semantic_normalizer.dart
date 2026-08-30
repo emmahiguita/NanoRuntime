@@ -95,7 +95,7 @@ class SemanticNormalizer {
       return SemanticRole.list;
     }
     if (cls.contains('gridview')) return SemanticRole.grid;
-    if (cls.contains('toolbar')) return SemanticRole.toolbar;
+    if (_isToolbar(n, cls, hasChildren)) return SemanticRole.toolbar;
     if (cls.contains('webview')) return SemanticRole.unknown; // contenedor web
     // 3. heurística estructural.
     if (n.clickable && hasChildren) return SemanticRole.card;
@@ -164,8 +164,11 @@ class SemanticNormalizer {
       case SemanticRole.iconButton:
       case SemanticRole.image:
       case SemanticRole.list:
-      case SemanticRole.toolbar:
         return const [SemanticEvidenceSource.accessibilityClass];
+      case SemanticRole.toolbar:
+        return cls.contains('toolbar')
+            ? const [SemanticEvidenceSource.accessibilityClass]
+            : const [SemanticEvidenceSource.resourceId];
       case SemanticRole.card:
         return const [SemanticEvidenceSource.structure];
       case SemanticRole.text:
@@ -199,6 +202,13 @@ class SemanticNormalizer {
   }
 
   bool _hasClass(String cls, List<String> terms) => terms.any(cls.contains);
+
+  bool _isToolbar(NanoNode n, String cls, bool hasChildren) {
+    if (cls.contains('toolbar')) return true;
+    if (!hasChildren) return false;
+    final resourceName = n.id.toLowerCase().split('/').last;
+    return resourceName == 'toolbar';
+  }
 
   bool _isSearch(NanoNode n) {
     final hay = '${n.id} ${n.text} ${n.description}'.toLowerCase();

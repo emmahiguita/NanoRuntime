@@ -8,10 +8,18 @@ library;
 
 import '../notifications/notification_object.dart';
 import '../notifications/observed_data_extractor.dart';
+import '../navigation/goal_directed_navigator.dart';
+import '../navigation/navigation_decision.dart';
+import '../navigation/navigation_goal.dart';
+import '../navigation/navigation_history.dart';
+import '../navigation/navigation_transition_verifier.dart';
+import '../perception/current_situation.dart';
 import '../perception/search_result_resolver.dart';
 import '../planning/message_intent_parser.dart';
 import '../governance/action_confirmation.dart';
 import '../voice/execution_cancellation.dart';
+import 'automation_context.dart';
+import 'automation_run.dart';
 import 'commit_guard.dart';
 import 'execution_journal.dart';
 import 'task_plan.dart';
@@ -21,29 +29,48 @@ typedef TaskOpenUrl =
     Future<TaskActionResult> Function(
       String url, {
       String? confirmedActionSignature,
+      String? semanticAction,
     });
 typedef TaskWriteFile =
     Future<TaskActionResult> Function(
       String path,
       String content, {
       String? confirmedActionSignature,
+      String? semanticAction,
     });
 typedef TaskLaunchApp =
     Future<TaskActionResult> Function(
       String appName, {
       String? confirmedActionSignature,
+      String? semanticAction,
     });
 typedef TaskTap =
     Future<TaskActionResult> Function(
       String selector, {
       String? confirmedActionSignature,
+      String? semanticAction,
+      ExecutionJournalEntry? executionIntent,
     });
 typedef TaskWriteText =
     Future<TaskActionResult> Function(
       String selector,
       String text, {
       String? confirmedActionSignature,
+      String? semanticAction,
     });
+typedef TaskBack =
+    Future<TaskActionResult> Function({
+      String? confirmedActionSignature,
+      String? semanticAction,
+    });
+typedef TaskResolveAppPackage = Future<String?> Function(String appReference);
+
+bool _isUnresolvedCommit(ExecutionJournalStatus status) =>
+    status == ExecutionJournalStatus.executing ||
+    status == ExecutionJournalStatus.executed ||
+    status == ExecutionJournalStatus.verifying ||
+    status == ExecutionJournalStatus.completedUnverified ||
+    status == ExecutionJournalStatus.outcomeUnknown;
 
 class TaskOrchestrator {
   TaskOrchestrator({
@@ -53,6 +80,13 @@ class TaskOrchestrator {
     TaskLaunchApp? launchApp,
     TaskTap? tap,
     TaskWriteText? writeText,
+    TaskBack? back,
+    TaskResolveAppPackage? resolveAppPackage,
+    CurrentSituationSource? currentSituationSource,
+    AutomationMemorySource? memorySource,
+    GoalDirectedNavigator navigator = const GoalDirectedNavigator(),
+    NavigationTransitionVerifier transitionVerifier =
+        const NavigationTransitionVerifier(),
     Future<String?> Function()? resolveInputSurface,
     Future<String?> Function(String kind)? resolveInputSurfaceFor,
     Future<String?> Function(String kind)? resolveActionSurface,
@@ -69,6 +103,12 @@ class TaskOrchestrator {
        _launchApp = launchApp,
        _tap = tap,
        _writeText = writeText,
+       _back = back,
+       _resolveAppPackage = resolveAppPackage,
+       _currentSituationSource = currentSituationSource,
+       _memorySource = memorySource,
+       _navigator = navigator,
+       _transitionVerifier = transitionVerifier,
        _resolveInputSurfaceFor =
            resolveInputSurfaceFor ??
            (resolveInputSurface == null ? null : (_) => resolveInputSurface()),
@@ -87,6 +127,12 @@ class TaskOrchestrator {
   final TaskLaunchApp? _launchApp;
   final TaskTap? _tap;
   final TaskWriteText? _writeText;
+  final TaskBack? _back;
+  final TaskResolveAppPackage? _resolveAppPackage;
+  final CurrentSituationSource? _currentSituationSource;
+  final AutomationMemorySource? _memorySource;
+  final GoalDirectedNavigator _navigator;
+  final NavigationTransitionVerifier _transitionVerifier;
 
   /// Variante con intención explícita (`message`/`search`). La usan los flujos
   /// que mutan un campo para no confundir compositor y buscador.
@@ -117,6 +163,7 @@ class TaskOrchestrator {
   /// motivo (sin progreso) se detiene para evitar loops.
   Future<List<TaskStepResult>> run(
     TaskPlan plan, {
+    AutomationRun? run,
     ExecutionCancellationToken? cancel,
     ActionConfirmation? confirmation,
     String? executionId,
@@ -126,15 +173,45 @@ class TaskOrchestrator {
       return [TaskStepResult(status: TaskStepStatus.failed, reason: invalid)];
     }
 
+    if (run != null &&
+        (cancel != null || confirmation != null || executionId != null)) {
+      return const [
+        TaskStepResult(
+          status: TaskStepStatus.failed,
+          reason:
+              'ownership ambiguo: AutomationRun no puede combinarse con estado legacy',
+          failureKind: TaskFailureKind.terminal,
+        ),
+      ];
+    }
+    final activeRun =
+        run ??
+        AutomationRun(
+          executionId: executionId ?? confirmation?.executionId ?? _newRunId(),
+          goal: plan.goal,
+          confirmation: confirmation,
+          cancellation: cancel,
+        );
+    if (activeRun.goal != plan.goal) {
+      return const [
+        TaskStepResult(
+          status: TaskStepStatus.failed,
+          reason: 'AutomationRun y TaskPlan pertenecen a objetivos distintos',
+          failureKind: TaskFailureKind.terminal,
+        ),
+      ];
+    }
+    activeRun.beginPlanning();
+    final presentedConfirmation = activeRun.confirmation;
+
     final values = <TaskValueId, TaskValue>{};
     final results = <TaskStepResult>[];
-    final evidenceByStep = <String, RequiredEvidence>{};
     var replans = 0;
-    final goalCtx = _parseGoal(plan.goal);
+    final conversation = _parseGoal(plan.goal);
 
     final ordered = plan.ordered;
     final planSignature = _planSignature(plan, ordered);
-    final runId = executionId ?? confirmation?.executionId ?? _newRunId();
+    final runId = activeRun.executionId;
     final goalFingerprint = canonicalFingerprint(plan.goal);
     final journal = _journal;
     if (journal != null) {
@@ -143,14 +220,14 @@ class TaskOrchestrator {
         (entry) =>
             entry.goalFingerprint == goalFingerprint &&
             entry.irreversible &&
-            entry.status == ExecutionJournalStatus.outcomeUnknown,
+            (_isUnresolvedCommit(entry.status)),
       );
       if (unresolved.isNotEmpty) {
         return const [
           TaskStepResult(
             status: TaskStepStatus.outcomeUnknown,
             reason:
-                'existe un commit irreversible interrumpido para este objetivo; '
+                'existe un commit irreversible activo o incierto para este objetivo; '
                 'se requiere reconciliación antes de repetir',
             failureKind: TaskFailureKind.terminal,
           ),
@@ -159,26 +236,27 @@ class TaskOrchestrator {
     }
     var validConfirmation = false;
     ExecutionJournalEntry? resumedEntry;
-    if (confirmation != null &&
-        confirmation.executionId == runId &&
-        confirmation.planSignature == planSignature &&
-        confirmation.stepIndex >= 0 &&
-        confirmation.stepIndex < ordered.length &&
-        confirmation.stepId == ordered[confirmation.stepIndex].id) {
+    if (presentedConfirmation != null &&
+        presentedConfirmation.executionId == runId &&
+        presentedConfirmation.planSignature == planSignature &&
+        presentedConfirmation.stepIndex >= 0 &&
+        presentedConfirmation.stepIndex < ordered.length &&
+        presentedConfirmation.stepId ==
+            ordered[presentedConfirmation.stepIndex].id) {
       if (journal != null) {
-        resumedEntry = await journal.consumeConfirmation(confirmation);
+        resumedEntry = await journal.consumeConfirmation(presentedConfirmation);
         validConfirmation = resumedEntry != null;
       } else {
-        validConfirmation = confirmation.consumeIfAuthorizes(
+        validConfirmation = presentedConfirmation.consumeIfAuthorizes(
           executionId: runId,
           planSignature: planSignature,
-          stepIndex: confirmation.stepIndex,
-          stepId: ordered[confirmation.stepIndex].id,
-          actionSignature: confirmation.actionSignature,
+          stepIndex: presentedConfirmation.stepIndex,
+          stepId: ordered[presentedConfirmation.stepIndex].id,
+          actionSignature: presentedConfirmation.actionSignature,
         );
       }
     }
-    if (confirmation != null && !validConfirmation) {
+    if (presentedConfirmation != null && !validConfirmation) {
       return const [
         TaskStepResult(
           status: TaskStepStatus.denied,
@@ -189,32 +267,9 @@ class TaskOrchestrator {
       ];
     }
     if (resumedEntry != null) {
-      evidenceByStep.addAll(resumedEntry.evidenceByStep);
+      activeRun.restoreEvidence(resumedEntry.evidenceByStep);
     }
-    final startIndex = validConfirmation ? confirmation!.stepIndex : 0;
-    if (journal != null && ordered.isNotEmpty && !validConfirmation) {
-      final first = ordered[startIndex];
-      final firstDefinition = semanticActionDefinition(first.semanticAction)!;
-      await journal.save(
-        ExecutionJournalEntry(
-          runId: runId,
-          planSignature: planSignature,
-          goalFingerprint: goalFingerprint,
-          currentStep: startIndex,
-          stepId: first.id,
-          status: ExecutionJournalStatus.planned,
-          irreversible: firstDefinition.irreversible,
-          actionSignature: _semanticActionSignature(
-            planSignature: planSignature,
-            step: first,
-            goal: plan.goal,
-          ),
-          verificationState: 'plan validado; acción aún no iniciada',
-          timestamp: DateTime.now().toUtc(),
-        ),
-      );
-    }
-
+    final startIndex = validConfirmation ? presentedConfirmation!.stepIndex : 0;
     // Al reanudar no se repiten acciones previas. Solo se reconstruyen valores
     // de pasos observacionales/puros necesarios por el paso confirmado.
     for (var index = 0; index < startIndex; index++) {
@@ -223,12 +278,23 @@ class TaskOrchestrator {
       if (!priorDefinition.rebuildOnResume) {
         continue;
       }
-      final rebuilt = await _runStep(prior, values, goalCtx);
+      activeRun.enterStep(index);
+      final rebuiltContext = await _captureDecisionContext(
+        run: activeRun,
+        step: prior,
+        values: values,
+        conversation: conversation,
+      );
+      final rebuilt = await _runStep(
+        prior,
+        rebuiltContext,
+        navigationHistory: activeRun.navigationHistory,
+      );
       results.add(rebuilt);
       if (rebuilt.isFailure) return results;
       final rebuiltEvidence = rebuilt.evidence;
       if (rebuiltEvidence != null) {
-        evidenceByStep[prior.id] = rebuiltEvidence;
+        activeRun.recordEvidence(prior.id, rebuiltEvidence);
       }
       if (prior.produces != null && rebuilt.output != null) {
         values[prior.produces!] = rebuilt.output!;
@@ -237,19 +303,9 @@ class TaskOrchestrator {
 
     for (var stepIndex = startIndex; stepIndex < ordered.length; stepIndex++) {
       final step = ordered[stepIndex];
-      final insufficient = _insufficientDependency(step, evidenceByStep);
-      if (insufficient != null) {
-        final blocked = TaskStepResult(
-          status: TaskStepStatus.needsMoreEvidence,
-          reason: insufficient,
-          failureKind: TaskFailureKind.terminal,
-        );
-        results.add(blocked);
-        break;
-      }
       // A16 — cancelación cooperativa: aborta ANTES del siguiente paso.
       try {
-        cancel?.throwIfCancelled();
+        activeRun.cancellation.throwIfCancelled();
       } on ExecutionCancelled {
         results.add(
           const TaskStepResult(
@@ -260,35 +316,127 @@ class TaskOrchestrator {
         );
         break;
       }
+      activeRun.enterStep(stepIndex);
+      var decisionContext = await _captureDecisionContext(
+        run: activeRun,
+        step: step,
+        values: values,
+        conversation: conversation,
+      );
+      final insufficient = _insufficientDependency(
+        step,
+        decisionContext.evidence,
+      );
+      if (insufficient != null) {
+        final blocked = TaskStepResult(
+          status: TaskStepStatus.needsMoreEvidence,
+          reason: insufficient,
+          failureKind: TaskFailureKind.terminal,
+        );
+        results.add(blocked);
+        break;
+      }
       final definition = semanticActionDefinition(step.semanticAction)!;
+      if (definition.requiresContextLock && _commitGuard == null) {
+        results.add(
+          TaskStepResult(
+            status: TaskStepStatus.needsMoreEvidence,
+            reason:
+                '${step.semanticAction} requiere ContextLock según la política semántica',
+            failureKind: TaskFailureKind.terminal,
+          ),
+        );
+        break;
+      }
       final irreversible = definition.irreversible;
       final semanticActionSignature = _semanticActionSignature(
         planSignature: planSignature,
         step: step,
         goal: plan.goal,
       );
-      await journal?.save(
-        ExecutionJournalEntry(
-          runId: runId,
-          planSignature: planSignature,
-          goalFingerprint: goalFingerprint,
-          currentStep: stepIndex,
-          stepId: step.id,
-          status: ExecutionJournalStatus.executing,
-          irreversible: irreversible,
-          actionSignature: semanticActionSignature,
-          verificationState: 'acción iniciada',
-          timestamp: DateTime.now().toUtc(),
-          evidenceByStep: Map.unmodifiable(evidenceByStep),
+      final plannedEntry = ExecutionJournalEntry(
+        runId: runId,
+        planSignature: planSignature,
+        goalFingerprint: goalFingerprint,
+        currentStep: stepIndex,
+        stepId: step.id,
+        status: ExecutionJournalStatus.planned,
+        irreversible: irreversible,
+        actionSignature: semanticActionSignature,
+        verificationState: 'plan validado; acción aún no iniciada',
+        timestamp: DateTime.now().toUtc(),
+        evidenceByStep: decisionContext.evidence,
+      );
+      final confirmedStep =
+          validConfirmation && stepIndex == presentedConfirmation!.stepIndex;
+      ExecutionJournalEntry? executionIntent;
+      if (irreversible) {
+        if (journal == null) {
+          results.add(
+            const TaskStepResult(
+              status: TaskStepStatus.denied,
+              reason:
+                  'acción irreversible bloqueada: no hay journal durable disponible',
+              failureKind: TaskFailureKind.terminal,
+            ),
+          );
+          break;
+        }
+        try {
+          if (confirmedStep) {
+            executionIntent = resumedEntry;
+          } else {
+            await journal.save(plannedEntry);
+            if (!definition.requiresConfirmation) {
+              executionIntent = plannedEntry.copyWith(
+                status: ExecutionJournalStatus.authorized,
+                verificationState:
+                    'política satisfecha; acción aún no iniciada',
+                timestamp: DateTime.now().toUtc(),
+              );
+              await journal.save(executionIntent);
+            }
+          }
+          if (confirmedStep && executionIntent == null) {
+            results.add(
+              const TaskStepResult(
+                status: TaskStepStatus.denied,
+                reason:
+                    'la confirmación no produjo una intención durable autorizada',
+                failureKind: TaskFailureKind.terminal,
+              ),
+            );
+            break;
+          }
+        } on Object catch (error) {
+          results.add(
+            TaskStepResult(
+              status: TaskStepStatus.denied,
+              reason:
+                  'acción irreversible bloqueada antes de ejecutar: journal no disponible ($error)',
+              failureKind: TaskFailureKind.terminal,
+            ),
+          );
+          break;
+        }
+      } else {
+        await journal?.save(plannedEntry);
+      }
+      final decisionJournal = executionIntent ?? plannedEntry;
+      decisionContext = decisionContext.withExecution(
+        AutomationExecutionSnapshot.fromRun(
+          activeRun,
+          journalEntry: decisionJournal,
         ),
+        capturedAt: DateTime.now().toUtc(),
       );
       var result = await _runStep(
         step,
-        values,
-        goalCtx,
-        confirmedActionSignature:
-            validConfirmation && stepIndex == confirmation!.stepIndex
-            ? confirmation!.actionSignature
+        decisionContext,
+        navigationHistory: activeRun.navigationHistory,
+        executionIntent: executionIntent,
+        confirmedActionSignature: confirmedStep
+            ? presentedConfirmation.actionSignature
             : null,
       );
       if (result.status == TaskStepStatus.needsConfirmation &&
@@ -306,19 +454,48 @@ class TaskOrchestrator {
             actionSignature: result.pendingActionSignature!,
           ),
         );
+        activeRun.waitForConfirmation(result.confirmation!);
       }
       var attempts = 1;
+      final navigationStep = step.semanticAction == 'openConversation';
+      final attemptLimit = navigationStep
+          ? activeRun.navigationHistory.budget.maxNavigationSteps + 1
+          : maxAttemptsPerStep;
 
       while (!result.isCompleted &&
           result.isRecoverable &&
           definition.replayPolicy == SemanticReplayPolicy.safeReplace &&
-          attempts < maxAttemptsPerStep &&
-          replans < maxReplansPerTask) {
-        replans++;
+          attempts < attemptLimit &&
+          (navigationStep || replans < maxReplansPerTask)) {
+        try {
+          activeRun.cancellation.throwIfCancelled();
+        } on ExecutionCancelled {
+          result = const TaskStepResult(
+            status: TaskStepStatus.failed,
+            reason: 'cancelado por el usuario durante recuperación',
+            failureKind: TaskFailureKind.terminal,
+          );
+          break;
+        }
+        if (!navigationStep) replans++;
         attempts++;
-        final next = await _runStep(step, values, goalCtx);
-        // Detección de loop: mismo motivo sin progreso → detener.
-        if (next.reason == result.reason && !next.isCompleted) {
+        final retryContext = await _captureDecisionContext(
+          run: activeRun,
+          step: step,
+          values: values,
+          conversation: conversation,
+          journalEntry: decisionJournal,
+        );
+        final next = await _runStep(
+          step,
+          retryContext,
+          navigationHistory: activeRun.navigationHistory,
+        );
+        // Los pasos no navegacionales conservan el guard previo. Navegación
+        // usa firmas de situación observada en NavigationHistory.
+        if (!navigationStep &&
+            next.reason == result.reason &&
+            !next.isCompleted) {
           result = next;
           break;
         }
@@ -327,24 +504,37 @@ class TaskOrchestrator {
 
       final finalEvidence = result.evidence;
       if (finalEvidence != null) {
-        evidenceByStep[step.id] = finalEvidence;
+        activeRun.recordEvidence(step.id, finalEvidence);
       }
-      await journal?.save(
-        ExecutionJournalEntry(
-          runId: runId,
-          planSignature: planSignature,
-          goalFingerprint: goalFingerprint,
-          currentStep: stepIndex,
-          stepId: step.id,
-          status: _journalStatus(result.status),
-          irreversible: irreversible,
-          actionSignature: semanticActionSignature,
-          verificationState: result.reason,
-          timestamp: DateTime.now().toUtc(),
-          pendingConfirmation: result.confirmation,
-          evidenceByStep: Map.unmodifiable(evidenceByStep),
-        ),
-      );
+      if (result.status != TaskStepStatus.needsConfirmation) {
+        activeRun.beginVerification();
+      }
+      try {
+        await journal?.save(
+          ExecutionJournalEntry(
+            runId: runId,
+            planSignature: planSignature,
+            goalFingerprint: goalFingerprint,
+            currentStep: stepIndex,
+            stepId: step.id,
+            status: _journalStatus(result.status),
+            irreversible: irreversible,
+            actionSignature: semanticActionSignature,
+            verificationState: result.reason,
+            timestamp: DateTime.now().toUtc(),
+            pendingConfirmation: result.confirmation,
+            evidenceByStep: activeRun.evidenceSnapshot,
+          ),
+        );
+      } on Object catch (error) {
+        if (!irreversible) rethrow;
+        result = TaskStepResult(
+          status: TaskStepStatus.outcomeUnknown,
+          reason:
+              'la acción pudo ejecutarse, pero no se pudo cerrar el journal ($error); no debe repetirse',
+          failureKind: TaskFailureKind.terminal,
+        );
+      }
       results.add(result);
       if (result.isFailure) break;
       if (step.produces != null && result.output != null) {
@@ -352,6 +542,92 @@ class TaskOrchestrator {
       }
     }
     return results;
+  }
+
+  Future<AutomationContext> _captureDecisionContext({
+    required AutomationRun run,
+    required TaskStep step,
+    required Map<TaskValueId, TaskValue> values,
+    required AutomationConversationSnapshot conversation,
+    ExecutionJournalEntry? journalEntry,
+  }) async {
+    var notifications = const <NotificationObject>[];
+    String? notificationFailure;
+    final needsNotifications =
+        step.semanticAction == 'readNotification' ||
+        ((step.semanticAction == 'openApp' ||
+                step.semanticAction == 'openConversation') &&
+            conversation.appName.isEmpty &&
+            conversation.target.isNotEmpty);
+    if (needsNotifications) {
+      try {
+        notifications = [
+          for (final map in (await _listNotifications()).whereType<Map>())
+            NotificationObject.fromMap(map.cast<dynamic, dynamic>()),
+        ];
+      } on Object catch (error) {
+        notificationFailure = 'no se pudieron leer notificaciones: $error';
+      }
+    }
+
+    AutomationPerceptionSnapshot perception =
+        const AutomationPerceptionSnapshot.notRequired();
+    if (step.semanticAction == 'openConversation') {
+      final observe = _currentSituationSource;
+      if (observe == null) {
+        perception = const AutomationPerceptionSnapshot.unavailable(
+          'sin fuente de situación actual para navegar',
+        );
+      } else {
+        try {
+          final situation = await observe();
+          if (situation == null ||
+              !situation.hasStructuralEvidence ||
+              situation.packageName.isEmpty) {
+            perception = const AutomationPerceptionSnapshot.unavailable(
+              'situación actual ausente o sin evidencia estructural',
+            );
+          } else {
+            perception = AutomationPerceptionSnapshot.observed(situation);
+          }
+        } on Object catch (error) {
+          perception = AutomationPerceptionSnapshot.unavailable(
+            'no se pudo observar la situación actual: $error',
+          );
+        }
+      }
+    }
+
+    final memory = _memorySource?.call();
+    final targetConcept = conversation.target.isNotEmpty
+        ? conversation.target
+        : conversation.query.isNotEmpty
+        ? conversation.query
+        : conversation.appName;
+    return AutomationContext(
+      goal: run.goal,
+      decisionStepId: step.id,
+      execution: AutomationExecutionSnapshot.fromRun(
+        run,
+        journalEntry: journalEntry,
+      ),
+      world: AutomationWorldSnapshot(
+        values,
+        notifications: notifications,
+        notificationFailure: notificationFailure,
+      ),
+      perception: perception,
+      conversation: conversation,
+      relevantMemory: memory == null
+          ? null
+          : RelevantAutomationMemory(
+              objectMemory: memory,
+              targetConcept: targetConcept,
+              packageName: perception.situation?.packageName ?? '',
+            ),
+      evidence: run.evidenceSnapshot,
+      capturedAt: DateTime.now().toUtc(),
+    );
   }
 
   String? _insufficientDependency(
@@ -401,13 +677,16 @@ class TaskOrchestrator {
 
   Future<TaskStepResult> _runStep(
     TaskStep step,
-    Map<TaskValueId, TaskValue> values,
-    _GoalContext goal, {
+    AutomationContext context, {
+    required NavigationHistory navigationHistory,
     String? confirmedActionSignature,
+    ExecutionJournalEntry? executionIntent,
   }) async {
+    final values = context.world.values;
+    final goal = context.conversation;
     switch (step.semanticAction) {
       case 'readNotification':
-        return _readNotification();
+        return _readNotification(context);
       case 'extractUrl':
         return _extractUrl(step, values);
       case 'writeFile':
@@ -424,12 +703,15 @@ class TaskOrchestrator {
         );
       case 'openApp':
         return _openApp(
+          context,
           goal,
           confirmedActionSignature: confirmedActionSignature,
         );
       case 'openConversation':
         return _openConversation(
+          context,
           goal,
+          navigationHistory: navigationHistory,
           confirmedActionSignature: confirmedActionSignature,
         );
       case 'writeMessage':
@@ -441,6 +723,7 @@ class TaskOrchestrator {
         return _sendMessage(
           goal,
           confirmedActionSignature: confirmedActionSignature,
+          executionIntent: executionIntent,
         );
       case 'writeQuery':
         return _writeQuery(
@@ -465,20 +748,25 @@ class TaskOrchestrator {
     }
   }
 
-  Future<TaskStepResult> _readNotification() async {
-    final raw = await _listNotifications();
-    final maps = raw.whereType<Map>().toList();
-    if (maps.isEmpty) {
+  TaskStepResult _readNotification(AutomationContext context) {
+    final failure = context.world.notificationFailure;
+    if (failure != null) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: failure,
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final notifications = context.world.notifications;
+    if (notifications.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
         reason: 'sin notificaciones activas',
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final first = maps.first;
-    final text = '${first['messageText'] ?? ''}'.isNotEmpty
-        ? '${first['messageText']}'
-        : '${first['text'] ?? ''}';
+    final first = notifications.first;
+    final text = first.messageText.isNotEmpty ? first.messageText : first.text;
     return TaskStepResult(
       status: TaskStepStatus.completed,
       reason: 'notificación más reciente leída',
@@ -533,6 +821,7 @@ class TaskOrchestrator {
       path,
       value.url,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'writeFile',
     );
     return _stepFromAction(
       action,
@@ -559,6 +848,7 @@ class TaskOrchestrator {
     final action = await _openUrl(
       value.url,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'openUrl',
     );
     return _stepFromAction(
       action,
@@ -570,14 +860,23 @@ class TaskOrchestrator {
   // ── A15.4 — pasos UI (delegan al dispatcher/ScreenGraph) ──────────────────
 
   Future<TaskStepResult> _openApp(
-    _GoalContext goal, {
+    AutomationContext context,
+    AutomationConversationSnapshot goal, {
     String? confirmedActionSignature,
   }) async {
     // T2.8: si el objetivo no nombra la app ("escríbele a Juan"), derivarla de
     // la notificación activa cuyo sender/conversación matchea el target. El
     // package sale de la evidencia real, nunca se inventa. Sin app derivable →
     // needsMoreEvidence honesto (el humano/planner aclara en qué app).
-    final app = await _resolveMessagingApp(goal);
+    final notificationFailure = context.world.notificationFailure;
+    if (goal.appName.isEmpty && notificationFailure != null) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: notificationFailure,
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final app = _resolveMessagingApp(context, goal);
     if (app == null || app.isEmpty) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
@@ -596,6 +895,7 @@ class TaskOrchestrator {
     final action = await launch(
       app,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'openApp',
     );
     return _stepFromAction(
       action,
@@ -607,13 +907,14 @@ class TaskOrchestrator {
   /// Deriva la app de mensajería a abrir: el nombre explícito del objetivo si
   /// existe; si no, el packageName de la notificación activa que matchea el
   /// target (sender/conversationTitle/title). null = sin evidencia.
-  Future<String?> _resolveMessagingApp(_GoalContext goal) async {
+  String? _resolveMessagingApp(
+    AutomationContext context,
+    AutomationConversationSnapshot goal,
+  ) {
     if (goal.appName.isNotEmpty) return goal.appName;
     if (goal.target.isEmpty) return null;
 
-    final raw = await _listNotifications();
-    for (final m in raw.whereType<Map>()) {
-      final n = NotificationObject.fromMap(m.cast<dynamic, dynamic>());
+    for (final n in context.world.notifications) {
       if (n.packageName.isEmpty) continue;
       if (n.matchesRecipient(goal.target)) return n.packageName;
     }
@@ -621,7 +922,9 @@ class TaskOrchestrator {
   }
 
   Future<TaskStepResult> _openConversation(
-    _GoalContext goal, {
+    AutomationContext context,
+    AutomationConversationSnapshot goal, {
+    required NavigationHistory navigationHistory,
     String? confirmedActionSignature,
   }) async {
     if (goal.target.isEmpty) {
@@ -631,117 +934,209 @@ class TaskOrchestrator {
         failureKind: TaskFailureKind.terminal,
       );
     }
-    final tap = _tap;
-    if (tap == null) {
+    final resolveAppPackage = _resolveAppPackage;
+    if (resolveAppPackage == null) {
       return const TaskStepResult(
         status: TaskStepStatus.needsMoreEvidence,
-        reason: 'sin fuente de tap',
+        reason: 'sin catálogo para resolver el paquete de navegación',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final String? appReference;
+    final notificationFailure = context.world.notificationFailure;
+    if (goal.appName.isEmpty && notificationFailure != null) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: notificationFailure,
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    appReference = _resolveMessagingApp(context, goal);
+    if (appReference == null || appReference.isEmpty) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin app grounded para la conversación objetivo',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final String? targetPackage;
+    try {
+      targetPackage = await resolveAppPackage(appReference);
+    } on Object catch (error) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'no se pudo resolver el paquete objetivo: $error',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    if (targetPackage == null || targetPackage.isEmpty) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'app objetivo ausente o ambigua en el catálogo instalado',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final current = context.perception.situation;
+    if (!context.perception.isObserved || current == null) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            context.perception.reason ??
+            'situación actual ausente o sin evidencia estructural',
         failureKind: TaskFailureKind.terminal,
       );
     }
 
-    // T2.9 — ruta directa: la conversación ya está visible como texto.
-    final direct = await tap(
-      'text=${goal.target}',
-      confirmedActionSignature: confirmedActionSignature,
+    final navigationGoal = NavigationGoal(
+      targetPackage: targetPackage,
+      targetSurface: CurrentSurfaceKind.editable,
+      targetEntity: goal.target,
     );
-    if (direct.completed) {
-      return const TaskStepResult(
-        status: TaskStepStatus.completed,
-        reason: 'conversación abierta',
+    final decision = _navigator.decide(current, navigationGoal);
+    final transition = _transitionVerifier.verify(
+      history: navigationHistory,
+      current: current,
+      goal: navigationGoal,
+      decision: decision,
+    );
+    final progress = navigationHistory.assess(
+      situation: current,
+      goal: navigationGoal,
+      decision: decision,
+      transitionUnchanged: transition.isUnchanged,
+    );
+    if (!progress.mayAct) {
+      return TaskStepResult(
+        status: TaskStepStatus.failed,
+        reason: progress.reason,
+        failureKind: TaskFailureKind.terminal,
       );
     }
-    if (!direct.mayFallback) {
-      return _stepFromAction(
-        direct,
-        completedReason: 'conversación abierta',
-        recoverable: true,
+    switch (decision.status) {
+      case NavigationDecisionStatus.arrived:
+        return TaskStepResult(
+          status: TaskStepStatus.completed,
+          reason: '${decision.reason}; ${transition.reason}',
+        );
+      case NavigationDecisionStatus.needsMoreEvidence:
+        return TaskStepResult(
+          status: TaskStepStatus.needsMoreEvidence,
+          reason: '${decision.reason}; ${transition.reason}',
+          failureKind: TaskFailureKind.terminal,
+        );
+      case NavigationDecisionStatus.act:
+        return _executeNavigationDecision(
+          decision,
+          current: current,
+          goal: navigationGoal,
+          navigationHistory: navigationHistory,
+          confirmedActionSignature: confirmedActionSignature,
+        );
+    }
+  }
+
+  Future<TaskStepResult> _executeNavigationDecision(
+    NavigationDecision decision, {
+    required CurrentSituation current,
+    required NavigationGoal goal,
+    required NavigationHistory navigationHistory,
+    String? confirmedActionSignature,
+  }) async {
+    final action = decision.action!;
+    final TaskActionResult result;
+    switch (action.kind) {
+      case NavigationActionKind.launchPackage:
+        final launch = _launchApp;
+        if (launch == null) {
+          return const TaskStepResult(
+            status: TaskStepStatus.needsMoreEvidence,
+            reason: 'sin fuente para abrir el paquete decidido',
+            failureKind: TaskFailureKind.terminal,
+          );
+        }
+        result = await launch(
+          action.packageName!,
+          confirmedActionSignature: confirmedActionSignature,
+          semanticAction: 'openConversation',
+        );
+      case NavigationActionKind.tap:
+        final tap = _tap;
+        if (tap == null) {
+          return const TaskStepResult(
+            status: TaskStepStatus.needsMoreEvidence,
+            reason: 'sin fuente de tap para la decisión de navegación',
+            failureKind: TaskFailureKind.terminal,
+          );
+        }
+        result = await tap(
+          action.selector!,
+          confirmedActionSignature: confirmedActionSignature,
+          semanticAction: 'openConversation',
+        );
+      case NavigationActionKind.write:
+        final write = _writeText;
+        if (write == null) {
+          return const TaskStepResult(
+            status: TaskStepStatus.needsMoreEvidence,
+            reason: 'sin fuente de escritura para la decisión de navegación',
+            failureKind: TaskFailureKind.terminal,
+          );
+        }
+        result = await write(
+          action.selector!,
+          action.text!,
+          confirmedActionSignature: confirmedActionSignature,
+          semanticAction: 'openConversation',
+        );
+      case NavigationActionKind.back:
+        final back = _back;
+        if (back == null) {
+          return const TaskStepResult(
+            status: TaskStepStatus.needsMoreEvidence,
+            reason: 'sin fuente de back para la decisión de navegación',
+            failureKind: TaskFailureKind.terminal,
+          );
+        }
+        result = await back(
+          confirmedActionSignature: confirmedActionSignature,
+          semanticAction: 'openConversation',
+        );
+    }
+
+    if (result.status != TaskActionStatus.needsConfirmation &&
+        result.status != TaskActionStatus.denied) {
+      navigationHistory.recordAttempted(
+        situation: current,
+        goal: goal,
+        decision: decision,
       );
     }
 
-    // T2.9 — fallback de búsqueda: localizar la conversación vía la superficie
-    // de búsqueda de la app (icono → campo → escribir → resultado). Sin fuentes
-    // de búsqueda se reporta fallo recoverable, nunca se inventa nada.
-    final resolveSearchInput = _resolveInputSurfaceFor;
-    final resolveAction = _resolveActionSurface;
-    final write = _writeText;
-    if (resolveSearchInput == null || resolveAction == null || write == null) {
-      return const TaskStepResult(
+    if (result.status == TaskActionStatus.completed) {
+      return TaskStepResult(
         status: TaskStepStatus.failed,
-        reason: 'conversación no visible y sin búsqueda disponible',
+        reason:
+            '${decision.reason}; acción ejecutada, requiere nueva observación',
         failureKind: TaskFailureKind.recoverable,
       );
     }
-
-    // 1. Si ya hay un campo de búsqueda semántico, usarlo. De lo contrario,
-    // abrirlo y comprobar que apareció antes de escribir. No se degrada al
-    // compositor: eso podría convertir el nombre del contacto en un mensaje.
-    var input = await resolveSearchInput('search');
-    if (input == null || input.isEmpty) {
-      final searchIcon = await resolveAction('search');
-      if (searchIcon == null || searchIcon.isEmpty) {
-        return const TaskStepResult(
-          status: TaskStepStatus.failed,
-          reason: 'sin icono ni campo de búsqueda identificable',
-          failureKind: TaskFailureKind.recoverable,
-        );
-      }
-      final openSearch = await tap(
-        searchIcon,
-        confirmedActionSignature: confirmedActionSignature,
-      );
-      if (!openSearch.completed) {
-        return _stepFromAction(
-          openSearch,
-          completedReason: 'búsqueda de conversaciones abierta',
-          recoverable: true,
-        );
-      }
-      input = await resolveSearchInput('search');
-    }
-
-    // 2. Escribir el target en el campo de búsqueda ya observado.
-    if (input == null || input.isEmpty) {
-      return const TaskStepResult(
-        status: TaskStepStatus.failed,
-        reason: 'sin campo de búsqueda para localizar la conversación',
-        failureKind: TaskFailureKind.recoverable,
-      );
-    }
-    final written = await write(
-      input,
-      goal.target,
-      confirmedActionSignature: confirmedActionSignature,
-    );
-    if (!written.completed) {
-      return _stepFromAction(
-        written,
-        completedReason: 'target escrito en la búsqueda',
-        recoverable: true,
-      );
-    }
-
-    // 3. Tocar el resultado. `editable=false` excluye el propio campo de
-    // búsqueda (que ahora contiene el target) y apunta al item de resultado.
-    final resultTap = await tap(
-      'text=${goal.target};editable=false',
-      confirmedActionSignature: confirmedActionSignature,
-    );
-    if (resultTap.completed) {
-      return const TaskStepResult(
-        status: TaskStepStatus.completed,
-        reason: 'conversación abierta vía búsqueda',
+    if (result.status == TaskActionStatus.completedUnverified) {
+      return TaskStepResult(
+        status: TaskStepStatus.outcomeUnknown,
+        reason:
+            '${decision.reason}; la acción fue despachada sin transición verificable',
+        failureKind: TaskFailureKind.terminal,
       );
     }
     return _stepFromAction(
-      resultTap,
-      completedReason: 'conversación abierta vía búsqueda',
+      result,
+      completedReason: 'decisión de navegación ejecutada',
       recoverable: true,
     );
   }
 
   Future<TaskStepResult> _writeMessage(
-    _GoalContext goal, {
+    AutomationConversationSnapshot goal, {
     String? confirmedActionSignature,
   }) async {
     if (goal.draft.isEmpty) {
@@ -773,6 +1168,7 @@ class TaskOrchestrator {
       selector,
       goal.draft,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'writeMessage',
     );
     return _stepFromAction(
       action,
@@ -782,8 +1178,9 @@ class TaskOrchestrator {
   }
 
   Future<TaskStepResult> _sendMessage(
-    _GoalContext goal, {
+    AutomationConversationSnapshot goal, {
     String? confirmedActionSignature,
+    ExecutionJournalEntry? executionIntent,
   }) async {
     final guard = _commitGuard;
     final tap = _tap;
@@ -819,6 +1216,8 @@ class TaskOrchestrator {
     final action = await tap(
       context.sendSelector,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'sendMessage',
+      executionIntent: executionIntent,
     );
     if (!action.completed) {
       return _stepFromAction(
@@ -851,7 +1250,7 @@ class TaskOrchestrator {
   // ── T2.9 — búsqueda genérica dentro de una app ─────────────────────────────
 
   Future<TaskStepResult> _writeQuery(
-    _GoalContext goal, {
+    AutomationConversationSnapshot goal, {
     String? confirmedActionSignature,
   }) async {
     if (goal.query.isEmpty) {
@@ -894,6 +1293,7 @@ class TaskOrchestrator {
       final openSearch = await tap(
         icon,
         confirmedActionSignature: confirmedActionSignature,
+        semanticAction: 'writeQuery',
       );
       if (!openSearch.completed) {
         return _stepFromAction(
@@ -916,6 +1316,7 @@ class TaskOrchestrator {
       input,
       goal.query,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'writeQuery',
     );
     return _stepFromAction(
       action,
@@ -925,7 +1326,7 @@ class TaskOrchestrator {
   }
 
   Future<TaskStepResult> _submitSearch(
-    _GoalContext goal, {
+    AutomationConversationSnapshot goal, {
     String? confirmedActionSignature,
   }) async {
     final resolveAction = _resolveActionSurface;
@@ -953,6 +1354,7 @@ class TaskOrchestrator {
     final submitted = await tap(
       action,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'submitSearch',
     );
     if (!submitted.completed) {
       return _stepFromAction(
@@ -990,7 +1392,7 @@ class TaskOrchestrator {
   // ── T2.9-select — selección semántica de resultado observado ───────────────
 
   Future<TaskStepResult> _selectResult(
-    _GoalContext goal, {
+    AutomationConversationSnapshot goal, {
     String? confirmedActionSignature,
   }) async {
     final resolve = _resolveResult;
@@ -1057,6 +1459,7 @@ class TaskOrchestrator {
     final selected = await tap(
       candidate.selector,
       confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'selectResult',
     );
     if (!selected.completed) {
       return _stepFromAction(
@@ -1158,7 +1561,7 @@ class TaskOrchestrator {
         ],
       });
 
-  _GoalContext _parseGoal(String goal) {
+  AutomationConversationSnapshot _parseGoal(String goal) {
     final g = goal.toLowerCase();
 
     // Intención de mensaje (app/recipient/message) vía el parser ÚNICO.
@@ -1186,7 +1589,7 @@ class TaskOrchestrator {
     final resultOrdinal = _parseResultOrdinal(g);
     final resultText = _parseResultText(goal);
 
-    return _GoalContext(
+    return AutomationConversationSnapshot(
       appName: appName,
       target: intent.recipient,
       draft: intent.message,
@@ -1228,28 +1631,4 @@ class TaskOrchestrator {
     final m = RegExp(r'dice\s+(.+)$', caseSensitive: false).firstMatch(goal);
     return m?.group(1)?.trim() ?? '';
   }
-}
-
-class _GoalContext {
-  final String appName;
-  final String target;
-  final String draft;
-
-  /// T2.9 — query de búsqueda ("abre YouTube y busca X").
-  final String query;
-
-  /// T2.9-select — ordinal del resultado (null = no expresado).
-  final int? resultOrdinal;
-
-  /// T2.9-select — texto objetivo del resultado ('' = no expresado).
-  final String resultText;
-
-  const _GoalContext({
-    this.appName = '',
-    this.target = '',
-    this.draft = '',
-    this.query = '',
-    this.resultOrdinal,
-    this.resultText = '',
-  });
 }

@@ -5,6 +5,7 @@
 /// emitir semántica finita, nunca ToolCalls/selectores/packages/shell.
 library;
 
+import '../planning/message_intent_parser.dart';
 import 'task_plan.dart';
 import 'task_step_vocabulary.dart';
 
@@ -90,10 +91,28 @@ class TaskPlanner {
     // Mensajería ANTES que búsqueda: "abre WhatsApp, busca a Juan y envíale: X"
     // contiene "busca " pero es intención de mensaje (verbo "envíale").
     if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
+    final conversation = const MessageIntentParser().parse(goal);
+    if (conversation.app.isNotEmpty && conversation.recipient.isNotEmpty) {
+      return _openConversationPlan(goal);
+    }
     if (_isSelectResultIntent(g)) return _selectResultPlan(goal);
     if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
     return null;
   }
+
+  /// "abre WhatsApp y entra en el grupo X" → abrir app y navegar hasta X.
+  /// Reutiliza el navegador orientado a objetivos; no produce taps genéricos.
+  TaskPlan _openConversationPlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'open_app', semanticAction: 'openApp'),
+      TaskStep(
+        id: 'open_conversation',
+        semanticAction: 'openConversation',
+        dependencies: ['open_app'],
+      ),
+    ],
+  );
 
   bool _isSelectResultIntent(String goal) {
     final mentionsResult =

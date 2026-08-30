@@ -1,7 +1,7 @@
 /// PerceptionResult (A8) — resultado tipado y honesto de la percepción.
 ///
-/// Sin null para cada modo de fallo: Resolved / Ambiguous / Insufficient /
-/// Unavailable. El contenido de pantalla es OBSERVACIÓN NO CONFIABLE; nunca
+/// Sin null para cada estado: MemoryHint / Resolved / Ambiguous / Insufficient
+/// / Unavailable. El contenido de pantalla es OBSERVACIÓN NO CONFIABLE; nunca
 /// autoriza acciones ni muta el goal.
 library;
 
@@ -13,16 +13,30 @@ sealed class PerceptionResult {
   const PerceptionResult();
 }
 
-/// Resuelto con un target grounded. [object] (vivo, Accessibility) y/o
-/// [memoryEvidence] (verificado en memoria) pueden coexistir (más fuerte).
+/// Indicio histórico recuperado de ObjectMemory. Puede orientar la búsqueda,
+/// pero no representa una observación de la pantalla actual.
+class PerceptionMemoryHint extends PerceptionResult {
+  final UiSelectorEvidence selector;
+  final double confidence;
+  final List<PerceptionEvidence> evidence;
+
+  const PerceptionMemoryHint({
+    required this.selector,
+    required this.confidence,
+    required this.evidence,
+  });
+}
+
+/// Resuelto con un target grounded por una observación actual. La memoria puede
+/// coexistir únicamente cuando esa observación validó el indicio histórico.
 class PerceptionResolved extends PerceptionResult {
-  final NanoUiObject? object;
+  final NanoUiObject object;
   final UiSelectorEvidence? memoryEvidence;
   final double confidence;
   final List<PerceptionEvidence> evidence;
 
   const PerceptionResolved({
-    this.object,
+    required this.object,
     this.memoryEvidence,
     required this.confidence,
     required this.evidence,
@@ -42,8 +56,8 @@ class PerceptionAmbiguous extends PerceptionResult {
   });
 }
 
-/// La percepción estructurada es insuficiente; recomienda escalar a otra
-/// fuente (A8: OCR futuro, aún NO implementado).
+/// La percepción actual es insuficiente; recomienda la siguiente fuente que
+/// puede aportar evidencia sin convertir esa recomendación en autoridad.
 class PerceptionInsufficient extends PerceptionResult {
   final String reason;
   final PerceptionEvidenceSource recommendedSource;

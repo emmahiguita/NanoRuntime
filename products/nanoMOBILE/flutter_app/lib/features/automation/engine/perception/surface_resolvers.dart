@@ -12,7 +12,7 @@ library;
 
 import 'semantic/nano_ui_object.dart';
 import 'semantic/screen_graph.dart';
-import 'semantic/semantic_role.dart';
+import 'surface_profiles.dart';
 
 /// Superficie UI grounded: el objeto observado + el selector para re-encontrarlo
 /// en el ejecutor + el motivo que la hizo ganar (diagnóstico honesto).
@@ -35,6 +35,7 @@ String surfaceSelectorFor(NanoUiObject o) {
   if (o.resourceId.isNotEmpty) return 'id=${o.resourceId}';
   if (o.text.isNotEmpty) return 'text=${o.text}';
   if (o.description.isNotEmpty) return 'desc=${o.description}';
+  if (o.label.isNotEmpty) return 'text=${o.label}';
   return 'editable=true';
 }
 
@@ -44,73 +45,78 @@ String surfaceSelectorFor(NanoUiObject o) {
 /// búsqueda no puede escribir en el compositor, ni un mensaje en el buscador.
 /// Solo `any` admite el fallback a cualquier editable visible.
 class InputSurfaceResolver {
-  const InputSurfaceResolver();
+  const InputSurfaceResolver({
+    SurfaceProfileSource profiles = const SurfaceProfileRegistry(),
+  }) : _profiles = profiles;
 
-  static const _messageHints = [
-    'mensaje',
-    'message',
-    'escribe',
-    'type',
-    'compose',
-  ];
-
-  static const _searchHints = ['buscar', 'search', 'busca', 'consulta', 'find'];
+  final SurfaceProfileSource _profiles;
 
   ResolvedSurface? resolve(
     ScreenGraph graph, {
     InputSurfaceKind kind = InputSurfaceKind.any,
   }) {
     // Un snapshot truncado invalida una conclusión negativa, pero no una
-    // superficie positiva ya observada y anclada. Apps con árboles profundos
-    // (WhatsApp) pueden superar el límite en una rama irrelevante mientras el
-    // input buscado sí está presente. El ejecutor volverá a resolver el
+    // superficie positiva ya observada y anclada. Los árboles profundos pueden
+    // superar el límite en una rama irrelevante mientras el input buscado sí
+    // está presente. El ejecutor volverá a resolver el
     // selector sobre un snapshot fresco y exigirá unicidad/actionability.
     final editables = graph.objects
         .where((o) => o.visible && o.editable)
         .toList(growable: false);
     if (editables.isEmpty) return null;
 
-    final candidates = editables
-        .where((o) => _matchesKind(o, kind))
-        .toList(growable: false);
-    if (candidates.isEmpty) return null;
+    final profiles = _profiles.resolve(graph.package, _elementKindFor(kind));
+    for (final profile in profiles) {
+      final candidates = editables
+          .where((o) => _matchesKind(o, kind, profile))
+          .toList(growable: false);
+      if (candidates.isEmpty) continue;
 
-    for (final o in candidates) {
-      if (o.focused) {
-        return ResolvedSurface(o, surfaceSelectorFor(o), 'focused editable');
+      for (final o in candidates) {
+        if (o.focused) {
+          return ResolvedSurface(
+            o,
+            surfaceSelectorFor(o),
+            'focused editable (${profile.sourceProfileId})',
+          );
+        }
       }
-    }
-    for (final o in candidates) {
-      if (_matchesRole(o, kind)) {
-        return ResolvedSurface(o, surfaceSelectorFor(o), '${o.role.name} role');
+      for (final o in candidates) {
+        if (profile.matchesRole(o.role)) {
+          return ResolvedSurface(
+            o,
+            surfaceSelectorFor(o),
+            '${o.role.name} role (${profile.sourceProfileId})',
+          );
+        }
       }
+      final o = candidates.first;
+      return ResolvedSurface(
+        o,
+        surfaceSelectorFor(o),
+        'matching editable (${profile.sourceProfileId})',
+      );
     }
-    final o = candidates.first;
-    return ResolvedSurface(o, surfaceSelectorFor(o), 'matching editable');
+    return null;
   }
 
-  bool _matchesKind(NanoUiObject object, InputSurfaceKind kind) {
+  bool _matchesKind(
+    NanoUiObject object,
+    InputSurfaceKind kind,
+    ResolvedSurfaceProfile profile,
+  ) {
     if (kind == InputSurfaceKind.any) return true;
 
-    final hints = switch (kind) {
-      InputSurfaceKind.message => _messageHints,
-      InputSurfaceKind.search => _searchHints,
-      InputSurfaceKind.any => const <String>[],
-    };
-    final roleMatches = _matchesRole(object, kind);
     final hay = '${object.text} ${object.description} ${object.label}'
         .toLowerCase();
-    return roleMatches || hints.any(hay.contains);
+    return profile.matchesRole(object.role) || profile.matchesTerms(hay);
   }
 
-  bool _matchesRole(NanoUiObject object, InputSurfaceKind kind) =>
-      switch (kind) {
-        InputSurfaceKind.any =>
-          object.role == SemanticRole.textField ||
-              object.role == SemanticRole.searchField,
-        InputSurfaceKind.message => object.role == SemanticRole.textField,
-        InputSurfaceKind.search => object.role == SemanticRole.searchField,
-      };
+  SurfaceElementKind _elementKindFor(InputSurfaceKind kind) => switch (kind) {
+    InputSurfaceKind.any => SurfaceElementKind.anyInput,
+    InputSurfaceKind.message => SurfaceElementKind.messageInput,
+    InputSurfaceKind.search => SurfaceElementKind.searchInput,
+  };
 }
 
 /// Encuentra el botón de ACCIÓN semántica (enviar/buscar/ir) asociado al input
@@ -118,76 +124,60 @@ class InputSurfaceResolver {
 /// (button/iconButton) + términos semánticos, y se prefiere el más cercano al
 /// input activo (relación de posición con el compositor).
 class ActionSurfaceResolver {
-  const ActionSurfaceResolver();
+  const ActionSurfaceResolver({
+    SurfaceProfileSource profiles = const SurfaceProfileRegistry(),
+  }) : _profiles = profiles;
 
-  final InputSurfaceResolver _input = const InputSurfaceResolver();
-
-  static const _sendTerms = [
-    'enviar',
-    'send',
-    'enviar mensaje',
-    'send message',
-  ];
-
-  /// Términos del punto de ENTRADA de búsqueda (lupa/icono). Deliberadamente
-  /// SIN 'ir'/'go'/'siguiente': esos son submit (teclado) y darían falsos
-  /// positivos en el fallback de conversación.
-  static const _searchTerms = [
-    'buscar',
-    'search',
-    'busca',
-    'busqueda',
-    'búsqueda',
-    'find',
-  ];
+  final SurfaceProfileSource _profiles;
 
   ResolvedSurface? resolve(ScreenGraph graph, {String kind = 'send'}) {
     // Igual que en InputSurfaceResolver: la truncación impide afirmar
     // ausencia, no descarta evidencia positiva ya observada. La acción final
     // conserva re-resolución, estabilidad y actionability en el executor.
-    final terms = kind == 'search' ? _searchTerms : _sendTerms;
+    final elementKind = switch (kind) {
+      'send' => SurfaceElementKind.sendAction,
+      'search' => SurfaceElementKind.searchAction,
+      _ => null,
+    };
+    if (elementKind == null) return null;
+    final profiles = _profiles.resolve(graph.package, elementKind);
+    for (final profile in profiles) {
+      final buttons = graph.objects
+          .where((o) {
+            if (!o.visible || !o.enabled) return false;
+            final matchesRole = profile.matchesRole(o.role);
+            if (!matchesRole &&
+                !(profile.allowClickableContainer && o.clickable)) {
+              return false;
+            }
+            final hay = '${o.label} ${o.text} ${o.description} ${o.resourceId}'
+                .toLowerCase();
+            return profile.matchesTerms(hay);
+          })
+          .toList(growable: false);
+      if (buttons.isEmpty) continue;
 
-    final buttons = graph.objects
-        .where((o) {
-          if (!o.visible || !o.enabled) return false;
-          final isSemanticButton =
-              o.role == SemanticRole.button ||
-              o.role == SemanticRole.iconButton;
-          // Algunas apps modernas (WhatsApp incluido) modelan la barra que
-          // abre la búsqueda como un contenedor clickable con hijos. El
-          // normalizador la clasifica correctamente como `card`, no como
-          // botón. Para `search` aceptamos esa superficie accionable siempre
-          // que tenga evidencia semántica explícita; para `send` mantenemos el
-          // contrato estricto de botón y evitamos tocar contenedores amplios.
-          if (!isSemanticButton && !(kind == 'search' && o.clickable)) {
-            return false;
+      var best = buttons.first;
+      var reason = 'action button ($kind, ${profile.sourceProfileId})';
+      final input = InputSurfaceResolver(profiles: _profiles).resolve(
+        graph,
+        kind: kind == 'search'
+            ? InputSurfaceKind.search
+            : InputSurfaceKind.message,
+      );
+      if (input != null) {
+        var bestDist = double.infinity;
+        for (final b in buttons) {
+          final d = b.bounds.distanceTo(input.object.bounds).toDouble();
+          if (d < bestDist) {
+            bestDist = d;
+            best = b;
           }
-          final hay = '${o.label} ${o.text} ${o.description} ${o.resourceId}'
-              .toLowerCase();
-          return terms.any(hay.contains);
-        })
-        .toList(growable: false);
-    if (buttons.isEmpty) return null;
-
-    var best = buttons.first;
-    var reason = 'action button ($kind)';
-    final input = _input.resolve(
-      graph,
-      kind: kind == 'search'
-          ? InputSurfaceKind.search
-          : InputSurfaceKind.message,
-    );
-    if (input != null) {
-      var bestDist = double.infinity;
-      for (final b in buttons) {
-        final d = b.bounds.distanceTo(input.object.bounds).toDouble();
-        if (d < bestDist) {
-          bestDist = d;
-          best = b;
         }
+        reason = 'action button ($kind, ${profile.sourceProfileId}) near input';
       }
-      reason = 'action button ($kind) near input';
+      return ResolvedSurface(best, surfaceSelectorFor(best), reason);
     }
-    return ResolvedSurface(best, surfaceSelectorFor(best), reason);
+    return null;
   }
 }

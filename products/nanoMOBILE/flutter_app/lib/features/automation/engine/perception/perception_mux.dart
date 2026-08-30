@@ -1,14 +1,16 @@
 /// C12 — PerceptionMux V2 (A8): orquestación de percepción por confianza.
 ///
-/// Orden: memoria verificada → Accessibility/ScreenGraph → escalado tipado
-/// (OCR/Vision futuros). La percepción SOLO aporta evidencia para resolver el
-/// target; NUNCA autoriza acciones por contenido observado (C11).
+/// Orden: memoria conocida → Accessibility/ScreenGraph semántico → OCR
+/// dirigido → Vision dirigida. Cada fuente más costosa se consulta únicamente
+/// cuando la anterior no produjo evidencia suficiente. La percepción SOLO
+/// aporta evidencia para resolver el target; NUNCA autoriza acciones.
 ///
 /// Orquestación, no ejecución: no ejecuta acciones, no rankea CandidateActions,
 /// no cambia goals, no planifica.
 library;
 
 import '../memory/object_memory.dart' show UiSelectorEvidence;
+import 'nano_snapshot.dart' show NanoBounds;
 import 'semantic/nano_ui_object.dart' show NanoUiObject;
 import 'mux/accessibility_perception_source.dart';
 import 'mux/object_memory_perception_source.dart';
@@ -42,47 +44,75 @@ class PerceptionMux {
     PerceptionBudget budget = const PerceptionBudget(),
     ObservationPolicy policy = const ObservationPolicy(),
   }) async {
-    // 1. Memoria verificada (si está permitida).
+    final requiredConfidence =
+        (request.minimumConfidence > policy.minimumConfidence
+                ? request.minimumConfidence
+                : policy.minimumConfidence)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    final effectiveRequest = request.withMinimumConfidence(requiredConfidence);
+
+    // 1. La memoria aporta únicamente un indicio histórico.
     final memory = memorySource;
     if (policy.allowMemory && memory != null) {
-      final mem = await memory.perceive(request, budget);
-      if (mem is PerceptionResolved && mem.memoryEvidence != null) {
+      final mem = await memory.perceive(effectiveRequest, budget);
+      if (mem is PerceptionMemoryHint) {
         // 2. Validar la memoria contra Accessibility cuando es posible.
         final acc = accessibilitySource;
         if (policy.allowAccessibility &&
             acc != null &&
             budget.maxAccessibilityReads > 0) {
-          final accResult = await acc.perceive(request, budget);
+          final rawAccessibility = await acc.perceive(effectiveRequest, budget);
+          final accResult = _enforceMinimum(
+            rawAccessibility,
+            effectiveRequest,
+            PerceptionEvidenceSource.ocr,
+          );
           if (accResult is PerceptionResolved &&
-              accResult.object != null &&
-              _matches(mem.memoryEvidence!, accResult.object!)) {
+              _matches(mem.selector, accResult.object)) {
             // Memoria validada por Accessibility → evidencia combinada (fuerte).
             return PerceptionResolved(
               object: accResult.object,
-              memoryEvidence: mem.memoryEvidence,
-              confidence: _combined(mem.confidence, accResult.confidence),
+              memoryEvidence: mem.selector,
+              // La memoria corrobora, pero nunca reduce ni sustituye la
+              // confianza de la observación estructurada actual.
+              confidence: accResult.confidence,
               evidence: [...mem.evidence, ...accResult.evidence],
             );
           }
-          // Memoria stale → el resultado de Accessibility manda.
-          return accResult;
+          if (accResult is PerceptionResolved) {
+            // Memoria stale: Accessibility actual manda y corta el escalado.
+            return accResult;
+          }
+          // La validación actual no alcanzó evidencia suficiente. Antes se
+          // retornaba aquí y OCR/Vision quedaban omitidos por un memory hit.
+          return _escalateToOcr(effectiveRequest, budget, policy, accResult);
         }
-        return mem; // memoria sin validación de pantalla
+        // Sin observación actual la memoria no puede convertirse en resolved.
+        const memoryResult = PerceptionInsufficient(
+          reason: 'La memoria histórica requiere validación en pantalla.',
+          recommendedSource: PerceptionEvidenceSource.accessibility,
+        );
+        return _escalateToOcr(effectiveRequest, budget, policy, memoryResult);
       }
     }
 
     // 3. Accessibility (si está permitida). Resuelto → 0 OCR.
     final acc = accessibilitySource;
     if (policy.allowAccessibility && acc != null) {
-      final accResult = await acc.perceive(request, budget);
+      final accResult = _enforceMinimum(
+        await acc.perceive(effectiveRequest, budget),
+        effectiveRequest,
+        PerceptionEvidenceSource.ocr,
+      );
       if (accResult is PerceptionResolved) return accResult;
       // Insufficient/Ambiguous/Unavailable → escalar a OCR si está permitido.
-      return _escalateToOcr(request, budget, policy, accResult);
+      return _escalateToOcr(effectiveRequest, budget, policy, accResult);
     }
 
     // 4. Sin accesibilidad → OCR directo.
     return _escalateToOcr(
-      request,
+      effectiveRequest,
       budget,
       policy,
       const PerceptionInsufficient(
@@ -98,13 +128,23 @@ class PerceptionMux {
     ObservationPolicy policy,
     PerceptionResult fallback,
   ) async {
+    final targetedRequest = _targetedRequest(request, fallback);
     final ocr = ocrSource;
     if (policy.allowOcr && ocr != null && budget.maxOcrCalls > 0) {
-      final ocrResult = await ocr.perceive(request, budget);
+      final ocrResult = _enforceMinimum(
+        await ocr.perceive(targetedRequest, budget),
+        targetedRequest,
+        PerceptionEvidenceSource.vision,
+      );
       if (ocrResult is PerceptionResolved) return ocrResult;
-      return _escalateToVision(request, budget, policy, ocrResult);
+      return _escalateToVision(
+        targetedRequest,
+        budget,
+        policy,
+        _preferStructured(fallback, ocrResult),
+      );
     }
-    return _escalateToVision(request, budget, policy, fallback);
+    return _escalateToVision(targetedRequest, budget, policy, fallback);
   }
 
   Future<PerceptionResult> _escalateToVision(
@@ -118,7 +158,13 @@ class PerceptionMux {
         vision != null &&
         budget.maxVisionCalls > 0 &&
         (request.region != null || policy.allowFullScreenVision)) {
-      return vision.perceive(request, budget);
+      final visionResult = _enforceMinimum(
+        await vision.perceive(request, budget),
+        request,
+        PerceptionEvidenceSource.vision,
+      );
+      if (visionResult is PerceptionResolved) return visionResult;
+      return _preferStructured(fallback, visionResult);
     }
     return fallback;
   }
@@ -129,6 +175,8 @@ class PerceptionMux {
     String? role,
     String? package,
     double minScore = 0.5,
+    PerceptionBudget budget = const PerceptionBudget(),
+    ObservationPolicy policy = const ObservationPolicy(allowVision: true),
   }) async {
     final result = await perceive(
       PerceptionRequest(
@@ -136,6 +184,8 @@ class PerceptionMux {
         packageName: package,
         minimumConfidence: minScore,
       ),
+      budget: budget,
+      policy: policy,
     );
     if (result is! PerceptionResolved) return null;
     return _toSelector(result);
@@ -143,19 +193,9 @@ class PerceptionMux {
 
   String? _toSelector(PerceptionResolved r) {
     final obj = r.object;
-    if (obj != null) {
-      if (obj.resourceId.isNotEmpty) return 'id=${obj.resourceId}';
-      if (obj.text.isNotEmpty) return 'text=${obj.text}';
-      if (obj.description.isNotEmpty) return 'desc=${obj.description}';
-    }
-    final ev = r.memoryEvidence;
-    if (ev != null) {
-      if (ev.resourceId != null && ev.resourceId!.isNotEmpty) {
-        return 'id=${ev.resourceId}';
-      }
-      if (ev.text != null && ev.text!.isNotEmpty) return 'text=${ev.text}';
-      if (ev.desc != null && ev.desc!.isNotEmpty) return 'desc=${ev.desc}';
-    }
+    if (obj.resourceId.isNotEmpty) return 'id=${obj.resourceId}';
+    if (obj.text.isNotEmpty) return 'text=${obj.text}';
+    if (obj.description.isNotEmpty) return 'desc=${obj.description}';
     return null;
   }
 
@@ -172,5 +212,68 @@ class PerceptionMux {
     return false;
   }
 
-  double _combined(double a, double b) => (a + b) / 2;
+  PerceptionResult _enforceMinimum(
+    PerceptionResult result,
+    PerceptionRequest request,
+    PerceptionEvidenceSource recommendedSource,
+  ) {
+    if (result is! PerceptionResolved ||
+        result.confidence >= request.minimumConfidence) {
+      return result;
+    }
+    return PerceptionInsufficient(
+      reason:
+          'Confianza insuficiente (${result.confidence} < '
+          '${request.minimumConfidence}).',
+      recommendedSource: recommendedSource,
+    );
+  }
+
+  /// Conserva evidencia estructurada útil cuando una fuente más cara falla.
+  /// Un resultado probabilístico resuelto sí puede completar una observación
+  /// insuficiente; un fallo probabilístico no borra una ambigüedad factual.
+  PerceptionResult _preferStructured(
+    PerceptionResult structured,
+    PerceptionResult escalated,
+  ) {
+    if (_resultRank(structured) >= _resultRank(escalated)) return structured;
+    return escalated;
+  }
+
+  int _resultRank(PerceptionResult result) => switch (result) {
+    PerceptionResolved() => 4,
+    PerceptionAmbiguous() => 3,
+    PerceptionInsufficient() => 2,
+    PerceptionUnavailable() => 1,
+    PerceptionMemoryHint() => 0,
+  };
+
+  /// Si Accessibility encontró candidatos ambiguos, limita OCR/Vision al
+  /// rectángulo que ya contiene evidencia estructurada. Sin candidatos no se
+  /// inventa una región: OCR conserva su fallback actual y Vision full-screen
+  /// sigue bloqueada salvo autorización explícita de policy + budget.
+  PerceptionRequest _targetedRequest(
+    PerceptionRequest request,
+    PerceptionResult structured,
+  ) {
+    if (request.region != null || structured is! PerceptionAmbiguous) {
+      return request;
+    }
+    final candidates = structured.candidates;
+    if (candidates.isEmpty) return request;
+    var left = candidates.first.bounds.left;
+    var top = candidates.first.bounds.top;
+    var right = candidates.first.bounds.right;
+    var bottom = candidates.first.bounds.bottom;
+    for (final candidate in candidates.skip(1)) {
+      final bounds = candidate.bounds;
+      if (bounds.left < left) left = bounds.left;
+      if (bounds.top < top) top = bounds.top;
+      if (bounds.right > right) right = bounds.right;
+      if (bounds.bottom > bottom) bottom = bounds.bottom;
+    }
+    return request.withRegion(
+      NanoBounds(left: left, top: top, right: right, bottom: bottom),
+    );
+  }
 }

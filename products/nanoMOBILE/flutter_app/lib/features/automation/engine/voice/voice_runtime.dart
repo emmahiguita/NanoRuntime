@@ -110,6 +110,8 @@ class VoiceSessionManager {
   final Duration listenTimeout;
 
   final _stateController = StreamController<VoiceSessionState>.broadcast();
+  Timer? _followUpTimer;
+  bool _disposed = false;
   final VoiceConversationContext context = VoiceConversationContext();
 
   /// A16 — estado del mundo conversacional (entidades grounded con evidencia).
@@ -126,15 +128,19 @@ class VoiceSessionManager {
   VoiceSessionState get state => _state;
   void _set(VoiceSessionState s) {
     _state = s;
-    _stateController.add(s);
+    if (!_disposed) _stateController.add(s);
   }
 
   /// Push-to-talk: escucha UNA vez, resuelve y devuelve el turno (sin hablar).
   /// Si Nano estaba hablando, interrumpe primero (barge-in cooperativo).
   Future<VoiceTurn?> pushToTalk() async {
+    if (_disposed) return null;
+    _followUpTimer?.cancel();
     if (_state == VoiceSessionState.speaking) {
       await bargeIn();
     }
+    if (context.isStale) context.clear();
+    if (world.isStale) world.clear();
     _set(VoiceSessionState.listening);
     final sw = Stopwatch()..start();
     final String? transcript;
@@ -164,16 +170,30 @@ class VoiceSessionManager {
 
   /// Habla una respuesta y queda escuchando follow-up (bounded).
   Future<void> respond(String text) async {
+    if (_disposed || text.trim().isEmpty) return;
+    _followUpTimer?.cancel();
     _set(VoiceSessionState.speaking);
     final sw = Stopwatch()..start();
-    await _synthesis.speak(text);
+    final bool spoken;
+    try {
+      spoken = await _synthesis.speak(text);
+    } catch (_) {
+      sw.stop();
+      ttsLatencyMs = sw.elapsedMilliseconds;
+      _set(VoiceSessionState.idle);
+      return;
+    }
     sw.stop();
     ttsLatencyMs = sw.elapsedMilliseconds;
+    if (!spoken) {
+      _set(VoiceSessionState.idle);
+      return;
+    }
     context.lastAssistantResponse = text;
     context.touch();
     _set(VoiceSessionState.waitingFollowUp);
-    Future.delayed(followUpWindow, () {
-      if (_state == VoiceSessionState.waitingFollowUp) {
+    _followUpTimer = Timer(followUpWindow, () {
+      if (!_disposed && _state == VoiceSessionState.waitingFollowUp) {
         _set(VoiceSessionState.idle);
       }
     });
@@ -210,9 +230,16 @@ class VoiceSessionManager {
   /// Detiene la sesión por completo: interrumpe habla, apaga síntesis y vuelve
   /// a idle. No cierra el stream (reutilizable entre turnos).
   Future<void> stop() async {
-    await bargeIn();
-    await _synthesis.stop();
-    _set(VoiceSessionState.idle);
+    _followUpTimer?.cancel();
+    try {
+      if (_state == VoiceSessionState.speaking) {
+        await bargeIn();
+      } else {
+        await _synthesis.stop();
+      }
+    } finally {
+      _set(VoiceSessionState.idle);
+    }
   }
 
   /// Modo asistente: activa el wake word (si hay detector) para escucha pasiva.
@@ -229,7 +256,15 @@ class VoiceSessionManager {
   }
 
   Future<void> dispose() async {
-    await _stateController.close();
-    await _wakeWord?.stop();
+    if (_disposed) return;
+    _followUpTimer?.cancel();
+    try {
+      await _wakeWord?.stop();
+      await _synthesis.stop();
+    } finally {
+      _state = VoiceSessionState.idle;
+      _disposed = true;
+      await _stateController.close();
+    }
   }
 }

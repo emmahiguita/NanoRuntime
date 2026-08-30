@@ -17,10 +17,18 @@ class AndroidSpeechRecognitionBackend implements SpeechRecognitionBackend {
 
 /// TTS vía Android TextToSpeech (motor Google preferido, natural).
 class AndroidSpeechSynthesisBackend implements SpeechSynthesisBackend {
-  const AndroidSpeechSynthesisBackend();
+  AndroidSpeechSynthesisBackend({bool Function()? enabled})
+    : _enabled = enabled ?? _alwaysEnabled;
+
+  final bool Function() _enabled;
+
+  static bool _alwaysEnabled() => true;
 
   @override
-  Future<bool> speak(String text) => NanoRuntimeApi.instance.speak(text);
+  Future<bool> speak(String text) async {
+    if (!_enabled()) return false;
+    return NanoRuntimeApi.instance.speak(text);
+  }
 
   @override
   Future<void> stop() async {

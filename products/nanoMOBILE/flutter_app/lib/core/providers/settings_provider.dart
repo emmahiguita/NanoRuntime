@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/model/automation_model.dart';
@@ -134,8 +135,11 @@ class SettingsState {
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
   final SettingsRepository _repo;
+  final Future<void> Function()? _stopVoiceOutput;
 
-  SettingsNotifier(this._repo) : super(const SettingsState());
+  SettingsNotifier(this._repo, {Future<void> Function()? stopVoiceOutput})
+    : _stopVoiceOutput = stopVoiceOutput,
+      super(const SettingsState());
 
   Future<void> init() async {
     await _repo.init();
@@ -174,11 +178,31 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setAutomationModel(String id, String path) => _persist(
     state.copyWith(automationModelId: id, automationModelPath: path),
   );
-  void setVoiceEnabled(bool v) => _persist(state.copyWith(voiceEnabled: v));
+
+  /// Gate global de salida TTS. El estado cambia antes de cualquier await para
+  /// que ninguna nueva respuesta pueda empezar a hablar; al apagar también
+  /// detiene de inmediato la locución nativa que ya estuviera en curso.
+  Future<void> setVoiceEnabled(bool v) async {
+    if (state.voiceEnabled == v) return;
+    final write = _persist(state.copyWith(voiceEnabled: v));
+    if (!v) {
+      try {
+        await _stopVoiceOutput?.call();
+      } catch (_) {
+        // El gate queda apagado aunque Android no confirme el stop.
+      }
+    }
+    await write;
+  }
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
-  (ref) => SettingsNotifier(ref.read(settingsRepoProvider)),
+  (ref) => SettingsNotifier(
+    ref.read(settingsRepoProvider),
+    stopVoiceOutput: () async {
+      await NanoRuntimeApi.instance.stopSpeech();
+    },
+  ),
 );
 
 /// Provider derivado que sincroniza automáticamente el ThemeMode con settings

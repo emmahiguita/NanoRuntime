@@ -9,7 +9,8 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_decomposer.dart';
 import 'package:nanoai/features/automation/engine/orchestration/commit_guard.dart';
-import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart';
+import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart'
+    show ExecutionJournalEntry;
 import 'package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
     show TaskActionResult, TaskActionStatus;
@@ -67,12 +68,19 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
   Future<TaskActionResult> runTaskTool(
     ToolCall call, {
     String? confirmedActionSignature,
+    String? semanticAction,
+    ExecutionJournalEntry? executionIntent,
   }) async {
     final dispatcher = ref.read(agentDispatcherProvider);
-    final outcome = await dispatcher.runToolGuarded(
-      call,
-      confirmed: confirmedActionSignature == call.confirmationSignature,
-    );
+    final confirmed = confirmedActionSignature == call.confirmationSignature;
+    final outcome = semanticAction == null
+        ? await dispatcher.runToolGuarded(call, confirmed: confirmed)
+        : await dispatcher.runSemanticToolGuarded(
+            call,
+            semanticAction: semanticAction,
+            confirmed: confirmed,
+            executionIntent: executionIntent,
+          );
     return taskActionFrom(call, outcome);
   }
 
@@ -100,20 +108,23 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     taskOrchestrator: TaskOrchestrator(
       listNotifications: () =>
           NanoRuntimeApi.instance.listActiveNotifications(),
-      openUrl: (url, {confirmedActionSignature}) => runTaskTool(
+      openUrl: (url, {confirmedActionSignature, semanticAction}) => runTaskTool(
         ToolCall(tool: 'open_url', text: url),
         confirmedActionSignature: confirmedActionSignature,
+        semanticAction: semanticAction,
       ),
-      writeFile: (path, content, {confirmedActionSignature}) => runTaskTool(
-        ToolCall(
-          tool: 'linux.writeFile',
-          text: path,
-          args: {'content': content},
-        ),
-        confirmedActionSignature: confirmedActionSignature,
-      ),
+      writeFile: (path, content, {confirmedActionSignature, semanticAction}) =>
+          runTaskTool(
+            ToolCall(
+              tool: 'linux.writeFile',
+              text: path,
+              args: {'content': content},
+            ),
+            confirmedActionSignature: confirmedActionSignature,
+            semanticAction: semanticAction,
+          ),
       // A15.4: fuentes UI (delegan al dispatcher, que ya tiene governance).
-      launchApp: (appName, {confirmedActionSignature}) async {
+      launchApp: (appName, {confirmedActionSignature, semanticAction}) async {
         // Destino de sistema primero (Ajustes/Bluetooth/WiFi → open_system
         // allowlisted). "Ve a Ajustes y busca X" NO es launch_app: es un intent
         // oficial de sistema, no una app instalada.
@@ -131,6 +142,7 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
           return runTaskTool(
             ToolCall(tool: 'open_system', args: {'destination': dest}),
             confirmedActionSignature: confirmedActionSignature,
+            semanticAction: semanticAction,
           );
         }
         // Resolver nombre de app → packageName real (el dispatcher launch_app
@@ -153,16 +165,40 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         return runTaskTool(
           ToolCall(tool: 'launch_app', args: {'packageName': pkg}),
           confirmedActionSignature: confirmedActionSignature,
+          semanticAction: semanticAction,
         );
       },
-      tap: (selector, {confirmedActionSignature}) => runTaskTool(
-        ToolCall(tool: 'tap', selector: selector),
+      tap:
+          (
+            selector, {
+            confirmedActionSignature,
+            semanticAction,
+            executionIntent,
+          }) => runTaskTool(
+            ToolCall(tool: 'tap', selector: selector),
+            confirmedActionSignature: confirmedActionSignature,
+            semanticAction: semanticAction,
+            executionIntent: executionIntent,
+          ),
+      writeText: (selector, text, {confirmedActionSignature, semanticAction}) =>
+          runTaskTool(
+            ToolCall(tool: 'write', selector: selector, text: text),
+            confirmedActionSignature: confirmedActionSignature,
+            semanticAction: semanticAction,
+          ),
+      back: ({confirmedActionSignature, semanticAction}) => runTaskTool(
+        const ToolCall(tool: 'back'),
         confirmedActionSignature: confirmedActionSignature,
+        semanticAction: semanticAction,
       ),
-      writeText: (selector, text, {confirmedActionSignature}) => runTaskTool(
-        ToolCall(tool: 'write', selector: selector, text: text),
-        confirmedActionSignature: confirmedActionSignature,
-      ),
+      resolveAppPackage: (appReference) async {
+        final match = await ref
+            .read(installedAppCatalogProvider)
+            .findApp(appReference);
+        return match is AppMatchResolved ? match.app.packageName : null;
+      },
+      currentSituationSource: ref.watch(currentSituationSourceProvider),
+      memorySource: () => ref.read(objectMemoryProvider),
       // T2.0 — resolución grounded de superficies UI desde el snapshot real
       // (Accessibility → ScreenGraph). Sin superficie → null (el paso reporta
       // needsMoreEvidence, no inventa selector).
@@ -235,11 +271,14 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         return const SearchResultResolver().resolveResults(g).length;
       },
       commitGuard: CommitGuard(observe: currentGraph),
-      journal: SharedPreferencesExecutionJournal(),
+      journal: ref.watch(executionJournalProvider),
     ),
     // A15.2: descomposición template determinista + LLM validado.
     taskDecomposer: LlmTaskDecomposer(
       client: ref.read(runtimeEngineProvider.notifier).client,
+      resolver: ref.watch(automationModelResolverProvider),
+      ensureReady: (path) =>
+          ref.read(runtimeEngineProvider.notifier).ensureReady(modelPath: path),
     ),
   );
 });

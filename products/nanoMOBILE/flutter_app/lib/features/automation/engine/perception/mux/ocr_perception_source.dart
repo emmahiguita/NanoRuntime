@@ -71,6 +71,14 @@ class OcrPerceptionSource implements PerceptionSource {
     }
 
     final best = matches.first;
+    if (best.confidence < request.minimumConfidence) {
+      return PerceptionInsufficient(
+        reason:
+            'Confianza OCR insuficiente (${best.confidence} < '
+            '${request.minimumConfidence}).',
+        recommendedSource: PerceptionEvidenceSource.vision,
+      );
+    }
     // A15.6: transformar bounds imageRelative → screenAbsolute. El OCR opera
     // sobre el crop (region) o full-screen; el motor necesita coordenadas
     // absolutas de pantalla (sin ambigüedad de espacio).

@@ -107,7 +107,9 @@ class MessageIntentParser {
         break;
       }
     }
-    if (verb == null) return MessageIntent(app: app);
+    if (verb == null) {
+      return MessageIntent(app: app, recipient: _extractConversationTarget(g));
+    }
 
     // Recorta el verbo conservando el case original del resto (el mensaje no
     // se normaliza a minúsculas: es el payload real que se enviará).
@@ -135,6 +137,21 @@ class MessageIntentParser {
       r'(?:abre|abrir|ve a|ir a|entra a|entra en)\s+(\w+)',
     ).firstMatch(lower);
     return m?.group(1) ?? '';
+  }
+
+  /// Destino de una navegación conversacional sin escritura:
+  /// "abre WhatsApp y entra en el grupo Seguimiento" → "Seguimiento".
+  /// Mantiene el case original porque esta identidad se verificará contra la
+  /// cabecera observada antes de considerar completada la navegación.
+  String _extractConversationTarget(String goal) {
+    final match = RegExp(
+      r'(?:entra|entrar|abre|abrir|ve|ir|open|enter)\s+'
+      r'(?:(?:a|en|into)\s+)?(?:(?:el|la|the)\s+)?'
+      r'(?:grupo|group|chat|conversaci[oó]n|conversation)\s+'
+      r'(?:de\s+)?(.+)$',
+      caseSensitive: false,
+    ).firstMatch(goal);
+    return _stripTrailingPunct(match?.group(1)?.trim() ?? '');
   }
 
   /// Recipient desde "busca a Y" / "búscale a Y" (compuesto W9). Conserva el

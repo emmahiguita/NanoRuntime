@@ -124,8 +124,60 @@ class SpeechChannelHandler(
         engine.setPitch(1.1f)
         engine.setSpeechRate(1.0f)
         engine.language = Locale("es", "ES")
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nano_tts")
-        result.success(true)
+        // Android rechaza entradas mayores que getMaxSpeechInputLength(). Una
+        // lista real de notificaciones puede superar ese límite, por lo que se
+        // divide en frases y se encola manteniendo el orden. El primer bloque
+        // reemplaza cualquier locución anterior; los demás se agregan.
+        val chunks = speechChunks(text)
+        var accepted = true
+        chunks.forEachIndexed { index, chunk ->
+            val queueMode = if (index == 0) {
+                TextToSpeech.QUEUE_FLUSH
+            } else {
+                TextToSpeech.QUEUE_ADD
+            }
+            val status = engine.speak(
+                chunk,
+                queueMode,
+                null,
+                "nano_tts_${System.nanoTime()}_$index",
+            )
+            if (status == TextToSpeech.ERROR) accepted = false
+        }
+        result.success(accepted)
+    }
+
+    private fun speechChunks(text: String): List<String> {
+        val normalized = text.trim()
+        if (normalized.isEmpty()) return emptyList()
+        val maxLength = TextToSpeech.getMaxSpeechInputLength().coerceAtMost(3500)
+        if (normalized.length <= maxLength) return listOf(normalized)
+
+        val chunks = mutableListOf<String>()
+        var start = 0
+        while (start < normalized.length) {
+            var end = (start + maxLength).coerceAtMost(normalized.length)
+            if (end < normalized.length) {
+                val minimumBreak = start + maxLength / 2
+                val sentenceBreak = normalized.lastIndexOfAny(
+                    charArrayOf('.', '?', '!', '\n'),
+                    startIndex = end - 1,
+                )
+                val spaceBreak = normalized.lastIndexOf(' ', end - 1)
+                end = when {
+                    sentenceBreak >= minimumBreak -> sentenceBreak + 1
+                    spaceBreak >= minimumBreak -> spaceBreak
+                    else -> end
+                }
+            }
+            normalized.substring(start, end).trim().takeIf { it.isNotEmpty() }
+                ?.let(chunks::add)
+            start = end
+            while (start < normalized.length && normalized[start].isWhitespace()) {
+                start++
+            }
+        }
+        return chunks
     }
 
     private fun startListening(language: String, result: MethodChannel.Result) {

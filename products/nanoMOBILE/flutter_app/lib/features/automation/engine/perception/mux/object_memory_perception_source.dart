@@ -1,6 +1,6 @@
-/// ObjectMemoryPerceptionSource (A8) — memoria verificada como fuente de
-/// percepción. Solo devuelve lo que la memoria YA verificó; no toca la pantalla
-/// (la validación contra el ScreenGraph actual la hace el PerceptionMux).
+/// ObjectMemoryPerceptionSource — recupera indicios históricos verificados.
+/// No toca la pantalla y, por contrato, nunca produce PerceptionResolved: la
+/// validación contra una observación actual pertenece al PerceptionMux.
 library;
 
 import '../../memory/object_memory.dart' show NanoObjectMemory, UiObjectKey;
@@ -34,8 +34,16 @@ class ObjectMemoryPerceptionSource implements PerceptionSource {
       );
     }
     final confidence = memory.confidence(key);
-    return PerceptionResolved(
-      memoryEvidence: evidence,
+    if (confidence < request.minimumConfidence) {
+      return PerceptionInsufficient(
+        reason:
+            'Confianza de memoria insuficiente ($confidence < '
+            '${request.minimumConfidence}).',
+        recommendedSource: PerceptionEvidenceSource.accessibility,
+      );
+    }
+    return PerceptionMemoryHint(
+      selector: evidence,
       confidence: confidence,
       evidence: [
         PerceptionEvidence(

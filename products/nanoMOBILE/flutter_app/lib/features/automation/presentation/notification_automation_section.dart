@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
@@ -20,6 +21,8 @@ class _NotificationAutomationSectionState
     extends ConsumerState<NotificationAutomationSection>
     with WidgetsBindingObserver {
   final _draftController = TextEditingController();
+  final _draftFocusNode = FocusNode();
+  final _editorKey = GlobalKey();
   NotificationAccessStatus _status = const NotificationAccessStatus(
     accessGranted: false,
     connected: false,
@@ -41,6 +44,7 @@ class _NotificationAutomationSectionState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _draftFocusNode.dispose();
     _draftController.dispose();
     super.dispose();
   }
@@ -61,10 +65,29 @@ class _NotificationAutomationSectionState
         ? await _service.list(limit: 30)
         : const <DeviceNotification>[];
     if (!mounted) return;
+    final previousSelection = _selected;
+    DeviceNotification? refreshedSelection;
+    if (previousSelection != null) {
+      for (final notification in notifications) {
+        if (notification.key == previousSelection.key &&
+            notification.canReply) {
+          refreshedSelection = notification;
+          break;
+        }
+      }
+    }
+    final selectionExpired =
+        previousSelection != null && refreshedSelection == null;
     setState(() {
       _status = status;
       _notifications = notifications;
+      _selected = refreshedSelection;
       _busy = false;
+      if (selectionExpired) {
+        _draftController.clear();
+        _message =
+            'La notificación seleccionada ya no está activa. Actualiza o elige otra.';
+      }
     });
   }
 
@@ -72,11 +95,33 @@ class _NotificationAutomationSectionState
     await _service.requestAccess();
   }
 
+  void _select(DeviceNotification notification) {
+    if (_busy || !notification.canReply) return;
+    final changed = _selected?.key != notification.key;
+    setState(() {
+      _selected = notification;
+      if (changed) _draftController.clear();
+      _message = 'Escribe una respuesta o genera un borrador local.';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _selected?.key != notification.key) return;
+      final editorContext = _editorKey.currentContext;
+      if (editorContext != null) {
+        Scrollable.ensureVisible(
+          editorContext,
+          duration: NanoMotionDurations.standard,
+          curve: NanoCurves.easeOut,
+          alignment: 0.25,
+        );
+      }
+      _draftFocusNode.requestFocus();
+    });
+  }
+
   Future<void> _generate(DeviceNotification notification) async {
     setState(() {
       _busy = true;
       _selected = notification;
-      _draftController.clear();
       _message = 'Generando borrador local…';
     });
     try {
@@ -139,6 +184,12 @@ class _NotificationAutomationSectionState
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final replyable = _notifications
+        .where((notification) => notification.canReply)
+        .toList(growable: false);
+    final readOnly = _notifications
+        .where((notification) => !notification.canReply)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -190,56 +241,133 @@ class _NotificationAutomationSectionState
                       'No hay notificaciones disponibles.',
                       style: NanoType.caption(colors.onSurfaceVariant),
                     ),
-                  for (final notification in _notifications)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        notification.canReply
-                            ? Icons.reply_rounded
-                            : Icons.notifications_none_rounded,
-                        color: notification.canReply
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
-                      ),
-                      title: Text(
-                        notification.title.isEmpty
-                            ? notification.packageName
-                            : notification.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        notification.text,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: notification.canReply
-                          ? TextButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _generate(notification),
-                              child: const Text('Borrador'),
-                            )
-                          : null,
+                  if (_notifications.isNotEmpty && replyable.isEmpty) ...[
+                    const SizedBox(height: NanoSpacing.sm),
+                    _CapabilityNotice(
+                      icon: Icons.mark_chat_unread_outlined,
+                      text:
+                          'Android no expone respuesta directa en las notificaciones actuales.',
+                      color: colors.warning,
                     ),
+                  ],
+                  if (replyable.isNotEmpty) ...[
+                    const SizedBox(height: NanoSpacing.sm),
+                    _ListLabel(
+                      label: 'Disponibles para responder',
+                      count: replyable.length,
+                    ),
+                    const SizedBox(height: NanoSpacing.xs),
+                    for (final notification in replyable)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: NanoSpacing.xs),
+                        child: _NotificationTile(
+                          notification: notification,
+                          selected: _selected?.key == notification.key,
+                          enabled: !_busy,
+                          onTap: () => _select(notification),
+                        ),
+                      ),
+                  ],
+                  if (readOnly.isNotEmpty) ...[
+                    const SizedBox(height: NanoSpacing.sm),
+                    _ReadOnlyNotifications(notifications: readOnly),
+                  ],
                 ],
                 if (_selected != null) ...[
-                  const Divider(),
-                  TextField(
-                    controller: _draftController,
-                    minLines: 2,
-                    maxLines: 5,
-                    maxLength: 2000,
-                    enabled: !_busy,
-                    decoration: const InputDecoration(
-                      labelText: 'Respuesta editable',
-                      border: OutlineInputBorder(),
+                  const SizedBox(height: NanoSpacing.md),
+                  AnimatedSwitcher(
+                    key: _editorKey,
+                    duration: NanoMotionDurations.standard,
+                    switchInCurve: NanoCurves.easeOut,
+                    child: Container(
+                      key: ValueKey(_selected!.key),
+                      padding: const EdgeInsets.all(NanoSpacing.md),
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer.withValues(alpha: 0.34),
+                        borderRadius: NanoShapes.medium,
+                        border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.38),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.reply_rounded,
+                                size: NanoIcons.small,
+                                color: colors.primary,
+                              ),
+                              const SizedBox(width: NanoSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  'Responder a ${_notificationTitle(_selected!)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: NanoType.label(colors.onSurface),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Cerrar editor',
+                                onPressed: _busy
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _selected = null;
+                                          _draftController.clear();
+                                          _message = null;
+                                        });
+                                      },
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: NanoSpacing.sm),
+                          TextField(
+                            focusNode: _draftFocusNode,
+                            controller: _draftController,
+                            minLines: 3,
+                            maxLines: 6,
+                            maxLength: 2000,
+                            enabled: !_busy,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              hintText: 'Escribe tu respuesta…',
+                              labelText: 'Respuesta editable',
+                              alignLabelWithHint: true,
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          Wrap(
+                            spacing: NanoSpacing.sm,
+                            runSpacing: NanoSpacing.sm,
+                            alignment: WrapAlignment.end,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _generate(_selected!),
+                                icon: const Icon(Icons.auto_awesome_rounded),
+                                label: const Text('Generar borrador'),
+                              ),
+                              ValueListenableBuilder<TextEditingValue>(
+                                valueListenable: _draftController,
+                                builder: (context, value, _) =>
+                                    FilledButton.icon(
+                                      onPressed:
+                                          _busy || value.text.trim().isEmpty
+                                          ? null
+                                          : _confirmReply,
+                                      icon: const Icon(Icons.send_rounded),
+                                      label: const Text('Revisar y enviar'),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _confirmReply,
-                    icon: const Icon(Icons.send_rounded),
-                    label: const Text('Revisar y enviar'),
                   ),
                 ],
                 if (_busy) ...[
@@ -260,4 +388,180 @@ class _NotificationAutomationSectionState
       ],
     );
   }
+}
+
+String _notificationTitle(DeviceNotification notification) =>
+    notification.title.trim().isEmpty
+    ? notification.packageName
+    : notification.title.trim();
+
+class _ListLabel extends StatelessWidget {
+  const _ListLabel({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: NanoType.label(colors.onSurface))),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: NanoSpacing.sm,
+            vertical: NanoSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.12),
+            borderRadius: NanoShapes.full,
+          ),
+          child: Text('$count', style: NanoType.caption(colors.primary)),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({
+    required this.notification,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final DeviceNotification notification;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return Material(
+      color: selected
+          ? colors.primary.withValues(alpha: 0.12)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: NanoShapes.small,
+        side: BorderSide(
+          color: selected
+              ? colors.primary.withValues(alpha: 0.5)
+              : colors.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        enabled: enabled,
+        selected: selected,
+        onTap: enabled ? onTap : null,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: NanoSpacing.md,
+          vertical: NanoSpacing.xs,
+        ),
+        leading: CircleAvatar(
+          backgroundColor: colors.primary.withValues(alpha: 0.12),
+          foregroundColor: colors.primary,
+          child: const Icon(Icons.reply_rounded),
+        ),
+        title: Text(
+          _notificationTitle(notification),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: NanoType.body(colors.onSurface),
+        ),
+        subtitle: Text(
+          notification.text.trim().isEmpty
+              ? notification.packageName
+              : notification.text.trim(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: NanoType.caption(colors.onSurfaceVariant),
+        ),
+        trailing: AnimatedSwitcher(
+          duration: NanoMotionDurations.quick,
+          child: Icon(
+            selected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
+            key: ValueKey(selected),
+            color: selected ? colors.primary : colors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyNotifications extends StatelessWidget {
+  const _ReadOnlyNotifications({required this.notifications});
+
+  final List<DeviceNotification> notifications;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.zero,
+      leading: Icon(Icons.visibility_outlined, color: colors.onSurfaceVariant),
+      title: Text(
+        'Solo lectura (${notifications.length})',
+        style: NanoType.label(colors.onSurfaceVariant),
+      ),
+      subtitle: Text(
+        'Android no permite responderlas directamente.',
+        style: NanoType.caption(colors.onSurfaceVariant),
+      ),
+      children: [
+        for (final notification in notifications)
+          ListTile(
+            enabled: false,
+            contentPadding: const EdgeInsets.only(left: NanoSpacing.md),
+            leading: const Icon(Icons.lock_outline_rounded),
+            title: Text(
+              _notificationTitle(notification),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              notification.text.trim().isEmpty
+                  ? 'Sin contenido visible'
+                  : notification.text.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CapabilityNotice extends StatelessWidget {
+  const _CapabilityNotice({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(NanoSpacing.md),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: NanoShapes.small,
+      border: Border.all(color: color.withValues(alpha: 0.28)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: color),
+        const SizedBox(width: NanoSpacing.sm),
+        Expanded(child: Text(text)),
+      ],
+    ),
+  );
 }

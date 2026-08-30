@@ -6,6 +6,8 @@
 /// UI ni un detalle del flujo de conversación.
 library;
 
+import '../engine/governance/semantic_policy.dart';
+
 /// Nivel de autonomía del agente de chat.
 ///
 /// Se persiste en settings como `agentAutomationMode.name`, pero el tipo
@@ -51,34 +53,18 @@ class AutomationPolicy {
   final AgentAutomationMode mode;
   const AutomationPolicy(this.mode);
 
-  /// Herramientas de solo lectura exentas de confirmación en modo manual.
-  static const _readOnlyTools = {
-    'screen',
-    'resolve',
-    'notifications',
-    'linux.list',
-    'linux.readFile',
-    'shizuku_query_package',
-  };
-
-  /// Operaciones con efecto externo o de privilegio que requieren una decisión
-  /// explícita en los modos asistido y autónomo. Navegación (`tap`, `back`,
-  /// `launch_app`, gestos) no entra aquí: es una precondición, no una acción
-  /// final por sí misma.
-  static const _sensitiveTools = {
-    'write',
-    'reply_notification',
-    'linux.writeFile',
-    'force_stop_package',
-    'install_package',
-    'grant_specific_permission',
-  };
-
-  bool requiresConfirmation(String tool) => switch (mode) {
-    AgentAutomationMode.manual => !_readOnlyTools.contains(tool),
-    AgentAutomationMode.assisted ||
-    AgentAutomationMode.autonomous => _sensitiveTools.contains(tool),
-  };
+  /// Consume la misma definición usada por planner, dispatcher y TaskPlan.
+  /// Una identidad sin política conocida falla cerrada.
+  bool requiresConfirmation(String action) {
+    final definition = automationSemanticPolicy(action);
+    if (definition == null) return true;
+    return switch (mode) {
+      AgentAutomationMode.manual =>
+        definition.risk != SemanticActionRisk.observation,
+      AgentAutomationMode.assisted ||
+      AgentAutomationMode.autonomous => definition.requiresConfirmation,
+    };
+  }
 
   String confirmationDescription(String tool) =>
       '[policy] "$tool" requiere confirmación en modo ${mode.label} '

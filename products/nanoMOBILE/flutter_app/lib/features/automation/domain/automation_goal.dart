@@ -13,6 +13,12 @@ import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation;
 import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart'
     show ActionConfirmation;
+import 'package:nanoai/features/automation/engine/navigation/navigation_goal.dart'
+    show NavigationGoal;
+import 'package:nanoai/features/automation/engine/navigation/situation_diff.dart'
+    show SituationDiff;
+import 'package:nanoai/features/automation/engine/perception/current_situation.dart'
+    show CurrentSituation;
 
 class AutomationGoal {
   /// Texto libre del objetivo (p. ej. "abre Bluetooth").
@@ -21,7 +27,21 @@ class AutomationGoal {
   /// Expectativa de objetivo opcional (C3) para la comprobación final.
   final GoalExpectation? expectation;
 
-  const AutomationGoal({required this.text, this.expectation});
+  /// Destino semántico opcional para objetivos que requieren navegación.
+  final NavigationGoal? navigationGoal;
+
+  const AutomationGoal({
+    required this.text,
+    this.expectation,
+    this.navigationGoal,
+  });
+
+  /// Explica la distancia entre el estado observado y el destino declarado.
+  /// Sin destino de navegación no fabrica una diferencia.
+  SituationDiff? navigationDiffFrom(CurrentSituation current) {
+    final target = navigationGoal;
+    return target == null ? null : SituationDiff.between(current, target);
+  }
 }
 
 /// Opciones de una ejecución concreta.

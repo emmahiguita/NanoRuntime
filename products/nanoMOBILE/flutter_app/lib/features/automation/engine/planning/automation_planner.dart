@@ -19,6 +19,8 @@ import 'package:nanoai/core/services/llm_engine_client.dart'
 import '../execution/agent_tool_dispatcher.dart'
     show AgentToolProtocol, ToolCall;
 import '../execution/tool_registry.dart' show ToolRegistry;
+import '../model/automation_model.dart';
+import '../model/automation_model_resolver.dart';
 
 /// Contrato del planner. DIP: LLM real, heurística determinista, o fake en
 /// tests. Producen [PlannedPlan] (ToolCalls ejecutables por el dispatcher +
@@ -41,11 +43,15 @@ class PlannedPlan {
   /// Latencia del generate del LLM.
   final Duration llmLatency;
 
+  /// Motivo factual por el que no se pudo invocar o producir un plan.
+  final String? unavailableReason;
+
   const PlannedPlan({
     required this.calls,
     required this.generated,
     required this.rejected,
     required this.llmLatency,
+    this.unavailableReason,
   });
 
   bool get planValid => calls.isNotEmpty;
@@ -55,11 +61,17 @@ class PlannedPlan {
 class LlmAutomationPlanner implements AutomationPlanner {
   final LLMEngineClient _client;
   final Set<String> _knownTools;
+  final AutomationModelResolver? _resolver;
+  final Future<bool> Function(String? modelPath)? _ensureReady;
 
   LlmAutomationPlanner({
     required LLMEngineClient client,
     Set<String>? knownTools,
+    AutomationModelResolver? resolver,
+    Future<bool> Function(String? modelPath)? ensureReady,
   }) : _client = client,
+       _resolver = resolver,
+       _ensureReady = ensureReady,
        // A1 hardening: el vocabulario del planner autónomo se deriva SOLO de
        // tools anunciables (promptSyntax != null). `launch_app`, `linux.*` y
        // los gestos/global actions de A1 quedan fuera: el LLM no puede emitir
@@ -75,6 +87,45 @@ class LlmAutomationPlanner implements AutomationPlanner {
   @override
   Future<PlannedPlan> plan(String goal) async {
     final sw = Stopwatch()..start();
+    final resolver = _resolver;
+    if (resolver != null) {
+      final resolution = resolver.resolveFor(AutomationModelRole.planner);
+      if (!resolution.llmAllowed) {
+        return PlannedPlan(
+          calls: const [],
+          generated: 0,
+          rejected: 0,
+          llmLatency: sw.elapsed,
+          unavailableReason:
+              'El modelo no está disponible para planificación '
+              '(modo ${resolution.mode.name}).',
+        );
+      }
+      final ensureReady = _ensureReady;
+      if (ensureReady != null) {
+        try {
+          if (!await ensureReady(resolution.modelPath)) {
+            return PlannedPlan(
+              calls: const [],
+              generated: 0,
+              rejected: 0,
+              llmLatency: sw.elapsed,
+              unavailableReason:
+                  'No se pudo preparar el modelo seleccionado para planificar.',
+            );
+          }
+        } catch (_) {
+          return PlannedPlan(
+            calls: const [],
+            generated: 0,
+            rejected: 0,
+            llmLatency: sw.elapsed,
+            unavailableReason:
+                'El runtime del modelo no estuvo disponible para planificar.',
+          );
+        }
+      }
+    }
     final LLMResult result;
     try {
       result = await _client.generate(
@@ -89,6 +140,8 @@ class LlmAutomationPlanner implements AutomationPlanner {
         generated: 0,
         rejected: 0,
         llmLatency: sw.elapsed,
+        unavailableReason:
+            'El runtime del modelo no respondió al planificador.',
       );
     }
     sw.stop();
@@ -102,28 +155,23 @@ class LlmAutomationPlanner implements AutomationPlanner {
     );
   }
 
-  /// Filtra la salida del modelo contra el vocabulario conocido y rechaza
-  /// planes claramente inválidos (evita false success), por tipo de tool:
-  /// - tap/resolve: EXIGEN selector real (no vacío, no placeholder `resourceId`).
-  /// - write: exige texto no vacío (escribir "" no aporta).
-  /// - back/screen: sin parámetros — un selector/texto aquí es mal uso.
-  /// - resto: si no lleva selector ni texto, no es ejecutable.
+  /// Filtra la salida no fiable del modelo contra el vocabulario y los inputs
+  /// exigidos por la política semántica canónica.
   List<ToolCall> _validate(List<ToolCall> calls) {
     final valid = <ToolCall>[];
     for (final call in calls) {
       if (!_knownTools.contains(call.tool)) continue;
-      final sel = call.selectorArg ?? '';
-
-      if (call.tool == 'tap' || call.tool == 'resolve') {
-        if (sel.trim().isEmpty || sel.contains('resourceId')) continue;
-      } else if (call.tool == 'write') {
-        if (call.textArg == null || call.textArg!.trim().isEmpty) continue;
-      } else if (call.tool == 'back' || call.tool == 'screen') {
-        if (call.selectorArg != null || call.textArg != null) continue;
-      } else {
-        if (call.selectorArg == null && call.textArg == null) continue;
+      final definition = ToolRegistry.builtin.lookup(call.tool);
+      if (definition == null ||
+          definition.requiredInputs.any((input) => !call.hasInput(input))) {
+        continue;
       }
-
+      final selector = call.selectorArg;
+      if (selector != null && selector.contains('resourceId')) continue;
+      if (definition.requiredInputs.isEmpty &&
+          (call.tool == 'back' || call.tool == 'screen')) {
+        if (call.selectorArg != null || call.textArg != null) continue;
+      }
       valid.add(call);
     }
     return valid;
@@ -146,6 +194,7 @@ class LlmAutomationPlanner implements AutomationPlanner {
         ' NUNCA deduzcas una acción que el usuario no pidió en su instrucción.\n\n'
         'Devuelve SOLO un array JSON, sin explicación ni texto extra, del '
         'formato:\n'
-        '[{"tool":"tap","selector":"text=Bluetooth"},{"tool":"write","text":"hola"}]';
+        '[{"tool":"tap","selector":"text=Bluetooth"},'
+        '{"tool":"write","selector":"editable=true","text":"hola"}]';
   }
 }

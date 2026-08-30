@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
@@ -11,14 +14,19 @@ import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
+import '../../application/automation_feedback_presenter.dart';
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_policy.dart';
 import '../../domain/automation_result.dart';
+import '../../engine/agent_dependencies.dart';
+import '../../engine/perception/current_situation.dart';
+import '../../engine/voice/voice_runtime.dart';
 import '../../ledger/action_ledger_provider.dart';
 import '../../ledger/automation_trace.dart';
 
 import 'engine_status_card.dart';
 import 'capability_status_card.dart';
+import 'nano_voice_orb.dart';
 import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 
 /// Estado del engine (ligero) para la capa de presentación. Lee el ENDPOINT
@@ -68,21 +76,133 @@ class AutomationDashboard extends ConsumerStatefulWidget {
 class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   final _taskController = TextEditingController();
 
+  late final VoiceSessionManager _voiceSession;
+  StreamSubscription<VoiceSessionState>? _voiceStateSubscription;
+  VoiceSessionState _voiceState = VoiceSessionState.idle;
+  bool _observingScreen = false;
+  String? _senseFeedback;
+
   AutomationResultStatus? _lastStatus;
   String _lastGoal = '';
   String _lastReason = '';
   bool _running = false;
   ActionConfirmation? _lastConfirmation;
 
+  bool get _voiceBusy =>
+      _voiceSession.state == VoiceSessionState.listening ||
+      _voiceSession.state == VoiceSessionState.processing;
+
+  bool get _sensing => _voiceBusy || _observingScreen;
+
+  @override
+  void initState() {
+    super.initState();
+    // Reutiliza la sesión conversacional existente. La voz sólo entrega
+    // un goal al mismo AutomationEngine que usa el composer escrito.
+    _voiceSession = ref.read(chatProvider.notifier).voiceSession;
+    _voiceState = _voiceSession.state;
+    _voiceStateSubscription = _voiceSession.states.listen((state) {
+      if (!mounted) return;
+      setState(() => _voiceState = state);
+    });
+  }
+
   @override
   void dispose() {
+    _voiceStateSubscription?.cancel();
     _taskController.dispose();
     super.dispose();
   }
 
-  Future<void> _runTask(String text, {ActionConfirmation? confirmation}) async {
+  Future<void> _activateVoice() async {
+    if (_running || _sensing) return;
+
+    setState(() => _senseFeedback = 'Escuchando una orden…');
+    try {
+      final turn = await _voiceSession.pushToTalk();
+      if (!mounted) return;
+      if (turn == null) {
+        setState(() => _senseFeedback = 'No se detectó una orden de voz.');
+        return;
+      }
+
+      final transcript = turn.transcript.trim();
+      final goal = (turn.resolvedGoal ?? transcript).trim();
+      _taskController
+        ..text = transcript
+        ..selection = TextSelection.collapsed(offset: transcript.length);
+      if (goal.isEmpty) {
+        setState(() => _senseFeedback = 'La orden de voz quedó vacía.');
+        return;
+      }
+      if (_running) {
+        setState(
+          () => _senseFeedback =
+              'Orden reconocida · espera a que finalice la tarea actual.',
+        );
+        return;
+      }
+      setState(() => _senseFeedback = 'Orden reconocida · ejecutando');
+      await _runTask(goal, fromVoice: true);
+    } catch (_) {
+      // Un fallo del canal nativo no debe dejar la máquina visualmente
+      // atrapada en listening/processing ni bloquear el siguiente intento.
+      try {
+        await _voiceSession.stop();
+      } catch (_) {
+        // El feedback sigue siendo honesto aunque el canal nativo no responda.
+      }
+      if (!mounted) return;
+      setState(
+        () => _senseFeedback = 'No fue posible iniciar el reconocimiento.',
+      );
+    }
+  }
+
+  Future<void> _toggleVoiceOutput() async {
+    final enabled = ref.read(settingsProvider).voiceEnabled;
+    await ref.read(settingsProvider.notifier).setVoiceEnabled(!enabled);
+    if (!mounted) return;
+    setState(
+      () => _senseFeedback = enabled
+          ? 'Audio de Nano apagado · responderá solo con texto.'
+          : 'Audio de Nano encendido.',
+    );
+  }
+
+  Future<void> _observeScreen() async {
+    if (_running || _sensing) return;
+    setState(() {
+      _observingScreen = true;
+      _senseFeedback = 'Observando la pantalla…';
+    });
+    try {
+      // Misma fuente factual usada por navegación y verificación. No ejecuta
+      // acciones y no convierte una observación en autoridad.
+      final situation = await ref.read(currentSituationSourceProvider).call();
+      if (!mounted) return;
+      setState(() {
+        _observingScreen = false;
+        _senseFeedback = situation == null
+            ? 'Sin lectura de pantalla · comprueba Accesibilidad.'
+            : _describeSituation(situation);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _observingScreen = false;
+        _senseFeedback = 'La observación de pantalla no está disponible.';
+      });
+    }
+  }
+
+  Future<void> _runTask(
+    String text, {
+    ActionConfirmation? confirmation,
+    bool fromVoice = false,
+  }) async {
     final goal = text.trim();
-    if (goal.isEmpty || _running) return;
+    if (goal.isEmpty || _running || (_sensing && !fromVoice)) return;
     _taskController.clear();
     setState(() {
       _running = true;
@@ -99,13 +219,26 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                 ? AutomationOptions(confirmation: confirmation)
                 : null,
           );
+      if (fromVoice) {
+        _voiceSession.world
+          ..lastUserIntent = goal
+          ..lastAction = result.status.name
+          ..touch();
+      }
       if (mounted) {
         setState(() {
           _lastStatus = result.status;
-          _lastReason = result.reason;
+          _lastReason = automationUserFacingReason(result.reason);
           _lastConfirmation = result.confirmation;
           _running = false;
+          if (fromVoice) _senseFeedback = 'Orden de voz finalizada.';
         });
+      }
+      if (ref.read(settingsProvider).voiceEnabled) {
+        // El resultado hablado es exactamente el resultado del mismo
+        // AutomationEngine. "Audio" gobierna tanto órdenes escritas como de
+        // micrófono; TTS es solo una salida y nunca cambia el veredicto.
+        await _voiceSession.respond(_spokenResult(result));
       }
     } catch (e) {
       if (mounted) {
@@ -116,6 +249,23 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         });
       }
     }
+  }
+
+  String _spokenResult(AutomationResult result) {
+    final prefix = switch (result.status) {
+      AutomationResultStatus.completed => 'Tarea completada.',
+      AutomationResultStatus.completedUnverified =>
+        'La tarea terminó, pero no pude verificar el objetivo final.',
+      AutomationResultStatus.paused => 'Necesito tu confirmación.',
+      AutomationResultStatus.denied => 'La acción fue denegada.',
+      AutomationResultStatus.noPlan => 'No encontré un plan verificable.',
+      AutomationResultStatus.failed => 'No pude completar la tarea.',
+      AutomationResultStatus.outcomeUnknown =>
+        'No pude comprobar el resultado de la acción.',
+      AutomationResultStatus.cancelled => 'La tarea fue cancelada.',
+    };
+    final reason = automationSpokenReason(result.reason);
+    return reason.isEmpty ? prefix : '$prefix $reason';
   }
 
   Future<void> _pickMode() async {
@@ -159,7 +309,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final mode = ref.watch(settingsProvider).agentAutomationMode;
+    final settings = ref.watch(settingsProvider);
+    final mode = settings.agentAutomationMode;
 
     // Responsive: en wide (landscape/tablet) divide en 2 columnas para
     // APROVECHAR el ancho (composer+quick a la izquierda, estado+recientes a la
@@ -176,6 +327,14 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         final composer = _TaskComposer(
           controller: _taskController,
           running: _running,
+          voiceEnabled: settings.voiceEnabled,
+          voiceState: _voiceState,
+          observingScreen: _observingScreen,
+          sensing: _sensing,
+          senseFeedback: _senseFeedback,
+          onVoice: _activateVoice,
+          onVoiceOutputToggle: _toggleVoiceOutput,
+          onObserve: _observeScreen,
           onRun: _runTask,
         );
         final active = (_running || _lastStatus != null)
@@ -409,10 +568,26 @@ class _TaskComposer extends StatelessWidget {
   const _TaskComposer({
     required this.controller,
     required this.running,
+    required this.voiceEnabled,
+    required this.voiceState,
+    required this.observingScreen,
+    required this.sensing,
+    required this.senseFeedback,
+    required this.onVoice,
+    required this.onVoiceOutputToggle,
+    required this.onObserve,
     required this.onRun,
   });
   final TextEditingController controller;
   final bool running;
+  final bool voiceEnabled;
+  final VoiceSessionState voiceState;
+  final bool observingScreen;
+  final bool sensing;
+  final String? senseFeedback;
+  final VoidCallback onVoice;
+  final VoidCallback onVoiceOutputToggle;
+  final VoidCallback onObserve;
   final ValueChanged<String> onRun;
 
   @override
@@ -438,12 +613,13 @@ class _TaskComposer extends StatelessWidget {
             ),
             const SizedBox(height: NanoSpacing.sm),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: TextField(
                     controller: controller,
                     textInputAction: TextInputAction.go,
-                    onSubmitted: (v) => !running ? onRun(v) : null,
+                    onSubmitted: (v) => !running && !sensing ? onRun(v) : null,
                     decoration: InputDecoration(
                       hintText: 'Describe una tarea…',
                       border: OutlineInputBorder(
@@ -461,7 +637,9 @@ class _TaskComposer extends StatelessWidget {
                 ),
                 const SizedBox(width: NanoSpacing.sm),
                 FilledButton(
-                  onPressed: running ? null : () => onRun(controller.text),
+                  onPressed: running || sensing
+                      ? null
+                      : () => onRun(controller.text),
                   style: FilledButton.styleFrom(
                     shape: const CircleBorder(),
                     padding: const EdgeInsets.all(14),
@@ -476,11 +654,170 @@ class _TaskComposer extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: NanoSpacing.xs),
+            Row(
+              children: [
+                Tooltip(
+                  message: 'Dar una orden por voz',
+                  child: NanoVoiceOrb(
+                    state: voiceState,
+                    onTap: onVoice,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Text('Voz', style: NanoType.caption(colors.onSurfaceVariant)),
+                const SizedBox(width: NanoSpacing.sm),
+                _SenseControl(
+                  icon: voiceEnabled
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                  active: voiceEnabled,
+                  enabled: true,
+                  activeColor: colors.accentCyan,
+                  tooltip: voiceEnabled
+                      ? 'Apagar audio de Nano'
+                      : 'Encender audio de Nano',
+                  semanticLabel: voiceEnabled
+                      ? 'Audio de Nano encendido'
+                      : 'Audio de Nano apagado',
+                  onTap: onVoiceOutputToggle,
+                ),
+                const SizedBox(width: 2),
+                Text('Audio', style: NanoType.caption(colors.onSurfaceVariant)),
+                const SizedBox(width: NanoSpacing.sm),
+                _SenseControl(
+                  icon: Icons.visibility_rounded,
+                  active: observingScreen,
+                  busy: observingScreen,
+                  enabled: !running && !sensing,
+                  activeColor: colors.accentLavender,
+                  tooltip: 'Observar la pantalla',
+                  semanticLabel: observingScreen
+                      ? 'Ojos observando la pantalla'
+                      : 'Activar ojos',
+                  onTap: onObserve,
+                ),
+                const SizedBox(width: 2),
+                Text('Ojos', style: NanoType.caption(colors.onSurfaceVariant)),
+                const SizedBox(width: NanoSpacing.sm),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: Text(
+                      observingScreen
+                          ? 'Observando la pantalla…'
+                          : switch (voiceState) {
+                              VoiceSessionState.listening => 'Escuchando…',
+                              VoiceSessionState.processing => 'Procesando…',
+                              _ => senseFeedback ?? 'Listos',
+                            },
+                      key: ValueKey(
+                        '$voiceState-$observingScreen-${senseFeedback ?? ''}',
+                      ),
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: NanoType.caption(colors.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _SenseControl extends StatelessWidget {
+  const _SenseControl({
+    required this.icon,
+    required this.active,
+    required this.enabled,
+    required this.activeColor,
+    required this.tooltip,
+    required this.semanticLabel,
+    required this.onTap,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final bool active;
+  final bool enabled;
+  final Color activeColor;
+  final String tooltip;
+  final String semanticLabel;
+  final VoidCallback onTap;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final color = active
+        ? activeColor
+        : !enabled
+        ? colors.onSurfaceVariant.withValues(alpha: 0.38)
+        : colors.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: semanticLabel,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: enabled ? onTap : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: active ? 0.18 : 0.08),
+                border: Border.all(
+                  color: color.withValues(alpha: active ? 0.72 : 0.24),
+                ),
+                boxShadow: active
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.28),
+                          blurRadius: 14,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: busy
+                  ? Padding(
+                      padding: const EdgeInsets.all(9),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Icon(icon, color: color, size: 19),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _describeSituation(CurrentSituation situation) {
+  final surface = switch (situation.surfaceKind) {
+    CurrentSurfaceKind.dialog => 'diálogo',
+    CurrentSurfaceKind.editable => 'campo editable',
+    CurrentSurfaceKind.collection => 'lista',
+    CurrentSurfaceKind.content => 'contenido',
+    CurrentSurfaceKind.unknown => 'superficie sin clasificar',
+  };
+  final completeness = situation.isComplete ? '' : ' · lectura parcial';
+  return 'Ojos activos · $surface · ${situation.packageName}$completeness';
 }
 
 /// Presentación HONESTA de un estado de ejecución: la etiqueta es la fuente
@@ -693,7 +1030,11 @@ class _ActiveExecutionCardState extends State<_ActiveExecutionCard>
 
 /// Atajos de tareas comunes → runGoal(preset).
 class QuickAutomationActions extends StatelessWidget {
-  const QuickAutomationActions({required this.onRun, this.onMessagesTap});
+  const QuickAutomationActions({
+    super.key,
+    required this.onRun,
+    this.onMessagesTap,
+  });
   final ValueChanged<String> onRun;
 
   /// Abre la pantalla de Mensajes (función de usuario, destacada).

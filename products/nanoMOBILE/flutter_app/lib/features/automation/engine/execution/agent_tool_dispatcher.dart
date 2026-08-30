@@ -30,6 +30,10 @@ import '../system/system_destination.dart' show SystemDestination;
 import '../system/system_graph.dart' show SystemGraph;
 import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
 import '../governance/action_confirmation.dart';
+import '../governance/semantic_policy.dart';
+import '../orchestration/execution_journal.dart';
+import '../perception/current_situation.dart';
+import '../voice/execution_cancellation.dart';
 import 'tool_registry.dart';
 
 /// Llamada a herramienta extraída de una respuesta del LLM.
@@ -75,6 +79,25 @@ class ToolCall {
 
   /// destination para open_system (A3). Solo `args.destination`.
   String? get destinationArg => args?['destination'] as String?;
+
+  /// Lee un input declarado por la política sin depender de si el caller usa
+  /// `args` canónico o los aliases legacy. Esta validación ocurre de nuevo en
+  /// el dispatcher para que el origen del plan no pueda omitirla.
+  Object? inputValue(String input) => switch (input) {
+    'selector' => selectorArg,
+    'text' => textArg,
+    'key' => keyArg,
+    'packageName' => packageNameArg,
+    'destination' => destinationArg,
+    'url' || 'path' || 'command' || 'apkPath' => args?[input] ?? textArg,
+    _ => args?[input],
+  };
+
+  bool hasInput(String input) {
+    final value = inputValue(input);
+    if (value == null) return false;
+    return value is! String || value.trim().isNotEmpty;
+  }
 
   /// Firma canónica para vincular una aprobación a esta llamada exacta.
   /// Incluye argumentos y postcondiciones; cambiar cualquier campo invalida
@@ -296,6 +319,16 @@ class ToolOutcome {
       executionStatus == ToolExecutionStatus.outcomeUnknown;
 }
 
+/// Presupuesto mutable perteneciente a una sola invocación/plan.
+/// Nunca se almacena en el dispatcher compartido.
+final class ToolExecutionBudget {
+  int _stepsUsed = 0;
+
+  int get stepsUsed => _stepsUsed;
+
+  void recordExecution() => _stepsUsed++;
+}
+
 /// Resultado de ejecutar un plan multi-paso ([AgentToolDispatcher.runPlanGuarded]).
 ///
 /// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]
@@ -358,6 +391,9 @@ class AgentToolDispatcher {
     Future<Map<dynamic, dynamic>> Function()? shizukuStatusSource,
     Future<bool> Function(String kind)? openPermissionSource,
     PlatformStateReader? platformStateReader,
+    ExecutionJournal? executionJournal,
+    CurrentSituationSource? currentSituationSource,
+    bool Function()? voiceOutputEnabled,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
@@ -374,7 +410,10 @@ class AgentToolDispatcher {
        _devicePermissionsSource = devicePermissionsSource,
        _shizukuStatusSource = shizukuStatusSource,
        _openPermissionSource = openPermissionSource,
-       _platformStateReader = platformStateReader;
+       _platformStateReader = platformStateReader,
+       _executionJournal = executionJournal,
+       _currentSituationSource = currentSituationSource,
+       _voiceOutputEnabled = voiceOutputEnabled ?? (() => true);
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
@@ -424,6 +463,20 @@ class AgentToolDispatcher {
   /// verificación de plataforma (se reporta "solo aceptado").
   final PlatformStateReader? _platformStateReader;
 
+  /// Frontera durable de las acciones no repetibles. En producción siempre se
+  /// inyecta desde el composition root; si falta, una acción irreversible se
+  /// bloquea antes de tocar el dispositivo.
+  final ExecutionJournal? _executionJournal;
+  Future<void>? _journalRecovery;
+
+  /// Observación factual inmediatamente anterior a cualquier navegación.
+  /// Ausente o sin estructura = navegación denegada (fail closed).
+  final CurrentSituationSource? _currentSituationSource;
+
+  /// Gate de salida TTS inyectado por el composition root. Mantiene el
+  /// comando @habla bajo la misma preferencia global que las respuestas.
+  final bool Function() _voiceOutputEnabled;
+
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
   AgentVerifier get verifier =>
@@ -438,13 +491,9 @@ class AgentToolDispatcher {
   AgentLoop get loop =>
       _loop ??= AgentLoop(executor: _executor, verifier: verifier);
 
-  /// Pasos ejecutados en el turno actual (lo incrementa cada ejecución real).
-  /// El chat lo resetea con [resetTurn] en cada envío del usuario.
-  int _stepsUsed = 0;
-
-  int get stepsUsed => _stepsUsed;
-
-  void resetTurn() => _stepsUsed = 0;
+  /// Compatibilidad con callers legacy. El presupuesto ya no es global: cada
+  /// plan posee su propio [ToolExecutionBudget].
+  void resetTurn() {}
 
   /// Huella observable del mundo para detectar tool loops entre rondas LLM.
   /// No expone el snapshot ni ejecuta acciones; solo resume estado real.
@@ -469,7 +518,11 @@ class AgentToolDispatcher {
   /// Ejecuta un comando `@` del usuario y devuelve el feedback para el chat.
   /// Autoría humana: pasa por la política con [humanInitiated] — una
   /// escritura externa escrita a mano por el usuario NO pide confirmación.
-  Future<String> runCommand(String command) async {
+  Future<String> runCommand(
+    String command, {
+    ExecutionCancellationToken? cancellation,
+  }) async {
+    cancellation?.throwIfCancelled();
     final t = command.trim();
     if (t.startsWith('@@')) return t.substring(1);
 
@@ -569,7 +622,11 @@ class AgentToolDispatcher {
       default:
         return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
     }
-    return (await runToolGuarded(call, humanInitiated: true)).feedback;
+    return (await runToolGuarded(
+      call,
+      humanInitiated: true,
+      cancellation: cancellation,
+    )).feedback;
   }
 
   /// A16 — escucha la voz y devuelve el texto transcrito (sistema Android).
@@ -588,6 +645,9 @@ class AgentToolDispatcher {
   Future<String> _speak(String text) async {
     final t = text.trim();
     if (t.isEmpty) return 'Uso: @habla <texto>.';
+    if (!_voiceOutputEnabled()) {
+      return 'Audio de voz desactivado. Nano responderá solo con texto.';
+    }
     final ok = await NanoRuntimeApi.instance.speak(t);
     return ok ? 'Hablado.' : 'No se pudo hablar (TTS no disponible).';
   }
@@ -655,12 +715,54 @@ class AgentToolDispatcher {
     ToolCall call, {
     bool humanInitiated = false,
     bool confirmed = false,
+    ExecutionJournalEntry? executionIntent,
+    ToolExecutionBudget? budget,
+    ExecutionCancellationToken? cancellation,
+  }) => _runToolGuarded(
+    call,
+    humanInitiated: humanInitiated,
+    confirmed: confirmed,
+    executionIntent: executionIntent,
+    budget: budget,
+    cancellation: cancellation,
+  );
+
+  /// Variante para TaskPlan: añade la identidad semántica sin cambiar el
+  /// contrato legacy de [runToolGuarded]. Ambas políticas se combinan de forma
+  /// conservadora antes de llegar al mismo ejecutor.
+  Future<ToolOutcome> runSemanticToolGuarded(
+    ToolCall call, {
+    required String semanticAction,
+    bool confirmed = false,
+    ExecutionJournalEntry? executionIntent,
+    ToolExecutionBudget? budget,
+    ExecutionCancellationToken? cancellation,
+  }) => _runToolGuarded(
+    call,
+    confirmed: confirmed,
+    semanticAction: semanticAction,
+    executionIntent: executionIntent,
+    budget: budget,
+    cancellation: cancellation,
+  );
+
+  Future<ToolOutcome> _runToolGuarded(
+    ToolCall call, {
+    bool humanInitiated = false,
+    bool confirmed = false,
+    String? semanticAction,
+    ExecutionJournalEntry? executionIntent,
+    ToolExecutionBudget? budget,
+    ExecutionCancellationToken? cancellation,
   }) async {
+    cancellation?.throwIfCancelled();
+    final runBudget = budget ?? ToolExecutionBudget();
     final decision = _policy.decide(
       call.tool,
-      stepsUsed: _stepsUsed,
+      stepsUsed: runBudget.stepsUsed,
       humanInitiated: humanInitiated,
       confirmed: confirmed,
+      semanticAction: semanticAction,
     );
     if (decision.denied) {
       // Herramienta fuera del registro: el modelo ve la lista completa y
@@ -672,8 +774,18 @@ class AgentToolDispatcher {
       }
       return ToolOutcome(verdict: PolicyVerdict.denied, feedback: feedback);
     }
+    final tool = decision.tool!;
+    final missingInputs = tool.requiredInputs.where(
+      (input) => !call.hasInput(input),
+    );
+    if (missingInputs.isNotEmpty) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[policy] "${tool.name}" requiere ${missingInputs.join(', ')}.',
+      );
+    }
     if (decision.needsConfirmation) {
-      final tool = decision.tool!;
       return ToolOutcome(
         verdict: PolicyVerdict.needsConfirmation,
         pendingCall: call,
@@ -681,11 +793,226 @@ class AgentToolDispatcher {
             '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
       );
     }
-    final feedback = await _executeWithTimeout(call, decision.tool!);
+    final semanticRisk = semanticAction == null
+        ? null
+        : automationSemanticPolicy(semanticAction)?.risk;
+    final navigates =
+        tool.semanticPolicy.risk == SemanticActionRisk.navigation ||
+        semanticRisk == SemanticActionRisk.navigation;
+    if (navigates) {
+      final source = _currentSituationSource;
+      if (source == null) {
+        return const ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[currentSituationUnavailable] Navegación bloqueada: no hay fuente de situación actual.',
+        );
+      }
+      final CurrentSituation? situation;
+      try {
+        situation = await source();
+      } on Object catch (error) {
+        return ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[currentSituationUnavailable] Navegación bloqueada: no se pudo observar la situación actual ($error).',
+        );
+      }
+      if (situation == null || !situation.hasStructuralEvidence) {
+        return const ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[currentSituationUnavailable] Navegación bloqueada: no existe evidencia estructural de la superficie actual.',
+        );
+      }
+    }
+    if (tool.irreversible) {
+      return _runIrreversibleTool(
+        call,
+        tool,
+        runBudget,
+        executionIntent: executionIntent,
+      );
+    }
+    final feedback = await _executeWithTimeout(call, tool, runBudget);
     return ToolOutcome(
       verdict: PolicyVerdict.allow,
       feedback: feedback,
       executionStatus: _executionStatusFor(feedback),
+    );
+  }
+
+  Future<ToolOutcome> _runIrreversibleTool(
+    ToolCall call,
+    ToolDefinition tool,
+    ToolExecutionBudget budget, {
+    ExecutionJournalEntry? executionIntent,
+  }) async {
+    final journal = _executionJournal;
+    if (journal == null) {
+      return const ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[journalUnavailable] Acción irreversible bloqueada: no hay journal durable.',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
+
+    try {
+      await (_journalRecovery ??= journal.recoverInterrupted());
+    } on Object catch (error) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[journalUnavailable] Acción irreversible bloqueada: no se pudo recuperar el journal ($error).',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
+
+    final actionSignature = call.confirmationSignature;
+    final now = DateTime.now().toUtc();
+    ExecutionJournalEntry authorizedEntry;
+    if (executionIntent != null) {
+      final ExecutionJournalEntry? persisted;
+      try {
+        persisted = await journal.load(executionIntent.runId);
+      } on Object catch (error) {
+        return ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[journalUnavailable] No se pudo validar la intención autorizada: $error.',
+          executionStatus: ToolExecutionStatus.notExecuted,
+        );
+      }
+      if (persisted == null ||
+          persisted.status != ExecutionJournalStatus.authorized ||
+          !persisted.irreversible ||
+          persisted.planSignature != executionIntent.planSignature ||
+          persisted.currentStep != executionIntent.currentStep ||
+          persisted.stepId != executionIntent.stepId ||
+          persisted.actionSignature != executionIntent.actionSignature) {
+        return const ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[journalIntentMismatch] La intención autorizada no coincide con el journal durable.',
+          executionStatus: ToolExecutionStatus.notExecuted,
+        );
+      }
+      authorizedEntry = persisted;
+    } else {
+      final plannedEntry = ExecutionJournalEntry(
+        runId: _newRunId(),
+        planSignature: canonicalFingerprint({'action': actionSignature}),
+        goalFingerprint: actionSignature,
+        currentStep: 0,
+        stepId: 'tool:0',
+        status: ExecutionJournalStatus.planned,
+        irreversible: true,
+        actionSignature: actionSignature,
+        verificationState: 'acción planificada; aún no autorizada',
+        timestamp: now,
+      );
+      try {
+        await journal.save(plannedEntry);
+        authorizedEntry = plannedEntry.copyWith(
+          status: ExecutionJournalStatus.authorized,
+          verificationState: 'política satisfecha; acción aún no iniciada',
+          timestamp: DateTime.now().toUtc(),
+        );
+        await journal.save(authorizedEntry);
+      } on Object catch (error) {
+        return ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[journalUnavailable] Acción irreversible bloqueada antes de autorizar: $error.',
+          executionStatus: ToolExecutionStatus.notExecuted,
+        );
+      }
+    }
+    final executingEntry = authorizedEntry.copyWith(
+      status: ExecutionJournalStatus.executing,
+      verificationState: 'acción reclamada; aún sin resultado',
+      timestamp: DateTime.now().toUtc(),
+    );
+
+    try {
+      final claimed = await journal.tryBeginIrreversible(executingEntry);
+      if (!claimed) {
+        return const ToolOutcome(
+          verdict: PolicyVerdict.allow,
+          feedback:
+              '[outcomeUnknown] Existe una ejecución no reconciliada de esta acción; no se repite automáticamente.',
+          executionStatus: ToolExecutionStatus.outcomeUnknown,
+        );
+      }
+    } on Object catch (error) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[journalUnavailable] Acción irreversible bloqueada antes de ejecutar: $error.',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
+
+    final feedback = await _executeWithTimeout(call, tool, budget);
+    final executionStatus = _executionStatusFor(feedback);
+    final executedEntry = executingEntry.copyWith(
+      status: ExecutionJournalStatus.executed,
+      verificationState: 'efecto ejecutado; verificación pendiente',
+      timestamp: DateTime.now().toUtc(),
+    );
+    final verifyingEntry = executedEntry.copyWith(
+      status: ExecutionJournalStatus.verifying,
+      verificationState: 'verificación en curso',
+      timestamp: DateTime.now().toUtc(),
+    );
+    try {
+      await journal.save(executedEntry);
+      await journal.save(verifyingEntry);
+    } on Object catch (error) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.allow,
+        feedback:
+            '[outcomeUnknown] La acción pudo ejecutarse, pero no se pudo persistir su verificación ($error). No debe repetirse.',
+        executionStatus: ToolExecutionStatus.outcomeUnknown,
+      );
+    }
+    if (executionIntent != null) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.allow,
+        feedback: feedback,
+        executionStatus: executionStatus,
+      );
+    }
+    final terminalStatus = switch (executionStatus) {
+      ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
+      ToolExecutionStatus.completedUnverified =>
+        ExecutionJournalStatus.completedUnverified,
+      ToolExecutionStatus.outcomeUnknown =>
+        ExecutionJournalStatus.outcomeUnknown,
+      ToolExecutionStatus.failed ||
+      ToolExecutionStatus.notExecuted => ExecutionJournalStatus.failed,
+    };
+    try {
+      await journal.save(
+        verifyingEntry.copyWith(
+          status: terminalStatus,
+          verificationState: feedback,
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
+    } on Object catch (error) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.allow,
+        feedback:
+            '[outcomeUnknown] La acción pudo ejecutarse, pero no se pudo cerrar el journal ($error). No debe repetirse.',
+        executionStatus: ToolExecutionStatus.outcomeUnknown,
+      );
+    }
+    return ToolOutcome(
+      verdict: PolicyVerdict.allow,
+      feedback: feedback,
+      executionStatus: executionStatus,
     );
   }
 
@@ -702,27 +1029,60 @@ class AgentToolDispatcher {
     ActionConfirmation? confirmation,
     String? executionId,
     bool confirmed = false,
+    ExecutionCancellationToken? cancellation,
+    void Function(int stepIndex)? onStep,
   }) async {
     final outcomes = <ToolOutcome>[];
     final feedbacks = <String>[];
     final paths = <ExecutionPath>[];
     final total = plan.length;
     final loopDetector = ToolLoopDetector();
+    final budget = ToolExecutionBudget();
     final planSignature = _planSignature(plan);
     final runId = executionId ?? confirmation?.executionId ?? _newRunId();
-    final validConfirmation =
-        confirmation != null &&
+    final journal = _executionJournal;
+    ExecutionJournalEntry? authorizedEntry;
+    var validConfirmation = false;
+    if (confirmation != null &&
         confirmation.stepIndex >= 0 &&
-        confirmation.stepIndex < plan.length &&
-        confirmation.consumeIfAuthorizes(
+        confirmation.stepIndex < plan.length) {
+      if (journal != null) {
+        try {
+          authorizedEntry = await journal.consumeConfirmation(confirmation);
+          validConfirmation = authorizedEntry != null;
+        } on Object {
+          validConfirmation = false;
+        }
+      } else {
+        validConfirmation = confirmation.consumeIfAuthorizes(
           executionId: runId,
           planSignature: planSignature,
           stepIndex: confirmation.stepIndex,
           stepId: 'tool:${confirmation.stepIndex}',
           actionSignature: plan[confirmation.stepIndex].confirmationSignature,
         );
-    final startIndex = validConfirmation ? confirmation.stepIndex : 0;
+      }
+    }
+    if (confirmation != null && !validConfirmation) {
+      const denied = ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[confirmationInvalid] Confirmación inválida, expirada, consumida o no pendiente en el journal.',
+      );
+      return const PlanOutcome(
+        completed: false,
+        steps: [denied],
+        summary:
+            '[confirmationInvalid] Confirmación inválida, expirada, consumida o no pendiente en el journal.',
+      );
+    }
+    final confirmedStepIndex = validConfirmation
+        ? confirmation!.stepIndex
+        : null;
+    final startIndex = confirmedStepIndex ?? 0;
     for (var i = startIndex; i < total; i++) {
+      cancellation?.throwIfCancelled();
+      onStep?.call(i);
       final call = plan[i];
       paths.add(_router.route(call).path);
       // Detección de bucle (C5): abortar ANTES de repetir una acción contra
@@ -747,11 +1107,29 @@ class AgentToolDispatcher {
 
       // Sólo un token exacto y consumido autoriza. `confirmed` se conserva en
       // la firma pública por compatibilidad, pero nunca eleva privilegios.
-      final stepConfirmed = validConfirmation && i == confirmation.stepIndex;
+      final stepConfirmed = i == confirmedStepIndex;
+      final tool = _policy.registry.lookup(call.tool);
+      ExecutionJournalEntry? executionIntent;
+      if (stepConfirmed && authorizedEntry != null && tool != null) {
+        if (tool.irreversible) {
+          executionIntent = authorizedEntry;
+        } else if (journal != null) {
+          final executing = authorizedEntry.copyWith(
+            status: ExecutionJournalStatus.executing,
+            verificationState: 'acción autorizada; ejecución en curso',
+            timestamp: DateTime.now().toUtc(),
+          );
+          await journal.save(executing);
+          authorizedEntry = executing;
+        }
+      }
       final outcome = await runToolGuarded(
         call,
         humanInitiated: humanInitiated,
         confirmed: stepConfirmed,
+        budget: budget,
+        cancellation: cancellation,
+        executionIntent: executionIntent,
       );
       outcomes.add(outcome);
 
@@ -763,6 +1141,45 @@ class AgentToolDispatcher {
           stepId: 'tool:$i',
           actionSignature: call.confirmationSignature,
         );
+        final pendingTool = _policy.registry.lookup(call.tool);
+        if (journal != null && pendingTool != null) {
+          try {
+            final planned = ExecutionJournalEntry(
+              runId: runId,
+              planSignature: planSignature,
+              goalFingerprint: canonicalFingerprint({'plan': planSignature}),
+              currentStep: i,
+              stepId: 'tool:$i',
+              status: ExecutionJournalStatus.planned,
+              irreversible: pendingTool.irreversible,
+              actionSignature: call.confirmationSignature,
+              verificationState: 'acción planificada; aún no autorizada',
+              timestamp: DateTime.now().toUtc(),
+            );
+            await journal.save(planned);
+            await journal.save(
+              planned.copyWith(
+                status: ExecutionJournalStatus.waitingConfirmation,
+                verificationState: 'acción pendiente de confirmación explícita',
+                timestamp: DateTime.now().toUtc(),
+                pendingConfirmation: request,
+              ),
+            );
+          } on Object catch (error) {
+            final denied = ToolOutcome(
+              verdict: PolicyVerdict.denied,
+              feedback:
+                  '[journalUnavailable] No se pudo persistir la confirmación: $error.',
+            );
+            outcomes[outcomes.length - 1] = denied;
+            return PlanOutcome(
+              completed: false,
+              steps: outcomes,
+              summary: [...feedbacks, denied.feedback].join('\n'),
+              paths: paths,
+            );
+          }
+        }
         return PlanOutcome(
           completed: false,
           steps: outcomes,
@@ -771,6 +1188,55 @@ class AgentToolDispatcher {
           confirmation: request,
           summary: [...feedbacks, outcome.feedback].join('\n'),
           paths: paths,
+        );
+      }
+      if (stepConfirmed &&
+          authorizedEntry != null &&
+          tool != null &&
+          journal != null) {
+        final ExecutionJournalEntry verifying;
+        if (tool.irreversible) {
+          final persisted = await journal.load(authorizedEntry.runId);
+          if (persisted == null ||
+              persisted.status != ExecutionJournalStatus.verifying) {
+            return PlanOutcome(
+              completed: false,
+              steps: outcomes,
+              summary:
+                  '[outcomeUnknown] El journal no conserva la fase de verificación de la acción.',
+              paths: paths,
+            );
+          }
+          verifying = persisted;
+        } else {
+          final executed = authorizedEntry.copyWith(
+            status: ExecutionJournalStatus.executed,
+            verificationState: 'efecto ejecutado; verificación pendiente',
+            timestamp: DateTime.now().toUtc(),
+          );
+          verifying = executed.copyWith(
+            status: ExecutionJournalStatus.verifying,
+            verificationState: 'verificación en curso',
+            timestamp: DateTime.now().toUtc(),
+          );
+          await journal.save(executed);
+          await journal.save(verifying);
+        }
+        await journal.save(
+          verifying.copyWith(
+            status: switch (outcome.executionStatus) {
+              ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
+              ToolExecutionStatus.completedUnverified =>
+                ExecutionJournalStatus.completedUnverified,
+              ToolExecutionStatus.outcomeUnknown =>
+                ExecutionJournalStatus.outcomeUnknown,
+              ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
+              ToolExecutionStatus.notExecuted =>
+                ExecutionJournalStatus.cancelled,
+            },
+            verificationState: outcome.feedback,
+            timestamp: DateTime.now().toUtc(),
+          ),
         );
       }
       feedbacks.add('${i + 1}/$total ${outcome.feedback}');
@@ -873,11 +1339,15 @@ class AgentToolDispatcher {
 
   /// Ejecución real con timeout del registro. Un tool colgado nunca congela
   /// el turno: degrada a feedback legible y el modelo puede corregirse.
-  Future<String> _executeWithTimeout(ToolCall call, ToolDefinition tool) async {
-    _stepsUsed++;
+  Future<String> _executeWithTimeout(
+    ToolCall call,
+    ToolDefinition tool,
+    ToolExecutionBudget budget,
+  ) async {
+    budget.recordExecution();
     debugPrint(
       '[agent-policy] tool=${tool.name} risk=${tool.risk.name} '
-      'steps=$_stepsUsed timeout=${tool.timeout.inMilliseconds}ms',
+      'steps=${budget.stepsUsed} timeout=${tool.timeout.inMilliseconds}ms',
     );
     try {
       return await _executeTool(call).timeout(
@@ -1147,8 +1617,8 @@ class AgentToolDispatcher {
         'tap en "${sr.execution.targetNode!.label}" '
         '@(${b.centerX.round()},${b.centerY.round()})';
     if (result.completed) return base;
-    return '[verify:${sr.verification?.status.name}] $base — '
-        '${sr.verification?.reason}';
+    return '[completedUnverified] $base — la acción fue despachada, pero la '
+        'postcondición no pudo verificarse: ${sr.verification?.reason}';
   }
 
   Future<String> _write(ToolCall call) async {

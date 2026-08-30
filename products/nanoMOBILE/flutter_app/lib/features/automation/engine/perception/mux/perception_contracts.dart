@@ -29,10 +29,20 @@ class PerceptionRequest {
     minimumConfidence: minimumConfidence,
     region: bounds,
   );
+
+  PerceptionRequest withMinimumConfidence(double confidence) =>
+      PerceptionRequest(
+        targetConcept: targetConcept,
+        expectedRole: expectedRole,
+        packageName: packageName,
+        minimumConfidence: confidence,
+        region: region,
+      );
 }
 
-/// Política de observación: qué fuentes están permitidas para esta request.
-/// OCR/Vision existen como flags pero NO tienen fuente real en A8.
+/// Política de observación: qué fuentes reales están permitidas para esta
+/// request. Autorizar una fuente no fuerza su uso: el mux exige insuficiencia
+/// de las fuentes anteriores y respeta el presupuesto.
 class ObservationPolicy {
   final bool allowMemory;
   final bool allowAccessibility;
@@ -52,7 +62,6 @@ class ObservationPolicy {
 }
 
 /// Presupuesto de percepción (filosofía Nano: coste acotado).
-/// A8 solo consume accesibilidad; OCR/Vision se consumirán en A9/A10.
 class PerceptionBudget {
   final int maxAccessibilityReads;
   final int maxOcrCalls;

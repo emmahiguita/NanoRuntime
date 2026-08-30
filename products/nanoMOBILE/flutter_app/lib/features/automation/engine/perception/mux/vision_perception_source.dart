@@ -98,6 +98,14 @@ class VisionPerceptionSource implements PerceptionSource {
     }
 
     final best = matches.first;
+    if (best.confidence < request.minimumConfidence) {
+      return PerceptionInsufficient(
+        reason:
+            'Confianza visual insuficiente (${best.confidence} < '
+            '${request.minimumConfidence}).',
+        recommendedSource: PerceptionEvidenceSource.vision,
+      );
+    }
     final virtual = NanoUiObject(
       id: 'vision:${best.bounds.centerX}:${best.bounds.centerY}',
       role: best.role,

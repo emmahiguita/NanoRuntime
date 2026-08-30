@@ -8,6 +8,8 @@ library;
 import '../governance/action_confirmation.dart';
 import 'task_step_vocabulary.dart';
 
+export '../governance/semantic_policy.dart' show RequiredEvidence;
+
 /// Referencia estable a un valor intermedio producido por un paso.
 final class TaskValueId {
   final String value;
@@ -61,9 +63,6 @@ final class TaskInputBinding {
   const TaskInputBinding(this.paramName, this.source);
 }
 
-/// Nivel mínimo de evidencia que un paso exige de cada dependencia.
-enum RequiredEvidence { executed, verified }
-
 /// Paso semántico de un plan. NO ejecuta directamente; pide CandidateActions al
 /// pipeline Candidate-First. La semántica es acotada (taxonomía finita).
 final class TaskStep {
@@ -91,7 +90,9 @@ final class TaskStep {
   });
 
   RequiredEvidence evidenceRequiredFrom(String dependencyId) =>
-      dependencyEvidence[dependencyId] ?? RequiredEvidence.executed;
+      dependencyEvidence[dependencyId] ??
+      semanticActionDefinition(semanticAction)?.requiredEvidence ??
+      RequiredEvidence.executed;
 }
 
 /// Plan tipado. Se compila UNA vez desde el goal confiable; los pasos comparten
@@ -117,12 +118,30 @@ final class TaskPlan {
 
     for (final step in steps) {
       final definition = semanticActionDefinition(step.semanticAction)!;
+      final missingInputs = definition.requiredInputs.where(
+        (input) => !step.inputBindings.containsKey(input),
+      );
+      if (missingInputs.isNotEmpty) {
+        return 'faltan inputs ${missingInputs.join(', ')} en '
+            '${step.semanticAction}; política semántica incumplida';
+      }
       for (final binding in step.inputBindings.entries) {
         if (binding.value.paramName != binding.key) {
           return 'binding inconsistente ${binding.key} en ${step.id}';
         }
         if (!definition.inputs.contains(binding.key)) {
           return 'input no permitido ${binding.key} en ${step.semanticAction}';
+        }
+      }
+      for (final evidence in step.dependencyEvidence.entries) {
+        if (!step.dependencies.contains(evidence.key)) {
+          return 'evidencia declarada para dependencia desconocida '
+              '${evidence.key} en ${step.id}';
+        }
+        if (definition.requiredEvidence == RequiredEvidence.verified &&
+            evidence.value != RequiredEvidence.verified) {
+          return 'evidencia ${evidence.value.name} rebaja la política verified '
+              'de ${step.semanticAction}';
         }
       }
     }

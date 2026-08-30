@@ -10,17 +10,27 @@ import 'dart:convert';
 
 import 'package:nanoai/core/services/llm_engine_client.dart';
 
+import '../model/automation_model.dart';
+import '../model/automation_model_resolver.dart';
 import 'task_planner.dart';
 import 'task_plan.dart';
 import 'task_step_vocabulary.dart';
 
 class LlmTaskDecomposer {
-  LlmTaskDecomposer({required LLMEngineClient client, TaskPlanner? planner})
-    : _client = client,
-      _planner = planner ?? const TaskPlanner();
+  LlmTaskDecomposer({
+    required LLMEngineClient client,
+    TaskPlanner? planner,
+    AutomationModelResolver? resolver,
+    Future<bool> Function(String? modelPath)? ensureReady,
+  }) : _client = client,
+       _planner = planner ?? const TaskPlanner(),
+       _resolver = resolver,
+       _ensureReady = ensureReady;
 
   final LLMEngineClient _client;
   final TaskPlanner _planner;
+  final AutomationModelResolver? _resolver;
+  final Future<bool> Function(String? modelPath)? _ensureReady;
 
   /// Descompone el objetivo en un TaskPlan. Template determinista primero;
   /// si no hay, invoca el LLM y valida su descomposición. null = sin plan
@@ -28,6 +38,23 @@ class LlmTaskDecomposer {
   Future<TaskPlan?> decompose(String goal) async {
     final deterministic = _planner.plan(goal);
     if (deterministic != null) return deterministic;
+
+    // La descomposición semántica comparte la misma frontera de modelo que
+    // el resto de Automation. En producción deterministicOnly y la ausencia
+    // de un GGUF seleccionado significan cero llamadas al LLM.
+    final resolver = _resolver;
+    if (resolver != null) {
+      final resolution = resolver.resolveFor(AutomationModelRole.planner);
+      if (!resolution.llmAllowed) return null;
+      final ensureReady = _ensureReady;
+      if (ensureReady != null) {
+        try {
+          if (!await ensureReady(resolution.modelPath)) return null;
+        } catch (_) {
+          return null;
+        }
+      }
+    }
 
     final LLMResult result;
     try {
@@ -52,7 +79,8 @@ class LlmTaskDecomposer {
         'sin texto. Vocabulario permitido de "action": $vocab. '
         'Cada paso: {"action": "...", "produces": "<id>", '
         '"inputs": {"<param>": "<id_producido_previo>"}, '
-        '"dependencies": ["<id_paso_previo>"]}. '
+        '"dependencies": ["step_0", "step_1"]}. Los identificadores de '
+        'dependencia son exclusivamente los step_N implícitos por la posición. '
         'NO emitas tool names, shell, packages, selectores ni coordenadas. '
         'Objetivo: $goal';
   }

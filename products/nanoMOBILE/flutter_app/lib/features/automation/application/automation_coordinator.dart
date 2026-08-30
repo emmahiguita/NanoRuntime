@@ -55,6 +55,7 @@ import 'package:nanoai/features/automation/engine/orchestration/task_orchestrato
 import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
     show TaskPlan, TaskStepResult, TaskStepStatus;
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
+import 'package:nanoai/features/automation/engine/orchestration/automation_run.dart';
 import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
@@ -127,16 +128,23 @@ class AutomationCoordinator {
   /// A15.2 — descomposición (template determinista + LLM validado).
   final LlmTaskDecomposer? _taskDecomposer;
 
-  /// A16 — cancelaciones cooperativas actualmente en ejecución. Cada run
-  /// conserva su propio token para que una cancelación no contamine el siguiente.
-  final List<ExecutionCancellationToken> _activeRunCancellations = [];
+  /// Registro de ejecución, no owner de su estado. Cada valor [AutomationRun]
+  /// posee su propia cancelación, evidencia, confirmación y lifecycle.
+  final Map<String, AutomationRun> _activeRuns = {};
 
   /// Cancela la tarea activa (cooperativo). Las acciones irreversibles ya
   /// completadas no se revierten; se detiene el trabajo pendiente.
   void cancelCurrent() {
-    if (_activeRunCancellations.isNotEmpty) {
-      _activeRunCancellations.last.cancel();
-    }
+    if (_activeRuns.isEmpty) return;
+    _activeRuns.values.last.cancellation.cancel();
+  }
+
+  /// Cancela únicamente la ejecución solicitada. Nunca afecta otro run activo.
+  bool cancelExecution(String executionId) {
+    final run = _activeRuns[executionId];
+    if (run == null) return false;
+    run.cancellation.cancel();
+    return true;
   }
 
   /// A13.6 — callback para compartir la instancia de memoria actualizada con la
@@ -268,6 +276,7 @@ class AutomationCoordinator {
   tryDeterministic(
     String goal, {
     GoalExpectation? expectation,
+    AutomationRun? run,
     ActionConfirmation? confirmation,
   }) async {
     final startedAt = DateTime.now();
@@ -276,10 +285,31 @@ class AutomationCoordinator {
     if (cache == null || flow == null) return null;
     final verified = cache.planFor(goal);
     if (verified == null) return null;
+    if (run != null && confirmation != null) {
+      throw StateError(
+        'AutomationRun no puede combinarse con confirmación legacy',
+      );
+    }
+    final flowRun =
+        run ??
+        AutomationRun(
+          executionId: confirmation?.executionId ?? _newId(),
+          goal: goal,
+          confirmation: confirmation,
+        );
+    flowRun.beginPlanning();
     final result = await flow.execute(
       NanoFlow(goal: goal, steps: verified.steps, goalExpectation: expectation),
-      confirmation: confirmation,
+      confirmation: flowRun.confirmation,
+      executionId: flowRun.executionId,
+      cancellation: flowRun.cancellation,
+      onStep: flowRun.enterStep,
     );
+    if (result.plan.confirmation != null) {
+      flowRun.waitForConfirmation(result.plan.confirmation!);
+    } else {
+      flowRun.beginVerification();
+    }
     // Degradar confianza SOLO en fallo REAL (no completado y SIN pausa).
     // Una pausa (pauseIndex != null) es un estado normal (pedir confirmación),
     // no un fallo — no debe degradar el flujo en cache.
@@ -287,6 +317,7 @@ class AutomationCoordinator {
       cache.recordFailure(goal);
     }
     _record(
+      executionId: flowRun.executionId,
       goal: goal,
       status: _statusFromFlow(result),
       summary: result.plan.summary,
@@ -294,6 +325,12 @@ class AutomationCoordinator {
       pauseTool: result.plan.pauseCall?.tool,
       startedAt: startedAt,
     );
+    if (run == null) {
+      flowRun.finish(
+        status: _statusFromFlow(result).name,
+        reason: result.plan.summary,
+      );
+    }
     return (result: result, steps: verified.steps);
   }
 
@@ -324,6 +361,7 @@ class AutomationCoordinator {
   /// tipado. null = no es un objetivo cross-app (usar el flujo simple).
   Future<List<TaskStepResult>?> runCrossAppTask(
     String goal, {
+    AutomationRun? run,
     ActionConfirmation? confirmation,
     String? executionId,
     bool deterministicOnly = false,
@@ -331,26 +369,31 @@ class AutomationCoordinator {
     final orchestrator = _taskOrchestrator;
     if (orchestrator == null) return null;
 
-    final cancelToken = ExecutionCancellationToken();
-    _activeRunCancellations.add(cancelToken);
-    try {
-      final TaskPlan? plan;
-      final decomposer = deterministicOnly ? null : _taskDecomposer;
-      if (decomposer != null) {
-        plan = await decomposer.decompose(goal);
-      } else {
-        plan = _taskPlanner?.plan(goal);
-      }
-      if (plan == null) return null;
-      return await orchestrator.run(
-        plan,
-        cancel: cancelToken,
-        confirmation: confirmation,
-        executionId: executionId,
-      );
-    } finally {
-      _activeRunCancellations.remove(cancelToken);
+    if (run != null &&
+        (confirmation != null || executionId != null || run.goal != goal)) {
+      return const [
+        TaskStepResult(
+          status: TaskStepStatus.failed,
+          reason: 'ownership ambiguo o AutomationRun de otro objetivo',
+        ),
+      ];
     }
+    final taskRun =
+        run ??
+        AutomationRun(
+          executionId: executionId ?? confirmation?.executionId ?? _newId(),
+          goal: goal,
+          confirmation: confirmation,
+        );
+    final TaskPlan? plan;
+    final decomposer = deterministicOnly ? null : _taskDecomposer;
+    if (decomposer != null) {
+      plan = await decomposer.decompose(goal);
+    } else {
+      plan = _taskPlanner?.plan(goal);
+    }
+    if (plan == null) return null;
+    return orchestrator.run(plan, run: taskRun);
   }
 
   /// Intenta exclusivamente la ruta TaskPlanner/TaskOrchestrator. No invoca el
@@ -358,81 +401,191 @@ class AutomationCoordinator {
   /// natural determinista antes de exigir un modelo cargado.
   Future<({AutomationResult result, List<TaskStepResult> steps})?> tryCrossApp(
     String goal, {
+    AutomationRun? run,
     ActionConfirmation? confirmation,
     String? executionId,
+    bool deterministicOnly = true,
   }) async {
-    final steps = await runCrossAppTask(
-      goal,
-      confirmation: confirmation,
-      executionId: executionId,
-      deterministicOnly: true,
-    );
-    if (steps == null) return null;
-
-    TaskStepResult? firstFailed;
-    TaskStepResult? paused;
-    TaskStepResult? unknown;
-    for (final step in steps) {
-      if (!step.isFailure) continue;
-      if (step.status == TaskStepStatus.needsConfirmation) paused = step;
-      if (step.status == TaskStepStatus.outcomeUnknown) unknown = step;
-      firstFailed = step;
-      break;
+    if (run != null && (confirmation != null || executionId != null)) {
+      throw StateError('AutomationRun no puede combinarse con estado legacy');
     }
-    final allVerified =
-        steps.isNotEmpty && steps.every((step) => step.isCompleted);
-    final result = AutomationResult(
-      executionId: executionId ?? _newId(),
-      status: paused != null
-          ? AutomationResultStatus.paused
-          : unknown != null
-          ? AutomationResultStatus.outcomeUnknown
-          : firstFailed == null
-          ? allVerified
-                ? AutomationResultStatus.completed
-                : AutomationResultStatus.completedUnverified
-          : AutomationResultStatus.failed,
-      reason: paused != null
-          ? paused.reason
-          : firstFailed == null
-          ? 'Tarea cross-app completada (${steps.length} pasos).'
-          : 'Tarea cross-app no completada: ${firstFailed.reason}',
-      pauseIndex: paused?.confirmation?.stepIndex,
-      pauseTool: paused == null ? null : 'task:${paused.confirmation?.stepId}',
-      confirmation: paused?.confirmation,
-    );
-    return (result: result, steps: steps);
+    final taskRun =
+        run ??
+        AutomationRun(
+          executionId: executionId ?? confirmation?.executionId ?? _newId(),
+          goal: goal,
+          confirmation: confirmation,
+        );
+    final ownsRegistration = run == null;
+    if (ownsRegistration && _activeRuns.containsKey(taskRun.executionId)) {
+      final conflict = AutomationResult(
+        executionId: taskRun.executionId,
+        status: AutomationResultStatus.denied,
+        reason: 'Ya existe una ejecución activa con este executionId.',
+      );
+      taskRun.finish(status: conflict.status.name, reason: conflict.reason);
+      return (result: conflict, steps: const <TaskStepResult>[]);
+    }
+    if (ownsRegistration) {
+      _activeRuns[taskRun.executionId] = taskRun;
+    }
+    try {
+      final steps = await runCrossAppTask(
+        goal,
+        run: taskRun,
+        deterministicOnly: deterministicOnly,
+      );
+      if (steps == null) {
+        if (ownsRegistration) {
+          taskRun.finish(status: 'noPlan', reason: 'Sin TaskPlan aplicable.');
+        }
+        return null;
+      }
+
+      TaskStepResult? firstFailed;
+      TaskStepResult? paused;
+      TaskStepResult? unknown;
+      for (final step in steps) {
+        if (!step.isFailure) continue;
+        if (step.status == TaskStepStatus.needsConfirmation) paused = step;
+        if (step.status == TaskStepStatus.outcomeUnknown) unknown = step;
+        firstFailed = step;
+        break;
+      }
+      final allVerified =
+          steps.isNotEmpty && steps.every((step) => step.isCompleted);
+      final result = AutomationResult(
+        executionId: taskRun.executionId,
+        status: taskRun.cancellation.isCancelled
+            ? AutomationResultStatus.cancelled
+            : paused != null
+            ? AutomationResultStatus.paused
+            : unknown != null
+            ? AutomationResultStatus.outcomeUnknown
+            : firstFailed == null
+            ? allVerified
+                  ? AutomationResultStatus.completed
+                  : AutomationResultStatus.completedUnverified
+            : AutomationResultStatus.failed,
+        reason: taskRun.cancellation.isCancelled
+            ? 'Ejecución cancelada por el usuario.'
+            : paused != null
+            ? paused.reason
+            : firstFailed == null
+            ? 'Tarea cross-app completada (${steps.length} pasos).'
+            : 'Tarea cross-app no completada: ${firstFailed.reason}',
+        pauseIndex: paused?.confirmation?.stepIndex,
+        pauseTool: paused == null
+            ? null
+            : 'task:${paused.confirmation?.stepId}',
+        confirmation: paused?.confirmation,
+      );
+      if (ownsRegistration) {
+        taskRun.finish(status: result.status.name, reason: result.reason);
+      }
+      return (result: result, steps: steps);
+    } finally {
+      if (ownsRegistration) {
+        _activeRuns.remove(taskRun.executionId);
+      }
+    }
   }
 
   /// OBJETIVO está verificado satisfecho ([GoalVerifier]); un plan que
   /// completó a nivel pasos pero NO logró el objetivo NO se memoriza.
   Future<PlanOutcome> runPlan(
     List<ToolCall> plan, {
+    AutomationRun? run,
     ActionConfirmation? confirmation,
     String? executionId,
     bool confirmed = false,
     String? recordGoal,
     GoalExpectation? expectation,
   }) async {
-    final startedAt = DateTime.now();
-    final outcome = await _dispatcher.runPlanGuarded(
-      plan,
-      confirmation: confirmation,
-      executionId: executionId,
-      confirmed: confirmed,
-    );
-    if (recordGoal != null) {
-      await _learn(recordGoal, plan, outcome, expectation);
+    if (run != null && (confirmation != null || executionId != null)) {
+      throw StateError('AutomationRun no puede combinarse con estado legacy');
     }
-    _record(
-      goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
-      status: _statusFromPlan(outcome),
-      summary: outcome.summary,
-      pauseIndex: outcome.pauseIndex,
-      pauseTool: outcome.pauseCall?.tool,
-      startedAt: startedAt,
-    );
-    return outcome;
+    final planRun =
+        run ??
+        AutomationRun(
+          executionId: executionId ?? confirmation?.executionId ?? _newId(),
+          goal: recordGoal ?? (plan.isEmpty ? '' : plan.first.tool),
+          confirmation: confirmation,
+        );
+    final ownsRegistration = run == null;
+    if (ownsRegistration && _activeRuns.containsKey(planRun.executionId)) {
+      return const PlanOutcome(
+        completed: false,
+        steps: [
+          ToolOutcome(
+            verdict: PolicyVerdict.denied,
+            feedback: '[runConflict] executionId ya está activo.',
+          ),
+        ],
+        summary: '[runConflict] executionId ya está activo.',
+      );
+    }
+    if (ownsRegistration) _activeRuns[planRun.executionId] = planRun;
+    final startedAt = DateTime.now();
+    try {
+      planRun.beginPlanning();
+      final outcome = await _dispatcher.runPlanGuarded(
+        plan,
+        confirmation: planRun.confirmation,
+        executionId: planRun.executionId,
+        confirmed: confirmed,
+        cancellation: planRun.cancellation,
+        onStep: planRun.enterStep,
+      );
+      if (outcome.confirmation != null) {
+        planRun.waitForConfirmation(outcome.confirmation!);
+      } else {
+        planRun.beginVerification();
+      }
+      if (recordGoal != null) {
+        await _learn(recordGoal, plan, outcome, expectation);
+      }
+      _record(
+        executionId: planRun.executionId,
+        goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
+        status: _statusFromPlan(outcome),
+        summary: outcome.summary,
+        pauseIndex: outcome.pauseIndex,
+        pauseTool: outcome.pauseCall?.tool,
+        startedAt: startedAt,
+      );
+      if (ownsRegistration) {
+        planRun.finish(
+          status: _statusFromPlan(outcome).name,
+          reason: outcome.summary,
+        );
+      }
+      return outcome;
+    } on ExecutionCancelled {
+      if (!ownsRegistration) rethrow;
+      const feedback = '[cancelled] Ejecución cancelada por el usuario.';
+      const outcome = PlanOutcome(
+        completed: false,
+        steps: [ToolOutcome(verdict: PolicyVerdict.denied, feedback: feedback)],
+        summary: feedback,
+      );
+      _record(
+        executionId: planRun.executionId,
+        goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
+        status: AutomationResultStatus.cancelled,
+        summary: feedback,
+        startedAt: startedAt,
+      );
+      if (ownsRegistration) {
+        planRun.finish(status: 'cancelled', reason: feedback);
+      }
+      return outcome;
+    } finally {
+      if (ownsRegistration &&
+          identical(_activeRuns[planRun.executionId], planRun)) {
+        _activeRuns.remove(planRun.executionId);
+      }
+    }
   }
 
   /// Aprendizaje SOUND (C7): memorizar SOLO planes cuyo objetivo se verificó
@@ -462,23 +615,94 @@ class AutomationCoordinator {
   }
 
   /// Ejecuta una herramienta suelta bajo gobernanza.
-  Future<ToolOutcome> runTool(ToolCall call, {bool confirmed = false}) async {
-    final startedAt = DateTime.now();
-    final outcome = await _dispatcher.runToolGuarded(
-      call,
-      confirmed: confirmed,
-    );
-    _record(
+  Future<ToolOutcome> runTool(
+    ToolCall call, {
+    bool confirmed = false,
+    String? executionId,
+  }) async {
+    final run = AutomationRun(
+      executionId: executionId ?? _newId(),
       goal: call.tool,
-      status: _statusFromTool(outcome),
-      summary: outcome.feedback,
-      startedAt: startedAt,
     );
-    return outcome;
+    if (_activeRuns.containsKey(run.executionId)) {
+      return const ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback: '[runConflict] executionId ya está activo.',
+      );
+    }
+    _activeRuns[run.executionId] = run;
+    final startedAt = DateTime.now();
+    try {
+      run.beginPlanning();
+      run.enterStep(0);
+      final outcome = await _dispatcher.runToolGuarded(
+        call,
+        confirmed: confirmed,
+        cancellation: run.cancellation,
+      );
+      if (!outcome.needsConfirmation) run.beginVerification();
+      _record(
+        executionId: run.executionId,
+        goal: call.tool,
+        status: _statusFromTool(outcome),
+        summary: outcome.feedback,
+        startedAt: startedAt,
+      );
+      run.finish(
+        status: _statusFromTool(outcome).name,
+        reason: outcome.feedback,
+      );
+      return outcome;
+    } on ExecutionCancelled {
+      const outcome = ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback: '[cancelled] Ejecución cancelada por el usuario.',
+      );
+      _record(
+        executionId: run.executionId,
+        goal: call.tool,
+        status: AutomationResultStatus.cancelled,
+        summary: outcome.feedback,
+        startedAt: startedAt,
+      );
+      run.finish(status: 'cancelled', reason: outcome.feedback);
+      return outcome;
+    } finally {
+      if (identical(_activeRuns[run.executionId], run)) {
+        _activeRuns.remove(run.executionId);
+      }
+    }
   }
 
   /// Comando `@` determinista (autoría humana — confirmación implícita).
-  Future<String> runCommand(String command) => _dispatcher.runCommand(command);
+  Future<String> runCommand(String command) async {
+    final run = AutomationRun(executionId: _newId(), goal: command);
+    _activeRuns[run.executionId] = run;
+    try {
+      run.beginPlanning();
+      run.enterStep(0);
+      final feedback = await _dispatcher.runCommand(
+        command,
+        cancellation: run.cancellation,
+      );
+      if (run.cancellation.isCancelled) {
+        const cancelled = '[cancelled] Ejecución cancelada por el usuario.';
+        run.finish(status: 'cancelled', reason: cancelled);
+        return cancelled;
+      }
+      run.beginVerification();
+      run.finish(status: 'returned', reason: feedback);
+      return feedback;
+    } on ExecutionCancelled {
+      const cancelled = '[cancelled] Ejecución cancelada por el usuario.';
+      run.finish(status: 'cancelled', reason: cancelled);
+      return cancelled;
+    } finally {
+      if (identical(_activeRuns[run.executionId], run)) {
+        _activeRuns.remove(run.executionId);
+      }
+    }
+  }
 
   /// Resetea el estado del turno del dispatcher (ciclo de vida de una ronda).
   void reset() => _dispatcher.resetTurn();
@@ -510,6 +734,19 @@ class AutomationCoordinator {
     // nuevo hacía que el journal rechazara siempre su propio token.
     final executionId =
         options?.executionId ?? confirmation?.executionId ?? _newId();
+    if (_activeRuns.containsKey(executionId)) {
+      return AutomationResult(
+        executionId: executionId,
+        status: AutomationResultStatus.denied,
+        reason: 'Ya existe una ejecución activa con este executionId.',
+      );
+    }
+    final run = AutomationRun(
+      executionId: executionId,
+      goal: goal.text,
+      confirmation: confirmation,
+    );
+    _activeRuns[executionId] = run;
 
     // Métricas C14 acumuladas a lo largo del camino (diagnóstico del planner).
     var cacheHit = false;
@@ -562,94 +799,113 @@ class AutomationCoordinator {
       );
     }
 
-    // C11: solo una INSTRUCCIÓN real del usuario autoriza ejecutar. Un goal
-    // vacío/espacio no es instrucción → noPlan (no se actúa sin orden).
-    if (!InstructionTrust(userInstruction: goal.text).authorizesExecution()) {
-      final r = AutomationResult(
-        executionId: executionId,
-        status: AutomationResultStatus.noPlan,
-        reason: 'Sin instrucción autorizada del usuario.',
-      );
-      emit(r);
-      return r;
+    AutomationResult finish(AutomationResult result) {
+      emit(result);
+      run.finish(status: result.status.name, reason: result.reason);
+      return result;
     }
 
-    if (plan == null) {
-      // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
-      // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
-      // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
-      final crossApp = await tryCrossApp(
-        goal.text,
-        confirmation: confirmation,
-        executionId: executionId,
-      );
-      if (crossApp != null) {
-        // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
-        taskStepsCount = crossApp.steps.length;
-        zeroLlmTask = true;
-        final r = crossApp.result;
-        emit(r);
-        return r;
-      }
-
-      final deterministic = await tryDeterministic(
-        goal.text,
-        expectation: goal.expectation,
-        confirmation: confirmation,
-      );
-      if (deterministic != null) {
-        cacheHit = true;
-        steps = deterministic.steps.length;
-        final r = _resultFromFlow(executionId, deterministic.result);
-        emit(r);
-        return r;
-      }
-
-      // A13.5: Candidate-First pipeline (0 LLM para goals conocidos). Antes del
-      // fallback legacy. Resuelto → ejecutar; Governed → resultado honesto;
-      // NoCandidate/ambiguo → cae al legacy fallback.
-      final candidateFirst = _candidateFirst;
-      if (candidateFirst != null) {
-        final swCandidate = Stopwatch()..start();
-        final candidatePlan = await candidateFirst.plan(goal.text);
-        swCandidate.stop();
-        candidateLatency = swCandidate.elapsed;
-        if (candidatePlan is CandidatePlanResolved) {
-          plan = [candidatePlan.call];
-          runExpectation = candidatePlan.expectation;
-          selectionMode = candidatePlan.selectionMode.name;
-          koogInvoked = candidatePlan.koogInvoked;
-          candidateCount = candidatePlan.candidateCount;
-        } else if (candidatePlan is CandidatePlanGoverned) {
-          final r = _resultFromGoverned(executionId, candidatePlan.outcome);
-          emit(r);
-          return r;
-        } else if (candidatePlan is CandidatePlanNoCandidate) {
-          candidateCount = candidatePlan.candidateCount;
-          legacyFallback = true;
-          selectionMode = 'legacyFallback';
-        }
+    try {
+      run.beginPlanning();
+      run.cancellation.throwIfCancelled();
+      // C11: solo una INSTRUCCIÓN real del usuario autoriza ejecutar. Un goal
+      // vacío/espacio no es instrucción → noPlan (no se actúa sin orden).
+      if (!InstructionTrust(userInstruction: goal.text).authorizesExecution()) {
+        final r = AutomationResult(
+          executionId: executionId,
+          status: AutomationResultStatus.noPlan,
+          reason: 'Sin instrucción autorizada del usuario.',
+        );
+        return finish(r);
       }
 
       if (plan == null) {
-        // A2: resolvedor grounded de "abre <app>" — package REAL del
-        // PackageManager, nunca un package inventado por el modelo. Precede al
-        // catálogo estático para que "abre Chrome" use el catálogo real.
-        final appLaunch = _appLaunch;
-        final launchPlan = appLaunch == null
-            ? null
-            : await appLaunch.resolve(goal.text);
-        if (launchPlan != null) {
-          plan = [launchPlan.call];
-          runExpectation = launchPlan.expectation;
-        } else {
-          // Catálogo determinista (SIN LLM): objetivo conocido → flujo real.
-          final known = _catalog?.forGoal(goal.text);
-          if (known != null && known.steps.isNotEmpty) {
-            plan = known.steps;
-            runExpectation = goal.expectation ?? known.expectation;
-            outputProvesGoal = known.outputProvesGoal;
+        // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
+        // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
+        // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
+        final crossApp = await tryCrossApp(goal.text, run: run);
+        if (crossApp != null) {
+          // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
+          taskStepsCount = crossApp.steps.length;
+          zeroLlmTask = true;
+          final r = crossApp.result;
+          return finish(r);
+        }
+
+        final deterministic = await tryDeterministic(
+          goal.text,
+          expectation: goal.expectation,
+          run: run,
+        );
+        if (deterministic != null) {
+          cacheHit = true;
+          steps = deterministic.steps.length;
+          final r = _resultFromFlow(executionId, deterministic.result);
+          return finish(r);
+        }
+
+        // Un objetivo exacto del catálogo ya tiene semántica y evidencia
+        // revisadas: ejecutarlo antes de Candidate-First evita convertir una
+        // orden determinista en una selección LLM innecesaria.
+        final known = _catalog?.forGoal(goal.text);
+        if (known != null && known.steps.isNotEmpty) {
+          plan = known.steps;
+          runExpectation = goal.expectation ?? known.expectation;
+          outputProvesGoal = known.outputProvesGoal;
+        }
+
+        // A13.5: Candidate-First queda reservado para objetivos que el catálogo
+        // no resolvió. Resuelto → ejecutar; Governed → resultado honesto;
+        // NoCandidate/ambiguo → cae al fallback siguiente.
+        final candidateFirst = _candidateFirst;
+        if (plan == null && candidateFirst != null) {
+          final swCandidate = Stopwatch()..start();
+          final candidatePlan = await candidateFirst.plan(goal.text);
+          swCandidate.stop();
+          candidateLatency = swCandidate.elapsed;
+          if (candidatePlan is CandidatePlanResolved) {
+            plan = [candidatePlan.call];
+            runExpectation = candidatePlan.expectation;
+            selectionMode = candidatePlan.selectionMode.name;
+            koogInvoked = candidatePlan.koogInvoked;
+            candidateCount = candidatePlan.candidateCount;
+          } else if (candidatePlan is CandidatePlanGoverned) {
+            final r = _resultFromGoverned(executionId, candidatePlan.outcome);
+            return finish(r);
+          } else if (candidatePlan is CandidatePlanNoCandidate) {
+            candidateCount = candidatePlan.candidateCount;
+            legacyFallback = true;
+            selectionMode = 'legacyFallback';
+          }
+        }
+
+        if (plan == null) {
+          // A2: resolvedor grounded de "abre <app>" — package REAL del
+          // PackageManager, nunca un package inventado por el modelo. Precede al
+          // catálogo estático para que "abre Chrome" use el catálogo real.
+          final appLaunch = _appLaunch;
+          final launchPlan = appLaunch == null
+              ? null
+              : await appLaunch.resolve(goal.text);
+          if (launchPlan != null) {
+            plan = [launchPlan.call];
+            runExpectation = launchPlan.expectation;
           } else {
+            // AUT-15: solo después de agotar memoria, catálogo, candidatos e
+            // inventario, permitir descomposición LLM a semántica finita.
+            // El decomposer aplica AutomationModelResolver y nunca emite
+            // tools, paquetes, selectores ni coordenadas arbitrarias.
+            final semanticFallback = await tryCrossApp(
+              goal.text,
+              run: run,
+              deterministicOnly: false,
+            );
+            if (semanticFallback != null) {
+              taskStepsCount = semanticFallback.steps.length;
+              zeroLlmTask = false;
+              return finish(semanticFallback.result);
+            }
+
             // Sin flujo en cache ni catálogo: planear con el LLM local.
             final planner = _planner;
             if (planner == null) {
@@ -658,10 +914,11 @@ class AutomationCoordinator {
                 status: AutomationResultStatus.noPlan,
                 reason: 'Sin flujo verificado en cache ni plan provisto.',
               );
-              emit(r);
-              return r;
+              return finish(r);
             }
+            run.cancellation.throwIfCancelled();
             final planned = await planner.plan(goal.text);
+            run.cancellation.throwIfCancelled();
             llmLatency = planned.llmLatency;
             generatedCount = planned.generated;
             rejectedCount = planned.rejected;
@@ -670,46 +927,58 @@ class AutomationCoordinator {
                 executionId: executionId,
                 status: AutomationResultStatus.noPlan,
                 reason:
+                    planned.unavailableReason ??
                     'El planner LLM no produjo acciones verificables para el objetivo.',
               );
-              emit(r);
-              return r;
+              return finish(r);
             }
             plan = planned.calls;
           }
         }
       }
+
+      // C10/C12: anclar selectores semánticos a selectores reales (memoria/percepción).
+      run.cancellation.throwIfCancelled();
+      plan = await _resolveSelectors(plan, goal.text);
+      run.cancellation.throwIfCancelled();
+
+      // Una única acción usa la misma ruta gobernada que un plan de varios
+      // pasos. Así no existe una puerta de confirmación paralela capaz de
+      // aceptar un bool genérico ni de perder executionId/plan/paso/acción.
+      steps = plan.length;
+      final t = Stopwatch()..start();
+      final outcome = await runPlan(
+        plan,
+        run: run,
+        confirmed: confirmed,
+        recordGoal: goal.text,
+        expectation: runExpectation,
+      );
+      t.stop();
+      toolLatency = t.elapsed;
+      final base = _resultFromPlan(executionId, outcome);
+      final r = await _finalizeExecution(
+        executionId: executionId,
+        goal: goal.text,
+        base: base,
+        expectation: runExpectation,
+        outputProvesGoal: outputProvesGoal,
+      );
+      _recordMemory(goal.text, plan, r.status);
+      return finish(r);
+    } on ExecutionCancelled {
+      return finish(
+        AutomationResult(
+          executionId: executionId,
+          status: AutomationResultStatus.cancelled,
+          reason: 'Ejecución cancelada por el usuario.',
+        ),
+      );
+    } finally {
+      if (identical(_activeRuns[executionId], run)) {
+        _activeRuns.remove(executionId);
+      }
     }
-
-    // C10/C12: anclar selectores semánticos a selectores reales (memoria/percepción).
-    plan = await _resolveSelectors(plan, goal.text);
-
-    // Una única acción usa la misma ruta gobernada que un plan de varios
-    // pasos. Así no existe una puerta de confirmación paralela capaz de
-    // aceptar un bool genérico ni de perder executionId/plan/paso/acción.
-    steps = plan.length;
-    final t = Stopwatch()..start();
-    final outcome = await runPlan(
-      plan,
-      confirmation: confirmation,
-      executionId: executionId,
-      confirmed: confirmed,
-      recordGoal: goal.text,
-      expectation: runExpectation,
-    );
-    t.stop();
-    toolLatency = t.elapsed;
-    final base = _resultFromPlan(executionId, outcome);
-    final r = await _finalizeExecution(
-      executionId: executionId,
-      goal: goal.text,
-      base: base,
-      expectation: runExpectation,
-      outputProvesGoal: outputProvesGoal,
-    );
-    _recordMemory(goal.text, plan, r.status);
-    emit(r);
-    return r;
   }
 
   // ── C10: memoria de objetos UI ─────────────────────────────────────────────
@@ -941,6 +1210,7 @@ class AutomationCoordinator {
   };
 
   void _record({
+    required String executionId,
     required String goal,
     required AutomationResultStatus status,
     required String summary,
@@ -950,7 +1220,7 @@ class AutomationCoordinator {
   }) {
     _ledger?.record(
       AutomationTrace(
-        executionId: 'auto-${DateTime.now().microsecondsSinceEpoch}',
+        executionId: executionId,
         goal: goal,
         status: status,
         summary: summary,

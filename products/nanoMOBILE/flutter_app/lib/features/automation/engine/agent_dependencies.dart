@@ -23,6 +23,7 @@ import 'execution/goal_verifier.dart';
 import 'execution/nano_flow.dart';
 import 'execution/stability_gate.dart';
 import 'execution/tool_registry.dart';
+import 'orchestration/execution_journal.dart';
 import 'platform/nano_system_api.dart';
 import 'system/app_launch_resolver.dart';
 import 'system/capability_probes.dart';
@@ -38,6 +39,9 @@ import 'perception/mux/vision_perception_source.dart';
 import 'perception/mux/perception_source.dart';
 import 'perception/nano_snapshot.dart';
 import 'perception/perception_mux.dart';
+import 'perception/current_situation.dart';
+import 'perception/semantic/screen_graph.dart';
+import 'perception/surface_classifier.dart';
 import 'platform/nano_ocr_api.dart';
 import 'governance/action_governance_pipeline.dart';
 import 'privilege/shizuku_availability.dart';
@@ -109,12 +113,35 @@ final linuxToolAdapterProvider = Provider<LinuxToolAdapter>((ref) {
   );
 });
 
+/// Journal durable único para todas las fronteras de commit del módulo.
+/// Compartir la instancia evita que dispatcher y TaskOrchestrator mantengan
+/// estados transaccionales separados para la misma acción física.
+final executionJournalProvider = Provider<ExecutionJournal>((ref) {
+  return SharedPreferencesExecutionJournal();
+});
+
+/// Fuente factual compartida de la situación actual. Cada invocación captura
+/// un snapshot fresco y pasa por el único SurfaceClassifier del módulo.
+final currentSituationSourceProvider = Provider<CurrentSituationSource>((ref) {
+  final executor = ref.watch(agentExecutorProvider);
+  const classifier = SurfaceClassifier();
+  return () async {
+    final snapshot = await executor.snapshot();
+    if (snapshot == null || snapshot.isEmpty) return null;
+    return classifier.classify(
+      ScreenGraph.fromSnapshot(snapshot),
+      observedAt: snapshot.capturedAt,
+    );
+  };
+});
+
 /// Dispatcher con TODAS sus dependencias inyectadas (sin defaults internos
 /// en producción). El chat lo recibe vía `chatProvider`.
 final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
   final api = NanoRuntimeApi.instance;
+  final executor = ref.watch(agentExecutorProvider);
   return AgentToolDispatcher(
-    executor: ref.watch(agentExecutorProvider),
+    executor: executor,
     registry: ToolRegistry.builtin,
     policy: ref.watch(policyEngineProvider),
     verifier: ref.watch(agentVerifierProvider),
@@ -124,6 +151,9 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     globalAction: api.agentGlobalAction,
     swipe: api.agentSwipe,
     longPress: api.agentLongPressAt,
+    executionJournal: ref.watch(executionJournalProvider),
+    currentSituationSource: ref.watch(currentSituationSourceProvider),
+    voiceOutputEnabled: () => ref.read(settingsProvider).voiceEnabled,
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
     // A14.5: lector de estado de plataforma para verificar postcondiciones
     // no-UI (archivo Linux, app fuera de foco) tras ejecutar.
@@ -310,7 +340,9 @@ final systemGraphProvider = FutureProvider<SystemGraph>((ref) {
 
 /// Resolución Modelo ↔ Automation (T4.2): un solo runtime, modo + modelo actual.
 /// El modo `deterministicOnly` o un modelo ausente → llmAllowed=false.
-final automationModelResolverProvider = Provider<AutomationModelResolver>((ref) {
+final automationModelResolverProvider = Provider<AutomationModelResolver>((
+  ref,
+) {
   return AutomationModelResolver(
     mode: () => ref.read(settingsProvider).automationModelMode,
     chatModelPath: () => ref.read(chatProvider).activeModelPath,
@@ -323,7 +355,9 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((ref) 
 /// el resolver de modelo: deterministicOnly/sin modelo → 0 LLM.
 final koogCandidateSelectorProvider = Provider<CandidateSelector>((ref) {
   return ModelGatedCandidateSelector(
-    inner: KoogCandidateSelector(ref.read(runtimeEngineProvider.notifier).client),
+    inner: KoogCandidateSelector(
+      ref.read(runtimeEngineProvider.notifier).client,
+    ),
     resolver: ref.watch(automationModelResolverProvider),
   );
 });

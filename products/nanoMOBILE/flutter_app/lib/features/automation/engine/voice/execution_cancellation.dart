@@ -13,15 +13,13 @@ class ExecutionCancelled implements Exception {
   const ExecutionCancelled();
 }
 
-/// Token de cancelación cooperativo. Mutable y reutilizable entre turnos.
+/// Token de cancelación cooperativo perteneciente a una sola ejecución.
 class ExecutionCancellationToken {
   bool _cancelled = false;
 
   bool get isCancelled => _cancelled;
 
   void cancel() => _cancelled = true;
-
-  void reset() => _cancelled = false;
 
   /// Lanza [ExecutionCancelled] si se solicitó cancelación.
   void throwIfCancelled() {

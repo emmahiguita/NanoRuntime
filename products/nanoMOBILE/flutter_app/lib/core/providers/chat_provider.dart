@@ -21,6 +21,7 @@ import '../models/catalog_models.dart';
 import 'settings_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
+import 'package:nanoai/features/automation/application/automation_feedback_presenter.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart'
     show AutomationResultStatus;
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
@@ -348,14 +349,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
         state = state.copyWith(
           generating: false,
           pendingTool: result.pauseTool,
-          pendingToolDescription: result.reason,
+          pendingToolDescription: automationUserFacingReason(result.reason),
         );
         return;
       }
       final message = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
-        text: 'Ejecutado en el dispositivo (sin LLM):\n${result.reason}',
+        text:
+            'Ejecutado en el dispositivo (sin LLM):\n'
+            '${automationUserFacingReason(result.reason)}',
         timestamp: DateTime.now(),
         source: MessageSource.device,
         status:
@@ -509,7 +512,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
     }
     if (ai != null && ai.text.isNotEmpty) {
-      await voiceSession.respond(ai.text);
+      await voiceSession.respond(automationSpokenReason(ai.text));
     }
   }
 
@@ -519,7 +522,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
   VoiceSessionManager get voiceSession =>
       _voiceSessionCache ??= VoiceSessionManager(
         recognition: const AndroidSpeechRecognitionBackend(),
-        synthesis: const AndroidSpeechSynthesisBackend(),
+        synthesis: AndroidSpeechSynthesisBackend(
+          enabled: () => _ref.read(settingsProvider).voiceEnabled,
+        ),
         resolveGoal: _resolveVoiceGoal,
       );
   VoiceSessionManager? _voiceSessionCache;
@@ -651,7 +656,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         final toolMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: result,
+          text: automationUserFacingReason(result),
           timestamp: DateTime.now(),
           status: MessageStatus.sent,
         );
@@ -689,7 +694,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           } else {
             linuxText =
                 'No se pudo crear ${linuxCmd.call.text}: '
-                '${result.reason}';
+                '${automationUserFacingReason(result.reason)}';
           }
         } else {
           // READ (list/readFile): el stdout factual ES la respuesta.
@@ -732,13 +737,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
           state = state.copyWith(
             generating: false,
             pendingTool: flowResult.plan.pauseCall?.tool,
-            pendingToolDescription: flowResult.plan.summary,
+            pendingToolDescription: automationUserFacingReason(
+              flowResult.plan.summary,
+            ),
           );
           return;
         }
         final feedback = [
           'Objetivo resuelto por flujo verificado (sin LLM):',
-          flowResult.plan.summary,
+          automationUserFacingReason(flowResult.plan.summary),
           '[goal] ${flowResult.goal.reason}',
         ].join('\n');
         final flowMsg = ChatMessage(
@@ -775,14 +782,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
           state = state.copyWith(
             generating: false,
             pendingTool: result.pauseTool,
-            pendingToolDescription: result.reason,
+            pendingToolDescription: automationUserFacingReason(result.reason),
           );
           return;
         }
         final knownMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: 'Ejecutado en el dispositivo (sin LLM):\n${result.reason}',
+          text:
+              'Ejecutado en el dispositivo (sin LLM):\n'
+              '${automationUserFacingReason(result.reason)}',
           timestamp: DateTime.now(),
           source: MessageSource.device,
           status:
@@ -821,14 +830,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
           state = state.copyWith(
             generating: false,
             pendingTool: result.pauseTool,
-            pendingToolDescription: result.reason,
+            pendingToolDescription: automationUserFacingReason(result.reason),
           );
           return;
         }
         final taskMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: 'Ejecutado en el dispositivo (sin LLM):\n${result.reason}',
+          text:
+              'Ejecutado en el dispositivo (sin LLM):\n'
+              '${automationUserFacingReason(result.reason)}',
           timestamp: DateTime.now(),
           source: MessageSource.device,
           status:
@@ -1548,6 +1559,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
     if (lease != null) _releaseStream(lease, 'dispose');
 
     _loadTimer?.cancel();
+    final voiceSession = _voiceSessionCache;
+    if (voiceSession != null) unawaited(voiceSession.dispose());
 
     // CORRECCIÓN CRÍTICA: Verificar memory leaks al dispose
     if (_activeConnections > 0) {
@@ -1565,11 +1578,9 @@ final StateNotifierProvider<ChatNotifier, ChatState>
 chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
   // Inyección real (DI): el dispatcher viene del composition root
   // (agent_dependencies.dart) con sus dependencias reales cableadas una vez.
-  // El fallback interno de ChatNotifier solo existe para tests que no pasan
-  // toolDispatcher.
-  (ref) => ChatNotifier(
-    ref,
-    toolDispatcher: ref.watch(agentDispatcherProvider),
-    coordinator: ref.watch(automationCoordinatorProvider),
-  ),
+  // El coordinator se resuelve de forma lazy mediante [_coordinator]:
+  // AutomationModelResolver consulta este estado y una dependencia eager aquí
+  // cerraría el ciclo chat -> coordinator -> resolver -> chat.
+  (ref) =>
+      ChatNotifier(ref, toolDispatcher: ref.watch(agentDispatcherProvider)),
 );
