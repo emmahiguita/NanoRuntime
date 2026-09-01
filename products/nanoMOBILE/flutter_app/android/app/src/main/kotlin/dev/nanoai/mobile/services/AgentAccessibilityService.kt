@@ -145,7 +145,11 @@ class AgentAccessibilityService : AccessibilityService() {
         val result = mutableListOf<Map<String, Any?>>()
         val windowRows = mutableListOf<Map<String, Any?>>()
         val traversal = TraversalState()
-        var activePackage = ""
+        var activeApplicationPackage = ""
+        var focusedApplicationPackage = ""
+        var applicationPackage = ""
+        var activeOverlayPackage = ""
+        var fallbackPackage = ""
         for ((window, root) in roots) {
             val windowId = window?.id ?: root.windowId
             val windowType = window?.type ?: AccessibilityWindowInfo.TYPE_APPLICATION
@@ -155,7 +159,16 @@ class AgentAccessibilityService : AccessibilityService() {
                 Display.DEFAULT_DISPLAY
             }
             val pkg = root.packageName?.toString() ?: ""
-            if (window?.isActive == true || activePackage.isEmpty()) activePackage = pkg
+            if (pkg.isNotEmpty()) {
+                if (fallbackPackage.isEmpty()) fallbackPackage = pkg
+                if (windowType == AccessibilityWindowInfo.TYPE_APPLICATION) {
+                    if (applicationPackage.isEmpty()) applicationPackage = pkg
+                    if (window?.isFocused == true) focusedApplicationPackage = pkg
+                    if (window?.isActive == true) activeApplicationPackage = pkg
+                } else if (window?.isActive == true) {
+                    activeOverlayPackage = pkg
+                }
+            }
             val rootIdentity = nodeIdentity(root, windowId)
             windowRows.add(
                 mapOf(
@@ -182,6 +195,17 @@ class AgentAccessibilityService : AccessibilityService() {
                 siblingIndex = 0,
             )
             root.recycle()
+        }
+        // El IME es una ventana activa separada. No debe convertir a Gboard en
+        // la app actual mientras Nano escribe dentro de WhatsApp/Chrome. Una
+        // ventana TYPE_APPLICATION activa o enfocada conserva ownership; un
+        // overlay activo solo gana cuando no existe aplicación observable.
+        val activePackage = activeApplicationPackage.ifEmpty {
+            focusedApplicationPackage.ifEmpty {
+                applicationPackage.ifEmpty {
+                    activeOverlayPackage.ifEmpty { fallbackPackage }
+                }
+            }
         }
         return mapOf(
             "package" to activePackage,
@@ -272,6 +296,7 @@ class AgentAccessibilityService : AccessibilityService() {
             put("editable", node.isEditable)
             put("scrollable", node.isScrollable)
             put("checked", node.isChecked)
+            put("selected", node.isSelected)
             put("focusable", node.isFocusable)
             put("focused", node.isFocused)
             put("visible", node.isVisibleToUser)
@@ -440,6 +465,74 @@ class AgentAccessibilityService : AccessibilityService() {
         val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
         node.recycle()
         return ok
+    }
+
+    /**
+     * Ejecuta la acción Enter declarada por el IME sobre el único campo
+     * editable y enfocado de la ventana activa. Es el equivalente semántico a
+     * pulsar Buscar/Ir en el teclado, sin coordenadas ni inyección shell.
+     *
+     * [expectedPackageName] liga la acción al package que el plan resolvió. Si
+     * el usuario cambió de aplicación entre escribir y enviar, se rechaza.
+     */
+    fun submitFocusedInput(expectedPackageName: String): Map<String, Any?> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return mapOf("ok" to false, "code" to "IME_ACTION_UNSUPPORTED")
+        }
+        val roots = windows.orEmpty()
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .mapNotNull { it.root }
+            .ifEmpty { listOfNotNull(rootInActiveWindow) }
+        if (roots.isEmpty()) {
+            return mapOf("ok" to false, "code" to "NO_ACTIVE_WINDOW")
+        }
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        for (root in roots) {
+            val stack = ArrayDeque<AccessibilityNodeInfo>()
+            stack.add(root)
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                val packageMatches = expectedPackageName.isBlank() ||
+                    node.packageName?.toString() == expectedPackageName
+                if (packageMatches && node.isEditable && node.isFocused &&
+                    node.isVisibleToUser && node.isEnabled
+                ) {
+                    candidates.add(AccessibilityNodeInfo.obtain(node))
+                }
+                for (i in 0 until node.childCount) {
+                    node.getChild(i)?.let(stack::add)
+                }
+                if (node !== root) node.recycle()
+            }
+            root.recycle()
+        }
+        if (candidates.size != 1) {
+            candidates.forEach(AccessibilityNodeInfo::recycle)
+            return mapOf(
+                "ok" to false,
+                "code" to if (candidates.isEmpty()) "NO_FOCUSED_EDITABLE" else "FOCUSED_EDITABLE_AMBIGUOUS",
+            )
+        }
+
+        val node = candidates.single()
+        val actualPackage = node.packageName?.toString().orEmpty()
+        if (expectedPackageName.isNotBlank() && actualPackage != expectedPackageName) {
+            node.recycle()
+            return mapOf(
+                "ok" to false,
+                "code" to "PACKAGE_CHANGED",
+                "packageName" to actualPackage,
+            )
+        }
+        val accepted = node.performAction(
+            AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id,
+        )
+        node.recycle()
+        return mapOf(
+            "ok" to accepted,
+            "code" to if (accepted) "OK" else "IME_ACTION_REJECTED",
+            "packageName" to actualPackage,
+        )
     }
 
     /** Global actions: back / home / recents. */

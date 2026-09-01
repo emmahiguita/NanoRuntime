@@ -50,6 +50,7 @@ class SemanticNormalizer {
       editable: n.editable,
       scrollable: n.scrollable,
       checked: n.checked,
+      selected: n.selected,
       focusable: n.focusable,
       focused: n.focused,
       nativeClass: n.type,
@@ -219,6 +220,14 @@ class SemanticNormalizer {
       'búsqueda',
       'query',
       'src_text',
+      // Superficies de navegación web: el omnibox también es un campo de
+      // búsqueda válido. Se reconoce por semántica de recurso, no por package
+      // ni por coordenadas, de modo que sirve aunque el navegador restaure
+      // cualquier página o actividad previa.
+      'url_bar',
+      'address_bar',
+      'location_bar',
+      'omnibox',
     ]);
   }
 

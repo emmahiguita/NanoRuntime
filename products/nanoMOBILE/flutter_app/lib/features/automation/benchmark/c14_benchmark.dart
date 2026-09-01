@@ -106,7 +106,7 @@ class C14Benchmark {
         onExecution(_executions.last);
       }
     }
-    return C14Gates().evaluate(_executions);
+    return const C14Gates().evaluate(_executions);
   }
 }
 

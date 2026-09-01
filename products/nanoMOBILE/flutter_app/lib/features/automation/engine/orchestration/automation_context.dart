@@ -106,6 +106,9 @@ final class AutomationConversationSnapshot {
     this.query = '',
     this.resultOrdinal,
     this.resultText = '',
+    this.uiActionTarget = '',
+    this.uiTarget = '',
+    this.uiText = '',
   });
 
   final String appName;
@@ -114,6 +117,9 @@ final class AutomationConversationSnapshot {
   final String query;
   final int? resultOrdinal;
   final String resultText;
+  final String uiActionTarget;
+  final String uiTarget;
+  final String uiText;
 }
 
 /// Vista acotada de la memoria UI copy-on-write disponible al capturar.

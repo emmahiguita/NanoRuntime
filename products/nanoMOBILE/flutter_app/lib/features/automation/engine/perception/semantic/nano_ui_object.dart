@@ -2,8 +2,8 @@
 ///
 /// Inmutable. `id` es estable DENTRO del snapshot (basado en el ordinal del
 /// árbol); no promete estabilidad entre sesiones (eso es ObjectMemory V2/A12).
-/// `checkable` no se modela: el snapshot nativo actual no lo expone (solo
-/// `checked`).
+/// `checkable` no se modela: el snapshot nativo expone el estado efectivo
+/// (`checked`/`selected`), suficiente para no reactivar destinos actuales.
 library;
 
 import '../nano_snapshot.dart' show NanoBounds;
@@ -22,6 +22,7 @@ class NanoUiObject {
   final bool editable;
   final bool scrollable;
   final bool checked;
+  final bool selected;
   final bool focusable;
   final bool focused;
   final String nativeClass;
@@ -52,6 +53,7 @@ class NanoUiObject {
     required this.editable,
     required this.scrollable,
     required this.checked,
+    this.selected = false,
     required this.focusable,
     required this.focused,
     required this.nativeClass,
@@ -91,6 +93,7 @@ class NanoUiObject {
       editable: editable,
       scrollable: scrollable,
       checked: checked,
+      selected: selected,
       focusable: focusable,
       focused: focused,
       nativeClass: nativeClass,

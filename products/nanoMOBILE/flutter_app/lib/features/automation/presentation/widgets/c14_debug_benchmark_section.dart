@@ -135,9 +135,9 @@ class _C14DebugBenchmarkSectionState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'C14 Automation Benchmark',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: NanoSpacing.sm),
                 _preflightStatus(),
@@ -222,9 +222,9 @@ class _C14DebugBenchmarkSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(),
-        Text(
+        const Text(
           'C14-A REPORT',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
         for (final g in rep.gates)
           Text(

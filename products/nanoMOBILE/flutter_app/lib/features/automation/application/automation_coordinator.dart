@@ -285,6 +285,12 @@ class AutomationCoordinator {
     if (cache == null || flow == null) return null;
     final verified = cache.planFor(goal);
     if (verified == null) return null;
+    // La memoria nunca puede degradar el invariante de navegación. Un flujo
+    // legacy multi-UI se invalida y se vuelve a planificar semánticamente.
+    if (_dispatcher.requiresGoalDirectedExecution(verified.steps)) {
+      cache.recordFailure(goal);
+      return null;
+    }
     if (run != null && confirmation != null) {
       throw StateError(
         'AutomationRun no puede combinarse con confirmación legacy',
@@ -635,11 +641,23 @@ class AutomationCoordinator {
     try {
       run.beginPlanning();
       run.enterStep(0);
-      final outcome = await _dispatcher.runToolGuarded(
-        call,
-        confirmed: confirmed,
-        cancellation: run.cancellation,
-      );
+      // Una herramienta aislada no dispone de planSignature/paso/firma para
+      // vincular consentimiento. El bool legacy jamás autoriza; los callers
+      // autónomos sensibles deben usar execute(plan: [...]) y devolver el
+      // ActionConfirmation exacto recibido en la pausa.
+      final outcome = confirmed
+          ? const ToolOutcome(
+              verdict: PolicyVerdict.denied,
+              feedback:
+                  '[confirmationTokenRequired] La confirmación booleana no '
+                  'autoriza una acción. Reanuda mediante ActionConfirmation.',
+              executionStatus: ToolExecutionStatus.notExecuted,
+            )
+          : await _dispatcher.runToolGuarded(
+              call,
+              executionId: run.executionId,
+              cancellation: run.cancellation,
+            );
       if (!outcome.needsConfirmation) run.beginVerification();
       _record(
         executionId: run.executionId,
@@ -683,6 +701,7 @@ class AutomationCoordinator {
       run.enterStep(0);
       final feedback = await _dispatcher.runCommand(
         command,
+        executionId: run.executionId,
         cancellation: run.cancellation,
       );
       if (run.cancellation.isCancelled) {
@@ -764,6 +783,8 @@ class AutomationCoordinator {
     // A15.3: métricas de tareas cross-app multi-paso.
     var taskStepsCount = 0;
     var zeroLlmTask = false;
+    var deterministicCrossAppAttempted = false;
+    var semanticFallbackAttempted = false;
     // Expectativa efectiva para el run (usada en aprendizaje SOUND). Por defecto
     // la del goal; un flujo determinista del catálogo puede aportar la suya.
     var runExpectation = goal.expectation;
@@ -823,6 +844,7 @@ class AutomationCoordinator {
         // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
         // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
         // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
+        deterministicCrossAppAttempted = true;
         final crossApp = await tryCrossApp(goal.text, run: run);
         if (crossApp != null) {
           // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
@@ -895,6 +917,7 @@ class AutomationCoordinator {
             // inventario, permitir descomposición LLM a semántica finita.
             // El decomposer aplica AutomationModelResolver y nunca emite
             // tools, paquetes, selectores ni coordenadas arbitrarias.
+            semanticFallbackAttempted = true;
             final semanticFallback = await tryCrossApp(
               goal.text,
               run: run,
@@ -935,6 +958,44 @@ class AutomationCoordinator {
             plan = planned.calls;
           }
         }
+      }
+
+      // Un array de gestos UI generado por un modelo no se ejecuta en cadena.
+      // Se reconstruye como TaskPlan y TaskOrchestrator reobserva el mundo tras
+      // cada acción. Si la intención no cabe en el vocabulario semántico real,
+      // se detiene honestamente en lugar de actuar a ciegas.
+      if (_dispatcher.requiresGoalDirectedExecution(plan)) {
+        if (!deterministicCrossAppAttempted) {
+          final deterministicGoalDirected = await tryCrossApp(
+            goal.text,
+            run: run,
+          );
+          if (deterministicGoalDirected != null) {
+            taskStepsCount = deterministicGoalDirected.steps.length;
+            zeroLlmTask = true;
+            return finish(deterministicGoalDirected.result);
+          }
+        }
+        if (!semanticFallbackAttempted) {
+          final goalDirected = await tryCrossApp(
+            goal.text,
+            run: run,
+            deterministicOnly: false,
+          );
+          if (goalDirected != null) {
+            taskStepsCount = goalDirected.steps.length;
+            zeroLlmTask = false;
+            return finish(goalDirected.result);
+          }
+        }
+        final r = AutomationResult(
+          executionId: executionId,
+          status: AutomationResultStatus.noPlan,
+          reason:
+              'El plan visual requiere navegación orientada a objetivos, pero '
+              'no produjo un TaskPlan semántico verificable. No se ejecutó.',
+        );
+        return finish(r);
       }
 
       // C10/C12: anclar selectores semánticos a selectores reales (memoria/percepción).

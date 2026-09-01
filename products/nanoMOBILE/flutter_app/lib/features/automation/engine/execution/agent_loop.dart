@@ -173,9 +173,12 @@ class AgentLoop {
     // un tap o un input podían haber producido un efecto externo.
     final expectation =
         step.action == AgentAction.setText &&
-            step.expectation.expectedText?.isNotEmpty == true &&
-            step.expectation.expectedTextTarget == null
-        ? step.expectation.copyWith(expectedTextTarget: step.selector)
+            step.expectation.expectedText?.isNotEmpty == true
+        ? step.expectation.copyWith(
+            expectedTextTarget:
+                step.expectation.expectedTextTarget ?? step.selector,
+            expectedTextMatch: ExpectedTextMatch.exact,
+          )
         : step.expectation;
     final verification = await _verifier.verify(
       expectation,

@@ -98,6 +98,7 @@ class NanoNode {
   final bool editable;
   final bool scrollable;
   final bool checked;
+  final bool selected;
   final bool focusable;
   final bool focused;
   final bool visible;
@@ -123,6 +124,7 @@ class NanoNode {
     required this.editable,
     required this.scrollable,
     required this.checked,
+    this.selected = false,
     required this.focusable,
     required this.focused,
     required this.visible,
@@ -164,6 +166,7 @@ class NanoNode {
       editable: m['editable'] == true,
       scrollable: m['scrollable'] == true,
       checked: m['checked'] == true,
+      selected: m['selected'] == true,
       focusable: m['focusable'] == true,
       focused: m['focused'] == true,
       visible: m['visible'] == true,

@@ -219,6 +219,8 @@ String navigationSituationSignature(CurrentSituation situation) {
           'clickable': object.clickable,
           'editable': object.editable,
           'focused': object.focused,
+          'selected': object.selected,
+          'checked': object.checked,
           'windowId': object.windowId,
           'windowType': object.windowType,
           'displayId': object.displayId,

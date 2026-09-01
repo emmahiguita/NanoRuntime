@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit
  * - `longPressAt {x, y, durationMs}` → bool
  * - `swipe {x1,y1,x2,y2,durationMs}` → bool
  * - `inputText {text,targetResourceId,targetBounds}` → bool
+ * - `submitFocusedInput {expectedPackageName}` → {ok,code,packageName}
  * - `globalAction {action}`     → bool (back|home|recents|notifications|quick_settings)
  * - `launchPackage {packageName}` → bool
  *
@@ -47,6 +48,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             "gestures",     // tapAt / longPressAt / swipe
             "target-click", // clickTarget ACTION_CLICK + verified fallback
             "text-input",   // inputText
+            "ime-submit",   // submitFocusedInput sobre editable enfocado
             "global",       // globalAction back/home/recents
             "launch",       // launchPackage
             "ocr",          // ocrRegion (ML Kit fallback de percepción)
@@ -176,6 +178,13 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                 }
                 postToService(AgentAccessibilityBridge.service, result) {
                     it.inputText(text, targetResourceId, targetBounds.filterNotNull().toIntArray())
+                }
+            }
+
+            "submitFocusedInput" -> {
+                val expectedPackageName = call.argument<String>("expectedPackageName") ?: ""
+                postToService(AgentAccessibilityBridge.service, result) {
+                    it.submitFocusedInput(expectedPackageName)
                 }
             }
 

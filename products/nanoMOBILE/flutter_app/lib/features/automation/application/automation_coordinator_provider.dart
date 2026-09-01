@@ -17,6 +17,7 @@ import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart'
     show defaultDeterministicCatalog;
+import 'package:nanoai/features/automation/engine/perception/mux/perception_contracts.dart';
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
@@ -69,16 +70,23 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
     ToolCall call, {
     String? confirmedActionSignature,
     String? semanticAction,
+    String? executionId,
     ExecutionJournalEntry? executionIntent,
   }) async {
     final dispatcher = ref.read(agentDispatcherProvider);
     final confirmed = confirmedActionSignature == call.confirmationSignature;
+    final ownerExecutionId = executionId ?? executionIntent?.runId;
     final outcome = semanticAction == null
-        ? await dispatcher.runToolGuarded(call, confirmed: confirmed)
+        ? await dispatcher.runToolGuarded(
+            call,
+            confirmed: confirmed,
+            executionId: ownerExecutionId,
+          )
         : await dispatcher.runSemanticToolGuarded(
             call,
             semanticAction: semanticAction,
             confirmed: confirmed,
+            executionId: ownerExecutionId,
             executionIntent: executionIntent,
           );
     return taskActionFrom(call, outcome);
@@ -153,15 +161,23 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         // ciegas (WhatsApp vs WhatsApp Business). Solo se lanza si la resolución
         // es ÚNICA; la ambigüedad la resuelve Candidate-First (Koog) aguas
         // arriba con evidencia contextual, o se reporta sin lanzar.
-        final String? pkg = match is AppMatchResolved
-            ? match.app.packageName
-            : null;
-        if (pkg == null) {
-          return const TaskActionResult(
+        if (match is AppMatchAmbiguous) {
+          final labels = match.candidates
+              .map((candidate) => candidate.label)
+              .toSet()
+              .join(', ');
+          return TaskActionResult(
             status: TaskActionStatus.failed,
-            reason: 'app no encontrada o ambigua',
+            reason: 'app ambigua: $labels',
           );
         }
+        if (match is! AppMatchResolved) {
+          return TaskActionResult(
+            status: TaskActionStatus.failed,
+            reason: 'app "$appName" no encontrada en el catálogo lanzable',
+          );
+        }
+        final pkg = match.app.packageName;
         return runTaskTool(
           ToolCall(tool: 'launch_app', args: {'packageName': pkg}),
           confirmedActionSignature: confirmedActionSignature,
@@ -173,11 +189,13 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
             selector, {
             confirmedActionSignature,
             semanticAction,
+            executionId,
             executionIntent,
           }) => runTaskTool(
             ToolCall(tool: 'tap', selector: selector),
             confirmedActionSignature: confirmedActionSignature,
             semanticAction: semanticAction,
+            executionId: executionId,
             executionIntent: executionIntent,
           ),
       writeText: (selector, text, {confirmedActionSignature, semanticAction}) =>
@@ -186,6 +204,27 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
             confirmedActionSignature: confirmedActionSignature,
             semanticAction: semanticAction,
           ),
+      submitInput: ({expectedPackageName = ''}) async {
+        final result = await NanoRuntimeApi.instance.agentSubmitFocusedInput(
+          expectedPackageName: expectedPackageName,
+        );
+        if (result == null) {
+          return const TaskActionResult(
+            status: TaskActionStatus.failed,
+            reason: 'canal IME no disponible',
+          );
+        }
+        if (result['ok'] != true) {
+          return TaskActionResult(
+            status: TaskActionStatus.failed,
+            reason: 'submit IME rechazado: ${result['code'] ?? 'UNKNOWN'}',
+          );
+        }
+        return const TaskActionResult(
+          status: TaskActionStatus.completedUnverified,
+          reason: 'acción Buscar/Ir aceptada por el campo enfocado',
+        );
+      },
       back: ({confirmedActionSignature, semanticAction}) => runTaskTool(
         const ToolCall(tool: 'back'),
         confirmedActionSignature: confirmedActionSignature,
@@ -198,6 +237,33 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         return match is AppMatchResolved ? match.app.packageName : null;
       },
       currentSituationSource: ref.watch(currentSituationSourceProvider),
+      // La navegación orientada a objetivos puede escalar percepción cuando
+      // el árbol estructural no basta. La evidencia OCR/Vision nunca se toca
+      // directamente: TaskOrchestrator debe re-ligarla a un único control
+      // accesible actual antes de producir una acción.
+      targetPerception: (concept, packageName) => ref
+          .read(perceptionMuxProvider)
+          .perceive(
+            PerceptionRequest(
+              targetConcept: concept,
+              packageName: packageName,
+              minimumConfidence: 0.72,
+            ),
+            budget: const PerceptionBudget(
+              maxAccessibilityReads: 1,
+              maxOcrCalls: 1,
+              maxVisionCalls: 1,
+              maxFullScreenVisionCalls: 1,
+            ),
+            policy: const ObservationPolicy(
+              allowMemory: true,
+              allowAccessibility: true,
+              allowOcr: true,
+              allowVision: true,
+              allowFullScreenVision: true,
+              minimumConfidence: 0.72,
+            ),
+          ),
       memorySource: () => ref.read(objectMemoryProvider),
       // T2.0 — resolución grounded de superficies UI desde el snapshot real
       // (Accessibility → ScreenGraph). Sin superficie → null (el paso reporta

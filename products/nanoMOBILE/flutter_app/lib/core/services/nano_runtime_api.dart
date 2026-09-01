@@ -642,6 +642,23 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Pulsa la acción semántica Enter/Buscar/Ir del IME sobre el único editable
+  /// enfocado. El nativo vuelve a validar el package para impedir que un cambio
+  /// de pantalla redirija el submit a otra aplicación.
+  Future<Map<dynamic, dynamic>?> agentSubmitFocusedInput({
+    String expectedPackageName = '',
+  }) async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>(
+        'submitFocusedInput',
+        {'expectedPackageName': expectedPackageName},
+      );
+    } catch (e) {
+      debugPrint('[runtime] agentSubmitFocusedInput error: $e');
+      return null;
+    }
+  }
+
   /// back | home | recents | notifications | quick_settings.
   Future<bool> agentGlobalAction(String action) async {
     try {
@@ -1030,6 +1047,42 @@ class NanoRuntimeApi {
       return const [];
     }
   }
+
+  /// Muestra un aviso local cuando una automatización queda pausada esperando
+  /// confirmación. El aviso solo abre Nano; nunca autoriza la acción por sí
+  /// mismo, por lo que la firma y el consumo siguen perteneciendo al Journal.
+  Future<bool> showAutomationConfirmation() async {
+    try {
+      return await _notifications.invokeMethod<bool>(
+            'showAutomationConfirmation',
+          ) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] showAutomationConfirmation error: $e');
+      return false;
+    }
+  }
+
+  Future<void> dismissAutomationConfirmation() async {
+    try {
+      await _notifications.invokeMethod<void>('dismissAutomationConfirmation');
+    } catch (e) {
+      debugPrint('[runtime] dismissAutomationConfirmation error: $e');
+    }
+  }
+
+  static const EventChannel _automationConfirmationEvents = EventChannel(
+    'com.nanoai/automation_confirmation_events',
+  );
+
+  /// Acciones explícitas del usuario sobre la notificación de gobernanza.
+  /// El evento no transporta autoridad: el Dashboard solo puede consumir la
+  /// ActionConfirmation firmada y pendiente que ya conserva el run activo.
+  Stream<String> get automationConfirmationActions =>
+      _automationConfirmationEvents
+          .receiveBroadcastStream()
+          .where((event) => event is String)
+          .cast<String>();
 
   /// Evento en vivo de notificación entrante (EventChannel). null-safe: si el
   /// listener nativo no está conectado, simplemente no emite.

@@ -176,6 +176,29 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
     replayPolicy: SemanticReplayPolicy.safeReplace,
     rebuildOnResume: true,
   ),
+  // Revela una única superficie transitoria (p. ej. overflow) para que el
+  // target pedido pueda observarse. No activa el target final ni hereda su
+  // autoridad; ese segundo tap conserva la política de activateElement.
+  'revealElement': SemanticActionDefinition(
+    risk: SemanticActionRisk.navigation,
+    replayPolicy: SemanticReplayPolicy.safeReplace,
+  ),
+  // Un toque genérico puede confirmar, comprar, eliminar o enviar según la
+  // app. Se clasifica conservadoramente como commit hasta conocer su dominio.
+  // La re-resolución del selector y la verificación del snapshot siguen en el
+  // executor; la confirmación nunca se hereda del origen del plan.
+  'activateElement': SemanticActionDefinition(
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiredEvidence: RequiredEvidence.verified,
+    requiresConfirmation: true,
+  ),
+  'fillElement': SemanticActionDefinition(
+    risk: SemanticActionRisk.reversibleWrite,
+    replayPolicy: SemanticReplayPolicy.safeReplace,
+    requiredEvidence: RequiredEvidence.verified,
+    requiresConfirmation: true,
+  ),
   'writeMessage': SemanticActionDefinition(
     risk: SemanticActionRisk.reversibleWrite,
     replayPolicy: SemanticReplayPolicy.safeReplace,
@@ -206,6 +229,8 @@ const kTaskSemanticActionNames = <String>{
   'openApp',
   'openUrl',
   'openConversation',
+  'activateElement',
+  'fillElement',
   'writeMessage',
   'sendMessage',
   'writeFile',

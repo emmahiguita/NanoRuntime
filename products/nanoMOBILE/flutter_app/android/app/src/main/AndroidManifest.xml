@@ -133,6 +133,12 @@
                 <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
         </service>
+        <!-- Acción local de la notificación de gobernanza. No es exportada y
+             solo reanuda la confirmación firmada que Flutter mantiene activa. -->
+        <receiver
+            android:name=".channels.AutomationConfirmationActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -21,6 +21,8 @@ import '../perception/nano_snapshot.dart';
 import '../perception/selector_engine.dart';
 import 'platform_verification.dart';
 
+enum ExpectedTextMatch { contains, exact }
+
 /// Postcondiciones de una acción. Todas opcionales: la ausencia de criterios
 /// es una expectativa trivialmente verificada (compat con acciones de solo
 /// lectura sin estado esperado conocido).
@@ -44,6 +46,10 @@ class ActionExpectation {
 
   /// Selector estable del control que debe contener [expectedText].
   final NanoSelector? expectedTextTarget;
+
+  /// `setText` exige igualdad completa; otros consumidores conservan contains
+  /// para postcondiciones de contenido visible no editable.
+  final ExpectedTextMatch expectedTextMatch;
 
   /// Texto que NO debe ser visible; si aparece, fallo inmediato.
   final String? forbiddenText;
@@ -70,6 +76,7 @@ class ActionExpectation {
     this.mustDisappear,
     this.expectedText,
     this.expectedTextTarget,
+    this.expectedTextMatch = ExpectedTextMatch.contains,
     this.forbiddenText,
     this.mustChangeSnapshot = false,
     this.platformPredicates = const [],
@@ -85,6 +92,7 @@ class ActionExpectation {
     NanoSelector? mustDisappear,
     String? expectedText,
     NanoSelector? expectedTextTarget,
+    ExpectedTextMatch? expectedTextMatch,
     String? forbiddenText,
     bool? mustChangeSnapshot,
     List<PlatformPredicate>? platformPredicates,
@@ -97,6 +105,7 @@ class ActionExpectation {
       mustDisappear: mustDisappear ?? this.mustDisappear,
       expectedText: expectedText ?? this.expectedText,
       expectedTextTarget: expectedTextTarget ?? this.expectedTextTarget,
+      expectedTextMatch: expectedTextMatch ?? this.expectedTextMatch,
       forbiddenText: forbiddenText ?? this.forbiddenText,
       mustChangeSnapshot: mustChangeSnapshot ?? this.mustChangeSnapshot,
       platformPredicates: platformPredicates ?? this.platformPredicates,
@@ -132,7 +141,7 @@ class ActionExpectation {
       if (mustDisappear != null)
         'mustDisappear=${mustDisappear!.toDebugString()}',
       if (expectedText != null)
-        'text~=$expectedText'
+        'text${expectedTextMatch == ExpectedTextMatch.exact ? '==' : '~='}$expectedText'
             '${expectedTextTarget == null ? '' : '@${expectedTextTarget!.toDebugString()}'}',
       if (forbiddenText != null) 'forbidden~=$forbiddenText',
       if (mustChangeSnapshot) 'mustChangeSnapshot',
@@ -412,7 +421,7 @@ class ActionVerifier implements AgentVerifier {
 
   /// contains case-insensitive sobre texto/descripción de nodos visibles.
   bool _containsVisibleText(NanoSnapshot snap, String needle) {
-    final n = needle.toLowerCase();
+    final n = _normalizeComparableText(needle);
     for (final node in snap.visibleNodes) {
       if (_nodeContainsText(node, n)) {
         return true;
@@ -426,16 +435,44 @@ class ActionVerifier implements AgentVerifier {
     if (expected == null || expected.isEmpty) return true;
 
     final target = expectation.expectedTextTarget;
-    if (target == null) return _containsVisibleText(snap, expected);
+    if (target == null) {
+      if (expectation.expectedTextMatch == ExpectedTextMatch.contains) {
+        return _containsVisibleText(snap, expected);
+      }
+      return snap.visibleNodes.any(
+        (node) => _nodeMatchesExactText(node, expected),
+      );
+    }
 
     final resolved = _engine.resolve(target, snap);
     if (!resolved.isResolved || resolved.best == null) return false;
-    return _nodeContainsText(resolved.best!.node, expected.toLowerCase());
+    return expectation.expectedTextMatch == ExpectedTextMatch.exact
+        ? _nodeMatchesExactText(resolved.best!.node, expected)
+        : _nodeContainsText(resolved.best!.node, expected.toLowerCase());
+  }
+
+  bool _nodeMatchesExactText(NanoNode node, String expected) {
+    final normalized = _normalizeComparableText(expected);
+    return _normalizeComparableText(node.text) == normalized ||
+        _normalizeComparableText(node.description) == normalized;
   }
 
   bool _nodeContainsText(NanoNode node, String normalizedNeedle) =>
-      node.text.toLowerCase().contains(normalizedNeedle) ||
-      node.description.toLowerCase().contains(normalizedNeedle);
+      _normalizeComparableText(node.text).contains(normalizedNeedle) ||
+      _normalizeComparableText(node.description).contains(normalizedNeedle);
+
+  /// Android y algunas apps insertan marcadores Unicode invisibles dentro de
+  /// EditText (p. ej. U+200B en el SearchView de WhatsApp). No representan
+  /// contenido escrito por el usuario y no deben convertir un ACTION_SET_TEXT
+  /// correcto en timeout. Se conservan letras, signos y espacios visibles.
+  String _normalizeComparableText(String value) => value
+      .replaceAll('\u00A0', ' ')
+      .replaceAll(
+        RegExp('[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]'),
+        '',
+      )
+      .trim()
+      .toLowerCase();
 
   /// Firma de contenido visible: detecta cambios de pantalla (set de labels
   /// + bounds). Dos snapshots con la misma firma se consideran iguales.

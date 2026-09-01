@@ -12,6 +12,10 @@ enum SurfaceElementKind {
   searchInput,
   sendAction,
   searchAction,
+  navigationBackAction,
+  navigationDismissAction,
+  navigationOverflowAction,
+  conversationHomeAction,
 }
 
 /// Regla declarativa de un elemento de superficie.
@@ -61,7 +65,17 @@ final class GenericSurfaceProfile implements SurfaceProfile {
     ),
     SurfaceElementKind.searchInput => const SurfaceElementProfile(
       roles: {SemanticRole.searchField},
-      terms: ['buscar', 'search', 'busca', 'consulta', 'find'],
+      terms: [
+        'buscar',
+        'search',
+        'busca',
+        'consulta',
+        'find',
+        'url_bar',
+        'address_bar',
+        'location_bar',
+        'omnibox',
+      ],
     ),
     SurfaceElementKind.sendAction => const SurfaceElementProfile(
       roles: {SemanticRole.button, SemanticRole.iconButton},
@@ -70,6 +84,50 @@ final class GenericSurfaceProfile implements SurfaceProfile {
     SurfaceElementKind.searchAction => const SurfaceElementProfile(
       roles: {SemanticRole.button, SemanticRole.iconButton},
       terms: ['buscar', 'search', 'busca', 'busqueda', 'búsqueda', 'find'],
+    ),
+    SurfaceElementKind.navigationBackAction => const SurfaceElementProfile(
+      roles: {SemanticRole.button, SemanticRole.iconButton},
+      terms: [
+        'atrás',
+        'atras',
+        'volver',
+        'navegar hacia arriba',
+        'back',
+        'navigate up',
+        'up navigation',
+      ],
+    ),
+    SurfaceElementKind.navigationDismissAction => const SurfaceElementProfile(
+      roles: {
+        SemanticRole.button,
+        SemanticRole.iconButton,
+        SemanticRole.menuItem,
+      },
+      terms: ['cerrar', 'cancelar', 'descartar', 'close', 'cancel', 'dismiss'],
+    ),
+    SurfaceElementKind.navigationOverflowAction => const SurfaceElementProfile(
+      roles: {
+        SemanticRole.button,
+        SemanticRole.iconButton,
+        SemanticRole.menuItem,
+      },
+      terms: ['más opciones', 'mas opciones', 'more options', 'menú', 'menu'],
+    ),
+    SurfaceElementKind.conversationHomeAction => const SurfaceElementProfile(
+      roles: {
+        SemanticRole.tab,
+        SemanticRole.button,
+        SemanticRole.iconButton,
+        SemanticRole.menuItem,
+        SemanticRole.text,
+      },
+      terms: [
+        'chats',
+        'mensajes',
+        'conversaciones',
+        'messages',
+        'conversations',
+      ],
     ),
   };
 }
@@ -117,6 +175,9 @@ final class ResolvedSurfaceProfile {
 
   bool matchesTerms(String normalizedEvidence) =>
       terms.any(normalizedEvidence.contains);
+
+  bool matchesExactTerm(String normalizedEvidence) =>
+      terms.contains(normalizedEvidence.trim().toLowerCase());
 }
 
 abstract interface class SurfaceProfileSource {
@@ -154,6 +215,26 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
           roles: {SemanticRole.button, SemanticRole.iconButton},
           terms: ['buscar', 'search'],
           allowClickableContainer: true,
+        ),
+        SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton},
+          terms: ['atrás', 'atras', 'volver', 'navegar hacia arriba', 'back'],
+        ),
+        SurfaceElementKind.navigationDismissAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton},
+          terms: ['cerrar', 'cancelar', 'close', 'cancel'],
+        ),
+        SurfaceElementKind.navigationOverflowAction: SurfaceElementProfile(
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.menuItem,
+          },
+          terms: ['más opciones', 'mas opciones', 'more options'],
+        ),
+        SurfaceElementKind.conversationHomeAction: SurfaceElementProfile(
+          roles: {SemanticRole.tab, SemanticRole.button, SemanticRole.text},
+          terms: ['chats'],
         ),
       },
     ),

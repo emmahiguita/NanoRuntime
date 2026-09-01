@@ -2,11 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
-import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
+import '../automation_visual_theme.dart';
+import '../widgets/automation_bottom_navigation.dart';
 import '../widgets/automation_dashboard.dart';
 import 'automation_dev_screen.dart';
+import 'automation_settings_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
 ///
@@ -19,23 +20,36 @@ class AutomationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const Positioned.fill(child: LiquidFluidBackground()),
-          SafeArea(
-            child: NanoScreenShell(
-              title: 'Automatización',
-              showBack: true,
-              body: AutomationDashboard(
-                onDevTap: kDebugMode ? _openDev : null,
+    return Theme(
+      data: AutomationVisual.theme(),
+      child: Builder(
+        builder: (context) {
+          final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+          return Scaffold(
+            resizeToAvoidBottomInset: true,
+            backgroundColor: AutomationVisual.canvas,
+            bottomNavigationBar: keyboardOpen
+                ? null
+                : const AutomationBottomNavigation(),
+            body: SafeArea(
+              bottom: false,
+              child: AutomationDashboard(
+                onSettingsTap: () => _openSettings(context),
                 onMessagesTap: () => context.push('/automation/messages'),
               ),
             ),
-          ),
-        ],
+          );
+        },
+      ),
+    );
+  }
+
+  static void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AutomationSettingsScreen(
+          onDevTap: kDebugMode ? () => _openDev(context) : null,
+        ),
       ),
     );
   }

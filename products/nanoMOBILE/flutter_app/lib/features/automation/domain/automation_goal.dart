@@ -50,8 +50,8 @@ class AutomationOptions {
   /// null → el coordinator genera uno.
   final String? executionId;
 
-  /// True si el usuario ya confirmó las acciones sensibles del plan
-  /// (externalWrite). Permite reanudar un plan pausado.
+  /// Compatibilidad legacy. No eleva privilegios ni sustituye a
+  /// [confirmation]; una reanudación sensible exige el token exacto.
   final bool confirmed;
 
   /// Consentimiento vinculado a un único paso/acción del plan.

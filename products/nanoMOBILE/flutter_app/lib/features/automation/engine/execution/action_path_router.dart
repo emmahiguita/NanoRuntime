@@ -70,7 +70,7 @@ class ActionPathRouter {
       case 'tap':
       case 'write':
       case 'back':
-        return PathDecision(
+        return const PathDecision(
           ExecutionPath.accessibility,
           'Herramienta de UI sobre el árbol semántico de Accessibility.',
         );
@@ -91,7 +91,7 @@ class ActionPathRouter {
         );
       case 'notifications':
       case 'reply_notification':
-        return PathDecision(
+        return const PathDecision(
           ExecutionPath.structuredTool,
           'Canal estructurado de notificaciones (sin UI).',
         );
@@ -100,12 +100,12 @@ class ActionPathRouter {
     // Herramientas de alto nivel (futuro): clasificar por objetivo.
     if (tool == 'launch_app' || tool == 'open_app') {
       if (_intentAvailable()) {
-        return PathDecision(
+        return const PathDecision(
           ExecutionPath.androidIntent,
           'Abrir app por Intent es la vía más eficiente.',
         );
       }
-      return PathDecision(
+      return const PathDecision(
         ExecutionPath.accessibility,
         'Sin Intent disponible: abrir por Accessibility.',
       );
@@ -116,13 +116,13 @@ class ActionPathRouter {
         tool == 'run_command' ||
         tool == 'analyze') {
       if (_linuxAvailable()) {
-        return PathDecision(
+        return const PathDecision(
           ExecutionPath.linux,
           'Operación de archivos/comando: subsistema Linux directo '
           '(no abrir la app de Archivos).',
         );
       }
-      return PathDecision(
+      return const PathDecision(
         ExecutionPath.accessibility,
         'Linux no disponible: degradar a UI.',
       );
@@ -136,14 +136,14 @@ class ActionPathRouter {
               g.contains('leer') ||
               g.contains('analiz')) &&
           _linuxAvailable()) {
-        return PathDecision(
+        return const PathDecision(
           ExecutionPath.linux,
           'El objetivo menciona leer/analizar archivos: ruta Linux.',
         );
       }
     }
 
-    return PathDecision(
+    return const PathDecision(
       ExecutionPath.accessibility,
       'Ruta por defecto: Accessibility.',
     );

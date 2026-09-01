@@ -237,8 +237,9 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, ChannelNames.AGENT)
             .setMethodCallHandler(AgentChannelHandler())
 
+        val notificationHandler = NotificationAutomationChannelHandler(this)
         MethodChannel(messenger, ChannelNames.NOTIFICATIONS)
-            .setMethodCallHandler(NotificationAutomationChannelHandler(this))
+            .setMethodCallHandler(notificationHandler)
         EventChannel(messenger, "com.nanoai/notification_events").setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -249,6 +250,10 @@ class MainActivity : FlutterActivity() {
                 }
             },
         )
+        EventChannel(
+            messenger,
+            NotificationAutomationChannelHandler.CONFIRMATION_EVENTS_CHANNEL_NAME,
+        ).setStreamHandler(notificationHandler)
 
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
             .setMethodCallHandler(

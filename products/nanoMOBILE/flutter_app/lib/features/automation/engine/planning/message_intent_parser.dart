@@ -37,7 +37,7 @@ class MessageIntent {
 ///    específica primero);
 /// 2. el resto se parte por el PRIMER separador de mensaje (` que ` o `:`);
 /// 3. lo anterior es el recipient (se limpia de relleno "el último mensaje de");
-/// 4. lo posterior es el message (se limpia de puntuación de borde).
+/// 4. lo posterior es el message y se conserva como payload literal.
 class MessageIntentParser {
   const MessageIntentParser();
 
@@ -67,6 +67,9 @@ class MessageIntentParser {
     // desde "busca a Y").
     'envíale a',
     'enviale a',
+    'envía a',
+    'envia a',
+    'manda a',
     'envíale',
     'enviale',
     'mensaje a',
@@ -75,12 +78,21 @@ class MessageIntentParser {
     'escríbale',
     'escribe',
     'message to',
+    'send to',
   ];
 
   /// Separadores que introducen el texto del mensaje. ` que `/` that ` primero
   /// porque son los patrones naturales más comunes; `:` cubre el formato
   /// "a X: mensaje".
   static const _messageDelimiters = [' que ', ' that ', ': ', ':'];
+
+  static final _trailingCommitDirective = RegExp(
+    r'(?:\s*[,;]\s*|\s+(?:y|e|and|then)\s+)'
+    r'(?:env[ií]alo|env[ií]ala|env[ií]a\s+el\s+mensaje|'
+    r'm[aá]ndalo|m[aá]ndala|manda\s+el\s+mensaje|'
+    r'pulsa\s+enviar|toca\s+enviar|send\s+it)\s*[.!?]*$',
+    caseSensitive: false,
+  );
 
   /// Relleno que antecede al nombre real del remitente y debe descartarse.
   static const _recipientFillerPrefixes = [
@@ -114,11 +126,29 @@ class MessageIntentParser {
     // Recorta el verbo conservando el case original del resto (el mensaje no
     // se normaliza a minúsculas: es el payload real que se enviará).
     final verbIdx = lower.indexOf(verb);
+    final conversationBeforeVerb = _extractConversationTarget(
+      g.substring(0, verbIdx),
+    );
     final rest = g.substring(verbIdx + verb.length).trim();
-    if (rest.isEmpty) return MessageIntent(app: app);
+    if (rest.isEmpty) {
+      return MessageIntent(app: app, recipient: conversationBeforeVerb);
+    }
 
-    final split = _split(rest);
+    // En una secuencia de navegación la conversación ya es el destinatario:
+    // TODO lo que sigue al verbo pertenece al payload. Volver a partirlo por
+    // `que` o `:` rompería mensajes legítimos como "tienes razón: hablamos".
+    if (conversationBeforeVerb.isNotEmpty) {
+      return MessageIntent(
+        app: app,
+        recipient: conversationBeforeVerb,
+        message: _messagePayloadAfterBareVerb(rest),
+      );
+    }
+
+    final split = _split(_stripCommitDirective(rest));
     var recipient = split.recipient;
+    var message = split.message;
+
     // W9: "envíale" sin "a" → el recipient viene de "busca a Y" (compuesto).
     if (recipient.isEmpty && (verb == 'envíale' || verb == 'enviale')) {
       recipient = _recipientFromSearch(g);
@@ -127,16 +157,25 @@ class MessageIntentParser {
     return MessageIntent(
       app: app,
       recipient: recipient,
-      message: split.message,
+      message: _cleanMessagePayload(message),
     );
   }
 
   /// App objetivo desde "abre X" / "ve a X" / "ir a X" / "entra a|en X".
   String _extractApp(String lower) {
     final m = RegExp(
-      r'(?:abre|abrir|ve a|ir a|entra a|entra en)\s+(\w+)',
+      r'(?:^|\b)(?:abre|abrir|ve\s+a|ir\s+a|entra\s+a|entra\s+en|open)\s+'
+      r'(.+?)(?=\s*(?:[,;]|\s+(?:y|e|and|then)\s+)|$)',
     ).firstMatch(lower);
-    return m?.group(1) ?? '';
+    final candidate = m?.group(1)?.trim() ?? '';
+    // "abre el chat de Edgar" expresa una superficie, no una aplicación.
+    // Dejar app vacía permite que el navegador trabaje en la app actual.
+    if (RegExp(
+      r'^(?:(?:el|la|the)\s+)?(?:chat|grupo|group|conversaci[oó]n|conversation)\b',
+    ).hasMatch(candidate)) {
+      return '';
+    }
+    return candidate;
   }
 
   /// Destino de una navegación conversacional sin escritura:
@@ -144,27 +183,76 @@ class MessageIntentParser {
   /// Mantiene el case original porque esta identidad se verificará contra la
   /// cabecera observada antes de considerar completada la navegación.
   String _extractConversationTarget(String goal) {
+    final clause = goal
+        .replaceFirst(
+          RegExp(r'[\s,;]+(?:(?:y|e|and|then)\s*)?$', caseSensitive: false),
+          '',
+        )
+        .trim();
     final match = RegExp(
       r'(?:entra|entrar|abre|abrir|ve|ir|open|enter)\s+'
-      r'(?:(?:a|en|into)\s+)?(?:(?:el|la|the)\s+)?'
+      r'(?:(?:a|al|en|into)\s+)?(?:(?:el|la|the)\s+)?'
       r'(?:grupo|group|chat|conversaci[oó]n|conversation)\s+'
       r'(?:de\s+)?(.+)$',
       caseSensitive: false,
-    ).firstMatch(goal);
+    ).firstMatch(clause);
     return _stripTrailingPunct(match?.group(1)?.trim() ?? '');
   }
+
+  /// Quita únicamente la puntuación/conector que separa el comando del
+  /// payload. La puntuación final pertenece al mensaje del usuario y se
+  /// conserva intacta.
+  String _messagePayloadAfterBareVerb(String rest) => _cleanMessagePayload(
+    rest.replaceFirst(
+      RegExp(r'^\s*[,;:]?\s*(?:(?:que|that)\s+)?', caseSensitive: false),
+      '',
+    ),
+  );
+
+  /// Separa la instrucción de commit del contenido. Las comillas permiten que
+  /// el usuario incluya puntuación y conectores sin que se interpreten como
+  /// gramática. Un mensaje literal que termine en "y envíalo" debe ir entre
+  /// comillas; fuera de ellas esa frase es una orden de envío.
+  String _cleanMessagePayload(String value) {
+    var payload = _stripCommitDirective(value);
+    if (payload.length < 2) return payload;
+
+    const quotePairs = {'"': '"', '“': '”', '‘': '’', "'": "'"};
+    final closing = quotePairs[payload[0]];
+    if (closing != null && payload.endsWith(closing)) {
+      return payload.substring(1, payload.length - 1).trim();
+    }
+    return payload;
+  }
+
+  String _stripCommitDirective(String value) =>
+      value.replaceFirst(_trailingCommitDirective, '').trim();
 
   /// Recipient desde "busca a Y" / "búscale a Y" (compuesto W9). Conserva el
   /// case original del nombre.
   String _recipientFromSearch(String g) {
     final m = RegExp(
-      r'(?:busca a|búscale a|buscale a)\s+([\wáéíóúñÁÉÍÓÚÑ]+)',
+      r'(?:busca a|búscale a|buscale a)\s+(.+?)'
+      r'(?=\s+(?:y|e|and|then)\s+(?:env[ií]ale|env[ií]a|manda|send)\b|[,;:]|$)',
       caseSensitive: false,
     ).firstMatch(g);
-    return m?.group(1) ?? '';
+    return _stripTrailingPunct(m?.group(1)?.trim() ?? '');
   }
 
   MessageIntent _split(String rest) {
+    // "envía a Ana María \"llego a las 8\"". Si no hay `que` o `:`, las
+    // comillas son el límite inequívoco entre identidad y payload.
+    final quoted = RegExp(
+      r'^(.+?)\s+(["“‘\x27])(.+)(["”’\x27])\s*$',
+      caseSensitive: false,
+    ).firstMatch(rest);
+    if (quoted != null && _matchingQuotes(quoted.group(2)!, quoted.group(4)!)) {
+      return MessageIntent(
+        recipient: _stripTrailingPunct(quoted.group(1)!.trim()),
+        message: quoted.group(3)!.trim(),
+      );
+    }
+
     // Primer separador de mensaje (el más a la izquierda).
     var delim = '';
     var delimIdx = -1;
@@ -187,7 +275,7 @@ class MessageIntentParser {
     }
 
     recipient = _stripTrailingPunct(recipient);
-    message = _stripTrailingPunct(message);
+    message = message.trim();
 
     // "el último mensaje de Juan" → "Juan".
     final lowerRecipient = recipient.toLowerCase();
@@ -200,6 +288,9 @@ class MessageIntentParser {
 
     return MessageIntent(recipient: recipient, message: message);
   }
+
+  bool _matchingQuotes(String opening, String closing) =>
+      const {'"': '"', '“': '”', '‘': '’', "'": "'"}[opening] == closing;
 
   String _stripTrailingPunct(String s) =>
       s.replaceAll(RegExp(r'[?!.,;]+$'), '').trim();

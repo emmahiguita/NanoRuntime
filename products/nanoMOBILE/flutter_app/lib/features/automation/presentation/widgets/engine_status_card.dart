@@ -7,13 +7,16 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 
+import '../automation_visual_theme.dart';
 import 'automation_dashboard.dart' show engineStatusProvider;
 
 /// Card de estado EN VIVO (motor/modelo/Linux) — COMPARTIDA. Lee el endpoint
 /// REAL. Capacidades en lenguaje humano (nunca `true/false` ni `phase.name`),
 /// y los detalles técnicos se revelan al tocar (no saturan la vista).
 class EngineStatusCard extends ConsumerWidget {
-  const EngineStatusCard({super.key});
+  const EngineStatusCard({super.key, this.cleanAppearance = false});
+
+  final bool cleanAppearance;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,6 +25,57 @@ class EngineStatusCard extends ConsumerWidget {
     final linux = ref.watch(rootfsProvider).isInstalled;
     final ready = engine?.phase == EnginePhase.ready;
     final hasModel = engine?.modelPath != null;
+
+    if (cleanAppearance) {
+      return AutomationSurfaceCard(
+        onTap: () => _showDetails(context, engine, linux, ref),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final showMark = constraints.maxWidth >= 280;
+            return Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ESTADO DEL SISTEMA',
+                        style: TextStyle(
+                          color: AutomationVisual.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _CleanCapabilityRow(
+                        ok: ready,
+                        okText: 'Agente listo',
+                        offText: 'Motor detenido',
+                      ),
+                      _CleanCapabilityRow(
+                        ok: hasModel,
+                        okText: 'Modelo cargado',
+                        offText: 'Modelo no cargado',
+                      ),
+                      _CleanCapabilityRow(
+                        ok: linux,
+                        okText: 'Linux disponible',
+                        offText: 'Linux sin preparar',
+                      ),
+                    ],
+                  ),
+                ),
+                if (showMark) ...[
+                  const SizedBox(width: 14),
+                  _SystemReadyMark(ready: ready),
+                ],
+              ],
+            );
+          },
+        ),
+      );
+    }
 
     return NanoOpticalSurface(
       borderStrength: 0.45,
@@ -163,6 +217,93 @@ class EngineStatusCard extends ConsumerWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: NanoType.body(colors.onSurface),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CleanCapabilityRow extends StatelessWidget {
+  const _CleanCapabilityRow({
+    required this.ok,
+    required this.okText,
+    required this.offText,
+  });
+
+  final bool ok;
+  final String okText;
+  final String offText;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ok ? const Color(0xFF24B47E) : AutomationVisual.accent;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              ok ? okText : offText,
+              style: const TextStyle(
+                color: AutomationVisual.text,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemReadyMark extends StatelessWidget {
+  const _SystemReadyMark({required this.ready});
+
+  final bool ready;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ready ? const Color(0xFF24B47E) : AutomationVisual.accent;
+    return SizedBox.square(
+      dimension: 92,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.20)),
+            ),
+          ),
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.34)),
+            ),
+          ),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              ready ? Icons.check_rounded : Icons.pause_rounded,
+              color: color,
+              size: 26,
             ),
           ),
         ],

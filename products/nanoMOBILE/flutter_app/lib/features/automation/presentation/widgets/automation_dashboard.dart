@@ -5,6 +5,7 @@ import 'package:nanoai/features/automation/engine/governance/action_confirmation
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_breakpoint.dart';
@@ -24,10 +25,8 @@ import '../../engine/voice/voice_runtime.dart';
 import '../../ledger/action_ledger_provider.dart';
 import '../../ledger/automation_trace.dart';
 
+import '../automation_visual_theme.dart';
 import 'engine_status_card.dart';
-import 'capability_status_card.dart';
-import 'nano_voice_orb.dart';
-import 'package:nanoai/core/widgets/interactive_glass_card.dart';
 
 /// Estado del engine (ligero) para la capa de presentación. Lee el ENDPOINT
 /// REAL (http://127.0.0.1:8080) — el motor que realmente responderá generate() —
@@ -60,10 +59,15 @@ final engineStatusProvider = FutureProvider<EngineStatus?>((ref) async {
 /// Reemplaza la antigua "consola de tests" por un dashboard orientado al
 /// usuario. Las herramientas técnicas viven en la pantalla Dev (no acá).
 class AutomationDashboard extends ConsumerStatefulWidget {
-  const AutomationDashboard({super.key, this.onDevTap, this.onMessagesTap});
+  const AutomationDashboard({
+    super.key,
+    this.onSettingsTap,
+    this.onMessagesTap,
+  });
 
-  /// Abre la pantalla Dev (herramientas técnicas). null = no mostrar icono.
-  final void Function(BuildContext context)? onDevTap;
+  /// Abre la configuración visual de Automatización. La lógica y la
+  /// persistencia continúan perteneciendo a sus providers actuales.
+  final VoidCallback? onSettingsTap;
 
   /// Abre la pantalla de Mensajes (función de usuario, no Dev).
   final VoidCallback? onMessagesTap;
@@ -78,6 +82,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
 
   late final VoiceSessionManager _voiceSession;
   StreamSubscription<VoiceSessionState>? _voiceStateSubscription;
+  StreamSubscription<String>? _confirmationActionSubscription;
   VoiceSessionState _voiceState = VoiceSessionState.idle;
   bool _observingScreen = false;
   String? _senseFeedback;
@@ -105,13 +110,29 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       if (!mounted) return;
       setState(() => _voiceState = state);
     });
+    _confirmationActionSubscription = NanoRuntimeApi
+        .instance
+        .automationConfirmationActions
+        .listen(_handleConfirmationAction);
   }
 
   @override
   void dispose() {
     _voiceStateSubscription?.cancel();
+    _confirmationActionSubscription?.cancel();
     _taskController.dispose();
     super.dispose();
+  }
+
+  void _handleConfirmationAction(String action) {
+    if (action != 'confirm' || !mounted || _running) return;
+    final confirmation = _lastConfirmation;
+    if (_lastStatus != AutomationResultStatus.paused || confirmation == null) {
+      return;
+    }
+    // El BroadcastReceiver no abre Nano: WhatsApp permanece al frente y el
+    // ContextLock puede revalidar conversación, borrador y botón de envío.
+    unawaited(_runTask(_lastGoal, confirmation: confirmation));
   }
 
   Future<void> _activateVoice() async {
@@ -203,6 +224,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   }) async {
     final goal = text.trim();
     if (goal.isEmpty || _running || (_sensing && !fromVoice)) return;
+    if (confirmation != null) {
+      unawaited(NanoRuntimeApi.instance.dismissAutomationConfirmation());
+    }
     _taskController.clear();
     setState(() {
       _running = true;
@@ -233,6 +257,15 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           _running = false;
           if (fromVoice) _senseFeedback = 'Orden de voz finalizada.';
         });
+      }
+      if (result.status == AutomationResultStatus.paused &&
+          result.confirmation != null) {
+        // WhatsApp u otra app puede estar al frente cuando el motor pausa. El
+        // aviso hace visible la gobernanza sin overlays ni permisos nuevos y
+        // solo lleva al botón firmado que ya existe dentro de Nano.
+        unawaited(NanoRuntimeApi.instance.showAutomationConfirmation());
+      } else {
+        unawaited(NanoRuntimeApi.instance.dismissAutomationConfirmation());
       }
       if (ref.read(settingsProvider).voiceEnabled) {
         // El resultado hablado es exactamente el resultado del mismo
@@ -312,9 +345,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final settings = ref.watch(settingsProvider);
     final mode = settings.agentAutomationMode;
 
-    // Responsive: en wide (landscape/tablet) divide en 2 columnas para
-    // APROVECHAR el ancho (composer+quick a la izquierda, estado+recientes a la
-    // derecha). En portrait una columna compacta que encaja en pantalla.
+    // La jerarquía cambia por breakpoint, pero los mismos callbacks y estados
+    // alimentan ambas composiciones. No existe una segunda ruta de ejecución.
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= NanoBreakpoints.mediumMax;
@@ -322,7 +354,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         final header = _AgentHeader(
           mode: mode,
           onModeTap: _pickMode,
-          onDevTap: widget.onDevTap,
+          onSettingsTap: widget.onSettingsTap,
         );
         final composer = _TaskComposer(
           controller: _taskController,
@@ -356,37 +388,31 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         final left = <Widget>[
           composer,
           if (active != null) ...[
-            const SizedBox(height: NanoSpacing.sm),
+            const SizedBox(height: NanoSpacing.lg),
             active,
           ],
-          const SizedBox(height: NanoSpacing.sm),
+          const SizedBox(height: NanoSpacing.xl),
           quick,
         ];
-        final right = <Widget>[
-          const EngineStatusCard(),
-          const SizedBox(height: NanoSpacing.sm),
-          const CapabilityStatusCard(),
-          const SizedBox(height: NanoSpacing.sm),
-          const RecentExecutionsCard(),
-        ];
+        final right = <Widget>[const EngineStatusCard(cleanAppearance: true)];
 
         return SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(
-            NanoSpacing.sm,
-            NanoSpacing.sm,
-            NanoSpacing.sm,
-            NanoSpacing.xl,
+          padding: EdgeInsets.fromLTRB(
+            wide ? NanoSpacing.xl : NanoSpacing.lg,
+            NanoSpacing.md,
+            wide ? NanoSpacing.xl : NanoSpacing.lg,
+            NanoSpacing.xxxl,
           ),
           child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: wide ? 1100 : 720),
+              constraints: BoxConstraints(maxWidth: wide ? 1080 : 720),
               child: wide
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         header,
-                        const SizedBox(height: NanoSpacing.sm),
+                        const SizedBox(height: NanoSpacing.xl),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -407,7 +433,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: NanoSpacing.xl),
+                            const SizedBox(width: NanoSpacing.xxl),
                             Expanded(
                               child: Align(
                                 alignment: Alignment.topCenter,
@@ -431,9 +457,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         header,
-                        const SizedBox(height: NanoSpacing.sm),
+                        const SizedBox(height: NanoSpacing.xl),
                         ...left,
-                        const SizedBox(height: NanoSpacing.sm),
+                        const SizedBox(height: NanoSpacing.xl),
                         ...right,
                       ],
                     ),
@@ -445,123 +471,92 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   }
 }
 
-class _AgentHeader extends ConsumerWidget {
+class _AgentHeader extends StatelessWidget {
   const _AgentHeader({
     required this.mode,
     required this.onModeTap,
-    this.onDevTap,
+    this.onSettingsTap,
   });
   final AgentAutomationMode mode;
   final VoidCallback onModeTap;
-  final void Function(BuildContext context)? onDevTap;
+  final VoidCallback? onSettingsTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = NanoThemeExtension.of(context).colors;
-    // La cabecera se deriva del MISMO engineStatusProvider que la card Estado:
-    // nunca puede contradecir el estado real del motor. No hay "Listo" verde
-    // si el runtime no lo está.
-    final engine = ref.watch(engineStatusProvider).valueOrNull;
-    final ready = engine?.phase == EnginePhase.ready;
-    final dotColor = ready ? colors.success : colors.warning;
-    final modelName = engine?.modelPath == null
-        ? 'Modelo no cargado'
-        : _friendlyModelName(engine!.modelPath!);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: dotColor,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(color: dotColor.withValues(alpha: 0.5), blurRadius: 8),
-            ],
-          ),
-        ),
-        const SizedBox(width: NanoSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'NANO AGENT',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: colors.textPrimary,
-                ),
-              ),
-              Text(
-                ready ? 'Listo · $modelName' : 'Motor detenido · $modelName',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: NanoType.label(
-                  ready ? colors.onSurfaceVariant : colors.warning,
-                ),
-              ),
-            ],
-          ),
-        ),
-        InkWell(
-          onTap: onModeTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    return Semantics(
+      header: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(width: 44),
+          Expanded(
+            child: Column(
               children: [
-                Text(
-                  'Modo: ${mode.label.toUpperCase()} ›',
+                RichText(
+                  text: const TextSpan(
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: AutomationVisual.text,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.0,
+                    ),
+                    children: [
+                      TextSpan(text: 'NANO '),
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: AutomationVisual.accent),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Automatización inteligente',
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: colors.accentCyan,
+                    color: AutomationVisual.textMuted,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Material(
+                  color: AutomationVisual.accentSoft,
+                  borderRadius: BorderRadius.circular(99),
+                  child: InkWell(
+                    onTap: onModeTap,
+                    borderRadius: BorderRadius.circular(99),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        'Modo ${mode.label}',
+                        style: const TextStyle(
+                          color: AutomationVisual.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-        if (onDevTap != null) ...[
-          const SizedBox(width: 4),
           IconButton(
-            tooltip: 'Dev',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => onDevTap!(context),
-            icon: Icon(
-              Icons.build_circle_rounded,
-              size: 20,
-              color: colors.onSurfaceVariant,
+            tooltip: 'Configuración de automatización',
+            onPressed: onSettingsTap,
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: AutomationVisual.text,
+              size: 26,
             ),
           ),
         ],
-      ],
+      ),
     );
   }
-}
-
-/// Nombre de modelo amigable a partir de la ruta/archivo real. Nunca muestra
-/// el path técnico completo; si no se puede derivar, cae al nombre corto.
-String _friendlyModelName(String path) {
-  var s = path.split('/').last;
-  s = s.replaceAll(RegExp(r'\.gguf$'), '');
-  s = s.replaceAll(RegExp(r'_Q[0-9]_[A-Za-z0-9]+$'), '');
-  s = s.replaceAll(RegExp(r'-instruct$'), '');
-  // qwen2.5-1.5b -> "Qwen 2.5 1.5B"
-  final m = RegExp(r'^([a-z0-9]+?)[-.]?(\d+(?:\.\d+)?b)').firstMatch(s);
-  if (m != null) {
-    final fam = m
-        .group(1)!
-        .replaceAllMapped(
-          RegExp(r'[a-z]+'),
-          (mm) => mm.group(0)![0].toUpperCase() + mm.group(0)!.substring(1),
-        );
-    return '$fam ${m.group(2)!.toUpperCase()}';
-  }
-  return s;
 }
 
 class _TaskComposer extends StatelessWidget {
@@ -592,220 +587,266 @@ class _TaskComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    // Composer = GLASS ESTÁTICO (surface, sin tilt ni shimmer): en una
-    // pantalla operativa el input no debe tener movimiento permanente.
-    return NanoOpticalSurface(
-      accent: colors.accentCyan,
-      blurSigma: 20,
-      borderStrength: 0.7,
-      child: Padding(
-        padding: const EdgeInsets.all(NanoSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '¿Qué quieres que haga?',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: colors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: NanoSpacing.sm),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    textInputAction: TextInputAction.go,
-                    onSubmitted: (v) => !running && !sensing ? onRun(v) : null,
-                    decoration: InputDecoration(
-                      hintText: 'Describe una tarea…',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: colors.surfaceVariant,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
+    final voiceActive =
+        voiceState == VoiceSessionState.listening ||
+        voiceState == VoiceSessionState.processing;
+    final stateLabel = observingScreen
+        ? 'Observando'
+        : switch (voiceState) {
+            VoiceSessionState.listening => 'Escuchando',
+            VoiceSessionState.processing => 'Procesando',
+            _ => running ? 'Ejecutando' : 'Listo',
+          };
+    return AutomationSurfaceCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Text(
+                  '¿Qué quieres que haga?',
+                  style: TextStyle(
+                    color: AutomationVisual.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(width: NanoSpacing.sm),
-                FilledButton(
+              ),
+              const SizedBox(width: 12),
+              _NanoAssistantMark(active: sensing || running),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  minLines: 1,
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.go,
+                  onSubmitted: (value) =>
+                      !running && !sensing ? onRun(value) : null,
+                  decoration: const InputDecoration(
+                    hintText: 'Describe una tarea…',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox.square(
+                dimension: 52,
+                child: FilledButton(
                   onPressed: running || sensing
                       ? null
                       : () => onRun(controller.text),
                   style: FilledButton.styleFrom(
+                    padding: EdgeInsets.zero,
                     shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(14),
                   ),
                   child: running
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Icon(Icons.arrow_forward_rounded),
+                      : const Icon(Icons.arrow_forward_rounded, size: 25),
                 ),
-              ],
-            ),
-            const SizedBox(height: NanoSpacing.xs),
-            Row(
-              children: [
-                Tooltip(
-                  message: 'Dar una orden por voz',
-                  child: NanoVoiceOrb(
-                    state: voiceState,
-                    onTap: onVoice,
-                    size: 36,
-                  ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _ComposerControl(
+                  icon: Icons.mic_none_rounded,
+                  label: 'Voz',
+                  active: voiceActive,
+                  busy: voiceActive,
+                  enabled: !running && !observingScreen,
+                  onTap: onVoice,
                 ),
-                const SizedBox(width: 2),
-                Text('Voz', style: NanoType.caption(colors.onSurfaceVariant)),
-                const SizedBox(width: NanoSpacing.sm),
-                _SenseControl(
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ComposerControl(
                   icon: voiceEnabled
-                      ? Icons.volume_up_rounded
-                      : Icons.volume_off_rounded,
+                      ? Icons.volume_up_outlined
+                      : Icons.volume_off_outlined,
+                  label: 'Audio',
                   active: voiceEnabled,
                   enabled: true,
-                  activeColor: colors.accentCyan,
-                  tooltip: voiceEnabled
-                      ? 'Apagar audio de Nano'
-                      : 'Encender audio de Nano',
-                  semanticLabel: voiceEnabled
-                      ? 'Audio de Nano encendido'
-                      : 'Audio de Nano apagado',
                   onTap: onVoiceOutputToggle,
                 ),
-                const SizedBox(width: 2),
-                Text('Audio', style: NanoType.caption(colors.onSurfaceVariant)),
-                const SizedBox(width: NanoSpacing.sm),
-                _SenseControl(
-                  icon: Icons.visibility_rounded,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ComposerControl(
+                  icon: Icons.visibility_outlined,
+                  label: 'Ojos',
                   active: observingScreen,
                   busy: observingScreen,
                   enabled: !running && !sensing,
-                  activeColor: colors.accentLavender,
-                  tooltip: 'Observar la pantalla',
-                  semanticLabel: observingScreen
-                      ? 'Ojos observando la pantalla'
-                      : 'Activar ojos',
                   onTap: onObserve,
                 ),
-                const SizedBox(width: 2),
-                Text('Ojos', style: NanoType.caption(colors.onSurfaceVariant)),
-                const SizedBox(width: NanoSpacing.sm),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: Text(
-                      observingScreen
-                          ? 'Observando la pantalla…'
-                          : switch (voiceState) {
-                              VoiceSessionState.listening => 'Escuchando…',
-                              VoiceSessionState.processing => 'Procesando…',
-                              _ => senseFeedback ?? 'Listos',
-                            },
-                      key: ValueKey(
-                        '$voiceState-$observingScreen-${senseFeedback ?? ''}',
-                      ),
-                      textAlign: TextAlign.end,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: NanoType.caption(colors.onSurfaceVariant),
-                    ),
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ComposerControl(
+                  icon: Icons.graphic_eq_rounded,
+                  label: stateLabel,
+                  active: sensing || running,
+                  enabled: false,
                 ),
-              ],
+              ),
+            ],
+          ),
+          if (senseFeedback != null && senseFeedback!.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Text(
+                senseFeedback!,
+                key: ValueKey(senseFeedback),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AutomationVisual.textMuted,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _SenseControl extends StatelessWidget {
-  const _SenseControl({
+class _ComposerControl extends StatelessWidget {
+  const _ComposerControl({
     required this.icon,
+    required this.label,
     required this.active,
     required this.enabled,
-    required this.activeColor,
-    required this.tooltip,
-    required this.semanticLabel,
-    required this.onTap,
+    this.onTap,
     this.busy = false,
   });
 
   final IconData icon;
+  final String label;
   final bool active;
   final bool enabled;
-  final Color activeColor;
-  final String tooltip;
-  final String semanticLabel;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool busy;
 
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
     final color = active
-        ? activeColor
-        : !enabled
-        ? colors.onSurfaceVariant.withValues(alpha: 0.38)
-        : colors.onSurfaceVariant;
+        ? AutomationVisual.accent
+        : enabled
+        ? AutomationVisual.textMuted
+        : const Color(0xFF9BA0A9);
     return Semantics(
       button: true,
       enabled: enabled,
-      label: semanticLabel,
-      child: Tooltip(
-        message: tooltip,
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: enabled ? onTap : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: active ? 0.18 : 0.08),
-                border: Border.all(
-                  color: color.withValues(alpha: active ? 0.72 : 0.24),
-                ),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.28),
-                          blurRadius: 14,
-                        ),
-                      ]
-                    : null,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            constraints: const BoxConstraints(minHeight: 76),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            decoration: BoxDecoration(
+              color: active
+                  ? AutomationVisual.accentSoft
+                  : const Color(0xFFFBFBFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: active
+                    ? AutomationVisual.accent.withValues(alpha: 0.38)
+                    : AutomationVisual.line,
               ),
-              child: busy
-                  ? Padding(
-                      padding: const EdgeInsets.all(9),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: color,
-                      ),
-                    )
-                  : Icon(icon, color: color, size: 19),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (busy)
+                  SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  )
+                else
+                  Icon(icon, color: color, size: 25),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
   }
+}
+
+class _NanoAssistantMark extends StatelessWidget {
+  const _NanoAssistantMark({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: const Duration(milliseconds: 240),
+    width: 54,
+    height: 54,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFFF7EF), Color(0xFFFFE6CF)],
+      ),
+      border: Border.all(color: Colors.white, width: 2),
+      boxShadow: [
+        BoxShadow(
+          color: AutomationVisual.accent.withValues(
+            alpha: active ? 0.24 : 0.10,
+          ),
+          blurRadius: active ? 18 : 10,
+        ),
+      ],
+    ),
+    child: const Icon(
+      Icons.smart_toy_outlined,
+      color: AutomationVisual.accent,
+      size: 29,
+    ),
+  );
 }
 
 String _describeSituation(CurrentSituation situation) {
@@ -932,7 +973,7 @@ class _ActiveExecutionCardState extends State<_ActiveExecutionCard>
     final colors = NanoThemeExtension.of(context).colors;
     final done = !widget.running && widget.status != null;
     final present = done ? _statusPresentation(widget.status!, colors) : null;
-    final activeColor = present?.color ?? colors.accentLavender;
+    final activeColor = present?.color ?? AutomationVisual.accent;
     return AnimatedBuilder(
       animation: _pulse,
       builder: (context, child) => DecoratedBox(
@@ -952,76 +993,74 @@ class _ActiveExecutionCardState extends State<_ActiveExecutionCard>
         ),
         child: child,
       ),
-      child: InteractiveGlassCard(
-        child: Padding(
-          padding: const EdgeInsets.all(NanoSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: activeColor.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      present?.icon ?? Icons.auto_awesome_rounded,
-                      color: activeColor,
-                      size: 18,
-                    ),
+      child: AutomationSurfaceCard(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: activeColor.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: NanoSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      widget.goal,
-                      maxLines: 4,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: NanoSpacing.sm),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: Text(
-                  widget.running
-                      ? 'Ejecutando en el dispositivo…'
-                      : (present?.label ?? ''),
-                  key: ValueKey('${widget.running}-${widget.status}'),
-                  style: NanoType.label(
-                    present?.color ?? colors.onSurfaceVariant,
+                  child: Icon(
+                    present?.icon ?? Icons.auto_awesome_rounded,
+                    color: activeColor,
+                    size: 18,
                   ),
                 ),
-              ),
-              if (!widget.running && widget.reason.trim().isNotEmpty) ...[
-                const SizedBox(height: NanoSpacing.xs),
-                Text(
-                  widget.reason.trim(),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: NanoType.caption(colors.onSurfaceVariant),
-                ),
-              ],
-              if (widget.onConfirm != null) ...[
-                const SizedBox(height: NanoSpacing.sm),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: widget.onConfirm,
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Confirmar y continuar'),
+                const SizedBox(width: NanoSpacing.sm),
+                Expanded(
+                  child: Text(
+                    widget.goal,
+                    maxLines: 4,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: NanoSpacing.sm),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Text(
+                widget.running
+                    ? 'Ejecutando en el dispositivo…'
+                    : (present?.label ?? ''),
+                key: ValueKey('${widget.running}-${widget.status}'),
+                style: NanoType.label(
+                  present?.color ?? colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (!widget.running && widget.reason.trim().isNotEmpty) ...[
+              const SizedBox(height: NanoSpacing.xs),
+              Text(
+                widget.reason.trim(),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: NanoType.caption(colors.onSurfaceVariant),
+              ),
             ],
-          ),
+            if (widget.onConfirm != null) ...[
+              const SizedBox(height: NanoSpacing.sm),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: widget.onConfirm,
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Confirmar y continuar'),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -1054,27 +1093,34 @@ class QuickAutomationActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader('Sugerencias', Icons.bolt_rounded, colors: colors),
-        const SizedBox(height: NanoSpacing.xs),
+        const AutomationSectionLabel('Sugerencias'),
         if (onMessagesTap != null) ...[
-          // Función de USUARIO destacada (no una tarea técnica).
           _MessagesEntryTile(onTap: onMessagesTap!),
+          const SizedBox(height: 10),
         ],
-        Wrap(
-          spacing: NanoSpacing.sm,
-          runSpacing: NanoSpacing.sm,
-          children: [
-            for (final (label, goal, icon) in _actions)
-              _QuickActionTile(
-                icon: icon,
-                label: label,
-                onTap: () => onRun(goal),
-              ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 10.0;
+            final itemWidth = (constraints.maxWidth - gap) / 2;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final (label, goal, icon) in _actions)
+                  SizedBox(
+                    width: itemWidth,
+                    child: _QuickActionTile(
+                      icon: icon,
+                      label: label,
+                      onTap: () => onRun(goal),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -1084,96 +1130,91 @@ class QuickAutomationActions extends StatelessWidget {
 /// Tile de acción rápida: glass óptico con icono + etiqueta (profesional,
 /// hyperrealista, content-sized — nunca se estira). Ligero (glass estático).
 class _QuickActionTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
   const _QuickActionTile({
     required this.icon,
     required this.label,
     required this.onTap,
   });
 
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    // Tile de acción = superficie estática con feedback táctil (press-scale
-    // vía onTap). Sin tilt ni shimmer: no es el protagonista.
-    return NanoOpticalSurface(
-      borderStrength: 0.4,
-      reflectionStrength: 0.28,
-      blurSigma: 12,
-      accent: colors.accentCyan,
-      onTap: onTap,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: NanoSpacing.md,
-              vertical: NanoSpacing.sm,
+  Widget build(BuildContext context) => AutomationSurfaceCard(
+    padding: EdgeInsets.zero,
+    radius: 18,
+    onTap: onTap,
+    child: SizedBox(
+      height: 68,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AutomationVisual.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AutomationVisual.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 18, color: colors.accentCyan),
-                const SizedBox(width: NanoSpacing.sm),
-                Text(label, style: NanoType.label(colors.textPrimary)),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// Entrada destacada a la función de usuario "Responder mensajes".
 class _MessagesEntryTile extends StatelessWidget {
-  final VoidCallback onTap;
   const _MessagesEntryTile({required this.onTap});
 
+  final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: NanoSpacing.sm),
-      child: NanoOpticalSurface(
-        accent: colors.accentLavender,
-        borderStrength: 0.6,
-        blurSigma: 14,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: NanoSpacing.md,
-            vertical: NanoSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.forward_to_inbox_rounded,
-                color: colors.accentLavender,
-                size: 20,
-              ),
-              const SizedBox(width: NanoSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Responder mensajes',
-                  style: NanoType.body(
-                    colors.textPrimary,
-                  ).copyWith(fontWeight: FontWeight.w600),
+  Widget build(BuildContext context) => AutomationSurfaceCard(
+    padding: EdgeInsets.zero,
+    radius: 18,
+    onTap: onTap,
+    child: const SizedBox(
+      height: 64,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.mark_chat_unread_outlined,
+              color: AutomationVisual.accent,
+              size: 23,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Responder mensajes',
+                style: TextStyle(
+                  color: AutomationVisual.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: NanoSpacing.sm),
-              Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AutomationVisual.textMuted,
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// Últimas ejecuciones reales (del ledger), recientes primero.

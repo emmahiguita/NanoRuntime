@@ -20,6 +20,59 @@ bool _isFrozenUncertain(ExecutionJournalStatus status) =>
     status == ExecutionJournalStatus.completedUnverified ||
     status == ExecutionJournalStatus.outcomeUnknown;
 
+bool _isBlockingUncertain(ExecutionJournalEntry entry) =>
+    _isFrozenUncertain(entry.status) && entry.supersededByRunId == null;
+
+void _supersedePriorUncertain(
+  Map<String, ExecutionJournalEntry> entries,
+  ExecutionJournalEntry replacement,
+) {
+  for (final prior in [...entries.values]) {
+    if (prior.runId == replacement.runId ||
+        prior.actionSignature != replacement.actionSignature ||
+        !_isBlockingUncertain(prior)) {
+      continue;
+    }
+    entries[prior.runId] = prior.copyWith(
+      supersededByRunId: replacement.runId,
+      verificationState:
+          '${prior.verificationState}; reemplazado por una nueva ejecución '
+          'confirmada (${replacement.runId})',
+    );
+  }
+}
+
+/// Reconcilia datos creados antes de que existiera `supersededByRunId`.
+/// Una ejecución verificada posterior con la misma firma demuestra que hubo
+/// una repetición explícita completa; no afirma cuál fue el resultado remoto
+/// de la ejecución anterior.
+void _reconcileSupersededByVerified(
+  Map<String, ExecutionJournalEntry> entries,
+) {
+  final latestVerified = <String, ExecutionJournalEntry>{};
+  for (final entry in entries.values) {
+    if (entry.status != ExecutionJournalStatus.verified) continue;
+    final current = latestVerified[entry.actionSignature];
+    if (current == null || entry.timestamp.isAfter(current.timestamp)) {
+      latestVerified[entry.actionSignature] = entry;
+    }
+  }
+  for (final prior in [...entries.values]) {
+    if (!_isBlockingUncertain(prior)) continue;
+    final replacement = latestVerified[prior.actionSignature];
+    if (replacement == null ||
+        !replacement.timestamp.isAfter(prior.timestamp)) {
+      continue;
+    }
+    entries[prior.runId] = prior.copyWith(
+      supersededByRunId: replacement.runId,
+      verificationState:
+          '${prior.verificationState}; reconciliado por una ejecución '
+          'posterior verificada (${replacement.runId})',
+    );
+  }
+}
+
 void _ensureSafeReplacement(
   ExecutionJournalEntry? existing,
   ExecutionJournalEntry replacement,
@@ -66,6 +119,7 @@ final class ExecutionJournalEntry {
   final String actionSignature;
   final String verificationState;
   final DateTime timestamp;
+  final String? supersededByRunId;
   final ActionConfirmation? pendingConfirmation;
   final Map<String, RequiredEvidence> evidenceByStep;
 
@@ -80,6 +134,7 @@ final class ExecutionJournalEntry {
     required this.actionSignature,
     required this.verificationState,
     required this.timestamp,
+    this.supersededByRunId,
     this.pendingConfirmation,
     this.evidenceByStep = const {},
   });
@@ -88,6 +143,7 @@ final class ExecutionJournalEntry {
     ExecutionJournalStatus? status,
     String? verificationState,
     DateTime? timestamp,
+    String? supersededByRunId,
     ActionConfirmation? pendingConfirmation,
     bool clearPendingConfirmation = false,
   }) => ExecutionJournalEntry(
@@ -101,6 +157,7 @@ final class ExecutionJournalEntry {
     actionSignature: actionSignature,
     verificationState: verificationState ?? this.verificationState,
     timestamp: timestamp ?? this.timestamp,
+    supersededByRunId: supersededByRunId ?? this.supersededByRunId,
     pendingConfirmation: clearPendingConfirmation
         ? null
         : pendingConfirmation ?? this.pendingConfirmation,
@@ -124,6 +181,7 @@ final class ExecutionJournalEntry {
     'actionSignature': actionSignature,
     'verificationState': verificationState,
     'timestamp': timestamp.toUtc().toIso8601String(),
+    if (supersededByRunId != null) 'supersededByRunId': supersededByRunId,
     'pendingConfirmation': pendingConfirmation?.toJson(),
     'evidenceByStep': {
       for (final entry in evidenceByStep.entries) entry.key: entry.value.name,
@@ -147,6 +205,7 @@ final class ExecutionJournalEntry {
       actionSignature: json['actionSignature'] as String,
       verificationState: json['verificationState'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String).toUtc(),
+      supersededByRunId: json['supersededByRunId'] as String?,
       pendingConfirmation: pending is Map
           ? ActionConfirmation.fromJson(
               pending.map((key, value) => MapEntry('$key', value)),
@@ -168,7 +227,10 @@ abstract interface class ExecutionJournal {
   Future<void> save(ExecutionJournalEntry entry);
   Future<ExecutionJournalEntry?> load(String runId);
   Future<List<ExecutionJournalEntry>> all();
-  Future<bool> tryBeginIrreversible(ExecutionJournalEntry entry);
+  Future<bool> tryBeginIrreversible(
+    ExecutionJournalEntry entry, {
+    bool allowPreviouslyUncertain = false,
+  });
   Future<ExecutionJournalEntry?> consumeConfirmation(
     ActionConfirmation confirmation,
   );
@@ -222,11 +284,11 @@ final class SharedPreferencesExecutionJournal implements ExecutionJournal {
     }
   }
 
-  Map<String, ExecutionJournalEntry> _decodeStore(String? raw) {
-    if (raw == null || raw.isEmpty) return {};
+  Map<String, ExecutionJournalEntry>? _decodeStore(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map) return {};
+      if (decoded is! Map) return null;
       final entries = <String, ExecutionJournalEntry>{};
       for (final item in decoded.entries) {
         if (item.value is! Map) continue;
@@ -241,7 +303,7 @@ final class SharedPreferencesExecutionJournal implements ExecutionJournal {
       }
       return entries;
     } on Object {
-      return {};
+      return null;
     }
   }
 
@@ -268,15 +330,18 @@ final class SharedPreferencesExecutionJournal implements ExecutionJournal {
   Future<Map<String, ExecutionJournalEntry>> _readAllUnlocked(
     SharedPreferences prefs,
   ) async {
-    final entries = await _readLegacy(prefs);
-    entries.addAll(_decodeStore(prefs.getString(_storeKey)));
-    return entries;
+    // Expand/migrate sin contracción destructiva: las claves legacy permanecen
+    // para rollback, pero dejan de fusionarse una vez que el store v2 existe.
+    // Así una entrada ya podada en v2 no reaparece desde el índice antiguo.
+    final current = _decodeStore(prefs.getString(_storeKey));
+    return current ?? _readLegacy(prefs);
   }
 
   Future<void> _writeAllUnlocked(
     SharedPreferences prefs,
     Map<String, ExecutionJournalEntry> entries,
   ) async {
+    _reconcileSupersededByVerified(entries);
     _pruneTerminalEntries(entries);
     final encoded = jsonEncode({
       for (final entry in entries.entries) entry.key: entry.value.toJson(),
@@ -294,7 +359,8 @@ final class SharedPreferencesExecutionJournal implements ExecutionJournal {
               (entry) =>
                   entry.status == ExecutionJournalStatus.verified ||
                   entry.status == ExecutionJournalStatus.failed ||
-                  entry.status == ExecutionJournalStatus.cancelled,
+                  entry.status == ExecutionJournalStatus.cancelled ||
+                  entry.supersededByRunId != null,
             )
             .toList(growable: false)
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -332,43 +398,44 @@ final class SharedPreferencesExecutionJournal implements ExecutionJournal {
   });
 
   @override
-  Future<bool> tryBeginIrreversible(ExecutionJournalEntry entry) => _serialized(
-    () async {
-      if (!entry.irreversible ||
-          entry.status != ExecutionJournalStatus.executing) {
-        throw ArgumentError(
-          'tryBeginIrreversible requiere una entrada irreversible/executing',
-        );
-      }
-      final prefs = await SharedPreferences.getInstance();
-      final entries = await _readAllUnlocked(prefs);
-      final sameRun = entries[entry.runId];
-      if (sameRun == null ||
-          !sameRun.irreversible ||
-          sameRun.status != ExecutionJournalStatus.authorized ||
-          sameRun.planSignature != entry.planSignature ||
-          sameRun.currentStep != entry.currentStep ||
-          sameRun.stepId != entry.stepId ||
-          sameRun.actionSignature != entry.actionSignature) {
-        return false;
-      }
-      final blocked = entries.values.any(
-        (existing) =>
-            existing.runId != entry.runId &&
-            existing.irreversible &&
-            existing.actionSignature == entry.actionSignature &&
-            (existing.status == ExecutionJournalStatus.executing ||
-                existing.status == ExecutionJournalStatus.executed ||
-                existing.status == ExecutionJournalStatus.verifying ||
-                existing.status == ExecutionJournalStatus.completedUnverified ||
-                existing.status == ExecutionJournalStatus.outcomeUnknown),
+  Future<bool> tryBeginIrreversible(
+    ExecutionJournalEntry entry, {
+    bool allowPreviouslyUncertain = false,
+  }) => _serialized(() async {
+    if (!entry.irreversible ||
+        entry.status != ExecutionJournalStatus.executing) {
+      throw ArgumentError(
+        'tryBeginIrreversible requiere una entrada irreversible/executing',
       );
-      if (blocked) return false;
-      entries[entry.runId] = entry;
-      await _writeAllUnlocked(prefs, entries);
-      return true;
-    },
-  );
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final entries = await _readAllUnlocked(prefs);
+    final sameRun = entries[entry.runId];
+    if (sameRun == null ||
+        !sameRun.irreversible ||
+        sameRun.status != ExecutionJournalStatus.authorized ||
+        sameRun.planSignature != entry.planSignature ||
+        sameRun.currentStep != entry.currentStep ||
+        sameRun.stepId != entry.stepId ||
+        sameRun.actionSignature != entry.actionSignature) {
+      return false;
+    }
+    final blocked = entries.values.any(
+      (existing) =>
+          existing.runId != entry.runId &&
+          existing.irreversible &&
+          existing.actionSignature == entry.actionSignature &&
+          (_isActiveCommit(existing.status) ||
+              (!allowPreviouslyUncertain && _isBlockingUncertain(existing))),
+    );
+    if (blocked) return false;
+    if (allowPreviouslyUncertain) {
+      _supersedePriorUncertain(entries, entry);
+    }
+    entries[entry.runId] = entry;
+    await _writeAllUnlocked(prefs, entries);
+    return true;
+  });
 
   @override
   Future<ExecutionJournalEntry?> consumeConfirmation(
@@ -433,6 +500,7 @@ final class InMemoryExecutionJournal implements ExecutionJournal {
   Future<void> save(ExecutionJournalEntry entry) async {
     _ensureSafeReplacement(_entries[entry.runId], entry);
     _entries[entry.runId] = entry;
+    _reconcileSupersededByVerified(_entries);
   }
 
   @override
@@ -443,7 +511,10 @@ final class InMemoryExecutionJournal implements ExecutionJournal {
       List.unmodifiable(_entries.values);
 
   @override
-  Future<bool> tryBeginIrreversible(ExecutionJournalEntry entry) async {
+  Future<bool> tryBeginIrreversible(
+    ExecutionJournalEntry entry, {
+    bool allowPreviouslyUncertain = false,
+  }) async {
     if (!entry.irreversible ||
         entry.status != ExecutionJournalStatus.executing) {
       throw ArgumentError(
@@ -455,11 +526,8 @@ final class InMemoryExecutionJournal implements ExecutionJournal {
           existing.runId != entry.runId &&
           existing.irreversible &&
           existing.actionSignature == entry.actionSignature &&
-          (existing.status == ExecutionJournalStatus.executing ||
-              existing.status == ExecutionJournalStatus.executed ||
-              existing.status == ExecutionJournalStatus.verifying ||
-              existing.status == ExecutionJournalStatus.completedUnverified ||
-              existing.status == ExecutionJournalStatus.outcomeUnknown),
+          (_isActiveCommit(existing.status) ||
+              (!allowPreviouslyUncertain && _isBlockingUncertain(existing))),
     );
     final sameRun = _entries[entry.runId];
     if (blocked ||
@@ -471,6 +539,9 @@ final class InMemoryExecutionJournal implements ExecutionJournal {
         sameRun.stepId != entry.stepId ||
         sameRun.actionSignature != entry.actionSignature) {
       return false;
+    }
+    if (allowPreviouslyUncertain) {
+      _supersedePriorUncertain(_entries, entry);
     }
     _entries[entry.runId] = entry;
     return true;

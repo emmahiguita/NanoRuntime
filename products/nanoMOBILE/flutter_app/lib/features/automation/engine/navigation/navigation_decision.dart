@@ -69,6 +69,7 @@ final class NavigationDecision {
     required this.diff,
     required this.reason,
     this.action,
+    this.permitsPerceptionEscalation = false,
   }) {
     if ((status == NavigationDecisionStatus.act) != (action != null)) {
       throw ArgumentError(
@@ -97,15 +98,18 @@ final class NavigationDecision {
 
   factory NavigationDecision.needsMoreEvidence(
     SituationDiff diff,
-    String reason,
-  ) => NavigationDecision._(
+    String reason, {
+    bool permitsPerceptionEscalation = true,
+  }) => NavigationDecision._(
     status: NavigationDecisionStatus.needsMoreEvidence,
     diff: diff,
     reason: '$reason; ${diff.explanation}',
+    permitsPerceptionEscalation: permitsPerceptionEscalation,
   );
 
   final NavigationDecisionStatus status;
   final SituationDiff diff;
   final String reason;
   final NavigationAction? action;
+  final bool permitsPerceptionEscalation;
 }

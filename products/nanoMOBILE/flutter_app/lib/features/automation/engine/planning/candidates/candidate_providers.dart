@@ -176,6 +176,7 @@ class InstalledAppCandidateProvider implements CandidateProvider {
   double _groundingFor(AppMatchKind kind) => switch (kind) {
     AppMatchKind.exactLabel => 1.0,
     AppMatchKind.exactPackage => 1.0,
+    AppMatchKind.qualifiedLabel => 0.9,
     AppMatchKind.prefixLabel => 0.8,
     AppMatchKind.token => 0.7,
   };

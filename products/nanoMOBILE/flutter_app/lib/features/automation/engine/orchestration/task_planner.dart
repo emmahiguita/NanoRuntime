@@ -6,6 +6,7 @@
 library;
 
 import '../planning/message_intent_parser.dart';
+import '../planning/generic_ui_intent_parser.dart';
 import 'task_plan.dart';
 import 'task_step_vocabulary.dart';
 
@@ -70,9 +71,6 @@ class TaskPlanner {
     'message to',
   ];
 
-  /// T2.9 — verbos de búsqueda genérica (dentro de una app).
-  static const _searchVerbs = ['busca ', 'buscar ', 'search for ', 'search '];
-
   /// T2.9-select — una mención aislada a "resultado" no basta: también debe
   /// existir una acción de selección o una referencia inequívoca al elemento.
   static final _selectResultAction = RegExp(
@@ -88,15 +86,34 @@ class TaskPlanner {
     final g = goal.toLowerCase();
     if (_saveVerbs.any(g.contains)) return _saveUrlPlan(goal);
     if (_openVerbs.any(g.contains)) return _openUrlPlan(goal);
+    final conversation = const MessageIntentParser().parse(goal);
     // Mensajería ANTES que búsqueda: "abre WhatsApp, busca a Juan y envíale: X"
     // contiene "busca " pero es intención de mensaje (verbo "envíale").
-    if (_messageVerbs.any(g.contains)) return _messagePlan(goal);
-    final conversation = const MessageIntentParser().parse(goal);
+    // La intención parseada también cubre el verbo de payload aislado de una
+    // navegación explícita: "entra al chat de Edgar y escribe, hola". Basarse
+    // en el resultado estructurado evita duplicar aquí toda la gramática del
+    // parser y, sobre todo, impide degradar el comando a solo abrir el chat.
+    final hasGroundedMessage =
+        conversation.app.isNotEmpty &&
+        conversation.recipient.isNotEmpty &&
+        conversation.message.isNotEmpty;
+    if (_messageVerbs.any(g.contains) || hasGroundedMessage) {
+      return _messagePlan(goal);
+    }
+    final genericCompose = const GenericUiIntentParser().parseCompose(goal);
+    if (genericCompose.isComplete) return _composeElementPlan(goal);
+    final genericFill = const GenericUiIntentParser().parseFill(goal);
+    if (genericFill.isComplete) return _fillElementPlan(goal);
+    final genericUi = const GenericUiIntentParser().parse(goal);
+    if (genericUi.isComplete) return _activateElementPlan(goal);
     if (conversation.app.isNotEmpty && conversation.recipient.isNotEmpty) {
       return _openConversationPlan(goal);
     }
     if (_isSelectResultIntent(g)) return _selectResultPlan(goal);
-    if (_searchVerbs.any(g.contains)) return _searchPlan(goal);
+    final search = const GenericUiIntentParser().parseSearch(goal);
+    if (search.hasQuery) {
+      return _searchPlan(goal, openApp: search.app.isNotEmpty);
+    }
     return null;
   }
 
@@ -110,6 +127,55 @@ class TaskPlanner {
         id: 'open_conversation',
         semanticAction: 'openConversation',
         dependencies: ['open_app'],
+      ),
+    ],
+  );
+
+  /// "abre Ajustes y toca Bluetooth" → abre la app mediante catálogo y activa
+  /// un único elemento observado. El selector físico se resuelve después,
+  /// contra una captura fresca; el texto del usuario nunca se vuelve coordenada.
+  TaskPlan _activateElementPlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'open_app', semanticAction: 'openApp'),
+      TaskStep(
+        id: 'activate_element',
+        semanticAction: 'activateElement',
+        dependencies: ['open_app'],
+      ),
+    ],
+  );
+
+  /// Escritura universal acotada: app instalada → campo editable nombrado →
+  /// reemplazo verificado. No pulsa botones ni publica el contenido.
+  TaskPlan _fillElementPlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'open_app', semanticAction: 'openApp'),
+      TaskStep(
+        id: 'fill_element',
+        semanticAction: 'fillElement',
+        dependencies: ['open_app'],
+      ),
+    ],
+  );
+
+  /// Composición universal segura: cada mutación es un paso gobernado y el
+  /// orquestador vuelve a observar antes de escribir. No existe submit final.
+  TaskPlan _composeElementPlan(String goal) => TaskPlan(
+    goal: goal,
+    steps: const [
+      TaskStep(id: 'open_app', semanticAction: 'openApp'),
+      TaskStep(
+        id: 'activate_element',
+        semanticAction: 'activateElement',
+        dependencies: ['open_app'],
+      ),
+      TaskStep(
+        id: 'fill_element',
+        semanticAction: 'fillElement',
+        dependencies: ['activate_element'],
+        dependencyEvidence: {'activate_element': RequiredEvidence.verified},
       ),
     ],
   );
@@ -140,6 +206,7 @@ class TaskPlanner {
         id: 'write_message',
         semanticAction: 'writeMessage',
         dependencies: ['open_conversation'],
+        dependencyEvidence: {'open_conversation': RequiredEvidence.verified},
       ),
       TaskStep(
         id: 'send_message',
@@ -153,22 +220,25 @@ class TaskPlanner {
   /// T2.9 — "abre YouTube y busca X" / "busca X en YouTube" → openApp →
   /// writeQuery → submitSearch. El query y la app los resuelve la capa
   /// Candidate-First/parse; el plan fija la semántica y el orden.
-  TaskPlan _searchPlan(String goal) => TaskPlan(
-    goal: goal,
-    steps: const [
-      TaskStep(id: 'open_app', semanticAction: 'openApp'),
-      TaskStep(
-        id: 'write_query',
-        semanticAction: 'writeQuery',
-        dependencies: ['open_app'],
-      ),
-      TaskStep(
-        id: 'submit_search',
-        semanticAction: 'submitSearch',
-        dependencies: ['write_query'],
-      ),
-    ],
-  );
+  TaskPlan _searchPlan(String goal, {required bool openApp}) {
+    final write = TaskStep(
+      id: 'write_query',
+      semanticAction: 'writeQuery',
+      dependencies: openApp ? const ['open_app'] : const [],
+    );
+    return TaskPlan(
+      goal: goal,
+      steps: [
+        if (openApp) const TaskStep(id: 'open_app', semanticAction: 'openApp'),
+        write,
+        const TaskStep(
+          id: 'submit_search',
+          semanticAction: 'submitSearch',
+          dependencies: ['write_query'],
+        ),
+      ],
+    );
+  }
 
   /// T2.9-select — "abre el segundo resultado" / "abre el resultado que dice X"
   /// → selectResult (un solo paso). El ordinal/texto lo parsea el orquestador;

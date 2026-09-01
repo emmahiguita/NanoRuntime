@@ -202,6 +202,27 @@ final class CommitGuard {
   }
 
   Future<SendEvidence> verifyAfterDispatch(ActionContext context) async {
+    var best = await _verifyAfterDispatchOnce(context);
+    if (_isDefinitive(best)) return best;
+
+    // El tap irreversible ocurre UNA vez. Solo reconciliamos evidencia porque
+    // WhatsApp y otras apps pueden publicar el nuevo árbol de accesibilidad uno
+    // o dos frames después de vaciar el composer.
+    for (final delay in const [
+      Duration(milliseconds: 140),
+      Duration(milliseconds: 280),
+    ]) {
+      await Future<void>.delayed(delay);
+      final observed = await _verifyAfterDispatchOnce(context);
+      if (_isDefinitive(observed)) return observed;
+      if (_evidenceRank(observed.status) > _evidenceRank(best.status)) {
+        best = observed;
+      }
+    }
+    return best;
+  }
+
+  Future<SendEvidence> _verifyAfterDispatchOnce(ActionContext context) async {
     final graph = await _observe();
     if (graph == null || graph.isEmpty) {
       return const SendEvidence(
@@ -264,6 +285,18 @@ final class CommitGuard {
       'composer vaciado, pero no se observó una nueva burbuja local saliente',
     );
   }
+
+  static bool _isDefinitive(SendEvidence evidence) =>
+      evidence.status == SendEvidenceStatus.localSendVerified ||
+      evidence.status == SendEvidenceStatus.contextChanged;
+
+  static int _evidenceRank(SendEvidenceStatus status) => switch (status) {
+    SendEvidenceStatus.localSendVerified => 5,
+    SendEvidenceStatus.dispatchedUnverified => 4,
+    SendEvidenceStatus.incompleteEvidence => 3,
+    SendEvidenceStatus.outcomeUnknown => 2,
+    SendEvidenceStatus.contextChanged => 1,
+  };
 
   static NanoUiObject? _conversationObject(
     ScreenGraph graph,

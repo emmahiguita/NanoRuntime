@@ -426,6 +426,13 @@ class AgentToolDispatcher {
   bool requiresConfirmation(String toolName) =>
       _policy.requiresConfirmation(toolName);
 
+  /// Un plan legacy con más de una mutación de UI no puede ejecutarse como
+  /// una lista ciega. Debe pasar por TaskOrchestrator, que observa y clasifica
+  /// de nuevo la superficie después de cada acción.
+  bool requiresGoalDirectedExecution(List<ToolCall> plan) =>
+      plan.where((call) => _uiStateSensitiveTools.contains(call.tool)).length >
+      1;
+
   /// Router de ruta de ejecución (C6): etiqueta cada paso del plan con el
   /// mecanismo más eficiente (Intent / Linux / Accessibility / ...).
   final ActionPathRouter _router;
@@ -520,6 +527,7 @@ class AgentToolDispatcher {
   /// escritura externa escrita a mano por el usuario NO pide confirmación.
   Future<String> runCommand(
     String command, {
+    String? executionId,
     ExecutionCancellationToken? cancellation,
   }) async {
     cancellation?.throwIfCancelled();
@@ -625,6 +633,7 @@ class AgentToolDispatcher {
     return (await runToolGuarded(
       call,
       humanInitiated: true,
+      executionId: executionId,
       cancellation: cancellation,
     )).feedback;
   }
@@ -715,6 +724,7 @@ class AgentToolDispatcher {
     ToolCall call, {
     bool humanInitiated = false,
     bool confirmed = false,
+    String? executionId,
     ExecutionJournalEntry? executionIntent,
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
@@ -722,6 +732,7 @@ class AgentToolDispatcher {
     call,
     humanInitiated: humanInitiated,
     confirmed: confirmed,
+    executionId: executionId,
     executionIntent: executionIntent,
     budget: budget,
     cancellation: cancellation,
@@ -734,6 +745,7 @@ class AgentToolDispatcher {
     ToolCall call, {
     required String semanticAction,
     bool confirmed = false,
+    String? executionId,
     ExecutionJournalEntry? executionIntent,
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
@@ -741,6 +753,7 @@ class AgentToolDispatcher {
     call,
     confirmed: confirmed,
     semanticAction: semanticAction,
+    executionId: executionId,
     executionIntent: executionIntent,
     budget: budget,
     cancellation: cancellation,
@@ -751,6 +764,7 @@ class AgentToolDispatcher {
     bool humanInitiated = false,
     bool confirmed = false,
     String? semanticAction,
+    String? executionId,
     ExecutionJournalEntry? executionIntent,
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
@@ -793,6 +807,8 @@ class AgentToolDispatcher {
             '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
       );
     }
+    final contextLockFailure = await _validateContextLock(call, tool);
+    if (contextLockFailure != null) return contextLockFailure;
     final semanticRisk = semanticAction == null
         ? null
         : automationSemanticPolicy(semanticAction)?.risk;
@@ -831,7 +847,9 @@ class AgentToolDispatcher {
         call,
         tool,
         runBudget,
+        executionId: executionId,
         executionIntent: executionIntent,
+        allowPreviouslyUncertain: confirmed && executionIntent != null,
       );
     }
     final feedback = await _executeWithTimeout(call, tool, runBudget);
@@ -846,7 +864,9 @@ class AgentToolDispatcher {
     ToolCall call,
     ToolDefinition tool,
     ToolExecutionBudget budget, {
+    String? executionId,
     ExecutionJournalEntry? executionIntent,
+    bool allowPreviouslyUncertain = false,
   }) async {
     final journal = _executionJournal;
     if (journal == null) {
@@ -901,7 +921,9 @@ class AgentToolDispatcher {
       authorizedEntry = persisted;
     } else {
       final plannedEntry = ExecutionJournalEntry(
-        runId: _newRunId(),
+        // La acción física conserva el owner del AutomationRun. El fallback
+        // solo cubre usos standalone fuera del composition root productivo.
+        runId: executionId ?? _newRunId(),
         planSignature: canonicalFingerprint({'action': actionSignature}),
         goalFingerprint: actionSignature,
         currentStep: 0,
@@ -936,7 +958,14 @@ class AgentToolDispatcher {
     );
 
     try {
-      final claimed = await journal.tryBeginIrreversible(executingEntry);
+      final claimed = await journal.tryBeginIrreversible(
+        executingEntry,
+        // Solo una confirmación nueva, ligada a este run y ya consumida en el
+        // journal, autoriza repetir una acción histórica cuyo resultado quedó
+        // incierto. Los reintentos internos y las llamadas sin token continúan
+        // bloqueados exactamente igual que antes.
+        allowPreviouslyUncertain: allowPreviouslyUncertain,
+      );
       if (!claimed) {
         return const ToolOutcome(
           verdict: PolicyVerdict.allow,
@@ -1032,6 +1061,22 @@ class AgentToolDispatcher {
     ExecutionCancellationToken? cancellation,
     void Function(int stepIndex)? onStep,
   }) async {
+    if (requiresGoalDirectedExecution(plan)) {
+      const denied = ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[goalDirectedRequired] Plan UI multipaso bloqueado: requiere '
+            'observar, clasificar y verificar la superficie entre acciones.',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+      return const PlanOutcome(
+        completed: false,
+        steps: [denied],
+        summary:
+            '[goalDirectedRequired] Plan UI multipaso bloqueado: requiere '
+            'TaskOrchestrator y nueva observación entre acciones.',
+      );
+    }
     final outcomes = <ToolOutcome>[];
     final feedbacks = <String>[];
     final paths = <ExecutionPath>[];
@@ -1127,6 +1172,7 @@ class AgentToolDispatcher {
         call,
         humanInitiated: humanInitiated,
         confirmed: stepConfirmed,
+        executionId: runId,
         budget: budget,
         cancellation: cancellation,
         executionIntent: executionIntent,
@@ -1275,6 +1321,72 @@ class AgentToolDispatcher {
     'scroll',
     'long_press',
   };
+
+  /// Revalida inmediatamente antes de ejecutar cualquier herramienta cuya
+  /// política exige bloquear el contexto. La plataforma vuelve a comprobar
+  /// la misma identidad al hacer el commit, cerrando también la carrera entre
+  /// esta lectura y el transporte nativo.
+  Future<ToolOutcome?> _validateContextLock(
+    ToolCall call,
+    ToolDefinition tool,
+  ) async {
+    if (!tool.requiresContextLock) return null;
+    if (call.tool != 'reply_notification') {
+      return const ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[contextLockUnavailable] Acción bloqueada: no existe un validador '
+            'de contexto para esta herramienta.',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
+
+    final key = call.keyArg;
+    if (key == null || key.isEmpty) {
+      return const ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[contextChanged] La notificación ya no tiene una identidad válida.',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
+    try {
+      final status = await NanoRuntimeApi.instance.notificationStatus();
+      if (status['accessGranted'] != true || status['connected'] != true) {
+        return const ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[contextChanged] No se puede revalidar la notificación: el '
+              'servicio no está conectado.',
+          executionStatus: ToolExecutionStatus.notExecuted,
+        );
+      }
+      final rows = await NanoRuntimeApi.instance.listActiveNotifications(
+        limit: 100,
+      );
+      final current = rows.whereType<Map>().where(
+        (row) => '${row['key'] ?? ''}' == key,
+      );
+      if (current.length != 1 || current.single['canReply'] != true) {
+        return const ToolOutcome(
+          verdict: PolicyVerdict.denied,
+          feedback:
+              '[contextChanged] La notificación cambió, desapareció o ya no '
+              'admite respuesta. No se envió nada.',
+          executionStatus: ToolExecutionStatus.notExecuted,
+        );
+      }
+      return null;
+    } on Object catch (error) {
+      return ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback:
+            '[contextLockUnavailable] No se pudo revalidar la notificación: '
+            '$error.',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
+  }
 
   /// El mismo gesto sobre un estado diferente puede ser progreso legítimo.
   /// Sólo las acciones UI capturan estado; notificaciones/Linux conservan una

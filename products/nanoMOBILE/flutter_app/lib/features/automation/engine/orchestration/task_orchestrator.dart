@@ -14,7 +14,12 @@ import '../navigation/navigation_goal.dart';
 import '../navigation/navigation_history.dart';
 import '../navigation/navigation_transition_verifier.dart';
 import '../perception/current_situation.dart';
+import '../perception/mux/perception_result.dart';
 import '../perception/search_result_resolver.dart';
+import '../perception/semantic/nano_ui_object.dart';
+import '../perception/semantic/screen_graph.dart';
+import '../perception/surface_resolvers.dart';
+import '../planning/generic_ui_intent_parser.dart';
 import '../planning/message_intent_parser.dart';
 import '../governance/action_confirmation.dart';
 import '../voice/execution_cancellation.dart';
@@ -49,6 +54,7 @@ typedef TaskTap =
       String selector, {
       String? confirmedActionSignature,
       String? semanticAction,
+      String? executionId,
       ExecutionJournalEntry? executionIntent,
     });
 typedef TaskWriteText =
@@ -63,14 +69,16 @@ typedef TaskBack =
       String? confirmedActionSignature,
       String? semanticAction,
     });
+typedef TaskSubmitInput =
+    Future<TaskActionResult> Function({String expectedPackageName});
 typedef TaskResolveAppPackage = Future<String?> Function(String appReference);
+typedef TaskTargetPerception =
+    Future<PerceptionResult> Function(String concept, String packageName);
 
-bool _isUnresolvedCommit(ExecutionJournalStatus status) =>
+bool _isCommitInFlight(ExecutionJournalStatus status) =>
     status == ExecutionJournalStatus.executing ||
     status == ExecutionJournalStatus.executed ||
-    status == ExecutionJournalStatus.verifying ||
-    status == ExecutionJournalStatus.completedUnverified ||
-    status == ExecutionJournalStatus.outcomeUnknown;
+    status == ExecutionJournalStatus.verifying;
 
 class TaskOrchestrator {
   TaskOrchestrator({
@@ -80,9 +88,11 @@ class TaskOrchestrator {
     TaskLaunchApp? launchApp,
     TaskTap? tap,
     TaskWriteText? writeText,
+    TaskSubmitInput? submitInput,
     TaskBack? back,
     TaskResolveAppPackage? resolveAppPackage,
     CurrentSituationSource? currentSituationSource,
+    TaskTargetPerception? targetPerception,
     AutomationMemorySource? memorySource,
     GoalDirectedNavigator navigator = const GoalDirectedNavigator(),
     NavigationTransitionVerifier transitionVerifier =
@@ -103,9 +113,11 @@ class TaskOrchestrator {
        _launchApp = launchApp,
        _tap = tap,
        _writeText = writeText,
+       _submitInput = submitInput,
        _back = back,
        _resolveAppPackage = resolveAppPackage,
        _currentSituationSource = currentSituationSource,
+       _targetPerception = targetPerception,
        _memorySource = memorySource,
        _navigator = navigator,
        _transitionVerifier = transitionVerifier,
@@ -127,9 +139,11 @@ class TaskOrchestrator {
   final TaskLaunchApp? _launchApp;
   final TaskTap? _tap;
   final TaskWriteText? _writeText;
+  final TaskSubmitInput? _submitInput;
   final TaskBack? _back;
   final TaskResolveAppPackage? _resolveAppPackage;
   final CurrentSituationSource? _currentSituationSource;
+  final TaskTargetPerception? _targetPerception;
   final AutomationMemorySource? _memorySource;
   final GoalDirectedNavigator _navigator;
   final NavigationTransitionVerifier _transitionVerifier;
@@ -216,19 +230,23 @@ class TaskOrchestrator {
     final journal = _journal;
     if (journal != null) {
       await journal.recoverInterrupted();
-      final unresolved = (await journal.all()).where(
+      // Una ejecución físicamente en curso sí bloquea otra con el mismo
+      // objetivo. Un resultado histórico incierto no bloquea la planificación:
+      // podrá repetirse únicamente si el nuevo run llega al commit con una
+      // confirmación fresca, validada y consumida por el journal.
+      final inFlight = (await journal.all()).where(
         (entry) =>
             entry.goalFingerprint == goalFingerprint &&
             entry.irreversible &&
-            (_isUnresolvedCommit(entry.status)),
+            _isCommitInFlight(entry.status),
       );
-      if (unresolved.isNotEmpty) {
+      if (inFlight.isNotEmpty) {
         return const [
           TaskStepResult(
             status: TaskStepStatus.outcomeUnknown,
             reason:
-                'existe un commit irreversible activo o incierto para este objetivo; '
-                'se requiere reconciliación antes de repetir',
+                'existe un commit irreversible todavía en curso para este objetivo; '
+                'no se inicia otra ejecución concurrente',
             failureKind: TaskFailureKind.terminal,
           ),
         ];
@@ -572,7 +590,11 @@ class TaskOrchestrator {
 
     AutomationPerceptionSnapshot perception =
         const AutomationPerceptionSnapshot.notRequired();
-    if (step.semanticAction == 'openConversation') {
+    final needsStructuralSituation =
+        step.semanticAction == 'openConversation' ||
+        step.semanticAction == 'activateElement' ||
+        step.semanticAction == 'fillElement';
+    if (needsStructuralSituation) {
       final observe = _currentSituationSource;
       if (observe == null) {
         perception = const AutomationPerceptionSnapshot.unavailable(
@@ -603,6 +625,10 @@ class TaskOrchestrator {
         ? conversation.target
         : conversation.query.isNotEmpty
         ? conversation.query
+        : conversation.uiActionTarget.isNotEmpty
+        ? conversation.uiActionTarget
+        : conversation.uiTarget.isNotEmpty
+        ? conversation.uiTarget
         : conversation.appName;
     return AutomationContext(
       goal: run.goal,
@@ -712,6 +738,20 @@ class TaskOrchestrator {
           context,
           goal,
           navigationHistory: navigationHistory,
+          executionId: context.execution.executionId,
+          confirmedActionSignature: confirmedActionSignature,
+        );
+      case 'activateElement':
+        return _activateElement(
+          context,
+          goal,
+          executionIntent: executionIntent,
+          confirmedActionSignature: confirmedActionSignature,
+        );
+      case 'fillElement':
+        return _fillElement(
+          context,
+          goal,
           confirmedActionSignature: confirmedActionSignature,
         );
       case 'writeMessage':
@@ -722,22 +762,26 @@ class TaskOrchestrator {
       case 'sendMessage':
         return _sendMessage(
           goal,
+          executionId: context.execution.executionId,
           confirmedActionSignature: confirmedActionSignature,
           executionIntent: executionIntent,
         );
       case 'writeQuery':
         return _writeQuery(
           goal,
+          executionId: context.execution.executionId,
           confirmedActionSignature: confirmedActionSignature,
         );
       case 'submitSearch':
         return _submitSearch(
           goal,
+          executionId: context.execution.executionId,
           confirmedActionSignature: confirmedActionSignature,
         );
       case 'selectResult':
         return _selectResult(
           goal,
+          executionId: context.execution.executionId,
           confirmedActionSignature: confirmedActionSignature,
         );
       default:
@@ -925,6 +969,7 @@ class TaskOrchestrator {
     AutomationContext context,
     AutomationConversationSnapshot goal, {
     required NavigationHistory navigationHistory,
+    required String executionId,
     String? confirmedActionSignature,
   }) async {
     if (goal.target.isEmpty) {
@@ -992,7 +1037,16 @@ class TaskOrchestrator {
       targetSurface: CurrentSurfaceKind.editable,
       targetEntity: goal.target,
     );
-    final decision = _navigator.decide(current, navigationGoal);
+    var decision = _navigator.decide(current, navigationGoal);
+    if (decision.status == NavigationDecisionStatus.needsMoreEvidence &&
+        decision.permitsPerceptionEscalation) {
+      final perceived = await _perceivedNavigationDecision(
+        current,
+        navigationGoal,
+        decision,
+      );
+      if (perceived != null) decision = perceived;
+    }
     final transition = _transitionVerifier.verify(
       history: navigationHistory,
       current: current,
@@ -1030,9 +1084,220 @@ class TaskOrchestrator {
           current: current,
           goal: navigationGoal,
           navigationHistory: navigationHistory,
+          executionId: executionId,
           confirmedActionSignature: confirmedActionSignature,
         );
     }
+  }
+
+  /// Escalado visual acotado para navegación. Solo entra cuando el navegador
+  /// estructural no pudo decidir. Accessibility → OCR → Vision pueden aportar
+  /// evidencia, pero el resultado únicamente se convierte en acción si puede
+  /// ligarse de nuevo a UN control accesible clicable de la situación actual.
+  /// Nunca se toca una coordenada inferida ni se cambia el objetivo.
+  Future<NavigationDecision?> _perceivedNavigationDecision(
+    CurrentSituation current,
+    NavigationGoal goal,
+    NavigationDecision fallback,
+  ) async {
+    final perceive = _targetPerception;
+    if (perceive == null || current.packageName != goal.targetPackage) {
+      return null;
+    }
+
+    final concepts = _perceptionConcepts(current, goal);
+    for (final concept in concepts) {
+      final result = await perceive(concept, goal.targetPackage);
+      if (result is! PerceptionResolved || result.confidence < 0.72) continue;
+      final grounded = _groundPerceivedObject(
+        current.structuralEvidence,
+        result.object,
+      );
+      if (grounded == null ||
+          grounded.editable ||
+          grounded.isEditableRole ||
+          _selectedInChain(current.structuralEvidence, grounded)) {
+        continue;
+      }
+      final selector = _selectorForPerceivedObject(
+        current.structuralEvidence,
+        grounded,
+      );
+      if (selector == null) continue;
+      final source = result.evidence.isEmpty
+          ? 'percepción'
+          : result.evidence.last.source.name;
+      return NavigationDecision.act(
+        diff: fallback.diff,
+        action: NavigationAction.tap(selector),
+        reason: 'destino "$concept" observado por $source y revalidado',
+      );
+    }
+    return null;
+  }
+
+  /// El escalado caro no prueba una lista universal de palabras. Primero usa
+  /// destinos que ya tienen alguna evidencia visible en el snapshot y luego
+  /// el objetivo. Queda limitado a tres observaciones por decisión fallida.
+  List<String> _perceptionConcepts(
+    CurrentSituation current,
+    NavigationGoal goal,
+  ) {
+    const conversationTerms = {
+      'chats',
+      'mensajes',
+      'conversaciones',
+      'messages',
+      'conversations',
+    };
+    const searchTerms = {'buscar', 'busca', 'search', 'find'};
+    String? conversationConcept;
+    String? searchConcept;
+
+    for (final object in current.structuralEvidence.objects) {
+      if (!object.visible) continue;
+      for (final raw in [object.description, object.text, object.label]) {
+        final value = raw.trim();
+        if (value.isEmpty) continue;
+        final normalized = value.replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+        final firstSegment = normalized.split(RegExp(r'[,;|•·]')).first.trim();
+        if (conversationConcept == null &&
+            (conversationTerms.contains(normalized) ||
+                conversationTerms.contains(firstSegment))) {
+          conversationConcept = value;
+        }
+        if (searchConcept == null &&
+            (searchTerms.contains(normalized) ||
+                searchTerms.contains(firstSegment))) {
+          searchConcept = value;
+        }
+      }
+    }
+
+    final concepts = <String>{
+      if (conversationConcept != null) conversationConcept,
+      if (goal.targetEntity case final entity?) entity,
+      if (searchConcept != null) searchConcept,
+    };
+    return List.unmodifiable(concepts.take(3));
+  }
+
+  NanoUiObject? _groundPerceivedObject(
+    ScreenGraph graph,
+    NanoUiObject perceived,
+  ) {
+    NanoUiObject? observed;
+    if (perceived.sourceIndex >= 0) {
+      for (final object in graph.objects) {
+        if (object.sourceIndex == perceived.sourceIndex &&
+            object.windowId == perceived.windowId &&
+            object.bounds.left == perceived.bounds.left &&
+            object.bounds.top == perceived.bounds.top &&
+            object.bounds.right == perceived.bounds.right &&
+            object.bounds.bottom == perceived.bounds.bottom) {
+          observed = object;
+          break;
+        }
+      }
+    } else {
+      // OCR/Vision produce un objeto virtual. Se usa solo para encontrar la
+      // región correspondiente en el ScreenGraph, nunca como target directo.
+      final x = perceived.bounds.centerX;
+      final y = perceived.bounds.centerY;
+      final spatial =
+          graph.objects
+              .where((object) {
+                final bounds = object.bounds;
+                return object.visible &&
+                    object.enabled &&
+                    bounds.left <= x &&
+                    x <= bounds.right &&
+                    bounds.top <= y &&
+                    y <= bounds.bottom;
+              })
+              .toList(growable: false)
+            ..sort((a, b) {
+              final aArea = a.bounds.width * a.bounds.height;
+              final bArea = b.bounds.width * b.bounds.height;
+              return aArea.compareTo(bArea);
+            });
+      final byTapTarget = <String, NanoUiObject>{};
+      for (final anchor in spatial) {
+        final target = _clickableTarget(graph, anchor);
+        if (target != null) byTapTarget.putIfAbsent(target.id, () => anchor);
+      }
+      if (byTapTarget.length == 1) observed = byTapTarget.values.single;
+    }
+    if (observed == null) return null;
+    return _clickableTarget(graph, observed) == null ? null : observed;
+  }
+
+  NanoUiObject? _clickableTarget(ScreenGraph graph, NanoUiObject anchor) {
+    var current = anchor;
+    for (var depth = 0; depth < 6; depth++) {
+      if (current.visible && current.enabled && current.clickable) {
+        return current;
+      }
+      final parent = graph.parentOf(current.id);
+      if (parent == null) return null;
+      current = parent;
+    }
+    return null;
+  }
+
+  String? _selectorForPerceivedObject(ScreenGraph graph, NanoUiObject anchor) {
+    final target = _clickableTarget(graph, anchor);
+    if (target == null) return null;
+    (String, String)? semantic;
+    for (final identity in <(String, String)>[
+      ('desc', anchor.description),
+      ('text', anchor.text),
+      ('desc', target.description),
+      ('text', target.text),
+    ]) {
+      final value = identity.$2.trim();
+      if (value.isEmpty || value.contains(';')) continue;
+      semantic = identity;
+      break;
+    }
+
+    final resource = anchor.resourceId.isNotEmpty
+        ? anchor.resourceId
+        : target.resourceId;
+    final resourceUnique =
+        resource.isNotEmpty &&
+        !resource.contains(';') &&
+        graph.objects
+                .where(
+                  (object) =>
+                      object.visible &&
+                      object.enabled &&
+                      object.resourceId == resource,
+                )
+                .length ==
+            1;
+    if (semantic == null && !resourceUnique) return null;
+
+    return <String>[
+      if (target.packageName.isNotEmpty) 'pkg=${target.packageName}',
+      // Un id compartido puede conservarse como ancla secundaria solo cuando
+      // el texto/desc exacto lo desambigua. Sin evidencia semántica se exige
+      // que el id sea único en el snapshot.
+      if (resource.isNotEmpty && !resource.contains(';')) 'id=$resource',
+      if (semantic != null) '${semantic.$1}=${semantic.$2.trim()}',
+      'editable=false',
+    ].join(';');
+  }
+
+  bool _selectedInChain(ScreenGraph graph, NanoUiObject anchor) {
+    var current = anchor;
+    for (var depth = 0; depth < 6; depth++) {
+      if (current.selected || current.checked) return true;
+      final parent = graph.parentOf(current.id);
+      if (parent == null) return false;
+      current = parent;
+    }
+    return false;
   }
 
   Future<TaskStepResult> _executeNavigationDecision(
@@ -1040,6 +1305,7 @@ class TaskOrchestrator {
     required CurrentSituation current,
     required NavigationGoal goal,
     required NavigationHistory navigationHistory,
+    required String executionId,
     String? confirmedActionSignature,
   }) async {
     final action = decision.action!;
@@ -1072,6 +1338,7 @@ class TaskOrchestrator {
           action.selector!,
           confirmedActionSignature: confirmedActionSignature,
           semanticAction: 'openConversation',
+          executionId: executionId,
         );
       case NavigationActionKind.write:
         final write = _writeText;
@@ -1103,8 +1370,13 @@ class TaskOrchestrator {
         );
     }
 
-    if (result.status != TaskActionStatus.needsConfirmation &&
-        result.status != TaskActionStatus.denied) {
+    // El presupuesto de navegación solo cuenta acciones que realmente fueron
+    // aceptadas por el adaptador. Un selector ambiguo/notFound devuelve
+    // `failed`: registrarlo como gesto intentado falseaba el stuck detector y
+    // detenía la recuperación aunque ningún tap hubiera salido al dispositivo.
+    if (result.status == TaskActionStatus.completed ||
+        result.status == TaskActionStatus.completedUnverified ||
+        result.status == TaskActionStatus.outcomeUnknown) {
       navigationHistory.recordAttempted(
         situation: current,
         goal: goal,
@@ -1177,8 +1449,244 @@ class TaskOrchestrator {
     );
   }
 
+  Future<TaskStepResult> _activateElement(
+    AutomationContext context,
+    AutomationConversationSnapshot goal, {
+    String? confirmedActionSignature,
+    ExecutionJournalEntry? executionIntent,
+  }) async {
+    final actionTarget = goal.uiActionTarget.isNotEmpty
+        ? goal.uiActionTarget
+        : goal.uiTarget;
+    if (actionTarget.isEmpty) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin elemento UI objetivo en la orden',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final situation = context.perception.situation;
+    if (!context.perception.isObserved || situation == null) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            context.perception.reason ??
+            'sin situación estructural para resolver el elemento',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    var candidates = const EntityActionSurfaceResolver().resolve(
+      situation.structuralEvidence,
+      actionTarget,
+    );
+    String? perceptionSource;
+    if (candidates.isEmpty) {
+      final perceived = await _perceivedActionSurface(situation, actionTarget);
+      if (perceived != null) {
+        candidates = [perceived.$1];
+        perceptionSource = perceived.$2;
+      }
+    }
+    final tap = _tap;
+    if (tap == null) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin fuente de interacción UI',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+
+    // Un target de menú no existe en el árbol hasta abrir el overflow. Se
+    // permite revelar UNA única superficie transitoria observada, se vuelve a
+    // capturar el estado y recién entonces se resuelve el target final. El tap
+    // de reveal usa política de navegación; nunca consume ni sustituye la
+    // confirmación requerida por activateElement.
+    if (candidates.isEmpty) {
+      final overflow = const ActionSurfaceResolver().resolve(
+        situation.structuralEvidence,
+        kind: 'overflow',
+      );
+      final observe = _currentSituationSource;
+      if (overflow != null && observe != null) {
+        final revealed = await tap(
+          overflow.selector,
+          semanticAction: 'revealElement',
+          executionId: context.execution.executionId,
+        );
+        if (!revealed.completed) {
+          return _stepFromAction(
+            revealed,
+            completedReason: 'menú transitorio revelado',
+            recoverable: false,
+          );
+        }
+        final refreshed = await observe();
+        if (refreshed != null &&
+            refreshed.packageName == situation.packageName &&
+            refreshed.hasStructuralEvidence) {
+          candidates = const EntityActionSurfaceResolver().resolve(
+            refreshed.structuralEvidence,
+            actionTarget,
+          );
+          if (candidates.isEmpty) {
+            final perceived = await _perceivedActionSurface(
+              refreshed,
+              actionTarget,
+            );
+            if (perceived != null) {
+              candidates = [perceived.$1];
+              perceptionSource = perceived.$2;
+            }
+          }
+        }
+      }
+    }
+    if (candidates.isEmpty) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'elemento "$actionTarget" no visible o no accionable',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    if (candidates.length != 1) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            'elemento "$actionTarget" ambiguo: '
+            '${candidates.length} destinos accionables',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final action = await tap(
+      candidates.single.selector,
+      confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'activateElement',
+      executionId: context.execution.executionId,
+      executionIntent: executionIntent,
+    );
+    return _stepFromAction(
+      action,
+      completedReason:
+          'elemento "$actionTarget" activado con transición verificada'
+          '${perceptionSource == null ? '' : ' ($perceptionSource)'}',
+      recoverable: false,
+    );
+  }
+
+  /// Escalado visual para una acción genérica. Comparte exactamente la misma
+  /// regla de seguridad de navegación: OCR/Vision solo aportan evidencia; el
+  /// target final debe existir como un único control accesible clicable en el
+  /// ScreenGraph capturado por el owner de la decisión.
+  Future<(ResolvedSurface, String)?> _perceivedActionSurface(
+    CurrentSituation situation,
+    String concept,
+  ) async {
+    final perceive = _targetPerception;
+    if (perceive == null || situation.packageName.isEmpty) return null;
+    final result = await perceive(concept, situation.packageName);
+    if (result is! PerceptionResolved || result.confidence < 0.72) return null;
+    final grounded = _groundPerceivedObject(
+      situation.structuralEvidence,
+      result.object,
+    );
+    if (grounded == null ||
+        grounded.editable ||
+        grounded.isEditableRole ||
+        _selectedInChain(situation.structuralEvidence, grounded)) {
+      return null;
+    }
+    final selector = _selectorForPerceivedObject(
+      situation.structuralEvidence,
+      grounded,
+    );
+    if (selector == null) return null;
+    final source = result.evidence.isEmpty
+        ? 'percepción revalidada'
+        : '${result.evidence.last.source.name} revalidado';
+    return (
+      ResolvedSurface(grounded, selector, 'target visual grounded'),
+      source,
+    );
+  }
+
+  Future<TaskStepResult> _fillElement(
+    AutomationContext context,
+    AutomationConversationSnapshot goal, {
+    String? confirmedActionSignature,
+  }) async {
+    final mayUseSoleEditable =
+        goal.uiTarget.isEmpty && goal.uiActionTarget.isNotEmpty;
+    if (goal.uiText.isEmpty || (goal.uiTarget.isEmpty && !mayUseSoleEditable)) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin campo UI o texto objetivo en la orden',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final situation = context.perception.situation;
+    if (!context.perception.isObserved || situation == null) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            context.perception.reason ??
+            'sin situación estructural para resolver el campo',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    const inputResolver = EntityInputSurfaceResolver();
+    final candidates = mayUseSoleEditable
+        ? inputResolver.resolveSoleEditable(
+            situation.structuralEvidence,
+            packageName: situation.packageName,
+          )
+        : inputResolver.resolve(
+            situation.structuralEvidence,
+            goal.uiTarget,
+            packageName: situation.packageName,
+          );
+    final fieldLabel = mayUseSoleEditable
+        ? 'único campo editable'
+        : 'campo "${goal.uiTarget}"';
+    if (candidates.isEmpty) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: '$fieldLabel no visible o sin selector estable',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    if (candidates.length != 1) {
+      return TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason:
+            '$fieldLabel ambiguo: '
+            '${candidates.length} editables coinciden',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final write = _writeText;
+    if (write == null) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'sin fuente de escritura UI',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    final action = await write(
+      candidates.single.selector,
+      goal.uiText,
+      confirmedActionSignature: confirmedActionSignature,
+      semanticAction: 'fillElement',
+    );
+    return _stepFromAction(
+      action,
+      completedReason: '$fieldLabel escrito y verificado exactamente',
+      recoverable: true,
+    );
+  }
+
   Future<TaskStepResult> _sendMessage(
     AutomationConversationSnapshot goal, {
+    required String executionId,
     String? confirmedActionSignature,
     ExecutionJournalEntry? executionIntent,
   }) async {
@@ -1217,6 +1725,7 @@ class TaskOrchestrator {
       context.sendSelector,
       confirmedActionSignature: confirmedActionSignature,
       semanticAction: 'sendMessage',
+      executionId: executionId,
       executionIntent: executionIntent,
     );
     if (!action.completed) {
@@ -1251,6 +1760,7 @@ class TaskOrchestrator {
 
   Future<TaskStepResult> _writeQuery(
     AutomationConversationSnapshot goal, {
+    required String executionId,
     String? confirmedActionSignature,
   }) async {
     if (goal.query.isEmpty) {
@@ -1294,6 +1804,7 @@ class TaskOrchestrator {
         icon,
         confirmedActionSignature: confirmedActionSignature,
         semanticAction: 'writeQuery',
+        executionId: executionId,
       );
       if (!openSearch.completed) {
         return _stepFromAction(
@@ -1327,34 +1838,61 @@ class TaskOrchestrator {
 
   Future<TaskStepResult> _submitSearch(
     AutomationConversationSnapshot goal, {
+    required String executionId,
     String? confirmedActionSignature,
   }) async {
-    final resolveAction = _resolveActionSurface;
-    final tap = _tap;
-    if (resolveAction == null || tap == null) {
-      return const TaskStepResult(
-        status: TaskStepStatus.completedUnverified,
-        reason: 'query escrita; sin fuente para submit',
-      );
-    }
-    final action = await resolveAction('search');
-    if (action == null || action.isEmpty) {
-      // Sin botón de submit: búsqueda en vivo (algunas apps buscan al escribir).
-      return const TaskStepResult(
-        status: TaskStepStatus.completedUnverified,
-        reason: 'query escrita; sin botón de submit (búsqueda en vivo)',
-      );
-    }
-
-    // PRE: snapshot A (fingerprint de texto visible).
+    // Captura PRE una sola vez. Tanto el botón visible como ACTION_IME_ENTER
+    // deben demostrar después una transición observable; aceptar la acción del
+    // sistema no equivale por sí mismo a completar la búsqueda.
     final readText = _readVisibleText;
     final detect = _detectSearchResults;
     final before = readText != null ? await readText() : null;
+    final beforeResults = detect != null ? await detect() : null;
+    final resolveAction = _resolveActionSurface;
+    final tap = _tap;
+    final action = resolveAction == null ? null : await resolveAction('search');
+    if (action == null || action.isEmpty) {
+      // Navegadores y muchas superficies no exponen un botón de submit en el
+      // árbol de la app: la acción real vive en el editor/IME. Se ejecuta sólo
+      // sobre el único campo editable enfocado y, si se expresó una app, el
+      // nativo exige que el package siga coincidiendo.
+      final submitInput = _submitInput;
+      if (submitInput == null) {
+        return const TaskStepResult(
+          status: TaskStepStatus.completedUnverified,
+          reason: 'query escrita; sin botón ni adaptador IME para submit',
+        );
+      }
+      final expectedPackage = goal.appName.isEmpty
+          ? ''
+          : await _resolveAppPackage?.call(goal.appName) ?? '';
+      final submitted = await submitInput(expectedPackageName: expectedPackage);
+      if (!submitted.completed) {
+        return _stepFromAction(
+          submitted,
+          completedReason: 'búsqueda enviada mediante el editor',
+          recoverable: true,
+        );
+      }
+      return _verifySearchSubmission(
+        beforeText: before,
+        beforeResults: beforeResults,
+        acceptedReason: submitted.reason,
+      );
+    }
+    if (tap == null) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'botón de búsqueda observado, pero no hay ejecutor de toque',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
 
     final submitted = await tap(
       action,
       confirmedActionSignature: confirmedActionSignature,
       semanticAction: 'submitSearch',
+      executionId: executionId,
     );
     if (!submitted.completed) {
       return _stepFromAction(
@@ -1364,28 +1902,66 @@ class TaskOrchestrator {
       );
     }
 
-    // POST: SearchResultVerification — "tecla aceptada" NO es búsqueda.
-    final after = readText != null ? await readText() : null;
-    final results = detect != null ? await detect() : null;
-    final changed = before != null && after != null && before != after;
-    final hasResults = results != null && results > 0;
+    return _verifySearchSubmission(
+      beforeText: before,
+      beforeResults: beforeResults,
+      acceptedReason: 'botón de búsqueda aceptado',
+    );
+  }
 
-    if (changed && hasResults) {
+  /// Verificación POST acotada y solo observacional. Las aplicaciones actualizan
+  /// su árbol de accesibilidad de forma asíncrona; por eso se reobserva con un
+  /// presupuesto corto. Nunca repite el submit ni transforma ausencia de
+  /// evidencia en éxito.
+  Future<TaskStepResult> _verifySearchSubmission({
+    required String? beforeText,
+    required int? beforeResults,
+    required String acceptedReason,
+  }) async {
+    final readText = _readVisibleText;
+    final detect = _detectSearchResults;
+    if (readText == null && detect == null) {
       return TaskStepResult(
-        status: TaskStepStatus.completed,
-        reason: 'búsqueda verificada: pantalla cambió y $results resultado(s)',
-      );
-    }
-    if (changed || hasResults) {
-      return const TaskStepResult(
         status: TaskStepStatus.completedUnverified,
-        reason:
-            'evidencia parcial de búsqueda (cambio de pantalla o resultados)',
+        reason: '$acceptedReason; sin fuente de verificación posterior',
       );
     }
-    return const TaskStepResult(
+
+    const waits = <Duration>[
+      Duration.zero,
+      Duration(milliseconds: 120),
+      Duration(milliseconds: 240),
+      Duration(milliseconds: 480),
+    ];
+    var partialEvidence = false;
+    for (final wait in waits) {
+      if (wait != Duration.zero) await Future<void>.delayed(wait);
+      final afterText = readText != null ? await readText() : null;
+      final afterResults = detect != null ? await detect() : null;
+      final changed =
+          beforeText != null && afterText != null && beforeText != afterText;
+      final hasResults = afterResults != null && afterResults > 0;
+      final resultSetChanged =
+          beforeResults != null &&
+          afterResults != null &&
+          beforeResults != afterResults;
+
+      if (changed && (hasResults || resultSetChanged)) {
+        return TaskStepResult(
+          status: TaskStepStatus.completed,
+          reason:
+              'búsqueda verificada: cambió la superficie y se observaron '
+              '$afterResults resultado(s)',
+        );
+      }
+      partialEvidence = partialEvidence || changed || resultSetChanged;
+    }
+
+    return TaskStepResult(
       status: TaskStepStatus.completedUnverified,
-      reason: 'submit aceptado; sin cambio detectable de pantalla',
+      reason: partialEvidence
+          ? '$acceptedReason; transición observada sin resultados suficientes'
+          : '$acceptedReason; sin cambio detectable dentro del presupuesto',
     );
   }
 
@@ -1393,6 +1969,7 @@ class TaskOrchestrator {
 
   Future<TaskStepResult> _selectResult(
     AutomationConversationSnapshot goal, {
+    required String executionId,
     String? confirmedActionSignature,
   }) async {
     final resolve = _resolveResult;
@@ -1460,6 +2037,7 @@ class TaskOrchestrator {
       candidate.selector,
       confirmedActionSignature: confirmedActionSignature,
       semanticAction: 'selectResult',
+      executionId: executionId,
     );
     if (!selected.completed) {
       return _stepFromAction(
@@ -1566,24 +2144,20 @@ class TaskOrchestrator {
 
     // Intención de mensaje (app/recipient/message) vía el parser ÚNICO.
     final intent = const MessageIntentParser().parse(goal);
+    const genericParser = GenericUiIntentParser();
+    final genericUi = genericParser.parse(goal);
+    final genericFill = genericParser.parseFill(goal);
+    final genericCompose = genericParser.parseCompose(goal);
+    final search = genericParser.parseSearch(goal);
 
-    // App: intent.app ("abre X"/"ve a X") o "… en X" (búsqueda "busca Y en X").
-    final enAppMatch = RegExp(r'en\s+(\w+)\s*$').firstMatch(g);
+    // Cada parser conserva intención; package y superficies se resuelven
+    // después contra inventario/Accessibility. La búsqueda comparte exactamente
+    // la misma gramática que TaskPlanner, incluidas apps de varias palabras.
     var appName = intent.app;
-    if (enAppMatch != null) appName = enAppMatch.group(1)!;
-
-    // Query: "busca X…" — se recorta del ORIGINAL para conservar el case del
-    // término de búsqueda ("NanoRuntime" no debe quedar "nanoruntime").
-    var query = '';
-    final buscaIdx = g.indexOf('busca');
-    if (buscaIdx >= 0) {
-      query = goal.substring(buscaIdx + 'busca'.length).trim();
-      if (enAppMatch != null) {
-        query = query
-            .replaceAll(RegExp(r'\s+en\s+\w+\s*$', caseSensitive: false), '')
-            .trim();
-      }
-    }
+    if (genericUi.app.isNotEmpty) appName = genericUi.app;
+    if (genericFill.app.isNotEmpty) appName = genericFill.app;
+    if (genericCompose.app.isNotEmpty) appName = genericCompose.app;
+    if (search.app.isNotEmpty) appName = search.app;
 
     // T2.9-select: ordinal ("segundo") o texto ("que dice X") del resultado.
     final resultOrdinal = _parseResultOrdinal(g);
@@ -1593,9 +2167,18 @@ class TaskOrchestrator {
       appName: appName,
       target: intent.recipient,
       draft: intent.message,
-      query: query,
+      query: search.query,
       resultOrdinal: resultOrdinal,
       resultText: resultText,
+      uiActionTarget: genericCompose.actionTarget,
+      uiTarget: genericCompose.fieldTarget.isNotEmpty
+          ? genericCompose.fieldTarget
+          : genericFill.target.isNotEmpty
+          ? genericFill.target
+          : genericUi.target,
+      uiText: genericCompose.text.isNotEmpty
+          ? genericCompose.text
+          : genericFill.text,
     );
   }
 

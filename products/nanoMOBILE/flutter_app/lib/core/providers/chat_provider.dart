@@ -130,9 +130,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // pausa el turno: se guarda la llamada + contexto de reanudación y la UI
   // muestra el diálogo. approve/reject reanudan la ronda con el resultado.
 
-  /// Llamada pendiente de confirmación (null = nada pendiente).
-  ToolCall? _pendingCall;
-
   /// Contexto para reanudar la ronda tras la decisión del usuario.
   String _pendingUserText = '';
   List<String> _pendingTrace = const [];
@@ -313,11 +310,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   // ── Confirmación de herramienta (política §12) ────────────────────────────
 
-  /// El usuario aprobó la herramienta pendiente: se ejecuta con
-  /// `confirmed: true` y la ronda continúa con el resultado en el trace.
-  /// Si el pendiente era un plan multi-paso, se reanuda DESDE el paso
-  /// aprobado (la confirmación cubre solo ese paso; el resto conserva su
-  /// política).
+  /// El usuario aprobó la herramienta pendiente. La confirmación firmada se
+  /// devuelve al mismo AutomationRun; nunca se eleva privilegio con un bool.
   Future<void> approvePendingTool() async {
     final userText = _pendingUserText;
     final trace = _pendingTrace;
@@ -329,7 +323,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final confirmation = _pendingTaskConfirmation;
       _pendingTaskGoal = null;
       _pendingTaskConfirmation = null;
-      _pendingCall = null;
       if (!mounted || confirmation == null) return;
       state = state.copyWith(
         generating: true,
@@ -386,7 +379,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _pendingPlan = null;
       _pendingPlanIndex = null;
       _pendingPlanConfirmation = null;
-      _pendingCall = null;
       if (!mounted || confirmation == null) return;
       state = state.copyWith(
         generating: true,
@@ -394,56 +386,33 @@ class ChatNotifier extends StateNotifier<ChatState> {
         pendingToolDescription: null,
       );
       final generationId = _beginGeneration();
-      final outcome = await _coordinator.runPlan(
-        plan,
-        confirmation: confirmation,
+      final result = await _coordinator.execute(
+        AutomationGoal(text: userText),
+        plan: plan,
+        options: AutomationOptions(confirmation: confirmation),
       );
       if (!_isGenerationCurrent(generationId)) return;
-      if (outcome.pauseIndex != null && outcome.pauseCall != null) {
+      if (result.isPaused && result.confirmation != null) {
         // Otro paso del plan pidió confirmación → nueva pausa.
         _pendingPlan = plan;
-        _pendingPlanIndex = outcome.pauseIndex;
-        _pendingPlanConfirmation = outcome.confirmation;
+        _pendingPlanIndex = result.pauseIndex;
+        _pendingPlanConfirmation = result.confirmation;
         state = state.copyWith(
           generating: false,
-          pendingTool: outcome.pauseCall!.tool,
-          pendingToolDescription: outcome.summary,
+          pendingTool: result.pauseTool,
+          pendingToolDescription: automationUserFacingReason(result.reason),
         );
         return;
       }
+      final feedback = automationUserFacingReason(result.reason);
       await _generateRound(
         userText,
-        [...trace, callText, outcome.summary],
+        [...trace, callText, feedback],
         const [],
         generationId,
       );
       return;
     }
-
-    final call = _pendingCall;
-    if (call == null || state.pendingTool == null) return;
-    _pendingCall = null;
-
-    // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
-    if (!mounted) return;
-    state = state.copyWith(
-      generating: true,
-      pendingTool: null,
-      pendingToolDescription: null,
-    );
-
-    final generationId = _beginGeneration();
-    final outcome = await _coordinator.runTool(call, confirmed: true);
-    if (!_isGenerationCurrent(generationId)) return;
-
-    // CORRECCIÓN CRÍTICA: Verificar mounted nuevamente antes de continuar
-    if (!mounted) return;
-    await _generateRound(
-      userText,
-      [...trace, callText, outcome.feedback],
-      const [],
-      generationId,
-    );
   }
 
   /// El usuario rechazó la herramienta pendiente: nada se ejecuta y la ronda
@@ -454,22 +423,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final callText = _pendingCallText;
     final plan = _pendingPlan;
     final taskGoal = _pendingTaskGoal;
-    final call = _pendingCall;
-    if ((call == null && plan == null && taskGoal == null) ||
-        state.pendingTool == null) {
+    if ((plan == null && taskGoal == null) || state.pendingTool == null) {
       return;
     }
     final toolName = taskGoal != null
         ? (state.pendingTool ?? 'task')
-        : plan != null
-        ? (plan[_pendingPlanIndex ?? 0].tool)
-        : call!.tool;
+        : plan![_pendingPlanIndex ?? 0].tool;
     _pendingPlan = null;
     _pendingPlanIndex = null;
     _pendingPlanConfirmation = null;
     _pendingTaskGoal = null;
     _pendingTaskConfirmation = null;
-    _pendingCall = null;
 
     // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
     if (!mounted) return;
@@ -621,9 +585,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // política y descarta cualquier confirmación pendiente vieja (tool o
     // plan multi-paso).
     _coordinator.reset();
-    _pendingCall = null;
     _pendingPlan = null;
     _pendingPlanIndex = null;
+    _pendingPlanConfirmation = null;
+    _pendingTaskGoal = null;
+    _pendingTaskConfirmation = null;
     if (state.pendingTool != null) {
       state = state.copyWith(pendingTool: null, pendingToolDescription: null);
     }
@@ -1001,12 +967,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _flushTimer = null;
   }
 
-  bool _requiresAutonomousToolConfirmation(ToolCall call) =>
-      _coordinator.requiresConfirmation(call.tool);
-
-  String _toolConfirmationDescription(ToolCall call) =>
-      _coordinator.confirmationDescription(call.tool);
-
   Future<void> _generate(
     String text,
     List<ChatAttachment> attachments,
@@ -1221,87 +1181,34 @@ class ChatNotifier extends StateNotifier<ChatState> {
         );
         _persistMessages();
 
-        // Plan multi-paso: ejecutar secuencialmente y re-generar UNA vez con
-        // el resumen del plan (evita N rondas LLM para N pasos).
-        if (toolCalls.length > 1) {
-          final worldBefore = await _tools.worldFingerprint();
-          final planOutcome = await _coordinator.runPlan(
-            toolCalls,
-            recordGoal: text,
-          );
-          if (!_isGenerationCurrent(generationId)) return;
-          if (planOutcome.pauseIndex != null && planOutcome.pauseCall != null) {
-            // Un paso pidió confirmación → pausar el plan completo.
-            _pendingPlan = toolCalls;
-            _pendingPlanIndex = planOutcome.pauseIndex;
-            _pendingPlanConfirmation = planOutcome.confirmation;
-            _pendingUserText = text;
-            _pendingTrace = toolTrace;
-            _pendingCallText = fullText;
-            state = state.copyWith(
-              generating: false,
-              pendingTool: planOutcome.pauseCall!.tool,
-              pendingToolDescription: planOutcome.summary,
-            );
-            return;
-          }
-          final worldAfter = await _tools.worldFingerprint();
-          if (_isStalledToolRound(
-            calls: toolCalls,
-            before: worldBefore,
-            after: worldAfter,
-            feedback: planOutcome.summary,
-          )) {
-            _releaseStream(lease, 'loop de herramientas');
-            _stopStalledToolLoop();
-            return;
-          }
-          _releaseStream(lease, 'entre rondas');
-          await _generateRound(
-            text,
-            [...toolTrace, fullText, planOutcome.summary],
-            const [],
-            generationId,
-          );
-          return;
-        }
-
-        final toolCall = toolCalls.single;
-        if (_requiresAutonomousToolConfirmation(toolCall)) {
-          _pendingCall = toolCall;
-          _pendingUserText = text;
-          _pendingTrace = toolTrace;
-          _pendingCallText = fullText;
-          state = state.copyWith(
-            generating: false,
-            pendingTool: toolCall.tool,
-            pendingToolDescription: _toolConfirmationDescription(toolCall),
-          );
-          return;
-        }
-
         final worldBefore = await _tools.worldFingerprint();
-        final outcome = await _coordinator.runTool(toolCall);
+        final result = await _coordinator.execute(
+          AutomationGoal(text: text),
+          plan: toolCalls,
+        );
         if (!_isGenerationCurrent(generationId)) return;
-        if (outcome.needsConfirmation) {
-          // Pausa: guardar contexto de reanudación y exponer el diálogo.
-          _pendingCall = toolCall;
+        if (result.isPaused && result.confirmation != null) {
+          // La pausa conserva plan, ejecución, paso y firma de acción exactos.
+          _pendingPlan = toolCalls;
+          _pendingPlanIndex = result.pauseIndex;
+          _pendingPlanConfirmation = result.confirmation;
           _pendingUserText = text;
           _pendingTrace = toolTrace;
           _pendingCallText = fullText;
           state = state.copyWith(
             generating: false,
-            pendingTool: toolCall.tool,
-            pendingToolDescription: outcome.feedback,
+            pendingTool: result.pauseTool,
+            pendingToolDescription: automationUserFacingReason(result.reason),
           );
           return;
         }
+        final feedback = automationUserFacingReason(result.reason);
         final worldAfter = await _tools.worldFingerprint();
         if (_isStalledToolRound(
-          calls: [toolCall],
+          calls: toolCalls,
           before: worldBefore,
           after: worldAfter,
-          feedback: outcome.feedback,
+          feedback: feedback,
         )) {
           _releaseStream(lease, 'loop de herramientas');
           _stopStalledToolLoop();
@@ -1313,7 +1220,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         _releaseStream(lease, 'entre rondas');
         await _generateRound(
           text,
-          [...toolTrace, fullText, outcome.feedback],
+          [...toolTrace, fullText, feedback],
           const [],
           generationId,
         );

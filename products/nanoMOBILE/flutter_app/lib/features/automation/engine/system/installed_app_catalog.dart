@@ -10,7 +10,13 @@ import 'system_inventory.dart';
 import 'system_models.dart';
 
 /// Cómo se resolvió un match (proveniencia del match).
-enum AppMatchKind { exactLabel, exactPackage, prefixLabel, token }
+enum AppMatchKind {
+  exactLabel,
+  exactPackage,
+  qualifiedLabel,
+  prefixLabel,
+  token,
+}
 
 /// Resultado tipado de [InstalledAppCatalog.findApp]. Nunca null-crash.
 sealed class AppMatchResult {
@@ -71,10 +77,13 @@ class InstalledAppCatalog {
 
 /// Matching puro sobre una lista de apps (compartido por [InstalledAppCatalog]
 /// y [SystemGraph]). No toca inventario ni cache.
-/// Orden: exact label → exact package → prefix label → token. Ambigüedad real →
+/// Orden: exact label → exact package → qualified label → prefix label → token.
+/// Un qualified label permite nombres comerciales como "Google Chrome" cuando
+/// la etiqueta factual instalada es "Chrome": la frase debe TERMINAR en la
+/// etiqueta completa y el resultado debe ser único. Ambigüedad real →
 /// [AppMatchAmbiguous] (nunca elige un target externo a ciegas).
 AppMatchResult matchApps(List<InstalledApp> apps, String query) {
-  final q = query.trim().toLowerCase();
+  final q = _normalizeAppName(query);
   if (q.isEmpty) return AppMatchNotFound(query);
 
   final exactLabel = apps
@@ -92,6 +101,20 @@ AppMatchResult matchApps(List<InstalledApp> apps, String query) {
     return AppMatchResolved(exactPkg.single, AppMatchKind.exactPackage);
   }
   if (exactPkg.length > 1) return AppMatchAmbiguous(exactPkg);
+
+  final qualifiedLabel = apps
+      .where((app) {
+        final label = _normalizeAppName(app.label);
+        if (label.length < 3 || label == q) return false;
+        return q.endsWith(' $label');
+      })
+      .toList(growable: false);
+  if (qualifiedLabel.length == 1) {
+    return AppMatchResolved(qualifiedLabel.single, AppMatchKind.qualifiedLabel);
+  }
+  if (qualifiedLabel.length > 1) {
+    return AppMatchAmbiguous(qualifiedLabel);
+  }
 
   final prefix = apps
       .where((a) => a.label.trim().toLowerCase().startsWith(q))
@@ -114,3 +137,6 @@ AppMatchResult matchApps(List<InstalledApp> apps, String query) {
 
   return AppMatchNotFound(query);
 }
+
+String _normalizeAppName(String value) =>
+    value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');

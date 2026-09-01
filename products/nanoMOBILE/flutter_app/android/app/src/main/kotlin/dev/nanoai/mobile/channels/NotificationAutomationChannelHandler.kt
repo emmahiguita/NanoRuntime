@@ -1,21 +1,55 @@
 package dev.nanoai.mobile.channels
 
 import android.app.Activity
+import android.app.KeyguardManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import dev.nanoai.mobile.R
 import dev.nanoai.mobile.services.NotificationAutomationBridge
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /** Puente Flutter ↔ NotificationListenerService. Todas las acciones son locales. */
 class NotificationAutomationChannelHandler(
     private val activity: Activity,
-) : MethodChannel.MethodCallHandler {
+) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
 
     companion object {
         const val CHANNEL_NAME = "com.nanoai/notifications"
-        val CAPABILITIES = listOf("notification-read", "notification-reply")
+        private const val CONFIRMATION_CHANNEL_ID = "nano_automation_confirmation"
+        private const val CONFIRMATION_NOTIFICATION_ID = 0x4E41
+        const val CONFIRMATION_EVENTS_CHANNEL_NAME =
+            "com.nanoai/automation_confirmation_events"
+        const val ACTION_CONFIRM_AUTOMATION =
+            "dev.nanoai.mobile.action.CONFIRM_AUTOMATION"
+        @Volatile
+        private var confirmationEventsSink: EventChannel.EventSink? = null
+
+        fun emitConfirmationAction(action: String): Boolean {
+            val sink = confirmationEventsSink ?: return false
+            sink.success(action)
+            return true
+        }
+
+        fun dismissConfirmation(context: Context) {
+            NotificationManagerCompat.from(context)
+                .cancel(CONFIRMATION_NOTIFICATION_ID)
+        }
+
+        val CAPABILITIES = listOf(
+            "notification-read",
+            "notification-reply",
+            "automation-confirmation-alert",
+        )
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -48,6 +82,15 @@ class NotificationAutomationChannelHandler(
                 result.success(NotificationAutomationBridge.service?.snapshot(limit) ?: emptyList<Any>())
             }
 
+            "showAutomationConfirmation" ->
+                result.success(showAutomationConfirmation())
+
+            "dismissAutomationConfirmation" -> {
+                NotificationManagerCompat.from(activity)
+                    .cancel(CONFIRMATION_NOTIFICATION_ID)
+                result.success(true)
+            }
+
             "reply" -> {
                 val key = call.argument<String>("key")
                 val text = call.argument<String>("text")
@@ -70,6 +113,103 @@ class NotificationAutomationChannelHandler(
             }
 
             else -> result.notImplemented()
+        }
+    }
+
+    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        confirmationEventsSink = events
+    }
+
+    override fun onCancel(arguments: Any?) {
+        confirmationEventsSink = null
+    }
+
+    /**
+     * Hace visible una pausa de gobernanza mientras la app controlada está al
+     * frente. La notificación NO confirma ni ejecuta nada: solo devuelve al
+     * usuario a la confirmación firmada que conserva Flutter/Journal.
+     */
+    private fun showAutomationConfirmation(): Boolean {
+        val manager = NotificationManagerCompat.from(activity)
+        if (!manager.areNotificationsEnabled()) return false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CONFIRMATION_CHANNEL_ID,
+                "Confirmaciones de automatización",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Solicitudes de revisión antes de acciones sensibles"
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+            }
+            activity.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
+        }
+
+        val reviewIntent = Intent(activity, activity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        val reviewPendingIntent = PendingIntent.getActivity(
+            activity,
+            CONFIRMATION_NOTIFICATION_ID,
+            reviewIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val confirmIntent = Intent(
+            activity,
+            AutomationConfirmationActionReceiver::class.java,
+        ).setAction(ACTION_CONFIRM_AUTOMATION)
+        val confirmPendingIntent = PendingIntent.getBroadcast(
+            activity,
+            CONFIRMATION_NOTIFICATION_ID + 1,
+            confirmIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(activity, CONFIRMATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_nano_confirmation)
+            .setContentTitle("Nano necesita confirmación")
+            .setContentText("Toca para revisar y autorizar la acción pendiente.")
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("La automatización está pausada. Toca para revisar y autorizar la acción pendiente en Nano."),
+            )
+            .setContentIntent(reviewPendingIntent)
+            .addAction(
+                R.drawable.ic_nano_confirmation,
+                "Confirmar acción",
+                confirmPendingIntent,
+            )
+            .addAction(0, "Revisar en Nano", reviewPendingIntent)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .build()
+
+        return try {
+            manager.notify(CONFIRMATION_NOTIFICATION_ID, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+}
+
+/**
+ * Entrada explícita y no exportada para confirmar desde la notificación sin
+ * sacar del primer plano a la app controlada. No contiene token ni payload:
+ * Flutter reanuda exclusivamente la confirmación firmada que mantiene activa.
+ */
+class AutomationConfirmationActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
+        if (intent?.action != NotificationAutomationChannelHandler.ACTION_CONFIRM_AUTOMATION) {
+            return
+        }
+        val keyguard = context.getSystemService(KeyguardManager::class.java)
+        if (keyguard?.isDeviceLocked == true) return
+
+        if (NotificationAutomationChannelHandler.emitConfirmationAction("confirm")) {
+            NotificationAutomationChannelHandler.dismissConfirmation(context)
         }
     }
 }

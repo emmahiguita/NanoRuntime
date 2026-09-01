@@ -188,14 +188,18 @@ class PerceptionMux {
       policy: policy,
     );
     if (result is! PerceptionResolved) return null;
+    // OCR/Vision producen objetos virtuales para observación. No son targets
+    // ejecutables por sí mismos: solo el navegador puede re-ligarlos a un
+    // control accesible actual y único antes de generar una acción.
+    if (result.object.sourceIndex < 0) return null;
     return _toSelector(result);
   }
 
   String? _toSelector(PerceptionResolved r) {
     final obj = r.object;
-    if (obj.resourceId.isNotEmpty) return 'id=${obj.resourceId}';
-    if (obj.text.isNotEmpty) return 'text=${obj.text}';
     if (obj.description.isNotEmpty) return 'desc=${obj.description}';
+    if (obj.text.isNotEmpty) return 'text=${obj.text}';
+    if (obj.resourceId.isNotEmpty) return 'id=${obj.resourceId}';
     return null;
   }
 
