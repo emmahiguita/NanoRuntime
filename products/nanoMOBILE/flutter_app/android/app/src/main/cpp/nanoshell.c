@@ -309,18 +309,19 @@ static int _spawn_internal(
             if (fd != STDOUT_FILENO && fd != STDERR_FILENO) close(fd);
         }
 
-        // Cap virtual memory BEFORE starting the binary: a runaway tar/leaky
-        // daemon can't exhaust device RAM (worker process, shared with app).
-        // Override via NANOAI_RLIMIT_AS_MB.
-        apply_rlimit_as();
+        // NO aplicar RLIMIT_AS aquí (ni antes del execve ni antes del dlopen):
+        // el hijo hereda el VA del proceso app completo y el linker necesita
+        // mmap libre para cargar el binario y sus zonas (CFI shadow de PIE
+        // dlopen'eados). Con el cap puesto antes, el mmap falla y el linker
+        // aborta: linker_block_allocator create_new_page CHECK
+        // 'page != MAP_FAILED'. El cap va DESPUÉS del dlopen (abajo), justo
+        // antes de main() — protege contra crecimiento descontrolado del
+        // binario, no contra el estado heredado. El camino execve queda sin
+        // cap (el límite se heredaría al proceso nuevo y rompería su linker).
 
         // Apply environment variables BEFORE dlopen so that
         // libnanoroot's constructor can read NANO_ROOTFS from env.
         apply_env(envp);
-
-        // â”€â”€ Memory limit (512 MB soft cap) â”€â”€
-        // Delegates to util.c which reads NANOAI_RLIMIT_AS_MB env override.
-        apply_rlimit_as();
 
         // Set LD_PRELOAD before execve so the kernel linker loads it.
         if (ld_preload && ld_preload[0]) {
@@ -517,6 +518,12 @@ static int _spawn_internal(
             if (!mutable_argv[i]) _exit(126); // Check for OOM to prevent malformation
         }
         mutable_argv[argc] = NULL;
+
+        // Cap DESPUÉS de cargar todo (dlopen + preloads): el linker ya
+        // reservó sus zonas; ahora sí podemos limitar el crecimiento del
+        // binario sin romper su arranque. Floor dinámico en util.c (VA
+        // actual + margen) para no bloquear mmaps legítimos.
+        apply_rlimit_as();
 
         int rc = 0;
         if (_use_stack_entry && _stack_entry) {
