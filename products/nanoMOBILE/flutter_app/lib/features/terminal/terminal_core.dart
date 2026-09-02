@@ -657,6 +657,21 @@ class _TermState extends State<NanoTerminal> {
     CommandExecutor.execute(raw, _execCtx());
   } // puente syncâ†’async para onSubmitted
 
+  /// TER-10 — "usar" un comando de la Noar Library en el terminal activo.
+  /// Con bash PTY: bytes crudos + \r (mismo camino del KeyEvent, verificado
+  /// en device — el onSubmitted del IME no alimenta al PTY). Sin PTY:
+  /// insertar en el input y ejecutar vía dispatcher.
+  void _useCommand(String cmd) {
+    if (_ptyActive) {
+      _pty!.writeBytes(utf8.encode(cmd));
+      _pty!.writeBytes([0x0d]);
+      _fn.requestFocus();
+    } else {
+      _in.text = cmd;
+      _exec(cmd);
+    }
+  }
+
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
 
   int _ptyRows = 24, _ptyCols = 80;
@@ -1259,8 +1274,12 @@ class _TermState extends State<NanoTerminal> {
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (_) =>
-                            NoarPanel(library: _noarLib, fg: fg, dark: dark),
+                        builder: (_) => NoarPanel(
+                          library: _noarLib,
+                          fg: fg,
+                          dark: dark,
+                          onUse: _useCommand,
+                        ),
                       );
                     },
                     child: Container(

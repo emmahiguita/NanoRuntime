@@ -13,11 +13,16 @@ class NoarPanel extends StatefulWidget {
   final Color fg;
   final bool dark;
 
+  /// Ejecuta el comando en el terminal activo (bash PTY real o dispatcher).
+  /// El panel se cierra tras usarlo.
+  final void Function(String cmd)? onUse;
+
   const NoarPanel({
     super.key,
     required this.library,
     required this.fg,
     required this.dark,
+    this.onUse,
   });
 
   @override
@@ -70,6 +75,15 @@ class _NoarPanelState extends State<NoarPanel> {
         backgroundColor: widget.fg.withValues(alpha: 0.15),
       ),
     );
+  }
+
+  void _use(String cmd) {
+    if (widget.onUse == null) {
+      _copy(cmd); // sin callback: copiar sigue siendo útil
+      return;
+    }
+    widget.onUse!(cmd);
+    Navigator.pop(context); // cerrar el panel tras usar
   }
 
   @override
@@ -309,6 +323,17 @@ class _NoarPanelState extends State<NoarPanel> {
                                     ),
                                   ],
                                   const Spacer(),
+                                  // Ejecutar en el terminal activo (bash real
+                                  // o dispatcher). El copy sigue aparte.
+                                  GestureDetector(
+                                    onTap: () => _use(cmd),
+                                    child: Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 18,
+                                      color: widget.fg.withValues(alpha: 0.55),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   GestureDetector(
                                     onTap: () => _copy(cmd),
                                     child: Icon(
