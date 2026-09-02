@@ -1223,6 +1223,33 @@ class _TermState extends State<NanoTerminal> {
                         onSubmitted: _exec,
                         onChanged: (v) {
                           if (_ptyActive && v.isNotEmpty) {
+                            // TER-11: Ctrl fijo (botón "Ctrl ON" de la barra)
+                            // + tecla del teclado táctil. El KeyEvent Ctrl+C
+                            // de _onKey solo llega con teclado hardware; el
+                            // IME no genera KeyEvents, así que sin esto Ctrl+C
+                            // era inalcanzable en táctil (letra "c" literal
+                            // al bash) y top/htop/python quedaban colgados.
+                            if (_ctrl) {
+                              final c = v.codeUnitAt(0);
+                              setState(() => _ctrl = false);
+                              if (c == 0x63 || c == 0x43) {
+                                // Ctrl+C: byte 0x03 — el kernel (ISIG del
+                                // termios que readline/bash ponen) genera el
+                                // SIGINT al grupo foreground. No se llama
+                                // kill() desde la app (seccomp ColorOS ya
+                                // mató shmget con SIGSYS: cero syscalls
+                                // innecesarias).
+                                _pty!.writeBytes([0x03]);
+                              } else if (c >= 0x61 && c <= 0x7a) {
+                                _pty!.writeBytes([c - 0x60]);
+                              } else if (c >= 0x41 && c <= 0x5a) {
+                                _pty!.writeBytes([c - 0x40]);
+                              } else {
+                                _pty!.writeBytes(utf8.encode(v));
+                              }
+                              _in.value = TextEditingValue.empty;
+                              return;
+                            }
                             // Send raw bytes including printable chars. Control chars
                             // (backspace 0x7F, etc.) are handled by _onKey/modifier row,
                             // not the soft keyboard, so filtering >= 0x20 is correct.

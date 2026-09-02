@@ -95,6 +95,14 @@ class TerminalModifierBar extends StatelessWidget {
             key('/', () => onWriteBytes([0x2f])),
             key('-', () => onWriteBytes([0x2d])),
             key('|', () => onWriteBytes([0x7c])),
+            const SizedBox(width: 8),
+            // TER-11: señales accesibles en táctil (un tap, sin Ctrl fijo).
+            // 0x03 por ISIG del kernel genera SIGINT al grupo foreground;
+            // sin kill() desde la app (seccomp ColorOS hostil con syscalls
+            // extra — precedente shmget→SIGSYS).
+            key('C-c', () => onWriteBytes([0x03]), longLabel: 'Ctrl+C'),
+            key('C-d', () => onWriteBytes([0x04]), longLabel: 'Ctrl+D'),
+            key('C-z', () => onWriteBytes([0x1a]), longLabel: 'Ctrl+Z'),
           ],
         ),
       ),
