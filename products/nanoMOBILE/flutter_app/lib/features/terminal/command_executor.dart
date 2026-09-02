@@ -138,19 +138,24 @@ class CommandExecutor {
         await x.closePty();
         return;
       }
-      if (cmd.isNotEmpty) {
-        x.audit?.event(
-          'command.pty.write_line',
-          layer: 'terminal',
-          traceId: traceId,
-          command: cmd,
-          byteCount: cmd.length + 1,
-        );
-        // _onKey ya transmitió cada tecla (UTF-8 via keyToPtyBytes) al PTY
-        // conforme se tecleó. Aquí solo se envía CR (Enter). Reenviar el
-        // comando completo duplicaría cada carácter (regresión real).
-        x.pty!.writeBytes([0x0d]);
-      }
+      x.audit?.event(
+        'command.pty.write_line',
+        layer: 'terminal',
+        traceId: traceId,
+        command: cmd,
+        byteCount: cmd.length + 1,
+      );
+      // _onKey ya transmitió cada tecla (UTF-8 via keyToPtyBytes) al PTY
+      // conforme se tecleó. Aquí solo se envía CR (Enter). Reenviar el
+      // comando completo duplicaría cada carácter (regresión real).
+      //
+      // El teclado VIRTUAL entrega caracteres por onChanged — que reenvía
+      // cada carácter al PTY y limpia el campo — así que onSubmitted llega
+      // con raw VACÍO. En modo PTY todo Enter es el comando de envío: el CR
+      // va SIEMPRE al terminal, con texto o sin él (un Enter en línea vacía
+      // es válido en bash). Sin este CR, "enviar" del teclado virtual no
+      // hacía nada (el CR solo se enviaba si raw no estaba vacío).
+      x.pty!.writeBytes([0x0d]);
       return;
     }
 
