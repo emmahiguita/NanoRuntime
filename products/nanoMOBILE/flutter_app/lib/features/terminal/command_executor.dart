@@ -12,8 +12,9 @@ import 'terminal_types.dart';
 /// can live outside _TermState. Every dependency is explicit here — no implicit
 /// coupling to the widget state (DIP applied).
 ///
-/// Mutable fields (historyIndex, bashCwd) are owned by _TermState and borrowed
-/// by CommandExecutor for the duration of execute().
+/// Mutable fields (historyIndex, bashCwd) are owned by _TermState. Se pasan
+/// como [Ref]: CmdExecCtx se construye por llamada (copia por valor), así que
+/// una mutación directa del campo se perdería junto con la instancia.
 class CmdExecCtx {
   // ── Output ──
   final void Function(String, Ln) out;
@@ -27,7 +28,7 @@ class CmdExecCtx {
   // ── Prompt & history ──
   String ps1;
   final List<String> history;
-  int historyIndex;
+  Ref<int> historyIndex;
   final TextEditingController input;
 
   // ── Noar library ──
@@ -40,7 +41,7 @@ class CmdExecCtx {
 
   // ── Shell ──
   final IBinExecutor? shell;
-  String bashCwd;
+  Ref<String> bashCwd;
   final RootfsManager? rootfs;
 
   /// Filesystem shell REAL del host (desktop Linux/macOS). null en Android
@@ -98,6 +99,15 @@ class CmdExecCtx {
   });
 }
 
+/// Holder mutable compartido entre el estado del terminal y el pipeline de
+/// ejecución. CmdExecCtx se construye por llamada y copia por valor; los
+/// campos que el pipeline actualiza (bashCwd, historyIndex) deben vivir en
+/// un holder propiedad del estado para que la mutación sobreviva a la copia.
+final class Ref<T> {
+  Ref(this.value);
+  T value;
+}
+
 /// Executes a single raw command line through the complete pipeline:
 /// PTY → history → dispatcher → !shell → shell ops → real commands → registry.
 ///
@@ -148,7 +158,7 @@ class CommandExecutor {
     final cmd = raw.trim();
     if (cmd.isEmpty) return;
     x.history.add(cmd);
-    x.historyIndex = -1;
+    x.historyIndex.value = -1;
     x.input.clear();
     x.saveToNoar(cmd, x.tagFor(cmd));
 
@@ -191,16 +201,18 @@ class CommandExecutor {
       if (shellCmd.startsWith('cd ') || shellCmd == 'cd') {
         final target = shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
         if (target == '..') {
-          x.bashCwd = x.bashCwd == '/'
+          x.bashCwd.value = x.bashCwd.value == '/'
               ? '/'
-              : x.bashCwd.substring(0, x.bashCwd.lastIndexOf('/'));
-          if (x.bashCwd.isEmpty) x.bashCwd = '/';
+              : x.bashCwd.value.substring(0, x.bashCwd.value.lastIndexOf('/'));
+          if (x.bashCwd.value.isEmpty) x.bashCwd.value = '/';
         } else if (target.startsWith('/')) {
-          x.bashCwd = target;
+          x.bashCwd.value = target;
         } else if (target.isNotEmpty) {
-          x.bashCwd = x.bashCwd == '/' ? '/$target' : '${x.bashCwd}/$target';
+          x.bashCwd.value = x.bashCwd.value == '/'
+              ? '/$target'
+              : '${x.bashCwd.value}/$target';
         }
-        x.out('[ash] cd → ${x.bashCwd}', Ln.system);
+        x.out('[ash] cd → ${x.bashCwd.value}', Ln.system);
       }
       if (x.shell != null && x.shell!.initialized) {
         x.out('[ash] $shellCmd', Ln.system);
@@ -332,7 +344,7 @@ class CommandExecutor {
               x.realFs?.hasRealShell == true)) {
         // Desktop: binario real del host con fallback dart:io.
         await x.realFs!.run(name, args, out: x.out);
-        if (name == 'cd') x.bashCwd = x.realFs!.cwd;
+        if (name == 'cd') x.bashCwd.value = x.realFs!.cwd;
         return;
       }
       if (!x.isAndroid) {
@@ -346,7 +358,7 @@ class CommandExecutor {
     // ── Fallback dart:io (desktop, comandos fuera de realCommands) ──
     if (!x.isAndroid && x.realFs?.supports(name) == true) {
       await x.realFs!.run(name, args, out: x.out);
-      if (name == 'cd') x.bashCwd = x.realFs!.cwd;
+      if (name == 'cd') x.bashCwd.value = x.realFs!.cwd;
       return;
     }
 

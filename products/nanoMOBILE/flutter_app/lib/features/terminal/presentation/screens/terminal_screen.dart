@@ -19,6 +19,9 @@ class _S extends State<TerminalTabScreen> {
   int _active = 0;
   final _sessions = <_Sess>[];
   int _counter = 0;
+  // ID de sesión monotónico: NUNCA _sessions.length (cerrar+añadir dejaba
+  // ids duplicados que rompían ValueKey('t${s.id}') y _close removeWhere).
+  int _nextId = 0;
   late final LLMEngineClient _engine;
 
   @override
@@ -61,6 +64,9 @@ class _S extends State<TerminalTabScreen> {
       );
       restoredCounter = restored.length;
     }
+    _nextId =
+        restored.map((s) => s.id).fold(0, (max, id) => id > max ? id : max) +
+        1;
 
     if (!mounted) return;
     setState(() {
@@ -99,7 +105,7 @@ class _S extends State<TerminalTabScreen> {
     ][_counter++ % 6];
     _sessions.add(
       _Sess(
-        id: _sessions.length,
+        id: _nextId++,
         name: t,
         cwd: '/home/nanoai',
         type: t,

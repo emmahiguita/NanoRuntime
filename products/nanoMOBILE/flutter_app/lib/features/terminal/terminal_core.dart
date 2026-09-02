@@ -115,7 +115,9 @@ class _TermState extends State<NanoTerminal> {
       _fn = FocusNode();
   final _lines = <TL>[], _hist = <String>[], _timers = <Timer>[];
   final _ctx = TerminalCtx();
-  int _hIdx = -1;
+  // Ref: el CommandExecutor muta estos campos en la instancia de CmdExecCtx
+  // que recibe por copia; el holder compartido conserva la mutación.
+  final _hIdx = Ref<int>(-1);
   bool _ctrl = false, _alive = true;
   bool _initialCmdDone = false;
   LLMEngineClient? _engine;
@@ -138,7 +140,7 @@ class _TermState extends State<NanoTerminal> {
   bool _fabInit = false;
   static const double _fabSize = 40;
 
-  String _bashCwd = '/';
+  final _bashCwd = Ref<String>('/');
 
   /// Fallback dart:io real (ver real_fs_shell.dart). Solo se usa en hosts sin
   /// binarios Android (desktop/tests): los comandos FS operan sobre el
@@ -151,7 +153,7 @@ class _TermState extends State<NanoTerminal> {
   /// implementa el subconjunto dart:io como fallback real.
   String get _ps1 {
     final h = _devId?['hostname'] as String? ?? 'oppo';
-    String home = _bashCwd;
+    String home = _bashCwd.value;
     if (home == '/systemTemp/nano_real_root' || home == '/') {
       home = '~';
     } else if (home.startsWith('/systemTemp/nano_real_root/')) {
@@ -288,7 +290,7 @@ class _TermState extends State<NanoTerminal> {
         _ctx.env['ANDROID_DATA'] = '/data';
         _ctx.env['ANDROID_ROOT'] = '/system';
         _ctx.env['LANG'] = 'en_US.UTF-8';
-        _bashCwd = '$base/home';
+        _bashCwd.value = '$base/home';
         try {
           Directory('$base/home').createSync(recursive: true);
         } catch (_) {}
@@ -344,12 +346,10 @@ class _TermState extends State<NanoTerminal> {
     _timers.clear();
     _cron?.dispose();
     _cron = null;
-    try {
-      _shell?.killAll();
-    } catch (_) {}
-    try {
-      _docker?.dispose();
-    } catch (_) {}
+    // El shell y el runtime Docker pertenecen a TerminalDependencies
+    // (singleton compartido entre pestañas). Cerrar UNA pestaña no debe
+    // matar los workers FFI ni el runtime de las demás sesiones: el dueño
+    // único los libera en TerminalDependencies.dispose() (vida de la app).
     _in.dispose();
     _sc.dispose();
     _fn.dispose();
@@ -1141,9 +1141,9 @@ class _TermState extends State<NanoTerminal> {
                     child: CallbackShortcuts(
                       bindings: {
                         const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-                          if (_hIdx < _hist.length - 1) {
-                            _hIdx++;
-                            _in.text = _hist.reversed.toList()[_hIdx];
+                          if (_hIdx.value < _hist.length - 1) {
+                            _hIdx.value++;
+                            _in.text = _hist.reversed.toList()[_hIdx.value];
                             _in.selection = TextSelection.collapsed(
                               offset: _in.text.length,
                             );
@@ -1152,11 +1152,11 @@ class _TermState extends State<NanoTerminal> {
                         const SingleActivator(
                           LogicalKeyboardKey.arrowDown,
                         ): () {
-                          if (_hIdx > 0) {
-                            _hIdx--;
-                            _in.text = _hist.reversed.toList()[_hIdx];
+                          if (_hIdx.value > 0) {
+                            _hIdx.value--;
+                            _in.text = _hist.reversed.toList()[_hIdx.value];
                           } else {
-                            _hIdx = -1;
+                            _hIdx.value = -1;
                             _in.clear();
                           }
                         },
@@ -1206,7 +1206,7 @@ class _TermState extends State<NanoTerminal> {
                             _in.value = TextEditingValue.empty;
                             return;
                           }
-                          _hIdx = -1;
+                          _hIdx.value = -1;
                         },
                       ),
                     ),
