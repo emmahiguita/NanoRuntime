@@ -69,6 +69,20 @@ class TaskPlanner {
     'envíale',
     'enviale',
     'message to',
+    // WA-UI-07: respuestas ("responde a X que Y"). La rama reply exige
+    // recipient + message (ver [plan]); el candidato RemoteInput corre ANTES
+    // en el coordinator (transporte más barato primero).
+    'responde a',
+    'responde',
+    'respóndele',
+    'respondele',
+    'responder',
+    'contesta a',
+    'contesta',
+    'contéstale',
+    'contestale',
+    'reply to',
+    'reply',
   ];
 
   /// T2.9-select — una mención aislada a "resultado" no basta: también debe
@@ -141,8 +155,7 @@ class TaskPlanner {
     return TaskPlan(
       goal: goal,
       steps: [
-        if (openApp)
-          const TaskStep(id: 'open_app', semanticAction: 'openApp'),
+        if (openApp) const TaskStep(id: 'open_app', semanticAction: 'openApp'),
         write,
         const TaskStep(
           id: 'submit_search',

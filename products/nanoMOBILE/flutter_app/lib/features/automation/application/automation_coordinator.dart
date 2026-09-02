@@ -844,11 +844,33 @@ class AutomationCoordinator {
         return finish(r);
       }
 
+      // WA-UI-07 — transporte primero: para intenciones de respuesta, el
+      // candidato grounded (RemoteInput: 0 taps, 0 navegación) se intenta
+      // ANTES del template UI cross-app. Un resolved de launch_app (abrir la
+      // app sin enviar) NO satisface una respuesta: se ignora y el fallback
+      // determinista de mensajería UI (openApp→openConversation→writeMessage→
+      // sendMessage con revalidación de identidad) corre dentro de plan==null.
+      if (plan == null &&
+          _candidateFirst != null &&
+          _looksLikeReplyIntent(goal.text)) {
+        final replyFirst = await _candidateFirst.plan(goal.text);
+        if (replyFirst is CandidatePlanResolved &&
+            replyFirst.call.tool == 'reply_notification') {
+          plan = [replyFirst.call];
+          runExpectation = replyFirst.expectation;
+          selectionMode = replyFirst.selectionMode.name;
+          koogInvoked = replyFirst.koogInvoked;
+          candidateCount = replyFirst.candidateCount;
+        } else if (replyFirst is CandidatePlanGoverned) {
+          final r = _resultFromGoverned(executionId, replyFirst.outcome);
+          return finish(r);
+        }
+      }
+
       if (plan == null) {
         // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
         // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
         // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
-        deterministicCrossAppAttempted = true;
         final crossApp = await tryCrossApp(goal.text, run: run);
         if (crossApp != null) {
           // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
@@ -1228,6 +1250,24 @@ class AutomationCoordinator {
   static int _seq = 0;
   static String _newId() =>
       'auto-${DateTime.now().microsecondsSinceEpoch}-${++_seq}';
+
+  /// WA-UI-07 — ¿el goal pide RESPONDER un mensaje? Mismo vocabulario que
+  /// NotificationCandidateProvider: solo estas intenciones reciben el intento
+  /// RemoteInput-first; cualquier otro goal conserva su ruta actual intacta.
+  static const List<String> _replyGoalTerms = [
+    'responde a',
+    'responde',
+    'responder',
+    'contesta a',
+    'contesta',
+    'contestar',
+    'reply',
+  ];
+
+  bool _looksLikeReplyIntent(String goal) {
+    final g = goal.toLowerCase();
+    return _replyGoalTerms.any(g.contains);
+  }
 
   // ── Trazas (ledger) ───────────────────────────────────────────────────────
 
