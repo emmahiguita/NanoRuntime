@@ -21,6 +21,7 @@ import 'keyboard_mapper.dart';
 import 'command_executor.dart';
 import 'command_tagger.dart';
 import 'noar_persistence.dart';
+import 'noar_builtin_commands.dart';
 
 import 'noar_panel.dart';
 import 'ansi_terminal.dart';
@@ -138,7 +139,9 @@ class _TermState extends State<NanoTerminal> {
 
   Offset _fabOffset = Offset.zero;
   bool _fabInit = false;
-  static const double _fabSize = 40;
+  // TER-12: FAB pill con texto "Noar Library" + contador de comandos.
+  static const double _fabW = 158;
+  static const double _fabH = 44;
 
   final _bashCwd = Ref<String>('/');
 
@@ -209,7 +212,7 @@ class _TermState extends State<NanoTerminal> {
       if (!_fabInit && mounted) {
         final sz = MediaQuery.of(context).size;
         setState(() {
-          _fabOffset = Offset(sz.width - _fabSize - 12, sz.height * 0.35);
+          _fabOffset = Offset(sz.width - _fabW - 12, sz.height * 0.35);
           _fabInit = true;
         });
       }
@@ -1284,23 +1287,21 @@ class _TermState extends State<NanoTerminal> {
                   final sw = MediaQuery.of(context).size.width;
                   final sh = MediaQuery.of(context).size.height;
                   _fabOffset = Offset(
-                    (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabSize),
+                    (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabW),
                     (_fabOffset.dy + d.delta.dy).clamp(
                       40.0,
-                      sh - _fabSize - 100,
+                      sh - _fabH - 100,
                     ),
                   );
                 });
               },
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                opacity: _fabInit ? 0.55 : 0.0,
+                opacity: _fabInit ? 1.0 : 0.0,
                 child: Material(
-                  color: chrome,
-                  borderRadius: BorderRadius.circular(12),
-                  elevation: 4,
+                  color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(_fabH / 2),
                     onTap: () {
                       showModalBottomSheet(
                         context: context,
@@ -1314,14 +1315,62 @@ class _TermState extends State<NanoTerminal> {
                         ),
                       );
                     },
+                    // TER-12: FAB pill "Noar Library" con texto visible y
+                    // contador de comandos. Paleta del terminal real:
+                    // fondo chrome, verde neón fg, ámbar warning en el badge.
                     child: Container(
-                      width: _fabSize,
-                      height: _fabSize,
+                      height: _fabH,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: fg.withValues(alpha: 0.18)),
+                        color: chrome,
+                        borderRadius: BorderRadius.circular(_fabH / 2),
+                        border: Border.all(color: fg.withValues(alpha: 0.35)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: fg.withValues(alpha: 0.14),
+                            blurRadius: 10,
+                          ),
+                        ],
                       ),
-                      child: Icon(Icons.menu_book_rounded, color: fg, size: 20),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.menu_book_rounded, color: fg, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Noar Library',
+                            style: TextStyle(
+                              fontFamily: 'JetBrainsMono',
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: fg,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.warning.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: c.warning.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Text(
+                              '${noarBuiltinCommands.length + _noarLib.length}',
+                              style: TextStyle(
+                                fontFamily: 'JetBrainsMono',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: c.warning,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

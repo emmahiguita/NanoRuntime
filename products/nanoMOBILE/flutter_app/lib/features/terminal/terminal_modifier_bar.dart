@@ -34,17 +34,33 @@ class TerminalModifierBar extends StatelessWidget {
       color: fg.withValues(alpha: 0.7),
     );
 
-    Widget key(String label, VoidCallback onTap, {String? longLabel}) {
+    Widget key(String label, VoidCallback onTap,
+        {String? longLabel, bool active = false}) {
       return GestureDetector(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: fg.withValues(alpha: 0.06),
+            color: active
+                ? fg.withValues(alpha: 0.16)
+                : fg.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: active
+                  ? fg.withValues(alpha: 0.5)
+                  : Colors.transparent,
+            ),
           ),
-          child: Text(longLabel ?? label, style: style),
+          child: Text(
+            longLabel ?? label,
+            style: active
+                ? style.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                  )
+                : style,
+          ),
         ),
       );
     }
@@ -61,6 +77,7 @@ class TerminalModifierBar extends StatelessWidget {
             'Ctrl',
             onToggleCtrl,
             longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
+            active: ctrlActive,
           ),
           key('Tab', () => onWriteBytes([0x09])),
           // TER-11: señales accesibles en táctil (un tap, sin Ctrl fijo),
