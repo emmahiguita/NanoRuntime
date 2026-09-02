@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
@@ -10,7 +11,8 @@ enum _OwlState { sleeping, idle, takeoff, flying }
 ///
 /// Sprites reales (assets/owl/, PNG RGBA 256 px, reescalados desde el
 /// diseño original 1024 px). Arquitectura de 3 capas del diseño:
-/// 1. Círculo nativo azul con gradiente radial + glow cian.
+/// 1. Burbuja de vidrio iOS transparente (blur real + anillo blanco
+///    + brillo especular + glow cian).
 /// 2. Personaje con cinemática: respiración en reposo, parpadeo
 ///    aleatorio, despegue (alas) y aleteo continuo en el aire.
 /// 3. Zzz flotantes cuando duerme (panel cerrado).
@@ -145,6 +147,31 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     )..repeat();
 
     _startStateLoop();
+    // TER-20: precarga de TODOS los sprites — la primera transición de
+    // estado ya no decodifica PNGs en el hilo de UI (causa del lag al
+    // primer despegue/parpadeo).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precacheSprites();
+    });
+  }
+
+  Future<void> _precacheSprites() async {
+    const all = [
+      ..._sleepFrames,
+      ..._blinkFrames,
+      ..._takeoffFrames,
+      ..._flightFrames,
+      _neutralFrame,
+    ];
+    try {
+      await Future.wait(
+        all.map((asset) => precacheImage(AssetImage(asset), context)),
+      );
+    } catch (_) {
+      // Precache best-effort: si un asset falla, el Image lo decodifica
+      // en demanda. No es crítico.
+    }
   }
 
   @override
@@ -217,6 +244,9 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     if (_state == _OwlState.flying) return;
     _frameTimer?.cancel();
     _blinkTimer?.cancel();
+    // TER-20: breath pausado en vuelo — un solo controller repinta el
+    // personaje (hover); la respiración queda congelada hasta aterrizar.
+    _breathController.stop();
     setState(() {
       _state = _OwlState.takeoff;
       _frameIndex = 0;
@@ -262,6 +292,7 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     _hoverController
       ..stop()
       ..value = 0;
+    _breathController.repeat(reverse: true);
     setState(() {
       _state = widget.expanded ? _OwlState.idle : _OwlState.sleeping;
       _frameIndex = 0;
@@ -343,10 +374,11 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
                     ),
                   ),
                 ),
-                // CAPA 1: círculo nativo azul con gradiente radial y
-                // glow cian (del diseño original del búho). TER-19: se
-                // desvanece desde el despegue (airborne), no solo en
-                // vuelo — sin círculo flotando detrás del personaje.
+                // CAPA 1: burbuja de vidrio iOS (TER-20) — el círculo
+                // azul sólido desaparece: burbuja transparente con blur
+                // real del fondo, anillo blanco y brillo especular. Se
+                // desvanece desde el despegue (airborne): nunca flota
+                // detrás del personaje en vuelo.
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeInOutCubic,
@@ -358,32 +390,58 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
                     height: size,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        center: Alignment(-0.3, -0.3),
-                        colors: [
-                          Color(0xFF1976D2),
-                          Color(0xFF0D47A1),
-                          Color(0xFF062252),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.22),
-                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.30),
-                          blurRadius: 12,
+                          color: Colors.black.withValues(alpha: 0.22),
+                          blurRadius: 14,
                           spreadRadius: -2,
                           offset: const Offset(0, 6),
                         ),
                         BoxShadow(
                           color:
-                              const Color(0xFF00E5FF).withValues(alpha: 0.32),
-                          blurRadius: 16,
+                              const Color(0xFF00E5FF).withValues(alpha: 0.22),
+                          blurRadius: 18,
                           spreadRadius: -2,
                           offset: const Offset(0, 3),
                         ),
                       ],
+                    ),
+                    child: ClipOval(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.20),
+                                const Color(
+                                  0xFF9FC5E8,
+                                ).withValues(alpha: 0.08),
+                                const Color(
+                                  0xFF3B82F6,
+                                ).withValues(alpha: 0.06),
+                              ],
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.38),
+                              width: 1.1,
+                            ),
+                          ),
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                center: Alignment(-0.35, -0.45),
+                                radius: 0.6,
+                                colors: [Color(0x4DFFFFFF), Color(0x00FFFFFF)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -415,6 +473,11 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
                             _asset,
                             fit: BoxFit.contain,
                             filterQuality: FilterQuality.high,
+                            // TER-20: sin flash entre fotogramas —
+                            // mantiene el sprite actual hasta que el
+                            // siguiente esté listo (precargado:
+                            // cambio instantáneo, sincronizado).
+                            gaplessPlayback: true,
                           ),
                         ),
                       ),
