@@ -21,6 +21,7 @@ import 'package:nanoai/features/automation/engine/perception/mux/perception_cont
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
+import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
@@ -364,12 +365,22 @@ final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
   return registry;
 });
 
-/// Pipeline WhatsApp-first (T3.3): notificación → match → AutomationCoordinator.
+/// Puerta de idempotencia de eventos (WA-DEDUPE-03 / T3.6): memoria de
+/// eventos vistos + ecos de envíos + cooldown por conversación. Persistente
+/// (shared_prefs JSON); la carga es asíncrona (arranque) igual que las reglas.
+final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
+  final store = SharedPrefsEventDedupeStore();
+  store.load();
+  return store;
+});
+
+/// Pipeline WhatsApp-first (T3.3): notificación → dedupe → match → coordinator.
 /// El dispatcher ejecuta el goal por el MISMO coordinator (nunca un motor aparte).
 final rulePipelineProvider = Provider<RulePipeline>((ref) {
   return RulePipeline(
     registry: ref.watch(ruleRegistryProvider),
     engine: const RuleEngine(),
+    dedupe: ref.watch(eventDedupeStoreProvider),
     dispatcher: RuleDispatcher(
       (goal) => ref.read(automationCoordinatorProvider).execute(goal),
     ),
