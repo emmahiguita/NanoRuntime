@@ -128,6 +128,32 @@ static void _run_via_dlopen(const char* bin, const char* const argv[]) {
     _exit(rc);   // cierra fds, termina sesión → padre ve EOF
 }
 
+// Resuelve el directorio donde vive ESTA lib (libnanoshell.so) leyendo
+// /proc/self/maps. libnanoroot.so está en el mismo nativeLibraryDir del APK,
+// y el dlopen RELATIVO ("libnanoroot.so") da not found en el hijo: el
+// namespace heredado no resuelve el SONAME. La ruta absoluta sale del maps.
+// out termina con '/'. Vacío si no se pudo resolver.
+static void _find_own_libdir(char* out, size_t out_sz) {
+    out[0] = '\0';
+    FILE* f = fopen("/proc/self/maps", "re");
+    if (!f) return;
+    char line[1024];
+    while (fgets(line, sizeof(line), f)) {
+        const char* hit = strstr(line, "/libnanoshell.so");
+        if (!hit) continue;
+        // El path del mapping empieza tras el último espacio antes de hit.
+        const char* start = hit;
+        while (start > line && start[-1] != ' ') start--;
+        size_t len = (size_t)(hit - start);
+        if (len > 0 && len < out_sz) {
+            memcpy(out, start, len);
+            out[len] = '\0';
+            break;
+        }
+    }
+    fclose(f);
+}
+
 int pty_spawn(PtySession* session,
               const char* const argv[],
               const char* const envp[],
@@ -170,19 +196,55 @@ int pty_spawn(PtySession* session,
         const char* bin = argv && argv[0] ? argv[0] : NULL;
         if (!bin) { _exit(127); }
 
-        // ── Vía con fakechroot: dlopen en-proceso (patrón nanoshell.c) ──
-        // SELinux de este device deniega TODO execve de binarios app_data
-        // (Permission denied), y el execve(linker64) no honra LD_PRELOAD:
-        // bash corría sin fakechroot y cada binario del rootfs moría con
-        // EACCES. La única vía probada con preload es cargar libnanoroot
-        // RTLD_GLOBAL en este proceso y dlopen del binario: los símbolos
-        // real_* se interponen para los execve que el binario dispare.
+        // ── Vía con fakechroot: execve(linker64) con preload ABSOLUTO ──
+        // Evidencia de este device:
+        //  • SELinux deniega TODO execve de binarios app_data (EACCES) —
+        //    solo execve("/system/bin/linker64") pasa el kernel.
+        //  • El dlopen en-proceso de binarios PIE aborta el linker
+        //    (linker_block_allocator CHECK 'page != MAP_FAILED': el VA del
+        //    proceso app, 15GB con Flutter+ART, colisiona con las zonas del
+        //    allocator) — la vía dlopen de TER-05 no es viable aquí.
+        //  • dlopen relativo ("libnanoroot.so") da not found en el hijo.
+        // Queda: linker64 como primaria, con LD_PRELOAD en RUTA ABSOLUTA
+        // (resuelta desde /proc/self/maps — mismo dir que libnanoshell.so).
+        // Si el linker del proceso nuevo ignora el preload, emitirá su
+        // warning en logcat; el fallback dlopen (abajo) queda como último
+        // recurso con la ruta absoluta.
         if (ld_preload && ld_preload[0]) {
-            void* ph = dlopen(ld_preload, RTLD_NOW | RTLD_GLOBAL);
+            char abs_preload[512] = {0};
+            char libdir[512] = {0};
+            _find_own_libdir(libdir, sizeof(libdir));
+            if (libdir[0]) {
+                snprintf(abs_preload, sizeof(abs_preload), "%slibnanoroot.so", libdir);
+                if (access(abs_preload, R_OK) == 0) {
+                    setenv("LD_PRELOAD", abs_preload, 1);
+                } else {
+                    fprintf(stderr, "pty: preload %s no existe\n", abs_preload);
+                }
+            }
+            {
+                int argc = count_argv(argv);
+                char** linker_argv = malloc(sizeof(char*) * (argc + 2));
+                if (linker_argv) {
+                    linker_argv[0] = "/system/bin/linker64";
+                    linker_argv[1] = (char*)bin;
+                    for (int i = 1; i < argc; i++) linker_argv[i + 1] = (char*)argv[i];
+                    linker_argv[argc + 1] = NULL;
+                    extern char** environ;
+                    execve("/system/bin/linker64", linker_argv, environ);
+                    fprintf(stderr, "pty: execve(linker64,%s) falló: %s — usando dlopen\n",
+                            bin, strerror(errno));
+                    free(linker_argv);
+                }
+            }
+
+            // ── Fallback: dlopen en-proceso con la ruta absoluta ──
+            const char* preload_path = abs_preload[0] ? abs_preload : ld_preload;
+            void* ph = dlopen(preload_path, RTLD_NOW | RTLD_GLOBAL);
             if (!ph) {
-                fprintf(stderr, "pty: dlopen(%s) warning: %s\n", ld_preload, dlerror());
+                fprintf(stderr, "pty: dlopen(%s) warning: %s\n", preload_path, dlerror());
             } else {
-                setenv("LD_PRELOAD", ld_preload, 1);
+                setenv("LD_PRELOAD", preload_path, 1);
             }
             _run_via_dlopen(bin, argv);   // no retorna
         }
