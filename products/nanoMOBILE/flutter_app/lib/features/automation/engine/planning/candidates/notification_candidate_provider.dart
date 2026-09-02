@@ -21,10 +21,7 @@ import 'candidate_action.dart';
 import 'candidate_provider.dart';
 
 class NotificationCandidateProvider implements CandidateProvider {
-  NotificationCandidateProvider(
-    this._listNotifications, {
-    this.draftSource,
-  });
+  NotificationCandidateProvider(this._listNotifications, {this.draftSource});
 
   /// Fuente de notificaciones activas (raw del canal `notifications`).
   final Future<List<dynamic>> Function() _listNotifications;
@@ -154,18 +151,31 @@ class NotificationCandidateProvider implements CandidateProvider {
   ///
   /// [recipient] ya viene separado del mensaje por el MessageIntentParser: aquí
   /// solo se compara el NOMBRE, nunca el texto a enviar.
+  ///
+  /// WA-SAFE-01 — fail-closed: cuando el usuario NOMBRA un destinatario, un
+  /// match exacto es la única salida válida. Cero coincidencias (destinatario
+  /// ausente) o varias igual de plausibles (homónimos, WhatsApp vs Business,
+  /// grupo vs contacto) NO se resuelven con la "más reciente": devuelven null
+  /// y el pipeline aguas arriba termina en needsMoreEvidence/ambiguousTarget.
+  /// La confirmación humana no es una excusa para proponer un candidato
+  /// equivocado a sabiendas.
   NotificationObject? _match(
     String recipient,
     List<NotificationObject> candidates,
   ) {
     final needle = recipient.trim();
+    // Sin destinatario explícito, "responde" a secas sí significa la más
+    // reciente contestable.
     if (needle.isEmpty) return candidates.first;
 
-    for (final n in candidates) {
-      if (n.matchesRecipient(needle)) return n;
-    }
-    // Sin coincidencia por nombre, devolver la más reciente (el humano/planner
-    // confirmará). No se inventa una conversación que no exista.
-    return candidates.first;
+    final matches = candidates
+        .where((n) => n.matchesRecipient(needle))
+        .toList(growable: false);
+
+    // Exactamente una coincidencia segura: único candidato permitido.
+    if (matches.length == 1) return matches.single;
+
+    // 0 o >1 coincidencias: sin candidato. Nunca best-guess.
+    return null;
   }
 }
