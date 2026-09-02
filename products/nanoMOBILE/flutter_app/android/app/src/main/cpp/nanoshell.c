@@ -323,6 +323,16 @@ static int _spawn_internal(
         // libnanoroot's constructor can read NANO_ROOTFS from env.
         apply_env(envp);
 
+        // cwd: el hijo hereda el cwd del worker (normalmente "/") y
+        // SELinux deniega a untrusted_app listar "/" ("ls: can't open
+        // '.': Permission denied"). chdir(HOME) para que los applets
+        // corran en el home del usuario (igual que una shell login).
+        // El fallo se ignora: cwd heredado si HOME no existe.
+        {
+            const char* home = getenv("HOME");
+            if (home && home[0]) chdir(home);
+        }
+
         // Set LD_PRELOAD before execve so the kernel linker loads it.
         if (ld_preload && ld_preload[0]) {
             setenv("LD_PRELOAD", ld_preload, 1);
@@ -473,18 +483,25 @@ static int _spawn_internal(
 
         // Find main function. Try the specified symbol first, then fallbacks.
         typedef int (*main_fn)(int, char**, char**);
+        // BusyBox compilado como librería (libbusybox.so de Termux) exporta
+        // lbb_main(char**) SIN argc: firma distinta de main_fn.
+        typedef int (*lbb_main_fn)(char**);
         static int _use_stack_entry = 0;
         static void* _stack_entry = NULL;
         main_fn entry = NULL;
+        lbb_main_fn lbb_entry = NULL;
 
         // Try requested symbol
         entry = (main_fn)dlsym(handle, main_symbol);
 
-        // Fallbacks for common naming conventions
-        if (!entry) entry = (main_fn)dlsym(handle, "main");
-        if (!entry) entry = (main_fn)dlsym(handle, "_main");
+        // BusyBox shared-lib: único símbolo exportado es lbb_main.
+        if (!entry) lbb_entry = (lbb_main_fn)dlsym(handle, "lbb_main");
 
-        if (!entry) {
+        // Fallbacks for common naming conventions
+        if (!entry && !lbb_entry) entry = (main_fn)dlsym(handle, "main");
+        if (!entry && !lbb_entry) entry = (main_fn)dlsym(handle, "_main");
+
+        if (!entry && !lbb_entry) {
             // Binarios C++ (apt) NO exportan "main": su entry es el e_entry
             // del ELF (_start). El _start de bionic espera el STACK de
             // arranque ARM64: sp[0]=argc, sp[1..]=argv, luego envp=NULL, y
@@ -500,7 +517,7 @@ static int _spawn_internal(
             }
         }
 
-        if (!entry) {
+        if (!entry && !lbb_entry) {
             fprintf(stderr, "nanoshell: dlsym(%s or main) failed: %s\n", main_symbol, dlerror());
             dlclose(handle);
             _exit(127);
@@ -526,7 +543,12 @@ static int _spawn_internal(
         apply_rlimit_as();
 
         int rc = 0;
-        if (_use_stack_entry && _stack_entry) {
+        if (lbb_entry) {
+            // lbb_main(char**): BusyBox shared-lib. argv[0]="busybox" hace
+            // despachar el applet de argv[1] (busybox launcher). El entorno
+            // ya está en environ vía apply_env().
+            rc = lbb_entry(mutable_argv);
+        } else if (_use_stack_entry && _stack_entry) {
 #if defined(__aarch64__)
             _call_stack_entry(_stack_entry, argc, mutable_argv);
             // No retorna: _start hace exit(). Evitar retorno no definido.
@@ -695,11 +717,43 @@ int nanoshell_worker_spawn(
     const char* task_id,
     const char* files_dir
 ) {
+    // TER-07: redirigir el toybox ELF a la vía busybox.
+    // Evidencia device (OPPO CPH2557, SELinux enforcing):
+    //  • execve de binarios app_data: EACCES — denegado por el kernel.
+    //  • dlopen del toybox PIE: "unexpected e_type: 2" — binario con
+    //    PT_INTERP no es dlopenable (dlopen solo acepta ET_DYN).
+    // libbusybox.so es ET_DYN sin PT_INTERP: dlopen funciona en el worker
+    // y busybox_main despacha el applet. Misma vía que el fast path
+    // original de nanoshell_spawn_busybox (lib_path=NULL).
+    const char* eff_binary = binary_path;
+    const char* eff_symbol = "main";
+    const char* const* eff_argv = argv;
+    char** busybox_argv = NULL;
+    if (binary_path) {
+        const char* base = strrchr(binary_path, '/');
+        base = base ? base + 1 : binary_path;
+        if (strcmp(base, "toybox") == 0) {
+            int argc = count_argv(argv);
+            // lbb_main despacha por basename(argv[0]): pasar el applet
+            // directo ("ls"), sin depender del launcher "busybox".
+            busybox_argv = malloc(sizeof(char*) * (argc + 1));
+            if (busybox_argv) {
+                busybox_argv[0] = (argc > 1 && argv[1]) ? (char*)argv[1] : "busybox";
+                for (int i = 2; i < argc; i++) busybox_argv[i - 1] = (char*)argv[i];
+                busybox_argv[argc > 1 ? argc - 1 : 1] = NULL;
+                eff_binary = NULL;             // NULL → dlopen("libbusybox.so")
+                eff_symbol = "busybox_main";   // dlsym cae a lbb_main
+                eff_argv = (const char* const*)busybox_argv;
+            }
+        }
+    }
+
     char* out_s = NULL;
     char* err_s = NULL;
     size_t out_len = 0, err_len = 0;
-    int rc = _spawn_internal(binary_path, "main", argv, envp, ld_preload,
+    int rc = _spawn_internal(eff_binary, eff_symbol, eff_argv, envp, ld_preload,
                              &out_s, &err_s, &out_len, &err_len);
+    free(busybox_argv);
 
     char out_path[512], err_path[512], rc_path[512];
     char tmp_out[530], tmp_err[530], tmp_rc[530];
