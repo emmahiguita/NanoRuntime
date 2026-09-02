@@ -502,7 +502,7 @@ class _ExpandedNavigation extends StatelessWidget {
   }
 }
 
-class _NavigationFab extends StatelessWidget {
+class _NavigationFab extends StatefulWidget {
   const _NavigationFab({
     required this.style,
     required this.expanded,
@@ -524,39 +524,145 @@ class _NavigationFab extends StatelessWidget {
   final VoidCallback onPanCancel;
 
   @override
+  State<_NavigationFab> createState() => _NavigationFabState();
+}
+
+class _NavigationFabState extends State<_NavigationFab> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    final style = widget.style;
+    // TER-16: FAB glass iOS — círculo "frosted": tinte acento translúcido
+    // con brillo especular, anillo interior y doble sombra (contacto negra
+    // + glow del acento). Presión táctil: escala 0.88 + glow se contrae.
     return Semantics(
       button: true,
-      label: expanded
+      label: widget.expanded
           ? 'Mover o contraer navegación'
           : 'Abrir navegación. Mantén y arrastra para mover.',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        onPanStart: onPanStart,
-        onPanUpdate: onPanUpdate,
-        onPanEnd: onPanEnd,
-        onPanCancel: onPanCancel,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        onPanStart: widget.onPanStart,
+        onPanUpdate: widget.onPanUpdate,
+        onPanEnd: widget.onPanEnd,
+        onPanCancel: widget.onPanCancel,
         child: SizedBox.square(
           dimension: _NanoFloatingNavigationFrameState._fabSize,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [style.accent.withValues(alpha: 0.92), style.accent],
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
-              boxShadow: [
-                BoxShadow(
-                  color: style.accent.withValues(alpha: 0.30),
-                  blurRadius: 18,
-                  spreadRadius: -4,
+          child: AnimatedScale(
+            scale: _pressed ? 0.88 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOut,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: _pressed
+                      ? [
+                          style.accent.withValues(alpha: 0.98),
+                          style.accent.withValues(alpha: 0.82),
+                        ]
+                      : [
+                          style.accent.withValues(alpha: 0.92),
+                          style.accent.withValues(alpha: 0.74),
+                        ],
                 ),
-              ],
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.34),
+                ),
+                boxShadow: [
+                  // Sombra de contacto: ancla el FAB a la superficie.
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.30),
+                    blurRadius: 14,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 6),
+                  ),
+                  // Glow del acento: se contrae al presionar (feedback
+                  // táctil de "hundimiento" estilo iOS).
+                  BoxShadow(
+                    color: style.accent.withValues(
+                      alpha: _pressed ? 0.18 : 0.30,
+                    ),
+                    blurRadius: _pressed ? 12 : 20,
+                    spreadRadius: _pressed ? -6 : -4,
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Brillo especular: luz desde arriba-izquierda.
+                    Positioned(
+                      left: 6,
+                      top: 6,
+                      right: 8,
+                      bottom: 22,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.white.withValues(alpha: 0.28),
+                              Colors.white.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Anillo interior sutil: sensación de bisel vidrio.
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.all(1.5),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Icono: transición suave al cambiar (contraer/expandir).
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutBack,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => ScaleTransition(
+                        scale: animation,
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: child,
+                        ),
+                      ),
+                      child: Icon(
+                        widget.icon,
+                        key: ValueKey(widget.icon),
+                        color: style.onAccent,
+                        size: 25,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: Icon(icon, color: style.onAccent, size: 25),
           ),
         ),
       ),
