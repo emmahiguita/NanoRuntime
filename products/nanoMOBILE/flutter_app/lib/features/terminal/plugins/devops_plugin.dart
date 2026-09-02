@@ -40,11 +40,12 @@ class DevOpsPlugin {
               )
               .then((id) {
                 if (!s.mounted) return;
-                if (id != null)
+                if (id != null) {
                   o(
                     '[docker] container ${id.substring(0, 12)} terminado',
                     Ln.success,
                   );
+                }
               });
           break;
         case 'ps':

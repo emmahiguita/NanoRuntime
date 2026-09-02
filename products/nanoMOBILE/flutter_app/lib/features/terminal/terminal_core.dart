@@ -254,6 +254,18 @@ class _TermState extends State<NanoTerminal> {
   /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info autÃ©ntica sin depender de execve() (bloqueado por SELinux en este device).
   Future<void> _fetchDeviceIdentity() => _hw.fetchDeviceIdentity();
 
+  /// TER-21: OSC 7 del bash PTY — el shell reporta su cwd real con cada
+  /// prompt. Sincroniza la línea de estado; antes era heurística Dart
+  /// que se desfasaba al hacer `cd` dentro del bash real.
+  void _onBashCwd(String cwd) {
+    if (cwd == _bashCwd.value) {
+      return;
+    }
+    debugPrint('[TER-21] bash cwd: $cwd');
+    _bashCwd.value = cwd;
+    if (mounted) setState(() {});
+  }
+
   Future<double?> _readCpuTemp() => _hw.readCpuTemp();
 
   /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  Â¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalaciÃ³n estÃ© sincronizado.
@@ -274,6 +286,8 @@ class _TermState extends State<NanoTerminal> {
       rootfs: _rootfs,
       rootfsEnv: _deps.rootfsEnv,
       onTitle: widget.onTitle,
+      // TER-21: cwd real del bash (OSC 7) → línea de estado.
+      onCwd: _onBashCwd,
       // P1: sin este callback, _ansi seguÃ­a apuntando al ChangeNotifier ya
       // dispuesto por el manager tras el fin de la sesiÃ³n (Ctrl-D/exit) â€”
       // cualquier rebuild posterior lanzaba "used after being disposed".
@@ -323,7 +337,15 @@ class _TermState extends State<NanoTerminal> {
       // inicial (ej: kali shell), el dispatcher y su stream proot son el
       // dueÃ±o del terminal; abrir bash encima mezclarÃ­a las dos sesiones.
       if (widget.initialCommand == null) {
-        _after(const Duration(milliseconds: 500), () => _ptyOpen(['bash']));
+        // TER-21: PROMPT_COMMAND hace que el bash reporte su $PWD real
+        // con cada prompt (OSC 7) — la línea de estado deja de depender
+        // de la heurística Dart (que se desfasaba con `cd`).
+        _after(
+          const Duration(milliseconds: 500),
+          () => _ptyOpen(['bash'], env: {
+            'PROMPT_COMMAND': r'printf "\033]7;file://%s\033\\" "$PWD"',
+          }),
+        );
       }
     } else {
       _out('[rootfs] no instalado. Ejecuta "bootstrap".', Ln.info);
@@ -649,8 +671,9 @@ class _TermState extends State<NanoTerminal> {
       final freq = info['freqMhz'];
       o('â•”â•â• nvtop â•â•â•—', Ln.header);
       o('â•‘ GPU: $name ${" ".padLeft(15 - name.length)}â•‘', Ln.header);
-      if (freq != null)
+      if (freq != null) {
         o('â•‘ Freq: $freq MHz ${" ".padLeft(8)}â•‘', Ln.header);
+      }
       o('â•šâ•â•â•â•â•â•â•â•â•â•â•â•', Ln.header);
     };
   }
@@ -834,8 +857,6 @@ class _TermState extends State<NanoTerminal> {
   final NoarPersistence _noar = NoarPersistence();
   List<Map<String, dynamic>> get _noarLib => _noar.entries;
 
-  /// Clasifica un comando en un tag basado en su nombre (canonical: CommandTagger).
-  String _tagFor(String cmd) => CommandTagger.tag(cmd);
 
   /// Construye el contexto de ejecuciÃ³n del CommandExecutor (T0.1B). Cada
   /// campo mutable se toma del state en el momento de la llamada; el executor

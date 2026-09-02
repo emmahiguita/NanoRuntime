@@ -25,6 +25,11 @@ class AnsiParser {
   /// lo escribe al portapapeles. Null = se ignora.
   void Function(String text)? onClipboard;
 
+  /// OSC 7 (cwd): path lógico que el shell reporta con cada prompt
+  /// (PROMPT_COMMAND). cwd REAL del bash, no heurística de la UI.
+  /// Null = se ignora.
+  void Function(String cwd)? onCwd;
+
   AnsiParser(this.screen);
 
   void reset() {
@@ -152,6 +157,22 @@ class AnsiParser {
       final semi2 = pt.indexOf(';');
       final url = semi2 >= 0 ? pt.substring(semi2 + 1) : pt;
       screen.setLink(url.isEmpty ? null : url);
+    } else if (ps == 7) {
+      // OSC 7 cwd: "file://host/path" — el shell lo envía con cada
+      // prompt. Se quita el prefijo file:// y el host; el path puede
+      // venir percent-encoded (espacios etc.).
+      final uri = pt.startsWith('file://')
+          ? pt.substring('file://'.length)
+          : pt;
+      final slash = uri.indexOf('/');
+      final path = slash >= 0 ? uri.substring(slash) : uri;
+      if (path.isNotEmpty) {
+        try {
+          onCwd?.call(Uri.decodeComponent(path));
+        } catch (_) {
+          onCwd?.call(path);
+        }
+      }
     } else if (ps == 52) {
       // OSC 52 clipboard: "selector;base64". Solo selector "c" (portapapeles).
       final semi2 = pt.indexOf(';');
