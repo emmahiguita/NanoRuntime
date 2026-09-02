@@ -66,6 +66,8 @@ import '../domain/automation_result.dart'
 import '../benchmark/c14_metrics.dart' show C14Execution;
 import '../engine/execution/tool_registry.dart' show PolicyVerdict;
 import '../engine/governance/action_confirmation.dart' show ActionConfirmation;
+import '../engine/governance/rule_execution_authority.dart'
+    show RuleExecutionAuthority;
 import '../ledger/action_ledger.dart' show ActionLedger;
 import '../ledger/automation_trace.dart' show AutomationTrace;
 
@@ -507,6 +509,7 @@ class AutomationCoordinator {
     bool confirmed = false,
     String? recordGoal,
     GoalExpectation? expectation,
+    RuleExecutionAuthority? authority,
   }) async {
     if (run != null && (confirmation != null || executionId != null)) {
       throw StateError('AutomationRun no puede combinarse con estado legacy');
@@ -542,6 +545,7 @@ class AutomationCoordinator {
         confirmed: confirmed,
         cancellation: planRun.cancellation,
         onStep: planRun.enterStep,
+        authority: authority,
       );
       if (outcome.confirmation != null) {
         planRun.waitForConfirmation(outcome.confirmation!);
@@ -1014,6 +1018,7 @@ class AutomationCoordinator {
         confirmed: confirmed,
         recordGoal: goal.text,
         expectation: runExpectation,
+        authority: options?.authority,
       );
       t.stop();
       toolLatency = t.elapsed;

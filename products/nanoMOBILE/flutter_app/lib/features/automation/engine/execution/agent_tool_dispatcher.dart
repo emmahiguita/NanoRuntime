@@ -30,6 +30,7 @@ import '../system/system_destination.dart' show SystemDestination;
 import '../system/system_graph.dart' show SystemGraph;
 import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
 import '../governance/action_confirmation.dart';
+import '../governance/rule_execution_authority.dart';
 import '../governance/semantic_policy.dart';
 import '../orchestration/execution_journal.dart';
 import '../perception/current_situation.dart';
@@ -720,6 +721,9 @@ class AgentToolDispatcher {
   /// Ejecuta un [ToolCall] del LLM bajo política. Sin [confirmed] ni autoría
   /// humana, una escritura externa devuelve needsConfirmation SIN ejecutarse
   /// (el chat muestra el diálogo y re-llama con confirmed: true).
+  ///
+  /// [authority] (WA-AUTH-04): autorización standing de una regla del usuario;
+  /// solo salta la confirmación si satisface ESTA llamada exacta.
   Future<ToolOutcome> runToolGuarded(
     ToolCall call, {
     bool humanInitiated = false,
@@ -728,6 +732,7 @@ class AgentToolDispatcher {
     ExecutionJournalEntry? executionIntent,
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
+    RuleExecutionAuthority? authority,
   }) => _runToolGuarded(
     call,
     humanInitiated: humanInitiated,
@@ -736,6 +741,7 @@ class AgentToolDispatcher {
     executionIntent: executionIntent,
     budget: budget,
     cancellation: cancellation,
+    authority: authority,
   );
 
   /// Variante para TaskPlan: añade la identidad semántica sin cambiar el
@@ -768,6 +774,7 @@ class AgentToolDispatcher {
     ExecutionJournalEntry? executionIntent,
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
+    RuleExecutionAuthority? authority,
   }) async {
     cancellation?.throwIfCancelled();
     final runBudget = budget ?? ToolExecutionBudget();
@@ -800,14 +807,28 @@ class AgentToolDispatcher {
       );
     }
     if (decision.needsConfirmation) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.needsConfirmation,
-        pendingCall: call,
-        feedback:
-            '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
-      );
+      // WA-AUTH-04: la autoridad standing de una regla salta la confirmación
+      // SOLO para la acción exacta autorizada (tool + texto fijo). Cualquier
+      // otra llamada del plan conserva su confirmación. La verificación de
+      // paquete/conversación real ocurre en _validateContextLock, contra la
+      // notificación observada, antes de enviar.
+      final standingGranted =
+          authority != null &&
+          authority.satisfiesCall(call.tool, call.textArg ?? '');
+      if (!standingGranted) {
+        return ToolOutcome(
+          verdict: PolicyVerdict.needsConfirmation,
+          pendingCall: call,
+          feedback:
+              '[policy] "${tool.name}" (${tool.description.toLowerCase()}) — requiere tu confirmación.',
+        );
+      }
     }
-    final contextLockFailure = await _validateContextLock(call, tool);
+    final contextLockFailure = await _validateContextLock(
+      call,
+      tool,
+      authority: authority,
+    );
     if (contextLockFailure != null) return contextLockFailure;
     final semanticRisk = semanticAction == null
         ? null
@@ -1060,6 +1081,7 @@ class AgentToolDispatcher {
     bool confirmed = false,
     ExecutionCancellationToken? cancellation,
     void Function(int stepIndex)? onStep,
+    RuleExecutionAuthority? authority,
   }) async {
     if (requiresGoalDirectedExecution(plan)) {
       const denied = ToolOutcome(
@@ -1176,6 +1198,7 @@ class AgentToolDispatcher {
         budget: budget,
         cancellation: cancellation,
         executionIntent: executionIntent,
+        authority: authority,
       );
       outcomes.add(outcome);
 
@@ -1328,8 +1351,9 @@ class AgentToolDispatcher {
   /// esta lectura y el transporte nativo.
   Future<ToolOutcome?> _validateContextLock(
     ToolCall call,
-    ToolDefinition tool,
-  ) async {
+    ToolDefinition tool, {
+    RuleExecutionAuthority? authority,
+  }) async {
     if (!tool.requiresContextLock) return null;
     if (call.tool != 'reply_notification') {
       return const ToolOutcome(
@@ -1375,6 +1399,34 @@ class AgentToolDispatcher {
               'admite respuesta. No se envió nada.',
           executionStatus: ToolExecutionStatus.notExecuted,
         );
+      }
+      // WA-AUTH-04: si la ejecución va bajo autoridad standing de una regla,
+      // el paquete y la conversación REALES de la notificación deben caer
+      // dentro del scope autorizado. Fuera de scope → fail-closed, nada se
+      // envía (aunque la regla haya matcheado, el mundo cambió).
+      if (authority != null) {
+        final row = current.single;
+        if (!authority.satisfiesPackage('${row['package'] ?? ''}')) {
+          return ToolOutcome(
+            verdict: PolicyVerdict.denied,
+            feedback:
+                '[scopeMismatch] La notificación ya no pertenece al paquete '
+                'autorizado por la regla (${row['package']}). No se envió nada.',
+            executionStatus: ToolExecutionStatus.notExecuted,
+          );
+        }
+        if (!authority.satisfiesConversation(
+          '${row['sender'] ?? ''}',
+          '${row['conversationTitle'] ?? ''}',
+        )) {
+          return const ToolOutcome(
+            verdict: PolicyVerdict.denied,
+            feedback:
+                '[scopeMismatch] La notificación ya no pertenece a la '
+                'conversación autorizada por la regla. No se envió nada.',
+            executionStatus: ToolExecutionStatus.notExecuted,
+          );
+        }
       }
       return null;
     } on Object catch (error) {

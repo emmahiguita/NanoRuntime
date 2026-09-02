@@ -13,6 +13,8 @@ import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation;
 import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart'
     show ActionConfirmation;
+import 'package:nanoai/features/automation/engine/governance/rule_execution_authority.dart'
+    show RuleExecutionAuthority;
 import 'package:nanoai/features/automation/engine/navigation/navigation_goal.dart'
     show NavigationGoal;
 import 'package:nanoai/features/automation/engine/navigation/situation_diff.dart'
@@ -57,9 +59,16 @@ class AutomationOptions {
   /// Consentimiento vinculado a un único paso/acción del plan.
   final ActionConfirmation? confirmation;
 
+  /// WA-AUTH-04 — autorización standing de una regla creada por el usuario.
+  /// Solo permite saltar la confirmación de la acción EXACTA autorizada
+  /// (tool + texto + paquete); el resto del plan conserva su política.
+  /// null en flujos interactivos (siguen pidiendo confirmación normal).
+  final RuleExecutionAuthority? authority;
+
   const AutomationOptions({
     this.executionId,
     this.confirmed = false,
     this.confirmation,
+    this.authority,
   });
 }

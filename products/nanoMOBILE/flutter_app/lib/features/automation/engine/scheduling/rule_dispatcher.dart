@@ -17,6 +17,7 @@ library;
 
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_result.dart';
+import '../governance/rule_execution_authority.dart';
 import '../notifications/notification_object.dart';
 import 'scheduled_rule.dart';
 
@@ -72,7 +73,12 @@ class RuleDispatcher {
   RuleDispatcher(this._execute);
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
-  final Future<AutomationResult> Function(AutomationGoal goal) _execute;
+  /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
+  final Future<AutomationResult> Function(
+    AutomationGoal goal, {
+    AutomationOptions? options,
+  })
+  _execute;
 
   Future<RuleDispatchResult> dispatch(
     ScheduledRule rule,
@@ -110,10 +116,18 @@ class RuleDispatcher {
         }
         final AutomationResult result;
         try {
+          // WA-AUTH-04: la regla fue creada explícitamente por el usuario →
+          // autoridad standing para su acción EXACTA. El coordinator/dispatcher
+          // solo la acepta si la llamada concreta satisface tool+texto+paquete;
+          // si no, la confirmación humana normal sigue igual.
+          final authority = RuleExecutionAuthority.fromRule(rule);
           result = await _execute(
             AutomationGoal(
               text: 'responde a ${notif.sender} que ${rule.message}',
             ),
+            options: authority == null
+                ? null
+                : AutomationOptions(authority: authority),
           );
         } catch (e) {
           return RuleDispatchResult(

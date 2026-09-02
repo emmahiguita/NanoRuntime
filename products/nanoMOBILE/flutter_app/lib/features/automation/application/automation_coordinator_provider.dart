@@ -29,6 +29,7 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 
+import '../domain/automation_goal.dart' show AutomationOptions;
 import '../ledger/action_ledger_provider.dart';
 import 'automation_coordinator.dart';
 import 'automation_planner_provider.dart';
@@ -382,7 +383,9 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     engine: const RuleEngine(),
     dedupe: ref.watch(eventDedupeStoreProvider),
     dispatcher: RuleDispatcher(
-      (goal) => ref.read(automationCoordinatorProvider).execute(goal),
+      (goal, {AutomationOptions? options}) => ref
+          .read(automationCoordinatorProvider)
+          .execute(goal, options: options),
     ),
   );
 });
