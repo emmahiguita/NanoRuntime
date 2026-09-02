@@ -707,7 +707,18 @@ class _TermState extends State<NanoTerminal> {
       out('[pty] gestor de sesiones no inicializado.', Ln.stderr);
       return;
     }
-    final ok = await pm.open(argv, env: env, ldPreload: ldPreload);
+    // Los binarios del rootfs Termux enlazan rutas hardcodeadas y SELinux
+    // deniega el execve directo desde el contexto PTY sin interceptación:
+    // el mismo bash sin libnanoroot.so deja "ls: Permission denied" en
+    // cualquier binario del rootfs. El hijo necesita fakechroot — mismo
+    // preload que ya usan los caminos `!` y shell-ops.
+    final ok = await pm.open(
+      argv,
+      env: env,
+      ldPreload:
+          ldPreload ??
+          (_rootfs?.isInstalled == true ? 'libnanoroot.so' : null),
+    );
     if (!ok) {
       // Un Ãºnico camino de apertura. El fallback histÃ³rico abrÃ­a una segunda
       // sesiÃ³n PtySession paralela duplicando el ciclo de vida del
