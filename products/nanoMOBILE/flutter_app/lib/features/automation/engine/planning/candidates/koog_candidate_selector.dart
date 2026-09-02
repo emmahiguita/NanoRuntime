@@ -26,12 +26,24 @@ class KoogCandidateSelector implements CandidateSelector {
 
   @override
   Future<CandidateSelection> select(CandidateSelectionRequest request) async {
-    final result = await _client.generate(
-      prompt: _buildPrompt(request),
-      temperature: 0.0,
-      maxTokens: 32,
-    );
-    return _interpret(request, result.text);
+    final String text;
+    try {
+      final result = await _client.generate(
+        prompt: _buildPrompt(request),
+        temperature: 0.0,
+        maxTokens: 32,
+      );
+      text = result.text;
+    } on Object {
+      // El motor local no está disponible (no cargado, apagado o falló):
+      // el LLM es OPCIONAL por diseño. La ambigüedad se preserva para
+      // clarificación humana; NUNCA se lanza al llamador.
+      return AmbiguousCandidates(
+        request.candidates.items,
+        'LLM no disponible para desambiguar; la ambigüedad queda sin resolver.',
+      );
+    }
+    return _interpret(request, text);
   }
 
   CandidateSelection _interpret(

@@ -2,6 +2,7 @@
 library;
 
 import '../perception/current_situation.dart';
+import '../perception/nano_snapshot.dart' show NanoBounds;
 import '../perception/semantic/nano_ui_object.dart';
 import '../perception/semantic/screen_graph.dart';
 import '../perception/semantic/semantic_role.dart';
@@ -82,6 +83,25 @@ final class GoalDirectedNavigator {
       );
     }
 
+    // El hogar de conversaciones visible y NO seleccionado indica que la
+    // pantalla actual es otra sección (llamadas, novedades, comunidades):
+    // las filas que nombran la entidad allí NO son conversaciones (una fila
+    // de llamada abre su detalle, no el chat). Ir a la sección de
+    // conversaciones es la transición mínima ANTES de tocar cualquier
+    // entidad. En la lista de chats el tab está seleccionado y el resolver
+    // no lo devuelve, así que el flujo normal no cambia.
+    final conversationHome = const ActionSurfaceResolver().resolve(
+      graph,
+      kind: 'conversations',
+    );
+    if (conversationHome != null) {
+      return NavigationDecision.act(
+        diff: diff,
+        action: NavigationAction.tap(conversationHome.selector),
+        reason: 'sección de conversaciones visible y no seleccionada',
+      );
+    }
+
     final targetSelectors = _actionableEntitySelectors(
       observedCurrent,
       targetEntity,
@@ -99,6 +119,35 @@ final class GoalDirectedNavigator {
         'entidad objetivo ambigua en la superficie actual',
         permitsPerceptionEscalation: false,
       );
+    }
+    // La entidad está visible pero ningún destino es accionable: en un picker
+    // la fila ya pudo quedar seleccionada (re-tocarla alternaría el check) o
+    // la pantalla es un perfil/detalle con acciones hacia el contacto.
+    if (_entityPresentButNotActionable(observedCurrent, targetEntity)) {
+      final confirm = const ActionSurfaceResolver().resolve(
+        graph,
+        kind: 'confirm',
+      );
+      if (confirm != null) {
+        return NavigationDecision.act(
+          diff: diff,
+          action: NavigationAction.tap(confirm.selector),
+          reason: 'entidad ya seleccionada; confirmación de la selección',
+        );
+      }
+      // Perfil/detalle de contacto: la acción de mensaje abre el chat
+      // directamente (icono "Mensaje" del perfil de llamada/contacto).
+      final message = const ActionSurfaceResolver().resolve(
+        graph,
+        kind: 'message',
+      );
+      if (message != null) {
+        return NavigationDecision.act(
+          diff: diff,
+          action: NavigationAction.tap(message.selector),
+          reason: 'acción de mensaje observada hacia el contacto',
+        );
+      }
     }
 
     final searchInput = const InputSurfaceResolver().resolve(
@@ -132,23 +181,6 @@ final class GoalDirectedNavigator {
         diff: diff,
         action: NavigationAction.tap(dismissAction.selector),
         reason: 'superficie transitoria; cierre observable y reversible',
-      );
-    }
-
-    // En superficies raíz con navegación por secciones (por ejemplo,
-    // Llamadas/Novedades/Comunidades de WhatsApp), `Chats` es una transición
-    // directa, observable y monotónica hacia el objetivo. Debe tener prioridad
-    // sobre BACK: retroceder cuando la pestaña correcta ya está disponible
-    // puede abandonar la actividad o llevar a una pantalla no relacionada.
-    final conversationHome = const ActionSurfaceResolver().resolve(
-      graph,
-      kind: 'conversations',
-    );
-    if (conversationHome != null) {
-      return NavigationDecision.act(
-        diff: diff,
-        action: NavigationAction.tap(conversationHome.selector),
-        reason: 'sección de conversaciones observada y no seleccionada',
       );
     }
 
@@ -231,6 +263,7 @@ final class GoalDirectedNavigator {
     // navegación. Además, varios hijos semánticos de una misma fila deben
     // representar UNA acción y no una ambigüedad artificial.
     final selectorsByTapTarget = <String, String>{};
+    final tapTargetById = <String, NanoUiObject>{};
     for (final object in graph.objects) {
       if (!object.visible ||
           object.editable ||
@@ -239,13 +272,16 @@ final class GoalDirectedNavigator {
         continue;
       }
       var target = object;
-      for (var depth = 0; depth < 4; depth++) {
+      for (var depth = 0; depth < 8; depth++) {
         if (target.visible && target.enabled && target.clickable) break;
         final parent = graph.parentOf(target.id);
         if (parent == null) break;
         target = parent;
       }
       if (!target.visible || !target.enabled || !target.clickable) continue;
+      // Una fila ya seleccionada en un picker no es un destino nuevo:
+      // re-tocarla alternaría el check. La confirmación es otro paso.
+      if (_selectedInChain(graph, target)) continue;
       // Conserva el ancla semántica exacta que identificó la entidad. El
       // executor resolverá este nodo en un snapshot fresco y subirá a su
       // ancestro clicable; usar el contenedor aquí degrada a etiquetas
@@ -253,8 +289,31 @@ final class GoalDirectedNavigator {
       final selector = _entitySelectorFor(object, targetEntity);
       if (selector == null) continue;
       selectorsByTapTarget.putIfAbsent(target.id, () => selector);
+      tapTargetById.putIfAbsent(target.id, () => target);
     }
-    return List.unmodifiable(selectorsByTapTarget.values);
+    // Unifica destinos de tap de la MISMA fila física: la foto del contacto
+    // ya es clickable y el nombre sube a la fila; la foto está DENTRO de la
+    // fila, así que tocar cualquiera es la misma acción. Conservar el
+    // contenedor evita declarar ambigua una única fila. El selector
+    // conservado es el del ancla que identifica al contenedor completo.
+    final finalSelectors = <String, String>{};
+    for (final entry in selectorsByTapTarget.entries) {
+      final target = tapTargetById[entry.key]!;
+      var containerKey = entry.key;
+      for (final other in selectorsByTapTarget.entries) {
+        if (other.key == entry.key) continue;
+        final otherTarget = tapTargetById[other.key]!;
+        if (_contains(otherTarget.bounds, target.bounds)) {
+          containerKey = other.key;
+        }
+      }
+      final existing = finalSelectors[containerKey];
+      if (existing == null ||
+          _selectorStrength(entry.value) > _selectorStrength(existing)) {
+        finalSelectors[containerKey] = entry.value;
+      }
+    }
+    return List.unmodifiable(finalSelectors.values);
   }
 
   String? _entitySelectorFor(NanoUiObject object, String targetEntity) {
@@ -316,6 +375,14 @@ final class GoalDirectedNavigator {
       'sin resultados',
       'no results found',
       'no results',
+      'no se encontraron contactos',
+      'no se encontró ningún contacto',
+      'no se encontraron chats',
+      'no se encontró ningún chat',
+      'no se encontraron conversaciones',
+      'no se encontró ninguna conversación',
+      'nothing found',
+      'no matches found',
     };
     for (final object in graph.objects) {
       if (!object.visible) continue;
@@ -346,4 +413,63 @@ final class GoalDirectedNavigator {
 
   bool _sameEntity(String observed, String target) =>
       navigationEntityKey(observed) == navigationEntityKey(target);
+
+  /// La entidad está observada en el grafo, pero ninguna ancla produjo un
+  /// destino accionable no-seleccionado (p. ej. fila ya marcada en un picker).
+  bool _entityPresentButNotActionable(
+    CurrentSituation current,
+    String targetEntity,
+  ) {
+    for (final object in current.structuralEvidence.objects) {
+      if (!object.visible ||
+          object.editable ||
+          object.isEditableRole ||
+          object.evidence.isEmpty ||
+          !_objectNamesEntity(object, targetEntity)) {
+        continue;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  bool _selectedInChain(ScreenGraph graph, NanoUiObject object) {
+    var current = object;
+    for (var depth = 0; depth < 4; depth++) {
+      if (current.selected || current.checked) return true;
+      final parent = graph.parentOf(current.id);
+      if (parent == null) break;
+      current = parent;
+    }
+    if (current.selected || current.checked) return true;
+    var frontier = <NanoUiObject>[object];
+    final visited = <String>{object.id};
+    for (var depth = 0; depth < 2 && frontier.isNotEmpty; depth++) {
+      final next = <NanoUiObject>[];
+      for (final candidate in frontier) {
+        for (final child in graph.childrenOf(candidate.id)) {
+          if (!visited.add(child.id)) continue;
+          if (child.selected || child.checked) return true;
+          next.add(child);
+        }
+      }
+      frontier = next;
+    }
+    return false;
+  }
+
+  /// Especificidad del selector para elegir entre anclas del mismo destino:
+  /// la identidad textual exacta es más selectiva que la descripción.
+  int _selectorStrength(String selector) {
+    if (selector.contains(';text=')) return 3;
+    if (selector.contains(';desc=')) return 2;
+    if (selector.contains(';id=')) return 1;
+    return 0;
+  }
+
+  static bool _contains(NanoBounds outer, NanoBounds inner) =>
+      outer.left <= inner.left &&
+      outer.top <= inner.top &&
+      outer.right >= inner.right &&
+      outer.bottom >= inner.bottom;
 }

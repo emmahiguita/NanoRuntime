@@ -70,20 +70,40 @@ class MessageIntentParser {
     'envía a',
     'envia a',
     'manda a',
+    'dile a',
+    'decile a',
+    'mándale a',
+    'mandale a',
+    'avísale a',
+    'avisale a',
+    'cuéntale a',
+    'cuentale a',
+    'text a',
+    'write to',
     'envíale',
     'enviale',
     'mensaje a',
     'escríbele',
     'escribele',
     'escríbale',
+    'dile',
+    'decile',
+    'mándale',
+    'mandale',
+    'avísale',
+    'avisale',
+    'cuéntale',
+    'cuentale',
     'escribe',
+    'text',
     'message to',
     'send to',
   ];
 
   /// Separadores que introducen el texto del mensaje. ` que `/` that ` primero
   /// porque son los patrones naturales más comunes; `:` cubre el formato
-  /// "a X: mensaje".
+  /// "a X: mensaje". La coma se evalúa aparte ([_firstMessageComma]) para no
+  /// partir identidades compuestas cuando tras ella viene el conector ` que `.
   static const _messageDelimiters = [' que ', ' that ', ': ', ':'];
 
   static final _trailingCommitDirective = RegExp(
@@ -253,7 +273,9 @@ class MessageIntentParser {
       );
     }
 
-    // Primer separador de mensaje (el más a la izquierda).
+    // Primer separador de mensaje (el más a la izquierda). La coma compite
+    // por la misma regla: "escríbele a emm, hola" separa identidad de payload
+    // sin ambigüedad cuando no hay ` que `/`:` antes.
     var delim = '';
     var delimIdx = -1;
     for (final d in _messageDelimiters) {
@@ -262,6 +284,11 @@ class MessageIntentParser {
         delim = d;
         delimIdx = i;
       }
+    }
+    final commaIdx = _firstMessageComma(rest);
+    if (commaIdx != null && (delimIdx < 0 || commaIdx < delimIdx)) {
+      delim = ',';
+      delimIdx = commaIdx;
     }
 
     var recipient = '';
@@ -287,6 +314,21 @@ class MessageIntentParser {
     }
 
     return MessageIntent(recipient: recipient, message: message);
+  }
+
+  /// Índice de la coma que separa identidad de mensaje, o null. No se usa
+  /// cuando tras la coma viene el conector ` que `/` that ` ("Ana, que llego
+  /// tarde" deja la identidad intacta y el conector al payload) ni cuando la
+  /// coma es puntuación final sin mensaje.
+  int? _firstMessageComma(String rest) {
+    final idx = rest.indexOf(',');
+    if (idx < 0) return null;
+    final after = rest.substring(idx + 1).trim();
+    if (after.isEmpty) return null;
+    if (RegExp(r'^(?:que|that)\b', caseSensitive: false).hasMatch(after)) {
+      return null;
+    }
+    return idx;
   }
 
   bool _matchingQuotes(String opening, String closing) =>

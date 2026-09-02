@@ -52,6 +52,8 @@ import 'governance/privilege_broker.dart';
 import 'planning/candidate_first_planner.dart';
 import 'planning/candidates/candidate_generator.dart';
 import 'planning/candidates/candidate_providers.dart';
+import 'model/automation_model.dart' show AutomationModelRole;
+import 'notifications/notification_draft_writer.dart';
 import 'planning/candidates/notification_candidate_provider.dart';
 import 'planning/candidates/notification_data_candidate_provider.dart';
 import 'planning/candidates/candidate_ranker.dart';
@@ -393,8 +395,24 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
       DeterministicCandidateProvider(defaultDeterministicCatalog),
       ScreenGraphCandidateProvider(_ExecutorScreenObserver(executor)),
       // A14.6: notificaciones contestables como capacidad genérica (RemoteInput).
+      // A14.7: sin texto del usuario, el draft contextual LEE y ENTIENDE el
+      // contenido real de la notificación con el runtime local (gateado por
+      // el resolver de modelo; sin modelo → sin borrador → abrir la app).
       NotificationCandidateProvider(
         () => NanoRuntimeApi.instance.listActiveNotifications(),
+        draftSource: RuntimeNotificationDraftWriter(
+          client: ref.read(runtimeEngineProvider.notifier).client,
+          llmAllowed: () => ref
+              .read(automationModelResolverProvider)
+              .resolveFor(AutomationModelRole.draftWriter)
+              .llmAllowed,
+          ensureReady: (p) =>
+              ref.read(runtimeEngineProvider.notifier).ensureReady(modelPath: p),
+          modelPath: () => ref
+              .read(automationModelResolverProvider)
+              .resolveFor(AutomationModelRole.draftWriter)
+              .modelPath,
+        ).call,
       ),
       // A14.9: extracción de datos observados (URL) → Linux write (cross-app).
       NotificationDataCandidateProvider(

@@ -224,6 +224,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   }) async {
     final goal = text.trim();
     if (goal.isEmpty || _running || (_sensing && !fromVoice)) return;
+    // Capturar referencias ANTES de los awaits: el widget puede desmontarse
+    // durante una ejecución larga (carga de modelo) y ref.read posterior
+    // lanzaría "Cannot use ref after the widget was disposed".
+    final voiceEnabled = ref.read(settingsProvider).voiceEnabled;
     if (confirmation != null) {
       unawaited(NanoRuntimeApi.instance.dismissAutomationConfirmation());
     }
@@ -267,17 +271,20 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       } else {
         unawaited(NanoRuntimeApi.instance.dismissAutomationConfirmation());
       }
-      if (ref.read(settingsProvider).voiceEnabled) {
+      if (voiceEnabled) {
         // El resultado hablado es exactamente el resultado del mismo
         // AutomationEngine. "Audio" gobierna tanto órdenes escritas como de
         // micrófono; TTS es solo una salida y nunca cambia el veredicto.
         await _voiceSession.respond(_spokenResult(result));
       }
-    } catch (e) {
+    } catch (e, stack) {
+      // Nunca tragar una excepción: el usuario necesita la razón real y el
+      // logcat la causa para diagnosticar.
+      debugPrint('[automation_dashboard] Error al ejecutar tarea: $e\n$stack');
       if (mounted) {
         setState(() {
           _lastStatus = AutomationResultStatus.failed;
-          _lastReason = 'Error inesperado al ejecutar la tarea.';
+          _lastReason = 'Error al ejecutar la tarea: $e';
           _running = false;
         });
       }
@@ -866,6 +873,7 @@ class _NanoAssistantMark extends StatelessWidget {
 String _describeSituation(CurrentSituation situation) {
   final surface = switch (situation.surfaceKind) {
     CurrentSurfaceKind.dialog => 'diálogo',
+    CurrentSurfaceKind.search => 'búsqueda',
     CurrentSurfaceKind.editable => 'campo editable',
     CurrentSurfaceKind.collection => 'lista',
     CurrentSurfaceKind.content => 'contenido',

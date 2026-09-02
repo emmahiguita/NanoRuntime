@@ -353,6 +353,8 @@ class ActionSurfaceResolver {
       'dismiss' => SurfaceElementKind.navigationDismissAction,
       'overflow' => SurfaceElementKind.navigationOverflowAction,
       'conversations' => SurfaceElementKind.conversationHomeAction,
+      'confirm' => SurfaceElementKind.confirmAction,
+      'message' => SurfaceElementKind.messageAction,
       _ => null,
     };
     if (elementKind == null) return null;
@@ -384,7 +386,9 @@ class ActionSurfaceResolver {
             if (kind == 'back' ||
                 kind == 'dismiss' ||
                 kind == 'overflow' ||
-                kind == 'conversations') {
+                kind == 'conversations' ||
+                kind == 'confirm' ||
+                kind == 'message') {
               if (_selectedInChain(graph, o)) return false;
               return _matchesExactNavigationAction(o, profile, kind);
             }
@@ -397,7 +401,9 @@ class ActionSurfaceResolver {
           kind == 'back' ||
           kind == 'dismiss' ||
           kind == 'overflow' ||
-          kind == 'conversations';
+          kind == 'conversations' ||
+          kind == 'confirm' ||
+          kind == 'message';
       final candidates = navigationAction
           ? _uniqueNavigationAnchors(graph, buttons)
           : buttons;
@@ -474,6 +480,22 @@ class ActionSurfaceResolver {
         'overflow_menu',
         'more_options',
         'action_overflow',
+      }.contains(resource),
+      'confirm' => const {
+        'next',
+        'next_button',
+        'confirm',
+        'confirm_button',
+        'done',
+        'btn_next',
+        'button_next',
+      }.contains(resource),
+      'message' => const {
+        'message',
+        'message_button',
+        'chat',
+        'send_message',
+        'btn_message',
       }.contains(resource),
       _ => false,
     };

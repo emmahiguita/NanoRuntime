@@ -125,7 +125,13 @@ class SearchResultResolver {
 
   ResultResolution resolve(ScreenGraph graph, ResultTarget target) {
     final results = resolveResults(graph);
-    if (graph.truncated) return ResultIncompleteEvidence(results);
+    // El truncamiento no invalida candidatos YA observados: la selección solo
+    // puede tocar nodos visibles y la unicidad entre visibles la re-verifica
+    // el selector en el snapshot fresco. Solo bloquea la ausencia no
+    // demostrable (0 candidatos con árbol cortado).
+    if (graph.truncated && results.isEmpty) {
+      return ResultIncompleteEvidence(results);
+    }
     return switch (target) {
       ResultOrdinal(:final ordinal) => _resolveOrdinal(results, ordinal),
       ResultText(:final text) => _resolveText(results, text),

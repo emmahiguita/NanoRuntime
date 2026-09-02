@@ -386,13 +386,19 @@ class NanoSelectorEngine {
   ) {
     final expected = selector.expectedCount;
     if (ranked.length <= expected) {
-      if (snapshot.truncated) {
+      // El truncamiento solo impide demostrar AUSENCIA, no la unicidad entre
+      // nodos visibles: la ejecución toca únicamente lo que el árbol expone,
+      // y la ambigüedad entre visibles la resuelve el ranking/gap. Un árbol
+      // cortado no puede ocultar un competidor que reciba el tap (invisible
+      // ≠ tocar). Bloquear aquí convertía cualquier búsqueda con árbol denso
+      // (resultados de contactos) en no seleccionable.
+      if (snapshot.truncated && ranked.isEmpty) {
         return ResolveOutcome(
           status: ResolveStatus.incompleteSnapshot,
           candidates: top5,
           reason:
-              'Hay ${ranked.length} candidato(s), pero el snapshot está '
-              'truncado y no permite demostrar unicidad.',
+              'Sin candidatos visibles y snapshot truncado: la ausencia no '
+              'es demostrable.',
         );
       }
       final best = ranked.first;

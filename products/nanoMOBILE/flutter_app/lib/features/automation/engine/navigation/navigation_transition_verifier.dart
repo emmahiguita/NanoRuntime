@@ -56,7 +56,7 @@ final class NavigationTransitionVerifier {
       );
     }
 
-    final currentSignature = navigationSituationSignature(current);
+    final currentSignature = current.screenSignature;
     if (currentSignature == previous.situationSignature) {
       return NavigationTransition(
         NavigationTransitionStatus.unchanged,

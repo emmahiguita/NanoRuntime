@@ -2,6 +2,7 @@
 library;
 
 import 'current_situation.dart';
+import 'entity_identity_resolver.dart';
 import 'semantic/nano_ui_object.dart';
 import 'semantic/screen_graph.dart';
 import 'semantic/semantic_role.dart';
@@ -24,6 +25,9 @@ final class SurfaceClassifier {
         .where(_isGroundedVisibleObject)
         .toList(growable: false);
     final (kind, evidence) = _classify(observed);
+    // Identidad activa estructural: el nombre del chat en el header de una
+    // superficie editable. Texto visible incidental nunca es identidad.
+    final identity = const EntityIdentityResolver().resolve(graph, kind);
     return CurrentSituation(
       structuralEvidence: graph,
       surfaceKind: kind,
@@ -36,6 +40,8 @@ final class SurfaceClassifier {
             sources: object.evidence,
           ),
       ],
+      entity: identity?.entity,
+      entityEvidence: identity?.evidence ?? const [],
       observedAt: observedAt,
     );
   }
@@ -45,6 +51,13 @@ final class SurfaceClassifier {
   ) {
     final dialogs = _withRoles(observed, const {SemanticRole.dialog});
     if (dialogs.isNotEmpty) return (CurrentSurfaceKind.dialog, dialogs);
+
+    // Un campo de búsqueda observado domina sobre la superficie de escritura:
+    // buscar y conversar son estados distintos para el diff, aunque ambos
+    // expongan un campo editable. El diálogo conserva prioridad porque puede
+    // contener su propio searchField (filtro) y debe cerrarse primero.
+    final searches = _withRoles(observed, const {SemanticRole.searchField});
+    if (searches.isNotEmpty) return (CurrentSurfaceKind.search, searches);
 
     final editables = observed
         .where((object) => object.isEditableRole)

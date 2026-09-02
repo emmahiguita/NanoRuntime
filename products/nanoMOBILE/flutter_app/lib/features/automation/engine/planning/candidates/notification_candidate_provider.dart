@@ -8,6 +8,8 @@
 /// (NotificationListener + RemoteInput), NUNCA del string del modelo.
 library;
 
+import '../../notifications/notification_draft_writer.dart'
+    show NotificationDraftSource;
 import '../../notifications/notification_object.dart';
 import '../../system/system_capability.dart';
 import '../../execution/tool_registry.dart' show ToolRisk;
@@ -19,10 +21,18 @@ import 'candidate_action.dart';
 import 'candidate_provider.dart';
 
 class NotificationCandidateProvider implements CandidateProvider {
-  NotificationCandidateProvider(this._listNotifications);
+  NotificationCandidateProvider(
+    this._listNotifications, {
+    this.draftSource,
+  });
 
   /// Fuente de notificaciones activas (raw del canal `notifications`).
   final Future<List<dynamic>> Function() _listNotifications;
+
+  /// Redacción contextual de la respuesta (LLM local gateado): lee el
+  /// contenido REAL de la notificación y produce el borrador. null = sin
+  /// fuente (el flujo exige texto del usuario o abre la app).
+  final NotificationDraftSource? draftSource;
 
   static const _replyTerms = [
     'responde',
@@ -60,14 +70,25 @@ class NotificationCandidateProvider implements CandidateProvider {
     if (target == null) return const [];
 
     // Ruta más barata primero (A14.7): si la notificación expone RemoteInput,
-    // se responde directamente sin abrir la app. Se requiere `text` real: sin
-    // mensaje no hay reply (no se inventa texto), se cae al path de apertura.
+    // se responde directamente sin abrir la app. El texto viene del usuario
+    // ("responde a Juan que llego") o, si no lo dio, del draft contextual que
+    // LEE y ENTIENDE el contenido real de la notificación. Sin texto ni draft
+    // no hay reply (no se inventa), se cae al path de apertura.
     if (target.canReply && intent.hasMessage) {
       return [_replyCandidate(target, intent.message)];
     }
-    // Fallback de continuidad: no hay RemoteInput (o no hay texto) → abrir la
-    // app origen (grounded en el packageName real de la notificación) y
-    // continuar por UI.
+    if (target.canReply && !intent.hasMessage) {
+      final draftSource = this.draftSource;
+      if (draftSource != null) {
+        final draft = await draftSource(target);
+        if (draft != null && draft.trim().isNotEmpty) {
+          return [_replyCandidate(target, draft.trim())];
+        }
+      }
+    }
+    // Fallback de continuidad: no hay RemoteInput (o no hay texto ni draft)
+    // → abrir la app origen (grounded en el packageName real de la
+    // notificación) y continuar por UI.
     if (target.packageName.isEmpty) return const [];
     return [_launchCandidate(target)];
   }

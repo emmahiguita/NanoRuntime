@@ -16,6 +16,7 @@ import 'mux/accessibility_perception_source.dart';
 import 'mux/object_memory_perception_source.dart';
 import 'mux/ocr_perception_source.dart';
 import 'mux/perception_contracts.dart';
+import 'mux/perception_fusion.dart';
 import 'mux/perception_result.dart';
 import 'mux/vision_perception_source.dart';
 
@@ -136,7 +137,15 @@ class PerceptionMux {
         targetedRequest,
         PerceptionEvidenceSource.vision,
       );
-      if (ocrResult is PerceptionResolved) return ocrResult;
+      if (ocrResult is PerceptionResolved) {
+        // Fusión (AUT-VIS-05): si la accesibilidad tenía candidatos en la
+        // misma región, el resultado fusionado ancla el objeto ACCESIBLE
+        // real (ejecutable) con la evidencia OCR como refuerzo — nunca al
+        // revés. El role y el target salen de la observación estructurada.
+        final fused = _fuseWithStructuredCandidates(fallback, ocrResult);
+        if (fused != null) return fused;
+        return ocrResult;
+      }
       return _escalateToVision(
         targetedRequest,
         budget,
@@ -251,6 +260,37 @@ class PerceptionMux {
     PerceptionUnavailable() => 1,
     PerceptionMemoryHint() => 0,
   };
+
+  /// Fusiona un resultado OCR resuelto con el candidato accesible que ocupa
+  /// la misma región. El objeto resultante es el ACCESIBLE (target real y
+  /// ejecutable); la observación OCR refuerza la evidencia. null si no hay
+  /// candidato compatible — el resultado OCR (virtual) se conserva.
+  PerceptionResolved? _fuseWithStructuredCandidates(
+    PerceptionResult structured,
+    PerceptionResolved ocrResult,
+  ) {
+    if (structured is! PerceptionAmbiguous) return null;
+    for (final candidate in structured.candidates) {
+      if (candidate.bounds.xOverlapRatio(ocrResult.object.bounds) > 0.5) {
+        return PerceptionResolved(
+          object: candidate,
+          confidence: PerceptionFusionEngine.combine(
+            candidate.confidence,
+            ocrResult.confidence,
+          ),
+          evidence: [
+            PerceptionEvidence(
+              source: PerceptionEvidenceSource.accessibility,
+              reference: candidate.id,
+              confidence: candidate.confidence,
+            ),
+            ...ocrResult.evidence,
+          ],
+        );
+      }
+    }
+    return null;
+  }
 
   /// Si Accessibility encontró candidatos ambiguos, limita OCR/Vision al
   /// rectángulo que ya contiene evidencia estructurada. Sin candidatos no se

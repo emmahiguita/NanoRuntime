@@ -14,11 +14,16 @@ import 'vision_contracts.dart';
 class PerceptionFusionEngine {
   const PerceptionFusionEngine();
 
+  /// Combina confianzas independientes: 1-(1-a)(1-b). Crece con cada fuente y
+  /// NUNCA degrada la evidencia estructurada fuerte con una débil (invariante
+  /// AUT-VIS-05: STRONG STRUCTURED EVIDENCE OUTRANKS WEAK PROBABILISTIC).
+  static double combine(double a, double b) => 1 - (1 - a) * (1 - b);
+
   /// Fusiona objeto accesible + observación OCR compatible (bounds overlap).
   PerceptionResolved fuse(NanoUiObject accObject, OcrObservation ocr) {
     return PerceptionResolved(
       object: accObject,
-      confidence: (accObject.confidence + ocr.confidence) / 2,
+      confidence: combine(accObject.confidence, ocr.confidence),
       evidence: [
         PerceptionEvidence(
           source: PerceptionEvidenceSource.accessibility,
@@ -43,8 +48,10 @@ class PerceptionFusionEngine {
   ) {
     return PerceptionResolved(
       object: accObject,
-      confidence:
-          (accObject.confidence + ocr.confidence + vision.confidence) / 3,
+      confidence: combine(
+        combine(accObject.confidence, ocr.confidence),
+        vision.confidence,
+      ),
       evidence: [
         PerceptionEvidence(
           source: PerceptionEvidenceSource.accessibility,

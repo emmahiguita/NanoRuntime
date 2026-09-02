@@ -118,7 +118,7 @@ final class NavigationHistory {
     final goalSignature = navigationGoalSignature(goal);
     final candidate = NavigationHistoryEntry(
       goalSignature: goalSignature,
-      situationSignature: navigationSituationSignature(situation),
+      situationSignature: situation.screenSignature,
       action: action,
     );
 
@@ -164,7 +164,7 @@ final class NavigationHistory {
     }
     final entry = NavigationHistoryEntry(
       goalSignature: navigationGoalSignature(goal),
-      situationSignature: navigationSituationSignature(situation),
+      situationSignature: situation.screenSignature,
       action: decision.action!,
     );
     _entries.add(entry);
@@ -204,47 +204,3 @@ String navigationGoalSignature(NavigationGoal goal) => jsonEncode({
   'surface': goal.targetSurface.name,
   'entity': goal.targetEntity?.trim().toLowerCase(),
 });
-
-String navigationSituationSignature(CurrentSituation situation) {
-  final objects = [
-    for (final object in situation.structuralEvidence.objects)
-      if (object.visible)
-        jsonEncode({
-          'role': object.role.name,
-          'label': object.label.trim().toLowerCase(),
-          'text': object.text.trim().toLowerCase(),
-          'description': object.description.trim().toLowerCase(),
-          'resourceId': object.resourceId,
-          'nativeClass': object.nativeClass,
-          'clickable': object.clickable,
-          'editable': object.editable,
-          'focused': object.focused,
-          'selected': object.selected,
-          'checked': object.checked,
-          'windowId': object.windowId,
-          'windowType': object.windowType,
-          'displayId': object.displayId,
-          'rootIdentity': object.rootIdentity,
-        }),
-  ]..sort();
-  final windows = [
-    for (final window in situation.structuralEvidence.windows)
-      jsonEncode({
-        'windowId': window.windowId,
-        'windowType': window.windowType,
-        'displayId': window.displayId,
-        'package': window.packageName,
-        'rootIdentity': window.rootIdentity,
-        'active': window.active,
-        'focused': window.focused,
-      }),
-  ]..sort();
-  return jsonEncode({
-    'package': situation.packageName,
-    'surface': situation.surfaceKind.name,
-    'entity': situation.entity?.trim().toLowerCase(),
-    'complete': situation.isComplete,
-    'objects': objects,
-    'windows': windows,
-  });
-}
