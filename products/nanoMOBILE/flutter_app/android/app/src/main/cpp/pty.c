@@ -234,6 +234,16 @@ int pty_spawn(PtySession* session,
             }
         }
 
+        // TER-09: el bash arranca con el cwd heredado del proceso app ("/"),
+        // denegado por SELinux para listar ("ls: cannot open directory '.':
+        // Permission denied"). chdir(HOME) — mismo patrón validado en el
+        // worker TER-07. libnanoroot virtualiza el cwd al arrancar (getcwd
+        // real bajo el rootfs → "/home").
+        {
+            const char* home = getenv("HOME");
+            if (home && home[0]) chdir(home);
+        }
+
         // ── Vía con fakechroot: execve(linker64) con preload ABSOLUTO ──
         // Evidencia de este device:
         //  • SELinux deniega TODO execve de binarios app_data (EACCES) —

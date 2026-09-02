@@ -24,7 +24,9 @@
  *   Uses __attribute__((constructor)) to load at dlopen time (before main).
  *   Reads NANO_ROOTFS from environment.
  *   Intercepts: open, openat, stat, lstat, fstatat, access, faccessat,
- *   mkdir, mkdirat, opendir, dlopen, readlink, realpath, unlink, rename.
+ *   mkdir, mkdirat, opendir, dlopen, readlink, realpath, unlink, rename,
+ *   chdir, getcwd (cwd virtual del rootfs), execve/execl/execvp/execvpe,
+ *   popen, bind/connect (sockets X11), shmget.
  *
  * Build:
  *   NDK cmake, links against libc only.
@@ -82,6 +84,8 @@ static int (*real_execvp)(const char*, char* const*) = NULL;
 static int (*real_execvpe)(const char*, char* const*, char* const*) = NULL;
 static FILE* (*real_popen)(const char*, const char*) = NULL;
 static void* (*real_dlopen)(const char*, int) = NULL;
+static int (*real_chdir)(const char*) = NULL;
+static char* (*real_getcwd)(char*, size_t) = NULL;
 
 #define LOAD_SYM(name) do { \
     if (!real_##name) { \
@@ -182,6 +186,66 @@ static int redirect_path(const char* path, char* out, size_t out_size) {
         strcpy(out + parent_len, path);
         return 1;
     }
+}
+
+// ── Cwd virtual ──
+// El bash PTY arranca con cwd REAL dentro del sandbox (files/nano/home,
+// chdir(HOME) en pty.c). Sin virtualización: pwd/PS1 muestran el path real
+// largo y "cd /home" falla (no existe /home en Android). Guardamos la vista
+// virtual del cwd y redirigimos cada chdir al path real equivalente.
+
+static char g_vcwd[PATH_MAX] = {0};
+
+// Convierte un path REAL en su vista virtual (quita el prefix_parent).
+// files/nano/home → /home, files/nano/usr/bin → /usr/bin. Un path real
+// FUERA del rootfs se usa tal cual (honesto: /sdcard, /system, /).
+// NOTA: strncmp directo contra g_prefix NO sirve — el prefix usa
+// /data/user/0/... y getcwd devuelve /data/data/... (mismo dir vía
+// symlink, spelling distinto). Se alinea por el sufijo común "/files/nano".
+static const char* real_to_virtual(const char* real) {
+    if (!real || !real[0]) return "/";
+    const char* marker = strstr(g_prefix, "/files/nano");
+    if (!marker) return real;
+    const char* r = strstr(real, "/files/nano");
+    if (!r) return real;
+    r += strlen("/files/nano");
+    if (*r == '\0') return "/";
+    return r;
+}
+
+// Normaliza un path virtual léxicamente (resuelve . y .. sin tocar
+// symlinks). "/home/../usr" → "/usr"; ".." sobre la raíz se descarta.
+static void normalize_vpath(const char* in, char* out, size_t out_sz) {
+    if (!in || !in[0]) {
+        if (out_sz > 1) { out[0] = '/'; out[1] = '\0'; }
+        else if (out_sz == 1) { out[0] = '\0'; }
+        return;
+    }
+    char tmp[PATH_MAX];
+    strncpy(tmp, in, sizeof(tmp) - 1);
+    tmp[sizeof(tmp) - 1] = '\0';
+    char* comps[128];
+    int n = 0;
+    char* save = NULL;
+    for (char* tok = strtok_r(tmp, "/", &save); tok; tok = strtok_r(NULL, "/", &save)) {
+        if (strcmp(tok, ".") == 0) continue;
+        if (strcmp(tok, "..") == 0) {
+            if (n > 0) n--;
+            continue;
+        }
+        if (n < 128) comps[n++] = tok;
+    }
+    size_t pos = 1;
+    out[0] = '/';
+    for (int i = 0; i < n; i++) {
+        size_t l = strlen(comps[i]);
+        if (pos + l >= out_sz - 1) break;
+        memcpy(out + pos, comps[i], l);
+        pos += l;
+        out[pos++] = '/';
+    }
+    if (pos > 1) pos--;   // quitar el '/' final (salvo raíz)
+    out[pos] = '\0';
 }
 
 // -- Generic Termux-prefix rewrite for exec argv / popen command strings --
@@ -750,6 +814,59 @@ int rename(const char* oldpath, const char* newpath) {
     return real_rename(o, n);
 }
 
+// ── Intercept: chdir ──
+// Traduce el path pedido a la vista virtual del cwd, lo mapea al path real
+// (redirect_path) y ejecuta el chdir real. g_vcwd solo se actualiza si el
+// chdir real tuvo éxito: un cd fallido no corrompe la vista.
+
+int chdir(const char* path) {
+    LOAD_SYM(chdir);
+    if (!path || !path[0]) { errno = ENOENT; return -1; }
+    if (!g_prefix_len || !g_vcwd[0]) return real_chdir(path);
+
+    char vpath[PATH_MAX];
+    if (path[0] == '/') {
+        snprintf(vpath, sizeof(vpath), "%s", path);
+    } else {
+        snprintf(vpath, sizeof(vpath), "%s/%s", g_vcwd, path);
+    }
+    char vnorm[PATH_MAX];
+    normalize_vpath(vpath, vnorm, sizeof(vnorm));
+
+    char mapped[PATH_MAX];
+    const char* target = vnorm;
+    if (redirect_path(vnorm, mapped, sizeof(mapped)) == 1) target = mapped;
+
+    int rc = real_chdir(target);
+    if (rc == 0) {
+        const char* v = real_to_virtual(target);
+        strncpy(g_vcwd, v, sizeof(g_vcwd) - 1);
+        g_vcwd[sizeof(g_vcwd) - 1] = '\0';
+    }
+    return rc;
+}
+
+// ── Intercept: getcwd ──
+// Devuelve la vista virtual del cwd (pwd/PS1 limpios: "/home", no el path
+// real del sandbox). Antes de que el constructor inicialice g_vcwd (o si el
+// cwd real quedó fuera del rootfs), se usa el getcwd real.
+
+char* getcwd(char* buf, size_t size) {
+    LOAD_SYM(getcwd);
+    if (!g_vcwd[0]) return real_getcwd(buf, size);
+    size_t need = strlen(g_vcwd) + 1;
+    if (!buf) {
+        if (size && size < need) { errno = ERANGE; return NULL; }
+        char* out = malloc(need);
+        if (!out) { errno = ENOMEM; return NULL; }
+        memcpy(out, g_vcwd, need);
+        return out;
+    }
+    if (size < need) { errno = ERANGE; return NULL; }
+    memcpy(buf, g_vcwd, need);
+    return buf;
+}
+
 // ── Intercept: shmget ──
 // Kernels Android compilan con CONFIG_SYSVIPC=n: shmget (syscall arm64 194)
 // devuelve ENOSYS. ColorOS ademas aplica seccomp a los procesos de la app
@@ -903,6 +1020,20 @@ __attribute__((constructor)) static void nanoroot_init(void) {
             cmdline[n] = '\0';
             for (size_t i = 0; i < n; i++) if (cmdline[i] == '\0') cmdline[i] = ' ';
             fprintf(stderr, "nanoroot: cmdline=[%s]\n", cmdline);
+            fflush(stderr);
+        }
+    }
+
+    // Cwd virtual: el pty del bash ya hizo chdir(HOME real). Virtualizar la
+    // vista para que pwd/PS1 muestren el rootfs ("/home") y "cd /home" etc.
+    // funcionen con paths virtuales.
+    {
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd))) {
+            const char* v = real_to_virtual(cwd);
+            strncpy(g_vcwd, v, sizeof(g_vcwd) - 1);
+            g_vcwd[sizeof(g_vcwd) - 1] = '\0';
+            fprintf(stderr, "nanoroot: vcwd=%s (real=%s)\n", g_vcwd, cwd);
             fflush(stderr);
         }
     }
