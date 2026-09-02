@@ -19,6 +19,7 @@ import 'mux/perception_contracts.dart';
 import 'mux/perception_fusion.dart';
 import 'mux/perception_result.dart';
 import 'mux/vision_perception_source.dart';
+import 'mux/visual_resource_policy.dart';
 
 class PerceptionMux {
   const PerceptionMux({
@@ -26,12 +27,17 @@ class PerceptionMux {
     this.accessibilitySource,
     this.ocrSource,
     this.visionSource,
+    this.resourcePolicy,
   });
 
   final ObjectMemoryPerceptionSource? memorySource;
   final AccessibilityPerceptionSource? accessibilitySource;
   final OcrPerceptionSource? ocrSource;
   final VisionPerceptionSource? visionSource;
+
+  /// AUT-VIS-03 — política de recursos del modelo visual. null → carga bajo
+  /// demanda sin gate (comportamiento anterior).
+  final VisualResourcePolicy? resourcePolicy;
 
   bool get isEnabled =>
       memorySource != null ||
@@ -162,6 +168,16 @@ class PerceptionMux {
     ObservationPolicy policy,
     PerceptionResult fallback,
   ) async {
+    // AUT-VIS-03: la política de recursos puede negar la carga del modelo
+    // visual (RAM/térmica). La degradación conserva la evidencia anterior
+    // SIN tocar el backend — la visión nunca es requisito.
+    final resourcePolicy = this.resourcePolicy;
+    if (resourcePolicy != null) {
+      await resourcePolicy.refresh();
+      if (!resourcePolicy.mayLoad()) {
+        return fallback;
+      }
+    }
     final vision = visionSource;
     if (policy.allowVision &&
         vision != null &&

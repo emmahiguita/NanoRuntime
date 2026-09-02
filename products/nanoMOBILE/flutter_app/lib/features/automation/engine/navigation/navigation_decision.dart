@@ -5,7 +5,10 @@ import 'situation_diff.dart';
 
 enum NavigationDecisionStatus { arrived, act, needsMoreEvidence }
 
-enum NavigationActionKind { launchPackage, tap, write, back }
+enum NavigationActionKind { launchPackage, tap, write, back, scroll }
+
+/// Dirección de desplazamiento para [NavigationActionKind.scroll].
+enum ScrollDirection { down, up }
 
 /// Una única acción externa posible. Nunca representa una secuencia.
 final class NavigationAction {
@@ -14,6 +17,7 @@ final class NavigationAction {
     String? packageName,
     String? selector,
     String? text,
+    this.scrollDirection,
   }) : packageName = _known(packageName),
        selector = _known(selector),
        text = _known(text) {
@@ -26,6 +30,11 @@ final class NavigationAction {
         this.packageName == null && this.selector != null && this.text != null,
       NavigationActionKind.back =>
         this.packageName == null && this.selector == null && this.text == null,
+      NavigationActionKind.scroll =>
+        this.packageName == null &&
+            this.selector == null &&
+            this.text == null &&
+            scrollDirection != null,
     };
     if (!valid) {
       throw ArgumentError('Payload inválido para ${kind.name}.');
@@ -51,10 +60,17 @@ final class NavigationAction {
   factory NavigationAction.back() =>
       NavigationAction._(NavigationActionKind.back);
 
+  factory NavigationAction.scroll(ScrollDirection direction) =>
+      NavigationAction._(
+        NavigationActionKind.scroll,
+        scrollDirection: direction,
+      );
+
   final NavigationActionKind kind;
   final String? packageName;
   final String? selector;
   final String? text;
+  final ScrollDirection? scrollDirection;
 
   static String? _known(String? value) {
     final normalized = value?.trim();

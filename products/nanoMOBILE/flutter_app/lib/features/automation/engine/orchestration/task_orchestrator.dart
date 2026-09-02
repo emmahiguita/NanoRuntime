@@ -70,6 +70,8 @@ typedef TaskBack =
       String? confirmedActionSignature,
       String? semanticAction,
     });
+typedef TaskSwipe =
+    Future<TaskActionResult> Function(String direction);
 typedef TaskSubmitInput =
     Future<TaskActionResult> Function({String expectedPackageName});
 typedef TaskResolveAppPackage = Future<String?> Function(String appReference);
@@ -91,6 +93,7 @@ class TaskOrchestrator {
     TaskWriteText? writeText,
     TaskSubmitInput? submitInput,
     TaskBack? back,
+    TaskSwipe? swipe,
     TaskResolveAppPackage? resolveAppPackage,
     CurrentSituationSource? currentSituationSource,
     TaskTargetPerception? targetPerception,
@@ -117,6 +120,7 @@ class TaskOrchestrator {
        _writeText = writeText,
        _submitInput = submitInput,
        _back = back,
+       _swipe = swipe,
        _resolveAppPackage = resolveAppPackage,
        _currentSituationSource = currentSituationSource,
        _targetPerception = targetPerception,
@@ -144,6 +148,7 @@ class TaskOrchestrator {
   final TaskWriteText? _writeText;
   final TaskSubmitInput? _submitInput;
   final TaskBack? _back;
+  final TaskSwipe? _swipe;
   final TaskResolveAppPackage? _resolveAppPackage;
   final CurrentSituationSource? _currentSituationSource;
   final TaskTargetPerception? _targetPerception;
@@ -1391,6 +1396,18 @@ class TaskOrchestrator {
         result = await back(
           confirmedActionSignature: confirmedActionSignature,
           semanticAction: 'openConversation',
+        );
+      case NavigationActionKind.scroll:
+        final swipe = _swipe;
+        if (swipe == null) {
+          return const TaskStepResult(
+            status: TaskStepStatus.needsMoreEvidence,
+            reason: 'sin fuente de desplazamiento para la decisión',
+            failureKind: TaskFailureKind.terminal,
+          );
+        }
+        result = await swipe(
+          action.scrollDirection == ScrollDirection.up ? 'up' : 'down',
         );
     }
 

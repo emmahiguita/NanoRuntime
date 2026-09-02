@@ -230,6 +230,11 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         confirmedActionSignature: confirmedActionSignature,
         semanticAction: semanticAction,
       ),
+      // NAV-MAP-04: action-space universal — desplazamiento por dirección.
+      swipe: (direction) => runTaskTool(
+        ToolCall(tool: 'scroll', args: {'direction': direction}),
+        semanticAction: 'openConversation',
+      ),
       resolveAppPackage: (appReference) async {
         final match = await ref
             .read(installedAppCatalogProvider)

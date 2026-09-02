@@ -38,6 +38,7 @@ import 'perception/mux/ocr_perception_source.dart';
 import 'perception/mux/mlkit_vision_backend.dart';
 import 'perception/mux/vision_perception_source.dart';
 import 'perception/mux/perception_source.dart';
+import 'perception/mux/visual_resource_policy.dart';
 import 'perception/nano_snapshot.dart';
 import 'perception/perception_mux.dart';
 import 'perception/current_situation.dart';
@@ -338,6 +339,13 @@ final perceptionMuxProvider = Provider<PerceptionMux>((ref) {
     visionSource: VisionPerceptionSource(
       const AccessibilityScreenImageProvider(),
       const MlKitVisionBackend(),
+    ),
+    // AUT-VIS-03: política de recursos del modelo visual. La fuente de RAM
+    // real se conecta aquí cuando el canal exponga el campo; sin fuente, la
+    // política permite (degradación = comportamiento actual, sin romper).
+    resourcePolicy: MobileVisualResourcePolicy(
+      minAvailableRamMb: 512,
+      availableRamMb: null,
     ),
   );
 });

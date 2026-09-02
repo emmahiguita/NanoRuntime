@@ -189,6 +189,19 @@ final class GoalDirectedNavigator {
       );
     }
 
+    // La entidad no está presente: en una colección, un desplazamiento puede
+    // revelarla (listas largas, resultados). El ciclo reobserva y el
+    // historial limita; el scroll llega antes que retroceder (que puede
+    // abandonar la pantalla).
+    if (observedCurrent.surfaceKind == CurrentSurfaceKind.collection &&
+        !_entityPresentButNotActionable(observedCurrent, targetEntity)) {
+      return NavigationDecision.act(
+        diff: diff,
+        action: NavigationAction.scroll(ScrollDirection.down),
+        reason: 'entidad no visible; desplazamiento para revelarla',
+      );
+    }
+
     // Una app puede restaurar una actividad interna (perfil, multimedia,
     // ajustes o detalle) donde la sección de conversaciones no está visible.
     // Solo entonces se retrocede progresivamente. NavigationHistory mantiene
@@ -284,6 +297,8 @@ final class GoalDirectedNavigator {
       case NavigationActionKind.launchPackage:
         // El paquete objetivo ya lo resuelve el diff antes de llegar aquí.
         return null;
+      case NavigationActionKind.scroll:
+        return NavigationAction.scroll(ScrollDirection.down);
     }
   }
 
