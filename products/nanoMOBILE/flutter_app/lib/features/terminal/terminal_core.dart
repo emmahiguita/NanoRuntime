@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'terminal_modifier_bar.dart';
@@ -122,6 +123,11 @@ class _TermState extends State<NanoTerminal> {
   bool _ctrl = false, _alive = true;
   // TER-13: feedback de presión del FAB (escala al tocar).
   bool _fabPressed = false;
+  // TER-14: FAB glass — colapsa a círculo compacto en reposo (estilo iOS
+  // discreto) y se oculta mientras el panel Noar está abierto.
+  bool _fabCollapsed = false;
+  bool _fabHidden = false;
+  Timer? _fabTimer;
   bool _initialCmdDone = false;
   LLMEngineClient? _engine;
   PtySession? _pty;
@@ -141,8 +147,8 @@ class _TermState extends State<NanoTerminal> {
 
   Offset _fabOffset = Offset.zero;
   bool _fabInit = false;
-  // TER-12: FAB pill con texto "Noar Library" + contador de comandos.
-  static const double _fabW = 158;
+  // TER-12/14: FAB pill compacta (icono + "Noar") que colapsa a círculo.
+  static const double _fabW = 104;
   static const double _fabH = 44;
   // TER-13: paleta pizarra/cian del FAB (sin verde neón en botones).
   static const Color _accent = Color(0xFF38BDF8);
@@ -220,6 +226,7 @@ class _TermState extends State<NanoTerminal> {
           _fabOffset = Offset(sz.width - _fabW - 12, sz.height * 0.35);
           _fabInit = true;
         });
+        _restartFabTimer();
       }
     });
     _out('NanoTerminal  rootfs ARM64', Ln.header);
@@ -343,10 +350,46 @@ class _TermState extends State<NanoTerminal> {
     }
   }
 
+  /// TER-14: programa el colapso del FAB a círculo compacto (estilo iOS:
+  /// discreto en reposo). Se rearma en cada interacción.
+  void _restartFabTimer() {
+    _fabTimer?.cancel();
+    _fabTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (mounted) setState(() => _fabCollapsed = true);
+    });
+  }
+
+  /// TER-14: abre la Noar Library ocultando el FAB mientras el panel vive
+  /// y rearmando el colapso al cerrar.
+  void _fabTap() {
+    final c = NanoThemeExtension.of(context).colors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
+    _fabTimer?.cancel();
+    setState(() => _fabHidden = true);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => NoarPanel(
+        library: _noarLib,
+        fg: fg,
+        dark: dark,
+        onUse: _useCommand,
+      ),
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() => _fabHidden = false);
+        _restartFabTimer();
+      }
+    });
+  }
+
   @override
   void dispose() {
     _saveHistory();
     _alive = false;
+    _fabTimer?.cancel();
     _ptyClose(notify: false);
     for (final t in _timers) {
       t.cancel();
@@ -1286,106 +1329,173 @@ class _TermState extends State<NanoTerminal> {
           Positioned(
             left: _fabOffset.dx,
             top: _fabOffset.dy,
-            child: GestureDetector(
-              onPanUpdate: (d) {
-                setState(() {
-                  final sw = MediaQuery.of(context).size.width;
-                  final sh = MediaQuery.of(context).size.height;
-                  _fabOffset = Offset(
-                    (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabW),
-                    (_fabOffset.dy + d.delta.dy).clamp(
-                      40.0,
-                      sh - _fabH - 100,
-                    ),
-                  );
-                });
-              },
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _fabInit ? 1.0 : 0.0,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(_fabH / 2),
-                    onHighlightChanged: (h) => setState(() => _fabPressed = h),
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => NoarPanel(
-                          library: _noarLib,
-                          fg: fg,
-                          dark: dark,
-                          onUse: _useCommand,
-                        ),
-                      );
-                    },
-                    // TER-12/13: FAB pill "Noar Library" con texto visible y
-                    // contador de comandos. TER-13: paleta pizarra/cian
-                    // (sin verde neón en botones) + escala al presionar.
-                    child: AnimatedScale(
-                      scale: _fabPressed ? 0.94 : 1.0,
-                      duration: const Duration(milliseconds: 110),
-                      curve: Curves.easeOut,
-                      child: Container(
-                        height: _fabH,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: chrome,
+            child: IgnorePointer(
+              ignoring: _fabHidden,
+              child: GestureDetector(
+                onPanStart: (_) {
+                  // Al arrastrar expande: se ve qué se está moviendo.
+                  if (_fabCollapsed) {
+                    setState(() => _fabCollapsed = false);
+                  }
+                },
+                onPanUpdate: (d) {
+                  setState(() {
+                    final sw = MediaQuery.of(context).size.width;
+                    final sh = MediaQuery.of(context).size.height;
+                    _fabOffset = Offset(
+                      (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabW),
+                      (_fabOffset.dy + d.delta.dy).clamp(
+                        40.0,
+                        sh - _fabH - 100,
+                      ),
+                    );
+                  });
+                },
+                onPanEnd: (_) => _restartFabTimer(),
+                // TER-14: entrada/dismiss estilo iOS — slide desde la derecha
+                // + escala con overshoot (easeOutBack) al aparecer; se
+                // desliza fuera al abrir el panel (oculto, sin robar espacio
+                // ni atención).
+                child: AnimatedSlide(
+                  offset: (_fabInit && !_fabHidden)
+                      ? Offset.zero
+                      : const Offset(0.9, 0),
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedScale(
+                    scale: (_fabInit && !_fabHidden)
+                        ? (_fabPressed ? 0.94 : 1.0)
+                        : 0.6,
+                    duration: _fabPressed
+                        ? const Duration(milliseconds: 110)
+                        : const Duration(milliseconds: 420),
+                    curve:
+                        _fabPressed ? Curves.easeOut : Curves.easeOutBack,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 260),
+                      opacity: (_fabInit && !_fabHidden) ? 1.0 : 0.0,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
                           borderRadius: BorderRadius.circular(_fabH / 2),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.10),
+                          onHighlightChanged: (h) =>
+                              setState(() => _fabPressed = h),
+                          onTap: _fabTap,
+                          // TER-14: glassmorphism — blur real del contenido
+                          // del terminal detrás + tinte translúcido + borde
+                          // blanco fino + sombra profunda + brillo de acento.
+                          // Colapsa a círculo compacto (icono + badge) tras
+                          // 3.5 s sin uso.
+                          child: AnimatedContainer(
+                            width: _fabCollapsed ? _fabH : _fabW,
+                            height: _fabH,
+                            duration: const Duration(milliseconds: 320),
+                            curve: Curves.easeInOutCubic,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.14),
+                                  Colors.white.withValues(alpha: 0.04),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(_fabH / 2),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
+                                ),
+                                BoxShadow(
+                                  color: _accent.withValues(alpha: 0.10),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(_fabH / 2),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 12,
+                                  sigmaY: 12,
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Icono fijo a la izquierda.
+                                    const Positioned(
+                                      left: 13,
+                                      top: 13,
+                                      child: Icon(
+                                        Icons.menu_book_rounded,
+                                        color: _accent,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    // Label corto: fade al colapsar.
+                                    Positioned(
+                                      left: 38,
+                                      right: 8,
+                                      top: 0,
+                                      bottom: 0,
+                                      child: AnimatedOpacity(
+                                        duration: const Duration(
+                                            milliseconds: 180),
+                                        opacity:
+                                            _fabCollapsed ? 0.0 : 1.0,
+                                        child: const Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            'Noar',
+                                            style: TextStyle(
+                                              fontFamily: 'JetBrainsMono',
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: _fabText,
+                                            ),
+                                            maxLines: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Badge contador: solo en modo compacto
+                                    // (no roba espacio en la pill).
+                                    if (_fabCollapsed)
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: Container(
+                                          width: 16,
+                                          height: 16,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: c.warning,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: chrome,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${noarBuiltinCommands.length + _noarLib.length}',
+                                            style: const TextStyle(
+                                              fontFamily: 'JetBrainsMono',
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF1A1200),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _accent.withValues(alpha: 0.12),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.menu_book_rounded,
-                              color: _accent,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Noar Library',
-                              style: TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: _fabText,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: c.warning.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: c.warning.withValues(alpha: 0.4),
-                                ),
-                              ),
-                              child: Text(
-                                '${noarBuiltinCommands.length + _noarLib.length}',
-                                style: TextStyle(
-                                  fontFamily: 'JetBrainsMono',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: c.warning,
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
