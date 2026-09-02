@@ -23,6 +23,12 @@ class NotificationEventRouter {
     _sub = NanoRuntimeApi.instance.notificationEvents.listen(
       (m) {
         final notif = NotificationObject.fromMap(m);
+        // WA-PHYS-11: traza de evento entrante (logcat tag flutter). Sin esta
+        // línea el pipeline es mudo y los fallos físicos son indiagnosticables.
+        debugPrint(
+          '[notify-event] ${notif.packageName} key=${notif.key} '
+          'sender=${notif.sender} msg="${notif.interpretableText}"',
+        );
         unawaited(pipeline.onNotification(notif));
       },
       onError: (Object e) {

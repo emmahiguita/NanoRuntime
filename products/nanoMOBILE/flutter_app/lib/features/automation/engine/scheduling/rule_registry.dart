@@ -19,7 +19,8 @@ abstract interface class RuleStore {
 
 /// Store en memoria (tests/preview). Determinista.
 class MemoryRuleStore implements RuleStore {
-  MemoryRuleStore([List<ScheduledRule>? seed]) : _rules = List.of(seed ?? const []);
+  MemoryRuleStore([List<ScheduledRule>? seed])
+    : _rules = List.of(seed ?? const []);
   List<ScheduledRule> _rules;
 
   @override
@@ -38,11 +39,18 @@ class SharedPrefsRuleStore implements RuleStore {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return const [];
-    final list = jsonDecode(raw) as List;
-    return [
-      for (final m in list)
-        ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
-    ];
+    try {
+      final list = jsonDecode(raw) as List;
+      return [
+        for (final m in list)
+          ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
+      ];
+    } on Object {
+      // WA-PHYS-11: store corrupto o esquema viejo → arrancar sin reglas
+      // (fail-closed), jamás tumbar el provider de arranque con una excepción
+      // no manejada (verificado en dispositivo físico con seed malformado).
+      return const [];
+    }
   }
 
   @override

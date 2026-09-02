@@ -16,6 +16,8 @@
 /// de respuesta posiblemente irreversible).
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../messaging/incoming_message.dart';
 import '../notifications/notification_object.dart';
 import 'event_dedupe_store.dart';
@@ -49,6 +51,12 @@ class RulePipeline {
   ) async {
     final event = const NotificationEventAdapter().fromNotification(notif);
     final matched = _engine.match(_registry.rules, event);
+    // WA-PHYS-11: traza física (logcat tag flutter). Reglas cargadas + veredicto
+    // + resultados: sin esto los fallos en dispositivo son indiagnosticables.
+    debugPrint(
+      '[rules] cargadas=${_registry.rules.length} '
+      'matcheadas=${matched.length} (${event.packageName}/${event.sender})',
+    );
     if (matched.isEmpty) return const [];
 
     // WA-DEDUPE-03 — puerta ANTES del dispatch. El veredicto no-proceed ya
@@ -57,12 +65,16 @@ class RulePipeline {
     final message = IncomingMessage.fromNotification(notif);
     final conversationId = message.conversation.key.id;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    switch (_dedupe.reserve(
+    final verdict = _dedupe.reserve(
       message.eventId,
       conversationId: conversationId,
       text: message.text,
       atMs: nowMs,
-    )) {
+    );
+    debugPrint(
+      '[rules] verdict=${verdict.name} evt=${message.eventId.substring(4, 16)}',
+    );
+    switch (verdict) {
       case DedupeVerdict.proceed:
         break;
       case DedupeVerdict.duplicate:
@@ -100,11 +112,16 @@ class RulePipeline {
       }
     }
 
+    final terminal = _terminalState(results);
     _dedupe.record(
       message.eventId,
-      _terminalState(results),
+      terminal,
       atMs: nowMs,
       reason: _terminalReason(results),
+    );
+    debugPrint(
+      '[rules] terminal=$terminal resultados='
+      '${results.map((r) => r.outcome.name).join(',')}',
     );
     return results;
   }

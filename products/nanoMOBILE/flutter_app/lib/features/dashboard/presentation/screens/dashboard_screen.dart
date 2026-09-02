@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart'
+    show notificationEventRouterProvider;
 
 import 'package:nanoai/features/home/nano_home_screen.dart';
 import 'package:nanoai/features/home/nano_home_models.dart';
@@ -23,6 +25,12 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // WA-PHYS-11: el dashboard (siempre montado en la shell) mantiene VIVO el
+    // pipeline de reglas (NotificationEventRouter → dedupe → RuleEngine →
+    // dispatcher). Verificado en dispositivo: sin un consumidor permanente
+    // ningún provider instancia el router y las reglas nunca procesan
+    // notificaciones reales.
+    ref.watch(notificationEventRouterProvider);
     final dashboard = ref.watch(dashboardProvider);
     final rootfs = ref.watch(rootfsProvider);
     final chat = ref.watch(chatProvider);
