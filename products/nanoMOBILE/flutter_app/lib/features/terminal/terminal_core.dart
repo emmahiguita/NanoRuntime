@@ -120,6 +120,8 @@ class _TermState extends State<NanoTerminal> {
   // que recibe por copia; el holder compartido conserva la mutación.
   final _hIdx = Ref<int>(-1);
   bool _ctrl = false, _alive = true;
+  // TER-13: feedback de presión del FAB (escala al tocar).
+  bool _fabPressed = false;
   bool _initialCmdDone = false;
   LLMEngineClient? _engine;
   PtySession? _pty;
@@ -142,6 +144,9 @@ class _TermState extends State<NanoTerminal> {
   // TER-12: FAB pill con texto "Noar Library" + contador de comandos.
   static const double _fabW = 158;
   static const double _fabH = 44;
+  // TER-13: paleta pizarra/cian del FAB (sin verde neón en botones).
+  static const Color _accent = Color(0xFF38BDF8);
+  static const Color _fabText = Color(0xFFE2E8F0);
 
   final _bashCwd = Ref<String>('/');
 
@@ -1302,6 +1307,7 @@ class _TermState extends State<NanoTerminal> {
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(_fabH / 2),
+                    onHighlightChanged: (h) => setState(() => _fabPressed = h),
                     onTap: () {
                       showModalBottomSheet(
                         context: context,
@@ -1315,61 +1321,72 @@ class _TermState extends State<NanoTerminal> {
                         ),
                       );
                     },
-                    // TER-12: FAB pill "Noar Library" con texto visible y
-                    // contador de comandos. Paleta del terminal real:
-                    // fondo chrome, verde neón fg, ámbar warning en el badge.
-                    child: Container(
-                      height: _fabH,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: chrome,
-                        borderRadius: BorderRadius.circular(_fabH / 2),
-                        border: Border.all(color: fg.withValues(alpha: 0.35)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: fg.withValues(alpha: 0.14),
-                            blurRadius: 10,
+                    // TER-12/13: FAB pill "Noar Library" con texto visible y
+                    // contador de comandos. TER-13: paleta pizarra/cian
+                    // (sin verde neón en botones) + escala al presionar.
+                    child: AnimatedScale(
+                      scale: _fabPressed ? 0.94 : 1.0,
+                      duration: const Duration(milliseconds: 110),
+                      curve: Curves.easeOut,
+                      child: Container(
+                        height: _fabH,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: chrome,
+                          borderRadius: BorderRadius.circular(_fabH / 2),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.10),
                           ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.menu_book_rounded, color: fg, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Noar Library',
-                            style: TextStyle(
-                              fontFamily: 'JetBrainsMono',
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: fg,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _accent.withValues(alpha: 0.12),
+                              blurRadius: 10,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.menu_book_rounded,
+                              color: _accent,
+                              size: 18,
                             ),
-                            decoration: BoxDecoration(
-                              color: c.warning.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: c.warning.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Text(
-                              '${noarBuiltinCommands.length + _noarLib.length}',
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Noar Library',
                               style: TextStyle(
                                 fontFamily: 'JetBrainsMono',
-                                fontSize: 10,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
-                                color: c.warning,
+                                color: _fabText,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: c.warning.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: c.warning.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Text(
+                                '${noarBuiltinCommands.length + _noarLib.length}',
+                                style: TextStyle(
+                                  fontFamily: 'JetBrainsMono',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: c.warning,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
