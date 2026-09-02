@@ -142,9 +142,13 @@ static void _find_own_libdir(char* out, size_t out_sz) {
         const char* hit = strstr(line, "/libnanoshell.so");
         if (!hit) continue;
         // El path del mapping empieza tras el último espacio antes de hit.
+        // hit apunta a la '/' de "/libnanoshell.so": incluirla (+1) para que
+        // out termine con '/'. Sin ella, concatenar el SONAME daba
+        // ".../lib/arm64libnanoroot.so" (ver device: "pty: preload ... no
+        // existe") y el preload nunca cargó desde TER-06.
         const char* start = hit;
         while (start > line && start[-1] != ' ') start--;
-        size_t len = (size_t)(hit - start);
+        size_t len = (size_t)(hit - start) + 1;
         if (len > 0 && len < out_sz) {
             memcpy(out, start, len);
             out[len] = '\0';
@@ -195,6 +199,40 @@ int pty_spawn(PtySession* session,
 
         const char* bin = argv && argv[0] ? argv[0] : NULL;
         if (!bin) { _exit(127); }
+
+        // TER-08: el environ del proceso app puede traer LD_PRELOAD
+        // relativo (init TER-03: "libnanoroot.so"). El linker del binario
+        // app_data no lo resuelve en su namespace → FATAL "library
+        // libnanoroot.so not found: needed by main executable"
+        // (logcat -b crash, 12:32 device). Absolutizar contra el
+        // nativeLibraryDir (mismo dir de libnanoshell.so); si la lib no
+        // existe, quitarlo — bash sin fakechroot es mejor que bash muerto.
+        // LD_LIBRARY_PATH al mismo dir: resuelve NEEDED del rootfs que
+        // están en jniLibs (libiconv.so, libandroid-support.so).
+        {
+            char libdir[512] = {0};
+            _find_own_libdir(libdir, sizeof(libdir));
+            if (libdir[0]) {
+                const char* cur = getenv("LD_PRELOAD");
+                if (cur && cur[0] && cur[0] != '/') {
+                    char abs_pl[512] = {0};
+                    snprintf(abs_pl, sizeof(abs_pl), "%s%s", libdir, cur);
+                    if (access(abs_pl, R_OK) == 0) {
+                        setenv("LD_PRELOAD", abs_pl, 1);
+                    } else {
+                        unsetenv("LD_PRELOAD");
+                    }
+                }
+                const char* cur_lp = getenv("LD_LIBRARY_PATH");
+                if (!cur_lp || !cur_lp[0]) {
+                    setenv("LD_LIBRARY_PATH", libdir, 1);
+                } else {
+                    char combined[1024] = {0};
+                    snprintf(combined, sizeof(combined), "%s:%s", libdir, cur_lp);
+                    setenv("LD_LIBRARY_PATH", combined, 1);
+                }
+            }
+        }
 
         // ── Vía con fakechroot: execve(linker64) con preload ABSOLUTO ──
         // Evidencia de este device:
