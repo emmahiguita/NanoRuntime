@@ -130,10 +130,12 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
-    _hoverOffsetY = Tween<double>(begin: -8.0, end: -16.0).animate(
+    // TER-19: begin 0 — al pasar a vuelo el valor del controlador es 0,
+    // sin salto de 8 px ni rotación seca; la flotación crece suave.
+    _hoverOffsetY = Tween<double>(begin: 0.0, end: -9.0).animate(
       CurvedAnimation(parent: _hoverController, curve: Curves.easeInOutSine),
     );
-    _hoverRotation = Tween<double>(begin: -0.04, end: 0.04).animate(
+    _hoverRotation = Tween<double>(begin: 0.0, end: 0.05).animate(
       CurvedAnimation(parent: _hoverController, curve: Curves.easeInOutSine),
     );
 
@@ -255,7 +257,11 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
   void _land() {
     if (_state != _OwlState.flying) return;
     _frameTimer?.cancel();
-    _hoverController.stop();
+    // TER-19: reset a 0 — el próximo despegue arranca la flotación
+    // desde el suelo, sin heredar la altura del vuelo anterior.
+    _hoverController
+      ..stop()
+      ..value = 0;
     setState(() {
       _state = widget.expanded ? _OwlState.idle : _OwlState.sleeping;
       _frameIndex = 0;
@@ -278,7 +284,11 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     final size = widget.size;
     final spriteSize = size * 1.15;
     final sleeping = _state == _OwlState.sleeping;
-    final flying = _state == _OwlState.flying;
+    // TER-19: airborne = despegue + vuelo. El círculo y la sombra se
+    // desvanecen desde el primer fotograma de takeoff — antes solo en
+    // vuelo, y en drags cortos el círculo azul quedaba visible detrás.
+    final airborne =
+        _state == _OwlState.takeoff || _state == _OwlState.flying;
 
     return Semantics(
       button: true,
@@ -310,37 +320,37 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
               clipBehavior: Clip.none,
               children: [
                 // CAPA 0: sombra proyectada en el suelo — se expande y
-                // difumina cuando el búho vuela (más altura = sombra más
-                // tenue y ancha). Ultra realista sin tocar el FAB.
+                // difumina cuando el búho despega o vuela (más altura =
+                // sombra más tenue y ancha). Ultra realista sin tocar el FAB.
                 Positioned(
-                  bottom: flying ? -14 : -9,
+                  bottom: airborne ? -14 : -9,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 260),
                     curve: Curves.easeInOutCubic,
-                    width: flying ? size * 0.92 : size * 0.68,
-                    height: flying ? 12 : 10,
+                    width: airborne ? size * 0.92 : size * 0.68,
+                    height: airborne ? 12 : 10,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(50),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: flying ? 0.14 : 0.30,
+                            alpha: airborne ? 0.14 : 0.30,
                           ),
-                          blurRadius: flying ? 14 : 8,
-                          spreadRadius: flying ? 3 : 0,
+                          blurRadius: airborne ? 14 : 8,
+                          spreadRadius: airborne ? 3 : 0,
                         ),
                       ],
                     ),
                   ),
                 ),
                 // CAPA 1: círculo nativo azul con gradiente radial y
-                // glow cian (del diseño original del búho). TER-18: se
-                // desvanece durante el vuelo — acción limpia, sin círculo
-                // flotando detrás del personaje.
+                // glow cian (del diseño original del búho). TER-19: se
+                // desvanece desde el despegue (airborne), no solo en
+                // vuelo — sin círculo flotando detrás del personaje.
                 AnimatedOpacity(
-                  duration: const Duration(milliseconds: 240),
+                  duration: const Duration(milliseconds: 180),
                   curve: Curves.easeInOutCubic,
-                  opacity: flying ? 0.0 : 1.0,
+                  opacity: airborne ? 0.0 : 1.0,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
