@@ -130,12 +130,28 @@ int pty_spawn(PtySession* session,
         const char* bin = argv && argv[0] ? argv[0] : NULL;
         if (!bin) { _exit(127); }
 
-        // ── Vía primaria: execve via linker64 ──
-        // Construye proceso completo con aux vector, TLS y namespaces.
-        // LD_PRELOAD se hereda vía environ (aplicado con apply_env arriba).
-        // No aplicar RLIMIT_AS antes de linker64: en Android 14/15 el linker
-        // reserva una zona CFI shadow amplia; limitar memoria virtual antes
-        // de execve puede abortar con MapShadow CHECK 'p != MAP_FAILED'.
+        // ── Vía primaria: execve directo del binario (igual que nanoshell.c) ──
+        // El kernel invoca el PT_INTERP del binario y el linker SÍ honra
+        // LD_PRELOAD heredado vía environ (apply_env arriba). La vía anterior
+        // forzaba execve("/system/bin/linker64") y en este device el linker
+        // arrancaba sin preload: bash corría sin fakechroot y cada binario
+        // del rootfs daba "Permission denied" (SELinux deniega el execve
+        // directo de binarios app_data sin interceptación). nanoshell.c usa
+        // esta vía directa con éxito en producción (rutas `!` y shell-ops).
+        // El cap de RAM va ANTES: nanoshell.c también limita antes del execve
+        // directo; el abort MapShadow era específico de forzar linker64
+        // como binario ejecutado.
+        apply_rlimit_as();
+        {
+            extern char** environ;
+            execve(bin, (char* const*)argv, environ);
+            fprintf(stderr, "pty: execve(%s) falló: %s — usando linker64\n",
+                    bin, strerror(errno));
+        }
+
+        // ── Segundo intento: execve via linker64 ──
+        // Solo si el execve directo falla (binario sin PT_INTERP válido).
+        // RLIMIT_AS ya se aplicó arriba: no reaplicar (MapShadow, CFI shadow).
         {
             int argc = count_argv(argv);
             char** linker_argv = malloc(sizeof(char*) * (argc + 2));
