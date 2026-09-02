@@ -52,59 +52,55 @@ class TerminalModifierBar extends StatelessWidget {
     return Container(
       color: chrome,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            key('Esc', () => onWriteBytes([0x1b])),
-            key(
-              'Ctrl',
-              onToggleCtrl,
-              longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
-            ),
-            key('Tab', () => onWriteBytes([0x09])),
-            const SizedBox(width: 8),
-            key('<', () => onWriteBytes([0x1b, 0x5b, 0x44])),
-            key('v', () => onWriteBytes([0x1b, 0x5b, 0x42])),
-            key('^', () => onWriteBytes([0x1b, 0x5b, 0x41])),
-            key('>', () => onWriteBytes([0x1b, 0x5b, 0x43])),
-            const SizedBox(width: 8),
-            key('Home', () => onWriteBytes([0x1b, 0x5b, 0x48])),
-            key('End', () => onWriteBytes([0x1b, 0x5b, 0x46])),
-            key('PgUp', () => onWriteBytes([0x1b, 0x5b, 0x35, 0x7e])),
-            key('PgDn', () => onWriteBytes([0x1b, 0x5b, 0x36, 0x7e])),
-            key('Del', () => onWriteBytes([0x1b, 0x5b, 0x33, 0x7e])),
-            const SizedBox(width: 8),
-            key('F1', () => onWriteBytes([0x1b, 0x4f, 0x50])),
-            key('F2', () => onWriteBytes([0x1b, 0x4f, 0x51])),
-            key('F3', () => onWriteBytes([0x1b, 0x4f, 0x52])),
-            key('F4', () => onWriteBytes([0x1b, 0x4f, 0x53])),
-            const SizedBox(width: 8),
-            key('Paste', () async {
-              final data = await Clipboard.getData(Clipboard.kTextPlain);
-              final text = data?.text;
-              if (text == null) return;
-              // Only wrap in bracketed paste sequences when the remote program
-              // has explicitly requested it via DECSET ?2004. Sending the
-              // wrappers unconditionally causes literal "^[[200~" garbage to
-              // appear in shells that have not enabled the mode.
-              if (bracketedPasteEnabled) onWrite('\x1b[200~');
-              onWriteBytes(utf8.encode(text));
-              if (bracketedPasteEnabled) onWrite('\x1b[201~');
-            }),
-            key('/', () => onWriteBytes([0x2f])),
-            key('-', () => onWriteBytes([0x2d])),
-            key('|', () => onWriteBytes([0x7c])),
-            const SizedBox(width: 8),
-            // TER-11: señales accesibles en táctil (un tap, sin Ctrl fijo).
-            // 0x03 por ISIG del kernel genera SIGINT al grupo foreground;
-            // sin kill() desde la app (seccomp ColorOS hostil con syscalls
-            // extra — precedente shmget→SIGSYS).
-            key('C-c', () => onWriteBytes([0x03]), longLabel: 'Ctrl+C'),
-            key('C-d', () => onWriteBytes([0x04]), longLabel: 'Ctrl+D'),
-            key('C-z', () => onWriteBytes([0x1a]), longLabel: 'Ctrl+Z'),
-          ],
-        ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          key('Esc', () => onWriteBytes([0x1b])),
+          key(
+            'Ctrl',
+            onToggleCtrl,
+            longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
+          ),
+          key('Tab', () => onWriteBytes([0x09])),
+          // TER-11: señales accesibles en táctil (un tap, sin Ctrl fijo),
+          // junto a Ctrl y SIEMPRE visibles (Wrap multi-línea — antes el
+          // scroll horizontal las dejaba fuera de pantalla).
+          // 0x03 por ISIG del kernel genera SIGINT al grupo foreground;
+          // sin kill() desde la app (seccomp ColorOS hostil con syscalls
+          // extra — precedente shmget→SIGSYS).
+          key('C-c', () => onWriteBytes([0x03]), longLabel: 'Ctrl+C'),
+          key('C-d', () => onWriteBytes([0x04]), longLabel: 'Ctrl+D'),
+          key('C-z', () => onWriteBytes([0x1a]), longLabel: 'Ctrl+Z'),
+          key('<', () => onWriteBytes([0x1b, 0x5b, 0x44])),
+          key('v', () => onWriteBytes([0x1b, 0x5b, 0x42])),
+          key('^', () => onWriteBytes([0x1b, 0x5b, 0x41])),
+          key('>', () => onWriteBytes([0x1b, 0x5b, 0x43])),
+          key('Home', () => onWriteBytes([0x1b, 0x5b, 0x48])),
+          key('End', () => onWriteBytes([0x1b, 0x5b, 0x46])),
+          key('PgUp', () => onWriteBytes([0x1b, 0x5b, 0x35, 0x7e])),
+          key('PgDn', () => onWriteBytes([0x1b, 0x5b, 0x36, 0x7e])),
+          key('Del', () => onWriteBytes([0x1b, 0x5b, 0x33, 0x7e])),
+          key('F1', () => onWriteBytes([0x1b, 0x4f, 0x50])),
+          key('F2', () => onWriteBytes([0x1b, 0x4f, 0x51])),
+          key('F3', () => onWriteBytes([0x1b, 0x4f, 0x52])),
+          key('F4', () => onWriteBytes([0x1b, 0x4f, 0x53])),
+          key('Paste', () async {
+            final data = await Clipboard.getData(Clipboard.kTextPlain);
+            final text = data?.text;
+            if (text == null) return;
+            // Only wrap in bracketed paste sequences when the remote program
+            // has explicitly requested it via DECSET ?2004. Sending the
+            // wrappers unconditionally causes literal "^[[200~" garbage to
+            // appear in shells that have not enabled the mode.
+            if (bracketedPasteEnabled) onWrite('\x1b[200~');
+            onWriteBytes(utf8.encode(text));
+            if (bracketedPasteEnabled) onWrite('\x1b[201~');
+          }),
+          key('/', () => onWriteBytes([0x2f])),
+          key('-', () => onWriteBytes([0x2d])),
+          key('|', () => onWriteBytes([0x7c])),
+        ],
       ),
     );
   }

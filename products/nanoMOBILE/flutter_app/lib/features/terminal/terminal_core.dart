@@ -847,7 +847,12 @@ class _TermState extends State<NanoTerminal> {
       if (_ctrl) {
         if (e.logicalKey == LogicalKeyboardKey.keyC) {
           _ctrl = false;
-          _pty!.signal(2);
+          // TER-11 v2: signal(2)=kill(-pid) NO mata en este device — sticky
+          // Ctrl + "c" dejó el sleep 60 vivo (verificado por ps). Seccomp
+          // ColorOS filtra kill desde la app (precedente shmget→SIGSYS).
+          // El byte 0x03 por ISIG del kernel SÍ genera SIGINT al foreground
+          // (probado: tecla Ctrl+C mató el sleep 30). Unificado al camino byte.
+          _pty!.writeBytes([0x03]);
           return true;
         }
         if (e.logicalKey == LogicalKeyboardKey.keyL) {
