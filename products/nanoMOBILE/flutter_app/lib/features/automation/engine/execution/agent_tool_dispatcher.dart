@@ -1625,7 +1625,17 @@ class AgentToolDispatcher {
         if (text.isEmpty) {
           return '[tool] reply_notification requiere "text".';
         }
-        return _replyNotification(key: key, text: text);
+        // WA-RI-05: la capacidad observada viaja con la llamada (candidato
+        // grounded). El nativo la revalida contra la notificación activa.
+        final rawActionIndex = call.args?['actionIndex'];
+        return _replyNotification(
+          key: key,
+          text: text,
+          actionIndex: rawActionIndex is num ? rawActionIndex.toInt() : null,
+          remoteInputKey: (call.args?['remoteInputKey'] as String?)?.trim(),
+          contextFingerprint: (call.args?['contextFingerprint'] as String?)
+              ?.trim(),
+        );
       case 'linux.list':
       case 'linux.readFile':
       case 'linux.writeFile':
@@ -2132,6 +2142,9 @@ class AgentToolDispatcher {
   Future<String> _replyNotification({
     required String key,
     required String text,
+    int? actionIndex,
+    String? remoteInputKey,
+    String? contextFingerprint,
   }) async {
     if (text.length > 2000) {
       return '[tool] reply_notification excede 2000 caracteres.';
@@ -2140,6 +2153,9 @@ class AgentToolDispatcher {
       key: key,
       text: text,
       confirmed: true,
+      actionIndex: actionIndex,
+      remoteInputKey: remoteInputKey,
+      contextFingerprint: contextFingerprint,
     );
     if (result['ok'] == true) {
       final code = result['code'] ?? 'REMOTE_INPUT_ACCEPTED';

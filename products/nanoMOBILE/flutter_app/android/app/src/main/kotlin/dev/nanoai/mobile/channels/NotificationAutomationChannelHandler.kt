@@ -108,7 +108,19 @@ class NotificationAutomationChannelHandler(
                     result.error("LISTENER_UNAVAILABLE", "listener no conectado", null)
                     return
                 }
-                val reply = service.reply(key, text)
+                // WA-RI-05: campos de la capacidad OBSERVADA (opcionales).
+                // El servicio los recomputa contra la notificación activa y
+                // exige igualdad antes de enviar (CONTEXT_CHANGED si no).
+                val actionIndex = call.argument<Number>("actionIndex")?.toInt() ?: -1
+                val remoteInputKey = call.argument<String>("remoteInputKey").orEmpty()
+                val contextFingerprint = call.argument<String>("contextFingerprint").orEmpty()
+                val reply = service.reply(
+                    key,
+                    text,
+                    expectedActionIndex = actionIndex,
+                    expectedRemoteInputKey = remoteInputKey,
+                    expectedContextFingerprint = contextFingerprint,
+                )
                 result.success(mapOf("ok" to reply.ok, "code" to reply.code))
             }
 

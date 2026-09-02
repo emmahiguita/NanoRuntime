@@ -59,17 +59,60 @@ class NotificationAutomationService : NotificationListenerService() {
             .map(::toMap)
             .toList()
 
-    fun reply(key: String, text: String): ReplyResult {
+    /**
+     * WA-RI-05 — reply con revalidación EXACTA de la capacidad observada.
+     *
+     * Cuando el caller observó la notificación antes (candidato grounded) y
+     * conoce su capacidad, envía los campos esperados (actionIndex,
+     * remoteInputKey, contextFingerprint). El servicio RECOMPUTA esos valores
+     * contra la notificación ACTIVA en este instante; cualquier desviación =
+     * CONTEXT_CHANGED y NO se envía: la misma key puede seguir viva mientras
+     * su contenido cambió a OTRA conversación, y responder ahí iría al chat
+     * equivocado.
+     *
+     * Campos con default vacío = el caller no observó capacidad (flujos
+     * legacy/@comando): conservan la revalidación por key existente.
+     */
+    fun reply(
+        key: String,
+        text: String,
+        expectedActionIndex: Int = -1,
+        expectedRemoteInputKey: String = "",
+        expectedContextFingerprint: String = "",
+    ): ReplyResult {
         val cleanText = text.trim()
         if (cleanText.isEmpty() || cleanText.length > MAX_REPLY_CHARS) {
             return ReplyResult(false, "INVALID_TEXT")
         }
         val source = (activeNotifications ?: emptyArray()).firstOrNull { it.key == key }
             ?: return ReplyResult(false, "NOTIFICATION_GONE")
-        val action = replyAction(source.notification)
+        val notification = source.notification
+        val action = replyAction(notification)
             ?: return ReplyResult(false, "REPLY_UNAVAILABLE")
         val remoteInputs = textRemoteInputs(action)
         if (remoteInputs.isEmpty()) return ReplyResult(false, "REPLY_UNAVAILABLE")
+
+        // WA-RI-05: exigir la MISMA capacidad observada (índice, resultKey y
+        // contexto de conversación), no "cualquier acción con RemoteInput".
+        val currentActionIndex = notification.actions?.indexOf(action) ?: -1
+        if (expectedActionIndex >= 0 && currentActionIndex != expectedActionIndex) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+        val currentRemoteInputKey = remoteInputs
+            .firstOrNull(RemoteInput::getAllowFreeFormInput)
+            ?.resultKey
+            .orEmpty()
+        if (expectedRemoteInputKey.isNotEmpty() &&
+            currentRemoteInputKey != expectedRemoteInputKey
+        ) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+        val currentFingerprint = contextFingerprint(notification)
+        if (expectedContextFingerprint.isNotEmpty() &&
+            currentFingerprint != expectedContextFingerprint
+        ) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
 
         return try {
             val intent = Intent()
@@ -196,6 +239,48 @@ class NotificationAutomationService : NotificationListenerService() {
             ?.filter(RemoteInput::getAllowFreeFormInput)
             ?.toTypedArray()
             ?: emptyArray()
+
+    /**
+     * WA-RI-05 — fingerprint factual del contexto de conversación, MISMO
+     * orden y separador que ReplyCapabilityRef._contextFingerprint (Dart):
+     * conversationId | shortcutId | locusId | senderKey | conversationTitle |
+     * sender | group/direct, unidos por \u0000. Vacio = la app origen no
+     * expone esa evidencia (honesto: el fingerprint solo difiere si la
+     * evidencia REAL difiere).
+     */
+    private fun contextFingerprint(notification: Notification): String {
+        val extras = notification.extras
+        val messages = MessagingStyle.Message.getMessagesFromBundleArray(
+            extras.getParcelableArray(Notification.EXTRA_MESSAGES),
+        )
+        val lastMessage = messages.lastOrNull()
+        val senderPerson = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lastMessage?.senderPerson
+        } else {
+            null
+        }
+        val isGroup = extras.getBoolean(
+            Notification.EXTRA_IS_GROUP_CONVERSATION,
+            false,
+        )
+        val shortcutId = notification.shortcutId.orEmpty()
+        val locusId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            notification.locusId?.id.orEmpty()
+        } else {
+            ""
+        }
+        return listOf(
+            extras.getString("android.conversationId").orEmpty(),
+            shortcutId,
+            locusId,
+            senderPerson?.key.orEmpty(),
+            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+                ?.toString()
+                .orEmpty(),
+            lastMessage?.sender?.toString().orEmpty(),
+            if (isGroup) "group" else "direct",
+        ).joinToString(separator = "\u0000")
+    }
 
     data class ReplyResult(val ok: Boolean, val code: String)
 

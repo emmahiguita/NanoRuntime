@@ -8,6 +8,7 @@
 /// (NotificationListener + RemoteInput), NUNCA del string del modelo.
 library;
 
+import '../../messaging/reply_capability.dart' show ReplyCapabilityRef;
 import '../../notifications/notification_draft_writer.dart'
     show NotificationDraftSource;
 import '../../notifications/notification_object.dart';
@@ -90,29 +91,41 @@ class NotificationCandidateProvider implements CandidateProvider {
     return [_launchCandidate(target)];
   }
 
-  CandidateAction _replyCandidate(NotificationObject target, String text) =>
-      CandidateAction(
-        id: CandidateId('notification:reply:${target.key}'),
-        semanticAction: 'reply',
-        tool: 'reply_notification',
-        args: {
-          'key': target.key,
-          'text': text,
-          'conversation': target.identity,
-        },
-        channel: ActionChannel.notification,
-        groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
-        risk: ToolRisk.externalWrite,
-        reversible: false,
-        requiredCapabilities: const {SystemCapability.replyNotifications},
-        evidence: [
-          ActionEvidence(
-            source: ActionEvidenceSource.notificationCapability,
-            reference: 'remoteInput:${target.remoteInputKey}',
-            confidence: 0.85,
-          ),
-        ],
-      );
+  CandidateAction _replyCandidate(NotificationObject target, String text) {
+    // WA-RI-05: la capacidad OBSERVADA viaja con el candidato. El nativo la
+    // recomputa contra la notificación ACTIVA antes de enviar y exige
+    // igualdad exacta (actionIndex + resultKey + fingerprint de contexto);
+    // desviación = CONTEXT_CHANGED, no se envía.
+    final capability = ReplyCapabilityRef.fromNotification(target);
+    return CandidateAction(
+      id: CandidateId('notification:reply:${target.key}'),
+      semanticAction: 'reply',
+      tool: 'reply_notification',
+      args: {
+        'key': target.key,
+        'text': text,
+        'conversation': target.identity,
+        if (capability != null && capability.isUsable)
+          'actionIndex': capability.actionIndex,
+        if (capability != null && capability.isUsable)
+          'remoteInputKey': capability.remoteInputResultKey,
+        if (capability != null && capability.isUsable)
+          'contextFingerprint': capability.contextFingerprint,
+      },
+      channel: ActionChannel.notification,
+      groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
+      risk: ToolRisk.externalWrite,
+      reversible: false,
+      requiredCapabilities: const {SystemCapability.replyNotifications},
+      evidence: [
+        ActionEvidence(
+          source: ActionEvidenceSource.notificationCapability,
+          reference: 'remoteInput:${target.remoteInputKey}',
+          confidence: 0.85,
+        ),
+      ],
+    );
+  }
 
   /// Candidato de continuación: abre la app origen de la notificación para
   /// responder por UI cuando no hay RemoteInput. El package sale de la

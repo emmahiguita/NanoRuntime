@@ -1094,10 +1094,18 @@ class NanoRuntimeApi {
       .receiveBroadcastStream()
       .map((e) => Map<dynamic, dynamic>.from(e as Map));
 
+  /// WA-RI-05: [actionIndex], [remoteInputKey] y [contextFingerprint] son la
+  /// capacidad OBSERVADA de la notificación. El nativo los recomputa contra la
+  /// notificación ACTIVA justo antes de enviar; cualquier desviación devuelve
+  /// CONTEXT_CHANGED y NO envía. null = caller sin observación previa
+  /// (flujos legacy): revalidación por key únicamente.
   Future<Map<dynamic, dynamic>> replyToNotification({
     required String key,
     required String text,
     required bool confirmed,
+    int? actionIndex,
+    String? remoteInputKey,
+    String? contextFingerprint,
   }) async {
     if (!confirmed) {
       return const {'ok': false, 'code': 'CONFIRMATION_REQUIRED'};
@@ -1107,6 +1115,10 @@ class NanoRuntimeApi {
             'key': key,
             'text': text,
             'confirmed': true,
+            if (actionIndex != null) 'actionIndex': actionIndex,
+            if (remoteInputKey != null) 'remoteInputKey': remoteInputKey,
+            if (contextFingerprint != null)
+              'contextFingerprint': contextFingerprint,
           }) ??
           const {'ok': false, 'code': 'EMPTY_RESPONSE'};
     } catch (e) {
