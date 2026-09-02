@@ -265,6 +265,8 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
             ),
           ),
       memorySource: () => ref.read(objectMemoryProvider),
+      // AUT-MEM-01: memoria de transiciones verificadas (instancia única).
+      memory: ref.watch(verifiedTransitionMemoryProvider),
       // T2.0 — resolución grounded de superficies UI desde el snapshot real
       // (Accessibility → ScreenGraph). Sin superficie → null (el paso reporta
       // needsMoreEvidence, no inventa selector).

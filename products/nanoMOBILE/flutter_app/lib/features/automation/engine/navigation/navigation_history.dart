@@ -75,11 +75,18 @@ final class NavigationHistoryEntry {
     required this.goalSignature,
     required this.situationSignature,
     required this.action,
+    required this.packageName,
+    required this.fromSurface,
   });
 
   final String goalSignature;
   final String situationSignature;
   final NavigationAction action;
+
+  /// Familia del paquete y superficie PRE: necesarios para registrar la
+  /// transición verificada en la memoria de navegación (AUT-MEM-01).
+  final String packageName;
+  final CurrentSurfaceKind fromSurface;
 
   NavigationActionKind get actionKind => action.kind;
 }
@@ -120,6 +127,8 @@ final class NavigationHistory {
       goalSignature: goalSignature,
       situationSignature: situation.screenSignature,
       action: action,
+      packageName: situation.packageName,
+      fromSurface: situation.surfaceKind,
     );
 
     final sameState = transitionUnchanged
@@ -166,6 +175,8 @@ final class NavigationHistory {
       goalSignature: navigationGoalSignature(goal),
       situationSignature: situation.screenSignature,
       action: decision.action!,
+      packageName: situation.packageName,
+      fromSurface: situation.surfaceKind,
     );
     _entries.add(entry);
     _navigationSteps++;

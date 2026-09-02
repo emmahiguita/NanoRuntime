@@ -6,6 +6,7 @@
 /// vez pasan por el pipeline Candidate-First + governance + verificación).
 library;
 
+import '../memory/verified_transition_memory.dart';
 import '../notifications/notification_object.dart';
 import '../notifications/observed_data_extractor.dart';
 import '../navigation/goal_directed_navigator.dart';
@@ -94,6 +95,7 @@ class TaskOrchestrator {
     CurrentSituationSource? currentSituationSource,
     TaskTargetPerception? targetPerception,
     AutomationMemorySource? memorySource,
+    VerifiedTransitionMemory? memory,
     GoalDirectedNavigator navigator = const GoalDirectedNavigator(),
     NavigationTransitionVerifier transitionVerifier =
         const NavigationTransitionVerifier(),
@@ -119,6 +121,7 @@ class TaskOrchestrator {
        _currentSituationSource = currentSituationSource,
        _targetPerception = targetPerception,
        _memorySource = memorySource,
+       _memory = memory,
        _navigator = navigator,
        _transitionVerifier = transitionVerifier,
        _resolveInputSurfaceFor =
@@ -145,6 +148,7 @@ class TaskOrchestrator {
   final CurrentSituationSource? _currentSituationSource;
   final TaskTargetPerception? _targetPerception;
   final AutomationMemorySource? _memorySource;
+  final VerifiedTransitionMemory? _memory;
   final GoalDirectedNavigator _navigator;
   final NavigationTransitionVerifier _transitionVerifier;
 
@@ -1037,7 +1041,11 @@ class TaskOrchestrator {
       targetSurface: CurrentSurfaceKind.editable,
       targetEntity: goal.target,
     );
-    var decision = _navigator.decide(current, navigationGoal);
+    var decision = _navigator.decide(
+      current,
+      navigationGoal,
+      memory: _memory,
+    );
     if (decision.status == NavigationDecisionStatus.needsMoreEvidence &&
         decision.permitsPerceptionEscalation) {
       final perceived = await _perceivedNavigationDecision(
@@ -1053,6 +1061,22 @@ class TaskOrchestrator {
       goal: navigationGoal,
       decision: decision,
     );
+    // AUT-MEM-01: una transición VERIFICADA por la reobservación (cambio real
+    // o meta alcanzada) se aprende. La memoria solo registra lo confirmado;
+    // el no-progreso (unchanged) nunca se aprende.
+    final previousEntry = navigationHistory.lastEntry;
+    final memory = _memory;
+    if (memory != null &&
+        previousEntry != null &&
+        (transition.status == NavigationTransitionStatus.changed ||
+            transition.status == NavigationTransitionStatus.goalReached)) {
+      memory.record(
+        packageName: current.packageName,
+        fromSurface: previousEntry.fromSurface,
+        action: previousEntry.actionKind,
+        resultingSurface: current.surfaceKind,
+      );
+    }
     final progress = navigationHistory.assess(
       situation: current,
       goal: navigationGoal,

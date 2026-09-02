@@ -19,6 +19,7 @@ import 'execution/agent_executor.dart';
 import 'execution/agent_tool_dispatcher.dart';
 import 'memory/experience_cache.dart';
 import 'memory/object_memory.dart';
+import 'memory/verified_transition_memory.dart';
 import 'execution/goal_verifier.dart';
 import 'execution/nano_flow.dart';
 import 'execution/stability_gate.dart';
@@ -207,6 +208,14 @@ final actionPathRouterProvider = Provider<ActionPathRouter>((ref) {
 final experienceCacheProvider = Provider<ExperienceCache>((ref) {
   return ExperienceCache();
 });
+
+/// AUT-MEM-01 — memoria de transiciones verificadas (DroidBot/AppAgent):
+/// registra solo transiciones confirmadas por reobservación y sugiere el
+/// orden de recuperación. En memoria por sesión; el navigator siempre
+/// reobserva y verifica (MEMORY MAY PROPOSE; CURRENT SCREEN MUST VERIFY).
+final verifiedTransitionMemoryProvider = Provider<VerifiedTransitionMemory>(
+  (ref) => VerifiedTransitionMemory(),
+);
 
 /// Verificador del objetivo final (C3), sobre el MISMO executor del dispatcher.
 /// A14.5.4: incorpora el lector de estado semántico (media/Bluetooth/WiFi/texto).

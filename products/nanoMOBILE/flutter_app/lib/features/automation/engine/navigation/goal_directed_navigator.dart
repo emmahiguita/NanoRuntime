@@ -1,6 +1,7 @@
 /// Navegador puro orientado al estado objetivo.
 library;
 
+import '../memory/verified_transition_memory.dart';
 import '../perception/current_situation.dart';
 import '../perception/nano_snapshot.dart' show NanoBounds;
 import '../perception/semantic/nano_ui_object.dart';
@@ -16,7 +17,11 @@ import 'situation_diff.dart';
 final class GoalDirectedNavigator {
   const GoalDirectedNavigator();
 
-  NavigationDecision decide(CurrentSituation current, NavigationGoal goal) {
+  NavigationDecision decide(
+    CurrentSituation current,
+    NavigationGoal goal, {
+    VerifiedTransitionMemory? memory,
+  }) {
     final observedCurrent = _groundTargetEntity(current, goal.targetEntity);
     final diff = SituationDiff.between(observedCurrent, goal);
     if (diff.matchesTarget) return NavigationDecision.arrived(diff);
@@ -220,10 +225,66 @@ final class GoalDirectedNavigator {
       );
     }
 
+    // AUT-MEM-01: la memoria sugiere el ORDEN de recuperación verificado —
+    // un hint, nunca prueba. Desde esta superficie, estas acciones llevaron
+    // a la superficie objetivo en transiciones verificadas. Cada sugerencia
+    // se traduce a una acción grounded actual; el ciclo SIEMPRE reobserva y
+    // verifica después.
+    final suggestions = memory?.suggest(
+          packageName: observedCurrent.packageName,
+          fromSurface: observedCurrent.surfaceKind,
+          targetSurface: goal.targetSurface,
+        ) ??
+        const <NavigationActionKind>[];
+    for (final actionKind in suggestions) {
+      final resolved = _groundedForAction(graph, actionKind, targetEntity);
+      if (resolved == null) continue;
+      return NavigationDecision.act(
+        diff: diff,
+        action: resolved,
+        reason: 'recuperación sugerida por transiciones verificadas',
+      );
+    }
+
     return NavigationDecision.needsMoreEvidence(
       diff,
       'sin acción grounded que reduzca la diferencia',
     );
+  }
+
+  /// Traduce una acción sugerida por la memoria a su forma grounded actual.
+  /// Los taps a entidades no son sugeribles (requieren ancla observada);
+  /// solo navegación estructural con selector grounded.
+  NavigationAction? _groundedForAction(
+    ScreenGraph graph,
+    NavigationActionKind kind,
+    String? targetEntity,
+  ) {
+    switch (kind) {
+      case NavigationActionKind.back:
+        final backAction = const ActionSurfaceResolver().resolve(
+          graph,
+          kind: 'back',
+        );
+        return backAction == null
+            ? NavigationAction.back()
+            : NavigationAction.tap(backAction.selector);
+      case NavigationActionKind.tap:
+        // Un tap histórico no es reproducible sin el ancla observada.
+        return null;
+      case NavigationActionKind.write:
+        if (targetEntity == null) return null;
+        final input = const InputSurfaceResolver().resolve(
+          graph,
+          kind: InputSurfaceKind.search,
+        );
+        return input == null
+            ? null
+            : NavigationAction.write(input.selector, targetEntity);
+      case NavigationActionKind.launchPackage:
+        // El paquete objetivo ya lo resuelve el diff antes de llegar aquí.
+        return null;
+    }
   }
 
   CurrentSituation _groundTargetEntity(
