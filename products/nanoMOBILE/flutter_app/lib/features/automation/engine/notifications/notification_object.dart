@@ -20,11 +20,30 @@ final class NotificationObject {
   /// Texto del mensaje individual (MessagingStyle), si existe.
   final String messageText;
 
+  /// Timestamp del mensaje individual (MessagingStyle.Message.timestamp).
+  /// 0 = la app origen no lo expuso.
+  final int messageTimestamp;
+
   /// Remitente (Person.name del último mensaje), si existe.
   final String sender;
 
+  /// Identidad estable del remitente (Person.key), si existe.
+  final String senderKey;
+
+  /// URI del remitente (Person.uri, p. ej. tel:), si existe.
+  final String senderUri;
+
   final String conversationTitle;
   final String conversationId;
+
+  /// Shortcut de conversación publicado por la app origen, si existe.
+  final String shortcutId;
+
+  /// Locus de conversación (API 29+), si la app lo publicó.
+  final String locusId;
+
+  /// Hint de cuenta/dispositivo (EXTRA_SUB_TEXT), si existe.
+  final String accountHint;
 
   /// true si la notificación viene de una conversación grupal.
   final bool isGroup;
@@ -35,6 +54,10 @@ final class NotificationObject {
   final int postTime;
   final bool canReply;
   final String remoteInputKey;
+
+  /// Índice de la acción de reply dentro de `actions`. -1 = sin reply.
+  final int actionIndex;
+
   final List<String> actions;
   final bool ongoing;
 
@@ -44,14 +67,21 @@ final class NotificationObject {
     required this.title,
     required this.text,
     required this.messageText,
+    required this.messageTimestamp,
     required this.sender,
+    required this.senderKey,
+    required this.senderUri,
     required this.conversationTitle,
     required this.conversationId,
+    required this.shortcutId,
+    required this.locusId,
+    required this.accountHint,
     required this.isGroup,
     required this.isSummary,
     required this.postTime,
     required this.canReply,
     required this.remoteInputKey,
+    required this.actionIndex,
     required this.actions,
     required this.ongoing,
   });
@@ -63,14 +93,25 @@ final class NotificationObject {
       title: '${raw['title'] ?? ''}',
       text: '${raw['text'] ?? ''}',
       messageText: '${raw['messageText'] ?? ''}',
+      messageTimestamp: raw['messageTimestamp'] is num
+          ? (raw['messageTimestamp'] as num).toInt()
+          : 0,
       sender: '${raw['sender'] ?? ''}',
+      senderKey: '${raw['senderKey'] ?? ''}',
+      senderUri: '${raw['senderUri'] ?? ''}',
       conversationTitle: '${raw['conversationTitle'] ?? ''}',
       conversationId: '${raw['conversationId'] ?? ''}',
+      shortcutId: '${raw['shortcutId'] ?? ''}',
+      locusId: '${raw['locusId'] ?? ''}',
+      accountHint: '${raw['accountHint'] ?? ''}',
       isGroup: raw['isGroup'] == true,
       isSummary: raw['isSummary'] == true,
       postTime: raw['postTime'] is num ? (raw['postTime'] as num).toInt() : 0,
       canReply: raw['canReply'] == true,
       remoteInputKey: '${raw['remoteInputKey'] ?? ''}',
+      actionIndex: raw['actionIndex'] is num
+          ? (raw['actionIndex'] as num).toInt()
+          : -1,
       actions: ((raw['actions'] as List?) ?? const [])
           .map((a) => '$a')
           .where((a) => a.isNotEmpty)

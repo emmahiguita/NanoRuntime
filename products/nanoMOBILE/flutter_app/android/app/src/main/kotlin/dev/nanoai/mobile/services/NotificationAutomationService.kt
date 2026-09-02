@@ -5,6 +5,7 @@ import android.app.Notification.MessagingStyle
 import android.app.RemoteInput
 import android.content.Intent
 import android.content.ComponentName
+import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -117,12 +118,40 @@ class NotificationAutomationService : NotificationListenerService() {
             ?.toString().orEmpty()
         val conversationId = extras.getString("android.conversationId").orEmpty()
 
+        // WA-ID-02 — evidencia adicional de identidad. Sólo metadata PÚBLICA de
+        // la plataforma; vacío = la app origen no la expone (honesto, jamás se
+        // fabrica). senderPerson existe desde API 28 y locusId desde API 29:
+        // ambos van con guard de versión para minSdk 26.
+        val messageTimestamp = lastMessage?.timestamp ?: 0L
+        val senderPerson = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lastMessage?.senderPerson
+        } else {
+            null
+        }
+        val senderKey = senderPerson?.key.orEmpty()
+        val senderUri = senderPerson?.uri.orEmpty()
+        val shortcutId = notification.shortcutId.orEmpty()
+        val locusId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            notification.locusId?.id.orEmpty()
+        } else {
+            ""
+        }
+        val subText = extras
+            .getCharSequence(Notification.EXTRA_SUB_TEXT)
+            ?.toString()
+            .orEmpty()
+
         val reply = replyAction(notification)
         val remoteInputKey = reply
             ?.remoteInputs
             ?.firstOrNull(RemoteInput::getAllowFreeFormInput)
             ?.resultKey
             .orEmpty()
+        val replyActionIndex = if (reply == null) {
+            -1
+        } else {
+            notification.actions?.indexOf(reply) ?: -1
+        }
 
         return mapOf(
             "key" to source.key,
@@ -130,9 +159,15 @@ class NotificationAutomationService : NotificationListenerService() {
             "title" to title.take(MAX_FIELD_CHARS),
             "text" to text.take(MAX_FIELD_CHARS),
             "messageText" to messageText.take(MAX_FIELD_CHARS),
+            "messageTimestamp" to messageTimestamp,
             "sender" to sender.take(200),
+            "senderKey" to senderKey.take(200),
+            "senderUri" to senderUri.take(500),
             "conversationTitle" to conversationTitle.take(200),
             "conversationId" to conversationId.take(200),
+            "shortcutId" to shortcutId.take(200),
+            "locusId" to locusId.take(200),
+            "accountHint" to subText.take(200),
             "isGroup" to isGroup,
             "isSummary" to (
                 notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
@@ -140,6 +175,7 @@ class NotificationAutomationService : NotificationListenerService() {
             "postTime" to source.postTime,
             "canReply" to (reply != null),
             "remoteInputKey" to remoteInputKey,
+            "actionIndex" to replyActionIndex,
             "actions" to notification.actions
                 .orEmpty()
                 .map { it.title?.toString().orEmpty() }
