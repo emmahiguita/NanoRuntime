@@ -361,6 +361,19 @@ class ActionSurfaceResolver {
       final buttons = graph.objects
           .where((o) {
             if (!o.visible || !o.enabled) return false;
+            // Un snapshot puede contener ventanas de la app, teclado, sistema
+            // y overlays. Una acción de navegación solo puede pertenecer al
+            // paquete activo; de lo contrario un "Atrás" o "Chats" externo
+            // puede secuestrar la decisión aunque la pantalla principal sea
+            // WhatsApp. Los nodos sin package se conservan porque algunos
+            // servicios OEM omiten ese atributo en hijos del árbol activo.
+            final graphPackage = graph.package.trim().toLowerCase();
+            final objectPackage = o.packageName.trim().toLowerCase();
+            if (graphPackage.isNotEmpty &&
+                objectPackage.isNotEmpty &&
+                objectPackage != graphPackage) {
+              return false;
+            }
             final matchesRole = profile.matchesRole(o.role);
             if (!matchesRole &&
                 !(profile.allowClickableContainer && o.clickable)) {
@@ -577,9 +590,28 @@ class ActionSurfaceResolver {
     for (var depth = 0; depth < 4; depth++) {
       if (current.selected || current.checked) return true;
       final parent = graph.parentOf(current.id);
-      if (parent == null) return false;
+      if (parent == null) break;
       current = parent;
     }
-    return current.selected || current.checked;
+    if (current.selected || current.checked) return true;
+
+    // Android no es uniforme al exponer el estado de una pestaña: algunos
+    // layouts marcan el contenedor y otros únicamente un hijo (texto/icono).
+    // Revisar la rama evita volver a tocar `Chats` cuando ya está seleccionada,
+    // lo que produciría una transición sin cambio y agotaría el presupuesto.
+    var frontier = <NanoUiObject>[object];
+    final visited = <String>{object.id};
+    for (var depth = 0; depth < 4 && frontier.isNotEmpty; depth++) {
+      final next = <NanoUiObject>[];
+      for (final candidate in frontier) {
+        for (final child in graph.childrenOf(candidate.id)) {
+          if (!visited.add(child.id)) continue;
+          if (child.selected || child.checked) return true;
+          next.add(child);
+        }
+      }
+      frontier = next;
+    }
+    return false;
   }
 }

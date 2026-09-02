@@ -493,34 +493,28 @@ class _AgentHeader extends StatelessWidget {
             child: Column(
               children: [
                 RichText(
-                  text: const TextSpan(
+                  text: TextSpan(
                     style: TextStyle(
                       fontFamily: 'Inter',
-                      color: AutomationVisual.text,
+                      color: AutomationVisual.of(context).text,
                       fontSize: 30,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 2.0,
                     ),
                     children: [
-                      TextSpan(text: 'NANO '),
+                      const TextSpan(text: 'NANO '),
                       TextSpan(
                         text: 'AI',
-                        style: TextStyle(color: AutomationVisual.accent),
+                        style: TextStyle(
+                          color: AutomationVisual.of(context).accent,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Automatización inteligente',
-                  style: TextStyle(
-                    color: AutomationVisual.textMuted,
-                    fontSize: 14,
-                  ),
-                ),
                 const SizedBox(height: 8),
                 Material(
-                  color: AutomationVisual.accentSoft,
+                  color: AutomationVisual.of(context).accentSoft,
                   borderRadius: BorderRadius.circular(99),
                   child: InkWell(
                     onTap: onModeTap,
@@ -532,8 +526,8 @@ class _AgentHeader extends StatelessWidget {
                       ),
                       child: Text(
                         'Modo ${mode.label}',
-                        style: const TextStyle(
-                          color: AutomationVisual.accent,
+                        style: TextStyle(
+                          color: AutomationVisual.of(context).accent,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -547,9 +541,9 @@ class _AgentHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Configuración de automatización',
             onPressed: onSettingsTap,
-            icon: const Icon(
+            icon: Icon(
               Icons.settings_outlined,
-              color: AutomationVisual.text,
+              color: AutomationVisual.of(context).text,
               size: 26,
             ),
           ),
@@ -597,6 +591,7 @@ class _TaskComposer extends StatelessWidget {
             VoiceSessionState.processing => 'Procesando',
             _ => running ? 'Ejecutando' : 'Listo',
           };
+    final stateActive = voiceActive || observingScreen || sensing || running;
     return AutomationSurfaceCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -605,15 +600,38 @@ class _TaskComposer extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Expanded(
-                child: Text(
-                  '¿Qué quieres que haga?',
-                  style: TextStyle(
-                    color: AutomationVisual.text,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¿Qué quieres que haga?',
+                      style: TextStyle(
+                        color: AutomationVisual.of(context).text,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Semantics(
+                      liveRegion: true,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 160),
+                        child: Text(
+                          stateLabel,
+                          key: ValueKey(stateLabel),
+                          style: TextStyle(
+                            color: stateActive
+                                ? AutomationVisual.of(context).accent
+                                : AutomationVisual.of(context).textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 12),
@@ -650,11 +668,11 @@ class _TaskComposer extends StatelessWidget {
                     shape: const CircleBorder(),
                   ),
                   child: running
-                      ? const SizedBox.square(
+                      ? SizedBox.square(
                           dimension: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.2,
-                            color: Colors.white,
+                            color: AutomationVisual.of(context).onAccent,
                           ),
                         )
                       : const Icon(Icons.arrow_forward_rounded, size: 25),
@@ -698,15 +716,6 @@ class _TaskComposer extends StatelessWidget {
                   onTap: onObserve,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ComposerControl(
-                  icon: Icons.graphic_eq_rounded,
-                  label: stateLabel,
-                  active: sensing || running,
-                  enabled: false,
-                ),
-              ),
             ],
           ),
           if (senseFeedback != null && senseFeedback!.trim().isNotEmpty) ...[
@@ -718,8 +727,8 @@ class _TaskComposer extends StatelessWidget {
                 key: ValueKey(senseFeedback),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AutomationVisual.textMuted,
+                style: TextStyle(
+                  color: AutomationVisual.of(context).textMuted,
                   fontSize: 12,
                   height: 1.35,
                 ),
@@ -752,10 +761,10 @@ class _ComposerControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active
-        ? AutomationVisual.accent
+        ? AutomationVisual.of(context).accent
         : enabled
-        ? AutomationVisual.textMuted
-        : const Color(0xFF9BA0A9);
+        ? AutomationVisual.of(context).textMuted
+        : AutomationVisual.of(context).textMuted.withValues(alpha: 0.5);
     return Semantics(
       button: true,
       enabled: enabled,
@@ -772,13 +781,15 @@ class _ComposerControl extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
             decoration: BoxDecoration(
               color: active
-                  ? AutomationVisual.accentSoft
-                  : const Color(0xFFFBFBFC),
+                  ? AutomationVisual.of(context).accentSoft
+                  : AutomationVisual.of(context).inputFill,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: active
-                    ? AutomationVisual.accent.withValues(alpha: 0.38)
-                    : AutomationVisual.line,
+                    ? AutomationVisual.of(
+                        context,
+                      ).accent.withValues(alpha: 0.38)
+                    : AutomationVisual.of(context).line,
               ),
             ),
             child: Column(
@@ -820,33 +831,36 @@ class _NanoAssistantMark extends StatelessWidget {
   final bool active;
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 240),
-    width: 54,
-    height: 54,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFFFF7EF), Color(0xFFFFE6CF)],
-      ),
-      border: Border.all(color: Colors.white, width: 2),
-      boxShadow: [
-        BoxShadow(
-          color: AutomationVisual.accent.withValues(
-            alpha: active ? 0.24 : 0.10,
-          ),
-          blurRadius: active ? 18 : 10,
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [visual.accentSoft, visual.surface],
         ),
-      ],
-    ),
-    child: const Icon(
-      Icons.smart_toy_outlined,
-      color: AutomationVisual.accent,
-      size: 29,
-    ),
-  );
+        border: Border.all(color: visual.cardBorder, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AutomationVisual.of(
+              context,
+            ).accent.withValues(alpha: active ? 0.24 : 0.10),
+            blurRadius: active ? 18 : 10,
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.smart_toy_outlined,
+        color: AutomationVisual.of(context).accent,
+        size: 29,
+      ),
+    );
+  }
 }
 
 String _describeSituation(CurrentSituation situation) {
@@ -973,7 +987,7 @@ class _ActiveExecutionCardState extends State<_ActiveExecutionCard>
     final colors = NanoThemeExtension.of(context).colors;
     final done = !widget.running && widget.status != null;
     final present = done ? _statusPresentation(widget.status!, colors) : null;
-    final activeColor = present?.color ?? AutomationVisual.accent;
+    final activeColor = present?.color ?? AutomationVisual.of(context).accent;
     return AnimatedBuilder(
       animation: _pulse,
       builder: (context, child) => DecoratedBox(
@@ -1104,7 +1118,18 @@ class QuickAutomationActions extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             const gap = 10.0;
-            final itemWidth = (constraints.maxWidth - gap) / 2;
+            // Mantiene un ancho táctil/legible real. En vertical estrecho pasa
+            // a una columna; en horizontal aprovecha el espacio con 3 o 4 sin
+            // reducir cada acción a un icono diminuto.
+            final columns = constraints.maxWidth >= 680
+                ? 4
+                : constraints.maxWidth >= 470
+                ? 3
+                : constraints.maxWidth >= 330
+                ? 2
+                : 1;
+            final itemWidth =
+                (constraints.maxWidth - (gap * (columns - 1))) / columns;
             return Wrap(
               spacing: gap,
               runSpacing: gap,
@@ -1151,15 +1176,15 @@ class _QuickActionTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: AutomationVisual.accent),
+            Icon(icon, size: 22, color: AutomationVisual.of(context).accent),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
                 maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AutomationVisual.text,
+                overflow: TextOverflow.clip,
+                style: TextStyle(
+                  color: AutomationVisual.of(context).text,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
@@ -1184,23 +1209,23 @@ class _MessagesEntryTile extends StatelessWidget {
     padding: EdgeInsets.zero,
     radius: 18,
     onTap: onTap,
-    child: const SizedBox(
+    child: SizedBox(
       height: 64,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
             Icon(
               Icons.mark_chat_unread_outlined,
-              color: AutomationVisual.accent,
+              color: AutomationVisual.of(context).accent,
               size: 23,
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Responder mensajes',
                 style: TextStyle(
-                  color: AutomationVisual.text,
+                  color: AutomationVisual.of(context).text,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1208,7 +1233,7 @@ class _MessagesEntryTile extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: AutomationVisual.textMuted,
+              color: AutomationVisual.of(context).textMuted,
             ),
           ],
         ),

@@ -23,8 +23,10 @@ class AppRouter {
   /// terminal, settings). Permiten que ScaffoldShell resuelva el back real:
   /// dentro de una pestaña, el gesto atrás debe hacer pop del stack interno
   /// del branch (p.ej. /terminal/shell → /terminal) ANTES de saltar a Inicio.
-  static final List<GlobalKey<NavigatorState>> branchKeys =
-      List.generate(5, (_) => GlobalKey<NavigatorState>());
+  static final List<GlobalKey<NavigatorState>> branchKeys = List.generate(
+    5,
+    (_) => GlobalKey<NavigatorState>(),
+  );
 
   /// (Re)construye el router. [initialRoute] permite arrancar en /settings
   /// cuando el sistema lanza la app desde Ajustes → Apps → Configuración
@@ -109,13 +111,12 @@ class AppRouter {
       // /automation → apartado dedicado (NO vive en Ajustes)
       GoRoute(
         path: '/automation',
-        pageBuilder: (_, __) => _expressiveSlide(const AutomationScreen()),
+        pageBuilder: (_, __) => _glassMorph(const AutomationScreen()),
       ),
       // /automation/messages → responder mensajes (función de usuario, no Dev)
       GoRoute(
         path: '/automation/messages',
-        pageBuilder: (_, __) =>
-            _expressiveSlide(const AutomationMessagesScreen()),
+        pageBuilder: (_, __) => _glassMorph(const AutomationMessagesScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',

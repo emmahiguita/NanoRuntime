@@ -488,6 +488,88 @@ class NanoLightColors implements NanoColors {
   final borderAccentColor = const Color(0x6055DCE8); // Cyan borde reflectivo
 }
 
+/// Identidad cálida de Nano usada únicamente cuando el usuario elige
+/// "Sistema". Conserva las superficies y el contraste de cada brillo, pero
+/// reemplaza los acentos de marca fríos por la familia naranja de
+/// Automatización. Claro y Oscuro explícitos mantienen sus paletas originales.
+class NanoSystemLightColors extends NanoLightColors {
+  @override
+  Color get primary => const Color(0xFFC45100);
+  @override
+  Color get primaryContainer => const Color(0xFFFFF0E2);
+  @override
+  Color get onPrimaryContainer => const Color(0xFF3B1800);
+  @override
+  Color get secondary => const Color(0xFF9A4A00);
+  @override
+  Color get secondaryContainer => const Color(0xFFFFE2C2);
+  @override
+  Color get accent => const Color(0xFFC45100);
+  @override
+  Color get onAccent => const Color(0xFFFFFFFF);
+  @override
+  Color get glassOverlay => const Color(0x0FFF7A00);
+  @override
+  Color get nanoCyan => const Color(0xFFFF7A00);
+  @override
+  Color get nanoTurquoise => const Color(0xFFE96B00);
+  @override
+  Color get nanoBlue => const Color(0xFFD85A00);
+  @override
+  Color get nanoViolet => const Color(0xFFF09A3E);
+  @override
+  Color get accentCyan => const Color(0xFFFF7A00);
+  @override
+  Color get accentMint => const Color(0xFFF28B22);
+  @override
+  Color get accentSky => const Color(0xFFFF9F43);
+  @override
+  Color get accentBlue => const Color(0xFFD85A00);
+  @override
+  Color get accentLavender => const Color(0xFFF6B16A);
+  @override
+  Color get borderAccentColor => const Color(0x66FF7A00);
+}
+
+class NanoSystemDarkColors extends NanoDarkColors {
+  @override
+  Color get primary => const Color(0xFFFF9A3D);
+  @override
+  Color get primaryContainer => const Color(0xFF5A2A00);
+  @override
+  Color get onPrimaryContainer => const Color(0xFFFFE8D1);
+  @override
+  Color get secondary => const Color(0xFFFFB060);
+  @override
+  Color get secondaryContainer => const Color(0xFF47270B);
+  @override
+  Color get accent => const Color(0xFFFF9A3D);
+  @override
+  Color get onAccent => const Color(0xFF301500);
+  @override
+  Color get glassOverlay => const Color(0x14FF7A00);
+  @override
+  Color get nanoCyan => const Color(0xFFFF9A3D);
+  @override
+  Color get nanoTurquoise => const Color(0xFFFF8A1F);
+  @override
+  Color get nanoBlue => const Color(0xFFE76F00);
+  @override
+  Color get nanoViolet => const Color(0xFFFFB56B);
+  @override
+  Color get accentCyan => const Color(0xFFFF9A3D);
+  @override
+  Color get accentMint => const Color(0xFFFFB15C);
+  @override
+  Color get accentSky => const Color(0xFFFF8A1F);
+  @override
+  Color get accentBlue => const Color(0xFFE76F00);
+  @override
+  Color get accentLavender => const Color(0xFFFFC078);
+  @override
+  Color get borderAccentColor => const Color(0x66FF9A3D);
+}
+
 class _LerpedNanoColors implements NanoColors {
   final NanoColors a;
   final NanoColors b;

@@ -205,7 +205,7 @@ class _NotificationAutomationSectionState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'NanoRuntime redacta localmente. Nada se envía sin tu confirmación.',
+                  'Borradores locales. Nada se envía sin confirmar.',
                   style: NanoType.caption(colors.onSurfaceVariant),
                 ),
                 const SizedBox(height: NanoSpacing.md),

@@ -261,8 +261,9 @@ class AppTheme {
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected))
+          if (states.contains(WidgetState.selected)) {
             return c.onPrimaryContainer;
+          }
           return c.outline;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
@@ -338,11 +339,10 @@ class AppTheme {
       // animaba distinto según modo claro/oscuro. Ahora es independiente del
       // tema. Las rutas de go_router usan CustomTransitionPage (AppRouter) —
       // este theme aplica al resto (rutas sueltas, preview de predictive back).
-      pageTransitionsTheme: PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android:
-              const NanoPredictiveBackPageTransitionsBuilder(),
-          TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: NanoPredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
       ),
       extensions: [NanoThemeExtension(colors: c)],
@@ -351,4 +351,6 @@ class AppTheme {
 
   static final light = _base(NanoLightColors());
   static final dark = _base(NanoDarkColors());
+  static final systemLight = _base(NanoSystemLightColors());
+  static final systemDark = _base(NanoSystemDarkColors());
 }

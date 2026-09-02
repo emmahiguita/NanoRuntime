@@ -197,7 +197,7 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
   static const _applicationProfiles = <ConversationSurfaceProfile>[
     ConversationSurfaceProfile(
       id: 'whatsapp-conversation',
-      packageNames: {'com.whatsapp'},
+      packageNames: {'com.whatsapp', 'com.whatsapp.w4b'},
       elements: {
         SurfaceElementKind.messageInput: SurfaceElementProfile(
           roles: {SemanticRole.textField},

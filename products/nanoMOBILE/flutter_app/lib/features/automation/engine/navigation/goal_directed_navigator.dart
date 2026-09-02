@@ -123,23 +123,6 @@ final class GoalDirectedNavigator {
       );
     }
 
-    // Una app puede restaurar una actividad interna (estado, perfil, detalle,
-    // ajustes) aunque el launch haya sido correcto. Si existe un único control
-    // volver/subir observado, úsalo para regresar progresivamente hasta una
-    // superficie donde aparezca la entidad o la búsqueda. NavigationHistory
-    // mantiene el presupuesto y evita ciclos; aquí se decide una sola acción.
-    final backAction = const ActionSurfaceResolver().resolve(
-      graph,
-      kind: 'back',
-    );
-    if (backAction != null) {
-      return NavigationDecision.act(
-        diff: diff,
-        action: NavigationAction.tap(backAction.selector),
-        reason: 'superficie interna distinta; navegación atrás observada',
-      );
-    }
-
     final dismissAction = const ActionSurfaceResolver().resolve(
       graph,
       kind: 'dismiss',
@@ -152,6 +135,11 @@ final class GoalDirectedNavigator {
       );
     }
 
+    // En superficies raíz con navegación por secciones (por ejemplo,
+    // Llamadas/Novedades/Comunidades de WhatsApp), `Chats` es una transición
+    // directa, observable y monotónica hacia el objetivo. Debe tener prioridad
+    // sobre BACK: retroceder cuando la pestaña correcta ya está disponible
+    // puede abandonar la actividad o llevar a una pantalla no relacionada.
     final conversationHome = const ActionSurfaceResolver().resolve(
       graph,
       kind: 'conversations',
@@ -161,6 +149,22 @@ final class GoalDirectedNavigator {
         diff: diff,
         action: NavigationAction.tap(conversationHome.selector),
         reason: 'sección de conversaciones observada y no seleccionada',
+      );
+    }
+
+    // Una app puede restaurar una actividad interna (perfil, multimedia,
+    // ajustes o detalle) donde la sección de conversaciones no está visible.
+    // Solo entonces se retrocede progresivamente. NavigationHistory mantiene
+    // el presupuesto y evita ciclos; aquí se decide una única acción.
+    final backAction = const ActionSurfaceResolver().resolve(
+      graph,
+      kind: 'back',
+    );
+    if (backAction != null) {
+      return NavigationDecision.act(
+        diff: diff,
+        action: NavigationAction.tap(backAction.selector),
+        reason: 'superficie interna distinta; navegación atrás observada',
       );
     }
 

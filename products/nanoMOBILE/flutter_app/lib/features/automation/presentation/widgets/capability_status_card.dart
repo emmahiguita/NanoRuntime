@@ -3,27 +3,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
-import 'package:nanoai/core/widgets/nano_optical_surface.dart';
-import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../engine/agent_dependencies.dart' show systemGraphProvider;
 import '../../engine/system/capability_availability.dart';
 import '../../engine/system/device_permission_requester.dart';
 import '../../engine/system/system_capability.dart';
+import '../automation_visual_theme.dart';
 
 /// Estado de permisos/capacidades del agente — la pantalla "acorde a las
 /// funciones": muestra QUÉ puede hacer el agente según los permisos reales del
 /// dispositivo (Accesibilidad, Notificaciones, Linux, Shizuku), leídos del
 /// SystemGraph factual (nunca del string de un modelo).
 ///
-/// Con accesibilidad + notificaciones activadas → "Todo activado" (funciones
-/// completas). Si falta algo → fila ámbar con acceso directo al ajuste.
+/// Si falta una capacidad clave muestra una única alerta con acceso directo;
+/// cuando todo está disponible, las filas factuales bastan y no se duplica el
+/// mismo estado en un banner adicional.
 class CapabilityStatusCard extends ConsumerWidget {
   const CapabilityStatusCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
+    final visual = AutomationVisual.of(context);
     final graph = ref.watch(systemGraphProvider).valueOrNull;
 
     final acc = graph?.availabilityOf(SystemCapability.observeAccessibility);
@@ -32,7 +33,8 @@ class CapabilityStatusCard extends ConsumerWidget {
     final shizuku = graph?.availabilityOf(SystemCapability.shizuku);
 
     // Los dos permisos clave que desbloquean la automatización UI y de mensajes.
-    final keyDone = (acc?.isAvailable ?? false) && (notif?.isAvailable ?? false);
+    final keyDone =
+        (acc?.isAvailable ?? false) && (notif?.isAvailable ?? false);
     final keyMissing = [
       if (!(acc?.isAvailable ?? false)) 'Accesibilidad',
       if (!(notif?.isAvailable ?? false)) 'Notificaciones',
@@ -42,10 +44,7 @@ class CapabilityStatusCard extends ConsumerWidget {
         (notif != null && !notif.isAvailable) ||
         shizuku?.state == CapabilityAvailabilityKind.requiresUserEnablement;
 
-    return NanoOpticalSurface(
-      borderStrength: 0.5,
-      reflectionStrength: 0.28,
-      blurSigma: 12,
+    return AutomationSurfaceCard(
       padding: const EdgeInsets.all(NanoSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,10 +52,26 @@ class CapabilityStatusCard extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: SectionHeader(
-                  'Permisos del agente',
-                  Icons.verified_user_rounded,
-                  colors: colors,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.verified_user_rounded,
+                      size: 18,
+                      color: visual.accent,
+                    ),
+                    const SizedBox(width: NanoSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'PERMISOS DEL AGENTE',
+                        style: TextStyle(
+                          color: visual.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.55,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               IconButton(
@@ -66,18 +81,16 @@ class CapabilityStatusCard extends ConsumerWidget {
                 icon: Icon(
                   Icons.refresh_rounded,
                   size: 18,
-                  color: colors.onSurfaceVariant,
+                  color: visual.textMuted,
                 ),
               ),
             ],
           ),
           const SizedBox(height: NanoSpacing.sm),
-          _SummaryBanner(
-            complete: keyDone,
-            missing: keyMissing,
-            colors: colors,
-          ),
-          const SizedBox(height: NanoSpacing.sm),
+          if (graph != null && !keyDone) ...[
+            _SummaryBanner(missing: keyMissing, colors: colors),
+            const SizedBox(height: NanoSpacing.sm),
+          ],
           _CapRow(
             label: 'Accesibilidad',
             description: 'Observar, tocar y escribir en pantalla',
@@ -165,25 +178,15 @@ class CapabilityStatusCard extends ConsumerWidget {
 }
 
 class _SummaryBanner extends StatelessWidget {
-  const _SummaryBanner({
-    required this.complete,
-    required this.missing,
-    required this.colors,
-  });
+  const _SummaryBanner({required this.missing, required this.colors});
 
-  final bool complete;
   final List<String> missing;
   final NanoColors colors;
 
   @override
   Widget build(BuildContext context) {
-    final color = complete ? colors.success : colors.warning;
-    final icon = complete
-        ? Icons.check_circle_rounded
-        : Icons.info_outline_rounded;
-    final text = complete
-        ? 'Todo activado — funciones completas'
-        : 'Falta activar: ${missing.join(', ')}';
+    final color = colors.warning;
+    final text = 'Falta activar: ${missing.join(', ')}';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -197,14 +200,14 @@ class _SummaryBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: color),
+          Icon(Icons.info_outline_rounded, size: 18, color: color),
           const SizedBox(width: NanoSpacing.sm),
           Expanded(
             child: Text(
               text,
-              style: NanoType.label(color).copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: NanoType.label(
+                color,
+              ).copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -232,64 +235,83 @@ class _CapRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
     final avail = availability;
     final (color: chipColor, label: chipLabel, icon: chipIcon) = _chip(
       avail,
       colors,
     );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: colors.onSurfaceVariant),
-          const SizedBox(width: NanoSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: NanoType.body(colors.textPrimary).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: NanoType.caption(colors.onSurfaceVariant),
-                ),
-              ],
+    final status = onActivate != null && avail != null && _requiresAction(avail)
+        ? TextButton.icon(
+            onPressed: onActivate,
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
+            icon: Icon(chipIcon, size: 14, color: chipColor),
+            label: Text(chipLabel, style: NanoType.label(chipColor)),
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(chipIcon, size: 14, color: chipColor),
+              const SizedBox(width: 4),
+              Text(chipLabel, style: NanoType.label(chipColor)),
+            ],
+          );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 290;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(icon, size: 20, color: visual.textMuted),
+              ),
+              const SizedBox(width: NanoSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: NanoType.body(
+                              visual.text,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        if (!compact) ...[
+                          const SizedBox(width: NanoSpacing.sm),
+                          status,
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      softWrap: true,
+                      style: NanoType.caption(
+                        visual.textMuted,
+                      ).copyWith(height: 1.3),
+                    ),
+                    if (compact) ...[
+                      const SizedBox(height: 6),
+                      Align(alignment: Alignment.centerRight, child: status),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: NanoSpacing.sm),
-          if (onActivate != null && avail != null && _requiresAction(avail))
-            TextButton(
-              onPressed: onActivate,
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(chipIcon, size: 14, color: chipColor),
-                  const SizedBox(width: 4),
-                  Text(chipLabel, style: NanoType.label(chipColor)),
-                ],
-              ),
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(chipIcon, size: 14, color: chipColor),
-                const SizedBox(width: 4),
-                Text(chipLabel, style: NanoType.label(chipColor)),
-              ],
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 

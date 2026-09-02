@@ -21,136 +21,160 @@ class AutomationSettingsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final visualMode = AutomationVisual.modeFromSetting(settings.themeMode);
 
-    return Theme(
-      data: AutomationVisual.theme(),
+    return AnimatedTheme(
+      data: AutomationVisual.theme(context, mode: visualMode),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
       child: Builder(
         builder: (context) => Scaffold(
           resizeToAvoidBottomInset: true,
-          backgroundColor: AutomationVisual.canvas,
-          bottomNavigationBar: keyboardOpen
-              ? null
-              : AutomationBottomNavigation(
-                  onAutomationTap: () => Navigator.of(context).maybePop(),
-                ),
+          backgroundColor: AutomationVisual.of(context).canvas,
           body: SafeArea(
-            bottom: false,
-            child: ListView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
-              children: [
-                const _SettingsHeader(),
-                const SizedBox(height: 28),
-                const Text(
-                  'Configuración',
-                  style: TextStyle(
-                    color: AutomationVisual.text,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Personaliza cómo Nano ejecuta tus automatizaciones.',
-                  style: TextStyle(
-                    color: AutomationVisual.textMuted,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const AutomationSectionLabel('General'),
-                _SettingsCard(
-                  children: [
-                    _SettingsRow(
-                      icon: Icons.bolt_rounded,
-                      title: 'Modo de automatización',
-                      subtitle: settings.agentAutomationMode.label,
-                      trailing: _ValueBadge(
-                        label: settings.agentAutomationMode.label.toUpperCase(),
+            child: AutomationNavigationFrame(
+              hidden: keyboardOpen,
+              onAutomationTap: () => Navigator.of(context).maybePop(),
+              child: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 920),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const _SettingsHeader(),
+                          const SizedBox(height: 28),
+                          Text(
+                            'Configuración',
+                            style: TextStyle(
+                              color: AutomationVisual.of(context).text,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Personaliza cómo Nano ejecuta tus automatizaciones.',
+                            style: TextStyle(
+                              color: AutomationVisual.of(context).textMuted,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          const AutomationSectionLabel('General'),
+                          _SettingsCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.bolt_rounded,
+                                title: 'Modo de automatización',
+                                subtitle:
+                                    settings.agentAutomationMode.description,
+                                trailing: _ValueBadge(
+                                  label: settings.agentAutomationMode.label
+                                      .toUpperCase(),
+                                ),
+                                onTap: () => _pickMode(context, ref),
+                              ),
+                              _SettingsRow(
+                                icon: Icons.psychology_outlined,
+                                title: 'Motor de razonamiento',
+                                subtitle: _modelModeLabel(
+                                  settings.automationModelMode,
+                                ),
+                                onTap: () =>
+                                    _pickModelMode(context, ref, settings),
+                              ),
+                              _SettingsRow(
+                                icon: settings.voiceEnabled
+                                    ? Icons.volume_up_outlined
+                                    : Icons.volume_off_outlined,
+                                title: 'Audio de Nano',
+                                subtitle: settings.voiceEnabled
+                                    ? 'Leer respuestas y resultados en voz alta'
+                                    : 'Responder únicamente con texto',
+                                trailing: Switch(
+                                  value: settings.voiceEnabled,
+                                  onChanged: notifier.setVoiceEnabled,
+                                ),
+                                showChevron: false,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 28),
+                          const AutomationSectionLabel('Ejecución'),
+                          const _SettingsCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.verified_user_outlined,
+                                title: 'Acciones críticas protegidas',
+                                subtitle: 'Confirmación y política activas',
+                                trailing: _ReadonlyStatus(),
+                                showChevron: false,
+                              ),
+                              _SettingsRow(
+                                icon: Icons.fact_check_outlined,
+                                title: 'Verificación de resultados',
+                                subtitle:
+                                    'Comprobar el estado después de actuar',
+                                trailing: _ReadonlyStatus(),
+                                showChevron: false,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 28),
+                          const AutomationSectionLabel('Seguridad y accesos'),
+                          const CapabilityStatusCard(),
+                          if (onDevTap != null) ...[
+                            const SizedBox(height: 28),
+                            const AutomationSectionLabel('Diagnóstico'),
+                            _SettingsCard(
+                              children: [
+                                _SettingsRow(
+                                  icon: Icons.build_outlined,
+                                  title: 'Herramientas del agente',
+                                  subtitle:
+                                      'Percepción, selectores y estado técnico',
+                                  onTap: onDevTap,
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 17,
+                                color: AutomationVisual.of(context).textMuted,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  'Los cambios se guardan automáticamente',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: AutomationVisual.of(
+                                      context,
+                                    ).textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      onTap: () => _pickMode(context, ref),
                     ),
-                    _SettingsRow(
-                      icon: Icons.psychology_outlined,
-                      title: 'Motor de razonamiento',
-                      subtitle: _modelModeLabel(settings.automationModelMode),
-                      onTap: () => _pickModelMode(context, ref, settings),
-                    ),
-                    _SettingsRow(
-                      icon: settings.voiceEnabled
-                          ? Icons.volume_up_outlined
-                          : Icons.volume_off_outlined,
-                      title: 'Audio de Nano',
-                      subtitle: settings.voiceEnabled
-                          ? 'Leer respuestas y resultados en voz alta'
-                          : 'Responder únicamente con texto',
-                      trailing: Switch(
-                        value: settings.voiceEnabled,
-                        onChanged: notifier.setVoiceEnabled,
-                      ),
-                      showChevron: false,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                const AutomationSectionLabel('Ejecución'),
-                const _SettingsCard(
-                  children: [
-                    _SettingsRow(
-                      icon: Icons.verified_user_outlined,
-                      title: 'Acciones críticas protegidas',
-                      subtitle: 'Confirmación y política activas',
-                      trailing: _ReadonlyStatus(label: 'ACTIVO'),
-                      showChevron: false,
-                    ),
-                    _SettingsRow(
-                      icon: Icons.fact_check_outlined,
-                      title: 'Verificación de resultados',
-                      subtitle: 'Comprobar el estado después de actuar',
-                      trailing: _ReadonlyStatus(label: 'ACTIVO'),
-                      showChevron: false,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                const AutomationSectionLabel('Seguridad y accesos'),
-                const CapabilityStatusCard(),
-                if (onDevTap != null) ...[
-                  const SizedBox(height: 28),
-                  const AutomationSectionLabel('Diagnóstico'),
-                  _SettingsCard(
-                    children: [
-                      _SettingsRow(
-                        icon: Icons.build_outlined,
-                        title: 'Herramientas del agente',
-                        subtitle: 'Percepción, selectores y estado técnico',
-                        onTap: onDevTap,
-                      ),
-                    ],
                   ),
                 ],
-                const SizedBox(height: 24),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      size: 17,
-                      color: AutomationVisual.textMuted,
-                    ),
-                    SizedBox(width: 7),
-                    Text(
-                      'Los cambios se guardan automáticamente',
-                      style: TextStyle(
-                        color: AutomationVisual.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -182,8 +206,8 @@ class AutomationSettingsScreen extends ConsumerWidget {
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
                     color: mode == selected
-                        ? AutomationVisual.accent
-                        : AutomationVisual.textMuted,
+                        ? AutomationVisual.of(context).accent
+                        : AutomationVisual.of(context).textMuted,
                   ),
                   title: Text(mode.label),
                   subtitle: Text(mode.description),
@@ -232,8 +256,8 @@ class AutomationSettingsScreen extends ConsumerWidget {
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
                     color: option == settings.automationModelMode
-                        ? AutomationVisual.accent
-                        : AutomationVisual.textMuted,
+                        ? AutomationVisual.of(context).accent
+                        : AutomationVisual.of(context).textMuted,
                   ),
                   title: Text(_modelModeLabel(option)),
                   subtitle: Text(_modelModeDescription(option)),
@@ -283,59 +307,49 @@ class _SettingsHeader extends StatelessWidget {
   const _SettingsHeader();
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 64,
-    child: Row(
-      children: [
-        IconButton(
-          tooltip: 'Atrás',
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_rounded, size: 27),
-        ),
-        const Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _CompactBrand(),
-              SizedBox(height: 2),
-              Text(
-                'Automatización inteligente',
-                style: TextStyle(
-                  color: AutomationVisual.textMuted,
-                  fontSize: 12,
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Atrás',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_rounded, size: 27),
           ),
-        ),
-        const SizedBox(width: 48),
-      ],
-    ),
-  );
+          const Expanded(child: Center(child: _CompactBrand())),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
 }
 
 class _CompactBrand extends StatelessWidget {
   const _CompactBrand();
 
   @override
-  Widget build(BuildContext context) => RichText(
-    text: const TextSpan(
-      style: TextStyle(
-        fontFamily: 'Inter',
-        color: AutomationVisual.text,
-        fontSize: 23,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.6,
-      ),
-      children: [
-        TextSpan(text: 'NANO '),
-        TextSpan(
-          text: 'AI',
-          style: TextStyle(color: AutomationVisual.accent),
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontFamily: 'Inter',
+          color: visual.text,
+          fontSize: 23,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.6,
         ),
-      ],
-    ),
-  );
+        children: [
+          const TextSpan(text: 'NANO '),
+          TextSpan(
+            text: 'AI',
+            style: TextStyle(color: visual.accent),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SettingsCard extends StatelessWidget {
@@ -376,60 +390,86 @@ class _SettingsRow extends StatelessWidget {
   final bool showChevron;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AutomationVisual.accentSoft,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(icon, color: AutomationVisual.accent, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 330 && trailing != null;
+        return InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AutomationVisual.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: visual.accentSoft,
+                    borderRadius: BorderRadius.circular(13),
                   ),
+                  child: Icon(icon, color: visual.accent, size: 22),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AutomationVisual.textMuted,
-                    fontSize: 12,
-                    height: 1.3,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              softWrap: true,
+                              style: TextStyle(
+                                color: visual.text,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (!compact && trailing != null) ...[
+                            const SizedBox(width: 10),
+                            trailing!,
+                          ] else if (showChevron)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: Icon(
+                                Icons.chevron_right_rounded,
+                                color: visual.textMuted,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        softWrap: true,
+                        style: TextStyle(
+                          color: visual.textMuted,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                      if (compact && trailing != null) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: trailing,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            trailing!,
-          ] else if (showChevron)
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AutomationVisual.textMuted,
-            ),
-        ],
-      ),
-    ),
-  );
+        );
+      },
+    );
+  }
 }
 
 class _ValueBadge extends StatelessWidget {
@@ -442,12 +482,12 @@ class _ValueBadge extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: AutomationVisual.accent),
+      border: Border.all(color: AutomationVisual.of(context).accent),
     ),
     child: Text(
       label,
-      style: const TextStyle(
-        color: AutomationVisual.accent,
+      style: TextStyle(
+        color: AutomationVisual.of(context).accent,
         fontSize: 10,
         fontWeight: FontWeight.w700,
       ),
@@ -456,28 +496,17 @@ class _ValueBadge extends StatelessWidget {
 }
 
 class _ReadonlyStatus extends StatelessWidget {
-  const _ReadonlyStatus({required this.label});
-
-  final String label;
+  const _ReadonlyStatus();
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      const Icon(
-        Icons.check_circle_rounded,
-        color: Color(0xFF24B47E),
-        size: 17,
+  Widget build(BuildContext context) {
+    final success = AutomationVisual.of(context).success;
+    return Semantics(
+      label: 'Activo',
+      child: Tooltip(
+        message: 'Activo',
+        child: Icon(Icons.check_circle_rounded, color: success, size: 18),
       ),
-      const SizedBox(width: 5),
-      Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF19825E),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
-  );
+    );
+  }
 }

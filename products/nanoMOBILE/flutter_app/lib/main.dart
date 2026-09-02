@@ -63,6 +63,9 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
+    final usesSystemPalette = ref.watch(
+      settingsProvider.select((settings) => settings.themeMode == 'Sistema'),
+    );
 
     // Sin wrapper de orientación aquí: rotar forzaba rebuild del MaterialApp
     // completo y producía flicker ("pantalla dañada al voltearse"). La
@@ -71,8 +74,8 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     return MaterialApp.router(
       title: 'NanoPlatform',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: usesSystemPalette ? AppTheme.systemLight : AppTheme.light,
+      darkTheme: usesSystemPalette ? AppTheme.systemDark : AppTheme.dark,
       themeMode: themeMode,
       themeAnimationDuration:
           WidgetsBinding

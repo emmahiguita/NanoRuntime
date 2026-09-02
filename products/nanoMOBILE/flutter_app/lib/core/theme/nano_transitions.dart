@@ -205,6 +205,24 @@ class NanoModalGlassTransition extends StatelessWidget {
   }
 }
 
+/// Ruta interna reutilizable para mantener la misma entrada y salida glass de
+/// las rutas declarativas de GoRouter. No crea controladores propios y respeta
+/// automáticamente la preferencia de reducción de movimiento.
+Route<T> nanoGlassPageRoute<T>({required WidgetBuilder builder}) {
+  return PageRouteBuilder<T>(
+    transitionDuration: NanoMotionDurations.navigation,
+    reverseTransitionDuration: NanoMotionDurations.navigation,
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return NanoGlassMorphTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
+      );
+    },
+  );
+}
+
 /// Custom Hero Flight Builder para mantener el radio de curvatura y luz
 /// durante la trayectoria de vuelo sin deformaciones abruptas.
 class NanoHeroFlightBuilder {

@@ -1,11 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
+import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
 import '../agent_console_section.dart';
+import '../automation_visual_theme.dart';
 import '../widgets/c14_debug_benchmark_section.dart';
 import '../widgets/engine_status_card.dart';
 
@@ -14,18 +18,38 @@ import '../widgets/engine_status_card.dart';
 /// Herramientas técnicas (consola del agente, benchmark C14-A, estado real del
 /// motor, detalle de notificaciones) agrupadas claramente. NO contamina el
 /// dashboard del asistente. Pantalla anidada con botón atrás.
-class AutomationDevScreen extends StatelessWidget {
+class AutomationDevScreen extends ConsumerWidget {
   const AutomationDevScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visualMode = AutomationVisual.modeFromSetting(
+      ref.watch(settingsProvider.select((settings) => settings.themeMode)),
+    );
+    return Theme(
+      data: AutomationVisual.theme(context, mode: visualMode),
+      child: const _AutomationDevBody(),
+    );
+  }
+}
+
+class _AutomationDevBody extends StatelessWidget {
+  const _AutomationDevBody();
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final visual = AutomationVisual.of(context);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned.fill(child: LiquidFluidBackground()),
+          Positioned.fill(
+            child: visual.isLightGlass
+                ? const NanoAmbientBackground(animated: false)
+                : const LiquidFluidBackground(),
+          ),
           SafeArea(
             child: NanoScreenShell(
               title: 'Dev',

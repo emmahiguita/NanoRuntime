@@ -133,13 +133,16 @@ class SettingsScreen extends ConsumerWidget {
     title: 'Apariencia',
     icon: Icons.palette_rounded,
     colors: colors,
-    child: ChoiceGroup(
-      label: 'Tema de la interfaz',
-      description: 'Se aplica al instante y respeta el modo del sistema.',
-      options: _themeOptions,
-      selectedValue: state.themeMode,
-      onSelected: notifier.setThemeMode,
-      colors: colors,
+    child: Padding(
+      padding: const EdgeInsets.all(NanoSpacing.md),
+      child: ChoiceGroup(
+        label: 'Tema de la interfaz',
+        description: 'Se aplica al instante y respeta el modo del sistema.',
+        options: _themeOptions,
+        selectedValue: state.themeMode,
+        onSelected: notifier.setThemeMode,
+        colors: colors,
+      ),
     ),
   );
 
@@ -494,7 +497,10 @@ class _SliderRow extends StatelessWidget {
     final display =
         '${safeValue.toStringAsFixed(fractionDigits)}${unit != null ? ' $unit' : ''}';
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: NanoSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: NanoSpacing.md,
+        vertical: NanoSpacing.sm,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -504,8 +510,7 @@ class _SliderRow extends StatelessWidget {
                 child: Text(
                   label,
                   style: NanoType.body(colors.onSurface),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                 ),
               ),
               const SizedBox(width: NanoSpacing.sm),

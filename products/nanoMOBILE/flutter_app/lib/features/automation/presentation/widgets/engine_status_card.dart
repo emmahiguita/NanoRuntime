@@ -38,10 +38,10 @@ class EngineStatusCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'ESTADO DEL SISTEMA',
                         style: TextStyle(
-                          color: AutomationVisual.textMuted,
+                          color: AutomationVisual.of(context).textMuted,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.7,
@@ -238,7 +238,9 @@ class _CleanCapabilityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ok ? const Color(0xFF24B47E) : AutomationVisual.accent;
+    final color = ok
+        ? AutomationVisual.of(context).success
+        : AutomationVisual.of(context).accent;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -252,8 +254,8 @@ class _CleanCapabilityRow extends StatelessWidget {
           Expanded(
             child: Text(
               ok ? okText : offText,
-              style: const TextStyle(
-                color: AutomationVisual.text,
+              style: TextStyle(
+                color: AutomationVisual.of(context).text,
                 fontSize: 14,
               ),
             ),
@@ -271,7 +273,9 @@ class _SystemReadyMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ready ? const Color(0xFF24B47E) : AutomationVisual.accent;
+    final color = ready
+        ? AutomationVisual.of(context).success
+        : AutomationVisual.of(context).accent;
     return SizedBox.square(
       dimension: 92,
       child: Stack(
