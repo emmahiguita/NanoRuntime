@@ -54,6 +54,11 @@ flutter:
     - assets/terminal_campaign_1.png
     - assets/terminal_campaign_2.png
     - assets/terminal_campaign_3.png
+    - assets/owl/blink/
+    - assets/owl/fly/
+    - assets/owl/idle/
+    - assets/owl/sleep/
+    - assets/owl/takeoff/
   fonts:
     - family: Inter
       fonts:

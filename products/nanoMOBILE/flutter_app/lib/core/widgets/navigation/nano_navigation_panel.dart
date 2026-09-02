@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/nano_motion.dart';
+import 'owl_fab.dart';
 
 typedef NavTabSpec = ({IconData icon, IconData sel, String label});
 
@@ -286,7 +287,22 @@ class _GlassNavigationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(expanded ? 24 : 28);
+    // TER-17: colapsado — el búho ES el FAB completo. Sin panel glass
+    // alrededor: el ClipRRect recortaría el personaje y los Zzz. El búho
+    // trae su propio círculo, sombras y glow (diseño del personaje).
+    if (!expanded) {
+      return OwlFloatingActionButton(
+        size: _NanoFloatingNavigationFrameState._fabSize,
+        expanded: false,
+        onTap: onToggle,
+        onPanStart: onPanStart,
+        onPanUpdate: onPanUpdate,
+        onPanEnd: onPanEnd,
+        onPanCancel: onPanCancel,
+      );
+    }
+
+    final radius = BorderRadius.circular(24);
     return RepaintBoundary(
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -294,7 +310,7 @@ class _GlassNavigationPanel extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: style.shadow,
-              blurRadius: expanded ? 30 : 20,
+              blurRadius: 30,
               spreadRadius: -6,
               offset: const Offset(0, 10),
             ),
@@ -326,12 +342,13 @@ class _GlassNavigationPanel extends StatelessWidget {
                             constraints.maxHeight >= 72
                       : constraints.maxWidth >= 260 &&
                             constraints.maxHeight >= 176;
-                  if (!expanded || !enoughSpace) {
+                  if (!enoughSpace) {
+                    // TER-17: handle compacto = búho despierto (viendo
+                    // y parpadeando) mientras el panel vive.
                     return Center(
-                      child: _NavigationFab(
-                        style: style,
-                        expanded: false,
-                        icon: tabs[selectedIndex.clamp(0, tabs.length - 1)].sel,
+                      child: OwlFloatingActionButton(
+                        size: _NanoFloatingNavigationFrameState._fabSize,
+                        expanded: true,
                         onTap: onToggle,
                         onPanStart: onPanStart,
                         onPanUpdate: onPanUpdate,
@@ -407,10 +424,10 @@ class _ExpandedNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final handle = _NavigationFab(
-      style: style,
+    // TER-17: handle de arrastre = búho despierto (viendo y parpadea).
+    final handle = OwlFloatingActionButton(
+      size: _NanoFloatingNavigationFrameState._fabSize,
       expanded: true,
-      icon: Icons.drag_indicator_rounded,
       onTap: onToggle,
       onPanStart: onPanStart,
       onPanUpdate: onPanUpdate,
@@ -497,174 +514,6 @@ class _ExpandedNavigation extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NavigationFab extends StatefulWidget {
-  const _NavigationFab({
-    required this.style,
-    required this.expanded,
-    required this.icon,
-    required this.onTap,
-    required this.onPanStart,
-    required this.onPanUpdate,
-    required this.onPanEnd,
-    required this.onPanCancel,
-  });
-
-  final NanoFloatingNavigationStyle style;
-  final bool expanded;
-  final IconData icon;
-  final VoidCallback onTap;
-  final GestureDragStartCallback onPanStart;
-  final GestureDragUpdateCallback onPanUpdate;
-  final GestureDragEndCallback onPanEnd;
-  final VoidCallback onPanCancel;
-
-  @override
-  State<_NavigationFab> createState() => _NavigationFabState();
-}
-
-class _NavigationFabState extends State<_NavigationFab> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = widget.style;
-    // TER-16: FAB glass iOS — círculo "frosted": tinte acento translúcido
-    // con brillo especular, anillo interior y doble sombra (contacto negra
-    // + glow del acento). Presión táctil: escala 0.88 + glow se contrae.
-    return Semantics(
-      button: true,
-      label: widget.expanded
-          ? 'Mover o contraer navegación'
-          : 'Abrir navegación. Mantén y arrastra para mover.',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        onPanStart: widget.onPanStart,
-        onPanUpdate: widget.onPanUpdate,
-        onPanEnd: widget.onPanEnd,
-        onPanCancel: widget.onPanCancel,
-        child: SizedBox.square(
-          dimension: _NanoFloatingNavigationFrameState._fabSize,
-          child: AnimatedScale(
-            scale: _pressed ? 0.88 : 1.0,
-            duration: const Duration(milliseconds: 110),
-            curve: Curves.easeOut,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: _pressed
-                      ? [
-                          style.accent.withValues(alpha: 0.98),
-                          style.accent.withValues(alpha: 0.82),
-                        ]
-                      : [
-                          style.accent.withValues(alpha: 0.92),
-                          style.accent.withValues(alpha: 0.74),
-                        ],
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.34),
-                ),
-                boxShadow: [
-                  // Sombra de contacto: ancla el FAB a la superficie.
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.30),
-                    blurRadius: 14,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 6),
-                  ),
-                  // Glow del acento: se contrae al presionar (feedback
-                  // táctil de "hundimiento" estilo iOS).
-                  BoxShadow(
-                    color: style.accent.withValues(
-                      alpha: _pressed ? 0.18 : 0.30,
-                    ),
-                    blurRadius: _pressed ? 12 : 20,
-                    spreadRadius: _pressed ? -6 : -4,
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Brillo especular: luz desde arriba-izquierda.
-                    Positioned(
-                      left: 6,
-                      top: 6,
-                      right: 8,
-                      bottom: 22,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.28),
-                              Colors.white.withValues(alpha: 0.0),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Anillo interior sutil: sensación de bisel vidrio.
-                    Positioned.fill(
-                      child: Padding(
-                        padding: const EdgeInsets.all(1.5),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.14),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Icono: transición suave al cambiar (contraer/expandir).
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      switchInCurve: Curves.easeOutBack,
-                      switchOutCurve: Curves.easeIn,
-                      transitionBuilder: (child, animation) => ScaleTransition(
-                        scale: animation,
-                        child: FadeTransition(
-                          opacity: animation,
-                          child: child,
-                        ),
-                      ),
-                      child: Icon(
-                        widget.icon,
-                        key: ValueKey(widget.icon),
-                        color: style.onAccent,
-                        size: 25,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 6,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
