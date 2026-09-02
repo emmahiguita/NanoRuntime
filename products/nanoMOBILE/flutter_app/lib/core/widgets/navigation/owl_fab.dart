@@ -90,6 +90,7 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
   late Animation<double> _hoverRotation;
 
   int _frameIndex = 0;
+  bool _blinkedOnce = false;
   Timer? _blinkTimer;
   Timer? _frameTimer;
 
@@ -179,8 +180,15 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
 
   void _scheduleNextBlink() {
     if (!mounted || _state != _OwlState.idle) return;
-    final next = Duration(milliseconds: 3500 + Random().nextInt(3500));
-    _blinkTimer = Timer(next, _playBlink);
+    // TER-18: primer parpadeo temprano (1.2-2.2 s) al despertar para que
+    // el efecto sea visible al abrir el panel; luego cada 2.5-4.5 s.
+    final next = _blinkedOnce
+        ? Duration(milliseconds: 2500 + Random().nextInt(2000))
+        : Duration(milliseconds: 1200 + Random().nextInt(1000));
+    _blinkTimer = Timer(next, () {
+      _blinkedOnce = true;
+      _playBlink();
+    });
   }
 
   void _playBlink() {
@@ -270,6 +278,7 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     final size = widget.size;
     final spriteSize = size * 1.15;
     final sleeping = _state == _OwlState.sleeping;
+    final flying = _state == _OwlState.flying;
 
     return Semantics(
       button: true,
@@ -300,40 +309,72 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
               alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
-                // CAPA 1: círculo nativo azul con gradiente radial y
-                // glow cian (del diseño original del búho).
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const RadialGradient(
-                      center: Alignment(-0.3, -0.3),
-                      colors: [
-                        Color(0xFF1976D2),
-                        Color(0xFF0D47A1),
-                        Color(0xFF062252),
+                // CAPA 0: sombra proyectada en el suelo — se expande y
+                // difumina cuando el búho vuela (más altura = sombra más
+                // tenue y ancha). Ultra realista sin tocar el FAB.
+                Positioned(
+                  bottom: flying ? -14 : -9,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeInOutCubic,
+                    width: flying ? size * 0.92 : size * 0.68,
+                    height: flying ? 12 : 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: flying ? 0.14 : 0.30,
+                          ),
+                          blurRadius: flying ? 14 : 8,
+                          spreadRadius: flying ? 3 : 0,
+                        ),
                       ],
                     ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.22),
+                  ),
+                ),
+                // CAPA 1: círculo nativo azul con gradiente radial y
+                // glow cian (del diseño original del búho). TER-18: se
+                // desvanece durante el vuelo — acción limpia, sin círculo
+                // flotando detrás del personaje.
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeInOutCubic,
+                  opacity: flying ? 0.0 : 1.0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const RadialGradient(
+                        center: Alignment(-0.3, -0.3),
+                        colors: [
+                          Color(0xFF1976D2),
+                          Color(0xFF0D47A1),
+                          Color(0xFF062252),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.30),
+                          blurRadius: 12,
+                          spreadRadius: -2,
+                          offset: const Offset(0, 6),
+                        ),
+                        BoxShadow(
+                          color:
+                              const Color(0xFF00E5FF).withValues(alpha: 0.32),
+                          blurRadius: 16,
+                          spreadRadius: -2,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.30),
-                        blurRadius: 12,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 6),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF00E5FF).withValues(alpha: 0.32),
-                        blurRadius: 16,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
                 ),
 

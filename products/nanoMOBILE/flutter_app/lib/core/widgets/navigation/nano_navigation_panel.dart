@@ -100,6 +100,8 @@ class _NanoFloatingNavigationFrameState
   late NanoNavigationDock _dock;
   bool _expanded = false;
   Offset? _dragOffset;
+  Size _lastPanelSize = const Size.square(_fabSize);
+  Size? _dragSize;
 
   bool get _atTop =>
       _dock == NanoNavigationDock.topLeft ||
@@ -150,6 +152,9 @@ class _NanoFloatingNavigationFrameState
           _expanded ? expandedWidth : _fabSize,
           _expanded ? expandedHeight : _fabSize,
         );
+        // TER-18: tamaño del último build — el drag usa el tamaño REAL del
+        // panel (expandido o FAB) para no colapsar de golpe al arrastrar.
+        _lastPanelSize = panelSize;
         final dockedOffset = _offsetForDock(viewport, panelSize);
         final position = _dragOffset ?? dockedOffset;
 
@@ -214,9 +219,13 @@ class _NanoFloatingNavigationFrameState
   }
 
   void _startDrag(Size viewport) {
+    // TER-18: el drag arrastra el panel con SU tamaño actual (expandido o
+    // FAB). Antes colapsaba el panel al instante: el búho despierto
+    // desaparecía y reaparecía dormido en otra esquina (salto visual).
+    final size = _expanded ? _lastPanelSize : const Size.square(_fabSize);
     setState(() {
-      _expanded = false;
-      _dragOffset = _offsetForDock(viewport, const Size.square(_fabSize));
+      _dragSize = size;
+      _dragOffset = _offsetForDock(viewport, size);
     });
   }
 
@@ -226,13 +235,14 @@ class _NanoFloatingNavigationFrameState
   }) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
+    final size = _dragSize ?? const Size.square(_fabSize);
     final local = renderBox.globalToLocal(details.globalPosition);
-    final maxX = math.max(_gap, viewport.width - _fabSize - _gap);
-    final maxY = math.max(_gap, viewport.height - _fabSize - _gap);
+    final maxX = math.max(_gap, viewport.width - size.width - _gap);
+    final maxY = math.max(_gap, viewport.height - size.height - _gap);
     setState(() {
       _dragOffset = Offset(
-        (local.dx - (_fabSize / 2)).clamp(_gap, maxX).toDouble(),
-        (local.dy - (_fabSize / 2)).clamp(_gap, maxY).toDouble(),
+        (local.dx - (size.width / 2)).clamp(_gap, maxX).toDouble(),
+        (local.dy - (size.height / 2)).clamp(_gap, maxY).toDouble(),
       );
     });
   }
@@ -240,9 +250,11 @@ class _NanoFloatingNavigationFrameState
   void _finishDrag(Size viewport) {
     final offset = _dragOffset;
     if (offset == null) return;
-    final center = offset + const Offset(_fabSize / 2, _fabSize / 2);
+    final size = _dragSize ?? const Size.square(_fabSize);
+    final center = offset + Offset(size.width / 2, size.height / 2);
     final left = center.dx <= viewport.width / 2;
     final top = center.dy <= viewport.height / 2;
+    _dragSize = null;
     setState(() {
       _dock = switch ((top, left)) {
         (true, true) => NanoNavigationDock.topLeft,
@@ -287,22 +299,35 @@ class _GlassNavigationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TER-17: colapsado — el búho ES el FAB completo. Sin panel glass
-    // alrededor: el ClipRRect recortaría el personaje y los Zzz. El búho
-    // trae su propio círculo, sombras y glow (diseño del personaje).
-    if (!expanded) {
-      return OwlFloatingActionButton(
-        size: _NanoFloatingNavigationFrameState._fabSize,
-        expanded: false,
-        onTap: onToggle,
-        onPanStart: onPanStart,
-        onPanUpdate: onPanUpdate,
-        onPanEnd: onPanEnd,
-        onPanCancel: onPanCancel,
-      );
-    }
-
     final radius = BorderRadius.circular(24);
+
+    // TER-18: fundido entre los dos modos — el panel no se corta de golpe
+    // al colapsar ni el búho aparece seco al expandir.
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: !expanded
+          ? KeyedSubtree(
+              key: const ValueKey('owl-collapsed'),
+              // TER-17: colapsado — el búho ES el FAB completo. Sin panel
+              // glass alrededor: el ClipRRect recortaría el personaje y
+              // los Zzz. El búho trae su propio círculo, sombras y glow.
+              child: OwlFloatingActionButton(
+                size: _NanoFloatingNavigationFrameState._fabSize,
+                expanded: false,
+                onTap: onToggle,
+                onPanStart: onPanStart,
+                onPanUpdate: onPanUpdate,
+                onPanEnd: onPanEnd,
+                onPanCancel: onPanCancel,
+              ),
+            )
+          : KeyedSubtree(key: const ValueKey('owl-panel'), child: _panel(context, radius)),
+    );
+  }
+
+  Widget _panel(BuildContext context, BorderRadius radius) {
     return RepaintBoundary(
       child: DecoratedBox(
         decoration: BoxDecoration(
