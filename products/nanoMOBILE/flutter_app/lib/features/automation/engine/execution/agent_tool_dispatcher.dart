@@ -12,6 +12,7 @@
 /// Invariante: todo fallo degrada a texto legible en español — jamás lanza.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -32,6 +33,8 @@ import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
 import '../governance/action_confirmation.dart';
 import '../governance/rule_execution_authority.dart';
 import '../governance/semantic_policy.dart';
+import '../messaging/reply_capability.dart' show ReplyCapabilityRef;
+import '../notifications/notification_object.dart' show NotificationObject;
 import '../orchestration/execution_journal.dart';
 import '../perception/current_situation.dart';
 import '../voice/execution_cancellation.dart';
@@ -2159,12 +2162,70 @@ class AgentToolDispatcher {
     );
     if (result['ok'] == true) {
       final code = result['code'] ?? 'REMOTE_INPUT_ACCEPTED';
+      // WA-VERIFY-06 — reconciliación post-dispatch: NUNCA reenvía. Solo
+      // OBSERVA si la notificación de la misma conversación pasó a mostrar
+      // el texto enviado (WhatsApp actualiza el MessagingStyle tras recibir
+      // el RemoteInput). Sin esa evidencia queda completedUnverified honesto.
+      if (code == 'REMOTE_INPUT_ACCEPTED') {
+        final evidence = await _reconcileLocalSend(
+          key,
+          text,
+          contextFingerprint: contextFingerprint,
+        );
+        if (evidence != null) {
+          return '[completed] $evidence';
+        }
+        return '[completedUnverified] Android aceptó la respuesta mediante '
+            'RemoteInput ($code); la entrega final del mensaje no está '
+            'verificada.';
+      }
       return '[completedUnverified] Android aceptó la respuesta mediante '
           'RemoteInput ($code); la entrega final del mensaje no está '
           'verificada.';
     }
     final code = result['code'] ?? 'UNKNOWN';
     return '[notificationReply:$code] No se pudo enviar la respuesta.';
+  }
+
+  /// WA-VERIFY-06 — reconciliación local de un envío RemoteInput aceptado.
+  ///
+  /// Después de que Android entregó la acción a la app origen, la app suele
+  /// actualizar la notificación de la conversación con el mensaje saliente.
+  /// Evidencia positiva: la MISMA key sigue activa y su último texto es el
+  /// enviado (mismo fingerprint de contexto si el caller lo observó).
+  /// Devuelve null si no hay evidencia (outcome honesto: dispatched sin
+  /// confirmación local). Jamás reintenta el envío.
+  Future<String?> _reconcileLocalSend(
+    String key,
+    String text, {
+    String? contextFingerprint,
+  }) async {
+    try {
+      // Ventana corta para que la app origen procese el RemoteInput y
+      // publique la actualización. Solo lectura; nunca un segundo envío.
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      final rows = await NanoRuntimeApi.instance.listActiveNotifications(
+        limit: 100,
+      );
+      final expected = text.trim().toLowerCase();
+      for (final row in rows.whereType<Map>()) {
+        if ('${row['key'] ?? ''}' != key) continue;
+        if (row['canReply'] != true) continue;
+        final shown = '${row['messageText'] ?? ''}'.trim().toLowerCase();
+        if (shown.isEmpty || shown != expected) continue;
+        if (contextFingerprint != null && contextFingerprint.isNotEmpty) {
+          final current = ReplyCapabilityRef.fromNotification(
+            NotificationObject.fromMap(row.cast<dynamic, dynamic>()),
+          )?.contextFingerprint;
+          if (current == null || current != contextFingerprint) continue;
+        }
+        return 'Verificado localmente: la notificación de la conversación '
+            'muestra el mensaje enviado.';
+      }
+      return null;
+    } on Object {
+      return null; // Sin evidencia: completedUnverified (no se inventa).
+    }
   }
 
   /// A14.4 — acción Shizuku TIPADA de bajo riesgo: consultar metadatos de un
