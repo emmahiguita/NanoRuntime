@@ -1012,19 +1012,72 @@ class _TermState extends State<NanoTerminal> {
       children: [
         Column(
           children: [
+            // TER-15: header glass — gradiente pizarra + dot de estado con
+            // glow del color del estado + texto con letterSpacing.
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-              color: chrome,
-              child: Text(
-                _ptyActive
-                    ? 'PTY: bash (rootfs real)'
-                    : 'OFFLINE (rootfs no instalado)',
-                style: TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 10,
-                  color: _ptyActive ? c.success : c.warning,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0E2238),
+                          const Color(0xFF07192B),
+                        ]
+                      : [
+                          c.terminalBg.withValues(alpha: 0.9),
+                          c.terminalBg,
+                        ],
                 ),
+                border: Border(
+                  bottom: BorderSide(color: fg.withValues(alpha: 0.08)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _ptyActive ? c.success : c.warning,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_ptyActive ? c.success : c.warning)
+                              .withValues(alpha: 0.5),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    _ptyActive
+                        ? 'PTY: bash (rootfs real)'
+                        : 'OFFLINE (rootfs no instalado)',
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 10,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600,
+                      color: _ptyActive ? c.success : c.warning,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'NANORUNTIME',
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 9,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: fg.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -1143,6 +1196,8 @@ class _TermState extends State<NanoTerminal> {
                     _ansi?.screen.bracketedPasteMode ?? false,
               ),
             if (sug.isNotEmpty && _in.text.isNotEmpty && _fn.hasFocus)
+              // TER-15: sugerencias glass — gradiente pizarra, chips con
+              // estado pressed (escala) y acento cian al tocar.
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1150,7 +1205,19 @@ class _TermState extends State<NanoTerminal> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: chrome,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: dark
+                        ? [
+                            const Color(0xFF0E2238),
+                            const Color(0xFF07192B),
+                          ]
+                        : [
+                            c.terminalBg.withValues(alpha: 0.9),
+                            c.terminalBg,
+                          ],
+                  ),
                   border: Border(
                     top: BorderSide(color: fg.withValues(alpha: 0.08)),
                   ),
@@ -1160,45 +1227,47 @@ class _TermState extends State<NanoTerminal> {
                   runSpacing: 4,
                   children: sug
                       .map(
-                        (s) => GestureDetector(
+                        (s) => _SuggestionChip(
+                          label: s,
+                          fg: fg,
                           onTap: () {
                             _in.text = s;
                             _in.selection = TextSelection.collapsed(
                               offset: s.length,
                             );
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: fg.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(
-                                color: fg.withValues(alpha: 0.08),
-                              ),
-                            ),
-                            child: Text(
-                              s,
-                              style: TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 11.5,
-                                color: fg.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ),
                         ),
                       )
                       .toList(),
                 ),
               ),
+            // TER-15: barra de input glass — gradiente pizarra translúcido,
+            // borde superior con brillo tenue del prompt.
             Container(
               decoration: BoxDecoration(
-                color: chrome,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0E2238),
+                          const Color(0xFF07192B),
+                        ]
+                      : [
+                          c.terminalBg.withValues(alpha: 0.9),
+                          c.terminalBg,
+                        ],
+                ),
                 border: Border(
                   top: BorderSide(color: fg.withValues(alpha: 0.12)),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: fg.withValues(alpha: 0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
               ),
               padding: const EdgeInsets.fromLTRB(16, 12, 14, 14),
               child: Row(
@@ -1505,6 +1574,77 @@ class _TermState extends State<NanoTerminal> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Chip de sugerencia con presión táctil (escala 0.92) y brillo de acento
+/// mientras se pulsa. TER-15.
+class _SuggestionChip extends StatefulWidget {
+  const _SuggestionChip({
+    required this.label,
+    required this.fg,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color fg;
+  final VoidCallback onTap;
+
+  @override
+  State<_SuggestionChip> createState() => _SuggestionChipState();
+}
+
+class _SuggestionChipState extends State<_SuggestionChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: _pressed
+                ? widget.fg.withValues(alpha: 0.16)
+                : widget.fg.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: _pressed
+                  ? widget.fg.withValues(alpha: 0.35)
+                  : widget.fg.withValues(alpha: 0.08),
+            ),
+            boxShadow: _pressed
+                ? [
+                    BoxShadow(
+                      color: widget.fg.withValues(alpha: 0.15),
+                      blurRadius: 8,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 11.5,
+              fontWeight: _pressed ? FontWeight.w700 : FontWeight.w500,
+              color: _pressed
+                  ? widget.fg
+                  : widget.fg.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
