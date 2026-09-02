@@ -97,6 +97,20 @@ class InputSurfaceResolver {
         'matching editable (${profile.sourceProfileId})',
       );
     }
+
+    // Campos sin identidad accesible (YouTube: EditText sin resource-id ni
+    // hint expuesto). Tras el tap del icono de búsqueda (transición explícita
+    // del llamador), el ÚNICO editable visible y enfocado ES el buscador.
+    if (kind == InputSurfaceKind.search &&
+        editables.length == 1 &&
+        editables.single.focused) {
+      final o = editables.single;
+      return ResolvedSurface(
+        o,
+        surfaceSelectorFor(o),
+        'único campo enfocado (búsqueda)',
+      );
+    }
     return null;
   }
 
@@ -355,6 +369,7 @@ class ActionSurfaceResolver {
       'conversations' => SurfaceElementKind.conversationHomeAction,
       'confirm' => SurfaceElementKind.confirmAction,
       'message' => SurfaceElementKind.messageAction,
+      'skipAd' => SurfaceElementKind.skipAdAction,
       _ => null,
     };
     if (elementKind == null) return null;
@@ -388,7 +403,8 @@ class ActionSurfaceResolver {
                 kind == 'overflow' ||
                 kind == 'conversations' ||
                 kind == 'confirm' ||
-                kind == 'message') {
+                kind == 'message' ||
+                kind == 'skipAd') {
               if (_selectedInChain(graph, o)) return false;
               return _matchesExactNavigationAction(o, profile, kind);
             }
@@ -403,7 +419,8 @@ class ActionSurfaceResolver {
           kind == 'overflow' ||
           kind == 'conversations' ||
           kind == 'confirm' ||
-          kind == 'message';
+          kind == 'message' ||
+          kind == 'skipAd';
       final candidates = navigationAction
           ? _uniqueNavigationAnchors(graph, buttons)
           : buttons;
@@ -496,6 +513,13 @@ class ActionSurfaceResolver {
         'chat',
         'send_message',
         'btn_message',
+      }.contains(resource),
+      'skipAd' => const {
+        'skip_ad',
+        'skipad',
+        'skip_ad_button',
+        'ad_skip',
+        'skip',
       }.contains(resource),
       _ => false,
     };

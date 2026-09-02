@@ -1818,6 +1818,48 @@ class TaskOrchestrator {
       }
       final icon = await resolveAction('search');
       if (icon == null || icon.isEmpty) {
+        // Recuperación: una superficie interna sin búsqueda visible (player,
+        // detalle). Primero el botón atrás de la UI (vuelve a la raíz de la
+        // MISMA app); solo si no existe, el back del sistema — y únicamente
+        // cuando la app activa es la esperada (el back del sistema puede
+        // salir de la app). El retry reintenta con la búsqueda disponible;
+        // acotado por el presupuesto de reintentos.
+        final uiBack = await resolveAction('back');
+        if (uiBack != null && uiBack.isNotEmpty) {
+          final backed = await tap(
+            uiBack,
+            semanticAction: 'writeQuery',
+          );
+          if (backed.status == TaskActionStatus.completed) {
+            return const TaskStepResult(
+              status: TaskStepStatus.failed,
+              reason:
+                  'superficie interna sin búsqueda; botón atrás ejecutado, reintentar',
+              failureKind: TaskFailureKind.recoverable,
+            );
+          }
+        }
+        final expectedPackage = goal.appName.isEmpty
+            ? ''
+            : await _resolveAppPackage?.call(goal.appName) ?? '';
+        final situation = _currentSituationSource == null
+            ? null
+            : await _currentSituationSource();
+        final activePackage = situation?.packageName ?? '';
+        final back = _back;
+        if (back != null &&
+            expectedPackage.isNotEmpty &&
+            activePackage == expectedPackage) {
+          final backed = await back(semanticAction: 'writeQuery');
+          if (backed.status == TaskActionStatus.completed) {
+            return const TaskStepResult(
+              status: TaskStepStatus.failed,
+              reason:
+                  'superficie interna sin búsqueda; atrás ejecutado, reintentar',
+              failureKind: TaskFailureKind.recoverable,
+            );
+          }
+        }
         return const TaskStepResult(
           status: TaskStepStatus.failed,
           reason: 'sin superficie de búsqueda',
@@ -1837,7 +1879,11 @@ class TaskOrchestrator {
           recoverable: true,
         );
       }
-      input = await resolveInput('search');
+      // La pantalla de búsqueda aparece con una transición: reobservar con
+      // esperas cortas hasta que el campo editable sea observable. Sin
+      // espera, el snapshot captura la pantalla previa y el campo "no
+      // existe" aunque ya esté apareciendo.
+      input = await _resolveInputWithSettle(resolveInput);
       if (input == null || input.isEmpty) {
         return const TaskStepResult(
           status: TaskStepStatus.failed,
@@ -2012,11 +2058,9 @@ class TaskOrchestrator {
     } else if (goal.resultText.isNotEmpty) {
       target = ResultText(goal.resultText);
     } else {
-      return const TaskStepResult(
-        status: TaskStepStatus.needsMoreEvidence,
-        reason: 'sin ordinal ni texto de resultado',
-        failureKind: TaskFailureKind.terminal,
-      );
+      // Reproducción automática ("reproduce X"): el primer resultado es el
+      // destino por defecto; la unicidad se re-verifica en el snapshot.
+      target = const ResultOrdinal(1);
     }
 
     final resolution = await resolve(target);
@@ -2081,6 +2125,10 @@ class TaskOrchestrator {
         after.toLowerCase().contains(title);
 
     if (changed && contentObserved) {
+      // YouTube (y reproductores similares): el anuncio aparece tras unos
+      // segundos de reproducción. Un intento único de salto — si no hay
+      // botón observable, el video continúa sin intervención.
+      await _skipAdIfPresent();
       return const TaskStepResult(
         status: TaskStepStatus.completed,
         reason: 'resultado abierto: contenido objetivo observado',
@@ -2096,6 +2144,39 @@ class TaskOrchestrator {
       status: TaskStepStatus.completedUnverified,
       reason: 'tap aceptado; sin cambio detectable de pantalla',
     );
+  }
+
+  /// Reobserva el campo de búsqueda con esperas cortas: las pantallas de
+  /// búsqueda entran con transición y el snapshot inmediato captura la
+  /// pantalla anterior. Presupuesto acotado (~2s total).
+  Future<String?> _resolveInputWithSettle(
+    Future<String?> Function(String kind) resolveInput,
+  ) async {
+    const waits = <Duration>[
+      Duration.zero,
+      Duration(milliseconds: 250),
+      Duration(milliseconds: 500),
+      Duration(milliseconds: 1000),
+    ];
+    for (final wait in waits) {
+      if (wait != Duration.zero) await Future<void>.delayed(wait);
+      final input = await resolveInput('search');
+      if (input != null && input.isNotEmpty) return input;
+    }
+    return null;
+  }
+
+  /// Intento único de saltar un anuncio tras abrir un video. Espera el
+  /// intervalo típico de aparición y, si el botón es observable, lo toca.
+  /// Sin botón → no-op honesto (el video sigue reproduciéndose).
+  Future<void> _skipAdIfPresent() async {
+    final resolveAction = _resolveActionSurface;
+    final tap = _tap;
+    if (resolveAction == null || tap == null) return;
+    await Future<void>.delayed(const Duration(seconds: 3));
+    final skip = await resolveAction('skipAd');
+    if (skip == null || skip.isEmpty) return;
+    await tap(skip, semanticAction: 'selectResult');
   }
 
   TaskStepResult _stepFromAction(

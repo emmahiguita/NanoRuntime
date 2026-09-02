@@ -18,6 +18,7 @@ enum SurfaceElementKind {
   conversationHomeAction,
   confirmAction,
   messageAction,
+  skipAdAction,
 }
 
 /// Regla declarativa de un elemento de superficie.
@@ -106,10 +107,16 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'filter',
         'search or type',
         'busca o escribe',
+        'buscar en youtube',
+        'search youtube',
+        'search on youtube',
+        'youtube search',
+        'buscar videos',
+        'search videos',
       ],
     ),
     SurfaceElementKind.sendAction => const SurfaceElementProfile(
-      roles: {SemanticRole.button, SemanticRole.iconButton},
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
       terms: [
         'enviar',
         'send',
@@ -121,7 +128,7 @@ final class GenericSurfaceProfile implements SurfaceProfile {
       ],
     ),
     SurfaceElementKind.searchAction => const SurfaceElementProfile(
-      roles: {SemanticRole.button, SemanticRole.iconButton},
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
       terms: [
         'buscar',
         'search',
@@ -132,10 +139,16 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'buscar en',
         'search in',
         'search icon',
+        'buscar en youtube',
+        'search youtube',
+        'search on youtube',
+        'youtube search',
+        'search videos',
+        'buscar videos',
       ],
     ),
     SurfaceElementKind.navigationBackAction => const SurfaceElementProfile(
-      roles: {SemanticRole.button, SemanticRole.iconButton},
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
       terms: [
         'atrás',
         'atras',
@@ -156,6 +169,7 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         SemanticRole.button,
         SemanticRole.iconButton,
         SemanticRole.menuItem,
+        SemanticRole.image,
       },
       terms: [
         'cerrar',
@@ -173,6 +187,7 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         SemanticRole.button,
         SemanticRole.iconButton,
         SemanticRole.menuItem,
+        SemanticRole.image,
       },
       terms: [
         'más opciones',
@@ -193,6 +208,7 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         SemanticRole.iconButton,
         SemanticRole.menuItem,
         SemanticRole.text,
+        SemanticRole.image,
       },
       terms: [
         'chats',
@@ -213,7 +229,7 @@ final class GenericSurfaceProfile implements SurfaceProfile {
       ],
     ),
     SurfaceElementKind.confirmAction => const SurfaceElementProfile(
-      roles: {SemanticRole.button, SemanticRole.iconButton},
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
       terms: [
         'siguiente',
         'next',
@@ -237,7 +253,7 @@ final class GenericSurfaceProfile implements SurfaceProfile {
       ],
     ),
     SurfaceElementKind.messageAction => const SurfaceElementProfile(
-      roles: {SemanticRole.button, SemanticRole.iconButton},
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
       terms: [
         'mensaje',
         'message',
@@ -251,6 +267,21 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'escribir mensaje',
         'iniciar chat',
         'start chat',
+      ],
+    ),
+    SurfaceElementKind.skipAdAction => const SurfaceElementProfile(
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+      terms: [
+        'saltar anuncio',
+        'skip ad',
+        'omitir anuncio',
+        'skip ads',
+        'saltar',
+        'skip',
+        'anuncio',
+        'ad',
+        'advertisement',
+        'youtube ads',
       ],
     ),
   };
@@ -332,20 +363,20 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
           terms: ['buscar', 'search'],
         ),
         SurfaceElementKind.sendAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton},
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
           terms: ['enviar mensaje', 'send message'],
         ),
         SurfaceElementKind.searchAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton},
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
           terms: ['buscar', 'search'],
           allowClickableContainer: true,
         ),
         SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton},
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
           terms: ['atrás', 'atras', 'volver', 'navegar hacia arriba', 'back'],
         ),
         SurfaceElementKind.navigationDismissAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton},
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
           terms: ['cerrar', 'cancelar', 'close', 'cancel'],
         ),
         SurfaceElementKind.navigationOverflowAction: SurfaceElementProfile(

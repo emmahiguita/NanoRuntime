@@ -112,9 +112,50 @@ class TaskPlanner {
     if (_isSelectResultIntent(g)) return _selectResultPlan(goal);
     final search = const GenericUiIntentParser().parseSearch(goal);
     if (search.hasQuery) {
+      if (_isReproductionIntent(g)) {
+        return _reproductionPlan(goal, openApp: search.app.isNotEmpty);
+      }
       return _searchPlan(goal, openApp: search.app.isNotEmpty);
     }
     return null;
+  }
+
+  /// "reproduce X en youtube" / "ponme X" — buscar Y abrir el primer
+  /// resultado (la app de reproducción lo inicia al abrirlo).
+  static final _reproductionVerb = RegExp(
+    r'reproduce|reproducir|ponme|pon(?:le)?|play',
+    caseSensitive: false,
+  );
+
+  bool _isReproductionIntent(String goal) =>
+      _reproductionVerb.hasMatch(goal.trim());
+
+  /// Búsqueda + selección del primer resultado en un solo plan. Cada paso es
+  /// semántico y verificado; la apertura del video inicia la reproducción.
+  TaskPlan _reproductionPlan(String goal, {required bool openApp}) {
+    final write = TaskStep(
+      id: 'write_query',
+      semanticAction: 'writeQuery',
+      dependencies: openApp ? const ['open_app'] : const [],
+    );
+    return TaskPlan(
+      goal: goal,
+      steps: [
+        if (openApp)
+          const TaskStep(id: 'open_app', semanticAction: 'openApp'),
+        write,
+        const TaskStep(
+          id: 'submit_search',
+          semanticAction: 'submitSearch',
+          dependencies: ['write_query'],
+        ),
+        const TaskStep(
+          id: 'select_result',
+          semanticAction: 'selectResult',
+          dependencies: ['submit_search'],
+        ),
+      ],
+    );
   }
 
   /// "abre WhatsApp y entra en el grupo X" → abrir app y navegar hasta X.

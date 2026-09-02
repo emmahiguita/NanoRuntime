@@ -78,7 +78,8 @@ final class GenericUiIntentParser {
       r'(?:^|[;,]\s*|\b)'
       r'(?:abre|abrir|ve\s+a|ir\s+a|entra\s+a|entra\s+en|open)\s+'
       r'(.+?)(?:\s*,\s*|\s+(?:y|e|and|then)\s+)'
-      r'(?:busca|buscar|b[uú]scame|buscarme|search(?:\s+for)?|find)\s+'
+      r'(?:busca|buscar|b[uú]scame|buscarme|search(?:\s+for)?|find|'
+      r'reproduce|reproducir|ponme|pon(?:le)?|play)\s+'
       r'(.+?)\s*[.!?]*$',
       caseSensitive: false,
     ).firstMatch(source);
@@ -91,7 +92,8 @@ final class GenericUiIntentParser {
 
     final searchInApp = RegExp(
       r'(?:^|[;,]\s*|\b)'
-      r'(?:busca|buscar|b[uú]scame|buscarme|search(?:\s+for)?|find)\s+'
+      r'(?:busca|buscar|b[uú]scame|buscarme|search(?:\s+for)?|find|'
+      r'reproduce|reproducir|ponme|pon(?:le)?|play)\s+'
       r'(.+?)\s+(?:en|dentro\s+de|in|on)\s+(.+?)\s*[.!?]*$',
       caseSensitive: false,
     ).firstMatch(source);
@@ -104,7 +106,8 @@ final class GenericUiIntentParser {
 
     final currentSurfaceSearch = RegExp(
       r'(?:^|[;,]\s*|\b)'
-      r'(?:busca|buscar|b[uú]scame|buscarme|search(?:\s+for)?|find)\s+'
+      r'(?:busca|buscar|b[uú]scame|buscarme|search(?:\s+for)?|find|'
+      r'reproduce|reproducir|ponme|pon(?:le)?|play)\s+'
       r'(.+?)\s*[.!?]*$',
       caseSensitive: false,
     ).firstMatch(source);

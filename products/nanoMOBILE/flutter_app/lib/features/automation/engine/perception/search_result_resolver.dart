@@ -103,6 +103,8 @@ class SearchResultResolver {
 
   /// Extrae los resultados observados, ordenados top→bottom, con ordinal 1-based.
   /// Solo nodos visibles, clickeables, no-editables, con selector grounded.
+  /// Los resultados patrocinados/anuncios se EXCLUYEN: seleccionarlos no es
+  /// el objetivo de una reproducción ("Patrocinado - ..." de YouTube).
   List<SearchResultCandidate> resolveResults(ScreenGraph graph) {
     final objects = graph.objects;
     final searchBottom = _searchFieldBottom(objects);
@@ -112,6 +114,7 @@ class SearchResultResolver {
       if (!o.visible || !o.clickable || o.editable) continue;
       if (!_resultRoles.contains(o.role)) continue;
       if (_selectorFor(o) == null) continue;
+      if (_isSponsored(o)) continue;
       // Un resultado está debajo del campo de búsqueda (si hay campo visible).
       if (searchBottom != null && o.bounds.top < searchBottom) continue;
       partials.add(o);
@@ -122,6 +125,15 @@ class SearchResultResolver {
       for (var i = 0; i < partials.length; i++) _candidate(partials[i], i + 1),
     ];
   }
+
+  static final _sponsoredTerms = RegExp(
+    r'patrocinado|sponsored|anuncio|publicidad|ad\b|advertisement',
+    caseSensitive: false,
+  );
+
+  bool _isSponsored(NanoUiObject o) => _sponsoredTerms.hasMatch(
+    '${o.label} ${o.text} ${o.description}',
+  );
 
   ResultResolution resolve(ScreenGraph graph, ResultTarget target) {
     final results = resolveResults(graph);
