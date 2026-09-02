@@ -5,16 +5,28 @@ import '../theme/nano_transitions.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/models/presentation/screens/models_screen.dart';
+import '../../features/terminal/presentation/screens/terminal_hub_screen.dart';
 import '../../features/terminal/presentation/screens/terminal_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/linux/presentation/screens/mobile_linux_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_launch_screen.dart';
 import '../../features/desktop/presentation/screens/vnc_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
+import '../../features/automation/presentation/screens/automation_screen.dart';
+import '../../features/automation/presentation/screens/automation_messages_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
   static GoRouter router = _build('/dashboard');
+
+  /// Claves de Navigator por branch (orden: dashboard, chat, models,
+  /// terminal, settings). Permiten que ScaffoldShell resuelva el back real:
+  /// dentro de una pestaña, el gesto atrás debe hacer pop del stack interno
+  /// del branch (p.ej. /terminal/shell → /terminal) ANTES de saltar a Inicio.
+  static final List<GlobalKey<NavigatorState>> branchKeys = List.generate(
+    5,
+    (_) => GlobalKey<NavigatorState>(),
+  );
 
   /// (Re)construye el router. [initialRoute] permite arrancar en /settings
   /// cuando el sistema lanza la app desde Ajustes → Apps → Configuración
@@ -30,6 +42,7 @@ class AppRouter {
         builder: (context, state, shell) => ScaffoldShell(shell: shell),
         branches: [
           StatefulShellBranch(
+            navigatorKey: branchKeys[0],
             routes: [
               GoRoute(
                 path: '/dashboard',
@@ -38,6 +51,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[1],
             routes: [
               GoRoute(
                 path: '/chat',
@@ -46,6 +60,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[2],
             routes: [
               GoRoute(
                 path: '/models',
@@ -54,30 +69,35 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[3],
             routes: [
               GoRoute(
                 path: '/terminal',
+                pageBuilder: (_, __) => _glassMorph(const TerminalHubScreen()),
+              ),
+              GoRoute(
+                path: '/terminal/shell',
                 pageBuilder: (_, state) {
-                  // Comando inyectado por la UI: /terminal?cmd=kali%20shell
+                  // Comando inyectado por la UI: /terminal/shell?cmd=kali%20shell
                   final cmd = state.uri.queryParameters['cmd'];
                   return _glassMorph(TerminalTabScreen(initialCommand: cmd));
                 },
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
               GoRoute(
-                path: '/settings',
-                pageBuilder: (_, __) => _expressiveSlide(const SettingsScreen()),
+                path: '/linux',
+                pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
               ),
             ],
           ),
           StatefulShellBranch(
+            navigatorKey: branchKeys[4],
             routes: [
               GoRoute(
-                path: '/linux',
-                pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
+                path: '/settings',
+                // Misma transición primaria que el resto de pestañas: la
+                // navegación entre tabs debe sentirse uniforme (antes usaba
+                // _expressiveSlide y rompía la consistencia del glass morph).
+                pageBuilder: (_, __) => _glassMorph(const SettingsScreen()),
               ),
             ],
           ),
@@ -87,6 +107,16 @@ class AppRouter {
       GoRoute(
         path: '/desktop',
         pageBuilder: (_, __) => _expressiveSlide(const DesktopLaunchScreen()),
+      ),
+      // /automation → apartado dedicado (NO vive en Ajustes)
+      GoRoute(
+        path: '/automation',
+        pageBuilder: (_, __) => _glassMorph(const AutomationScreen()),
+      ),
+      // /automation/messages → responder mensajes (función de usuario, no Dev)
+      GoRoute(
+        path: '/automation/messages',
+        pageBuilder: (_, __) => _glassMorph(const AutomationMessagesScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',
@@ -119,16 +149,17 @@ class AppRouter {
   );
 
   /// Transición Secundaria (Expressive Slide)
-  static Page<void> _expressiveSlide(Widget child) => CustomTransitionPage<void>(
-    transitionDuration: NanoMotionDurations.standard,
-    reverseTransitionDuration: NanoMotionDurations.standard,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return NanoExpressiveSlideTransition(
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
+  static Page<void> _expressiveSlide(Widget child) =>
+      CustomTransitionPage<void>(
+        transitionDuration: NanoMotionDurations.standard,
+        reverseTransitionDuration: NanoMotionDurations.standard,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return NanoExpressiveSlideTransition(
+            animation: animation,
+            secondaryAnimation: secondaryAnimation,
+            child: child,
+          );
+        },
         child: child,
       );
-    },
-    child: child,
-  );
 }

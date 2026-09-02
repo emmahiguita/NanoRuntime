@@ -45,3 +45,22 @@
 -dontwarn com.google.android.play.core.tasks.OnFailureListener
 -dontwarn com.google.android.play.core.tasks.OnSuccessListener
 -dontwarn com.google.android.play.core.tasks.Task
+
+# A14.3: Shizuku API binding (dev.rikka.shizuku:api). El cliente Shizuku se
+# vincula al servicio de sistema via reflection (IShizukuService). Sin estas
+# reglas R8 puede eliminar/renombrar las clases del binding y romper
+# pingBinder()/checkSelfPermission() (disponibilidad factual) en runtime.
+-keep class rikka.shizuku.** { *; }
+-dontwarn rikka.shizuku.**
+
+# A14.3: ShizukuProvider se referencia SOLO por nombre en el AndroidManifest
+# (no hay código que lo instancie). R8 lo elimina si no se mantiene
+# explícitamente -> ClassNotFoundException en el arranque al instanciar el
+# provider. Los providers declarados en manifest SE INSTANCIAN POR REFLECTION;
+# el veredicto "código no usado" no aplica. Esta regla es la recomendada para
+# ContentProviders en manifest y cubre ShizukuProvider (extends ContentProvider).
+-keep public class * extends android.content.ContentProvider
+# A14.4: UserService / AIDL de Shizuku. El servicio se invoca por nombre desde
+# el manifesto/USER_SERVICE y el Stub por Binder: R8 no debe renombrarlos.
+-keep class dev.nanoai.mobile.shizuku.** { *; }
+-keepnames class * implements dev.nanoai.mobile.shizuku.IPackageAction

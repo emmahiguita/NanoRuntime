@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Configuración del AccessibilityService del agente de NanoAI Local.
-     v1: solo lectura del árbol + gestos — sin eventos que interceptar ni
-     ninguna capacidad de "tomar control" pasivo. -->
+<!-- Capacidades del agente local. El servicio necesita leer el árbol completo,
+     operar sobre cualquier ventana interactiva, ejecutar gestos y capturar la
+     pantalla para OCR. No solicita modos que intercepten teclas o el tacto. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagIncludeNotImportantViews|flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:canPerformGestures="true"
     android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100" />

@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'i_bin_executor.dart';
+import 'real_fs_shell.dart';
 import '../../core/services/rootfs_manager.dart';
 import '../../core/services/terminal_audit_logger.dart';
 import '../../core/services/pty_shell.dart';
@@ -12,8 +12,9 @@ import 'terminal_types.dart';
 /// can live outside _TermState. Every dependency is explicit here — no implicit
 /// coupling to the widget state (DIP applied).
 ///
-/// Mutable fields (historyIndex, bashCwd) are owned by _TermState and borrowed
-/// by CommandExecutor for the duration of execute().
+/// Mutable fields (historyIndex, bashCwd) are owned by _TermState. Se pasan
+/// como [Ref]: CmdExecCtx se construye por llamada (copia por valor), así que
+/// una mutación directa del campo se perdería junto con la instancia.
 class CmdExecCtx {
   // ── Output ──
   final void Function(String, Ln) out;
@@ -27,7 +28,7 @@ class CmdExecCtx {
   // ── Prompt & history ──
   String ps1;
   final List<String> history;
-  int historyIndex;
+  Ref<int> historyIndex;
   final TextEditingController input;
 
   // ── Noar library ──
@@ -40,16 +41,21 @@ class CmdExecCtx {
 
   // ── Shell ──
   final IBinExecutor? shell;
-  String bashCwd;
+  Ref<String> bashCwd;
   final RootfsManager? rootfs;
+
+  /// Filesystem shell REAL del host (desktop Linux/macOS). null en Android
+  /// (ahí manda NanoRuntime/toybox). Inyectado para tests con fake.
+  final RealFsShell? realFs;
+
+  /// true si la plataforma es Android. Inyectado para tests (fakes).
+  final bool isAndroid;
   final Map<String, String> Function({
     String? ldPreload,
     Map<String, String>? extra,
-  }) rootfsEnv;
+  })
+  rootfsEnv;
   final void Function(ShellResult) shellOut;
-
-  // ── Real commands (rootfs toybox como fuente de verdad) ──
-  final Set<String> realCmds;
 
   // ── Tokenizer ──
   final List<String> Function(String) tokenize;
@@ -81,15 +87,25 @@ class CmdExecCtx {
     required this.shell,
     required this.bashCwd,
     required this.rootfs,
+    this.realFs,
+    this.isAndroid = false,
     required this.rootfsEnv,
     required this.shellOut,
-    required this.realCmds,
     required this.tokenize,
     required this.ctx,
     required this.cmds,
     required this.audit,
     required this.alive,
   });
+}
+
+/// Holder mutable compartido entre el estado del terminal y el pipeline de
+/// ejecución. CmdExecCtx se construye por llamada y copia por valor; los
+/// campos que el pipeline actualiza (bashCwd, historyIndex) deben vivir en
+/// un holder propiedad del estado para que la mutación sobreviva a la copia.
+final class Ref<T> {
+  Ref(this.value);
+  T value;
 }
 
 /// Executes a single raw command line through the complete pipeline:
@@ -122,18 +138,24 @@ class CommandExecutor {
         await x.closePty();
         return;
       }
-      if (cmd.isNotEmpty) {
-        x.audit?.event(
-          'command.pty.write_line',
-          layer: 'terminal',
-          traceId: traceId,
-          command: cmd,
-          byteCount: cmd.length + 1,
-        );
-        // P2: cmd.codeUnits (UTF-16) rompía cualquier comando con acentos o
-        // emojis escritos al PTY. El PTY espera UTF-8 + CR.
-        x.pty!.writeBytes([...utf8.encode(cmd), 0x0d]);
-      }
+      x.audit?.event(
+        'command.pty.write_line',
+        layer: 'terminal',
+        traceId: traceId,
+        command: cmd,
+        byteCount: cmd.length + 1,
+      );
+      // _onKey ya transmitió cada tecla (UTF-8 via keyToPtyBytes) al PTY
+      // conforme se tecleó. Aquí solo se envía CR (Enter). Reenviar el
+      // comando completo duplicaría cada carácter (regresión real).
+      //
+      // El teclado VIRTUAL entrega caracteres por onChanged — que reenvía
+      // cada carácter al PTY y limpia el campo — así que onSubmitted llega
+      // con raw VACÍO. En modo PTY todo Enter es el comando de envío: el CR
+      // va SIEMPRE al terminal, con texto o sin él (un Enter en línea vacía
+      // es válido en bash). Sin este CR, "enviar" del teclado virtual no
+      // hacía nada (el CR solo se enviaba si raw no estaba vacío).
+      x.pty!.writeBytes([0x0d]);
       return;
     }
 
@@ -141,7 +163,7 @@ class CommandExecutor {
     final cmd = raw.trim();
     if (cmd.isEmpty) return;
     x.history.add(cmd);
-    x.historyIndex = -1;
+    x.historyIndex.value = -1;
     x.input.clear();
     x.saveToNoar(cmd, x.tagFor(cmd));
 
@@ -182,20 +204,20 @@ class CommandExecutor {
       final shellCmd = cmd.substring(1).trim();
       if (shellCmd.isEmpty) return;
       if (shellCmd.startsWith('cd ') || shellCmd == 'cd') {
-        final target =
-            shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
+        final target = shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
         if (target == '..') {
-          x.bashCwd = x.bashCwd == '/'
+          x.bashCwd.value = x.bashCwd.value == '/'
               ? '/'
-              : x.bashCwd.substring(0, x.bashCwd.lastIndexOf('/'));
-          if (x.bashCwd.isEmpty) x.bashCwd = '/';
+              : x.bashCwd.value.substring(0, x.bashCwd.value.lastIndexOf('/'));
+          if (x.bashCwd.value.isEmpty) x.bashCwd.value = '/';
         } else if (target.startsWith('/')) {
-          x.bashCwd = target;
+          x.bashCwd.value = target;
         } else if (target.isNotEmpty) {
-          x.bashCwd =
-              x.bashCwd == '/' ? '/$target' : '${x.bashCwd}/$target';
+          x.bashCwd.value = x.bashCwd.value == '/'
+              ? '/$target'
+              : '${x.bashCwd.value}/$target';
         }
-        x.out('[ash] cd → ${x.bashCwd}', Ln.system);
+        x.out('[ash] cd → ${x.bashCwd.value}', Ln.system);
       }
       if (x.shell != null && x.shell!.initialized) {
         x.out('[ash] $shellCmd', Ln.system);
@@ -233,23 +255,31 @@ class CommandExecutor {
     }
 
     // ── Detección pipes/redirección → ash -c ──
-    if (x.hasShellOps(cmd) && x.shell != null && x.shell!.initialized) {
-      x.out('[ash] $cmd', Ln.system);
-      final extraEnv = x.rootfs?.isInstalled == true
-          ? x.rootfsEnv(ldPreload: 'libnanoroot.so')
-          : null;
-      final r =
-          await x.shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
-      x.audit?.event(
-        'command.shell.result',
-        layer: 'shell',
-        traceId: traceId,
-        command: cmd,
-        exitCode: r.exitCode,
-        duration: started.elapsed,
-        data: {'path': 'shell_ops'},
-      );
-      x.shellOut(r);
+    if (x.hasShellOps(cmd)) {
+      // Desktop: sh real del host (pipes/redirección/&& reales).
+      if (!x.isAndroid && x.realFs?.hasRealShell == true) {
+        await x.realFs!.runShell(cmd, out: x.out);
+        return;
+      }
+      if (x.shell != null && x.shell!.initialized) {
+        x.out('[ash] $cmd', Ln.system);
+        final extraEnv = x.rootfs?.isInstalled == true
+            ? x.rootfsEnv(ldPreload: 'libnanoroot.so')
+            : null;
+        final r = await x.shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
+        x.audit?.event(
+          'command.shell.result',
+          layer: 'shell',
+          traceId: traceId,
+          command: cmd,
+          exitCode: r.exitCode,
+          duration: started.elapsed,
+          data: {'path': 'shell_ops'},
+        );
+        x.shellOut(r);
+        return;
+      }
+      x.out('sh: no disponible (sin rootfs ni shell del host)', Ln.stderr);
       return;
     }
 
@@ -298,7 +328,7 @@ class CommandExecutor {
     // (dart:io) — el usuario creía que el comando corría en Linux y
     // corría en Android. El rootfs es la fuente de verdad: su stderr se
     // muestra tal cual, sin fallback engañoso.
-    if (x.realCmds.contains(name)) {
+    if (realCommands.contains(name)) {
       if (x.shell != null && x.shell!.initialized) {
         final r = await x.shell!.toybox([name, ...args]);
         x.audit?.event(
@@ -314,7 +344,41 @@ class CommandExecutor {
         x.shellOut(r);
         return;
       }
+      if (!x.isAndroid &&
+          (x.realFs?.supports(name) == true ||
+              x.realFs?.hasRealShell == true)) {
+        // Desktop: binario real del host con fallback dart:io.
+        await x.realFs!.run(name, args, out: x.out);
+        if (name == 'cd') x.bashCwd.value = x.realFs!.cwd;
+        return;
+      }
+      if (!x.isAndroid) {
+        x.out('$name: no disponible (sin binarios en este host)', Ln.stderr);
+        return;
+      }
       x.out('$name: shell engine not initialized.', Ln.stderr);
+      return;
+    }
+
+    // ── Fallback dart:io (desktop, comandos fuera de realCommands) ──
+    if (!x.isAndroid && x.realFs?.supports(name) == true) {
+      await x.realFs!.run(name, args, out: x.out);
+      if (name == 'cd') x.bashCwd.value = x.realFs!.cwd;
+      return;
+    }
+
+    // ── source: ejecuta un script línea a línea ──
+    if (name == 'source') {
+      if (args.isEmpty) {
+        x.out('source: falta archivo', Ln.stderr);
+        return;
+      }
+      if (x.shell != null && x.shell!.initialized) {
+        final r = await x.shell!.toybox(['ash', '-c', 'source ${args[0]}']);
+        x.shellOut(r);
+      } else {
+        x.out('source: shell engine not initialized.', Ln.stderr);
+      }
       return;
     }
 
@@ -342,7 +406,8 @@ class CommandExecutor {
           stackTrace: st,
           data: {'path': 'registry'},
         );
-        rethrow;
+        debugPrint('[terminal] Error en comando "$name": $e\n$st');
+        x.out('$name: error interno — $e', Ln.stderr);
       }
     } else {
       x.audit?.event(

@@ -1015,6 +1015,10 @@ impl Orchestrator {
     /// Uses `<|im_start|>/<|im_end|>` markers compatible with Qwen 2.x, Llama 3.x,
     /// and other modern instruct models.
     #[cfg(test)]
+    // Solo-legible/llamable desde `mod tests` (comparación de equivalencia 1A).
+    // clippy dead_code no ve el uso cross-target (cfg(test)) y lo marca muerto;
+    // es falso positivo — se conserva como referencia golden del prompt V1.
+    #[allow(dead_code)]
     async fn build_instruct_prompt(
         &self,
         prompt: &str,
@@ -1203,8 +1207,7 @@ impl Orchestrator {
                 if role == "user" {
                     dynamic_turn.push_str(&format!("User: {content}\n\n"));
                 } else {
-                    dynamic_turn
-                        .push_str(&format!("Assistant: {content}<｜end▁of▁sentence｜>"));
+                    dynamic_turn.push_str(&format!("Assistant: {content}<｜end▁of▁sentence｜>"));
                 }
             }
             dynamic_turn.push_str(&format!("User: {user_msg}\n\nAssistant:"));

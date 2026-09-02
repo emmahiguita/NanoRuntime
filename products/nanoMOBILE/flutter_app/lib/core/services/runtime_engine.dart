@@ -87,6 +87,8 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   /// Serializa TODA recuperación: health timer, stream error y lifecycle
   /// Android detectando el mismo problema ejecutan UNA sola recuperación.
   bool _recoveryInProgress = false;
+  bool _healthCheckInProgress = false;
+  bool _memoryCheckInProgress = false;
 
   /// MemoryGuard (P3): telemetría real → estado → intent, por transición.
   final MemoryGuardState _memoryGuard = MemoryGuardState();
@@ -210,6 +212,7 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     if (!s.isLive) return s;
 
     final online = await _isOnlineWithNativeFallback();
+    if (state != s) return state;
     if (!online) {
       state = s.copyWith(
         phase: EnginePhase.idle,
@@ -218,6 +221,7 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
       return state;
     }
     final hasModel = await _client.hasModel();
+    if (state != s) return state;
     state = s.copyWith(
       phase: hasModel ? EnginePhase.ready : EnginePhase.degraded,
       clearReason: true,
@@ -226,8 +230,13 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   }
 
   Future<bool> _isOnlineWithNativeFallback() async {
-    for (var attempt = 0; attempt < 8; attempt++) {
-      if (await _client.isOnline()) return true;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (await _client.isOnline(
+        attempts: 1,
+        requestTimeout: const Duration(seconds: 2),
+      )) {
+        return true;
+      }
       final health = await _api.engineHealth();
       final nativeOk = health?['status'] == 'ok';
       if (nativeOk) {
@@ -307,22 +316,34 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   }
 
   Future<void> _healthTick() async {
-    if (_recoveryInProgress) return;
-    if (await _client.isOnline()) {
-      _supervisor.onHealthOk();
-      return;
-    }
-    // Health falló: ¿el proceso está vivo? `process_alive` es la señal
-    // autoritativa que Kotlin verifica contra el worker (no un enum stale).
-    final snapshot = await _api.engineGetState();
-    final processAlive = snapshot?['process_alive'] == true;
-    final intent = _supervisor.onHealthFail(
-      nowMs: DateTime.now().millisecondsSinceEpoch,
-      processAlive: processAlive,
-      deliberateStop: _deliberateStop,
-    );
-    if (intent != RecoveryIntent.none) {
-      await _recover(intent);
+    if (_recoveryInProgress || _healthCheckInProgress) return;
+    if (state.phase == EnginePhase.idle) return;
+    // Una conexión SSE activa ya prueba que el proceso responde. Sondear
+    // /health cada 2 s durante prefill/decode roba CPU y ensucia el timeline.
+    if (_client.hasActiveStreamRequest) return;
+    _healthCheckInProgress = true;
+    try {
+      if (await _client.isOnline(
+        attempts: 1,
+        requestTimeout: const Duration(seconds: 2),
+      )) {
+        _supervisor.onHealthOk();
+        return;
+      }
+      // Health falló: ¿el proceso está vivo? `process_alive` es la señal
+      // autoritativa que Kotlin verifica contra el worker (no un enum stale).
+      final snapshot = await _api.engineGetState();
+      final processAlive = snapshot?['process_alive'] == true;
+      final intent = _supervisor.onHealthFail(
+        nowMs: DateTime.now().millisecondsSinceEpoch,
+        processAlive: processAlive,
+        deliberateStop: _deliberateStop,
+      );
+      if (intent != RecoveryIntent.none) {
+        await _recover(intent);
+      }
+    } finally {
+      _healthCheckInProgress = false;
     }
   }
 
@@ -330,30 +351,36 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   /// Las acciones fuertes ocurren por TRANSICIÓN (newState != previous), no
   /// cada tick — evita fallback repetido en EMERGENCY sostenido.
   Future<void> _memoryTick() async {
-    if (_recoveryInProgress) return;
-    final metrics = await _api.getMetrics();
-    if (metrics == null) return;
-    final freeMemMb = _extractFreeMemMb(metrics);
-    if (freeMemMb == null) return;
-
-    final newState = _memoryGuard.update(freeMemMb);
-    if (newState == _lastMemoryState) return; // sin transición: no actuar
-    _lastMemoryState = newState;
-    debugPrint(
-      '[engine] memory ${newState.name} (${freeMemMb}MB libre)',
-    );
-
-    if (newState == MemoryPressureState.normal) {
-      // Recuperado: permitir que el supervisor vuelva a actuar.
-      _deliberateStop = false;
+    if (_recoveryInProgress || _memoryCheckInProgress) return;
+    if (state.phase == EnginePhase.idle || state.phase == EnginePhase.failed) {
       return;
     }
-    final intent = _memoryGuard.intent();
-    if (intent == RecoveryIntent.none) return;
-    // Escalada por transición: marcar parada deliberada para que el
-    // supervisor NO reinicie mientras la presión siga alta.
-    _deliberateStop = true;
-    await _recover(intent);
+    _memoryCheckInProgress = true;
+    try {
+      final metrics = await _api.getMetrics();
+      if (metrics == null) return;
+      final freeMemMb = _extractFreeMemMb(metrics);
+      if (freeMemMb == null) return;
+
+      final newState = _memoryGuard.update(freeMemMb);
+      if (newState == _lastMemoryState) return; // sin transición: no actuar
+      _lastMemoryState = newState;
+      debugPrint('[engine] memory ${newState.name} (${freeMemMb}MB libre)');
+
+      if (newState == MemoryPressureState.normal) {
+        // Recuperado: permitir que el supervisor vuelva a actuar.
+        _deliberateStop = false;
+        return;
+      }
+      final intent = _memoryGuard.intent();
+      if (intent == RecoveryIntent.none) return;
+      // Escalada por transición: marcar parada deliberada para que el
+      // supervisor NO reinicie mientras la presión siga alta.
+      _deliberateStop = true;
+      await _recover(intent);
+    } finally {
+      _memoryCheckInProgress = false;
+    }
   }
 
   int? _extractFreeMemMb(Map<dynamic, dynamic> m) {
@@ -405,9 +432,10 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   /// Si el modelo falla al recargar, fallback al modelo seguro (default 1.5B).
   Future<void> _restartEngineSafely() async {
     debugPrint('[engine] recuperación: restart seguro');
+    final modelPath = state.modelPath;
     state = state.copyWith(phase: EnginePhase.starting, clearReason: true);
     await stop();
-    final result = await start(modelPath: state.modelPath);
+    final result = await start(modelPath: modelPath);
     if (result.isLive) {
       _supervisor.onModelReady();
     } else {

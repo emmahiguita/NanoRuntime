@@ -11,12 +11,11 @@ dependencies:
     sdk: flutter
   flutter_riverpod: ^2.5.1
   go_router: ^14.2.0
-  shared_preferences: ^2.2.3
+  shared_preferences: 2.3.2
   http: ^1.2.2
   ffi: ^2.1.0
   crypto: ^3.0.7
   file_picker: ^11.0.3
-  speech_to_text: ^7.4.0
   flutter_markdown_plus: ^1.0.3
   markdown: ^7.2.2
   pdf: ^3.11.1
@@ -36,12 +35,30 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^4.0.0
 
+# shared_preferences_android 2.4.x usa SharedPreferencesPlugin (Pigeon async,
+# clase ListEncoder en MessagesAsync.g.kt) que no se dexa en el APK →
+# ClassNotFoundException que aborta el GeneratedPluginRegistrant y rompe el
+# registro de TODOS los plugins (file_picker, url_launcher, share_plus,
+# persistencia). Se fija android a 2.2.4 (implementación sync, sin Pigeon async
+# ni ListEncoder). platform_interface 2.4.2 conserva ambas APIs (sync+async),
+# así que linux/windows/foundation 2.4.x siguen resolviendo.
+dependency_overrides:
+  shared_preferences_android: 2.2.4
+
 flutter:
   uses-material-design: true
   assets:
     - assets/bin/
     - assets/exe/
     - assets/config/
+    - assets/terminal_campaign_1.png
+    - assets/terminal_campaign_2.png
+    - assets/terminal_campaign_3.png
+    - assets/owl/blink/
+    - assets/owl/fly/
+    - assets/owl/idle/
+    - assets/owl/sleep/
+    - assets/owl/takeoff/
   fonts:
     - family: Inter
       fonts:

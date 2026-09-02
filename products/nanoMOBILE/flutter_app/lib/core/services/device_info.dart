@@ -21,10 +21,18 @@ class DeviceInfo {
   final double? uptimeSec;
 
   const DeviceInfo({
-    this.hostname, this.uid, this.gid, this.groups,
-    this.unameRelease, this.unameMachine, this.cpuCores,
-    this.cpuTempC, this.cpuHardware,
-    this.memTotalKb, this.memAvailKb, this.uptimeSec,
+    this.hostname,
+    this.uid,
+    this.gid,
+    this.groups,
+    this.unameRelease,
+    this.unameMachine,
+    this.cpuCores,
+    this.cpuTempC,
+    this.cpuHardware,
+    this.memTotalKb,
+    this.memAvailKb,
+    this.uptimeSec,
   });
 
   Map<String, dynamic> toMap() => {
@@ -45,8 +53,11 @@ class DeviceInfo {
   // ── /proc readers ──
 
   static String? _readFile(String path) {
-    try { return File(path).readAsStringSync().trim(); }
-    catch (_) { return null; }
+    try {
+      return File(path).readAsStringSync().trim();
+    } catch (_) {
+      return null;
+    }
   }
 
   static int? _readFirstInt(String path) {
@@ -61,14 +72,19 @@ class DeviceInfo {
   /// Usado en _TermState como fallback / fuente única de datos /proc.
   static DeviceInfo read() {
     // Uid/Gid/Groups desde /proc/self/status
-    int? uid, gid; String? groups;
+    int? uid, gid;
+    String? groups;
     final status = _readFile('/proc/self/status');
     if (status != null) {
       for (final line in status.split('\n')) {
         if (line.startsWith('Uid:')) {
-          uid = int.tryParse(line.substring(4).trim().split(RegExp(r'\s')).first);
+          uid = int.tryParse(
+            line.substring(4).trim().split(RegExp(r'\s')).first,
+          );
         } else if (line.startsWith('Gid:')) {
-          gid = int.tryParse(line.substring(4).trim().split(RegExp(r'\s')).first);
+          gid = int.tryParse(
+            line.substring(4).trim().split(RegExp(r'\s')).first,
+          );
         } else if (line.startsWith('Groups:')) {
           groups = line.substring(7).trim();
         }
@@ -93,7 +109,10 @@ class DeviceInfo {
   static String? _archFromCpuInfo() {
     final info = _readFile('/proc/cpuinfo');
     if (info == null) return null;
-    final archLine = info.split('\n').where((l) => l.contains('architecture')).firstOrNull;
+    final archLine = info
+        .split('\n')
+        .where((l) => l.contains('architecture'))
+        .firstOrNull;
     return archLine?.split(':').last.trim();
   }
 
@@ -180,10 +199,16 @@ class DeviceInfo {
       final raw = _readFile(p);
       if (raw == null) continue;
       final v = double.tryParse(raw);
-      if (v != null) { info['tempC'] = v > 200 ? v / 1000.0 : v; break; }
+      if (v != null) {
+        info['tempC'] = v > 200 ? v / 1000.0 : v;
+        break;
+      }
     }
     // Nombre: kgsl name → Mali legacy → null
-    try { final name = _readFile('$kgslBase/name'); if (name != null) info['name'] = name; } catch (_) {}
+    try {
+      final name = _readFile('$kgslBase/name');
+      if (name != null) info['name'] = name;
+    } catch (_) {}
     if (!info.containsKey('name')) {
       try {
         final mali = _readFile('/sys/kernel/gpu/gpu_model');

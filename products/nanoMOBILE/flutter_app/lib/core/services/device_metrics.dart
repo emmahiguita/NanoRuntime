@@ -47,9 +47,14 @@ class DeviceMetricsData {
   });
 
   factory DeviceMetricsData.fallback() => const DeviceMetricsData(
-    ramAvailableMb: 0, ramTotalMb: 0, batteryPct: -1,
-    isCharging: false, storageTotalGb: 0, storageFreeGb: 0,
-    cpuTempC: null, cpuCores: 0,
+    ramAvailableMb: 0,
+    ramTotalMb: 0,
+    batteryPct: -1,
+    isCharging: false,
+    storageTotalGb: 0,
+    storageFreeGb: 0,
+    cpuTempC: null,
+    cpuCores: 0,
   );
 
   // Convenience getters
@@ -58,5 +63,6 @@ class DeviceMetricsData {
   double get ramUsedGb => ramTotalGb - ramAvailableGb;
   double get ramProgress => ramTotalGb > 0 ? ramUsedGb / ramTotalGb : 0;
   double get storageUsedGb => storageTotalGb - storageFreeGb;
-  double get storageProgress => storageTotalGb > 0 ? storageUsedGb / storageTotalGb : 0;
+  double get storageProgress =>
+      storageTotalGb > 0 ? storageUsedGb / storageTotalGb : 0;
 }

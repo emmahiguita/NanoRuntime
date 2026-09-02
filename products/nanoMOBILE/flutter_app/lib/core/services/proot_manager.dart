@@ -76,11 +76,7 @@ class ProotManager {
     // y al filesystem del host. Solo bindeamos paths que existen realmente
     // para evitar errores silenciosos de proot en Android (donde /dev/pts
     // y /dev/shm frecuentemente no existen).
-    final defaultBinds = <String>[
-      '/dev',
-      '/proc',
-      '/sys',
-    ];
+    final defaultBinds = <String>['/dev', '/proc', '/sys'];
     // Añadir paths opcionales solo si existen en el host
     for (final opt in ['/dev/pts', '/dev/shm']) {
       if (Directory(opt).existsSync()) defaultBinds.add(opt);
@@ -116,24 +112,23 @@ class ProotManager {
 
       // Validar contra path traversal
       if (src.contains('..') || src.contains('\x00') || src.contains('\n')) {
-        onErr?.call('Security: bind mount contiene caracteres de control: "$src"');
+        onErr?.call(
+          'Security: bind mount contiene caracteres de control: "$src"',
+        );
         return 127;
       }
 
       // Normalizar el path para detectar ataques de path traversal
       final normalized = src.replaceAll(RegExp(r'/+'), '/');
       if (normalized != src) {
-        onErr?.call('Security: bind mount contiene paths normalizados inválidos: "$src"');
+        onErr?.call(
+          'Security: bind mount contiene paths normalizados inválidos: "$src"',
+        );
         return 127;
       }
 
       // Allowlist de paths seguros
-      final allowedPaths = [
-        '/dev',
-        '/proc',
-        '/sys',
-        '/data/data/',
-      ];
+      final allowedPaths = ['/dev', '/proc', '/sys', '/data/data/'];
 
       bool isAllowed = false;
       for (final allowed in allowedPaths) {
@@ -157,7 +152,9 @@ class ProotManager {
       }
 
       // Validar que el path exista (excepto para /dev, /proc, /sys que son virtuales)
-      if (!src.startsWith('/dev') && !src.startsWith('/proc') && !src.startsWith('/sys')) {
+      if (!src.startsWith('/dev') &&
+          !src.startsWith('/proc') &&
+          !src.startsWith('/sys')) {
         if (!Directory(src).existsSync() && !File(src).existsSync()) {
           onErr?.call('Security: bind mount "$src" no existe');
           return 127;

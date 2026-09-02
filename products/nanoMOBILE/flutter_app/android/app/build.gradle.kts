@@ -15,6 +15,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // A14.4: habilita la compilación de AIDL (UserService de Shizuku).
+    buildFeatures {
+        aidl = true
+    }
+
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
@@ -93,10 +98,30 @@ flutter {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     // Coroutines para operaciones async en platform channel handlers
     // (download/extract del rootfs Termux en background thread).
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.tukaani:xz:1.9")
+    // A9: OCR on-device (bundled, sin Google Play Services) como fallback de
+    // percepción cuando Accessibility no resuelve. Detrás de OcrBackend.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    // A16: visión on-device (etiquetado de imagen) como backend REAL del seam
+    // VisionPerceptionSource. Detección de objetos/etiquetas con bounding box,
+    // sin red (soberanía local).
+    implementation("com.google.mlkit:image-labeling:17.0.8")
+    // A14.3: API oficial de Shizuku (dev.rikka.shizuku:api) — SOLO disponibilidad
+    // FACTUAL (pingBinder/checkSelfPermission, ambas pasivas: sin diálogo, sin
+    // acciones privilegiadas). La ejecución Shizuku es A14.4 con capacidades
+    // tipadas, nunca shell arbitrario. Apache-2.0, minSdk 23 <= nuestro minSdk 26.
+    // Artefacto: github.com/rikkaapps/shizuku (api/manifest.gradle, v13.1.5).
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    // A14.3: ShizukuProvider (ContentProvider que establece el binding con el
+    // servicio Shizuku). NECESARIO: la clase `rikka.shizuku.ShizukuProvider` está
+    // en `dev.rikka.shizuku:provider` (NO en `:api`, confirmado inspeccionando la
+    // AAR). Sin este artifact, el <provider> del manifest se instancia por
+    // reflexión y no existe -> ClassNotFoundException en el arranque (crash).
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }
 

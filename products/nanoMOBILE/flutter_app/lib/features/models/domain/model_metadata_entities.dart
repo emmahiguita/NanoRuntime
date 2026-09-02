@@ -35,19 +35,19 @@ class ModelSource {
   Uri get uri => Uri.parse(url);
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'url': url,
-        'provenance': provenance.name,
-      };
+    'label': label,
+    'url': url,
+    'provenance': provenance.name,
+  };
 
   factory ModelSource.fromJson(Map<String, dynamic> json) => ModelSource(
-        label: json['label'] as String? ?? '',
-        url: json['url'] as String? ?? 'https://huggingface.co',
-        provenance: ModelDataProvenance.values.firstWhere(
-          (p) => p.name == json['provenance'],
-          orElse: () => ModelDataProvenance.huggingFace,
-        ),
-      );
+    label: json['label'] as String? ?? '',
+    url: json['url'] as String? ?? 'https://huggingface.co',
+    provenance: ModelDataProvenance.values.firstWhere(
+      (p) => p.name == json['provenance'],
+      orElse: () => ModelDataProvenance.huggingFace,
+    ),
+  );
 }
 
 class ModelFact<T> {
@@ -63,7 +63,8 @@ class ModelFact<T> {
     this.fetchedAt,
   });
 
-  bool get isAvailable => value != null && provenance != ModelDataProvenance.unavailable;
+  bool get isAvailable =>
+      value != null && provenance != ModelDataProvenance.unavailable;
 }
 
 class VerifiedBenchmark {

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/theme/app_theme.dart';
-import 'package:nanoai/features/settings/presentation/widgets/agent_console_section.dart';
+import 'package:nanoai/features/automation/presentation/agent_console_section.dart';
 
 import 'fixtures.dart';
 
@@ -27,11 +28,11 @@ void main() {
 
   Future<void> pumpConsole(WidgetTester tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: const Scaffold(
-          body: SingleChildScrollView(
-            child: AgentConsoleSection(),
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(
+            body: SingleChildScrollView(child: AgentConsoleSection()),
           ),
         ),
       ),
@@ -43,22 +44,22 @@ void main() {
     focusedAfterTap = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      switch (call.method) {
-        case 'dumpSnapshot':
-          return dump();
-        case 'tapAt':
-          focusedAfterTap = true;
-          return true;
-        case 'inputText':
-          return true;
-        case 'globalAction':
-        case 'launchPackage':
-        case 'swipe':
-          return true;
-        default:
-          return null;
-      }
-    });
+          switch (call.method) {
+            case 'dumpSnapshot':
+              return dump();
+            case 'tapAt':
+              focusedAfterTap = true;
+              return true;
+            case 'inputText':
+              return true;
+            case 'globalAction':
+            case 'launchPackage':
+            case 'swipe':
+              return true;
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -71,7 +72,8 @@ void main() {
     expect(find.text('Sin consultar'), findsOneWidget);
 
     await tester.tap(find.text('Leer pantalla actual'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       find.textContaining('Conectado — com.android.settings · 7 nodos'),
@@ -89,7 +91,8 @@ void main() {
       'text=Bluetooth',
     );
     await tester.tap(find.text('Resolver'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       find.textContaining('Resuelto: "Bluetooth" (75 pts)'),
@@ -106,7 +109,8 @@ void main() {
       'text=Bluetooth',
     );
     await tester.tap(find.text('Tap seguro'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(
       find.textContaining('ok: tap en "Bluetooth" @(540,340)'),
@@ -123,7 +127,8 @@ void main() {
       'text=Aceptar',
     );
     await tester.tap(find.text('Tap seguro'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('FAIL [ambiguousTarget]'), findsOneWidget);
   });
@@ -136,11 +141,12 @@ void main() {
       'editable=true',
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'Texto a escribir en el campo resuelto'),
+      find.widgetWithText(TextField, 'Texto a escribir'),
       'wifi',
     );
     await tester.tap(find.text('Escribir'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('ok: "wifi" en'), findsOneWidget);
   });
@@ -153,7 +159,8 @@ void main() {
       'foo=bar',
     );
     await tester.tap(find.text('Resolver'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('Selector inválido'), findsOneWidget);
   });

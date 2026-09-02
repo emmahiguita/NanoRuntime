@@ -6,6 +6,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:nanoai/main.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/features/chat/presentation/screens/chat_screen.dart';
+import 'package:nanoai/core/widgets/navigation/nano_selection_morph.dart';
 
 /// PRUEBA DE ESTRÉS DOOM — carga máxima contra el chat real (motor llama.cpp):
 ///   1. Ráfaga de envíos rápidos (el guard `generating` debe absorberlos)
@@ -32,11 +33,9 @@ void main() {
     );
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
-    // ── Setup: navega a Chat y selecciona el modelo real ──
-    await tester.tap(find.byIcon(Icons.menu_rounded));
-    await tester.pumpAndSettle();
+    // ── Setup: navega a Chat (rail lateral) y selecciona el modelo real ──
     await tester.tap(
-      find.descendant(of: find.byType(Drawer), matching: find.text('Chat')),
+      find.widgetWithText(NanoSelectionMorphBar, 'Chat'),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byType(ChatScreen).first);
@@ -186,27 +185,12 @@ void main() {
     // ── 6. NAVEGACIÓN DURANTE GENERACIÓN ──
     chat.send('respuesta larga final: explica el universo');
     await tester.pump(const Duration(milliseconds: 300));
-    // Saltar entre pestañas mientras genera.
-    await tester.tap(find.byIcon(Icons.menu_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(Drawer),
-        matching: find.text('Dashboard'),
-      ),
-    );
+    // Saltar entre pestañas mientras genera (rail lateral).
+    await tester.tap(find.widgetWithText(NanoSelectionMorphBar, 'Inicio'));
     await tester.pumpAndSettle(const Duration(seconds: 2));
-    await tester.tap(find.byIcon(Icons.menu_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(Drawer), matching: find.text('Terminal')),
-    );
+    await tester.tap(find.widgetWithText(NanoSelectionMorphBar, 'Terminal'));
     await tester.pumpAndSettle(const Duration(seconds: 2));
-    await tester.tap(find.byIcon(Icons.menu_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(Drawer), matching: find.text('Chat')),
-    );
+    await tester.tap(find.widgetWithText(NanoSelectionMorphBar, 'Chat'));
     await tester.pumpAndSettle();
 
     // ── 7. VERIFICACIÓN FINAL ──

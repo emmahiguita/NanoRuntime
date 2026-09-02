@@ -17,9 +17,8 @@ class TermuxDistribution implements LinuxDistribution {
   // Caché de estado para evitar llamadas repetidas al filesystem
   bool? _cachedInstalled;
 
-  TermuxDistribution({
-    RootfsManager? rootfsManager,
-  }) : _rootfsManager = rootfsManager ?? RootfsManager.instance;
+  TermuxDistribution({RootfsManager? rootfsManager})
+    : _rootfsManager = rootfsManager ?? RootfsManager.instance;
 
   @override
   String get id => 'termux';

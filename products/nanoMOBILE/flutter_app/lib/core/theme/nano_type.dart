@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 /// â”€â”€ Typography Tokens (Inter — misma familia que el resto de la app) â”€â”€
 /// Reemplaza los `TextStyle(...)` crudos (Roboto por defecto) por una
@@ -8,15 +8,67 @@ class NanoType {
   NanoType._();
 
   // Escala base — una sola fuente, un solo peso por nivel.
-  static TextStyle display(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: c, height: 1.2);
-  static TextStyle title(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600, color: c, height: 1.3);
-  static TextStyle subtitle(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w500, color: c, height: 1.3);
-  static TextStyle body(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w400, color: c, height: 1.4);
-  static TextStyle caption(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w400, color: c, height: 1.3);
-  static TextStyle label(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w500, color: c, height: 1.2);
-  static TextStyle overline(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: c, height: 1.2);
+  static TextStyle display(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
+    color: c,
+    height: 1.2,
+  );
+  static TextStyle title(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: c,
+    height: 1.3,
+  );
+  static TextStyle subtitle(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: c,
+    height: 1.3,
+  );
+  static TextStyle body(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: c,
+    height: 1.4,
+  );
+  static TextStyle caption(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: c,
+    height: 1.3,
+  );
+  static TextStyle label(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: c,
+    height: 1.2,
+  );
+  static TextStyle overline(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.6,
+    color: c,
+    height: 1.2,
+  );
+
   /// Números grandes para dashboard / métricas (RAM, temp, batería, etc.).
-  static TextStyle metric(Color c) => TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: c, height: 1.2);
+  static TextStyle metric(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
+    color: c,
+    height: 1.2,
+  );
 }
 
 /// â”€â”€ Icon Tokens â”€â”€
@@ -25,9 +77,9 @@ class NanoType {
 class NanoIcons {
   NanoIcons._();
 
-  static const double tiny = 12;   // adornos / estados (dot, badges)
-  static const double small = 16;  // acciones secundarias inline
+  static const double tiny = 12; // adornos / estados (dot, badges)
+  static const double small = 16; // acciones secundarias inline
   static const double medium = 20; // acciones primarias (botones, chips)
-  static const double large = 32;  // encabezados de sección
-  static const double hero = 56;   // estados vacíos / empty states
+  static const double large = 32; // encabezados de sección
+  static const double hero = 56; // estados vacíos / empty states
 }

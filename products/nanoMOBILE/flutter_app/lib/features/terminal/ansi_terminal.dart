@@ -142,6 +142,9 @@ class AnsiTerminal extends ChangeNotifier {
   /// OSC 52 clipboard → el owner escribe al portapapeles.
   set onClipboard(void Function(String text)? f) => _parser.onClipboard = f;
 
+  /// OSC 7 (cwd) → el owner sincroniza su línea de estado con el cwd real.
+  set onCwd(void Function(String cwd)? f) => _parser.onCwd = f;
+
   /// Focus-event reporting (?1004) → el owner envía \x1b[I / \x1b[O.
   set onFocusChange(void Function({required bool focused})? f) =>
       _parser.onFocusChange = f;

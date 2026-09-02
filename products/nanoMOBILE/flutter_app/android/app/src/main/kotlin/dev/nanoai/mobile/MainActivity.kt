@@ -13,14 +13,20 @@ import androidx.core.view.WindowInsetsControllerCompat
 import dev.nanoai.mobile.channels.AgentChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
+import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
 import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
+import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
+import dev.nanoai.mobile.services.NotificationAutomationBridge
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
+import dev.nanoai.mobile.channels.SpeechChannelHandler
+import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +54,9 @@ class MainActivity : FlutterActivity() {
     /** Result pendiente de requestStoragePermission — resuelto por
      *  onRequestPermissionsResult cuando el usuario contesta el diálogo. */
     private var pendingStorageResult: MethodChannel.Result? = null
+
+    /** Resultado pendiente del lote micrófono + medios del centro de permisos. */
+    private var pendingRuntimePermissionsResult: MethodChannel.Result? = null
 
     private val pathPolicy: SecurePathPolicy by lazy { SecurePathPolicy(filesDir) }
     private val downloadService: DownloadService by lazy { DownloadService(pathPolicy) }
@@ -99,6 +108,10 @@ class MainActivity : FlutterActivity() {
             "activity_destroyed", "Activity destruida antes de contestar permisos", null,
         )
         pendingStorageResult = null
+        pendingRuntimePermissionsResult?.error(
+            "activity_destroyed", "Activity destruida antes de contestar permisos", null,
+        )
+        pendingRuntimePermissionsResult = null
         // Orden importa: el engine corre en el worker — matar motor primero.
         engineSupervisor.shutdown()
         nativeSupervisor.shutdown()
@@ -141,6 +154,38 @@ class MainActivity : FlutterActivity() {
         requestPermissions(perms, REQ_STORAGE_PERMISSION)
     }
 
+    /** Solicita únicamente permisos runtime usados: micrófono y medios. */
+    private fun requestRuntimePermissions(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 23) {
+            result.success(true)
+            return
+        }
+        val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= 33) {
+            // Notificaciones propias del agente (avisos T3). Sin request runtime
+            // el sistema suprime las notificaciones (POST_NOTIFICATION=ignore).
+            permissions += Manifest.permission.POST_NOTIFICATIONS
+            permissions += Manifest.permission.READ_MEDIA_IMAGES
+            permissions += Manifest.permission.READ_MEDIA_VIDEO
+            permissions += Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            permissions += Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        val missing = permissions.filter {
+            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            result.success(true)
+            return
+        }
+        if (pendingStorageResult != null || pendingRuntimePermissionsResult != null) {
+            result.error("permission_pending", "solicitud anterior aún abierta", null)
+            return
+        }
+        pendingRuntimePermissionsResult = result
+        requestPermissions(missing.toTypedArray(), REQ_RUNTIME_PERMISSIONS)
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -152,6 +197,11 @@ class MainActivity : FlutterActivity() {
                 grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             pendingStorageResult?.success(ok)
             pendingStorageResult = null
+        } else if (requestCode == REQ_RUNTIME_PERMISSIONS) {
+            val ok = grantResults.isNotEmpty() &&
+                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            pendingRuntimePermissionsResult?.success(ok)
+            pendingRuntimePermissionsResult = null
         }
     }
 
@@ -187,6 +237,37 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, ChannelNames.AGENT)
             .setMethodCallHandler(AgentChannelHandler())
 
+        val notificationHandler = NotificationAutomationChannelHandler(this)
+        MethodChannel(messenger, ChannelNames.NOTIFICATIONS)
+            .setMethodCallHandler(notificationHandler)
+        EventChannel(messenger, "com.nanoai/notification_events").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    NotificationAutomationBridge.notificationEventsSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    NotificationAutomationBridge.notificationEventsSink = null
+                }
+            },
+        )
+        EventChannel(
+            messenger,
+            NotificationAutomationChannelHandler.CONFIRMATION_EVENTS_CHANNEL_NAME,
+        ).setStreamHandler(notificationHandler)
+
+        MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
+            .setMethodCallHandler(
+                DevicePermissionsChannelHandler(this) { result ->
+                    requestRuntimePermissions(result)
+                },
+            )
+
+        val speechHandler = SpeechChannelHandler(this)
+        MethodChannel(messenger, ChannelNames.SPEECH)
+            .setMethodCallHandler(speechHandler)
+        EventChannel(messenger, SpeechChannelHandler.PARTIAL_CHANNEL_NAME)
+            .setStreamHandler(speechHandler)
+
         MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->
             EngineChannelHandler(engineSupervisor, ioScope, mainHandler)
                 .also { handler ->
@@ -197,6 +278,9 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(messenger, ChannelNames.SHARE)
             .setMethodCallHandler(ShareChannelHandler(this))
+
+        MethodChannel(messenger, ChannelNames.SYSTEM)
+            .setMethodCallHandler(SystemInventoryChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
             .setMethodCallHandler(
@@ -226,5 +310,6 @@ class MainActivity : FlutterActivity() {
     private companion object {
         private const val RUNTIME_WARMUP_DELAY_MS = 1_500L
         private const val REQ_STORAGE_PERMISSION = 4101
+        private const val REQ_RUNTIME_PERMISSIONS = 4102
     }
 }

@@ -19,6 +19,9 @@ class _S extends State<TerminalTabScreen> {
   int _active = 0;
   final _sessions = <_Sess>[];
   int _counter = 0;
+  // ID de sesión monotónico: NUNCA _sessions.length (cerrar+añadir dejaba
+  // ids duplicados que rompían ValueKey('t${s.id}') y _close removeWhere).
+  int _nextId = 0;
   late final LLMEngineClient _engine;
 
   @override
@@ -61,6 +64,9 @@ class _S extends State<TerminalTabScreen> {
       );
       restoredCounter = restored.length;
     }
+    _nextId =
+        restored.map((s) => s.id).fold(0, (max, id) => id > max ? id : max) +
+        1;
 
     if (!mounted) return;
     setState(() {
@@ -99,7 +105,7 @@ class _S extends State<TerminalTabScreen> {
     ][_counter++ % 6];
     _sessions.add(
       _Sess(
-        id: _sessions.length,
+        id: _nextId++,
         name: t,
         cwd: '/home/nanoai',
         type: t,
@@ -152,6 +158,19 @@ class _S extends State<TerminalTabScreen> {
               ),
               child: Row(
                 children: [
+                  // Retroceso: /terminal/shell es ruta empujada — sin esto no
+                  // hay forma visible de volver (solo el gesto del sistema).
+                  IconButton(
+                    tooltip: 'Atrás',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 34,
+                      minHeight: 34,
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(Icons.arrow_back_rounded, size: 18, color: fg),
+                  ),
                   Expanded(
                     child: ListView(
                       scrollDirection: Axis.horizontal,
@@ -250,20 +269,44 @@ class _S extends State<TerminalTabScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => context.push('/desktop'),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      margin: const EdgeInsets.only(right: 2),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        color: fg.withValues(alpha: 0.06),
+                  Tooltip(
+                    message: 'Centro Terminal',
+                    child: GestureDetector(
+                      onTap: () => context.go('/terminal'),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          color: fg.withValues(alpha: 0.06),
+                        ),
+                        child: Icon(
+                          Icons.apps_rounded,
+                          size: 16,
+                          color: fg.withValues(alpha: 0.5),
+                        ),
                       ),
-                      child: Icon(
-                        Icons.desktop_windows,
-                        size: 16,
-                        color: fg.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Visor Linux',
+                    child: GestureDetector(
+                      onTap: () => context.push('/desktop'),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          color: fg.withValues(alpha: 0.06),
+                        ),
+                        child: Icon(
+                          Icons.desktop_windows_rounded,
+                          size: 16,
+                          color: fg.withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                   ),

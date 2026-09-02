@@ -35,12 +35,17 @@ class DockerManager {
   final void Function(String msg)? onLog;
 
   bool _initialized = false;
+
   /// Whether the manager completed initialization successfully.
   /// Methods that depend on [_containersDir] should check this first.
   bool get isInitialized => _initialized;
 
-  DockerManager({required ProotManager proot, required IBinExecutor shell, this.onLog})
-      : _proot = proot, _shell = shell;
+  DockerManager({
+    required ProotManager proot,
+    required IBinExecutor shell,
+    this.onLog,
+  }) : _proot = proot,
+       _shell = shell;
 
   Future<void> init() async {
     try {
@@ -51,7 +56,9 @@ class DockerManager {
         _loadState();
         _initialized = true;
       } else {
-        onLog?.call('[docker] init: getFilesDir returned null/empty — containers disabled');
+        onLog?.call(
+          '[docker] init: getFilesDir returned null/empty — containers disabled',
+        );
       }
     } catch (e) {
       onLog?.call('[docker] init failed: $e — containers disabled');
@@ -62,7 +69,9 @@ class DockerManager {
   /// Returns false and calls [onLog] with a diagnostic message when init failed.
   bool _checkInit(String caller) {
     if (!_initialized || _containersDir == null) {
-      onLog?.call('[docker] $caller: manager not initialized — call init() first');
+      onLog?.call(
+        '[docker] $caller: manager not initialized — call init() first',
+      );
       return false;
     }
     return true;
@@ -81,11 +90,16 @@ class DockerManager {
         if (id.isEmpty || id.startsWith('_')) continue;
         final rootfs = '${entry.path}/rootfs';
         if (!Directory(rootfs).existsSync()) continue;
-        _containers[id] = _Container(
-          id: id, image: 'persisted', rootfs: rootfs,
-          cmd: ['/bin/sh'], created: entry.statSync().modified,
-        )..status = 'exited'
-         ..exitCode = 0;
+        _containers[id] =
+            _Container(
+                id: id,
+                image: 'persisted',
+                rootfs: rootfs,
+                cmd: ['/bin/sh'],
+                created: entry.statSync().modified,
+              )
+              ..status = 'exited'
+              ..exitCode = 0;
       }
       log('Loaded ${_containers.length} persisted containers');
     } catch (e) {
@@ -122,7 +136,9 @@ class DockerManager {
       i++;
       final digest = layer['digest'] as String;
       final size = layer['size'] as int? ?? 0;
-      onProgress('[$i/${layers.length}] $digest (${(size / 1e6).toStringAsFixed(1)} MB)');
+      onProgress(
+        '[$i/${layers.length}] $digest (${(size / 1e6).toStringAsFixed(1)} MB)',
+      );
       final path = await _downloadLayer(ref.name, digest, token, (pct) {
         if (pct % 25 == 0) onProgress('  descargando... $pct%');
       });
@@ -159,7 +175,9 @@ class DockerManager {
     if (!_checkInit('run')) return null;
     final img = _images[image];
     if (img == null) {
-      onErr?.call('Imagen "$image" no encontrada. Usa "docker pull $image" primero.');
+      onErr?.call(
+        'Imagen "$image" no encontrada. Usa "docker pull $image" primero.',
+      );
       return null;
     }
 
@@ -229,27 +247,32 @@ class DockerManager {
   // ── docker ps / docker images ──
 
   List<Map<String, dynamic>> ps() {
-    return _containers.values.map((c) => {
-      'id': c.id.substring(0, 12),
-      'image': c.image,
-      'status': c.status,
-      'created': c.created.toString().substring(0, 19),
-      'exitCode': c.exitCode,
-    }).toList();
+    return _containers.values
+        .map(
+          (c) => {
+            'id': c.id.substring(0, 12),
+            'image': c.image,
+            'status': c.status,
+            'created': c.created.toString().substring(0, 19),
+            'exitCode': c.exitCode,
+          },
+        )
+        .toList();
   }
 
   List<Map<String, dynamic>> images() {
-    return _images.entries.map((e) => {
-      'name': e.key,
-      'layers': e.value.layers.length,
-    }).toList();
+    return _images.entries
+        .map((e) => {'name': e.key, 'layers': e.value.layers.length})
+        .toList();
   }
 
   /// Elimina el contenedor [id] y su rootfs. Retorna false si no existe.
   bool rm(String id) {
     final c = _containers.remove(id);
     if (c == null) return false;
-    try { Directory(c.rootfs).deleteSync(recursive: true); } catch (_) {}
+    try {
+      Directory(c.rootfs).deleteSync(recursive: true);
+    } catch (_) {}
     return true;
   }
 
@@ -282,7 +305,8 @@ class DockerManager {
 
   Future<String?> _getAuthToken(String repo) async {
     try {
-      final url = '$_registryAuth?service=registry.docker.io&scope=repository:library/$repo:pull';
+      final url =
+          '$_registryAuth?service=registry.docker.io&scope=repository:library/$repo:pull';
       final r = await _http.get(Uri.parse(url));
       if (r.statusCode == 200) {
         return (jsonDecode(r.body) as Map)['token'] as String?;
@@ -293,14 +317,18 @@ class DockerManager {
     return null;
   }
 
-  Future<Map<String, dynamic>?> _getManifest(_ImageRef ref, String token) async {
+  Future<Map<String, dynamic>?> _getManifest(
+    _ImageRef ref,
+    String token,
+  ) async {
     try {
       final url = '$_registry/v2/library/${ref.name}/manifests/${ref.tag}';
       final headers = {
         'Authorization': 'Bearer $token',
         // Aceptar tanto manifest lists (multi-arch) como image manifests (single-arch).
         // Docker Hub devuelve manifest list para imágenes multi-arch como alpine, ubuntu...
-        'Accept': 'application/vnd.docker.distribution.manifest.list.v2+json, '
+        'Accept':
+            'application/vnd.docker.distribution.manifest.list.v2+json, '
             'application/vnd.docker.distribution.manifest.v2+json, '
             'application/vnd.oci.image.index.v1+json, '
             'application/vnd.oci.image.manifest.v1+json',
@@ -315,7 +343,9 @@ class DockerManager {
       final mediaType = raw['mediaType'] as String? ?? '';
 
       // Caso 1: manifest list (multi-arch) — buscar entrada ARM64
-      if (mediaType.contains('manifest.list') || mediaType.contains('index') || raw.containsKey('manifests')) {
+      if (mediaType.contains('manifest.list') ||
+          mediaType.contains('index') ||
+          raw.containsKey('manifests')) {
         final manifests = raw['manifests'] as List? ?? [];
         log('Manifest list con ${manifests.length} arquitecturas');
 
@@ -347,7 +377,8 @@ class DockerManager {
         final armUrl = '$_registry/v2/library/${ref.name}/manifests/$armDigest';
         final armHeaders = {
           'Authorization': 'Bearer $token',
-          'Accept': 'application/vnd.docker.distribution.manifest.v2+json, '
+          'Accept':
+              'application/vnd.docker.distribution.manifest.v2+json, '
               'application/vnd.oci.image.manifest.v1+json',
         };
         final armR = await _http.get(Uri.parse(armUrl), headers: armHeaders);
@@ -416,7 +447,10 @@ class DockerManager {
 
   _ImageRef _parseImage(String image) {
     final parts = image.split(':');
-    return _ImageRef(name: parts[0], tag: parts.length > 1 ? parts[1] : 'latest');
+    return _ImageRef(
+      name: parts[0],
+      tag: parts.length > 1 ? parts[1] : 'latest',
+    );
   }
 
   String _genId() {
@@ -438,7 +472,12 @@ class _Image {
   final String tag;
   final List<String> layers;
   final String? config;
-  _Image({required this.name, required this.tag, required this.layers, this.config});
+  _Image({
+    required this.name,
+    required this.tag,
+    required this.layers,
+    this.config,
+  });
 }
 
 class _Container {

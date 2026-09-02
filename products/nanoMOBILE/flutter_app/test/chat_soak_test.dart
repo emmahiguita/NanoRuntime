@@ -22,10 +22,8 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           chatProvider.overrideWith(
-            (ref) => ChatNotifier.fixed(
-              ref,
-              const ChatState(engineOnline: true),
-            ),
+            (ref) =>
+                ChatNotifier.fixed(ref, const ChatState(engineOnline: true)),
           ),
           runtimeEngineProvider.overrideWith(
             (ref) => _SoakEngineNotifier(client),
@@ -49,7 +47,11 @@ void main() {
       // 30 user + 30 ai = 60 mensajes, sin tool pendiente ni sesión rotada.
       expect(notifier.state.messages.length, 60);
       expect(notifier.state.pendingTool, isNull);
-      expect(notifier.sessionId, sid0, reason: 'la sesión no rota sin cambio de modelo');
+      expect(
+        notifier.sessionId,
+        sid0,
+        reason: 'la sesión no rota sin cambio de modelo',
+      );
     },
   );
 }
@@ -58,7 +60,7 @@ void main() {
 class _SoakEngineClient extends LLMEngineClient {
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

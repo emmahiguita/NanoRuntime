@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
+import 'package:nanoai/core/services/runtime_engine.dart';
 
 import 'package:nanoai/features/home/nano_home_screen.dart';
 import 'package:nanoai/features/home/nano_home_models.dart';
@@ -25,11 +26,15 @@ class DashboardScreen extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
     final rootfs = ref.watch(rootfsProvider);
     final chat = ref.watch(chatProvider);
+    final engineReady =
+        ref.watch(runtimeEngineProvider).phase == EnginePhase.ready;
 
-    final chatSubtitle =
-        chat.engineOnline ? null : 'Motor apagado — elige modelo';
-    final terminalSubtitle =
-        rootfs.isInstalled ? 'Linux listo' : 'Preparando Linux';
+    final chatSubtitle = chat.engineOnline
+        ? null
+        : 'Motor apagado — elige modelo';
+    final terminalSubtitle = rootfs.isInstalled
+        ? 'Linux listo'
+        : 'Preparando Linux';
 
     return NanoHomeScreen(
       telemetry: NanoTelemetryData(
@@ -37,8 +42,9 @@ class DashboardScreen extends ConsumerWidget {
             ? '${dashboard.ramFreeGb.toStringAsFixed(1)} GB'
             : '—',
         cpu: dashboard.cpuCores > 0 ? '${dashboard.cpuCores}' : '—',
-        temperature:
-            dashboard.tempC > 0 ? '${dashboard.tempC.round()} °C' : '—',
+        temperature: dashboard.tempC > 0
+            ? '${dashboard.tempC.round()} °C'
+            : '—',
         freeStorage: dashboard.storageTotalGb > 0
             ? '${dashboard.storageFreeGb.round()} GB'
             : '—',
@@ -49,11 +55,15 @@ class DashboardScreen extends ConsumerWidget {
       kaliStatus: _mapKaliStatus(rootfs.isInstalled),
       chatSubtitle: chatSubtitle,
       terminalSubtitle: terminalSubtitle,
+      chatOn: chat.engineOnline,
+      termOn: rootfs.isInstalled,
+      modelOn: engineReady,
       onTerminalTap: () => context.go('/terminal'),
       onChatTap: () => context.go('/chat'),
       onModelsTap: () => context.go('/models'),
       onDesktopTap: () => context.go('/desktop'),
-      onKaliTap: () => context.go('/terminal?cmd=kali%20shell'),
+      onAutomationTap: () => context.push('/automation'),
+      onKaliTap: () => context.go('/terminal/shell?cmd=kali%20shell'),
     );
   }
 }

@@ -54,10 +54,7 @@ void main() {
           path: '/terminal',
           builder: (_, __) => const _Placeholder('terminal'),
         ),
-        GoRoute(
-          path: '/chat',
-          builder: (_, __) => const _Placeholder('chat'),
-        ),
+        GoRoute(path: '/chat', builder: (_, __) => const _Placeholder('chat')),
         GoRoute(
           path: '/models',
           builder: (_, __) => const _Placeholder('models'),
@@ -147,9 +144,14 @@ void main() {
     await pumpDashboard(
       tester,
       dashState: const DashboardState(
-        ramFreeGb: 3.9, ramTotalGb: 8.0, cpuCores: 8,
-        tempC: 35, storageTotalGb: 256, storageFreeGb: 209,
-        batteryPct: 100, isLive: true,
+        ramFreeGb: 3.9,
+        ramTotalGb: 8.0,
+        cpuCores: 8,
+        tempC: 35,
+        storageTotalGb: 256,
+        storageFreeGb: 209,
+        batteryPct: 100,
+        isLive: true,
       ),
     );
     expect(find.byIcon(Icons.memory_rounded), findsOneWidget);
@@ -193,8 +195,11 @@ void main() {
   // 5. Valores desconocidos como \u2014
   testWidgets('shows \u2014 for unknown metric values', (tester) async {
     await pumpDashboard(tester);
-    expect(find.text('\u2014'), findsWidgets,
-        reason: 'missing metrics should display \u2014');
+    expect(
+      find.text('\u2014'),
+      findsWidgets,
+      reason: 'missing metrics should display \u2014',
+    );
   });
 
   // 6. 320\u00d7568 sin overflow
@@ -203,9 +208,14 @@ void main() {
       tester,
       physicalSize: const Size(960, 1704),
       dashState: const DashboardState(
-        ramFreeGb: 3.9, ramTotalGb: 8.0, cpuCores: 8,
-        tempC: 35, storageTotalGb: 256, storageFreeGb: 209,
-        batteryPct: 100, isLive: true,
+        ramFreeGb: 3.9,
+        ramTotalGb: 8.0,
+        cpuCores: 8,
+        tempC: 35,
+        storageTotalGb: 256,
+        storageFreeGb: 209,
+        batteryPct: 100,
+        isLive: true,
       ),
     );
     expect(tester.takeException(), isNull, reason: 'no overflow at 320x568');
@@ -215,15 +225,15 @@ void main() {
   // 7. disableAnimations = true
   testWidgets('respects disableAnimations', (tester) async {
     await pumpDashboard(tester, disableAnimations: true);
-    expect(find.text('nanoai'), findsOneWidget);
     expect(find.text('Terminal'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
-  // 8. Identidad nanoai
-  testWidgets('shows nanoai identity header', (tester) async {
+  // 8. La identidad global vive en el shell; la home no la duplica.
+  testWidgets('does not duplicate the global identity header', (tester) async {
     await pumpDashboard(tester);
-    expect(find.text('nanoai'), findsOneWidget);
-    expect(find.text('local intelligence'), findsOneWidget);
+    expect(find.text('nanoai'), findsNothing);
+    expect(find.text('local intelligence'), findsNothing);
   });
 
   // 9. Valores reales de m\u00e9tricas
@@ -231,9 +241,14 @@ void main() {
     await pumpDashboard(
       tester,
       dashState: const DashboardState(
-        ramFreeGb: 3.9, ramTotalGb: 8.0, cpuCores: 8,
-        tempC: 35, storageTotalGb: 256, storageFreeGb: 209,
-        batteryPct: 100, isLive: true,
+        ramFreeGb: 3.9,
+        ramTotalGb: 8.0,
+        cpuCores: 8,
+        tempC: 35,
+        storageTotalGb: 256,
+        storageFreeGb: 209,
+        batteryPct: 100,
+        isLive: true,
       ),
     );
     // La reflexión ambiental repite en bucle: pumps finitos en vez de
@@ -249,8 +264,9 @@ void main() {
 
   // 10. Subtítulo de la card Chat refleja el estado REAL del motor
   // (diseño honesto: ya no es texto fijo — el motor apagado se anuncia).
-  testWidgets('shows honest Chat card subtitle from engine state',
-      (tester) async {
+  testWidgets('shows honest Chat card subtitle from engine state', (
+    tester,
+  ) async {
     await pumpDashboard(
       tester,
       chatState: const ChatState(engineOnline: false),
@@ -258,56 +274,64 @@ void main() {
     expect(find.text('Motor apagado — elige modelo'), findsOneWidget);
   });
 
-  // 11. Transición linuxReady false→true tras initState: el pulso de la
-  // card Terminal no debe crashear (bug pantalla roja del inicio).
-  testWidgets('linuxReady false->true does not crash pulse', (tester) async {
+  // 11. La creatividad de Terminal permanece limpia durante la transición
+  // de Linux: no muestra estado técnico ni produce una pantalla roja.
+  testWidgets('linuxReady false->true keeps terminal campaign clean', (
+    tester,
+  ) async {
     Widget build(bool ready) => ProviderScope(
-          overrides: [kaliProvider.overrideWithValue(null)],
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: NanoHomeScreen(
-              telemetry: const NanoTelemetryData(
-                ram: '—',
-                cpu: '—',
-                temperature: '—',
-                freeStorage: '—',
-                battery: '—',
-              ),
-              kaliStatus: ready ? KaliStatus.running : KaliStatus.notInitialized,
-              onTerminalTap: () {},
-              onChatTap: () {},
-              onModelsTap: () {},
-              onKaliTap: () {},
-            ),
+      overrides: [kaliProvider.overrideWithValue(null)],
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: NanoHomeScreen(
+          telemetry: const NanoTelemetryData(
+            ram: '—',
+            cpu: '—',
+            temperature: '—',
+            freeStorage: '—',
+            battery: '—',
           ),
-        );
+          kaliStatus: ready ? KaliStatus.running : KaliStatus.notInitialized,
+          onTerminalTap: () {},
+          onChatTap: () {},
+          onModelsTap: () {},
+          onKaliTap: () {},
+        ),
+      ),
+    );
 
     await tester.pumpWidget(build(false));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Preparando Linux'), findsOneWidget);
+    expect(find.text('Preparando Linux'), findsNothing);
 
     await tester.pumpWidget(build(true));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(tester.takeException(), isNull,
-        reason: 'pulse false->true must not throw');
-    expect(find.text('Linux listo'), findsOneWidget);
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'Linux state change must not throw',
+    );
+    expect(find.text('Linux listo'), findsNothing);
   });
 
-  // 12. Card Kali con layout propio: no comparte NanoFeatureCard con el
-  // carousel (Terminal + Chat + Modelos + Escritorio usan la card óptica;
-  // Kali usa su propio chip). El PageView.builder solo construye las páginas
-  // visibles: 3 cards (central + adyacentes), no las 4 del carousel.
-  testWidgets('Kali card has its own layout, not GlassActionCard',
-      (tester) async {
+  // 12. Linux se concentra en el módulo Terminal y queda como telemetría,
+  // sin añadir una quinta tarjeta que duplique el acceso.
+  testWidgets('Linux is telemetry instead of a duplicated feature card', (
+    tester,
+  ) async {
     await pumpDashboard(tester);
-    expect(find.byType(NanoFeatureCard), findsNWidgets(3),
-        reason: 'carousel: 3 cards construidas (central + adyacentes); Kali usa chip propio');
-    expect(find.text('Kali'), findsOneWidget);
+    expect(
+      find.byType(NanoFeatureCard),
+      findsNWidgets(3),
+      reason: 'carousel: tarjeta central y adyacentes visibles',
+    );
+    expect(find.text('LINUX'), findsOneWidget);
+    expect(find.text('Kali'), findsNothing);
   });
 
-  // 13. Estado Kali sin manager: chip honesto NO INICIALIZADO, sin overflow
-  // ni siquiera en pantallas angostas (el chip largo es el peor caso).
-  testWidgets('Kali shows honest chip when manager is null', (tester) async {
+  // 13. Estado Linux sin manager: valor honesto y sin overflow incluso en
+  // pantallas angostas.
+  testWidgets('Linux shows honest status when manager is null', (tester) async {
     tester.view.physicalSize = const Size(960, 1704);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(() {
@@ -338,10 +362,13 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Kali'), findsOneWidget);
+    expect(find.text('LINUX'), findsOneWidget);
     expect(find.text('NO INICIALIZADO'), findsOneWidget);
-    expect(tester.takeException(), isNull,
-        reason: 'chip largo no debe desbordar a 320 lógicos');
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'chip largo no debe desbordar a 320 lógicos',
+    );
   });
 
   // 14. Atajo Escritorio: navega a /desktop (flujo completo: instala,
@@ -370,8 +397,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nano-feature-desktop')));
     // Tras navegar, la home se desmonta y la reflexión ambiental se libera.
     await tester.pumpAndSettle();
-    expect(find.text('placeholder:desktop'), findsOneWidget,
-        reason: 'atajo debe pasar por /desktop (arranque Xvnc), no VNC directo');
+    expect(
+      find.text('placeholder:desktop'),
+      findsOneWidget,
+      reason: 'atajo debe pasar por /desktop (arranque Xvnc), no VNC directo',
+    );
     expect(find.text('placeholder:vnc'), findsNothing);
   });
 }

@@ -8,6 +8,10 @@ enum MessageSender { user, ai }
 
 enum MessageStatus { sending, sent, error }
 
+/// Origen verificable de una respuesta. Evita atribuir a un GGUF los
+/// resultados producidos directamente por Android o por herramientas locales.
+enum MessageSource { model, device }
+
 /// Formato de chat template que usa cada familia de modelos.
 /// Los GGUF de Qwen usan `<|im_start|>/<|im_end|>` (ChatML-like).
 /// Los GGUF de DeepSeek-R1 usan `<｜begin▁of▁sentence｜>/<｜end▁of▁sentence｜>`.
@@ -34,6 +38,7 @@ class ChatMessage {
   final DateTime timestamp;
   final double? tps;
   final MessageStatus status;
+  final MessageSource source;
 
   /// Nombres de los adjuntos que viajaron con este mensaje user (solo para
   /// mostrar chips tras recargar la app; el contenido no se persiste).
@@ -46,6 +51,7 @@ class ChatMessage {
     required this.timestamp,
     this.tps,
     this.status = MessageStatus.sent,
+    this.source = MessageSource.model,
     this.attachmentNames = const [],
   });
 
@@ -56,6 +62,7 @@ class ChatMessage {
     'timestamp': timestamp.toIso8601String(),
     'tps': tps,
     'status': status.name,
+    'source': source.name,
     'attachmentNames': attachmentNames,
   };
 
@@ -65,7 +72,12 @@ class ChatMessage {
     text: json['text'] as String,
     timestamp: DateTime.parse(json['timestamp'] as String),
     tps: (json['tps'] as num?)?.toDouble(),
-    status: MessageStatus.values.byName(json['status'] as String),
+    status: MessageStatus.values.byName(
+      json['status'] as String? ?? MessageStatus.sent.name,
+    ),
+    source: MessageSource.values.byName(
+      json['source'] as String? ?? MessageSource.model.name,
+    ),
     attachmentNames:
         (json['attachmentNames'] as List?)?.cast<String>() ?? const [],
   );
@@ -81,12 +93,16 @@ const Object _sentinel = Object();
 class TurnMetrics {
   /// Tiempo hasta el primer token (ms).
   final int? ttftMs;
+
   /// Tiempo de prefill puro (procesado del prompt), ms.
   final int? prefillMs;
+
   /// Tokens totales procesados (prompt + generados).
   final int? promptProcessed;
+
   /// Tokens/s de decode.
   final double? decodeTokS;
+
   /// Tokens generados en el turno.
   final int? generatedTokens;
 
@@ -99,12 +115,12 @@ class TurnMetrics {
   });
 
   factory TurnMetrics.fromJson(Map<String, dynamic> j) => TurnMetrics(
-        ttftMs: (j['ttft_ms'] as num?)?.toInt(),
-        prefillMs: (j['prefill_ms'] as num?)?.toInt(),
-        promptProcessed: (j['total_tokens'] as num?)?.toInt(),
-        decodeTokS: (j['decode_tok_s'] as num?)?.toDouble(),
-        generatedTokens: (j['generated_tokens'] as num?)?.toInt(),
-      );
+    ttftMs: (j['ttft_ms'] as num?)?.toInt(),
+    prefillMs: (j['prefill_ms'] as num?)?.toInt(),
+    promptProcessed: (j['total_tokens'] as num?)?.toInt(),
+    decodeTokS: (j['decode_tok_s'] as num?)?.toDouble(),
+    generatedTokens: (j['generated_tokens'] as num?)?.toInt(),
+  );
 }
 
 class ChatState {
@@ -207,6 +223,7 @@ class ChatState {
   );
 
   /// Regla de habilitación del composer: siempre habilitado para mejor UX.
-  /// El bloqueo ocurre al intentar enviar si no hay motor/modelo.
-  bool get canSend => engineOnline || activeModelPath != null;
+  /// Sólo una operación activa lo bloquea; los comandos nativos no necesitan
+  /// modelo y `ChatNotifier.send` informa si una conversación sí lo requiere.
+  bool get canSend => !generating;
 }

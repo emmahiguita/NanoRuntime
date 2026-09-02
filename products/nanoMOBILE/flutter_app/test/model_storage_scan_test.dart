@@ -306,32 +306,27 @@ void main() {
       },
     );
 
-    test(
-      'useDetected con modelo no usable (magic malo): lo intenta igual; '
-      'el aviso vive en la tarjeta, no en scanError',
-      () async {
-        final storage = FakeStorageRepository(
-          tree: 'content://tree/primary',
-          fdPath: '/proc/self/fd/42',
-        );
-        final container = _container(storage: storage);
+    test('useDetected con modelo no usable (magic malo): lo intenta igual; '
+        'el aviso vive en la tarjeta, no en scanError', () async {
+      final storage = FakeStorageRepository(
+        tree: 'content://tree/primary',
+        fdPath: '/proc/self/fd/42',
+      );
+      final container = _container(storage: storage);
 
-        await container
-            .read(modelsProvider.notifier)
-            .useDetected(_detected('fake.gguf', magicOk: false));
+      await container
+          .read(modelsProvider.notifier)
+          .useDetected(_detected('fake.gguf', magicOk: false));
 
-        // Permite intentar (política de bbb8ee9): el modelo se selecciona
-        // con el fd abierto, sin bloquear la UI.
-        final recording =
-            container.read(chatProvider.notifier) as _RecordingChatNotifier;
-        expect(recording.selected, [
-          ('fake.gguf', '/proc/self/fd/42'),
-        ]);
-        final state = container.read(modelsProvider);
-        expect(state.scanError, isNull, reason: 'scanError es solo del escaneo');
-        expect(state.loadingDetectedUri, isNull);
-      },
-    );
+      // Permite intentar (política de bbb8ee9): el modelo se selecciona
+      // con el fd abierto, sin bloquear la UI.
+      final recording =
+          container.read(chatProvider.notifier) as _RecordingChatNotifier;
+      expect(recording.selected, [('fake.gguf', '/proc/self/fd/42')]);
+      final state = container.read(modelsProvider);
+      expect(state.scanError, isNull, reason: 'scanError es solo del escaneo');
+      expect(state.loadingDetectedUri, isNull);
+    });
   });
 
   group('Escaneo automático de todo el storage (MANAGE_EXTERNAL_STORAGE)', () {
@@ -407,10 +402,7 @@ void main() {
       final state = container.read(modelsProvider);
       expect(state.models.single.installed, isFalse);
       expect(state.detected, hasLength(1));
-      expect(
-        state.detected.single.name,
-        'qwen2.5-0.5b-instruct-q4_0.gguf',
-      );
+      expect(state.detected.single.name, 'qwen2.5-0.5b-instruct-q4_0.gguf');
     });
 
     test('race: escaneo termina antes que listModels — el catálogo se '
@@ -500,9 +492,9 @@ void main() {
       const execChannel = MethodChannel('com.nanoai/exec_bin');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(execChannel, (call) async {
-        if (call.method == 'getFilesDir') return '${tmp.path}/files';
-        return null;
-      });
+            if (call.method == 'getFilesDir') return '${tmp.path}/files';
+            return null;
+          });
       addTearDown(
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(execChannel, null),
@@ -518,10 +510,7 @@ void main() {
       final recording =
           container.read(chatProvider.notifier) as _RecordingChatNotifier;
       expect(recording.selected, [
-        (
-          'mistral.Q4_K_M.gguf',
-          '${tmp.path}/files/models/mistral.Q4_K_M.gguf',
-        ),
+        ('mistral.Q4_K_M.gguf', '${tmp.path}/files/models/mistral.Q4_K_M.gguf'),
       ]);
       final state = container.read(modelsProvider);
       expect(state.loadingDetectedUri, isNull);

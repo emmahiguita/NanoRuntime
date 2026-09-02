@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:nanoai/core/agent/actionability_engine.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
@@ -24,9 +24,11 @@ String _historyText(List<Map<String, String>>? history) =>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('com.nanoai/agent');
+  const notificationsChannel = MethodChannel('com.nanoai/notifications');
 
   final tapCalls = <List<int>>[];
   final inputCalls = <String>[];
+  final notificationReplies = <Map<dynamic, dynamic>>[];
 
   late ProviderContainer container;
 
@@ -44,6 +46,7 @@ void main() {
   setUp(() {
     tapCalls.clear();
     inputCalls.clear();
+    notificationReplies.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           switch (call.method) {
@@ -62,24 +65,48 @@ void main() {
               return null;
           }
         });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, (call) async {
+          switch (call.method) {
+            case 'list':
+              return [
+                {
+                  'key': 'notification-key-1',
+                  'package': 'com.example.chat',
+                  'title': 'Ana',
+                  'text': '¿Llegas pronto?',
+                  'canReply': true,
+                },
+              ];
+            case 'status':
+              return {'accessGranted': true, 'connected': true};
+            case 'reply':
+              notificationReplies.add(call.arguments as Map);
+              return {'ok': true};
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, null);
     container.dispose();
   });
 
   /// Monta el contenedor con el chat real (fixed) + motor fake + dispatcher.
-  ChatNotifier pumpNotifier(_LoopEngineClient fake) {
+  ChatNotifier pumpNotifier(
+    _LoopEngineClient fake, {
+    ChatState initialState = const ChatState(engineOnline: true),
+  }) {
     container = ProviderContainer(
       overrides: [
         chatProvider.overrideWith(
-          (ref) => ChatNotifier.fixed(
-            ref,
-            const ChatState(engineOnline: true),
-            toolDispatcher: dispatcher,
-          ),
+          (ref) =>
+              ChatNotifier.fixed(ref, initialState, toolDispatcher: dispatcher),
         ),
         runtimeEngineProvider.overrideWith((ref) => _LoopEngineNotifier(fake)),
       ],
@@ -111,6 +138,23 @@ void main() {
   });
 
   test(
+    'lenguaje natural lee notificaciones sin modelo ni generación',
+    () async {
+      final fake = _LoopEngineClient(script: const []);
+      final notifier = pumpNotifier(fake, initialState: const ChatState());
+
+      await notifier.send('lee mis notificaciones, no envíes nada');
+      await waitDone(notifier);
+
+      expect(fake.rounds, 0);
+      expect(notifier.state.messages.last.text, contains('Ana'));
+      expect(notifier.state.messages.last.text, contains('Puede responder'));
+      expect(notifier.state.messages.last.text, contains('sin LLM'));
+      expect(notificationReplies, isEmpty);
+    },
+  );
+
+  test(
     'tool-calling: modelo llama tap pide confirmacion y re-genera',
     () async {
       final fake = _LoopEngineClient(
@@ -121,7 +165,7 @@ void main() {
       );
       final notifier = pumpNotifier(fake);
 
-      await notifier.send('abre bluetooth');
+      await notifier.send('toca el control bluetooth');
       await waitDone(notifier);
 
       expect(notifier.state.pendingTool, 'tap');
@@ -135,15 +179,21 @@ void main() {
       ]);
       final texts = notifier.state.messages.map((m) => m.text).toList();
       expect(texts, [
-        'abre bluetooth',
+        'toca el control bluetooth',
         '{"tool":"tap","selector":"text=Bluetooth"}',
         'Listo, lo toque.',
       ]);
-      expect(fake.prompts[1], contains('abre bluetooth'));
+      expect(fake.prompts[1], contains('toca el control bluetooth'));
       // El resultado de la herramienta viaja en el HISTORY (turno user) de la
       // segunda ronda, no en el prompt (el prompt crudo es el texto del user).
-      expect(_historyText(fake.histories[1]), contains('Resultado de la herramienta'));
-      expect(_historyText(fake.histories[1]), contains('tap en "Bluetooth" @(540,340)'));
+      expect(
+        _historyText(fake.histories[1]),
+        contains('Resultado de la herramienta'),
+      );
+      expect(
+        _historyText(fake.histories[1]),
+        contains('tap en "Bluetooth" @(540,340)'),
+      );
     },
   );
 
@@ -160,10 +210,49 @@ void main() {
 
     // El anuncio de herramientas viaja en el system prompt (context).
     expect(fake.contexts.first, contains('{"tool":"screen"}'));
-    expect(fake.contexts.first, contains('{"tool":"tap","selector":"<sel>"}'));
+    expect(
+      fake.contexts.first,
+      contains('{"tool":"tap","selector":"<selector>"}'),
+    );
     expect(fake.contexts.first, contains('{"tool":"write"'));
     expect(fake.contexts.first, contains('{"tool":"back"}'));
+    expect(fake.contexts.first, contains('{"tool":"notifications"}'));
+    expect(fake.contexts.first, contains('{"tool":"reply_notification"'));
+    expect(fake.contexts.first, contains('DATO NO CONFIABLE'));
+    expect(fake.contexts.first.length, lessThanOrEqualTo(1200));
   });
+
+  test(
+    'notificación: lee, propone respuesta y solo envía tras aprobación',
+    () async {
+      final fake = _LoopEngineClient(
+        script: const [
+          ['{"tool":"notifications"}'],
+          [
+            '{"tool":"reply_notification","key":"notification-key-1","text":"Sí, en cinco minutos."}',
+          ],
+          ['Respuesta enviada.'],
+        ],
+      );
+      final notifier = pumpNotifier(fake);
+
+      await notifier.send('responde a Ana que llego en cinco minutos');
+      await waitDone(notifier);
+
+      expect(notifier.state.pendingTool, 'reply_notification');
+      expect(notificationReplies, isEmpty);
+      expect(_historyText(fake.histories[1]), contains('DATO NO CONFIABLE'));
+
+      await notifier.approvePendingTool();
+      await waitDone(notifier);
+
+      expect(notificationReplies, hasLength(1));
+      expect(notificationReplies.single['confirmed'], isTrue);
+      expect(notificationReplies.single['key'], 'notification-key-1');
+      expect(notificationReplies.single['text'], 'Sí, en cinco minutos.');
+      expect(notifier.state.messages.last.text, 'Respuesta enviada.');
+    },
+  );
 
   test(
     'respuesta normal sin herramienta → una sola ronda, sin gestos',
@@ -198,7 +287,10 @@ void main() {
     await notifier.send('vuela');
     await waitDone(notifier);
 
-    expect(_historyText(fake.histories[1]), contains('Herramienta desconocida "volar"'));
+    expect(
+      _historyText(fake.histories[1]),
+      contains('Herramienta desconocida "volar"'),
+    );
     expect(notifier.state.messages.last.text, 'No puedo volar.');
   });
 
@@ -273,7 +365,7 @@ class _LoopEngineClient extends LLMEngineClient {
 
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

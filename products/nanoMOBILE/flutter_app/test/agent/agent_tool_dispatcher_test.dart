@@ -1,8 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/actionability_engine.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
+import 'package:nanoai/core/services/linux_execution_backend.dart';
+import 'package:nanoai/features/automation/engine/platform/linux_tool_adapter.dart';
 
 import 'fixtures.dart';
 
@@ -11,10 +14,13 @@ import 'fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('com.nanoai/agent');
+  const notificationsChannel = MethodChannel('com.nanoai/notifications');
 
   final methodCalls = <String>[];
   final tapCalls = <List<int>>[];
   final inputCalls = <String>[];
+  final notificationReplies = <Map<dynamic, dynamic>>[];
+  final launchedPackages = <String>[];
   var dumpProvider = () => snapshotAjustes();
   var focused = false;
 
@@ -26,6 +32,10 @@ void main() {
         maxSizeChangeRatio: 0.10,
       ),
     ),
+    launchPackage: (packageName) async {
+      launchedPackages.add(packageName);
+      return true;
+    },
   );
 
   Map<String, dynamic> ajustesFocused() {
@@ -38,6 +48,8 @@ void main() {
     methodCalls.clear();
     tapCalls.clear();
     inputCalls.clear();
+    notificationReplies.clear();
+    launchedPackages.clear();
     dumpProvider = () => snapshotAjustes();
     focused = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -46,10 +58,15 @@ void main() {
           switch (call.method) {
             case 'dumpSnapshot':
               return dumpProvider();
-            case 'tapAt':
+            case 'clickTarget':
               final args = call.arguments as Map;
-              tapCalls.add([args['x'] as int, args['y'] as int]);
-              return true;
+              final bounds = (args['bounds'] as List).cast<int>();
+              tapCalls.add([
+                (bounds[0] + bounds[2]) ~/ 2,
+                (bounds[1] + bounds[3]) ~/ 2,
+              ]);
+              focused = true;
+              return const {'ok': true, 'method': 'ACTION_CLICK', 'code': 'OK'};
             case 'inputText':
               inputCalls.add((call.arguments as Map)['text'] as String);
               return true;
@@ -59,11 +76,35 @@ void main() {
               return null;
           }
         });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, (call) async {
+          switch (call.method) {
+            case 'status':
+              return {'accessGranted': true, 'connected': true};
+            case 'list':
+              return [
+                {
+                  'key': 'notification-key-1',
+                  'package': 'com.example.chat',
+                  'title': 'Ana',
+                  'text': '¿Llegas pronto?',
+                  'canReply': true,
+                },
+              ];
+            case 'reply':
+              notificationReplies.add(call.arguments as Map);
+              return {'ok': true};
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationsChannel, null);
   });
 
   group('isToolCommand', () {
@@ -90,13 +131,30 @@ void main() {
       expect(tapCalls, isEmpty);
     });
 
-    test('@tap → ok con coordenadas del centro', () async {
+    test(
+      '@tap → ok con coordenadas del centro y postcondición verificada',
+      () async {
+        // Tras el gesto real (tapCalls no vacío) la pantalla cambia — el
+        // verifier debe confirmar el cambio de snapshot.
+        dumpProvider = () =>
+            tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
+        final r = await dispatcher.runCommand('@tap text=Bluetooth');
+        // AgentLoop verificado: completa limpio (sin sufijo [verify:]) porque
+        // la postcondición (cambio de snapshot) se satisfizo.
+        expect(r, 'tap en "Bluetooth" @(540,340)');
+        expect(tapCalls, [
+          [540, 340],
+        ]);
+        expect(methodCalls, isNot(contains('tapOnText')));
+      },
+    );
+
+    test('@tap sin cambio de pantalla → gesto ok pero verify falla', () async {
+      // dispatchGesture devolvió true pero la pantalla no cambió: NO se
+      // reporta éxito limpio — el sufijo [verify:*] hace visible la sospecha.
       final r = await dispatcher.runCommand('@tap text=Bluetooth');
-      expect(r, 'tap en "Bluetooth" @(540,340)');
-      expect(tapCalls, [
-        [540, 340],
-      ]);
-      expect(methodCalls, isNot(contains('tapOnText')));
+      expect(r, startsWith('[verify:timeout] tap en "Bluetooth" @(540,340)'));
+      expect(tapCalls, hasLength(1));
     });
 
     test('@tap ambiguo → FAIL tipado sin gesto', () async {
@@ -106,17 +164,31 @@ void main() {
       expect(tapCalls, isEmpty);
     });
 
-    test('@escribir → ok y inputText con el texto exacto', () async {
-      focused = true;
-      dumpProvider = ajustesFocused;
-      final r = await dispatcher.runCommand('@escribir wifi | editable=true');
-      expect(r, contains('"wifi" escrito en'));
-      expect(inputCalls, ['wifi']);
-    });
+    test(
+      '@escribir → ok, inputText exacto y texto visible verificado',
+      () async {
+        focused = true;
+        // Antes del input el campo está sin foco/vacío; después del
+        // inputText el texto "wifi" es visible → postcondición verificada.
+        dumpProvider = () {
+          final raw = ajustesFocused();
+          if (inputCalls.isNotEmpty) {
+            ((raw['nodes'] as List)[5] as Map)['text'] = inputCalls.last;
+          }
+          return raw;
+        };
+        final r = await dispatcher.runCommand('@escribir wifi | editable=true');
+        expect(r, contains('"wifi" escrito en'));
+        expect(inputCalls, ['wifi']);
+      },
+    );
 
-    test('@back → globalAction', () async {
+    test('@back → globalAction con cambio de pantalla verificado', () async {
+      dumpProvider = () => methodCalls.contains('globalAction')
+          ? snapshotDobleAceptar()
+          : snapshotAjustes();
       final r = await dispatcher.runCommand('@back');
-      expect(r, 'Botón atrás ejecutado.');
+      expect(r, 'Botón atrás ejecutado. · verificado');
       expect(methodCalls, contains('globalAction'));
     });
 
@@ -177,6 +249,16 @@ void main() {
       expect(call.text, 'wifi');
     });
 
+    test('reply_notification conserva key y texto', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"reply_notification","key":"notification-key-1","text":"Sí"}',
+      );
+      expect(call, isNotNull);
+      expect(call!.tool, 'reply_notification');
+      expect(call.key, 'notification-key-1');
+      expect(call.text, 'Sí');
+    });
+
     test('respuesta normal de texto → null', () {
       expect(
         AgentToolProtocol.extractToolCall('No necesito herramientas.'),
@@ -193,21 +275,31 @@ void main() {
       expect(call, isNotNull);
       expect(call!.tool, 'back');
     });
+
+    test('expect del LLM: postcondiciones declaradas se conservan', () {
+      final call = AgentToolProtocol.extractToolCall(
+        '{"tool":"tap","selector":"text=Bluetooth",'
+        '"expect":{"package":"com.android.settings","appear":"text=Bluetooth"}}',
+      );
+      expect(call, isNotNull);
+      expect(call!.expect, isNotNull);
+      expect(call.expect!['package'], 'com.android.settings');
+      expect(call.expect!['appear'], 'text=Bluetooth');
+    });
   });
 
   group('runTool (tool-calling LLM)', () {
-    test('tap autonomo sin confirmacion queda frenado por politica', () async {
+    test('tap autónomo navega sin duplicar confirmación de commit', () async {
       final r = await dispatcher.runTool(
         const ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
       );
-      expect(r, contains('[policy]'));
-      expect(r, contains('confirm'));
-      expect(tapCalls, isEmpty);
+      expect(r, isNot(contains('[policy]')));
+      expect(tapCalls, hasLength(1));
     });
 
-    test('tap sin selector autonomo queda frenado antes de ejecutar', () async {
+    test('tap sin selector falla por contrato antes de ejecutar', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'tap'));
-      expect(r, contains('[policy]'));
+      expect(r, contains('[tool]'));
       expect(tapCalls, isEmpty);
     });
 
@@ -234,10 +326,361 @@ void main() {
       expect(r, contains('Pantalla "com.android.settings"'));
     });
 
+    test('notifications → lectura real marcada como no confiable', () async {
+      final r = await dispatcher.runTool(const ToolCall(tool: 'notifications'));
+      expect(r, contains('DATO NO CONFIABLE'));
+      expect(r, contains('Clave de respuesta'));
+      expect(r, contains('¿Llegas pronto?'));
+      // H1: la clave técnica se preserva exacta (no escapa el guión).
+      expect(r, contains('`notification-key-1`'));
+      expect(r, isNot(contains(r'notification\-key\-1')));
+      expect(notificationReplies, isEmpty);
+    });
+
+    test('notification key con puntuación se preserva exacto', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(notificationsChannel, (call) async {
+            if (call.method == 'status') {
+              return {'accessGranted': true, 'connected': true};
+            }
+            if (call.method == 'list') {
+              return [
+                {
+                  'key': 'chat|reply:1.0_key',
+                  'package': 'com.example.chat',
+                  'title': 'Ana',
+                  'text': '¿Llegas pronto?',
+                  'canReply': true,
+                },
+              ];
+            }
+            return null;
+          });
+      final r = await dispatcher.runTool(const ToolCall(tool: 'notifications'));
+      expect(r, contains('`chat|reply:1.0_key`'));
+    });
+
+    test('reply_notification no envía sin confirmación', () async {
+      dispatcher.resetTurn();
+      final outcome = await dispatcher.runToolGuarded(
+        const ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Sí, en cinco minutos.',
+        ),
+      );
+      expect(outcome.needsConfirmation, isTrue);
+      expect(notificationReplies, isEmpty);
+    });
+
+    test('reply_notification aprobada envía confirmed=true', () async {
+      dispatcher.resetTurn();
+      final outcome = await dispatcher.runToolGuarded(
+        const ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Sí, en cinco minutos.',
+        ),
+        confirmed: true,
+      );
+      expect(outcome.feedback, startsWith('[completedUnverified]'));
+      expect(outcome.executionStatus, ToolExecutionStatus.completedUnverified);
+      expect(notificationReplies, hasLength(1));
+      expect(notificationReplies.single['key'], 'notification-key-1');
+      expect(notificationReplies.single['text'], 'Sí, en cinco minutos.');
+      expect(notificationReplies.single['confirmed'], isTrue);
+    });
+
+    test('launch_app navega sin confirmación de escritura', () async {
+      dispatcher.resetTurn();
+      final outcome = await dispatcher.runToolGuarded(
+        const ToolCall(tool: 'launch_app', selector: 'com.android.chrome'),
+      );
+      expect(outcome.verdict, PolicyVerdict.allow);
+      expect(outcome.feedback, contains('com.android.chrome'));
+      expect(launchedPackages, ['com.android.chrome']);
+    });
+
+    test(
+      'launch_app con args.packageName (A2 grounded) abre el paquete',
+      () async {
+        dispatcher.resetTurn();
+        final approved = await dispatcher.runToolGuarded(
+          const ToolCall(
+            tool: 'launch_app',
+            args: {'packageName': 'com.android.chrome'},
+          ),
+          confirmed: true,
+        );
+        expect(approved.verdict, PolicyVerdict.allow);
+        expect(approved.feedback, contains('com.android.chrome'));
+        expect(launchedPackages, ['com.android.chrome']);
+      },
+    );
+
     test('tool desconocida → denied con lista para corregirse', () async {
       final r = await dispatcher.runTool(const ToolCall(tool: 'teletransport'));
       expect(r, contains('[policy] Herramienta desconocida "teletransport"'));
-      expect(r, contains('Disponibles: screen, resolve, tap, back, write'));
+      expect(
+        r,
+        contains(
+          'Disponibles: screen, resolve, tap, back, launch_app, write, notifications, reply_notification',
+        ),
+      );
     });
   });
+
+  group('extractToolCalls (plan multi-paso)', () {
+    test('array de 2 tools → 2 llamadas en orden', () {
+      final calls = AgentToolProtocol.extractToolCalls(
+        '[{"tool":"tap","selector":"text:Bluetooth"},{"tool":"back"}]',
+      );
+      expect(calls, hasLength(2));
+      expect(calls[0].tool, 'tap');
+      expect(calls[0].selector, 'text:Bluetooth');
+      expect(calls[1].tool, 'back');
+    });
+
+    test('array con prosa alrededor → solo las llamadas', () {
+      final calls = AgentToolProtocol.extractToolCalls(
+        'Plan: [{"tool":"tap","selector":"text:Bluetooth"},'
+        '{"tool":"write","selector":"editable=true","text":"hola"}]',
+      );
+      expect(calls, hasLength(2));
+      expect(calls[1].tool, 'write');
+      expect(calls[1].text, 'hola');
+    });
+
+    test('objeto único → lista de una (compat single)', () {
+      final calls = AgentToolProtocol.extractToolCalls('{"tool":"screen"}');
+      expect(calls, hasLength(1));
+      expect(calls.single.tool, 'screen');
+    });
+
+    test('texto normal o JSON inválido → lista vacía', () {
+      expect(AgentToolProtocol.extractToolCalls('Respuesta normal'), isEmpty);
+      expect(AgentToolProtocol.extractToolCalls('[{"nope":1}]'), isEmpty);
+      expect(AgentToolProtocol.extractToolCalls(''), isEmpty);
+    });
+  });
+
+  group('runPlanGuarded (multi-step)', () {
+    // runPlanGuarded no resetea el turno (presupuesto continuo del plan):
+    // el caller real (chat send) resetea antes; aquí se resetea por test.
+    setUp(() => dispatcher.resetTurn());
+
+    test(
+      'plan solo-lectura de 2 pasos verificado → completed numerado',
+      () async {
+        final outcome = await dispatcher.runPlanGuarded(const [
+          ToolCall(tool: 'screen'),
+          ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
+        ]);
+        expect(outcome.completed, isTrue);
+        expect(outcome.steps, hasLength(2));
+        expect(outcome.pauseIndex, isNull);
+        expect(
+          outcome.summary,
+          contains('1/2 Pantalla "com.android.settings"'),
+        );
+        expect(outcome.summary, contains('2/2 Resuelto: "Bluetooth"'));
+        expect(tapCalls, isEmpty);
+      },
+    );
+
+    test('plan de acciones sensibles aprobado → completed', () async {
+      // El mundo cambia con cada acción: tap → dobleAceptar; back → ajustes.
+      dumpProvider = () {
+        if (methodCalls.contains('globalAction')) return snapshotAjustes();
+        if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
+        return snapshotAjustes();
+      };
+      final outcome = await dispatcher.runPlanGuarded(
+        const [
+          ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+          ToolCall(tool: 'back'),
+        ],
+        confirmed: true, // usuario aprobó ejecutar el plan
+      );
+      expect(outcome.completed, isTrue);
+      expect(outcome.steps, hasLength(2));
+      expect(outcome.summary, contains('1/2 tap en "Bluetooth"'));
+      expect(outcome.summary, contains('2/2 Botón atrás'));
+      expect(tapCalls, hasLength(1));
+    });
+
+    test('RemoteInput aceptado completa sin inventar entrega final', () async {
+      const plan = [
+        ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Llego en cinco minutos.',
+        ),
+      ];
+      final paused = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'reply-run',
+      );
+      final outcome = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'reply-run',
+        confirmation: paused.confirmation,
+      );
+
+      expect(outcome.completed, isTrue);
+      expect(outcome.hasUnverifiedSteps, isTrue);
+      expect(notificationReplies, hasLength(1));
+      expect(outcome.summary, contains('[completedUnverified]'));
+    });
+
+    test('paso 2 denegado por política → plan aborta tras el paso 1', () async {
+      dumpProvider = () =>
+          tapCalls.isNotEmpty ? snapshotDobleAceptar() : snapshotAjustes();
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'rm'), // fuera del registro
+      ], confirmed: true);
+      expect(outcome.completed, isFalse);
+      expect(outcome.steps, hasLength(2));
+      expect(outcome.summary, contains('1/2 tap en "Bluetooth"'));
+      expect(outcome.summary, contains('[policy]'));
+    });
+
+    test('paso 2 falla (target inexistente) → plan aborta tipado', () async {
+      // Solo el primer tap cambia la pantalla; el segundo no encuentra nada.
+      dumpProvider = () =>
+          tapCalls.length == 1 ? snapshotDobleAceptar() : snapshotAjustes();
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'tap', selector: 'text=Inexistente'),
+      ], confirmed: true);
+      expect(outcome.completed, isFalse);
+      expect(outcome.steps, hasLength(2));
+      expect(outcome.summary, contains('[notFound]'));
+      expect(tapCalls, hasLength(1));
+    });
+
+    test('confirmación liga ejecución y se consume una sola vez', () async {
+      const plan = [
+        ToolCall(
+          tool: 'reply_notification',
+          key: 'notification-key-1',
+          text: 'Confirmado.',
+        ),
+      ];
+      final paused = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-a',
+      );
+      expect(paused.pauseIndex, 0);
+      expect(notificationReplies, isEmpty);
+
+      final wrongRun = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-b',
+        confirmation: paused.confirmation,
+      );
+      expect(wrongRun.pauseIndex, 0);
+      expect(notificationReplies, isEmpty);
+
+      final resumed = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-a',
+        confirmation: paused.confirmation,
+      );
+      expect(resumed.completed, isTrue);
+      expect(notificationReplies, hasLength(1));
+
+      final replay = await dispatcher.runPlanGuarded(
+        plan,
+        executionId: 'run-a',
+        confirmation: paused.confirmation,
+      );
+      expect(replay.pauseIndex, 0);
+      expect(notificationReplies, hasLength(1));
+    });
+
+    test('plan cíclico A→B→A→B → loopDetected antes de repetir', () async {
+      // El mundo avanza con cada acción (tap → dobleAceptar, back → ajustes),
+      // pero el plan del LLM cicla tap/back sin progreso: el detector aborta
+      // en el 4º paso SIN ejecutar la acción repetida.
+      dumpProvider = () {
+        if (tapCalls.length >= 2) return snapshotDobleAceptar(); // tras 2º tap
+        if (methodCalls.contains('globalAction')) return snapshotAjustes();
+        if (tapCalls.isNotEmpty) return snapshotDobleAceptar();
+        return snapshotAjustes();
+      };
+      final outcome = await dispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'back'),
+        ToolCall(tool: 'tap', selector: 'text=Bluetooth'),
+        ToolCall(tool: 'back'),
+      ], confirmed: true);
+      expect(outcome.completed, isFalse);
+      expect(outcome.summary, contains('[loopDetected]'));
+      // El paso repetido (2º back) no se ejecutó: solo 1 back, pero los dos
+      // taps legítimos (pasos 1 y 3) sí.
+      expect(tapCalls, hasLength(2));
+      expect(methodCalls.where((m) => m == 'globalAction'), hasLength(1));
+    });
+
+    test(
+      'plan largo legítimo sin repetir acción → no falso positivo',
+      () async {
+        // Solo herramientas read contra el snapshot fijo de ajustes (Bluetooth
+        // y Aceptar existen): acciones todas distintas, sin loop posible.
+        final outcome = await dispatcher.runPlanGuarded(const [
+          ToolCall(tool: 'screen'),
+          ToolCall(tool: 'resolve', selector: 'text=Bluetooth'),
+          ToolCall(tool: 'screen'),
+          ToolCall(tool: 'resolve', selector: 'text=Aceptar'),
+        ]);
+        expect(outcome.completed, isTrue);
+        expect(outcome.summary, isNot(contains('[loopDetected]')));
+      },
+    );
+
+    test('operación Linux correcta no aborta el plan por su prefijo', () async {
+      final linuxDispatcher = AgentToolDispatcher(
+        linuxAdapter: LinuxToolAdapter(backend: _FakeLinuxBackend()),
+      );
+
+      final outcome = await linuxDispatcher.runPlanGuarded(const [
+        ToolCall(tool: 'linux.list', text: '/tmp'),
+      ]);
+
+      expect(outcome.completed, isTrue);
+      expect(outcome.summary, contains('Linux linux.list'));
+    });
+  });
+
+  group('ToolLoopDetector · acción + estado', () {
+    test('misma herramienta con estados distintos no es un loop', () {
+      final detector = ToolLoopDetector();
+      expect(detector.isLoop('tap@screen-a'), isFalse);
+      expect(detector.isLoop('tap@screen-b'), isFalse);
+      expect(detector.isLoop('tap@screen-c'), isFalse);
+      expect(detector.isLoop('tap@screen-d'), isFalse);
+      expect(detector.isLoop('tap@screen-e'), isFalse);
+    });
+
+    test('misma acción y mismo estado repetidos se detienen', () {
+      final detector = ToolLoopDetector();
+      expect(detector.isLoop('tap@screen-a'), isFalse);
+      expect(detector.isLoop('back@screen-b'), isFalse);
+      expect(detector.isLoop('tap@screen-a'), isFalse);
+      expect(detector.isLoop('back@screen-b'), isTrue);
+    });
+  });
+}
+
+class _FakeLinuxBackend implements LinuxExecutionBackend {
+  @override
+  Future<LinuxExecutionResult> execute(LinuxExecutionRequest request) async =>
+      const LinuxExecutionResult(
+        exitCode: 0,
+        stdout: 'ok',
+        stderr: '',
+        duration: Duration.zero,
+      );
 }

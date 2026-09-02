@@ -6,7 +6,6 @@ import '../terminalservices.dart';
 /// Process commands: ps, kill, htop, pstree, jobs, sudo.
 class ProcessPlugin {
   void register(void Function(String, CmdFn) r, TerminalServices s) {
-
     r('ps', (a, c, o, af) {
       if (s.shell != null && s.shell!.initialized) {
         s.shell!.toybox(['ps', ...a]).then((wr) {
@@ -79,9 +78,15 @@ class ProcessPlugin {
     });
 
     r('sudo', (a, c, o, af) {
-      if (a.isEmpty) { o('sudo: uso: sudo <comando>', Ln.stderr); return; }
+      if (a.isEmpty) {
+        o('sudo: uso: sudo <comando>', Ln.stderr);
+        return;
+      }
       // Sin root no hay sudo: no se finge ejecución, se indica la vía real.
-      o('sudo: sin root real. Usa "! ${a.join(" ")}" para ejecución real.', Ln.stderr);
+      o(
+        'sudo: sin root real. Usa "! ${a.join(" ")}" para ejecución real.',
+        Ln.stderr,
+      );
     });
   }
 }

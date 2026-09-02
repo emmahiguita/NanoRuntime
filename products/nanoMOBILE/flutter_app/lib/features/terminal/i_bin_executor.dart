@@ -1,4 +1,4 @@
-import 'terminal_types.dart';  // ShellResult
+import 'terminal_types.dart'; // ShellResult
 
 /// Interface para ejecución de comandos del rootfs.
 ///
@@ -43,11 +43,17 @@ abstract class IBinExecutor {
   });
 
   /// BusyBox applet vía Nanoshell FFI.
-  Future<ShellResult> toybox(List<String> args, {Map<String, String>? extraEnv});
+  Future<ShellResult> toybox(
+    List<String> args, {
+    Map<String, String>? extraEnv,
+  });
 
   /// Ejecuta vía /system/bin/sh -c (Process.start).
-  Future<ShellResult> bash(String cmd,
-      {Map<String, String>? env, Duration timeout});
+  Future<ShellResult> bash(
+    String cmd, {
+    Map<String, String>? env,
+    Duration timeout,
+  });
 
   /// Ejecuta con streaming de output línea por línea vía Process.start.
   /// Usado por ProotManager para proot (requiere stdout/stderr en tiempo real).

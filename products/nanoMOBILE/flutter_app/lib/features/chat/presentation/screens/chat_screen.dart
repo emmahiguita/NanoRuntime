@@ -1,22 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
-import 'package:nanoai/core/services/pdf_report_service.dart';
+import '../widgets/chat_composer.dart';
+import '../widgets/chat_messages.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:speech_to_text/speech_to_text.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
@@ -34,21 +34,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
 
-  // Dictado por voz real (speech_to_text) y adjunto de archivos real
-  // (file_picker → SAF de Android). Ambos fallan a mensaje honesto,
-  // nunca a excepción suelta.
-  final SpeechToText _speech = SpeechToText();
-  bool _speechReady = false;
+  // Dictado por voz real (canal `com.nanoai/speech`, SpeechChannelHandler →
+  // reconocedor Google Search) y adjunto de archivos real (file_picker → SAF de
+  // Android). Ambos fallan a mensaje honesto, nunca a excepción suelta.
   bool _listening = false;
+  StreamSubscription<String>? _partialSub;
+  bool _isComposerMinimized = false;
+  bool _isReadingMode = false;
 
   /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
+  static const _maxAttachBytes = 64 * 1024;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
-    if (_speechReady && _speech.isListening) {
-      _speech.stop();
-    }
+    _partialSub?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -68,61 +73,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
   }
 
-  /// Inicializa el motor de voz una sola vez (pide permiso RECORD_AUDIO
-  /// en el primer uso) y alterna escucha con resultados al input.
+  /// Dictado por voz REAL con streaming + AUTOENVÍO del resultado final.
+  /// Los parciales solo actualizan el input visualmente; el texto final se
+  /// envía automáticamente (manos libres): Voz → send → Automation → Linux.
+  /// Nunca se envía un partial (evita ejecutar comandos incompletos).
   Future<void> _toggleMic() async {
-    if (!_speechReady) {
-      try {
-        _speechReady = await _speech.initialize(
-          onStatus: (status) {
-            if (!mounted) return;
-            setState(() => _listening = status == 'listening');
-          },
-          onError: (error) {
-            if (!mounted) return;
-            setState(() => _listening = false);
-            _showHonestError('Micrófono no disponible: $error');
-          },
-        );
-      } catch (e) {
-        _speechReady = false;
-        if (!mounted) return;
-        _showHonestError('Micrófono no disponible: $e');
-        return;
-      }
-      if (!_speechReady) {
-        if (!mounted) return;
-        _showHonestError(
-          'Reconocimiento de voz no disponible en este '
-          'dispositivo.',
-        );
-        return;
-      }
-    }
-
-    if (_speech.isListening) {
-      await _speech.stop();
+    if (_listening) {
+      setState(() => _listening = false);
+      await _partialSub?.cancel();
+      _partialSub = null;
+      await NanoRuntimeApi.instance.stopSpeech();
       return;
     }
-
-    try {
-      await _speech.listen(
-        onResult: (result) {
-          if (!mounted) return;
-          _inputController.text = result.recognizedWords;
-          _inputController.selection = TextSelection.collapsed(
-            offset: _inputController.text.length,
-          );
-        },
-        listenOptions: SpeechListenOptions(
-          listenFor: const Duration(seconds: 60),
-          pauseFor: const Duration(seconds: 5),
-        ),
+    setState(() => _listening = true);
+    _partialSub = NanoRuntimeApi.instance.voicePartialStream.listen((partial) {
+      if (!mounted || !_listening) return;
+      _inputController.text = partial;
+      _inputController.selection = TextSelection.collapsed(
+        offset: _inputController.text.length,
       );
-    } catch (e) {
-      if (!mounted) return;
-      _showHonestError('No se pudo iniciar el dictado: $e');
+    });
+    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+    await _partialSub?.cancel();
+    _partialSub = null;
+    if (!mounted) return;
+    setState(() => _listening = false);
+    if (text == null || text.trim().isEmpty) {
+      // Sin texto final: si el dictado en vivo dejó algo se conserva; si no,
+      // aviso honesto.
+      if (_inputController.text.trim().isEmpty) {
+        _showHonestError('No se pudo reconocer el audio. Inténtalo de nuevo.');
+      }
+      return;
     }
+    final trimmed = text.trim();
+    _inputController.text = trimmed;
+    _inputController.selection = TextSelection.collapsed(
+      offset: _inputController.text.length,
+    );
+    // T1.7 — autoenvío del resultado FINAL (nunca partial). El partial solo
+    // actualiza el input; enviar aquí evita ejecutar comandos incompletos.
+    await ref.read(chatProvider.notifier).send(trimmed);
+    if (!mounted) return;
+    _inputController.clear();
+    // Responder a VOZ: hablar la respuesta generada por el MISMO send().
+    await ref.read(chatProvider.notifier).speakLastResponse();
   }
 
   /// Abre el selector de archivos (SAF) y registra el contenido textual como
@@ -133,16 +128,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.any,
-        withData: true,
+        // En Android, `withData:true` carga el archivo completo en RAM antes
+        // de poder validarlo. Se usa la ruta cacheada del SAF y se limita antes.
+        withData: false,
       );
       final file = result?.files.single;
       if (file == null || file.path == null) return;
 
-      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final selected = File(file.path!);
+      final byteLength = await selected.length();
+      if (byteLength > _maxAttachBytes) {
+        _showHonestError(
+          'El archivo supera ${_maxAttachBytes ~/ 1024} KB. '
+          'Adjunta un fragmento de texto más pequeño.',
+        );
+        return;
+      }
+      final bytes = await selected.readAsBytes();
       final text = utf8.decode(bytes, allowMalformed: true);
 
       // Heurística honesta: si el contenido no es texto imprimible, no sirve.
-      if (text.trim().isEmpty || text.contains('�') || _looksBinary(text)) {
+      if (text.trim().isEmpty ||
+          text.contains('\u0000') ||
+          _looksBinary(text)) {
         _showHonestError(
           'El archivo no parece texto legible; adjunta '
           'archivos .txt/.md/.log.',
@@ -196,6 +204,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final isNarrow = screenSize.width < 600;
+    final isCompactLandscape =
+        screenSize.width > screenSize.height && screenSize.height < 520;
+    // El teclado no debe cambiar la variante del compositor: hacerlo causaba
+    // un segundo reflow (controles que aparecen/desaparecen) justo al enfocar
+    // el campo. Solo el ancho/orientación definen la composición compacta.
+    final compactComposer = isNarrow || isCompactLandscape;
 
     // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
@@ -204,7 +221,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen(chatProvider.select((s) => s.generating), (_, __) {
       _scrollToBottom();
     });
-    // Política §12: el tool-calling pidió una escritura externa — diálogo de
+    // Política §12: el tool-calling pidió una escritura externa — diálogo de
     // confirmación obligatorio (sin dismiss lateral: decisión del humano).
     ref.listen(chatProvider.select((s) => s.pendingTool), (prev, next) {
       if (next != null && prev != next) {
@@ -214,9 +231,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return NanoScreenShell(
       title: 'Chat',
+      // El shell conserva su geometría cuando aparece el teclado. El
+      // compositor se mueve de manera independiente sobre el inset para no
+      // desplazar lista, encabezado ni contenido ya leído.
+      hideHeader: _isReadingMode,
+      resizeToAvoidBottomInset: false,
       trailing: Row(
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          if (state.messages.isNotEmpty)
+            IconButton(
+              key: const ValueKey('chat_reading_mode_toggle'),
+              tooltip: 'Modo lectura',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _isReadingMode = true),
+              icon: Icon(
+                Icons.chrome_reader_mode_rounded,
+                color: colors.onSurface.withValues(alpha: 0.72),
+                size: 20,
+              ),
+            ),
           if (state.messages.isNotEmpty)
             IconButton(
               tooltip: 'Limpiar conversación',
@@ -230,123 +264,174 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
           const SizedBox(width: 4),
-          Flexible(
-            child: _EngineBadge(
-              online: state.engineOnline,
-              loading: state.connection == ModelConnectionState.loadingModel,
-            ),
+          _EngineBadge(
+            online: state.engineOnline,
+            loading: state.connection == ModelConnectionState.loadingModel,
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 920),
-          child: Stack(
-            children: [
-              // ── Lista de mensajes ────────────────────────────────────
-              Positioned.fill(
-                child: state.messages.isEmpty
-                    ? _EmptyChat(
-                        engineOnline: state.engineOnline,
-                        hasModel: state.activeModelPath != null,
-                        onSuggestion: (text) {
-                          notifier.send(text);
-                        },
-                        onRetry: () => notifier.refreshEngine(),
-                        onGoModels: () => context.go('/models'),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        // El padding inferior extra (100 px) evita que el
-                        // último mensaje quede oculto bajo la barra flotante.
-                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 110),
-                        itemCount:
-                            state.messages.length + (state.generating ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == state.messages.length) {
-                            return _StreamingBubble(
-                              text: state.streamingText,
-                              model: state.activeModel,
-                            );
-                          }
-
-                          final message = state.messages[index];
-                          final isUser = message.sender == MessageSender.user;
-                          final isError = message.status == MessageStatus.error;
-
-                          return AnimatedMessageEntry(
-                            key: ValueKey(message.id),
-                            isUser: isUser,
-                            child: GestureDetector(
-                              onLongPress: state.generating
-                                  ? null
-                                  : () => _showDeleteDialog(notifier, message),
-                              child: _MessageBubble(
-                                text: message.text,
-                                isUser: isUser,
-                                model: state.activeModel,
-                                timestamp: message.timestamp,
-                                isError: isError,
-                                attachmentNames: message.attachmentNames,
-                                tps: message.tps,
-                                onRetry: isError && !state.generating
-                                    ? () => notifier.retry(message.id)
-                                    : null,
+      body: _isReadingMode
+          ? _ReadingMode(
+              messages: state.messages,
+              model: state.activeModel,
+              onExit: () => setState(() => _isReadingMode = false),
+            )
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  // Aprovecha el ancho en desktop/ultrawide (antes 1120 dejaba
+                  // márgenes muertos); se mantiene una cota por legibilidad.
+                  maxWidth: isCompactLandscape ? 1440 : 1400,
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: state.messages.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.only(bottom: 94),
+                              child: EmptyChat(
+                                engineOnline: state.engineOnline,
+                                hasModel: state.activeModelPath != null,
+                                onSuggestion: (text) {
+                                  notifier.send(text);
+                                },
+                                onRetry: () => notifier.refreshEngine(),
+                                onGoModels: () => context.go('/models'),
                               ),
+                            )
+                          : ListView.builder(
+                              controller: _scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(
+                                isCompactLandscape ? 10 : 18,
+                                8,
+                                isCompactLandscape ? 10 : 18,
+                                // Reserva estable para que la última
+                                // respuesta nunca quede bajo la barra.
+                                112 + mediaQuery.padding.bottom,
+                              ),
+                              itemCount:
+                                  state.messages.length +
+                                  (state.generating ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index == state.messages.length) {
+                                  return StreamingBubble(
+                                    text: state.streamingText,
+                                    model: state.activeModel,
+                                  );
+                                }
+
+                                final message = state.messages[index];
+                                final isUser =
+                                    message.sender == MessageSender.user;
+                                final isError =
+                                    message.status == MessageStatus.error;
+
+                                return AnimatedMessageEntry(
+                                  key: ValueKey(message.id),
+                                  isUser: isUser,
+                                  child: GestureDetector(
+                                    onLongPress: state.generating
+                                        ? null
+                                        : () => _showDeleteDialog(
+                                            notifier,
+                                            message,
+                                          ),
+                                    child: MessageBubble(
+                                      text: message.text,
+                                      isUser: isUser,
+                                      model: state.activeModel,
+                                      timestamp: message.timestamp,
+                                      isError: isError,
+                                      source: message.source,
+                                      attachmentNames: message.attachmentNames,
+                                      tps: message.tps,
+                                      onRetry: isError && !state.generating
+                                          ? () => notifier.retry(message.id)
+                                          : null,
+                                      onDelete: state.generating
+                                          ? null
+                                          : () => _showDeleteDialog(
+                                              notifier,
+                                              message,
+                                            ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-              ),
-
-              // ── Barra de escritura FLOTANTE ──────────────────────────
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                    child: _Composer(
-                      controller: _inputController,
-                      enabled: state.canSend && !state.generating,
-                      generating: state.generating,
-                      listening: _listening,
-                      attachments: state.attachments,
-                      onRemoveAttachment: notifier.removeAttachment,
-                      onAttach: _attachFile,
-                      onMic: _toggleMic,
-                      onSend: () {
-                        final text = _inputController.text.trim();
-                        if (text.isEmpty) return;
-
-                        notifier.send(text);
-                        _inputController.clear();
-                      },
-                      onStop: notifier.stop,
                     ),
-                  ),
+
+                    // Android ya redimensiona esta Activity con adjustResize.
+                    // No sumar viewInsets aquí: era un segundo desplazamiento
+                    // que elevaba el compositor completo al abrir el teclado.
+                    if (!_isReadingMode)
+                      Positioned(
+                        left: isCompactLandscape ? 8 : 14,
+                        right: isCompactLandscape ? 8 : 14,
+                        bottom: isCompactLandscape ? 5 : 10,
+                        child: _ComposerTransition(
+                          child: _isComposerMinimized
+                              ? Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _MinimizedComposerBubble(
+                                    key: const ValueKey('minimized_bubble'),
+                                    onExpand: () => setState(
+                                      () => _isComposerMinimized = false,
+                                    ),
+                                    hasAttachments:
+                                        state.attachments.isNotEmpty,
+                                    listening: _listening,
+                                  ),
+                                )
+                              : ChatComposer(
+                                  key: const ValueKey('expanded_composer'),
+                                  controller: _inputController,
+                                  // El compositor no depende del GGUF:
+                                  // comandos deterministas (p. ej.
+                                  // notificaciones) usan Android nativo
+                                  // y deben funcionar con el motor parado.
+                                  // Si el texto sí necesita LLM, send()
+                                  // devuelve el error de modelo honesto.
+                                  enabled: !state.generating,
+                                  generating: state.generating,
+                                  listening: _listening,
+                                  attachments: state.attachments,
+                                  onRemoveAttachment: notifier.removeAttachment,
+                                  onAttach: _attachFile,
+                                  onMic: _toggleMic,
+                                  onMinimize: () => setState(
+                                    () => _isComposerMinimized = true,
+                                  ),
+                                  compact: compactComposer,
+                                  onSend: () {
+                                    final text = _inputController.text.trim();
+                                    if (text.isEmpty) return;
+
+                                    notifier.send(text);
+                                    _inputController.clear();
+                                  },
+                                  onStop: notifier.stop,
+                                ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
   /// Diálogo de confirmación para limpiar todo el historial.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showNanoModalDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: colors.accent.withValues(alpha: 0.3),
-          ),
+          side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
           '¿Limpiar conversación?',
@@ -363,9 +448,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.danger,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: colors.danger),
             child: const Text('Limpiar'),
           ),
         ],
@@ -382,15 +465,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ChatMessage message,
   ) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showNanoModalDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: colors.accent.withValues(alpha: 0.3),
-          ),
+          side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
           '¿Eliminar mensaje?',
@@ -411,9 +492,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.danger,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: colors.danger),
             child: const Text('Eliminar'),
           ),
         ],
@@ -431,16 +510,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final approved = await showDialog<bool>(
+    final approved = await showNanoModalDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: colors.accent.withValues(alpha: 0.3),
-          ),
+          side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
         ),
         title: Text(
           'Confirmar acción "$tool"',
@@ -474,8 +551,488 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
+/// Mantiene anclado el compositor al borde inferior durante el cambio de
+/// estado. La escala y el deslizamiento conservan la continuidad espacial sin
+/// convertir la minimización en un simple fundido.
+class _ComposerTransition extends StatelessWidget {
+  const _ComposerTransition({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return AnimatedSwitcher(
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.bottomRight,
+        children: [...previousChildren, if (currentChild != null) currentChild],
+      ),
+      transitionBuilder: (transitionChild, animation) {
+        final movement = Tween<Offset>(
+          begin: const Offset(0, 0.10),
+          end: Offset.zero,
+        ).animate(animation);
+        final scale = Tween<double>(begin: 0.97, end: 1.0).animate(animation);
+
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: movement,
+            child: ScaleTransition(scale: scale, child: transitionChild),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+// ================================================================
+// Modo lectura real e inmersivo
+// ================================================================
+
+/// Modo lectura REAL: superficie serena de bajo deslumbramiento, columna
+/// centrada legible (720px), tipografía amplia (17px/1.75), barra de progreso
+/// y salida elegante. Abandona el chrome del chat para enfocarse en el
+/// contenido — no es un simple ocultar barra.
+class _ReadingMode extends StatefulWidget {
+  const _ReadingMode({
+    required this.messages,
+    required this.model,
+    required this.onExit,
+  });
+
+  final List<ChatMessage> messages;
+  final String model;
+  final VoidCallback onExit;
+
+  @override
+  State<_ReadingMode> createState() => _ReadingModeState();
+}
+
+class _ReadingModeState extends State<_ReadingMode> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    final surface = Stack(
+      children: [
+        // Superficie serena de lectura: degradado vertical suave y profundo,
+        // sin reflejos ruidosos, para lectura prolongada sin fatiga.
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [
+                        colors.glass100.withValues(alpha: 0.12),
+                        colors.surface.withValues(alpha: 0.90),
+                        colors.glass300.withValues(alpha: 0.16),
+                      ]
+                    : [
+                        colors.surface.withValues(alpha: 0.40),
+                        Colors.white.withValues(alpha: 0.72),
+                        colors.surface.withValues(alpha: 0.45),
+                      ],
+              ),
+            ),
+          ),
+        ),
+        // Contenido centrado legible (foco en el texto, no en las burbujas)
+        Positioned.fill(
+          child: Center(
+            child: ConstrainedBox(
+              // 680 dp mantiene 65—œ75 caracteres por línea en texto de 18dp,
+              // rango editorial que reduce los saltos oculares en lectura.
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: ListView.builder(
+                controller: _scroll,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(28, 56, 28, 88),
+                itemCount: widget.messages.length,
+                itemBuilder: (context, i) => _ReadingParagraph(
+                  message: widget.messages[i],
+                  model: widget.model,
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Barra de progreso de lectura (delgada, superior)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _ReadingProgress(scroll: _scroll),
+        ),
+        // Salida elegante: píldora de vidrio fija, siempre accesible.
+        Positioned(
+          top: 8,
+          right: 12,
+          child: _ReadingExitPill(onExit: widget.onExit),
+        ),
+      ],
+    );
+
+    if (reduceMotion) return surface;
+
+    // Entrada inmersiva: fundido + escala suave al abrir el modo lectura
+    // (transición glass, respeta reduce-motion).
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) {
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(scale: 0.982 + 0.018 * t, child: child),
+        );
+      },
+      child: surface,
+    );
+  }
+}
+
+/// Barra de progreso de lectura: refleja la fracción de scroll de forma sutil.
+class _ReadingProgress extends StatefulWidget {
+  const _ReadingProgress({required this.scroll});
+
+  final ScrollController scroll;
+
+  @override
+  State<_ReadingProgress> createState() => _ReadingProgressState();
+}
+
+class _ReadingProgressState extends State<_ReadingProgress> {
+  @override
+  void initState() {
+    super.initState();
+    widget.scroll.addListener(_onChange);
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.scroll.removeListener(_onChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final pos = widget.scroll.hasClients ? widget.scroll.position : null;
+    // hasViewportDimension: antes del layout el viewport no fijó su dimensión
+    // y maxScrollExtent es null (acceder a él revienta con un null-check).
+    if (pos == null || !pos.hasViewportDimension) {
+      return const SizedBox(height: 2.5);
+    }
+    final max = pos.maxScrollExtent;
+    final frac = max <= 0 ? 1.0 : (pos.pixels / max).clamp(0.0, 1.0);
+
+    return Container(
+      height: 2.5,
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: frac,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [colors.accent, colors.accentCyan],
+            ),
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: colors.accent.withValues(alpha: 0.45),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Píldora de vidrio para salir del modo lectura (con texto, no solo icono).
+class _ReadingExitPill extends StatelessWidget {
+  const _ReadingExitPill({required this.onExit});
+
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    return NanoOpticalSurface(
+      key: const ValueKey('chat_reading_mode_exit'),
+      geometry: NanoSurfaceGeometry.capsule,
+      borderRadius: 999,
+      blurSigma: 14,
+      borderStrength: 0.62,
+      reflectionStrength: 0.50,
+      accent: colors.accent,
+      onTap: onExit,
+      padding: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.fullscreen_exit_rounded,
+              size: 15,
+              color: colors.onSurface.withValues(alpha: 0.75),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              'Salir de lectura',
+              style: TextStyle(
+                color: colors.onSurface.withValues(alpha: 0.80),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un párrafo de lectura: autor + hora + contenido amplio, sin burbujas pesadas.
+class _ReadingParagraph extends StatelessWidget {
+  const _ReadingParagraph({required this.message, required this.model});
+
+  final ChatMessage message;
+  final String model;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isUser = message.sender == MessageSender.user;
+    final isError = message.status == MessageStatus.error;
+    final time =
+        '${message.timestamp.hour.toString().padLeft(2, '0')}:'
+        '${message.timestamp.minute.toString().padLeft(2, '0')}';
+    final label = isUser
+        ? 'Tú'
+        : (message.source == MessageSource.device
+              ? 'Nano · Dispositivo'
+              : (model.isEmpty ? 'NanoAI' : model));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              isUser
+                  ? Icons.person_rounded
+                  : (message.source == MessageSource.device
+                        ? Icons.phone_android_rounded
+                        : Icons.auto_awesome_rounded),
+              size: 13,
+              color: isUser
+                  ? colors.onSurface.withValues(alpha: 0.45)
+                  : colors.accent.withValues(alpha: 0.85),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: isUser
+                    ? colors.onSurface.withValues(alpha: 0.50)
+                    : colors.accent.withValues(alpha: 0.85),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              time,
+              style: TextStyle(
+                color: colors.onSurface.withValues(alpha: 0.38),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (isError)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 14,
+                  color: colors.danger,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Error',
+                  style: TextStyle(color: colors.danger, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        if (isUser)
+          SelectableText(
+            message.text,
+            style: _readingBodyStyle(colors, isUser: true),
+          )
+        else
+          _buildReadingAiBody(context, message.text),
+        const SizedBox(height: 34),
+      ],
+    );
+  }
+}
+
+/// Hoja de estilo Markdown para el modo lectura (tipografía amplia, cómoda).
+MarkdownStyleSheet _buildReadingMarkdownStyleSheet(BuildContext context) {
+  final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+  return MarkdownStyleSheet(
+    p: TextStyle(
+      color: colors.onSurface.withValues(alpha: 0.96),
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 18,
+      height: 1.72,
+      letterSpacing: 0.08,
+    ),
+    h1: TextStyle(
+      color: colors.onSurface,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 29,
+      fontWeight: FontWeight.w700,
+      height: 1.22,
+    ),
+    h2: TextStyle(
+      color: colors.onSurface,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 23,
+      fontWeight: FontWeight.w700,
+      height: 1.4,
+    ),
+    h3: TextStyle(
+      color: colors.onSurface,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+      height: 1.35,
+    ),
+    strong: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w700),
+    em: TextStyle(
+      color: colors.onSurface.withValues(alpha: 0.9),
+      fontStyle: FontStyle.italic,
+    ),
+    listBullet: TextStyle(
+      color: colors.accent,
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 18,
+    ),
+    code: TextStyle(
+      backgroundColor: colors.success.withValues(alpha: 0x20 / 0xFF),
+      color: colors.success,
+      fontFamily: 'monospace',
+      fontSize: 15,
+    ),
+    codeblockPadding: const EdgeInsets.all(14),
+    codeblockDecoration: BoxDecoration(
+      color: colors.codeBlockBg,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: colors.accent.withValues(alpha: 0.25)),
+    ),
+    blockquote: TextStyle(
+      color: colors.onSurface.withValues(alpha: 0.8),
+      fontFamily: 'Georgia',
+      fontFamilyFallback: const ['serif'],
+      fontSize: 17,
+      fontStyle: FontStyle.italic,
+    ),
+    blockquoteDecoration: BoxDecoration(
+      color: colors.quoteBg.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(8),
+      border: Border(left: BorderSide(color: colors.accent, width: 3)),
+    ),
+    tableBorder: TableBorder.all(
+      color: colors.onSurface.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    tableHead: TextStyle(color: colors.accent, fontWeight: FontWeight.w700),
+    tableBody: TextStyle(color: colors.onSurface.withValues(alpha: 0.9)),
+    tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+  );
+}
+
+/// Estilo del texto plano del usuario en modo lectura.
+TextStyle _readingBodyStyle(NanoColors colors, {required bool isUser}) {
+  return TextStyle(
+    color: isUser ? colors.onSurface : colors.onSurface.withValues(alpha: 0.96),
+    fontFamily: 'Georgia',
+    fontFamilyFallback: const ['serif'],
+    fontSize: 18,
+    height: 1.72,
+    letterSpacing: 0.08,
+  );
+}
+
+/// Cuerpo AI en modo lectura: parsea pensamiento + markdown amplio.
+Widget _buildReadingAiBody(BuildContext context, String text) {
+  final parsed = parseThought(text);
+  final thought = parsed.thought;
+  final response = parsed.response;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (thought != null && thought.trim().isNotEmpty)
+        ModelReasoningBlock(thought: thought),
+      if (response.trim().isNotEmpty)
+        MarkdownBody(
+          data: response,
+          selectable: true,
+          styleSheet: _buildReadingMarkdownStyleSheet(context),
+        )
+      else if (thought == null || response.isEmpty)
+        MarkdownBody(
+          data: text.isEmpty ? '...' : text,
+          selectable: true,
+          styleSheet: _buildReadingMarkdownStyleSheet(context),
+        ),
+    ],
+  );
+}
+
 /// Badge de estado del motor con pulso lento cuando está online. Detenido:
-/// sin animación (estado quieto, honesto — solo lo vivo respira).
+/// sin animación (estado quieto, honesto — solo lo vivo respira).
 class _EngineBadge extends StatefulWidget {
   const _EngineBadge({required this.online, this.loading = false});
 
@@ -536,11 +1093,12 @@ class _EngineBadgeState extends State<_EngineBadge>
               : 0.10 + _controller.value * 0.18;
 
           return Container(
-            constraints: const BoxConstraints(minHeight: 44, maxWidth: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            key: const ValueKey('chat_engine_status_badge'),
+            constraints: const BoxConstraints(minHeight: 28, maxWidth: 86),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             decoration: BoxDecoration(
               color: colors.surfaceVariant.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(9),
               border: Border.all(color: color.withValues(alpha: 0.45)),
               boxShadow: [
                 BoxShadow(
@@ -557,8 +1115,8 @@ class _EngineBadgeState extends State<_EngineBadge>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 9,
-              height: 9,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -567,17 +1125,15 @@ class _EngineBadgeState extends State<_EngineBadge>
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
-                loading
-                    ? 'CARGANDO'
-                    : (online ? 'LOCAL' : 'DETENIDO'),
+                loading ? 'CARGANDO' : (online ? 'LOCAL' : 'DETENIDO'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: color,
-                  fontSize: 12,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -595,1283 +1151,66 @@ class _EngineBadgeState extends State<_EngineBadge>
   }
 }
 
-MarkdownStyleSheet _buildChatMarkdownStyleSheet(
-  BuildContext context, {
-  required bool isUser,
-}) {
-  final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-  return MarkdownStyleSheet(
-    p: TextStyle(
-      color: isUser
-          ? colors.onSurface
-          : colors.onSurface.withValues(alpha: 0.95),
-      fontSize: 15,
-      height: 1.55,
-      letterSpacing: 0.15,
-    ),
-    h1: TextStyle(
-      color: colors.accent,
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-      height: 1.4,
-    ),
-    h2: TextStyle(
-      color: colors.accent,
-      fontSize: 18,
-      fontWeight: FontWeight.w700,
-      height: 1.4,
-    ),
-    h3: TextStyle(
-      color: colors.success,
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      height: 1.35,
-    ),
-    strong: TextStyle(
-      color: colors.onSurface,
-      fontWeight: FontWeight.w700,
-    ),
-    em: TextStyle(
-      color: colors.onSurface.withValues(alpha: 0.9),
-      fontStyle: FontStyle.italic,
-    ),
-    listBullet: TextStyle(
-      color: colors.accent,
-      fontSize: 15,
-    ),
-    code: TextStyle(
-      backgroundColor: colors.success.withValues(alpha: 0x20 / 0xFF),
-      color: colors.success,
-      fontFamily: 'monospace',
-      fontSize: 13.5,
-    ),
-    codeblockPadding: const EdgeInsets.all(12),
-    codeblockDecoration: BoxDecoration(
-      color: colors.codeBlockBg,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(
-        color: colors.accent.withValues(alpha: 0.25),
-      ),
-    ),
-    blockquote: TextStyle(
-      color: colors.onSurface.withValues(alpha: 0.8),
-      fontSize: 14.5,
-      fontStyle: FontStyle.italic,
-    ),
-    blockquoteDecoration: BoxDecoration(
-      color: colors.quoteBg.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(8),
-      border: Border(
-        left: BorderSide(color: colors.accent, width: 3),
-      ),
-    ),
-    tableBorder: TableBorder.all(
-      color: colors.onSurface.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    tableHead: TextStyle(
-      color: colors.accent,
-      fontWeight: FontWeight.w700,
-    ),
-    tableBody: TextStyle(
-      color: colors.onSurface.withValues(alpha: 0.9),
-    ),
-    tableCellsPadding: const EdgeInsets.symmetric(
-      horizontal: 10,
-      vertical: 6,
-    ),
-  );
-}
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({
-    required this.text,
-    required this.isUser,
-    required this.model,
-    required this.timestamp,
-    this.isError = false,
-    this.attachmentNames = const [],
-    this.tps,
-    this.onRetry,
-  });
-
-  final String text;
-  final bool isUser;
-  final String model;
-  final DateTime timestamp;
-  final bool isError;
-
-  /// Tokens por segundo de la generación (solo respuestas AI completadas).
-  final double? tps;
-
-  /// Callback para reintentar el envío tras un error.
-  final VoidCallback? onRetry;
-
-  /// Nombres de los adjuntos que viajaron con este mensaje (solo chips;
-  /// el contenido se inyectó al prompt y no se persiste).
-  final List<String> attachmentNames;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final time =
-        '${timestamp.hour.toString().padLeft(2, '0')}:'
-        '${timestamp.minute.toString().padLeft(2, '0')}';
-
-    // Pie del mensaje: hora + TPS (si hay)
-    final footerParts = <Widget>[
-      Text(
-        time,
-        style: TextStyle(
-          color: colors.onSurface.withValues(alpha: 0.48),
-          fontSize: 10,
-        ),
-      ),
-    ];
-
-    if (tps != null && !isUser) {
-      footerParts.addAll([
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: colors.success.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: colors.success.withValues(alpha: 0.30),
-            ),
-          ),
-          child: Text(
-            '${tps!.toStringAsFixed(1)} tok/s',
-            style: TextStyle(
-              color: colors.success,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ]);
-    }
-
-    final isDark = colors is NanoDarkColors;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-
-    final bubbleBorderRadius = isUser ? NanoShapes.userBubble : NanoShapes.aiBubble;
-
-    final bubbleDecoration = isUser
-        ? BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      colors.accent.withValues(alpha: 0.22),
-                      colors.accentMint.withValues(alpha: 0.12),
-                    ]
-                  : [
-                      colors.primary.withValues(alpha: 0.16),
-                      colors.accentSky.withValues(alpha: 0.08),
-                    ],
-            ),
-            borderRadius: bubbleBorderRadius,
-            border: Border.all(
-              color: isDark
-                  ? colors.accent.withValues(alpha: 0.45)
-                  : colors.primary.withValues(alpha: 0.35),
-              width: 1.0,
-            ),
-          )
-        : BoxDecoration(
-            gradient: NanoGlass.substrate(
-              colors,
-              opacity: isDark ? 0.75 : 0.85,
-            ),
-            borderRadius: bubbleBorderRadius,
-          );
-
-    Widget bubbleWidget = Container(
-      constraints: BoxConstraints(
-        maxWidth: isUser ? 680 : double.infinity,
-      ),
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: bubbleDecoration,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (attachmentNames.isNotEmpty) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: attachmentNames
-                  .map((name) => Chip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.attach_file_rounded,
-                              size: 14,
-                              color: colors.onSurface.withValues(alpha: 0.72),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              name,
-                              style: TextStyle(
-                                color: colors.onSurface.withValues(alpha: 0.72),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                        backgroundColor: colors.onSurface.withValues(alpha: 0.08),
-                        visualDensity: VisualDensity.compact,
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (isUser)
-            MarkdownBody(
-              data: text,
-              selectable: true,
-              styleSheet: _buildChatMarkdownStyleSheet(context, isUser: isUser),
-            )
-          else
-            _buildAiBody(context, text),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: footerParts),
-              if (!isUser && !isError)
-                _MessageActions(
-                  text: text,
-                  model: model,
-                  timestamp: timestamp,
-                ),
-              if (onRetry != null)
-                GestureDetector(
-                  onTap: onRetry,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.refresh_rounded,
-                        size: 14,
-                        color: colors.accent,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Reintentar',
-                        style: TextStyle(
-                          color: colors.accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    if (!isUser) {
-      bubbleWidget = Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          borderRadius: bubbleBorderRadius,
-          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(1.0),
-          decoration: BoxDecoration(
-            borderRadius: bubbleBorderRadius,
-            gradient: NanoBorders.specularChamfer(colors),
-          ),
-          child: ClipRRect(
-            borderRadius: bubbleBorderRadius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: reduceMotion ? 0.0 : 12.0,
-                sigmaY: reduceMotion ? 0.0 : 12.0,
-              ),
-              child: bubbleWidget,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: bubbleWidget,
-    );
-  }
-}
-
-Widget _buildAiBody(BuildContext context, String text) {
-  final parsed = parseThought(text);
-  final thought = parsed.thought;
-  final response = parsed.response;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (thought != null && thought.trim().isNotEmpty)
-        ModelReasoningBlock(thought: thought),
-      if (response.trim().isNotEmpty)
-        MarkdownBody(
-          data: response,
-          selectable: true,
-          styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-        )
-      else if (thought != null && response.isEmpty)
-        const SizedBox.shrink()
-      else
-        MarkdownBody(
-          data: text.isEmpty ? '...' : text,
-          selectable: true,
-          styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-        ),
-    ],
-  );
-}
-
-// ================================================================
-// Menú de acciones de mensaje (3 puntos)
-// ================================================================
-
-/// Menú profesional de 3 puntos para cada burbuja AI completada.
-/// Organizado en 3 acciones: Copiar · Compartir · Exportar (PDF | Markdown).
-class _MessageActions extends StatelessWidget {
-  const _MessageActions({
-    required this.text,
-    required this.model,
-    required this.timestamp,
-  });
-
-  final String text;
-  final String model;
-  final DateTime timestamp;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_horiz_rounded,
-        size: 18,
-        color: colors.onSurface.withValues(alpha: 0.48),
-      ),
-      tooltip: 'Acciones',
-      color: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: colors.accent.withValues(alpha: 0.25),
-        ),
-      ),
-      elevation: 8,
-      position: PopupMenuPosition.under,
-      onSelected: (value) async {
-        switch (value) {
-          case 'copy':
-            await Clipboard.setData(ClipboardData(text: text));
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                const SnackBar(
-                  content: Text('Texto copiado al portapapeles'),
-                  duration: Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            break;
-
-          case 'share':
-            await SharePlus.instance.share(
-              ShareParams(text: text, subject: 'Respuesta NanoAI — $model'),
-            );
-            break;
-
-          case 'export_pdf':
-            await PdfReportService.exportReport(
-              title: 'Informe de Análisis NanoAI',
-              content: text,
-              modelName: model,
-              timestamp: timestamp,
-            );
-            break;
-
-          case 'export_md':
-            await PdfReportService.exportMarkdown(
-              title: 'Informe de Análisis NanoAI',
-              content: text,
-              modelName: model,
-              timestamp: timestamp,
-            );
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        // ── 1. Copiar ──────────────────────────────────────────
-        PopupMenuItem<String>(
-          value: 'copy',
-          child: Row(
-            children: [
-              Icon(
-                Icons.copy_rounded,
-                size: 18,
-                color: colors.onSurface.withValues(alpha: 0.72),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Copiar',
-                style: TextStyle(
-                  color: colors.onSurface.withValues(alpha: 0.9),
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // ── 2. Compartir ───────────────────────────────────────
-        PopupMenuItem<String>(
-          value: 'share',
-          child: Row(
-            children: [
-              Icon(
-                Icons.share_rounded,
-                size: 18,
-                color: colors.onSurface.withValues(alpha: 0.72),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Compartir',
-                style: TextStyle(
-                  color: colors.onSurface.withValues(alpha: 0.9),
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // ── Divisor ────────────────────────────────────────────
-        const PopupMenuDivider(
-          height: 1,
-        ),
-        // ── 3a. Exportar → PDF ─────────────────────────────────
-        PopupMenuItem<String>(
-          value: 'export_pdf',
-          child: Row(
-            children: [
-              Icon(
-                Icons.picture_as_pdf_rounded,
-                size: 18,
-                color: colors.accent,
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Exportar como PDF',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.9),
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    'Informe técnico estructurado',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.45),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        // ── 3b. Exportar → Markdown ────────────────────────────
-        PopupMenuItem<String>(
-          value: 'export_md',
-          child: Row(
-            children: [
-              Icon(
-                Icons.description_rounded,
-                size: 18,
-                color: colors.success,
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Exportar como Markdown',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.9),
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    'Archivo .md para Obsidian, Notion…',
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.45),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StreamingBubble extends StatelessWidget {
-  const _StreamingBubble({
-    required this.text,
-    required this.model,
-  });
-
-  final String text;
-  final String model;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colors.onSurface.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            () {
-              final parsed = parseThought(text);
-              final thought = parsed.thought;
-              final response = parsed.response;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (thought != null && thought.trim().isNotEmpty)
-                    ModelReasoningBlock(thought: thought, initiallyExpanded: true),
-                  if (response.trim().isNotEmpty)
-                    MarkdownBody(
-                      data: response,
-                      styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-                    )
-                  else if (text.isEmpty || (thought != null && response.isEmpty))
-                    // Si el pensamiento está activo pero la respuesta principal está vacía, no mostrar body vacío
-                    const SizedBox.shrink()
-                  else
-                    MarkdownBody(
-                      data: text.isEmpty ? '...' : text,
-                      styleSheet: _buildChatMarkdownStyleSheet(context, isUser: false),
-                    ),
-                ],
-              );
-            }(),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: colors.success,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Generando con $model...',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.onSurface.withValues(alpha: 0.48),
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyChat extends StatelessWidget {
-  const _EmptyChat({
-    required this.engineOnline,
-    required this.hasModel,
-    required this.onSuggestion,
-    required this.onRetry,
-    required this.onGoModels,
-  });
-
-  final bool engineOnline;
-  final bool hasModel;
-  final void Function(String) onSuggestion;
-  final VoidCallback onRetry;
-  final VoidCallback onGoModels;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-          Icon(
-            Icons.chat_bubble_outline_rounded,
-            size: 64,
-            color: colors.onSurface.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Chat local',
-            style: TextStyle(
-              color: colors.onSurface.withValues(alpha: 0.72),
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (!engineOnline)
-            Column(
-              children: [
-                Text(
-                  'Motor local detenido',
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.48),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Reintentar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.accent,
-                    foregroundColor: colors.onSurface,
-                  ),
-                ),
-              ],
-            )
-          else if (!hasModel)
-            Column(
-              children: [
-                Text(
-                  'No hay modelos cargados',
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.48),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: onGoModels,
-                  icon: const Icon(Icons.extension_rounded, size: 18),
-                  label: const Text('Ir a Modelos'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.accent,
-                    foregroundColor: colors.onSurface,
-                  ),
-                ),
-              ],
-            )
-          else
-            Column(
-              children: [
-                Text(
-                  'Escribe un mensaje para comenzar',
-                  style: TextStyle(
-                    color: colors.onSurface.withValues(alpha: 0.48),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _SuggestionChip(
-                      label: 'Prueba de estrés y rendimiento',
-                      onTap: () => onSuggestion(
-                        'Realiza una prueba de estrés y análisis de rendimiento de inferencia en este dispositivo. '
-                        'Mide la capacidad de respuesta y organiza los resultados en una tabla comparativa con métricas de RAM, CPU y TPS estimado.',
-                      ),
-                    ),
-                    _SuggestionChip(
-                      label: 'Informe técnico del sistema',
-                      onTap: () => onSuggestion(
-                        'Genera un informe técnico completo y estructurado sobre el estado actual del dispositivo, '
-                        'con tablas detalladas de hardware, arquitectura y almacenamiento, listo para exportar a PDF.',
-                      ),
-                    ),
-                    _SuggestionChip(
-                      label: 'Diagrama de arquitectura',
-                      onTap: () => onSuggestion(
-                        'Explica la arquitectura del runtime de NanoAI (Flutter, Binder/SAF, nanortime, llama.cpp) '
-                        'e incluye un diagrama en bloque de código ```mermaid.',
-                      ),
-                    ),
-                    _SuggestionChip(
-                      label: 'Resumen ejecutivo',
-                      onTap: () => onSuggestion(
-                        'Genera un resumen ejecutivo de tus capacidades locales, estado de soberanía de datos '
-                        'y directivas de seguridad.',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-}
-
-// ================================================================
-// Soporte de Razonamiento (DeepSeek <thought>)
-// ================================================================
-
-class ParsedThoughtText {
-  final String? thought;
-  final String response;
-  const ParsedThoughtText({this.thought, required this.response});
-}
-
-ParsedThoughtText parseThought(String text) {
-  final thoughtStart = text.indexOf('<thought>');
-  if (thoughtStart == -1) {
-    return ParsedThoughtText(response: text);
-  }
-  
-  final thoughtEnd = text.indexOf('</thought>', thoughtStart);
-  if (thoughtEnd == -1) {
-    final thought = text.substring(thoughtStart + 9);
-    return ParsedThoughtText(thought: thought, response: '');
-  }
-  
-  final thought = text.substring(thoughtStart + 9, thoughtEnd);
-  final response = text.substring(thoughtEnd + 10).trim();
-  return ParsedThoughtText(thought: thought, response: response);
-}
-
-class ModelReasoningBlock extends StatefulWidget {
-  const ModelReasoningBlock({
+class _MinimizedComposerBubble extends StatelessWidget {
+  const _MinimizedComposerBubble({
     super.key,
-    required this.thought,
-    this.initiallyExpanded = false,
-  });
-
-  final String thought;
-  final bool initiallyExpanded;
-
-  @override
-  State<ModelReasoningBlock> createState() => _ModelReasoningBlockState();
-}
-
-class _ModelReasoningBlockState extends State<ModelReasoningBlock> {
-  late bool _expanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _expanded = widget.initiallyExpanded;
-  }
-
-  @override
-  void didUpdateWidget(covariant ModelReasoningBlock oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Si cambia el estado de inicialmente expandido (por ejemplo, en streaming)
-    if (oldWidget.initiallyExpanded != widget.initiallyExpanded) {
-      _expanded = widget.initiallyExpanded;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    if (widget.thought.trim().isEmpty) return const SizedBox.shrink();
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colors.codeBlockBg.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colors.success.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.psychology_outlined,
-                    size: 16,
-                    color: colors.success.withValues(alpha: 0.8),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Razonamiento del modelo',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: colors.success.withValues(alpha: 0.8),
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                    size: 16,
-                    color: colors.onSurface.withValues(alpha: 0.48),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colors.codeBlockBg.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  widget.thought.trim(),
-                  style: TextStyle(
-                    fontFamily: 'JetBrainsMono',
-                    fontSize: 12,
-                    height: 1.5,
-                    color: colors.onSurface.withValues(alpha: 0.65),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({
-    required this.label,
-    required this.onTap,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return ActionChip(
-      label: Text(label),
-      onPressed: onTap,
-      backgroundColor: colors.onSurface.withValues(alpha: 0.08),
-      labelStyle: TextStyle(
-        color: colors.onSurface.withValues(alpha: 0.72),
-        fontSize: 13,
-      ),
-      side: BorderSide(color: colors.onSurface.withValues(alpha: 0.12)),
-    );
-  }
-}
-
-class _Composer extends StatefulWidget {
-  const _Composer({
-    required this.controller,
-    required this.enabled,
-    required this.generating,
+    required this.onExpand,
+    required this.hasAttachments,
     required this.listening,
-    required this.attachments,
-    required this.onRemoveAttachment,
-    required this.onAttach,
-    required this.onMic,
-    required this.onSend,
-    required this.onStop,
   });
 
-  final TextEditingController controller;
-  final bool enabled;
-  final bool generating;
+  final VoidCallback onExpand;
+  final bool hasAttachments;
   final bool listening;
-  final List<ChatAttachment> attachments;
-  final void Function(String) onRemoveAttachment;
-  final VoidCallback onAttach;
-  final VoidCallback onMic;
-  final VoidCallback onSend;
-  final VoidCallback onStop;
-
-  @override
-  State<_Composer> createState() => _ComposerState();
-}
-
-class _ComposerState extends State<_Composer> {
-  late final FocusNode _focusNode;
-  bool _isFocused = false;
-  bool _hasText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode = FocusNode();
-    _focusNode.addListener(_onFocusChange);
-    _hasText = widget.controller.text.trim().isNotEmpty;
-    widget.controller.addListener(_onTextChange);
-  }
-
-  void _onFocusChange() {
-    if (mounted) {
-      setState(() => _isFocused = _focusNode.hasFocus);
-    }
-  }
-
-  void _onTextChange() {
-    final has = widget.controller.text.trim().isNotEmpty;
-    if (has != _hasText && mounted) {
-      setState(() => _hasText = has);
-    }
-  }
-
-  @override
-  void dispose() {
-    _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
-    widget.controller.removeListener(_onTextChange);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = colors is NanoDarkColors;
 
-    final colors2 = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Container(
-      decoration: BoxDecoration(
-        // Gradiente sutil de fade hacia arriba para separar visualmente
-        // la barra del contenido sin usar un borde duro.
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colors2.background.withValues(alpha: 0.0),
-            colors2.background.withValues(alpha: 0.85),
-          ],
-          stops: const [0.0, 0.35],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      child: NanoOpticalSurface(
-        geometry: NanoSurfaceGeometry.roundedRectangle,
-        borderRadius: 24,
-        blurSigma: 24.0,
-        borderStrength: _isFocused ? 1.0 : 0.80,
-        reflectionStrength: _isFocused ? 0.90 : 0.65,
-        depth: 1.15,
-        accent: _isFocused
-            ? (isDark ? colors.accent : colors.accentCyan)
-            : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.attachments.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 4, right: 4, bottom: 6, top: 2),
-                child: SizedBox(
-                  height: 30,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: widget.attachments.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 6),
-                    itemBuilder: (context, index) {
-                      final attachment = widget.attachments[index];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: colors.accent.withValues(alpha: isDark ? 0.18 : 0.10),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(
-                            color: colors.accent.withValues(alpha: 0.35),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.insert_drive_file_rounded,
-                              size: 13,
-                              color: colors.accent,
-                            ),
-                            const SizedBox(width: 5),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 130),
-                              child: Text(
-                                attachment.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: colors.onSurface.withValues(alpha: 0.90),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () => widget.onRemoveAttachment(attachment.name),
-                              behavior: HitTestBehavior.opaque,
-                              child: Padding(
-                                padding: const EdgeInsets.all(2),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  size: 13,
-                                  color: colors.onSurface.withValues(alpha: 0.65),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+    return Tooltip(
+      message: 'Mostrar barra de escritura',
+      child: Semantics(
+        button: true,
+        label: 'Mostrar barra de escritura',
+        child: GestureDetector(
+          onTap: onExpand,
+          child: NanoOpticalSurface(
+            geometry: NanoSurfaceGeometry.capsule,
+            borderRadius: 999,
+            blurSigma: 14,
+            borderStrength: 0.70,
+            reflectionStrength: 0.55,
+            depth: 0.8,
+            accent: isDark ? colors.accentCyan : colors.primary,
+            padding: EdgeInsets.zero,
+            child: SizedBox.square(
+              dimension: 42,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    listening ? Icons.mic_rounded : Icons.edit_rounded,
+                    size: 19,
+                    color: isDark ? colors.accentCyan : colors.primary,
                   ),
-                ),
+                  if (hasAttachments)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.accentLavender,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ],
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Botón Mic / Dictado
-                Tooltip(
-                  message: 'Dictado por voz',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(99),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(99),
-                      onTap: widget.onMic,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: widget.listening
-                              ? colors.success.withValues(alpha: 0.22)
-                              : Colors.transparent,
-                          border: widget.listening
-                              ? Border.all(
-                                  color: colors.success.withValues(alpha: 0.65),
-                                  width: 1.2,
-                                )
-                              : null,
-                        ),
-                        child: Icon(
-                          widget.listening
-                              ? Icons.mic_rounded
-                              : Icons.mic_none_rounded,
-                          color: widget.listening
-                              ? colors.success
-                              : colors.onSurface.withValues(alpha: 0.58),
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 2),
-
-                // Botón Adjuntar Archivo
-                Tooltip(
-                  message: 'Adjuntar archivo',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(99),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(99),
-                      onTap: widget.onAttach,
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: Icon(
-                          Icons.attach_file_rounded,
-                          color: colors.onSurface.withValues(alpha: 0.58),
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-
-                // Campo de texto expandible con tipografía y padding uniforme
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: TextField(
-                      controller: widget.controller,
-                      focusNode: _focusNode,
-                      enabled: widget.enabled,
-                      maxLines: 5,
-                      minLines: 1,
-                      style: TextStyle(
-                        color: colors.onSurface,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w400,
-                        fontFamily: 'Inter',
-                        height: 1.35,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: widget.listening
-                            ? 'Escuchando voz...'
-                            : 'Escribe un mensaje...',
-                        hintStyle: TextStyle(
-                          color: colors.onSurfaceVariant.withValues(alpha: 0.52),
-                          fontFamily: 'Inter',
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-
-                // Botón Enviar / Detener con acabado de vidrio y gradiente dinámico
-                Tooltip(
-                  message: widget.generating ? 'Detener generación' : 'Enviar',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(99),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(99),
-                      onTap: widget.generating
-                          ? widget.onStop
-                          : (_hasText && widget.enabled ? widget.onSend : null),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: widget.generating
-                              ? null
-                              : (_hasText && widget.enabled
-                                  ? LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: isDark
-                                          ? [colors.accent, colors.accentMint]
-                                          : [colors.primary, colors.accentSky],
-                                    )
-                                  : null),
-                          color: widget.generating
-                              ? colors.danger.withValues(alpha: 0.18)
-                              : (_hasText && widget.enabled
-                                  ? null
-                                  : colors.onSurface.withValues(alpha: 0.08)),
-                          border: Border.all(
-                            color: widget.generating
-                                ? colors.danger.withValues(alpha: 0.65)
-                                : (_hasText && widget.enabled
-                                    ? Colors.white.withValues(alpha: 0.45)
-                                    : colors.onSurface.withValues(alpha: 0.12)),
-                            width: 0.9,
-                          ),
-                          boxShadow: _hasText && widget.enabled
-                              ? [
-                                  BoxShadow(
-                                    color: (isDark ? colors.accent : colors.primary)
-                                        .withValues(alpha: isDark ? 0.35 : 0.22),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Center(
-                          child: Icon(
-                            widget.generating
-                                ? Icons.stop_rounded
-                                : Icons.arrow_upward_rounded,
-                            size: 20,
-                            color: widget.generating
-                                ? colors.danger
-                                : (_hasText && widget.enabled
-                                    ? (isDark ? const Color(0xFF000000) : Colors.white)
-                                    : colors.onSurface.withValues(alpha: 0.30)),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
-          ],
+          ),
         ),
       ),
     );

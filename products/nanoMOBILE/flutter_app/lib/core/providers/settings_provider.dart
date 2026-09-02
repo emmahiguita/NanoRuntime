@@ -2,34 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-enum AgentAutomationMode {
-  manual,
-  assisted,
-  autonomous;
-
-  static AgentAutomationMode fromName(String? name) {
-    for (final mode in AgentAutomationMode.values) {
-      if (mode.name == name) return mode;
-    }
-    return AgentAutomationMode.assisted;
-  }
-
-  String get label => switch (this) {
-    AgentAutomationMode.manual => 'Manual',
-    AgentAutomationMode.assisted => 'Asistido',
-    AgentAutomationMode.autonomous => 'Autónomo',
-  };
-
-  String get description => switch (this) {
-    AgentAutomationMode.manual => 'Toda acción del LLM pide confirmación.',
-    AgentAutomationMode.assisted =>
-      'Lectura automática; tocar, atrás y escribir piden confirmación.',
-    AgentAutomationMode.autonomous =>
-      'Lectura, tocar y atrás automáticos; escribir siempre pide confirmación.',
-  };
-}
+import 'package:nanoai/features/automation/domain/automation_policy.dart';
+import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
 // ================================================================
 // Settings Repository (real persistence)
@@ -57,16 +33,16 @@ class SettingsRepository {
         themeMode: m['themeMode'] as String? ?? 'Sistema',
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
-        madvise: m['madvise'] as bool? ?? true,
-        oomGuard: m['oomGuard'] as bool? ?? true,
-        thermalLimit: (m['thermalLimit'] as num?)?.toDouble() ?? 42,
-        batteryMode: m['batteryMode'] as String? ?? 'Balanced',
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 2048,
         vncPassword: m['vncPassword'] as String? ?? '',
         desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
         agentAutomationMode: AgentAutomationMode.fromName(
           m['agentAutomationMode'] as String?,
         ),
+        automationModelMode: _modeFromName(m['automationModelMode'] as String?),
+        automationModelId: m['automationModelId'] as String? ?? '',
+        automationModelPath: m['automationModelPath'] as String? ?? '',
+        voiceEnabled: m['voiceEnabled'] as bool? ?? true,
       );
     } catch (_) {
       return const SettingsState();
@@ -81,14 +57,14 @@ class SettingsRepository {
         'themeMode': s.themeMode,
         'temperature': s.temperature,
         'topP': s.topP,
-        'madvise': s.madvise,
-        'oomGuard': s.oomGuard,
-        'thermalLimit': s.thermalLimit,
-        'batteryMode': s.batteryMode,
         'maxTokens': s.maxTokens,
         'vncPassword': s.vncPassword,
         'desktopMobileMode': s.desktopMobileMode,
         'agentAutomationMode': s.agentAutomationMode.name,
+        'automationModelMode': s.automationModelMode.name,
+        'automationModelId': s.automationModelId,
+        'automationModelPath': s.automationModelPath,
+        'voiceEnabled': s.voiceEnabled,
       }),
     );
   }
@@ -101,59 +77,69 @@ final settingsRepoProvider = Provider<SettingsRepository>(
 class SettingsState {
   final String themeMode;
   final double temperature, topP;
-  final bool madvise, oomGuard;
-  final double thermalLimit;
-  final String batteryMode;
   final int maxTokens;
   final String vncPassword;
   final bool desktopMobileMode;
   final AgentAutomationMode agentAutomationMode;
 
+  /// T4 — cómo resuelve Automation su modelo (sameAsChat/specificModel/deterministicOnly).
+  final AutomationModelMode automationModelMode;
+
+  /// T4 — modelo específico de Automation (cuando mode == specificModel).
+  final String automationModelId;
+  final String automationModelPath;
+
+  /// V1 — voz (TTS) activada. Cuando false, speakLastResponse() es no-op.
+  final bool voiceEnabled;
+
   const SettingsState({
     this.themeMode = 'Sistema',
     this.temperature = 0.7,
     this.topP = 0.9,
-    this.madvise = true,
-    this.oomGuard = true,
-    this.thermalLimit = 42,
-    this.batteryMode = 'Balanced',
     this.maxTokens = 2048,
     this.vncPassword = '',
     this.desktopMobileMode = false,
     this.agentAutomationMode = AgentAutomationMode.assisted,
+    this.automationModelMode = AutomationModelMode.sameAsChat,
+    this.automationModelId = '',
+    this.automationModelPath = '',
+    this.voiceEnabled = true,
   });
 
   SettingsState copyWith({
     String? themeMode,
     double? temperature,
     double? topP,
-    bool? madvise,
-    bool? oomGuard,
-    double? thermalLimit,
-    String? batteryMode,
     int? maxTokens,
     String? vncPassword,
     bool? desktopMobileMode,
     AgentAutomationMode? agentAutomationMode,
+    AutomationModelMode? automationModelMode,
+    String? automationModelId,
+    String? automationModelPath,
+    bool? voiceEnabled,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
     topP: topP ?? this.topP,
-    madvise: madvise ?? this.madvise,
-    oomGuard: oomGuard ?? this.oomGuard,
-    thermalLimit: thermalLimit ?? this.thermalLimit,
-    batteryMode: batteryMode ?? this.batteryMode,
     maxTokens: maxTokens ?? this.maxTokens,
     vncPassword: vncPassword ?? this.vncPassword,
     desktopMobileMode: desktopMobileMode ?? this.desktopMobileMode,
     agentAutomationMode: agentAutomationMode ?? this.agentAutomationMode,
+    automationModelMode: automationModelMode ?? this.automationModelMode,
+    automationModelId: automationModelId ?? this.automationModelId,
+    automationModelPath: automationModelPath ?? this.automationModelPath,
+    voiceEnabled: voiceEnabled ?? this.voiceEnabled,
   );
 }
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
   final SettingsRepository _repo;
+  final Future<void> Function()? _stopVoiceOutput;
 
-  SettingsNotifier(this._repo) : super(const SettingsState());
+  SettingsNotifier(this._repo, {Future<void> Function()? stopVoiceOutput})
+    : _stopVoiceOutput = stopVoiceOutput,
+      super(const SettingsState());
 
   Future<void> init() async {
     await _repo.init();
@@ -181,20 +167,42 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   void setTemperature(double v) => _persist(state.copyWith(temperature: v));
   void setTopP(double v) => _persist(state.copyWith(topP: v));
-  void toggleMadvise(bool v) => _persist(state.copyWith(madvise: v));
-  void toggleOom(bool v) => _persist(state.copyWith(oomGuard: v));
-  void setThermalLimit(double v) => _persist(state.copyWith(thermalLimit: v));
-  void setBatteryMode(String v) => _persist(state.copyWith(batteryMode: v));
   void setMaxTokens(int v) => _persist(state.copyWith(maxTokens: v));
   void setVncPassword(String v) => _persist(state.copyWith(vncPassword: v));
   void setDesktopMobileMode(bool v) =>
       _persist(state.copyWith(desktopMobileMode: v));
   void setAgentAutomationMode(AgentAutomationMode v) =>
       _persist(state.copyWith(agentAutomationMode: v));
+  void setAutomationModelMode(AutomationModelMode v) =>
+      _persist(state.copyWith(automationModelMode: v));
+  void setAutomationModel(String id, String path) => _persist(
+    state.copyWith(automationModelId: id, automationModelPath: path),
+  );
+
+  /// Gate global de salida TTS. El estado cambia antes de cualquier await para
+  /// que ninguna nueva respuesta pueda empezar a hablar; al apagar también
+  /// detiene de inmediato la locución nativa que ya estuviera en curso.
+  Future<void> setVoiceEnabled(bool v) async {
+    if (state.voiceEnabled == v) return;
+    final write = _persist(state.copyWith(voiceEnabled: v));
+    if (!v) {
+      try {
+        await _stopVoiceOutput?.call();
+      } catch (_) {
+        // El gate queda apagado aunque Android no confirme el stop.
+      }
+    }
+    await write;
+  }
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
-  (ref) => SettingsNotifier(ref.read(settingsRepoProvider)),
+  (ref) => SettingsNotifier(
+    ref.read(settingsRepoProvider),
+    stopVoiceOutput: () async {
+      await NanoRuntimeApi.instance.stopSpeech();
+    },
+  ),
 );
 
 /// Provider derivado que sincroniza automáticamente el ThemeMode con settings
@@ -206,3 +214,12 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
       ? ThemeMode.light
       : ThemeMode.system;
 });
+
+/// Deserializa AutomationModelMode por nombre, degradando a sameAsChat si el
+/// valor persistido es desconocido (no inventa un modo).
+AutomationModelMode _modeFromName(String? name) {
+  for (final m in AutomationModelMode.values) {
+    if (m.name == name) return m;
+  }
+  return AutomationModelMode.sameAsChat;
+}

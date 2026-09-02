@@ -1,11 +1,16 @@
 package dev.nanoai.mobile.channels
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import dev.nanoai.mobile.services.AgentAccessibilityBridge
+import dev.nanoai.mobile.services.OcrService
+import dev.nanoai.mobile.services.VisionService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
@@ -19,9 +24,11 @@ import java.util.concurrent.TimeUnit
  * - `findText {query, maxResults}` → List<Map>
  * - `tapOnText {text}`          → bool
  * - `tapAt {x, y}`              → bool
+ * - `clickTarget {...identity}` → {ok,method,code}
  * - `longPressAt {x, y, durationMs}` → bool
  * - `swipe {x1,y1,x2,y2,durationMs}` → bool
- * - `inputText {text}`          → bool
+ * - `inputText {text,targetResourceId,targetBounds}` → bool
+ * - `submitFocusedInput {expectedPackageName}` → {ok,code,packageName}
  * - `globalAction {action}`     → bool (back|home|recents|notifications|quick_settings)
  * - `launchPackage {packageName}` → bool
  *
@@ -39,9 +46,12 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             "dump-screen",  // dumpScreen / findText
             "snapshot",     // dumpSnapshot {package, nodes+depth}
             "gestures",     // tapAt / longPressAt / swipe
+            "target-click", // clickTarget ACTION_CLICK + verified fallback
             "text-input",   // inputText
+            "ime-submit",   // submitFocusedInput sobre editable enfocado
             "global",       // globalAction back/home/recents
             "launch",       // launchPackage
+            "ocr",          // ocrRegion (ML Kit fallback de percepción)
         )
 
         /** Reintentos al esperar el rebind del AccessibilityService. */
@@ -50,6 +60,9 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val ocrService = OcrService()
+    private val visionService = VisionService()
+    private val ocrExecutor = Executors.newSingleThreadExecutor()
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -98,6 +111,30 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                 postToService(AgentAccessibilityBridge.service, result) { it.tapAt(x, y) }
             }
 
+            "clickTarget" -> {
+                val packageName = call.argument<String>("packageName") ?: ""
+                val resourceId = call.argument<String>("resourceId") ?: ""
+                val className = call.argument<String>("className") ?: ""
+                val text = call.argument<String>("text") ?: ""
+                val description = call.argument<String>("description") ?: ""
+                val rawBounds = call.argument<List<*>>("bounds")
+                val bounds = rawBounds?.map { (it as? Number)?.toInt() }
+                if (packageName.isBlank() || bounds == null || bounds.size != 4 || bounds.any { it == null }) {
+                    result.error("BAD_ARG", "packageName y bounds requeridos", null)
+                    return
+                }
+                postToService(AgentAccessibilityBridge.service, result) {
+                    it.clickTarget(
+                        packageName,
+                        resourceId,
+                        className,
+                        text,
+                        description,
+                        bounds.filterNotNull().toIntArray(),
+                    )
+                }
+            }
+
             "longPressAt" -> {
                 val x = call.argument<Number>("x")?.toInt()
                 val y = call.argument<Number>("y")?.toInt()
@@ -132,7 +169,23 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                     result.error("BAD_ARG", "text requerido", null)
                     return
                 }
-                postToService(AgentAccessibilityBridge.service, result) { it.inputText(text) }
+                val targetResourceId = call.argument<String>("targetResourceId") ?: ""
+                val rawBounds = call.argument<List<*>>("targetBounds")
+                val targetBounds = rawBounds?.map { (it as? Number)?.toInt() }
+                if (targetBounds == null || targetBounds.size != 4 || targetBounds.any { it == null }) {
+                    result.error("BAD_ARG", "targetBounds [left,top,right,bottom] requerido", null)
+                    return
+                }
+                postToService(AgentAccessibilityBridge.service, result) {
+                    it.inputText(text, targetResourceId, targetBounds.filterNotNull().toIntArray())
+                }
+            }
+
+            "submitFocusedInput" -> {
+                val expectedPackageName = call.argument<String>("expectedPackageName") ?: ""
+                postToService(AgentAccessibilityBridge.service, result) {
+                    it.submitFocusedInput(expectedPackageName)
+                }
             }
 
             "globalAction" -> {
@@ -151,6 +204,66 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                     return
                 }
                 postToService(AgentAccessibilityBridge.service, result) { it.launchPackage(pkg) }
+            }
+
+            "ocrRegion" -> {
+                val bounds = call.argument<List<Number>>("bounds")?.map { it.toInt() }
+                val service = AgentAccessibilityBridge.service
+                if (service == null) {
+                    result.error("SERVICE_OFF", "AgentAccessibilityService no conectado", null)
+                    return
+                }
+                mainHandler.post {
+                    service.takeScreenshot { bitmap ->
+                        if (bitmap == null) {
+                            result.error("SHOT_ERR", "captura de pantalla falló", null)
+                            return@takeScreenshot
+                        }
+                        ocrExecutor.execute {
+                            try {
+                                val cropped = if (bounds != null && bounds.size == 4) {
+                                    cropBitmap(bitmap, bounds)
+                                } else {
+                                    bitmap
+                                }
+                                val lines = ocrService.recognize(cropped)
+                                result.success(lines.map {
+                                    mapOf(
+                                        "text" to it.text,
+                                        "bounds" to listOf(it.left, it.top, it.right, it.bottom),
+                                    )
+                                })
+                                bitmap.recycle()
+                            } catch (e: Exception) {
+                                result.error("OCR_ERR", e.message ?: "error OCR", null)
+                            }
+                        }
+                    }
+                }
+            }
+
+            "visionLabel" -> {
+                val png = call.argument<ByteArray>("png")
+                if (png == null) {
+                    result.error("ARG", "sin imagen PNG", null)
+                    return
+                }
+                ocrExecutor.execute {
+                    try {
+                        val bitmap = BitmapFactory.decodeByteArray(png, 0, png.size)
+                        val labels = visionService.label(bitmap)
+                        result.success(labels.map {
+                            mapOf(
+                                "label" to it.text,
+                                "confidence" to it.confidence.toDouble(),
+                                "bounds" to listOf(it.left, it.top, it.right, it.bottom),
+                            )
+                        })
+                        bitmap.recycle()
+                    } catch (e: Exception) {
+                        result.error("VISION_ERR", e.message ?: "error vision", null)
+                    }
+                }
             }
 
             else -> result.notImplemented()
@@ -248,5 +361,14 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
         } catch (e: Exception) {
             result.error("AGENT_ERR", e.message ?: "error", null)
         }
+    }
+
+    private fun cropBitmap(bitmap: Bitmap, bounds: List<Int>): Bitmap {
+        val l = bounds[0].coerceIn(0, bitmap.width)
+        val t = bounds[1].coerceIn(0, bitmap.height)
+        val r = bounds[2].coerceIn(0, bitmap.width)
+        val b = bounds[3].coerceIn(0, bitmap.height)
+        if (r <= l || b <= t) return bitmap
+        return Bitmap.createBitmap(bitmap, l, t, r - l, b - t)
     }
 }

@@ -6,7 +6,6 @@ import '../terminalservices.dart';
 /// Monitor commands: free, df, top, netstat, ss, lsof, vmstat, iotop, dmesg.
 class MonitorPlugin {
   void register(void Function(String, CmdFn) r, TerminalServices s) {
-
     r('free', (a, c, o, af) {
       if (s.shell != null && s.shell!.initialized) {
         s.shell!.toybox(['free', ...a]).then((wr) {
@@ -24,7 +23,10 @@ class MonitorPlugin {
       final avail = (m['MemAvailable'] ?? 0) ~/ 1024;
       final used = total - avail;
       o('              total        used        free', Ln.header);
-      o('Mem:    ${total.toString().padLeft(10)} ${used.toString().padLeft(10)} ${avail.toString().padLeft(10)}', Ln.stdout);
+      o(
+        'Mem:    ${total.toString().padLeft(10)} ${used.toString().padLeft(10)} ${avail.toString().padLeft(10)}',
+        Ln.stdout,
+      );
     });
 
     r('df', (a, c, o, af) {
@@ -33,8 +35,14 @@ class MonitorPlugin {
         final total = (d['diskTotalKb'] as num) ~/ 1024;
         final avail = (d['diskAvailKb'] as num) ~/ 1024;
         final used = total - avail;
-        o('Filesystem     1M-blocks   Used Available Use% Mounted on', Ln.header);
-        o('/dev/root     ${total.toString().padLeft(9)} ${used.toString().padLeft(6)} ${avail.toString().padLeft(8)}   ${total > 0 ? ((used * 100) ~/ total) : 0}% /', Ln.stdout);
+        o(
+          'Filesystem     1M-blocks   Used Available Use% Mounted on',
+          Ln.header,
+        );
+        o(
+          '/dev/root     ${total.toString().padLeft(9)} ${used.toString().padLeft(6)} ${avail.toString().padLeft(8)}   ${total > 0 ? ((used * 100) ~/ total) : 0}% /',
+          Ln.stdout,
+        );
         return;
       }
       o('df: almacenamiento no disponible', Ln.stderr);
@@ -125,7 +133,10 @@ class MonitorPlugin {
       }
       final m = ProcFs.meminfo();
       o('procs -----------memory----------', Ln.header);
-      o(' 0  0  ${(m['MemFree'] ?? 0) ~/ 1024}  ${(m['Buffers'] ?? 0) ~/ 1024}  ${((m['Cached'] ?? 0) + (m['SReclaimable'] ?? 0)) ~/ 1024}', Ln.stdout);
+      o(
+        ' 0  0  ${(m['MemFree'] ?? 0) ~/ 1024}  ${(m['Buffers'] ?? 0) ~/ 1024}  ${((m['Cached'] ?? 0) + (m['SReclaimable'] ?? 0)) ~/ 1024}',
+        Ln.stdout,
+      );
     });
 
     r('iotop', (a, c, o, af) {

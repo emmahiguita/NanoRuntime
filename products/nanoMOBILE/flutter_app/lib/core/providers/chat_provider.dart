@@ -1,20 +1,54 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../agent/agent_tool_dispatcher.dart';
+import '../../features/automation/engine/agent_dependencies.dart';
+import '../../features/automation/engine/execution/agent_tool_dispatcher.dart';
 import '../services/device_info.dart';
+import '../services/chat_history_store.dart';
+import '../services/chat_system_prompt.dart';
 import '../services/llm_engine_client.dart';
+import '../services/nano_runtime_api.dart';
 import '../services/runtime_engine.dart';
+import '../../features/automation/engine/voice/voice_backends.dart';
+import '../../features/automation/engine/voice/voice_runtime.dart';
+import '../../features/automation/engine/voice/conversation/conversational_world_state.dart';
+import '../../features/automation/engine/voice/conversation/grounding_resolver.dart';
 import '../models/chat_models.dart';
 import '../models/catalog_models.dart';
 import 'settings_provider.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
+import 'package:nanoai/features/automation/application/automation_feedback_presenter.dart';
+import 'package:nanoai/features/automation/domain/automation_result.dart'
+    show AutomationResultStatus;
+import 'package:nanoai/features/automation/domain/automation_goal.dart';
+import 'package:nanoai/features/automation/engine/planning/linux_voice_command_parser.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 
 // ================================================================
 // Chat State and Notifier
 // ================================================================
+
+/// Propiedad explícita de un único stream HTTP.
+///
+/// Una ronda vieja puede terminar después de que el usuario pulse Detener y
+/// empiece otra. La identidad evita que su `finally` cierre el cliente de la
+/// ronda nueva o limpie su request id.
+class _StreamLease {
+  _StreamLease({
+    required this.generationId,
+    required this.client,
+    required this.requestId,
+  });
+
+  final int generationId;
+  final http.Client client;
+  final String requestId;
+  bool released = false;
+}
 
 class ChatNotifier extends StateNotifier<ChatState> {
   final Ref _ref;
@@ -23,10 +57,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
   LLMEngineClient get _engine =>
       _ref.read(runtimeEngineProvider.notifier).client;
   // Cliente HTTP de la generación streaming en curso. Se cierra para cancelar.
-  http.Client? _streamClient;
-  // Gate R6 — request_id de la generación en curso, para POST /cancel
-  // cooperativo (no solo cerrar el socket).
-  String? _activeRequestId;
+  _StreamLease? _activeStream;
+  int _generationSequence = 0;
+  int? _activeGenerationId;
   // Monitoreo de conexiones activas para detectar memory leaks
   int _activeConnections = 0;
   // Cancelación cooperativa: STOP o un segundo envío anulan la generación en curso.
@@ -34,9 +67,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // Timer de carga de modelo: cancelable para que solo el último
   // modelo seleccionado pueda transicionar a ready.
   Timer? _loadTimer;
+  int _modelSelectionRevision = 0;
   // Flush periódico del texto streaming: agrupa tokens (~32ms) para evitar
   // un rebuild de la lista de mensajes por cada token del motor.
   Timer? _flushTimer;
+  bool _historyTouched = false;
+  final ChatHistoryStore _historyStore;
   String _sessionId = _newSessionId();
 
   /// Contador monótono: garantiza unicidad entre sesiones generadas en el
@@ -63,115 +99,72 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Máximo de rondas de herramienta por mensaje del usuario: evita bucles
   /// infinitos si el modelo insiste en llamar tools sin concluir.
-  static const int _maxToolRounds = 2;
+  static const int _maxToolRounds = 8;
+
+  /// Reutiliza el detector del dispatcher también entre rondas del modelo.
+  final ToolLoopDetector _roundLoopDetector = ToolLoopDetector();
 
   /// Genera un system prompt dinámico con contexto en tiempo real
   /// y telemetría 100% real del hardware (sin simulación).
   String _buildSystemPrompt() {
-    final now = DateTime.now();
-    const weekdays = [
-      'lunes',
-      'martes',
-      'miércoles',
-      'jueves',
-      'viernes',
-      'sábado',
-      'domingo',
-    ];
-    const months = [
-      'enero',
-      'febrero',
-      'marzo',
-      'abril',
-      'mayo',
-      'junio',
-      'julio',
-      'agosto',
-      'septiembre',
-      'octubre',
-      'noviembre',
-      'diciembre',
-    ];
-    final dayName = weekdays[(now.weekday - 1).clamp(0, 6)];
-    final monthName = months[(now.month - 1).clamp(0, 11)];
-    final timeStr =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-    final dateStr = '$dayName, ${now.day} de $monthName de ${now.year}';
-    final modelName = state.activeModel;
-
-    final info = DeviceInfo.read();
-    final buffer = StringBuffer();
-    buffer.writeln('Eres NanoAI, un asistente de inteligencia artificial avanzado y de alto rendimiento que se ejecuta');
-    buffer.writeln('de forma 100% real y local en el dispositivo móvil del usuario mediante el motor nanortime (llama.cpp).');
-    buffer.writeln('Modelo activo en inferencia: "$modelName".');
-    buffer.writeln('');
-    buffer.writeln('DIRECTIVAS CRÍTICAS DE CALIDAD Y RESPUESTA:');
-    buffer.writeln('1. INFERENCIA REAL (CERO SIMULACIÓN): Estás conectado al hardware real. Nunca generes respuestas simuladas, placeholders o datos inventados. Si no posees una información específica, decláralo con honestidad técnica.');
-    buffer.writeln('2. CÓDIGO 100% COMPLETO Y FUNCIONAL:');
-    buffer.writeln('   - Cuando el usuario solicite código, NUNCA lo trunques ni uses comentarios evasivos como "// ... resto del código ...", "// implementar aquí" o "// TODO".');
-    buffer.writeln('   - Escribe implementaciones completas, listas para producción o ejecución.');
-    buffer.writeln('   - Especifica siempre el identificador de lenguaje en cada bloque Markdown (ej. ```python, ```dart, ```javascript, ```sql, ```json, ```bash).');
-    buffer.writeln('3. TABLAS DE DATOS Y ESTRUCTURAS:');
-    buffer.writeln('   - Cuando compares alternativas, muestres métricas, listas estructuradas o datasets, utiliza tablas Markdown estándar con encabezados claros y delimitadores (| Columna | ... |).');
-    buffer.writeln('4. PROFUNDIDAD, ESTRUCTURA Y FORMATO RICO:');
-    buffer.writeln('   - Desarrolla las explicaciones a fondo: explica el PORQUÉ, la lógica subyacente y las mejores prácticas.');
-    buffer.writeln('   - Utiliza títulos y subtítulos jerárquicos (##, ###), listas organizadas, negritas para términos clave y diagramas mermaid o ASCII cuando aporten valor visual.');
-    buffer.writeln('   - Evita respuestas vacías, redundancias o saludos corporativos innecesarios. Ve directo al valor técnico.');
-    buffer.writeln('5. IDIOMA Y ADAPTABILIDAD:');
-    buffer.writeln('   - Responde con naturalidad, riqueza de vocabulario y precisión en el mismo idioma en que te hable el usuario (por defecto español).');
-    buffer.writeln('');
-    buffer.writeln('Herramientas del sistema (SOLO cuando el usuario pida ejecutar una acción directa sobre el dispositivo):');
-    buffer.writeln('si necesitas una herramienta, responde únicamente el JSON de una línea:');
-    buffer.writeln('{"tool":"screen"}, {"tool":"tap","selector":"<sel>"},');
-    buffer.writeln('{"tool":"write","selector":"<sel>","text":"..."}, {"tool":"back"}.');
-    buffer.writeln('Si no usas herramienta, responde con texto normal estructurado.');
-    
-    buffer.writeln('<realtime_context>');
-    buffer.writeln('  <datetime>$dateStr, $timeStr</datetime>');
-    if (info.cpuHardware != null && info.cpuHardware!.isNotEmpty) {
-      buffer.writeln('  <cpu>${info.cpuHardware} (${info.cpuCores ?? 8} núcleos, ${info.unameMachine ?? "arm64"})</cpu>');
-    }
-    if (info.memTotalKb != null && info.memAvailKb != null && info.memTotalKb! > 0) {
-      final totalGb = (info.memTotalKb! / (1024 * 1024)).toStringAsFixed(1);
-      final freeGb = (info.memAvailKb! / (1024 * 1024)).toStringAsFixed(1);
-      buffer.writeln('  <ram>libres: $freeGb GB, total: $totalGb GB</ram>');
-    }
-    if (info.cpuTempC != null && info.cpuTempC! > 0) {
-      buffer.writeln('  <temperature>${info.cpuTempC!.toStringAsFixed(1)}°C</temperature>');
-    }
-    if (info.uptimeSec != null && info.uptimeSec! > 0) {
-      final hours = (info.uptimeSec! / 3600).floor();
-      final mins = ((info.uptimeSec! % 3600) / 60).floor();
-      buffer.writeln('  <uptime>${hours}h ${mins}m</uptime>');
-    }
-    buffer.writeln('</realtime_context>');
-
-    return buffer.toString().trim();
+    return ChatSystemPrompt.build(
+      registry: _tools.registry,
+      modelName: state.activeModel,
+      now: DateTime.now(),
+      device: DeviceInfo.read(),
+    );
   }
 
   /// Ejecutor de herramientas del chat (comandos `@` y tool-calling del LLM).
   final AgentToolDispatcher _tools;
+
+  /// Único dueño del ciclo de ejecución. El chat consume el mismo composition
+  /// root que dashboard, voz y scheduler; así no existe un segundo coordinador
+  /// incompleto que omita TaskPlanner/TaskOrchestrator.
+  final AutomationCoordinator? _coordinatorOverride;
+  AutomationCoordinator get _coordinator =>
+      _coordinatorOverride ?? _ref.read(automationCoordinatorProvider);
 
   // ── Confirmación de herramienta (política externalWrite) ──
   // Cuando el tool-calling del LLM pide una escritura externa, la política
   // pausa el turno: se guarda la llamada + contexto de reanudación y la UI
   // muestra el diálogo. approve/reject reanudan la ronda con el resultado.
 
-  /// Llamada pendiente de confirmación (null = nada pendiente).
-  ToolCall? _pendingCall;
-
   /// Contexto para reanudar la ronda tras la decisión del usuario.
   String _pendingUserText = '';
   List<String> _pendingTrace = const [];
   String _pendingCallText = '';
 
-  ChatNotifier(this._ref, {AgentToolDispatcher? toolDispatcher})
-    : _tools = toolDispatcher ?? AgentToolDispatcher(),
-      super(
-        ChatState(
-          availableModels: [for (final m in NeuralCatalog.models) m.name],
-        ),
-      ) {
+  /// Plan multi-paso pendiente de confirmación (null = no hay plan pausado).
+  /// Un paso del plan pidió confirmación humana; al aprobar se reanuda el
+  /// plan desde [_pendingPlanIndex] (la confirmación cubre solo ese paso).
+  List<ToolCall>? _pendingPlan;
+  int? _pendingPlanIndex;
+  ActionConfirmation? _pendingPlanConfirmation;
+
+  /// Tarea semántica (TaskPlanner/TaskOrchestrator) pausada. Se replanifica de
+  /// forma determinista y el token solo autoriza la acción exacta pendiente.
+  String? _pendingTaskGoal;
+  ActionConfirmation? _pendingTaskConfirmation;
+
+  /// T1.7 — último archivo creado/escrito por voz (contexto para "léelo").
+  /// Solo se puebla tras un write VERIFICADO (FileExists + FileContentContains).
+  /// null = sin contexto; "léelo" no inventa target.
+  String? _lastLinuxFilePath;
+
+  ChatNotifier(
+    this._ref, {
+    AgentToolDispatcher? toolDispatcher,
+    AutomationCoordinator? coordinator,
+    ChatHistoryStore? historyStore,
+  }) : _tools = toolDispatcher ?? AgentToolDispatcher(),
+       _coordinatorOverride = coordinator,
+       _historyStore = historyStore ?? ChatHistoryStore(),
+       super(
+         ChatState(
+           availableModels: [for (final m in NeuralCatalog.models) m.name],
+         ),
+       ) {
     _restoreModel();
     _restoreMessages();
   }
@@ -182,27 +175,40 @@ class ChatNotifier extends StateNotifier<ChatState> {
     Ref ref,
     super.initial, {
     AgentToolDispatcher? toolDispatcher,
+    AutomationCoordinator? coordinator,
+    ChatHistoryStore? historyStore,
   }) : _ref = ref,
-       _tools = toolDispatcher ?? AgentToolDispatcher();
+       _tools = toolDispatcher ?? AgentToolDispatcher(),
+       _coordinatorOverride = coordinator,
+       _historyStore = historyStore ?? ChatHistoryStore();
 
   /// Restaura la última selección de modelo para que sobreviva al reinicio.
   Future<void> _restoreModel() async {
+    final revision = _modelSelectionRevision;
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString('nanoai_active_model');
       final savedPath = prefs.getString('nanoai_active_model_path');
       if (saved == null || saved.isEmpty) return;
-      // El catálogo es la fuente de verdad: nombres de versiones viejas
-      // (p. ej. "Qwen2.5-1.1B-Instruct") se descartan en silencio y se
-      // vuelve al default en lugar de suponer un modelo inexistente.
-      if (!NeuralCatalog.models.any((m) => m.name == saved)) return;
-      if (!mounted) return;
+      // Un nombre de catálogo no demuestra que el GGUF esté instalado. Para
+      // reanudar inferencia local hace falta una ruta persistida y existente;
+      // de lo contrario la UI anunciaría un modelo que no puede arrancar.
+      final installedModel =
+          savedPath != null &&
+          savedPath.trim().isNotEmpty &&
+          await File(savedPath).exists();
+      if (!installedModel) {
+        await prefs.remove('nanoai_active_model');
+        await prefs.remove('nanoai_active_model_path');
+        return;
+      }
+      if (!mounted || revision != _modelSelectionRevision) return;
       state = state.copyWith(
         activeModel: saved,
         activeModelPath: savedPath,
         connection: ModelConnectionState.loadingModel,
       );
-      await _checkEngine(saved);
+      await _checkEngine(model: saved, expectedRevision: revision);
     } catch (e) {
       debugPrint(
         '[chat_provider] Persistencia no disponible, usando default: $e',
@@ -210,32 +216,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  /// Clave en SharedPreferences para el historial de chat.
-  static const String _historyKey = 'nanoai_chat_history';
-
-  /// Persiste los mensajes actuales en SharedPreferences como JSON.
-  Future<void> _persistMessages() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final json = jsonEncode(state.messages.map((m) => m.toJson()).toList());
-      await prefs.setString(_historyKey, json);
-    } catch (e) {
-      debugPrint('[chat_provider] Error en persistencia: $e');
-    }
-  }
+  Future<void> _persistMessages() => _historyStore.save(state.messages);
 
   /// Carga el historial desde SharedPreferences. Solo se llaman durante init
   /// para no pisar el estado en vivo con datos stale.
   Future<void> _restoreMessages() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_historyKey);
-      if (raw == null || raw.isEmpty) return;
-      final list = jsonDecode(raw) as List<dynamic>;
-      final messages = list
-          .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-          .toList();
-      if (!mounted) return;
+      final messages = await _historyStore.restore();
+      if (!mounted || _historyTouched) return;
       state = state.copyWith(messages: messages);
     } catch (_) {
       /* datos corruptos o no disponibles: ignorar */
@@ -245,10 +233,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// Consulta el estado real del motor (canal + /health + /api/status) y
   /// transiciona a ready/noModel/error según la evidencia. Degraded (motor
   /// vivo sin GGUF) se muestra honestamente como noModel.
-  Future<void> _checkEngine([String? model]) async {
+  Future<void> _checkEngine({String? model, int? expectedRevision}) async {
     final engine = _ref.read(runtimeEngineProvider.notifier);
     await engine.refresh();
-    if (!mounted) return;
+    if (!mounted ||
+        (expectedRevision != null &&
+            expectedRevision != _modelSelectionRevision)) {
+      return;
+    }
     final name = model ?? state.activeModel;
     state = state.copyWith(
       activeModel: name,
@@ -271,12 +263,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // CORRECCIÓN LEVE: Validar tamaño del contenido antes de aceptar
     const maxAttachmentSizeBytes = 500000; // 500KB límite
     final contentSize = attachment.content.length * 2; // Aproximación UTF-16
-    
+
     if (contentSize > maxAttachmentSizeBytes) {
-      debugPrint('[chat_provider] Adjunto rechazado: demasiado grande ($contentSize bytes)');
+      debugPrint(
+        '[chat_provider] Adjunto rechazado: demasiado grande ($contentSize bytes)',
+      );
       return;
     }
-    
+
     final current = [...state.attachments]
       ..removeWhere((a) => a.name == attachment.name);
     if (current.length >= _maxAttachments) {
@@ -316,46 +310,131 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   // ── Confirmación de herramienta (política §12) ────────────────────────────
 
-  /// El usuario aprobó la herramienta pendiente: se ejecuta con
-  /// `confirmed: true` y la ronda continúa con el resultado en el trace.
+  /// El usuario aprobó la herramienta pendiente. La confirmación firmada se
+  /// devuelve al mismo AutomationRun; nunca se eleva privilegio con un bool.
   Future<void> approvePendingTool() async {
-    final call = _pendingCall;
-    if (call == null || state.pendingTool == null) return;
     final userText = _pendingUserText;
     final trace = _pendingTrace;
     final callText = _pendingCallText;
-    _pendingCall = null;
-    
-    // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
-    if (!mounted) return;
-    state = state.copyWith(
-      generating: true,
-      pendingTool: null,
-      pendingToolDescription: null,
-    );
-    
-    final outcome = await _tools.runToolGuarded(call, confirmed: true);
-    if (!mounted || _generationCancelled) return;
-    
-    // CORRECCIÓN CRÍTICA: Verificar mounted nuevamente antes de continuar
-    if (!mounted) return;
-    await _generateRound(userText, [
-      ...trace,
-      callText,
-      outcome.feedback,
-    ], const []);
+    final plan = _pendingPlan;
+    final taskGoal = _pendingTaskGoal;
+
+    if (taskGoal != null) {
+      final confirmation = _pendingTaskConfirmation;
+      _pendingTaskGoal = null;
+      _pendingTaskConfirmation = null;
+      if (!mounted || confirmation == null) return;
+      state = state.copyWith(
+        generating: true,
+        pendingTool: null,
+        pendingToolDescription: null,
+      );
+      final generationId = _beginGeneration();
+      final resumed = await _coordinator.tryCrossApp(
+        taskGoal,
+        confirmation: confirmation,
+      );
+      if (!_isGenerationCurrent(generationId) || resumed == null) return;
+      final result = resumed.result;
+      if (result.isPaused && result.confirmation != null) {
+        _pendingTaskGoal = taskGoal;
+        _pendingTaskConfirmation = result.confirmation;
+        state = state.copyWith(
+          generating: false,
+          pendingTool: result.pauseTool,
+          pendingToolDescription: automationUserFacingReason(result.reason),
+        );
+        return;
+      }
+      final message = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text:
+            'Ejecutado en el dispositivo (sin LLM):\n'
+            '${automationUserFacingReason(result.reason)}',
+        timestamp: DateTime.now(),
+        source: MessageSource.device,
+        status:
+            const {
+              AutomationResultStatus.failed,
+              AutomationResultStatus.outcomeUnknown,
+              AutomationResultStatus.denied,
+              AutomationResultStatus.cancelled,
+            }.contains(result.status)
+            ? MessageStatus.error
+            : MessageStatus.sent,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, message],
+        generating: false,
+        streamingText: '',
+      );
+      _persistMessages();
+      return;
+    }
+
+    if (plan != null) {
+      // Plan multi-paso en pausa: reanudar desde el paso aprobado.
+      final confirmation = _pendingPlanConfirmation;
+      _pendingPlan = null;
+      _pendingPlanIndex = null;
+      _pendingPlanConfirmation = null;
+      if (!mounted || confirmation == null) return;
+      state = state.copyWith(
+        generating: true,
+        pendingTool: null,
+        pendingToolDescription: null,
+      );
+      final generationId = _beginGeneration();
+      final result = await _coordinator.execute(
+        AutomationGoal(text: userText),
+        plan: plan,
+        options: AutomationOptions(confirmation: confirmation),
+      );
+      if (!_isGenerationCurrent(generationId)) return;
+      if (result.isPaused && result.confirmation != null) {
+        // Otro paso del plan pidió confirmación → nueva pausa.
+        _pendingPlan = plan;
+        _pendingPlanIndex = result.pauseIndex;
+        _pendingPlanConfirmation = result.confirmation;
+        state = state.copyWith(
+          generating: false,
+          pendingTool: result.pauseTool,
+          pendingToolDescription: automationUserFacingReason(result.reason),
+        );
+        return;
+      }
+      final feedback = automationUserFacingReason(result.reason);
+      await _generateRound(
+        userText,
+        [...trace, callText, feedback],
+        const [],
+        generationId,
+      );
+      return;
+    }
   }
 
   /// El usuario rechazó la herramienta pendiente: nada se ejecuta y la ronda
   /// continúa con el rechazo en el trace (el modelo ve el motivo y cierra).
   Future<void> rejectPendingTool() async {
-    final call = _pendingCall;
-    if (call == null || state.pendingTool == null) return;
     final userText = _pendingUserText;
     final trace = _pendingTrace;
     final callText = _pendingCallText;
-    _pendingCall = null;
-    
+    final plan = _pendingPlan;
+    final taskGoal = _pendingTaskGoal;
+    if ((plan == null && taskGoal == null) || state.pendingTool == null) {
+      return;
+    }
+    final toolName = taskGoal != null
+        ? (state.pendingTool ?? 'task')
+        : plan![_pendingPlanIndex ?? 0].tool;
+    _pendingPlan = null;
+    _pendingPlanIndex = null;
+    _pendingPlanConfirmation = null;
+    _pendingTaskGoal = null;
+    _pendingTaskConfirmation = null;
+
     // CORRECCIÓN CRÍTICA: Verificar mounted antes de actualizar estado
     if (!mounted) return;
     state = state.copyWith(
@@ -363,13 +442,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
       pendingTool: null,
       pendingToolDescription: null,
     );
-    
+
     // CORRECCIÓN CRÍTICA: Verificar mounted antes de continuar generación
     if (!mounted) return;
-    await _generateRound(userText, [
+    await _startGenerationRound(userText, [
       ...trace,
       callText,
-      '🚫 [policy] ${call.tool} cancelada por el usuario (sin confirmación).',
+      '🚫 [policy] $toolName cancelada por el usuario (sin confirmación).',
     ], const []);
   }
 
@@ -380,30 +459,141 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// (idle/failed), se arranca aquí con ensureReady() antes de generar. Si
   /// queda degraded (motor vivo sin GGUF), se inserta un error honesto en
   /// el chat en lugar de una generación que siempre fallaría con 503.
+  /// A16 — entrada por voz: transcribe y envía como orden (MISMO flujo que un
+  /// texto escrito). Usa el VoiceSessionManager (máquina de estados + contexto
+  /// conversacional) sobre los backends Android. La voz es I/O del MISMO agente.
+  /// Habla la última respuesta AI (para el flujo de voz). Honestidad: habla el
+  /// resultado del MISMO send(), nunca texto fabricado. La UI de voz llama esto
+  /// tras `send()`; no hay un segundo flujo de voz paralelo.
+  Future<void> speakLastResponse() async {
+    // V1 — gate: si el usuario desactivó la voz, no hablar.
+    if (!_ref.read(settingsProvider).voiceEnabled) return;
+    ChatMessage? ai;
+    for (final m in state.messages.reversed) {
+      if (m.sender == MessageSender.ai) {
+        ai = m;
+        break;
+      }
+    }
+    if (ai != null && ai.text.isNotEmpty) {
+      await voiceSession.respond(automationSpokenReason(ai.text));
+    }
+  }
+
+  /// A16 — sesión de voz (state machine + referentes). resolveGoal devuelve el
+  /// transcript como goal (el MISMO send() lo ejecuta en el coordinador); la voz
+  /// NO crea un segundo agente ni llama al dispatcher directamente.
+  VoiceSessionManager get voiceSession =>
+      _voiceSessionCache ??= VoiceSessionManager(
+        recognition: const AndroidSpeechRecognitionBackend(),
+        synthesis: AndroidSpeechSynthesisBackend(
+          enabled: () => _ref.read(settingsProvider).voiceEnabled,
+        ),
+        resolveGoal: _resolveVoiceGoal,
+      );
+  VoiceSessionManager? _voiceSessionCache;
+
+  /// A16 — resuelve pronombres y puebla el world state antes de ejecutar la
+  /// orden de voz. "respóndele" se resuelve contra la persona activa grounded;
+  /// "a Juan" se recuerda como referente para el siguiente turno.
+  Future<String> _resolveVoiceGoal(String transcript) async {
+    final session = voiceSession;
+    final target = _extractExplicitTarget(transcript);
+    if (target != null && target.isNotEmpty) {
+      session.world.remember(
+        target,
+        ResolvedReference(
+          entity: target,
+          source: ReferenceSource.explicit,
+          confidence: 1.0,
+          evidence: 'utterance',
+          timestamp: DateTime.now(),
+        ),
+      );
+      session.world.setActive(person: target);
+    } else {
+      // Sin target explícito: poblar desde la notificación más reciente
+      // (grounding real con evidencia, no adivinar). "respóndele" → sender.
+      final sender = await _latestNotificationSender();
+      if (sender != null && sender.isNotEmpty) {
+        session.world.setActive(person: sender);
+        session.world.remember(
+          sender,
+          ResolvedReference(
+            entity: sender,
+            source: ReferenceSource.notification,
+            confidence: 0.85,
+            evidence: 'notification sender',
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
+    }
+    return const TranscriptResolver().resolveTranscript(
+      transcript,
+      session.world,
+    );
+  }
+
+  String? _extractExplicitTarget(String transcript) {
+    final m = RegExp(
+      r'\ba\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})',
+    ).firstMatch(transcript);
+    return m?.group(1);
+  }
+
+  /// Sender de la notificación activa más reciente (para grounding de voz).
+  Future<String?> _latestNotificationSender() async {
+    try {
+      final rows = await NanoRuntimeApi.instance.listActiveNotifications();
+      for (final raw in rows) {
+        if (raw is Map && raw['sender'] is String) {
+          final s = (raw['sender'] as String).trim();
+          if (s.isNotEmpty) return s;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> send(String text) async {
     final t = text.trim();
     if (t.isEmpty || state.generating) return;
+    _historyTouched = true;
 
-    if (!state.engineOnline && state.activeModelPath == null) {
-      final errorMsg = ChatMessage(
+    // A16 — cancelación local de máxima prioridad (sin LLM). "para"/"cancela"
+    // detiene la tarea activa del coordinador de forma cooperativa.
+    final lowerCmd = t.toLowerCase();
+    if (lowerCmd == 'para' ||
+        lowerCmd == 'cancela' ||
+        lowerCmd == 'detente' ||
+        lowerCmd == 'detén' ||
+        lowerCmd == 'stop') {
+      _coordinator.cancelCurrent();
+      final cancelMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
-        text:
-            'No hay un modelo seleccionado. Por favor, ve a la pestaña Modelos y selecciona uno para poder chatear.',
+        text: 'Tarea cancelada.',
         timestamp: DateTime.now(),
-        status: MessageStatus.error,
       );
-      state = state.copyWith(messages: [...state.messages, errorMsg]);
+      state = state.copyWith(messages: [...state.messages, cancelMsg]);
       return;
     }
-
     // Nuevo turno del usuario: resetea el presupuesto de pasos de la
-    // política y descarta cualquier confirmación pendiente vieja.
-    _tools.resetTurn();
-    _pendingCall = null;
+    // política y descarta cualquier confirmación pendiente vieja (tool o
+    // plan multi-paso).
+    _coordinator.reset();
+    _pendingPlan = null;
+    _pendingPlanIndex = null;
+    _pendingPlanConfirmation = null;
+    _pendingTaskGoal = null;
+    _pendingTaskConfirmation = null;
     if (state.pendingTool != null) {
       state = state.copyWith(pendingTool: null, pendingToolDescription: null);
     }
+    final generationId = _beginGeneration();
     // Captura y consume los adjuntos pendientes: viajan SOLO con este
     // mensaje y se inyectan al prompt real de la generación.
     final attachments = state.attachments;
@@ -423,59 +613,291 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
     _persistMessages(); // guardar el user msg inmediatamente
 
-    // Comandos `@`: ejecución determinista sin LLM. Funcionan incluso con
-    // el motor degradado (vivo sin GGUF) — no consumen tokens ni ensureReady.
-    if (AgentToolDispatcher.isToolCommand(t)) {
-      final result = await _tools.runCommand(t);
-      if (!mounted) return;
-      final toolMsg = ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        sender: MessageSender.ai,
-        text: result,
-        timestamp: DateTime.now(),
-        status: MessageStatus.sent,
-      );
-      state = state.copyWith(
-        messages: [...state.messages, toolMsg],
-        generating: false,
-        streamingText: '',
-      );
-      _persistMessages();
-      return;
-    }
+    try {
+      // Comandos `@`: ejecución determinista sin LLM. Funcionan incluso con
+      // el motor degradado (vivo sin GGUF) — no consumen tokens ni ensureReady.
+      if (AgentToolDispatcher.isToolCommand(t)) {
+        final result = await _coordinator.runCommand(t);
+        if (!_isGenerationCurrent(generationId)) return;
+        final toolMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: automationUserFacingReason(result),
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, toolMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
 
-    final engine = _ref.read(runtimeEngineProvider.notifier);
-    final ready = await engine.ensureReady(modelPath: state.activeModelPath);
-    if (!mounted) return;
-    if (!ready) {
-      final degraded = engine.phase == EnginePhase.degraded;
-      final errMsg = ChatMessage(
+      // T1.7 — comandos Linux de voz/texto deterministas (list/write/read),
+      // SIN LLM. La voz es solo I/O del MISMO motor; el routing tipado evita
+      // raw-shell y mantiene gobernanza + verificación (GoalVerifier).
+      final linuxCmd = const LinuxVoiceCommandParser().parse(
+        t,
+        lastFilePath: _lastLinuxFilePath,
+      );
+      if (linuxCmd != null) {
+        if (!_isGenerationCurrent(generationId)) return;
+        final String linuxText;
+        if (linuxCmd.call.tool == 'linux.writeFile') {
+          // WRITE: verificación completa (FileExists + FileContentContains),
+          // NO éxito por exitCode == 0.
+          final result = await _coordinator.execute(
+            AutomationGoal(text: t, expectation: linuxCmd.expectation),
+            plan: [linuxCmd.call],
+          );
+          if (result.isVerifiedSuccess) {
+            _lastLinuxFilePath = linuxCmd.call.text;
+            linuxText =
+                'Creé ${linuxCmd.call.text} y verifiqué su contenido '
+                '(existe y contiene el texto).';
+          } else {
+            linuxText =
+                'No se pudo crear ${linuxCmd.call.text}: '
+                '${automationUserFacingReason(result.reason)}';
+          }
+        } else {
+          // READ (list/readFile): el stdout factual ES la respuesta.
+          final outcome = await _coordinator.runTool(linuxCmd.call);
+          linuxText = outcome.feedback;
+        }
+        if (!_isGenerationCurrent(generationId)) return;
+        final linuxMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: linuxText,
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+          source: MessageSource.device,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, linuxMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // Camino determinista (C7→C8): flujo verificado en cache, sin LLM.
+      // Principio: el LLM no hace el trabajo que un flujo puede hacer.
+      final deterministic = await _coordinator.tryDeterministic(t);
+      if (!_isGenerationCurrent(generationId)) return;
+      if (deterministic != null) {
+        final flowResult = deterministic.result;
+        if (flowResult.plan.pauseIndex != null) {
+          // Primer paso sensible del flow → misma pausa de confirmación que
+          // el plan del LLM.
+          _pendingPlan = deterministic.steps;
+          _pendingPlanIndex = flowResult.plan.pauseIndex;
+          _pendingPlanConfirmation = flowResult.plan.confirmation;
+          _pendingUserText = t;
+          _pendingTrace = const [];
+          _pendingCallText = '';
+          state = state.copyWith(
+            generating: false,
+            pendingTool: flowResult.plan.pauseCall?.tool,
+            pendingToolDescription: automationUserFacingReason(
+              flowResult.plan.summary,
+            ),
+          );
+          return;
+        }
+        final feedback = [
+          'Objetivo resuelto por flujo verificado (sin LLM):',
+          automationUserFacingReason(flowResult.plan.summary),
+          '[goal] ${flowResult.goal.reason}',
+        ].join('\n');
+        final flowMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: feedback,
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+          source: MessageSource.device,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, flowMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // Catálogo estático revisado: intenciones conocidas (por ejemplo leer
+      // notificaciones) se ejecutan con herramientas reales y nunca pasan por
+      // el planner ni por generación libre del GGUF.
+      final known = await _coordinator.tryKnownFlow(t);
+      if (!_isGenerationCurrent(generationId)) return;
+      if (known != null) {
+        final result = known.result;
+        if (result.isPaused) {
+          _pendingPlan = known.steps;
+          _pendingPlanIndex = result.pauseIndex;
+          _pendingPlanConfirmation = result.confirmation;
+          _pendingUserText = t;
+          _pendingTrace = const [];
+          _pendingCallText = '';
+          state = state.copyWith(
+            generating: false,
+            pendingTool: result.pauseTool,
+            pendingToolDescription: automationUserFacingReason(result.reason),
+          );
+          return;
+        }
+        final knownMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text:
+              'Ejecutado en el dispositivo (sin LLM):\n'
+              '${automationUserFacingReason(result.reason)}',
+          timestamp: DateTime.now(),
+          source: MessageSource.device,
+          status:
+              const {
+                AutomationResultStatus.denied,
+                AutomationResultStatus.noPlan,
+                AutomationResultStatus.failed,
+                AutomationResultStatus.outcomeUnknown,
+                AutomationResultStatus.cancelled,
+              }.contains(result.status)
+              ? MessageStatus.error
+              : MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, knownMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // Lenguaje natural determinista (TaskPlanner): mensajería y tareas
+      // cross-app se resuelven antes del gate GGUF. El resultado conserva
+      // needsConfirmation tipado y un consentimiento ligado a la acción exacta.
+      final crossApp = await _coordinator.tryCrossApp(t);
+      if (!_isGenerationCurrent(generationId)) return;
+      if (crossApp != null) {
+        final result = crossApp.result;
+        if (result.isPaused && result.confirmation != null) {
+          _pendingTaskGoal = t;
+          _pendingTaskConfirmation = result.confirmation;
+          _pendingUserText = t;
+          _pendingTrace = const [];
+          _pendingCallText = '';
+          state = state.copyWith(
+            generating: false,
+            pendingTool: result.pauseTool,
+            pendingToolDescription: automationUserFacingReason(result.reason),
+          );
+          return;
+        }
+        final taskMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text:
+              'Ejecutado en el dispositivo (sin LLM):\n'
+              '${automationUserFacingReason(result.reason)}',
+          timestamp: DateTime.now(),
+          source: MessageSource.device,
+          status:
+              const {
+                AutomationResultStatus.denied,
+                AutomationResultStatus.noPlan,
+                AutomationResultStatus.failed,
+                AutomationResultStatus.outcomeUnknown,
+                AutomationResultStatus.cancelled,
+              }.contains(result.status)
+              ? MessageStatus.error
+              : MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, taskMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // Las acciones deterministas anteriores no dependen del GGUF. La
+      // ausencia de modelo sólo bloquea la conversación que realmente necesita
+      // inferencia, nunca la lectura nativa del dispositivo.
+      if (!state.engineOnline && state.activeModelPath == null) {
+        final errorMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text:
+              'No hay un modelo seleccionado. Por favor, ve a la pestaña Modelos y selecciona uno para poder chatear.',
+          timestamp: DateTime.now(),
+          status: MessageStatus.error,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, errorMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      final engine = _ref.read(runtimeEngineProvider.notifier);
+      final ready = await engine.ensureReady(modelPath: state.activeModelPath);
+      if (!_isGenerationCurrent(generationId)) return;
+      if (!ready) {
+        final degraded = engine.phase == EnginePhase.degraded;
+        final errMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: degraded
+              ? 'El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos.'
+              : 'El motor no pudo arrancar: ${engine.reason ?? "fallo desconocido"}.',
+          timestamp: DateTime.now(),
+          status: MessageStatus.error,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, errMsg],
+          generating: false,
+          streamingText: '',
+          connection: degraded
+              ? ModelConnectionState.noModel
+              : ModelConnectionState.error,
+          engineOnline: engine.isLive,
+        );
+        _persistMessages();
+        return;
+      }
+      state = state.copyWith(
+        connection: ModelConnectionState.ready,
+        engineOnline: true,
+      );
+      await _generate(t, attachments, generationId);
+    } catch (e, stackTrace) {
+      if (!_isGenerationCurrent(generationId)) return;
+      debugPrint('[chat_provider] Error preparando el turno: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      final errorMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
-        text: degraded
-            ? 'El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos.'
-                        : 'El motor no pudo arrancar: ${engine.reason ?? "fallo desconocido"}.',
+        text: 'No se pudo completar la operación solicitada: $e',
         timestamp: DateTime.now(),
         status: MessageStatus.error,
       );
       state = state.copyWith(
-        messages: [...state.messages, errMsg],
+        messages: [...state.messages, errorMsg],
         generating: false,
         streamingText: '',
-        connection: degraded
-            ? ModelConnectionState.noModel
-            : ModelConnectionState.error,
-        engineOnline: engine.isLive,
       );
       _persistMessages();
-      return;
     }
-    if (!mounted) return;
-    state = state.copyWith(
-      connection: ModelConnectionState.ready,
-      engineOnline: true,
-    );
-    _generate(t, attachments);
   }
 
   /// Construye el historial como lista de turnos role/content para el motor.
@@ -496,7 +918,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     for (final msg in window) {
       result.add({
         'role': msg.sender == MessageSender.user ? 'user' : 'assistant',
-        'content': _promptClip(msg.text, _maxHistoryChars),
+        'content': ChatSystemPrompt.promptClip(msg.text, _maxHistoryChars),
       });
     }
     // Trace de herramientas: la llamada JSON como assistant y el resultado
@@ -504,13 +926,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
     for (var i = 0; i + 1 < toolTrace.length; i += 2) {
       result.add({
         'role': 'assistant',
-        'content': _promptClip(toolTrace[i], _maxToolTraceChars),
+        'content': ChatSystemPrompt.promptClip(
+          toolTrace[i],
+          _maxToolTraceChars,
+        ),
       });
       result.add({
         'role': 'user',
         'content':
             'Resultado de la herramienta:\n'
-            '${_promptClip(toolTrace[i + 1], _maxToolTraceChars)}',
+            '${ChatSystemPrompt.promptClip(toolTrace[i + 1], _maxToolTraceChars)}',
       });
     }
     return result;
@@ -518,45 +943,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Neutraliza tokens especiales que podrían cerrar/abrir roles del modelo
   /// cuando provienen de usuario, historial, adjuntos o resultados de tools.
-  String _promptSafe(String value) => value
-      .replaceAll('<|im_start|>', '< |im_start| >')
-      .replaceAll('<|im_end|>', '< |im_end| >')
-      .replaceAll(
-        '<\uFF5Cbegin\u2581of\u2581sentence\uFF5C>',
-        '< |begin_of_sentence| >',
-      )
-      .replaceAll(
-        '<\uFF5Cend\u2581of\u2581sentence\uFF5C>',
-        '< |end_of_sentence| >',
-      )
-      .replaceAll('<|start_header_id|>', '< |start_header_id| >')
-      .replaceAll('<|end_header_id|>', '< |end_header_id| >')
-      .replaceAll('<|eot_id|>', '< |eot_id| >')
-      .replaceAll('<|begin_of_text|>', '< |begin_of_text| >')
-      .replaceAll('<start_of_turn>', '< start_of_turn >')
-      .replaceAll('<end_of_turn>', '< end_of_turn >')
-      .replaceAll('[INST]', '[ INST ]')
-      .replaceAll('[/INST]', '[ /INST ]');
-
-  String _promptClip(String value, int maxChars) {
-    final safe = _promptSafe(value);
-    if (safe.length <= maxChars) return safe;
-    return '${safe.substring(0, maxChars)}\n[recortado]';
-  }
-
-  /// Bloque de adjuntos que se inyecta al turno user del prompt: contenido
-  /// REAL del archivo, delimitado para que el modelo lo distinga del texto
-  /// escrito por el usuario.
-  String _attachmentsBlock(List<ChatAttachment> attachments) {
-    final buffer = StringBuffer();
-    for (final a in attachments) {
-      buffer
-        ..writeln('[Adjunto: ${_promptClip(a.name, 160)}]')
-        ..writeln(_promptClip(a.content, _maxAttachmentChars))
-        ..writeln('[Fin de adjunto]');
-    }
-    return buffer.toString();
-  }
 
   /// Programa el siguiente flush del texto parcial si no hay uno pendiente.
   void _scheduleStreamFlush(StringBuffer buffer) {
@@ -581,24 +967,68 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _flushTimer = null;
   }
 
-  bool _requiresAutonomousToolConfirmation(ToolCall call) {
-    final mode = _ref.read(settingsProvider).agentAutomationMode;
-    return switch (mode) {
-      AgentAutomationMode.manual =>
-        call.tool != 'screen' && call.tool != 'resolve',
-      AgentAutomationMode.assisted =>
-        call.tool == 'tap' || call.tool == 'back' || call.tool == 'write',
-      AgentAutomationMode.autonomous => call.tool == 'write',
-    };
+  Future<void> _generate(
+    String text,
+    List<ChatAttachment> attachments,
+    int generationId,
+  ) => _generateRound(text, const <String>[], attachments, generationId);
+
+  int _beginGeneration() {
+    final generationId = ++_generationSequence;
+    _activeGenerationId = generationId;
+    _generationCancelled = false;
+    _roundLoopDetector.reset();
+    return generationId;
   }
 
-  String _toolConfirmationDescription(ToolCall call) {
-    final mode = _ref.read(settingsProvider).agentAutomationMode;
-    return '[policy] "${call.tool}" requiere confirmación en modo ${mode.label} antes de actuar sobre el dispositivo.';
+  bool _isStalledToolRound({
+    required List<ToolCall> calls,
+    required String before,
+    required String after,
+    required String feedback,
+  }) {
+    final callSignature = calls
+        .map((call) => call.confirmationSignature)
+        .join('\u001f');
+    final fingerprint =
+        '$callSignature\u001d$before\u001d$after\u001d$feedback';
+    return _roundLoopDetector.isLoop(
+      fingerprint,
+      repeatThreshold: 2,
+      minimumHistory: 2,
+      detectAlternating: false,
+    );
   }
 
-  Future<void> _generate(String text, List<ChatAttachment> attachments) =>
-      _generateRound(text, const <String>[], attachments);
+  void _stopStalledToolLoop() {
+    final message = ChatMessage(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      sender: MessageSender.ai,
+      text:
+          '[loopDetected] La misma herramienta devolvió el mismo resultado '
+          'sin cambiar la pantalla. Se detuvo para evitar repetir acciones.',
+      timestamp: DateTime.now(),
+      status: MessageStatus.error,
+    );
+    state = state.copyWith(
+      messages: [...state.messages, message],
+      generating: false,
+      streamingText: '',
+    );
+    _persistMessages();
+  }
+
+  Future<void> _startGenerationRound(
+    String text,
+    List<String> toolTrace,
+    List<ChatAttachment> attachments,
+  ) {
+    final generationId = _beginGeneration();
+    return _generateRound(text, toolTrace, attachments, generationId);
+  }
+
+  bool _isGenerationCurrent(int generationId) =>
+      mounted && !_generationCancelled && _activeGenerationId == generationId;
 
   /// Devuelve el historial anterior al turno user actual. En rondas con tools,
   /// el estado ya contiene mensajes assistant con llamadas JSON visibles;
@@ -634,8 +1064,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
     String text,
     List<String> toolTrace,
     List<ChatAttachment> attachments,
+    int generationId,
   ) async {
-    _generationCancelled = false;
     // El historial YA incluye el turno actual y, si hubo tools, sus trazas
     // visibles. Se excluye todo eso para que no se dupliquen turnos.
     // El prompt viaja CRUDO: el motor aplica el chat template real del
@@ -643,31 +1073,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // turnos previos como role/content (el core los templatea bien).
     final history = _historyBeforeCurrentUser(text);
     final prompt =
-        '${toolTrace.isEmpty ? _attachmentsBlock(attachments) : ''}'
-        '${_promptClip(text, _maxUserChars)}';
+        '${toolTrace.isEmpty ? ChatSystemPrompt.attachmentsBlock(attachments, _maxAttachmentChars) : ''}'
+        '${ChatSystemPrompt.promptClip(text, _maxUserChars)}';
 
-    // Streaming: cada token actualiza streamingText en tiempo real.
-    final settings = _ref.read(settingsProvider);
-    // Gate R6 — request_id por generación: permite que stop() haga un
-    // POST /cancel cooperativo (corta stream + invalida KV de la sesión),
-    // en vez de solo cerrar el socket y dejar el worker calculando. El id
-    // lo genera el propio cliente (LLMEngineClient.newRequestId) y viaja en
-    // el body JSON para que el server correlacione la cancelación.
-    final (:stream, :client, :requestId) = _engine.generateStream(
-      prompt: prompt,
-      temperature: settings.temperature,
-      topP: settings.topP,
-      maxTokens: settings.maxTokens.clamp(32, 4096),
-      sessionId: _sessionId,
-      context: _buildSystemPrompt(),
-      history: _buildHistory(history, toolTrace),
-    );
-    _streamClient = client;
-    _activeRequestId = requestId;
-    _activeConnections++; // CORRECCIÓN CRÍTICA: Monitoreo de conexiones activas
-    debugPrint('[chat_provider] Conexión activa: $_activeConnections');
-
+    _StreamLease? lease;
     try {
+      if (!_isGenerationCurrent(generationId)) return;
+      // Streaming: cada token actualiza streamingText en tiempo real.
+      final settings = _ref.read(settingsProvider);
+      final (:stream, :client, :requestId) = _engine.generateStream(
+        prompt: prompt,
+        temperature: settings.temperature,
+        topP: settings.topP,
+        maxTokens: settings.maxTokens.clamp(32, 4096),
+        sessionId: _sessionId,
+        context: _buildSystemPrompt(),
+        history: _buildHistory(history, toolTrace),
+      );
+      lease = _StreamLease(
+        generationId: generationId,
+        client: client,
+        requestId: requestId,
+      );
+      _activeStream = lease;
+      _activeConnections++;
+      debugPrint('[chat_provider] Conexión activa: $_activeConnections');
+
       final buffer = StringBuffer();
       double? finalTps;
       TurnMetrics? turnMetrics;
@@ -682,11 +1113,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           );
         },
       )) {
-        if (_generationCancelled || !mounted) {
-          _streamClient?.close();
-          _streamClient = null;
-          return;
-        }
+        if (!_isGenerationCurrent(generationId)) return;
         // Heartbeat de fase (R3): "model_loading" → chip CARGANDO honesto.
         if (token.phase == 'model_loading') {
           state = state.copyWith(connection: ModelConnectionState.loadingModel);
@@ -707,7 +1134,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       // Flush del texto parcial restante
       _cancelStreamFlush();
 
-      if (_generationCancelled || !mounted) return;
+      if (!_isGenerationCurrent(generationId)) return;
 
       final fullText = buffer.toString().trim();
       if (fullText.isEmpty) {
@@ -732,12 +1159,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
         return;
       }
 
-      // Tool-calling: si el modelo respondió una llamada a herramienta,
-      // ejecutarla (bajo política §12) y re-generar con el resultado en el
-      // trace. Una escritura externa pausa el turno a la espera de
-      // confirmación del usuario (approvePendingTool/rejectPendingTool).
-      final toolCall = AgentToolProtocol.extractToolCall(fullText);
-      if (toolCall != null && toolTrace.length ~/ 2 < _maxToolRounds) {
+      // Tool-calling: si el modelo respondió llamadas a herramientas,
+      // ejecutarlas (bajo política §12) y re-generar con el resultado en el
+      // trace. Soporta plan multi-paso (array de tools): los pasos se
+      // ejecutan secuencialmente, cada uno con policy + AgentLoop
+      // (retry/verificación); si uno falla, el plan se aborta; si uno pide
+      // confirmación humana, el turno pausa y se reanuda desde ese paso.
+      final toolCalls = AgentToolProtocol.extractToolCalls(fullText);
+      if (toolCalls.isNotEmpty && toolTrace.length ~/ 2 < _maxToolRounds) {
         // La llamada queda visible en el chat (trace honesto del agente).
         final toolMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -752,39 +1181,49 @@ class ChatNotifier extends StateNotifier<ChatState> {
         );
         _persistMessages();
 
-        if (_requiresAutonomousToolConfirmation(toolCall)) {
-          _pendingCall = toolCall;
+        final worldBefore = await _tools.worldFingerprint();
+        final result = await _coordinator.execute(
+          AutomationGoal(text: text),
+          plan: toolCalls,
+        );
+        if (!_isGenerationCurrent(generationId)) return;
+        if (result.isPaused && result.confirmation != null) {
+          // La pausa conserva plan, ejecución, paso y firma de acción exactos.
+          _pendingPlan = toolCalls;
+          _pendingPlanIndex = result.pauseIndex;
+          _pendingPlanConfirmation = result.confirmation;
           _pendingUserText = text;
           _pendingTrace = toolTrace;
           _pendingCallText = fullText;
           state = state.copyWith(
             generating: false,
-            pendingTool: toolCall.tool,
-            pendingToolDescription: _toolConfirmationDescription(toolCall),
+            pendingTool: result.pauseTool,
+            pendingToolDescription: automationUserFacingReason(result.reason),
           );
           return;
         }
-
-        final outcome = await _tools.runToolGuarded(toolCall);
-        if (!mounted || _generationCancelled) return;
-        if (outcome.needsConfirmation) {
-          // Pausa: guardar contexto de reanudación y exponer el diálogo.
-          _pendingCall = toolCall;
-          _pendingUserText = text;
-          _pendingTrace = toolTrace;
-          _pendingCallText = fullText;
-          state = state.copyWith(
-            generating: false,
-            pendingTool: toolCall.tool,
-            pendingToolDescription: outcome.feedback,
-          );
+        final feedback = automationUserFacingReason(result.reason);
+        final worldAfter = await _tools.worldFingerprint();
+        if (_isStalledToolRound(
+          calls: toolCalls,
+          before: worldBefore,
+          after: worldAfter,
+          feedback: feedback,
+        )) {
+          _releaseStream(lease, 'loop de herramientas');
+          _stopStalledToolLoop();
           return;
         }
-        await _generateRound(text, [
-          ...toolTrace,
-          fullText,
-          outcome.feedback,
-        ], const []);
+        // El stream de esta ronda ya terminó. Libera su cliente ANTES de
+        // entrar a la siguiente ronda para que la referencia compartida no
+        // sea reemplazada y el finally externo cierre el cliente nuevo.
+        _releaseStream(lease, 'entre rondas');
+        await _generateRound(
+          text,
+          [...toolTrace, fullText, feedback],
+          const [],
+          generationId,
+        );
         return;
       }
 
@@ -815,7 +1254,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       );
       _persistMessages();
     } on LLMEngineException catch (e) {
-      if (!mounted || _generationCancelled) return;
+      if (!_isGenerationCurrent(generationId)) return;
       // Distinguir 503 runtime_unavailable (motor vivo sin GGUF) del resto:
       // el mensaje honesto cambia y connection pasa a noModel, no a error.
       final engine = _ref.read(runtimeEngineProvider.notifier);
@@ -825,7 +1264,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         sender: MessageSender.ai,
         text: degraded
             ? 'El motor está vivo pero no hay modelo GGUF instalado. Descárgalo desde el catálogo de modelos. (${state.activeModel})'
-                        : 'El motor llama.cpp no respondió: ${e.message}. (${state.activeModel})',
+            : 'El motor llama.cpp no respondió: ${e.message}. (${state.activeModel})',
         timestamp: DateTime.now(),
         status: MessageStatus.error,
       );
@@ -839,23 +1278,46 @@ class ChatNotifier extends StateNotifier<ChatState> {
         engineOnline: engine.isLive,
       );
       _persistMessages();
+    } catch (e, stackTrace) {
+      if (!_isGenerationCurrent(generationId)) return;
+      debugPrint('[chat_provider] Error inesperado de generación: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      final aiMsg = ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        sender: MessageSender.ai,
+        text: 'No se pudo iniciar o completar la generación: $e',
+        timestamp: DateTime.now(),
+        status: MessageStatus.error,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, aiMsg],
+        generating: false,
+        streamingText: '',
+        connection: ModelConnectionState.error,
+      );
+      _persistMessages();
     } finally {
-      // Finally block garantizado para cerrar cliente y evitar memory leaks.
-      // Si stop() ya cerró el cliente (_streamClient == null), no hacer nada
-      // para evitar doble decremento de _activeConnections.
-      _cancelStreamFlush();
-      _activeRequestId = null; // generación terminada (natural o por stop)
-      if (_streamClient != null) {
-        final clientToClose = _streamClient;
-        _streamClient = null;
-        if (_activeConnections > 0) _activeConnections--;
-        try {
-          clientToClose!.close();
-          debugPrint('[chat_provider] Cliente HTTP cerrado en finally. Activas: $_activeConnections');
-        } catch (e) {
-          debugPrint('[chat_provider] Error cerrando cliente HTTP en finally: $e');
-        }
+      if (_activeGenerationId == generationId) {
+        _cancelStreamFlush();
+        _activeGenerationId = null;
       }
+      if (lease != null) _releaseStream(lease, 'finally');
+    }
+  }
+
+  void _releaseStream(_StreamLease lease, String reason) {
+    if (lease.released) return;
+    lease.released = true;
+    if (identical(_activeStream, lease)) _activeStream = null;
+    if (_activeConnections > 0) _activeConnections--;
+    try {
+      lease.client.close();
+      debugPrint(
+        '[chat_provider] Cliente HTTP cerrado ($reason). '
+        'Activas: $_activeConnections',
+      );
+    } catch (e) {
+      debugPrint('[chat_provider] Error cerrando cliente ($reason): $e');
     }
   }
 
@@ -864,7 +1326,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> _cancelCooperativo(String requestId) async {
     try {
       final ok = await _engine.cancelRequest(requestId);
-      debugPrint('[chat_provider] cancel $requestId ${ok ? 'confirmado' : 'no encontrado'}');
+      debugPrint(
+        '[chat_provider] cancel $requestId ${ok ? 'confirmado' : 'no encontrado'}',
+      );
     } catch (e) {
       debugPrint('[chat_provider] cancel request error: $e');
     }
@@ -873,6 +1337,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // STOP cancela la respuesta PENDIENTE
   void stop() {
     _generationCancelled = true;
+    _activeGenerationId = null;
     // Cancelar el flush pendiente ANTES de cerrar el cliente: evita que un
     // timer de 32ms escriba streamingText residual con generating=false.
     _cancelStreamFlush();
@@ -881,27 +1346,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // servidor (incluso durante prefill) e invalida el KV de la sesión.
     // Sin esto, cerrar solo el socket dejaba el worker calculando con KV a
     // medias que el siguiente turno heredaba (estado corrupto).
-    final requestId = _activeRequestId;
-    _activeRequestId = null;
-    if (requestId != null) {
+    final lease = _activeStream;
+    if (lease != null) {
       // Fire-and-forget con manejo de error: si /cancel falla, el cierre de
       // socket de abajo sigue como fallback de corte de stream.
-      unawaited(_cancelCooperativo(requestId));
-    }
-
-    // Cerrar cliente HTTP. El bloque finally de _generateRound también
-    // intenta cerrarlo, por eso se marca null ANTES de cerrar para que
-    // el finally encuentre null y no haga doble decremento de _activeConnections.
-    if (_streamClient != null) {
-      final clientToClose = _streamClient;
-      _streamClient = null; // marcar null primero para evitar doble cierre
-      if (_activeConnections > 0) _activeConnections--;
-      try {
-        clientToClose!.close();
-        debugPrint('[chat_provider] Cliente HTTP cerrado por stop(). Activas: $_activeConnections');
-      } catch (e) {
-        debugPrint('[chat_provider] Error cerrando cliente HTTP en stop(): $e');
-      }
+      unawaited(_cancelCooperativo(lease.requestId));
+      _releaseStream(lease, 'stop');
     }
 
     state = state.copyWith(generating: false, streamingText: '');
@@ -909,18 +1359,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   Future<void> clear() async {
+    _historyTouched = true;
     if (state.generating) stop();
     _sessionId = _newSessionId();
     state = state.copyWith(messages: [], input: '', streamingText: '');
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_historyKey);
-    } catch (e) {
-      debugPrint('[chat_provider] Error en persistencia: $e');
-    }
+    await _historyStore.clear();
   }
 
   void delete(String id) {
+    _historyTouched = true;
     state = state.copyWith(
       messages: state.messages.where((m) => m.id != id).toList(),
     );
@@ -933,7 +1380,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final msgs = state.messages;
     final errIdx = msgs.indexWhere((m) => m.id == errorMessageId);
     if (errIdx < 1) return;
-    
+
     // Buscar el último mensaje del usuario antes del mensaje de error
     ChatMessage? userMsg;
     for (var i = errIdx - 1; i >= 0; i--) {
@@ -943,6 +1390,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
     }
     if (userMsg == null) return;
+    _historyTouched = true;
 
     // Eliminar AMBOS: el error y el mensaje del usuario
     final newMsgs = msgs
@@ -976,27 +1424,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Gate R5 — rotar sesión al cambiar de modelo: garantiza que el KV viejo
     // nunca se reutilice aunque el motor NO se reinicie (el core ya resetea la
     // sesión en load_model, esto es defensa extra en el cliente).
-    if (name != state.activeModel) {
+    final modelChanged = name != state.activeModel;
+    final pathChanged = path != null && path != state.activeModelPath;
+    if (modelChanged || pathChanged) {
       _sessionId = _newSessionId();
       debugPrint('[chat_provider] modelo cambiado → nueva sesión $_sessionId');
     }
+    final revision = ++_modelSelectionRevision;
     // SELinux impide que la app rearranque el motor per-selección.
     state = state.copyWith(
       activeModel: name,
-      activeModelPath: path ?? state.activeModelPath,
+      activeModelPath: modelChanged ? path : (path ?? state.activeModelPath),
       connection: ModelConnectionState.loadingModel,
       showModelSelector: false,
     );
     _loadTimer?.cancel();
     _loadTimer = Timer(const Duration(milliseconds: 600), () async {
       _loadTimer = null;
-      await _checkEngine(name);
-      if (!mounted) return;
+      await _checkEngine(model: name, expectedRevision: revision);
+      if (!mounted || revision != _modelSelectionRevision) return;
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('nanoai_active_model', name);
         if (path != null) {
           await prefs.setString('nanoai_active_model_path', path);
+        } else if (modelChanged) {
+          await prefs.remove('nanoai_active_model_path');
         }
       } catch (e) {
         debugPrint('[chat_provider] Error en persistencia: $e');
@@ -1006,33 +1459,35 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   @override
   void dispose() {
+    _generationCancelled = true;
+    _activeGenerationId = null;
     _cancelStreamFlush();
-    
-    // CORRECCIÓN CRÍTICA: Asegurar limpieza de recursos en dispose
-    if (_streamClient != null) {
-      try {
-        _streamClient!.close();
-        debugPrint('[chat_provider] Cliente HTTP cerrado en dispose()');
-      } catch (e) {
-        debugPrint('[chat_provider] Error cerrando cliente HTTP en dispose(): $e');
-      } finally {
-        _streamClient = null;
-        _activeConnections--;
-      }
-    }
-    
+    final lease = _activeStream;
+    if (lease != null) _releaseStream(lease, 'dispose');
+
     _loadTimer?.cancel();
-    
+    final voiceSession = _voiceSessionCache;
+    if (voiceSession != null) unawaited(voiceSession.dispose());
+
     // CORRECCIÓN CRÍTICA: Verificar memory leaks al dispose
     if (_activeConnections > 0) {
-      debugPrint('[chat_provider] WARNING: $_activeConnections conexiones activas en dispose()');
+      debugPrint(
+        '[chat_provider] WARNING: $_activeConnections conexiones activas en dispose()',
+      );
     }
-    
+
     // El client es propiedad de RuntimeEngineNotifier: él lo dispone.
     super.dispose();
   }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
-  (ref) => ChatNotifier(ref),
+final StateNotifierProvider<ChatNotifier, ChatState>
+chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
+  // Inyección real (DI): el dispatcher viene del composition root
+  // (agent_dependencies.dart) con sus dependencias reales cableadas una vez.
+  // El coordinator se resuelve de forma lazy mediante [_coordinator]:
+  // AutomationModelResolver consulta este estado y una dependencia eager aquí
+  // cerraría el ciclo chat -> coordinator -> resolver -> chat.
+  (ref) =>
+      ChatNotifier(ref, toolDispatcher: ref.watch(agentDispatcherProvider)),
 );

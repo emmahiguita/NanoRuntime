@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
@@ -7,8 +6,9 @@ import '../theme/nano_motion.dart';
 
 /// Fondo ambiental dinámico de marca compartido por todas las pantallas nanoai.
 ///
-/// Unifica el gradiente óptico + blobs orbitales difuminados que respiran
-/// sutilmente con física armónica y reaccionan al acento cromático activo.
+/// Unifica el gradiente óptico + resplandores orbitales puros que respiran
+/// sutilmente con física armónica y reaccionan al acento cromático activo,
+/// garantizando máxima nitidez, colores puros y cero halos sucios en modo claro.
 class NanoAmbientBackground extends StatefulWidget {
   final bool animated;
   final Color? activeAccent;
@@ -97,71 +97,18 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
           final ox3 = math.sin(t + 2.4) * 20.0;
           final oy3 = math.cos(t + 2.4) * 16.0;
 
-          final activeColor = widget.activeAccent ?? (isDark ? colors.accent : colors.accentCyan);
+          final activeColor =
+              widget.activeAccent ??
+              (isDark ? colors.accent : colors.accentCyan);
 
           if (!isDark) {
-            // Modo Claro Universal Óptico Dinámico
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFFFBFCFE),
-                        Color(0xFFF7F9FC),
-                        Color(0xFFF4F8FC),
-                        Color(0xFFF9FBFD),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: -120 + ox1,
-                  top: 220 + oy1,
-                  child: _LightBlob(
-                    size: 340,
-                    color: Color.lerp(colors.nanoViolet, activeColor, 0.28)!,
-                    opacity: 0.058,
-                  ),
-                ),
-                Positioned(
-                  right: -130 + ox2,
-                  top: 320 + oy2,
-                  child: _LightBlob(
-                    size: 360,
-                    color: Color.lerp(colors.nanoCyan, activeColor, 0.40)!,
-                    opacity: 0.068,
-                  ),
-                ),
-                Positioned(
-                  left: 60 + ox3,
-                  bottom: 70 + oy3,
-                  child: _LightBlob(
-                    size: 310,
-                    color: colors.nanoBlue,
-                    opacity: 0.038,
-                  ),
-                ),
-              ],
-            );
+            return ColoredBox(color: colors.backgroundPrimary);
           }
 
-          // Modo Oscuro Dinámico
-          final gradient = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colors.bgTop,
-              colors.bgMiddle,
-              colors.bgBottom,
-            ],
-          );
-
-          return DecoratedBox(
-            decoration: BoxDecoration(gradient: gradient),
+          // Modo oscuro uniforme: el cristal aporta la profundidad. Evita la
+          // franja turquesa inferior que competía con tarjetas y textos.
+          return ColoredBox(
+            color: colors.backgroundPrimary,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -171,7 +118,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
                   child: _Glow(
                     size: 420,
                     color: Color.lerp(colors.nanoBlue, activeColor, 0.35)!,
-                    alpha: 0.16,
+                    alpha: 0.055,
                   ),
                 ),
                 Positioned(
@@ -180,7 +127,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
                   child: _Glow(
                     size: 520,
                     color: Color.lerp(colors.nanoCyan, activeColor, 0.45)!,
-                    alpha: 0.16,
+                    alpha: 0.040,
                   ),
                 ),
                 if (widget.activeAccent != null)
@@ -190,7 +137,7 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
                     child: _Glow(
                       size: 260,
                       color: widget.activeAccent!,
-                      alpha: 0.08,
+                      alpha: 0.035,
                     ),
                   ),
               ],
@@ -203,119 +150,26 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
 
   Widget _buildStaticBackground(NanoColors colors, bool isDark) {
     if (!isDark) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFBFCFE),
-                  Color(0xFFF7F9FC),
-                  Color(0xFFF4F8FC),
-                  Color(0xFFF9FBFD),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: -120,
-            top: 240,
-            child: _LightBlob(
-              size: 330,
-              color: colors.nanoViolet,
-              opacity: 0.055,
-            ),
-          ),
-          Positioned(
-            right: -130,
-            top: 340,
-            child: _LightBlob(
-              size: 350,
-              color: colors.nanoCyan,
-              opacity: 0.065,
-            ),
-          ),
-          Positioned(
-            left: 70,
-            bottom: 80,
-            child: _LightBlob(
-              size: 300,
-              color: colors.nanoBlue,
-              opacity: 0.035,
-            ),
-          ),
-        ],
-      );
+      return ColoredBox(color: colors.backgroundPrimary);
     }
 
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        colors.bgTop,
-        colors.bgMiddle,
-        colors.bgBottom,
-      ],
-    );
-
     return RepaintBoundary(
-      child: DecoratedBox(
-        decoration: BoxDecoration(gradient: gradient),
+      child: ColoredBox(
+        color: colors.backgroundPrimary,
         child: Stack(
           fit: StackFit.expand,
           children: [
             Positioned(
               top: -50,
               right: -100,
-              child: _Glow(
-                size: 400,
-                color: colors.nanoBlue,
-                alpha: 0.15,
-              ),
+              child: _Glow(size: 400, color: colors.nanoBlue, alpha: 0.05),
             ),
             Positioned(
               bottom: -100,
               left: -150,
-              child: _Glow(
-                size: 500,
-                color: colors.nanoCyan,
-                alpha: 0.15,
-              ),
+              child: _Glow(size: 500, color: colors.nanoCyan, alpha: 0.04),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LightBlob extends StatelessWidget {
-  final double size;
-  final Color color;
-  final double opacity;
-
-  const _LightBlob({
-    required this.size,
-    required this.color,
-    required this.opacity,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(
-        sigmaX: 80,
-        sigmaY: 80,
-      ),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color.withValues(alpha: opacity),
         ),
       ),
     );
@@ -337,7 +191,12 @@ class _Glow extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: RadialGradient(
-          colors: [color.withValues(alpha: alpha), color.withValues(alpha: 0)],
+          colors: [
+            color.withValues(alpha: alpha),
+            color.withValues(alpha: alpha * 0.4),
+            color.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.55, 1.0],
         ),
       ),
     );

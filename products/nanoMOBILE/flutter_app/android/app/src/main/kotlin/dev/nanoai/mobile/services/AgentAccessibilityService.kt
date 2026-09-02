@@ -3,12 +3,16 @@ package dev.nanoai.mobile.services
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.RuntimeHeartbeat
 import java.io.File
@@ -37,12 +41,21 @@ class AgentAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "nanoagent"
-        private const val MAX_DEPTH = 10
+        // UIs modernas como WhatsApp anidan barras y filas accionables por
+        // encima de 10 niveles. El límite de nodos sigue acotando el costo del
+        // snapshot; esta profundidad evita truncar evidencia útil antes de
+        // llegar a esos controles reales.
+        private const val MAX_DEPTH = 24
         private const val MAX_NODES = 800
     }
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainThreadHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private data class TraversalState(
+        var nodeLimitReached: Boolean = false,
+        var depthLimitReached: Boolean = false,
+    )
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -111,13 +124,97 @@ class AgentAccessibilityService : AccessibilityService() {
      * "" (nunca excepción).
      */
     fun dumpSnapshot(): Map<String, Any?> {
-        val root = rootInActiveWindow
-            ?: return mapOf("package" to "", "nodes" to emptyList<Map<String, Any?>>())
+        val availableWindows = windows.orEmpty()
+        val roots = mutableListOf<Pair<AccessibilityWindowInfo?, AccessibilityNodeInfo>>()
+        for (window in availableWindows) {
+            window.root?.let { roots.add(window to it) }
+        }
+        if (roots.isEmpty()) {
+            rootInActiveWindow?.let { roots.add(null to it) }
+        }
+        if (roots.isEmpty()) {
+            return mapOf(
+                "package" to "",
+                "nodes" to emptyList<Map<String, Any?>>(),
+                "windows" to emptyList<Map<String, Any?>>(),
+                "truncated" to false,
+                "nodeLimitReached" to false,
+                "depthLimitReached" to false,
+            )
+        }
         val result = mutableListOf<Map<String, Any?>>()
-        walk(root, 0, result, withDepth = true)
-        val pkg = root.packageName?.toString() ?: ""
-        root.recycle()
-        return mapOf("package" to pkg, "nodes" to result)
+        val windowRows = mutableListOf<Map<String, Any?>>()
+        val traversal = TraversalState()
+        var activeApplicationPackage = ""
+        var focusedApplicationPackage = ""
+        var applicationPackage = ""
+        var activeOverlayPackage = ""
+        var fallbackPackage = ""
+        for ((window, root) in roots) {
+            val windowId = window?.id ?: root.windowId
+            val windowType = window?.type ?: AccessibilityWindowInfo.TYPE_APPLICATION
+            val displayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window?.displayId ?: Display.DEFAULT_DISPLAY
+            } else {
+                Display.DEFAULT_DISPLAY
+            }
+            val pkg = root.packageName?.toString() ?: ""
+            if (pkg.isNotEmpty()) {
+                if (fallbackPackage.isEmpty()) fallbackPackage = pkg
+                if (windowType == AccessibilityWindowInfo.TYPE_APPLICATION) {
+                    if (applicationPackage.isEmpty()) applicationPackage = pkg
+                    if (window?.isFocused == true) focusedApplicationPackage = pkg
+                    if (window?.isActive == true) activeApplicationPackage = pkg
+                } else if (window?.isActive == true) {
+                    activeOverlayPackage = pkg
+                }
+            }
+            val rootIdentity = nodeIdentity(root, windowId)
+            windowRows.add(
+                mapOf(
+                    "windowId" to windowId,
+                    "windowType" to windowType,
+                    "displayId" to displayId,
+                    "package" to pkg,
+                    "rootIdentity" to rootIdentity,
+                    "active" to (window?.isActive ?: true),
+                    "focused" to (window?.isFocused ?: true),
+                ),
+            )
+            walk(
+                root,
+                0,
+                result,
+                withDepth = true,
+                traversal = traversal,
+                windowId = windowId,
+                windowType = windowType,
+                displayId = displayId,
+                rootIdentity = rootIdentity,
+                parentIndex = null,
+                siblingIndex = 0,
+            )
+            root.recycle()
+        }
+        // El IME es una ventana activa separada. No debe convertir a Gboard en
+        // la app actual mientras Nano escribe dentro de WhatsApp/Chrome. Una
+        // ventana TYPE_APPLICATION activa o enfocada conserva ownership; un
+        // overlay activo solo gana cuando no existe aplicación observable.
+        val activePackage = activeApplicationPackage.ifEmpty {
+            focusedApplicationPackage.ifEmpty {
+                applicationPackage.ifEmpty {
+                    activeOverlayPackage.ifEmpty { fallbackPackage }
+                }
+            }
+        }
+        return mapOf(
+            "package" to activePackage,
+            "nodes" to result,
+            "windows" to windowRows,
+            "truncated" to (traversal.nodeLimitReached || traversal.depthLimitReached),
+            "nodeLimitReached" to traversal.nodeLimitReached,
+            "depthLimitReached" to traversal.depthLimitReached,
+        )
     }
 
     private fun walk(
@@ -125,17 +222,69 @@ class AgentAccessibilityService : AccessibilityService() {
         depth: Int,
         out: MutableList<Map<String, Any?>>,
         withDepth: Boolean = false,
+        traversal: TraversalState? = null,
+        windowId: Int = 0,
+        windowType: Int = AccessibilityWindowInfo.TYPE_APPLICATION,
+        displayId: Int = Display.DEFAULT_DISPLAY,
+        rootIdentity: String = "",
+        parentIndex: Int? = null,
+        siblingIndex: Int = 0,
     ) {
-        if (node == null || depth > MAX_DEPTH || out.size >= MAX_NODES) return
-        out.add(if (withDepth) nodeToMap(node, depth) else nodeToMap(node))
+        if (node == null) return
+        if (depth > MAX_DEPTH) {
+            traversal?.depthLimitReached = true
+            return
+        }
+        if (out.size >= MAX_NODES) {
+            traversal?.nodeLimitReached = true
+            return
+        }
+        val currentIndex = out.size
+        out.add(
+            if (withDepth) {
+                nodeToMap(
+                    node,
+                    depth,
+                    windowId,
+                    windowType,
+                    displayId,
+                    rootIdentity,
+                    parentIndex,
+                    siblingIndex,
+                )
+            } else {
+                nodeToMap(node)
+            },
+        )
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
-            walk(child, depth + 1, out, withDepth)
+            walk(
+                child,
+                depth + 1,
+                out,
+                withDepth,
+                traversal,
+                windowId,
+                windowType,
+                displayId,
+                rootIdentity,
+                currentIndex,
+                i,
+            )
             child?.recycle()
         }
     }
 
-    private fun nodeToMap(node: AccessibilityNodeInfo, depth: Int? = null): Map<String, Any?> {
+    private fun nodeToMap(
+        node: AccessibilityNodeInfo,
+        depth: Int? = null,
+        windowId: Int = 0,
+        windowType: Int = AccessibilityWindowInfo.TYPE_APPLICATION,
+        displayId: Int = Display.DEFAULT_DISPLAY,
+        rootIdentity: String = "",
+        parentIndex: Int? = null,
+        siblingIndex: Int = 0,
+    ): Map<String, Any?> {
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
         return buildMap {
@@ -147,14 +296,30 @@ class AgentAccessibilityService : AccessibilityService() {
             put("editable", node.isEditable)
             put("scrollable", node.isScrollable)
             put("checked", node.isChecked)
+            put("selected", node.isSelected)
             put("focusable", node.isFocusable)
             put("focused", node.isFocused)
             put("visible", node.isVisibleToUser)
             put("enabled", node.isEnabled)
+            put("package", node.packageName?.toString() ?: "")
             put("bounds", intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom))
             // Solo dumpSnapshot incluye depth; dumpScreen conserva su contrato.
-            if (depth != null) put("depth", depth)
+            if (depth != null) {
+                put("depth", depth)
+                put("windowId", windowId)
+                put("windowType", windowType)
+                put("displayId", displayId)
+                put("rootIdentity", rootIdentity)
+                put("parentIndex", parentIndex)
+                put("siblingIndex", siblingIndex)
+            }
         }
+    }
+
+    private fun nodeIdentity(node: AccessibilityNodeInfo, windowId: Int): String {
+        val bounds = Rect().also(node::getBoundsInScreen)
+        return "$windowId|${node.viewIdResourceName ?: ""}|${node.className ?: ""}|" +
+            "${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}"
     }
 
     // ── Búsqueda ─────────────────────────────────────────────────────────────
@@ -200,6 +365,75 @@ class AgentAccessibilityService : AccessibilityService() {
     /** Tap en coordenadas absolutas de pantalla. */
     fun tapAt(x: Int, y: Int): Boolean = gestureTap(x, y)
 
+    /** Click ligado al target reidentificado. ACTION_CLICK primero; gesto sólo
+     * después de confirmar exactamente package, id/clase/texto y bounds. */
+    fun clickTarget(
+        packageName: String,
+        resourceId: String,
+        className: String,
+        text: String,
+        description: String,
+        targetBounds: IntArray,
+    ): Map<String, Any?> {
+        if (targetBounds.size != 4) return mapOf("ok" to false, "code" to "BAD_BOUNDS")
+        val matches = mutableListOf<AccessibilityNodeInfo>()
+        val roots = windows.orEmpty().mapNotNull { it.root }.ifEmpty {
+            listOfNotNull(rootInActiveWindow)
+        }
+        for (root in roots) {
+            val stack = ArrayDeque<AccessibilityNodeInfo>()
+            stack.add(root)
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                val bounds = Rect().also(node::getBoundsInScreen)
+                val compatible = TargetMatchPolicy.matches(
+                    TargetIdentity(
+                        packageName = node.packageName?.toString().orEmpty(),
+                        resourceId = node.viewIdResourceName.orEmpty(),
+                        className = node.className?.toString().orEmpty(),
+                        text = node.text?.toString().orEmpty(),
+                        description = node.contentDescription?.toString().orEmpty(),
+                        bounds = intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                    ),
+                    TargetIdentity(
+                        packageName = packageName,
+                        resourceId = resourceId,
+                        className = className,
+                        text = text,
+                        description = description,
+                        bounds = targetBounds,
+                    ),
+                )
+                if (compatible) matches.add(AccessibilityNodeInfo.obtain(node))
+                for (i in 0 until node.childCount) node.getChild(i)?.let(stack::add)
+                if (node !== root) node.recycle()
+            }
+            root.recycle()
+        }
+        if (matches.size != 1) {
+            matches.forEach(AccessibilityNodeInfo::recycle)
+            return mapOf(
+                "ok" to false,
+                "code" to if (matches.isEmpty()) "TARGET_CHANGED" else "TARGET_AMBIGUOUS",
+            )
+        }
+        val node = matches.single()
+        if (!node.isVisibleToUser || !node.isEnabled || !node.isClickable) {
+            node.recycle()
+            return mapOf("ok" to false, "code" to "NOT_ACTIONABLE")
+        }
+        val bounds = Rect().also(node::getBoundsInScreen)
+        val nativeClicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        node.recycle()
+        if (nativeClicked) return mapOf("ok" to true, "method" to "node")
+        val gestured = gestureTap(bounds.centerX(), bounds.centerY())
+        return mapOf(
+            "ok" to gestured,
+            "method" to if (gestured) "verifiedGesture" else "none",
+            "code" to if (gestured) "OK" else "GESTURE_REJECTED",
+        )
+    }
+
     fun longPressAt(x: Int, y: Int, durationMs: Int = 600): Boolean =
         gestureTap(x, y, durationMs.coerceAtLeast(400))
 
@@ -215,9 +449,13 @@ class AgentAccessibilityService : AccessibilityService() {
         return dispatchGesture(gesture, null, null)
     }
 
-    /** Escribe texto en el nodo enfocado (ACTION_SET_TEXT). */
-    fun inputText(text: String): Boolean {
-        val node = findFocusedEditable() ?: return false
+    /**
+     * Escribe texto únicamente en el nodo resuelto por Dart. El foco, id y
+     * bounds deben seguir coincidiendo en el instante de ACTION_SET_TEXT;
+     * cualquier cambio de pantalla/foco aborta en vez de escribir en otro campo.
+     */
+    fun inputText(text: String, targetResourceId: String, targetBounds: IntArray): Boolean {
+        val node = findFocusedEditable(targetResourceId, targetBounds) ?: return false
         val args = Bundle().apply {
             putCharSequence(
                 AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
@@ -227,6 +465,74 @@ class AgentAccessibilityService : AccessibilityService() {
         val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
         node.recycle()
         return ok
+    }
+
+    /**
+     * Ejecuta la acción Enter declarada por el IME sobre el único campo
+     * editable y enfocado de la ventana activa. Es el equivalente semántico a
+     * pulsar Buscar/Ir en el teclado, sin coordenadas ni inyección shell.
+     *
+     * [expectedPackageName] liga la acción al package que el plan resolvió. Si
+     * el usuario cambió de aplicación entre escribir y enviar, se rechaza.
+     */
+    fun submitFocusedInput(expectedPackageName: String): Map<String, Any?> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return mapOf("ok" to false, "code" to "IME_ACTION_UNSUPPORTED")
+        }
+        val roots = windows.orEmpty()
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .mapNotNull { it.root }
+            .ifEmpty { listOfNotNull(rootInActiveWindow) }
+        if (roots.isEmpty()) {
+            return mapOf("ok" to false, "code" to "NO_ACTIVE_WINDOW")
+        }
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        for (root in roots) {
+            val stack = ArrayDeque<AccessibilityNodeInfo>()
+            stack.add(root)
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                val packageMatches = expectedPackageName.isBlank() ||
+                    node.packageName?.toString() == expectedPackageName
+                if (packageMatches && node.isEditable && node.isFocused &&
+                    node.isVisibleToUser && node.isEnabled
+                ) {
+                    candidates.add(AccessibilityNodeInfo.obtain(node))
+                }
+                for (i in 0 until node.childCount) {
+                    node.getChild(i)?.let(stack::add)
+                }
+                if (node !== root) node.recycle()
+            }
+            root.recycle()
+        }
+        if (candidates.size != 1) {
+            candidates.forEach(AccessibilityNodeInfo::recycle)
+            return mapOf(
+                "ok" to false,
+                "code" to if (candidates.isEmpty()) "NO_FOCUSED_EDITABLE" else "FOCUSED_EDITABLE_AMBIGUOUS",
+            )
+        }
+
+        val node = candidates.single()
+        val actualPackage = node.packageName?.toString().orEmpty()
+        if (expectedPackageName.isNotBlank() && actualPackage != expectedPackageName) {
+            node.recycle()
+            return mapOf(
+                "ok" to false,
+                "code" to "PACKAGE_CHANGED",
+                "packageName" to actualPackage,
+            )
+        }
+        val accepted = node.performAction(
+            AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id,
+        )
+        node.recycle()
+        return mapOf(
+            "ok" to accepted,
+            "code" to if (accepted) "OK" else "IME_ACTION_REJECTED",
+            "packageName" to actualPackage,
+        )
     }
 
     /** Global actions: back / home / recents. */
@@ -264,6 +570,42 @@ class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Captura pantalla (A9, OCR dirigido). API 30+ (AccessibilityService
+     * takeScreenshot). callback(null) si no soportado o falla.
+     */
+    fun takeScreenshot(callback: (Bitmap?) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            Log.w(TAG, "takeScreenshot: requiere API 30+")
+            callback(null)
+            return
+        }
+        takeScreenshot(
+            Display.DEFAULT_DISPLAY,
+            mainExecutor,
+            object : TakeScreenshotCallback {
+                override fun onSuccess(screenshot: ScreenshotResult) {
+                    val bitmap = try {
+                        Bitmap.wrapHardwareBuffer(
+                            screenshot.hardwareBuffer,
+                            screenshot.colorSpace,
+                        )
+                    } catch (e: Exception) {
+                        null
+                    } finally {
+                        screenshot.hardwareBuffer.close()
+                    }
+                    callback(bitmap)
+                }
+
+                override fun onFailure(errorCode: Int) {
+                    Log.w(TAG, "takeScreenshot onFailure: $errorCode")
+                    callback(null)
+                }
+            },
+        )
+    }
+
     /** estado del servicio para el handshake. NO toca el árbol (el binder
      *  rootInActiveWindow puede colgar si el sistema está reconfigurando). */
     fun status(): Map<String, Any> = mapOf(
@@ -293,14 +635,26 @@ class AgentAccessibilityService : AccessibilityService() {
         return found
     }
 
-    private fun findFocusedEditable(): AccessibilityNodeInfo? {
+    private fun findFocusedEditable(
+        targetResourceId: String,
+        targetBounds: IntArray,
+    ): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
         var found: AccessibilityNodeInfo? = null
         val stack = ArrayDeque<AccessibilityNodeInfo>()
         stack.add(root)
         while (stack.isNotEmpty() && found == null) {
             val node = stack.removeLast()
-            if (node.isEditable && (node.isFocused || node.isFocusable)) {
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            val idMatches = targetResourceId.isBlank() ||
+                node.viewIdResourceName == targetResourceId
+            val boundsMatch = targetBounds.size == 4 &&
+                bounds.left == targetBounds[0] &&
+                bounds.top == targetBounds[1] &&
+                bounds.right == targetBounds[2] &&
+                bounds.bottom == targetBounds[3]
+            if (node.isEditable && node.isFocused && idMatches && boundsMatch) {
                 found = node
                 break
             }

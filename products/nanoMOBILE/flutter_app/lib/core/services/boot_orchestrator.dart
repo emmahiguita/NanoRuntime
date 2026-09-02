@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'package:nanoai/core/config/app_boot_profile.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/package_service.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
@@ -64,6 +65,19 @@ class BootOrchestrator {
       // de que cualquier servicio toque rootfs o canales. Degrada con warning,
       // nunca bloquea el arranque.
       await NanoRuntimeApi.instance.handshake();
+
+      // Perfil benchmark (C14-A): NO provisiona NanoLinux. La app queda
+      // operativa (UI + runtime + automation); Linux se omite (no lo ejercita
+      // C14-A) y el preflight lo registra como SKIPPED, no READY.
+      if (AppBootProfile.current.skipsLinuxProvisioning) {
+        debugPrint(
+          '[boot] perfil=${AppBootProfile.current.name}: NanoLinux '
+          'provisioning SKIPPED (no requerido para este perfil). '
+          'Un fallo de Linux NO tumba el arranque: '
+          'NanoRuntime y NanoAutomation ya están operativos.',
+        );
+        return;
+      }
 
       await _ensureRootfs();
       if (!_rootfs.isInstalled) return;

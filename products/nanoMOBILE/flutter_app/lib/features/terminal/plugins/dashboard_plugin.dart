@@ -5,7 +5,6 @@ import '../terminalservices.dart';
 /// dmesg, toybox, bash, man.
 class DashboardPlugin {
   void register(void Function(String, CmdFn) r, TerminalServices s) {
-
     r('dashboard', (a, c, o, af) {
       final d = s.deviceId;
       final totalMb = ((d?['memTotalKb'] as num?)?.toDouble() ?? 0) / 1024;
@@ -29,30 +28,50 @@ class DashboardPlugin {
 
     r('status', (a, c, o, af) {
       o('══ NanoPlatform Status ══', Ln.header);
-      o('Shell: ${s.shell?.initialized == true ? "listo" : "no inicializado"}', Ln.info);
+      o(
+        'Shell: ${s.shell?.initialized == true ? "listo" : "no inicializado"}',
+        Ln.info,
+      );
       o('Bin dir: ${s.shell?.binDir ?? "?"}', Ln.info);
       if (s.rootfs != null) {
-        o('Rootfs: ${s.rootfs!.isInstalled ? "INSTALADO" : "no instalado"}',
-          s.rootfs!.isInstalled ? Ln.success : Ln.warn);
+        o(
+          'Rootfs: ${s.rootfs!.isInstalled ? "INSTALADO" : "no instalado"}',
+          s.rootfs!.isInstalled ? Ln.success : Ln.warn,
+        );
         o('  usrDir: ${s.rootfs!.usrDir ?? "?"}', Ln.info);
         o('  Descargando: ${s.rootfs!.isDownloading}', Ln.info);
       }
       o('Env: PATH=${c.env["PATH"]}', Ln.info);
       o('Env: HOME=${c.env["HOME"]}', Ln.info);
-      o('Device: ${s.deviceId?["hostname"] ?? "?"} (${s.deviceId?["uname_machine"] ?? "?"})', Ln.info);
+      o(
+        'Device: ${s.deviceId?["hostname"] ?? "?"} (${s.deviceId?["uname_machine"] ?? "?"})',
+        Ln.info,
+      );
     });
 
     r('bootstrap', (a, c, o, af) {
-      if (s.rootfs == null) { o('bootstrap: rootfs manager no disponible', Ln.stderr); return; }
+      if (s.rootfs == null) {
+        o('bootstrap: rootfs manager no disponible', Ln.stderr);
+        return;
+      }
       if (s.rootfs!.isInstalled) {
         o('bootstrap: rootfs ya instalado en ${s.rootfs!.usrDir}', Ln.success);
         return;
       }
-      if (s.rootfs!.isDownloading) { o('bootstrap: descarga en progreso...', Ln.info); return; }
-      o('[bootstrap] Iniciando instalacion del rootfs Termux (~30 MB)...', Ln.header);
+      if (s.rootfs!.isDownloading) {
+        o('bootstrap: descarga en progreso...', Ln.info);
+        return;
+      }
+      o(
+        '[bootstrap] Iniciando instalacion del rootfs Termux (~30 MB)...',
+        Ln.header,
+      );
       s.rootfs!.install().then((ok) {
         if (ok) {
-          o('[bootstrap] Instalacion completa. Reinicia el terminal.', Ln.success);
+          o(
+            '[bootstrap] Instalacion completa. Reinicia el terminal.',
+            Ln.success,
+          );
         } else {
           o('[bootstrap] Fallo la instalacion.', Ln.stderr);
         }
@@ -83,7 +102,10 @@ class DashboardPlugin {
     });
 
     r('man', (a, c, o, af) {
-      if (a.isEmpty) { o('man: Uso: man <pagina>', Ln.stderr); return; }
+      if (a.isEmpty) {
+        o('man: Uso: man <pagina>', Ln.stderr);
+        return;
+      }
       // man es interactivo (usa pager): sin PTY no hay página real que abrir.
       // Se redirige al flujo PTY real en vez de fingir apertura.
       if (s.rootfs?.isInstalled == true) {

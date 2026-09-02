@@ -8,24 +8,106 @@ class SystemPlugin {
     r('help', (a, c, o, af) {
       o('Comandos disponibles:', Ln.header);
       final groups = <String, List<String>>{
-        'Sistema': ['help', 'clear', 'status', 'dashboard', 'date', 'whoami',
-            'uname', 'hostname', 'uptime', 'id', 'env', 'export', 'alias',
-            'source', 'which', 'true', 'false', 'sleep', 'desktop'],
-        'Archivos': ['ls', 'cat', 'cd', 'pwd', 'cp', 'mv', 'rm', 'mkdir',
-            'touch', 'chmod', 'chown', 'ln', 'echo', 'wc', 'grep', 'find',
-            'head', 'tail', 'sort', 'uniq', 'cut', 'tr', 'du', 'stat',
-            'basename', 'dirname', 'nl', 'tree', 'diff'],
+        'Sistema': [
+          'help',
+          'clear',
+          'status',
+          'dashboard',
+          'date',
+          'whoami',
+          'uname',
+          'hostname',
+          'uptime',
+          'id',
+          'env',
+          'export',
+          'alias',
+          'source',
+          'which',
+          'true',
+          'false',
+          'sleep',
+          'desktop',
+        ],
+        'Archivos': [
+          'ls',
+          'cat',
+          'cd',
+          'pwd',
+          'cp',
+          'mv',
+          'rm',
+          'mkdir',
+          'touch',
+          'chmod',
+          'chown',
+          'ln',
+          'echo',
+          'wc',
+          'grep',
+          'find',
+          'head',
+          'tail',
+          'sort',
+          'uniq',
+          'cut',
+          'tr',
+          'du',
+          'stat',
+          'basename',
+          'dirname',
+          'nl',
+          'tree',
+          'diff',
+        ],
         'Procesos': ['ps', 'kill', 'htop', 'pstree', 'jobs', 'sudo', '!'],
-        'Red': ['ssh', 'git', 'curl', 'wget', 'scp', 'rsync', 'sshd',
-            'wifi', 'share', 'host', 'battery'],
+        'Red': [
+          'ssh',
+          'git',
+          'curl',
+          'wget',
+          'scp',
+          'rsync',
+          'sshd',
+          'wifi',
+          'share',
+          'host',
+          'battery',
+        ],
         'Paquetes': ['pkg', 'apt', 'pip', 'npm', 'cargo', 'gem'],
-        'Monitor': ['free', 'df', 'top', 'netstat', 'ss', 'lsof', 'vmstat',
-            'iotop', 'dmesg', 'battery'],
+        'Monitor': [
+          'free',
+          'df',
+          'top',
+          'netstat',
+          'ss',
+          'lsof',
+          'vmstat',
+          'iotop',
+          'dmesg',
+          'battery',
+        ],
         'IA': ['ai', 'infer', 'tune', 'gpu', 'nvtop'],
-        'DevOps': ['docker', 'kali', 'bootstrap', 'script', 'crontab',
-            'watch', 'plugin'],
-        'Terminal': ['pty', 'bash', 'toybox', 'vim', 'nano', 'python',
-            'htop', 'man', 'clear'],
+        'DevOps': [
+          'docker',
+          'kali',
+          'bootstrap',
+          'script',
+          'crontab',
+          'watch',
+          'plugin',
+        ],
+        'Terminal': [
+          'pty',
+          'bash',
+          'toybox',
+          'vim',
+          'nano',
+          'python',
+          'htop',
+          'man',
+          'clear',
+        ],
         'Extras': ['weather', 'code'],
       };
       for (final g in groups.entries) {
@@ -38,14 +120,19 @@ class SystemPlugin {
     });
 
     r('clear', (a, c, o, af) => s.onClear());
-    r('desktop', (a, c, o, af) { if (s.mounted) s.onNavigate('/desktop'); });
+    r('desktop', (a, c, o, af) {
+      if (s.mounted) s.onNavigate('/desktop');
+    });
 
-    r('date', (a, c, o, af) => o(
-      a.contains('--utc')
-          ? DateTime.now().toUtc().toIso8601String().substring(0, 19)
-          : DateTime.now().toString().substring(0, 19),
-      Ln.stdout,
-    ));
+    r(
+      'date',
+      (a, c, o, af) => o(
+        a.contains('--utc')
+            ? DateTime.now().toUtc().toIso8601String().substring(0, 19)
+            : DateTime.now().toString().substring(0, 19),
+        Ln.stdout,
+      ),
+    );
 
     r('whoami', (a, c, o, af) {
       final uid = s.deviceId?['uid'] as int?;
@@ -77,8 +164,11 @@ class SystemPlugin {
       }
     });
 
-    r('hostname', (a, c, o, af) =>
-        o((s.deviceId?['hostname'] as String?) ?? 'localhost', Ln.stdout));
+    r(
+      'hostname',
+      (a, c, o, af) =>
+          o((s.deviceId?['hostname'] as String?) ?? 'localhost', Ln.stdout),
+    );
 
     r('uptime', (a, c, o, af) {
       final sec = s.deviceId?['uptimeSec'] as double?;
@@ -89,38 +179,54 @@ class SystemPlugin {
       final d = (sec / 86400).floor();
       final h = ((sec % 86400) / 3600).floor();
       final m = ((sec % 3600) / 60).floor();
-      o('up ${d > 0 ? '$d days, ' : ''}$h:${m.toString().padLeft(2, '0')}', Ln.stdout);
+      o(
+        'up ${d > 0 ? '$d days, ' : ''}$h:${m.toString().padLeft(2, '0')}',
+        Ln.stdout,
+      );
     });
 
     r('id', (a, c, o, af) {
       final d = s.deviceId;
       final uid = d?['uid'] as int?;
-      if (uid == null) { o('id: identidad del dispositivo no disponible', Ln.stderr); return; }
+      if (uid == null) {
+        o('id: identidad del dispositivo no disponible', Ln.stderr);
+        return;
+      }
       final gid = d?['gid'] as int?;
       final groups = d?['groups'] as String?;
       final gidStr = gid != null ? ' gid=$gid(u0_a$gid)' : '';
-      final groupsStr = groups != null && groups.isNotEmpty ? ' groups=$groups' : '';
+      final groupsStr = groups != null && groups.isNotEmpty
+          ? ' groups=$groups'
+          : '';
       o('uid=$uid(u0_a$uid)$gidStr$groupsStr', Ln.stdout);
     });
 
-    r('env', (a, c, o, af) => a.isEmpty
-        ? c.env.forEach((k, v) => o('$k=$v', Ln.stdout))
-        : o('${a[0]}=${c.env[a[0]] ?? ""}', Ln.stdout));
+    r(
+      'env',
+      (a, c, o, af) => a.isEmpty
+          ? c.env.forEach((k, v) => o('$k=$v', Ln.stdout))
+          : o('${a[0]}=${c.env[a[0]] ?? ""}', Ln.stdout),
+    );
 
     r('export', (a, c, o, af) {
       if (a.isNotEmpty) {
         final kv = a.join(' ').split('=');
-        if (kv.length == 2) { c.env[kv[0]] = kv[1]; o('${kv[0]}=${kv[1]}', Ln.success); }
+        if (kv.length == 2) {
+          c.env[kv[0]] = kv[1];
+          o('${kv[0]}=${kv[1]}', Ln.success);
+        }
       }
     });
 
     r('alias', (a, c, o, af) {
       if (a.isEmpty) {
         c.aliases.forEach((k, v) => o('$k=$v', Ln.stdout));
-      }
-      else {
+      } else {
         final kv = a.join(' ').split('=');
-        if (kv.length == 2) { c.aliases[kv[0]] = kv[1]; o('$kv[0]=$kv[1]', Ln.success); }
+        if (kv.length == 2) {
+          c.aliases[kv[0]] = kv[1];
+          o('$kv[0]=$kv[1]', Ln.success);
+        }
       }
     });
 

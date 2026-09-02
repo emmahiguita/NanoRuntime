@@ -10,6 +10,14 @@ import 'ansi_terminal.dart';
 /// Single-responsibility: owns the PTY session lifecycle.
 /// Extracted from _TermState. Handles open, close, resize, signal,
 /// and ANSI buffer management.
+///
+/// T1.4 — DEFERRED BY DESIGN (no MISSING, no IMPLEMENTED):
+/// PtyManager/PtySession son la vía INTERACTIVA, ya aislada de la ejecución
+/// no-interactiva (LinuxExecutionBackend → ShellExecutor). Viven en
+/// features/terminal porque hoy el ÚNICO consumidor es el Terminal.
+/// Extraer a core/services/LinuxInteractiveBackend SOLO cuando aparezca un
+/// segundo consumidor no-Terminal (Automation interactivo, Voz shell/REPL,
+/// chat con PTY bidireccional). Hasta entonces, extraer = abstracción muerta.
 class PtyManager {
   PtySession? _session;
   AnsiTerminal? _ansi;
@@ -24,6 +32,10 @@ class PtyManager {
   })
   rootfsEnv;
   final void Function(String title)? onTitle;
+
+  /// OSC 7: el bash reporta su cwd real con cada prompt. El dueño usa
+  /// este callback para sincronizar la línea de estado (TER-21).
+  final void Function(String cwd)? onCwd;
   final TerminalAuditLogger? logger;
 
   /// Se invoca cuando la sesión termina o se cierra (done o close()).
@@ -36,6 +48,7 @@ class PtyManager {
     this.rootfs,
     required this.rootfsEnv,
     this.onTitle,
+    this.onCwd,
     this.logger,
     this.onSessionEnd,
   });
@@ -127,6 +140,9 @@ class PtyManager {
           Clipboard.setData(ClipboardData(text: text));
         } catch (_) {}
       };
+      // OSC 7 cwd → el dueño sincroniza la línea de estado con el
+      // cwd REAL del bash (no heurística Dart). TER-21.
+      _ansi!.onCwd = onCwd;
       // ?1004 focus events → \x1b[I (gana) / \x1b[O (pierde).
       _ansi!.onFocusChange = ({required bool focused}) {
         _session?.write(focused ? '\x1b[I' : '\x1b[O');

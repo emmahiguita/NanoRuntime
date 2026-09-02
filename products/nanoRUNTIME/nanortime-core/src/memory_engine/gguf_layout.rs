@@ -625,13 +625,11 @@ impl NanoModelIndex {
         let n_layers = self.layers.len();
         match self.metadata.architecture_type() {
             ArchitectureType::MixtureOfExperts => {
-                let active_frac = match (
-                    self.metadata.expert_count,
-                    self.metadata.expert_used_count,
-                ) {
-                    (Some(total), Some(used)) if total > 0 => used as f64 / total as f64,
-                    _ => 0.25,
-                };
+                let active_frac =
+                    match (self.metadata.expert_count, self.metadata.expert_used_count) {
+                        (Some(total), Some(used)) if total > 0 => used as f64 / total as f64,
+                        _ => 0.25,
+                    };
                 let active_mb = ((total_mb as f64) * active_frac.max(0.01)) as u64;
                 ModelProfile::new_moe(total_mb, active_mb.max(1), n_layers)
             }
@@ -1331,10 +1329,7 @@ mod tests {
             GgufValue::String("qwen3moe".to_string()),
         );
         map.insert("qwen3moe.expert_count".to_string(), GgufValue::U32(128));
-        map.insert(
-            "qwen3moe.expert_used_count".to_string(),
-            GgufValue::U32(8),
-        );
+        map.insert("qwen3moe.expert_used_count".to_string(), GgufValue::U32(8));
 
         let meta = GgufMetadata::from_map(&map);
         assert!(meta.is_moe());

@@ -412,8 +412,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     if (!started) {
       setState(() {
         _status = 'Xvnc no arrancó';
-        _detail =
-            'El servicio VNC devolvió error. Revisa logcat: vnc-service.';
+        _detail = 'El servicio VNC devolvió error. Revisa logcat: vnc-service.';
       });
       return false;
     }
@@ -778,9 +777,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       builder: (sheetContext) => Container(
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(22),
-          ),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           border: Border(top: BorderSide(color: colors.outlineVariant)),
         ),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1076,104 +1073,107 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                           context.go('/desktop');
                         }
                       },
-                    onRefresh: () {
-                      _reconnectAttempts = 0;
-                      _connect();
-                    },
-                    onToggleKeyboard: _toggleKeyboard,
-                    onToggleMode: () {
-                      // D-FIX: el toggle no persistía — al salir de la
-                      // pantalla el modo elegido se perdía. Ahora guarda en
-                      // settings y sincroniza la fila de teclas: en PC
-                      // expandida (es el teclado del escritorio), en móvil
-                      // colapsada (la barra ni se muestra).
-                      final next = !_isMobileMode;
-                      ref
-                          .read(settingsProvider.notifier)
-                          .setDesktopMobileMode(next);
-                      setState(() {
-                        _isMobileMode = next;
-                        _barExpanded = !next;
-                      });
-                    },
-                  ),
-                ),
-
-                // Pantalla proyectada — área exclusiva del framebuffer.
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final widgetSize = Size(
-                        constraints.maxWidth,
-                        constraints.maxHeight,
-                      );
-                      return _buildContent(colors, widgetSize);
-                    },
-                  ),
-                ),
-
-                // Franja inferior: mouse/rueda/zoom/teclas rápidas. Solo
-                // conectado (sin frame no hay dónde clicar). Al expandir la
-                // fila de teclas, la franja crece y el framebuffer cede
-                // espacio — nunca se superponen.
-                // En modo mobile, ocultar para maximizar espacio de visor.
-                if (_connected && _frame != null && !_isMobileMode)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                    child: Center(
-                      child: _MouseControlBar(
-                        colors: colors,
-                        zoom: _zoom,
-                        expanded: _barExpanded,
-                        onToggleExpanded: () =>
-                            setState(() => _barExpanded = !_barExpanded),
-                        onLeftClick: _sendLeftClick,
-                        onRightClick: _sendRightClick,
-                        onWheelUp: () => _sendWheel(true),
-                        onWheelDown: () => _sendWheel(false),
-                        onZoomIn: () => _zoomBy(1.25),
-                        onZoomOut: () => _zoomBy(1 / 1.25),
-                        onResetZoom: _resetZoom,
-                        onQuickKey: _sendQuickKey,
-                        ctrlActive: _ctrlSticky,
-                        altActive: _altSticky,
-                        onToggleCtrl: _toggleCtrl,
-                        onToggleAlt: _toggleAlt,
-                      ),
+                      onRefresh: () {
+                        _reconnectAttempts = 0;
+                        _connect();
+                      },
+                      onToggleKeyboard: _toggleKeyboard,
+                      onToggleMode: () {
+                        // D-FIX: el toggle no persistía — al salir de la
+                        // pantalla el modo elegido se perdía. Ahora guarda en
+                        // settings y sincroniza la fila de teclas: en PC
+                        // expandida (es el teclado del escritorio), en móvil
+                        // colapsada (la barra ni se muestra).
+                        final next = !_isMobileMode;
+                        ref
+                            .read(settingsProvider.notifier)
+                            .setDesktopMobileMode(next);
+                        setState(() {
+                          _isMobileMode = next;
+                          _barExpanded = !next;
+                        });
+                      },
                     ),
                   ),
-              ],
-            ),
 
-            // Overlay de ayuda de gestos (primera vez o manual desde el FAB)
-            if (_showHelp ||
-                (_connected && _frame != null && !_helpSeen && !_helpDismissed))
-              Positioned.fill(child: _HelpOverlay(onDismiss: _dismissHelp)),
+                  // Pantalla proyectada — área exclusiva del framebuffer.
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final widgetSize = Size(
+                          constraints.maxWidth,
+                          constraints.maxHeight,
+                        );
+                        return _buildContent(colors, widgetSize);
+                      },
+                    ),
+                  ),
 
-            // TextField oculto para capturar el teclado nativo del móvil
-            Positioned(
-              left: -9999,
-              top: -9999,
-              child: SizedBox(
-                width: 1,
-                height: 1,
-                child: TextField(
-                  controller: _keyboardInput,
-                  focusNode: _keyboardFocus,
-                  autofocus: false,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  // send: la tecla Enter del IME envía Return y el teclado
-                  // sigue abierto (done lo cerraría y cortaría el acceso).
-                  textInputAction: TextInputAction.send,
-                  onChanged: _onKeyInput,
-                  onSubmitted: _onKeyboardSubmit,
+                  // Franja inferior: mouse/rueda/zoom/teclas rápidas. Solo
+                  // conectado (sin frame no hay dónde clicar). Al expandir la
+                  // fila de teclas, la franja crece y el framebuffer cede
+                  // espacio — nunca se superponen.
+                  // En modo mobile, ocultar para maximizar espacio de visor.
+                  if (_connected && _frame != null && !_isMobileMode)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                      child: Center(
+                        child: _MouseControlBar(
+                          colors: colors,
+                          zoom: _zoom,
+                          expanded: _barExpanded,
+                          onToggleExpanded: () =>
+                              setState(() => _barExpanded = !_barExpanded),
+                          onLeftClick: _sendLeftClick,
+                          onRightClick: _sendRightClick,
+                          onWheelUp: () => _sendWheel(true),
+                          onWheelDown: () => _sendWheel(false),
+                          onZoomIn: () => _zoomBy(1.25),
+                          onZoomOut: () => _zoomBy(1 / 1.25),
+                          onResetZoom: _resetZoom,
+                          onQuickKey: _sendQuickKey,
+                          ctrlActive: _ctrlSticky,
+                          altActive: _altSticky,
+                          onToggleCtrl: _toggleCtrl,
+                          onToggleAlt: _toggleAlt,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+
+              // Overlay de ayuda de gestos (primera vez o manual desde el FAB)
+              if (_showHelp ||
+                  (_connected &&
+                      _frame != null &&
+                      !_helpSeen &&
+                      !_helpDismissed))
+                Positioned.fill(child: _HelpOverlay(onDismiss: _dismissHelp)),
+
+              // TextField oculto para capturar el teclado nativo del móvil
+              Positioned(
+                left: -9999,
+                top: -9999,
+                child: SizedBox(
+                  width: 1,
+                  height: 1,
+                  child: TextField(
+                    controller: _keyboardInput,
+                    focusNode: _keyboardFocus,
+                    autofocus: false,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    // send: la tecla Enter del IME envía Return y el teclado
+                    // sigue abierto (done lo cerraría y cortaría el acceso).
+                    textInputAction: TextInputAction.send,
+                    onChanged: _onKeyInput,
+                    onSubmitted: _onKeyboardSubmit,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1643,11 +1643,7 @@ class _HelpOverlay extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.gesture_rounded,
-                    color: colors.accent,
-                    size: 22,
-                  ),
+                  Icon(Icons.gesture_rounded, color: colors.accent, size: 22),
                   const SizedBox(width: 8),
                   const Text(
                     'Gestos del escritorio',
@@ -1838,11 +1834,7 @@ class _FloatingControlBar extends StatelessWidget {
             padding: EdgeInsets.zero,
           ),
           const SizedBox(width: 4),
-          Container(
-            width: 1,
-            height: 20,
-            color: colors.outlineVariant,
-          ),
+          Container(width: 1, height: 20, color: colors.outlineVariant),
           const SizedBox(width: 4),
           // D-FIX: el modo era un icono ambiguo sin texto. Ahora es un chip
           // con etiqueta del modo ACTUAL — el tap alterna. Resaltado azul
@@ -2089,10 +2081,7 @@ class _RadialFabItem extends StatelessWidget {
           offset: Offset(offsetX, offsetY),
           child: Opacity(
             opacity: opacity,
-            child: ScaleTransition(
-              scale: animation,
-              child: child,
-            ),
+            child: ScaleTransition(scale: animation, child: child),
           ),
         );
       },
@@ -2113,11 +2102,7 @@ class _RadialFabItem extends StatelessWidget {
               ),
             ],
           ),
-          child: Icon(
-            icon,
-            color: colors.onSurface,
-            size: 24,
-          ),
+          child: Icon(icon, color: colors.onSurface, size: 24),
         ),
       ),
     );

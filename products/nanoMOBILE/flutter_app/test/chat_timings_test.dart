@@ -57,10 +57,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         chatProvider.overrideWith(
-          (ref) => ChatNotifier.fixed(
-            ref,
-            const ChatState(engineOnline: true),
-          ),
+          (ref) => ChatNotifier.fixed(ref, const ChatState(engineOnline: true)),
         ),
         runtimeEngineProvider.overrideWith(
           (ref) => _TimingEngineNotifier(client),
@@ -81,9 +78,7 @@ void main() {
     expect(notifier.state.connection, ModelConnectionState.loadingModel);
 
     // Token + frame final con timings.
-    client.controller.add(
-      const LLMStreamToken(content: 'hola', stop: false),
-    );
+    client.controller.add(const LLMStreamToken(content: 'hola', stop: false));
     client.controller.add(
       const LLMStreamToken(
         content: '',
@@ -115,7 +110,7 @@ class _TimingEngineClient extends LLMEngineClient {
 
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

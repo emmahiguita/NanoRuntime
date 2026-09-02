@@ -25,9 +25,13 @@
 //! Todo usa seÃ±ales reales del OS. Nada fabricado.
 
 use std::fmt;
+use std::sync::{Arc, Mutex};
 
 use crate::memory_engine::auto_config::{KvCompression, PageStrategy};
 use crate::memory_engine::battery_guardian::{BatteryGuardian, BatteryMode};
+use crate::memory_engine::benchmark_store::{
+    BenchmarkStore, DeviceFingerprint, MeasuredExecutionProfile, ModelFingerprint, ResolutionLevel,
+};
 use crate::memory_engine::hardware_hal::{profile_device, DeviceProfile, DeviceTier};
 use crate::memory_engine::memory_model::MemoryModel;
 use crate::memory_engine::runtime_metrics::{RuntimeMetrics, RuntimeMetricsCollector};
@@ -145,6 +149,16 @@ impl fmt::Display for Backend {
             Backend::Cpu => write!(f, "CPU"),
             Backend::Vulkan => write!(f, "Vulkan"),
             Backend::Npu => write!(f, "NPU"),
+        }
+    }
+}
+
+impl Backend {
+    fn as_str(self) -> &'static str {
+        match self {
+            Backend::Cpu => "cpu",
+            Backend::Vulkan => "vulkan",
+            Backend::Npu => "npu",
         }
     }
 }
@@ -387,6 +401,7 @@ const INTERACTIVE_MIN_TOK_S: f64 = 1.0;
 pub struct RuntimePlanner {
     catalog: Vec<ModelCandidate>,
     model: MemoryModel,
+    benchmark_store: Arc<Mutex<BenchmarkStore>>,
 }
 
 impl RuntimePlanner {
@@ -395,6 +410,16 @@ impl RuntimePlanner {
         Self {
             catalog: Self::default_catalog(),
             model: MemoryModel::default(),
+            benchmark_store: Arc::new(Mutex::new(BenchmarkStore::in_memory())),
+        }
+    }
+
+    /// Crea un planner con benchmark store persistente inyectado.
+    pub fn with_benchmark_store(benchmark_store: BenchmarkStore) -> Self {
+        Self {
+            catalog: Self::default_catalog(),
+            model: MemoryModel::default(),
+            benchmark_store: Arc::new(Mutex::new(benchmark_store)),
         }
     }
 
@@ -595,27 +620,27 @@ impl RuntimePlanner {
     /// Clasifica la viabilidad de un modelo+dispositivo SIN cargar el modelo.
     ///
     /// Distingue `can_run` (liveness alcanzable) de `should_run_interactive`
-    /// (generaciÃ³n Ãºtil). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
-    /// "should_run_interactive" â€” la app lo usa para advertir o recomendar
+    /// (generaci?n ?til). Un modelo >> RAM "can_run" (0.02 tok/s) pero NO
+    /// "should_run_interactive" ? la app lo usa para advertir o recomendar
     /// un modelo menor en vez de arrancar algo inusable.
     pub fn assess_viability(&self, model_size_mb: u64, device: &DeviceProfile) -> ViabilityReport {
         let avail_mb = device.ram_available_mb.max(1) as f64;
         let ratio = model_size_mb as f64 / avail_mb;
 
-        // Predicción de decode en CPU (heurística calibrada con medición real).
+        // Predicci?n de decode en CPU (heur?stica calibrada con medici?n real).
         let predicted_decode = CPU_DECODE_CALIBRATION / model_size_mb.max(1) as f64;
 
         let (viability, interactive, reason) = if ratio <= 0.7 {
             (
                 Viability::Fast,
                 true,
-                "modelo cabe cómodamente en RAM".to_string(),
+                "modelo cabe c?modamente en RAM".to_string(),
             )
         } else if ratio <= 1.0 {
             (
                 Viability::Balanced,
                 true,
-                "modelo ≈ RAM disponible: residencia adaptativa".to_string(),
+                "modelo ? RAM disponible: residencia adaptativa".to_string(),
             )
         } else if ratio <= 2.0 {
             (
@@ -627,18 +652,18 @@ impl RuntimePlanner {
             (
                 Viability::Extreme,
                 false,
-                "modelo >> RAM: thrashing extremo, generación no interactiva".to_string(),
+                "modelo >> RAM: thrashing extremo, generaci?n no interactiva".to_string(),
             )
         };
 
         // Endurecimiento CPU: aunque "cabe" (streaming), un decode < 1 tok/s
         // no es una experiencia interactiva. El planner distingue "vale la
-        // pena ejecutarlo así" de "solo cabe" — memory liveness y interactive
+        // pena ejecutarlo as?" de "solo cabe" ? memory liveness y interactive
         // performance son objetivos distintos (medido en OPPO: 9B = 0.31 tok/s).
         let should_run_interactive = interactive && predicted_decode >= INTERACTIVE_MIN_TOK_S;
         let reason = if interactive && !should_run_interactive {
             format!(
-                "{}; decode CPU estimado {:.2} tok/s < 1.0 — no interactivo, requiere GPU/NPU",
+                "{}; decode CPU estimado {:.2} tok/s < 1.0 ? no interactivo, requiere GPU/NPU",
                 reason, predicted_decode
             )
         } else {
@@ -654,30 +679,66 @@ impl RuntimePlanner {
         }
     }
 
-    /// Perfil de backend para este dispositivo. Codifica el dato medido real
-    /// (OPPO CPH2557, ver docs/benchmarks/oppo-cph2557-vulkan.md) como punto
-    /// de partida; en otro device el perfil se re-mide y sustituye la heurística.
-    pub fn backend_profile(&self, backend: Backend) -> BackendProfile {
+    /// Perfil de backend para este dispositivo, resolviendo mediciones
+    /// persistidas cuando existen.
+    pub fn backend_profile(
+        &self,
+        backend: Backend,
+        device: &DeviceProfile,
+        model: &ModelFingerprint,
+    ) -> BackendProfile {
+        let device_fp = DeviceFingerprint::from_device(device);
+        let resolved = self
+            .benchmark_store
+            .lock()
+            .ok()
+            .and_then(|store| store.resolve(&device_fp, model, backend.as_str()));
         match backend {
             Backend::Cpu => BackendProfile {
                 backend,
                 available: true,
                 recommended: true,
-                measured_decode_tok_s: Some(4.17), // CPH2557 1.5B Q4_K_M
-                measured_prefill_tok_s: None,
-                confidence: ProfileConfidence::Measured,
-                reason: "CPU es la ruta por defecto y la referencia".to_string(),
+                measured_decode_tok_s: resolved.as_ref().map(|(p, _)| p.decode_sustained_tok_s),
+                measured_prefill_tok_s: resolved.as_ref().map(|(p, _)| p.prefill_tok_s),
+                confidence: match resolved.as_ref().map(|(_, level)| level) {
+                    Some(ResolutionLevel::Exact) | Some(ResolutionLevel::SameTier) => {
+                        ProfileConfidence::Measured
+                    }
+                    None => ProfileConfidence::Heuristic,
+                },
+                reason: match resolved {
+                    Some((_, ResolutionLevel::Exact)) => {
+                        "CPU baseline medido en este dispositivo".to_string()
+                    }
+                    Some((_, ResolutionLevel::SameTier)) => {
+                        "CPU baseline reutilizado desde el mismo tier".to_string()
+                    }
+                    None => "CPU baseline no medido; cae a heur?stica".to_string(),
+                },
             },
             Backend::Vulkan => BackendProfile {
                 backend,
                 available: true,
-                // Medido más lento que CPU en Mali-G57 MC2 (matrix cores: none).
-                // En Adreno/Mali alto el resultado puede invertirse → re-medir.
+                // Medido m?s lento que CPU en Mali-G57 MC2 (matrix cores: none).
+                // En Adreno/Mali alto el resultado puede invertirse ? re-medir.
                 recommended: false,
-                measured_decode_tok_s: Some(2.52), // CPH2557 1.5B, gpu_layers=99
-                measured_prefill_tok_s: None,
-                confidence: ProfileConfidence::Measured,
-                reason: "más lento que CPU en Mali-G57 MC2 (sin matrix cores)".to_string(),
+                measured_decode_tok_s: resolved.as_ref().map(|(p, _)| p.decode_sustained_tok_s),
+                measured_prefill_tok_s: resolved.as_ref().map(|(p, _)| p.prefill_tok_s),
+                confidence: match resolved.as_ref().map(|(_, level)| level) {
+                    Some(ResolutionLevel::Exact) | Some(ResolutionLevel::SameTier) => {
+                        ProfileConfidence::Measured
+                    }
+                    None => ProfileConfidence::Heuristic,
+                },
+                reason: match resolved {
+                    Some((_, ResolutionLevel::Exact)) => {
+                        "Vulkan medido en este dispositivo".to_string()
+                    }
+                    Some((_, ResolutionLevel::SameTier)) => {
+                        "Vulkan reutilizado desde el mismo tier".to_string()
+                    }
+                    None => "Vulkan disponible pero sin medici?n persistida".to_string(),
+                },
             },
             Backend::Npu => BackendProfile {
                 backend,
@@ -691,6 +752,42 @@ impl RuntimePlanner {
         }
     }
 
+    /// Devuelve el perfil medido que debe gobernar una carga concreta.
+    ///
+    /// La selección (exacto -> mismo tier) vive aquí, junto al planner: el
+    /// caller no debe volver a implementar matching de fingerprints. El
+    /// perfil incluye los parámetros de carga ganadores (threads/context/batch)
+    /// además de las métricas que usa `backend_profile` para explicar la
+    /// decisión.
+    pub fn measured_profile(
+        &self,
+        backend: Backend,
+        device: &DeviceProfile,
+        model: &ModelFingerprint,
+    ) -> Option<(MeasuredExecutionProfile, ResolutionLevel)> {
+        self.benchmark_store.lock().ok().and_then(|store| {
+            store.resolve(
+                &DeviceFingerprint::from_device(device),
+                model,
+                backend.as_str(),
+            )
+        })
+    }
+
+    /// Guarda atómicamente un perfil ya validado por el runtime. Compartir el
+    /// store entre clones del planner permite que una medición se use sin
+    /// reiniciar el proceso ni recrear ModelManager.
+    pub fn persist_measured_profile(
+        &self,
+        profile: MeasuredExecutionProfile,
+    ) -> std::io::Result<()> {
+        let mut store = self.benchmark_store.lock().map_err(|_| {
+            std::io::Error::other("benchmark store lock poisoned")
+        })?;
+        store.upsert(profile);
+        store.save()
+    }
+
     /// Decisión de ejecución para un modelo+backend. Combina la viabilidad
     /// (assess_viability) con el perfil del backend (backend_profile) y una
     /// config recomendada. Si el backend no está recomendado, se degrada a CPU.
@@ -700,13 +797,18 @@ impl RuntimePlanner {
         model_size_mb: u64,
         backend: Backend,
         device: &DeviceProfile,
+        model: &ModelFingerprint,
     ) -> ExecutionDecision {
         let v = self.assess_viability(model_size_mb, device);
-        let bp = self.backend_profile(backend);
-        let cpu_profile = self.backend_profile(Backend::Cpu);
+        let bp = self.backend_profile(backend, device, model);
+        let cpu_profile = self.backend_profile(Backend::Cpu, device, model);
 
         // Si el backend pedido no está recomendado, degradar a CPU (siempre lo está).
-        let effective_backend = if bp.recommended { backend } else { Backend::Cpu };
+        let effective_backend = if bp.recommended {
+            backend
+        } else {
+            Backend::Cpu
+        };
         let predicted = if effective_backend == Backend::Cpu {
             cpu_profile
                 .measured_decode_tok_s
@@ -1034,6 +1136,7 @@ impl Default for RuntimePlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory_engine::{MeasuredExecutionProfile, BENCHMARK_SCHEMA_VERSION};
 
     fn samsung() -> DeviceProfile {
         DeviceProfile {
@@ -1292,38 +1395,115 @@ mod tests {
         assert_eq!(QuantLevel::Q8.to_string(), "Q8_0");
     }
 
+    fn benchmark_device() -> DeviceProfile {
+        oppo()
+    }
+
+    fn benchmark_model() -> ModelFingerprint {
+        ModelFingerprint {
+            architecture: "qwen2".to_string(),
+            parameter_count: 1_500_000_000,
+            block_count: 28,
+            file_size_bytes: 1_065 * 1024 * 1024,
+        }
+    }
+
+    fn benchmark_planner() -> RuntimePlanner {
+        let device = benchmark_device();
+        let model = benchmark_model();
+        let mut store = BenchmarkStore::in_memory();
+        let fp = DeviceFingerprint::from_device(&device);
+        store.upsert(MeasuredExecutionProfile {
+            schema_version: BENCHMARK_SCHEMA_VERSION,
+            device: fp.clone(),
+            model: model.clone(),
+            backend: "cpu".to_string(),
+            threads: 4,
+            context_tokens: 4096,
+            batch_size: 256,
+            ttft_ms: 400.0,
+            prefill_tok_s: 20.0,
+            decode_peak_tok_s: 4.17,
+            decode_sustained_tok_s: 3.75,
+            pss_peak_mb: 1500.0,
+            major_faults_per_second: 2.0,
+            temperature_start_c: 30.0,
+            temperature_peak_c: 42.0,
+            thermal_decay_pct: 0.1,
+            samples: 50,
+            measured_at: "2026-08-19T00:00:00Z".to_string(),
+        });
+        store.upsert(MeasuredExecutionProfile {
+            schema_version: BENCHMARK_SCHEMA_VERSION,
+            device: fp,
+            model,
+            backend: "vulkan".to_string(),
+            threads: 4,
+            context_tokens: 4096,
+            batch_size: 256,
+            ttft_ms: 480.0,
+            prefill_tok_s: 16.0,
+            decode_peak_tok_s: 2.52,
+            decode_sustained_tok_s: 2.20,
+            pss_peak_mb: 1600.0,
+            major_faults_per_second: 3.0,
+            temperature_start_c: 31.0,
+            temperature_peak_c: 44.0,
+            thermal_decay_pct: 0.12,
+            samples: 50,
+            measured_at: "2026-08-19T00:00:00Z".to_string(),
+        });
+        RuntimePlanner::with_benchmark_store(store)
+    }
+
     #[test]
     fn test_backend_profile_measured() {
-        let planner = RuntimePlanner::new();
-        let cpu = planner.backend_profile(Backend::Cpu);
+        let planner = benchmark_planner();
+        let d = benchmark_device();
+        let m = benchmark_model();
+
+        let cpu = planner.backend_profile(Backend::Cpu, &d, &m);
         assert!(cpu.available);
         assert!(cpu.recommended);
         assert_eq!(cpu.confidence, ProfileConfidence::Measured);
+        assert!((cpu.measured_decode_tok_s.unwrap() - 3.75).abs() < 0.001);
 
-        // Medido en OPPO CPH2557: Vulkan más lento que CPU en Mali-G57 MC2.
-        let vulkan = planner.backend_profile(Backend::Vulkan);
-        assert!(vulkan.available, "Vulkan está disponible");
-        assert!(!vulkan.recommended, "pero no recomendado (más lento que CPU)");
-        assert!(vulkan.measured_decode_tok_s.unwrap() < cpu.measured_decode_tok_s.unwrap());
+        let (stored, resolution) = planner
+            .measured_profile(Backend::Cpu, &d, &m)
+            .expect("el perfil CPU exacto debe estar disponible para la carga");
+        assert_eq!(resolution, ResolutionLevel::Exact);
+        assert_eq!(
+            (stored.threads, stored.context_tokens, stored.batch_size),
+            (4, 4096, 256)
+        );
 
-        let npu = planner.backend_profile(Backend::Npu);
+        let vulkan = planner.backend_profile(Backend::Vulkan, &d, &m);
+        assert!(vulkan.available, "Vulkan est? disponible");
+        assert!(
+            !vulkan.recommended,
+            "pero no recomendado (m?s lento que CPU)"
+        );
+        assert!((vulkan.measured_decode_tok_s.unwrap() - 2.20).abs() < 0.001);
+
+        let npu = planner.backend_profile(Backend::Npu, &d, &m);
         assert!(!npu.available);
         assert_eq!(npu.confidence, ProfileConfidence::Unknown);
     }
 
     #[test]
     fn test_execution_decision_vulkan_degrades_to_cpu() {
-        let planner = RuntimePlanner::new();
-        let d = oppo();
+        let planner = benchmark_planner();
+        let d = benchmark_device();
+        let m = benchmark_model();
 
-        // 1.5B en Vulkan → no recomendado (medido más lento) → degrada a CPU.
-        let dec = planner.execution_decision("qwen15", 1065, Backend::Vulkan, &d);
+        // 1.5B en Vulkan ? no recomendado (medido m?s lento) ? degrada a CPU.
+        let dec = planner.execution_decision("qwen15", 1065, Backend::Vulkan, &d, &m);
         assert_eq!(dec.backend, Backend::Cpu, "Vulkan degrada a CPU en CPH2557");
         assert!(dec.can_run);
         assert!(dec.should_run_interactive);
 
-        // 9B en CPU → no interactivo (0.73 tok/s estimado).
-        let dec9 = planner.execution_decision("qwen9", 5512, Backend::Cpu, &d);
+        // 9B en CPU ? no interactivo (0.73 tok/s estimado).
+        let dec9 = planner.execution_decision("qwen9", 5512, Backend::Cpu, &d, &m);
         assert_eq!(dec9.backend, Backend::Cpu);
         assert!(!dec9.should_run_interactive);
     }

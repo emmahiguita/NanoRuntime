@@ -272,8 +272,10 @@ static int _spawn_internal(
 ) {
     *out_stdout = NULL;
     *out_stderr = NULL;
-    *out_stdout_len = 0;
-    *out_stderr_len = 0;
+    // Null-safe: los callers sin tracking de longitud (nanoshell_spawn_busybox,
+    // nanoshell_spawn_generic) pasan NULL aquí; no dereferenciar (SIGSEGV).
+    if (out_stdout_len) *out_stdout_len = 0;
+    if (out_stderr_len) *out_stderr_len = 0;
     g_last_error[0] = '\0';
 
     if (!argv || !argv[0]) {
@@ -307,18 +309,29 @@ static int _spawn_internal(
             if (fd != STDOUT_FILENO && fd != STDERR_FILENO) close(fd);
         }
 
-        // Cap virtual memory BEFORE starting the binary: a runaway tar/leaky
-        // daemon can't exhaust device RAM (worker process, shared with app).
-        // Override via NANOAI_RLIMIT_AS_MB.
-        apply_rlimit_as();
+        // NO aplicar RLIMIT_AS aquí (ni antes del execve ni antes del dlopen):
+        // el hijo hereda el VA del proceso app completo y el linker necesita
+        // mmap libre para cargar el binario y sus zonas (CFI shadow de PIE
+        // dlopen'eados). Con el cap puesto antes, el mmap falla y el linker
+        // aborta: linker_block_allocator create_new_page CHECK
+        // 'page != MAP_FAILED'. El cap va DESPUÉS del dlopen (abajo), justo
+        // antes de main() — protege contra crecimiento descontrolado del
+        // binario, no contra el estado heredado. El camino execve queda sin
+        // cap (el límite se heredaría al proceso nuevo y rompería su linker).
 
         // Apply environment variables BEFORE dlopen so that
         // libnanoroot's constructor can read NANO_ROOTFS from env.
         apply_env(envp);
 
-        // â”€â”€ Memory limit (512 MB soft cap) â”€â”€
-        // Delegates to util.c which reads NANOAI_RLIMIT_AS_MB env override.
-        apply_rlimit_as();
+        // cwd: el hijo hereda el cwd del worker (normalmente "/") y
+        // SELinux deniega a untrusted_app listar "/" ("ls: can't open
+        // '.': Permission denied"). chdir(HOME) para que los applets
+        // corran en el home del usuario (igual que una shell login).
+        // El fallo se ignora: cwd heredado si HOME no existe.
+        {
+            const char* home = getenv("HOME");
+            if (home && home[0]) chdir(home);
+        }
 
         // Set LD_PRELOAD before execve so the kernel linker loads it.
         if (ld_preload && ld_preload[0]) {
@@ -345,12 +358,13 @@ static int _spawn_internal(
             }
         }
 
-        // Preload libs of the rootfs (usr/lib) with RTLD_GLOBAL so the app
-        // namespace can resolve the target's DT_NEEDED. Android namespaces
-        // ignore LD_LIBRARY_PATH; dlopen manual registra las libs en el
-        // namespace del proceso y el linker las encuentra después.
-        // NANO_ROOTFS (inyectado por execRootfs) localiza usr/lib.
-        {
+        // Preload libs del rootfs (usr/lib) SOLO cuando hay ld_preload
+        // (libnanoroot): los binarios del rootfs (git, curl, python) dependen
+        // de usr/lib. Los binarios standalone (toybox) NO lo necesitan y
+        // precargar ~47 libs agota el espacio de direcciones del worker →
+        // linker_block_allocator create_new_page CHECK 'page != MAP_FAILED'
+        // (SIGABRT). Gateado por ld_preload.
+        if (ld_preload && ld_preload[0]) {
             const char* nano_rootfs = getenv("NANO_ROOTFS");
             if (nano_rootfs && nano_rootfs[0]) {
                 char libdir[512];
@@ -395,9 +409,6 @@ static int _spawn_internal(
 
             static const uint64_t ANDROID_NAMESPACE_TYPE_ISOLATED_ = 0x1;
             static const uint64_t ANDROID_DLEXT_USE_NAMESPACE_ = 0x200;
-            // ANDROID_DLEXT_EXTEND_RELAXED = 0x8000: permite que un dlopen
-            // extienda el namespace actual con rutas no estándar.
-            static const uint64_t ANDROID_DLEXT_EXTEND_RELAXED_ = 0x8000;
 
             android_create_namespace_t create_ns =
                 (android_create_namespace_t)dlsym(RTLD_DEFAULT, "android_create_namespace");
@@ -441,17 +452,12 @@ static int _spawn_internal(
                     if (!handle) fprintf(stderr, "nanoshell: ns1+parent: %s\n", dlerror());
                 }
             }
-            // Intento 2: EXTEND_RELAXED + library_path=usr/lib: el campo
-            // library_path del dlextinfo extiende la ruta de búsqueda de libs
-            // para la lib CARGADA (apt), permitiendo resolver DT_NEEDED de
-            // usr/lib (libz.so.1, libssl.so.3...) en el namespace del proceso.
-            if (!handle && dlopen_ext) {
-                memset(&ext, 0, sizeof(ext));
-                ext.flags = ANDROID_DLEXT_EXTEND_RELAXED_;
-                ext.library_path = libdir;
-                handle = dlopen_ext(dl_path, RTLD_NOW | RTLD_GLOBAL, &ext);
-                if (!handle) fprintf(stderr, "nanoshell: ns2 relaxed: %s\n", dlerror());
-            }
+            // Intento 2 ELIMINADO: ANDROID_DLEXT_EXTEND_RELAXED (0x8000) es
+            // inválido en Android 14+; el bionic linker de Android 15 lo
+            // rechaza con 'invalid extended flags' y ABORTA el proceso child
+            // (CHECK 'page != MAP_FAILED' failed, SIGABRT). Intentarlo mataba
+            // el child (exitCode 134). Los Intentos 1/3 + dlopen simple de
+            // abajo cubren la carga sin el flag.
             if (!handle && create_ns) {
                 // Intento 3: namespace sin parent (raíz) con usr/lib.
                 android_namespace_t* ns = create_ns("nanoai_rootfs2", libdir, libdir,
@@ -477,18 +483,25 @@ static int _spawn_internal(
 
         // Find main function. Try the specified symbol first, then fallbacks.
         typedef int (*main_fn)(int, char**, char**);
+        // BusyBox compilado como librería (libbusybox.so de Termux) exporta
+        // lbb_main(char**) SIN argc: firma distinta de main_fn.
+        typedef int (*lbb_main_fn)(char**);
         static int _use_stack_entry = 0;
         static void* _stack_entry = NULL;
         main_fn entry = NULL;
+        lbb_main_fn lbb_entry = NULL;
 
         // Try requested symbol
         entry = (main_fn)dlsym(handle, main_symbol);
 
-        // Fallbacks for common naming conventions
-        if (!entry) entry = (main_fn)dlsym(handle, "main");
-        if (!entry) entry = (main_fn)dlsym(handle, "_main");
+        // BusyBox shared-lib: único símbolo exportado es lbb_main.
+        if (!entry) lbb_entry = (lbb_main_fn)dlsym(handle, "lbb_main");
 
-        if (!entry) {
+        // Fallbacks for common naming conventions
+        if (!entry && !lbb_entry) entry = (main_fn)dlsym(handle, "main");
+        if (!entry && !lbb_entry) entry = (main_fn)dlsym(handle, "_main");
+
+        if (!entry && !lbb_entry) {
             // Binarios C++ (apt) NO exportan "main": su entry es el e_entry
             // del ELF (_start). El _start de bionic espera el STACK de
             // arranque ARM64: sp[0]=argc, sp[1..]=argv, luego envp=NULL, y
@@ -504,7 +517,7 @@ static int _spawn_internal(
             }
         }
 
-        if (!entry) {
+        if (!entry && !lbb_entry) {
             fprintf(stderr, "nanoshell: dlsym(%s or main) failed: %s\n", main_symbol, dlerror());
             dlclose(handle);
             _exit(127);
@@ -523,8 +536,19 @@ static int _spawn_internal(
         }
         mutable_argv[argc] = NULL;
 
+        // Cap DESPUÉS de cargar todo (dlopen + preloads): el linker ya
+        // reservó sus zonas; ahora sí podemos limitar el crecimiento del
+        // binario sin romper su arranque. Floor dinámico en util.c (VA
+        // actual + margen) para no bloquear mmaps legítimos.
+        apply_rlimit_as();
+
         int rc = 0;
-        if (_use_stack_entry && _stack_entry) {
+        if (lbb_entry) {
+            // lbb_main(char**): BusyBox shared-lib. argv[0]="busybox" hace
+            // despachar el applet de argv[1] (busybox launcher). El entorno
+            // ya está en environ vía apply_env().
+            rc = lbb_entry(mutable_argv);
+        } else if (_use_stack_entry && _stack_entry) {
 #if defined(__aarch64__)
             _call_stack_entry(_stack_entry, argc, mutable_argv);
             // No retorna: _start hace exit(). Evitar retorno no definido.
@@ -693,11 +717,43 @@ int nanoshell_worker_spawn(
     const char* task_id,
     const char* files_dir
 ) {
+    // TER-07: redirigir el toybox ELF a la vía busybox.
+    // Evidencia device (OPPO CPH2557, SELinux enforcing):
+    //  • execve de binarios app_data: EACCES — denegado por el kernel.
+    //  • dlopen del toybox PIE: "unexpected e_type: 2" — binario con
+    //    PT_INTERP no es dlopenable (dlopen solo acepta ET_DYN).
+    // libbusybox.so es ET_DYN sin PT_INTERP: dlopen funciona en el worker
+    // y busybox_main despacha el applet. Misma vía que el fast path
+    // original de nanoshell_spawn_busybox (lib_path=NULL).
+    const char* eff_binary = binary_path;
+    const char* eff_symbol = "main";
+    const char* const* eff_argv = argv;
+    char** busybox_argv = NULL;
+    if (binary_path) {
+        const char* base = strrchr(binary_path, '/');
+        base = base ? base + 1 : binary_path;
+        if (strcmp(base, "toybox") == 0) {
+            int argc = count_argv(argv);
+            // lbb_main despacha por basename(argv[0]): pasar el applet
+            // directo ("ls"), sin depender del launcher "busybox".
+            busybox_argv = malloc(sizeof(char*) * (argc + 1));
+            if (busybox_argv) {
+                busybox_argv[0] = (argc > 1 && argv[1]) ? (char*)argv[1] : "busybox";
+                for (int i = 2; i < argc; i++) busybox_argv[i - 1] = (char*)argv[i];
+                busybox_argv[argc > 1 ? argc - 1 : 1] = NULL;
+                eff_binary = NULL;             // NULL → dlopen("libbusybox.so")
+                eff_symbol = "busybox_main";   // dlsym cae a lbb_main
+                eff_argv = (const char* const*)busybox_argv;
+            }
+        }
+    }
+
     char* out_s = NULL;
     char* err_s = NULL;
     size_t out_len = 0, err_len = 0;
-    int rc = _spawn_internal(binary_path, "main", argv, envp, ld_preload,
+    int rc = _spawn_internal(eff_binary, eff_symbol, eff_argv, envp, ld_preload,
                              &out_s, &err_s, &out_len, &err_len);
+    free(busybox_argv);
 
     char out_path[512], err_path[512], rc_path[512];
     char tmp_out[530], tmp_err[530], tmp_rc[530];

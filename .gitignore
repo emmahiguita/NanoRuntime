@@ -76,6 +76,14 @@ descarga1/
 !**/graphify-out/.graphify_root
 .opencode/
 data/
+# Local codebase-memory index (binary graph.db.zst) — regenerable, no versionar
+.codebase-memory/
+# La feature Flutter lib/features/models/ SÍ se versiona (build mobile).
+# El patrón global `data/` excluiría su carpeta data/ (datasources, repositorios,
+# model_source_registry, model_downloader...). Negación quirúrgica que re-incluye
+# SOLO models/data/, sin tocar build_tools/extracted/**/data (extracción de build).
+!products/nanoMOBILE/flutter_app/lib/features/models/data/
+!products/nanoMOBILE/flutter_app/lib/features/models/data/**
 docs/images/
 *.history.json
 manifest_cpu.json

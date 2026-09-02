@@ -25,10 +25,7 @@ class NanoGlassMorphTransition extends StatelessWidget {
     final reduceMotion = NanoMotion.reduceMotion(context);
 
     if (reduceMotion) {
-      return FadeTransition(
-        opacity: animation,
-        child: child,
-      );
+      return FadeTransition(opacity: animation, child: child);
     }
 
     final curvedForward = CurvedAnimation(
@@ -69,10 +66,7 @@ class NanoGlassMorphTransition extends StatelessWidget {
           offset: Offset(translateXOut, translateYIn),
           child: Transform.scale(
             scale: effectiveScale,
-            child: Opacity(
-              opacity: opacityIn * opacityOut,
-              child: child,
-            ),
+            child: Opacity(opacity: opacityIn * opacityOut, child: child),
           ),
         );
 
@@ -105,10 +99,7 @@ class NanoExpressiveSlideTransition extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (NanoMotion.reduceMotion(context)) {
-      return FadeTransition(
-        opacity: animation,
-        child: child,
-      );
+      return FadeTransition(opacity: animation, child: child);
     }
 
     final forward = CurvedAnimation(
@@ -130,23 +121,46 @@ class NanoExpressiveSlideTransition extends StatelessWidget {
         final t = forward.value;
         final secT = secondary.value;
 
-        final translateX = lerpDouble(24.0, 0.0, t)! + lerpDouble(0.0, -16.0, secT)!;
-        final scale = lerpDouble(0.990, 1.0, t)! * lerpDouble(1.0, 0.990, secT)!;
+        final translateX =
+            lerpDouble(24.0, 0.0, t)! + lerpDouble(0.0, -16.0, secT)!;
+        final scale =
+            lerpDouble(0.990, 1.0, t)! * lerpDouble(1.0, 0.990, secT)!;
         final opacity = lerpDouble(0.0, 1.0, t)! * lerpDouble(1.0, 0.88, secT)!;
 
         return Transform.translate(
           offset: Offset(translateX, 0),
           child: Transform.scale(
             scale: scale,
-            child: Opacity(
-              opacity: opacity.clamp(0.0, 1.0),
-              child: child,
-            ),
+            child: Opacity(opacity: opacity.clamp(0.0, 1.0), child: child),
           ),
         );
       },
     );
   }
+}
+
+/// Muestra un diálogo/modal con la transición de cristal óptico
+/// ([NanoModalGlassTransition]) en lugar de la FadeUpwards de Material.
+///
+/// Misma semántica que [showDialog]: barrera, dismiss, root navigator y
+/// resultado tipado vía `T`. Respeta `disableAnimations` (reduce-motion)
+/// internamente en [NanoModalGlassTransition].
+Future<T?> showNanoModalDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black54,
+    transitionDuration: NanoMotionDurations.standard,
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return NanoModalGlassTransition(animation: animation, child: child);
+    },
+  );
 }
 
 /// Transición para modales y diálogos de cristal óptico.
@@ -183,15 +197,30 @@ class NanoModalGlassTransition extends StatelessWidget {
           offset: Offset(0, translateY),
           child: Transform.scale(
             scale: scale,
-            child: Opacity(
-              opacity: t.clamp(0.0, 1.0),
-              child: child,
-            ),
+            child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
           ),
         );
       },
     );
   }
+}
+
+/// Ruta interna reutilizable para mantener la misma entrada y salida glass de
+/// las rutas declarativas de GoRouter. No crea controladores propios y respeta
+/// automáticamente la preferencia de reducción de movimiento.
+Route<T> nanoGlassPageRoute<T>({required WidgetBuilder builder}) {
+  return PageRouteBuilder<T>(
+    transitionDuration: NanoMotionDurations.navigation,
+    reverseTransitionDuration: NanoMotionDurations.navigation,
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return NanoGlassMorphTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
+      );
+    },
+  );
 }
 
 /// Custom Hero Flight Builder para mantener el radio de curvatura y luz
@@ -230,9 +259,9 @@ class NanoHeroFlightBuilder {
 /// Predictive Back Transition Builder para Android 14+ (API 34+).
 /// Envuelve NanoGlassMorphTransition y mapea backProgress a scale/opacity/radius.
 /// Fallback automático a NanoGlassMorphTransition en versiones anteriores.
-/// 
+///
 /// NOTA: Para habilitar completamente, necesita:
-/// 1. Flutter 3.16+ 
+/// 1. Flutter 3.16+
 /// 2. Android minSdkVersion 34+
 /// 3. Configurar en MaterialApp: pageTransitionsTheme: PageTransitionsTheme(
 ///      builders: {TargetPlatform.android: NanoPredictiveBackPageTransitionsBuilder()}

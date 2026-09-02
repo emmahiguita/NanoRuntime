@@ -34,8 +34,7 @@ class ChannelModelStorageRepository implements ModelStorageRepository {
       throw StateError('storage tree no concedido');
     }
     return [
-      for (final item in raw)
-        _fromMap((item as Map).cast<String, Object?>()),
+      for (final item in raw) _fromMap((item as Map).cast<String, Object?>()),
     ];
   }
 
@@ -51,8 +50,7 @@ class ChannelModelStorageRepository implements ModelStorageRepository {
       throw StateError('acceso a todos los archivos no concedido');
     }
     return [
-      for (final item in raw)
-        _fromMap((item as Map).cast<String, Object?>()),
+      for (final item in raw) _fromMap((item as Map).cast<String, Object?>()),
     ];
   }
 

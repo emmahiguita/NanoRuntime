@@ -8,20 +8,19 @@ import 'core/linux/linux_init.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/services/boot_orchestrator.dart';
+import 'core/services/nano_runtime_api.dart';
 import 'core/theme/app_theme.dart';
-import 'core/theme/design_tokens.dart';
-import 'core/theme/adaptive_theme.dart';
+import 'core/theme/nano_motion.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
 const _kNavChannel = MethodChannel('com.nanoai/navigation');
 
-void main() {
+Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
 
-  // Inicializar registry de distribuciones Linux
   initializeLinuxDistributions();
 
   runApp(const ProviderScope(child: NanoPlatformApp()));
@@ -54,12 +53,19 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     unawaited(ref.read(settingsProvider.notifier).init());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(BootOrchestrator().run());
+      // Pide los permisos runtime que falten (micrófono, medios y, en Android
+      // 13+, POST_NOTIFICATIONS) tras el primer frame. Solo muestra diálogos de
+      // los que faltan; los ya concedidos no molestan.
+      unawaited(NanoRuntimeApi.instance.requestRuntimePermissions());
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
+    final usesSystemPalette = ref.watch(
+      settingsProvider.select((settings) => settings.themeMode == 'Sistema'),
+    );
 
     // Sin wrapper de orientación aquí: rotar forzaba rebuild del MaterialApp
     // completo y producía flicker ("pantalla dañada al voltearse"). La
@@ -68,25 +74,19 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     return MaterialApp.router(
       title: 'NanoPlatform',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: usesSystemPalette ? AppTheme.systemLight : AppTheme.light,
+      darkTheme: usesSystemPalette ? AppTheme.systemDark : AppTheme.dark,
       themeMode: themeMode,
+      themeAnimationDuration:
+          WidgetsBinding
+              .instance
+              .platformDispatcher
+              .accessibilityFeatures
+              .disableAnimations
+          ? Duration.zero
+          : NanoMotionDurations.emphasized,
+      themeAnimationCurve: NanoMotionCurves.emphasized,
       routerConfig: AppRouter.router,
-      // Animación de transición de tema suave (dark↔light).
-      builder: (context, child) {
-        return AnimatedSwitcher(
-          duration: AdaptiveTheme.getThemeTransitionDuration(context),
-          switchInCurve: NanoCurves.easeInOut,
-          switchOutCurve: NanoCurves.easeInOut,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          child: child,
-        );
-      },
     );
   }
 }

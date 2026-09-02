@@ -62,7 +62,7 @@ class HardwareInfoService {
   Map<String, dynamic> readGpuInfo() {
     return _readGpuInfoSync(_devId);
   }
-  
+
   /// Implementación síncrona interna
   static Map<String, dynamic> _readGpuInfoSync(Map<String, dynamic>? devId) {
     final info = <String, dynamic>{};

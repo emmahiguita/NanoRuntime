@@ -7,9 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:nanoai/core/agent/actionability_engine.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
@@ -436,7 +436,7 @@ class _FakeEngineClient extends LLMEngineClient {
 
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
-      generateStream({
+  generateStream({
     required String prompt,
     double temperature = 0.7,
     double topP = 0.9,

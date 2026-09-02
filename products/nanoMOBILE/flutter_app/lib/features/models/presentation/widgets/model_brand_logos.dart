@@ -10,11 +10,7 @@ class ModelBrandLogo extends StatelessWidget {
   final String name;
   final double size;
 
-  const ModelBrandLogo({
-    super.key,
-    required this.name,
-    this.size = 40,
-  });
+  const ModelBrandLogo({super.key, required this.name, this.size = 40});
 
   static (Color, String) familyMetaFor(String name, NanoColors colors) {
     final lower = name.toLowerCase();
@@ -98,21 +94,45 @@ class GemmaLogoPainter extends CustomPainter {
 
     final path = Path()
       ..moveTo(cx, cy - r)
-      ..cubicTo(cx + 0.15 * r, cy - 0.15 * r, cx + 0.15 * r, cy - 0.15 * r, cx + r, cy)
-      ..cubicTo(cx + 0.15 * r, cy + 0.15 * r, cx + 0.15 * r, cy + 0.15 * r, cx, cy + r)
-      ..cubicTo(cx - 0.15 * r, cy + 0.15 * r, cx - 0.15 * r, cy + 0.15 * r, cx - r, cy)
-      ..cubicTo(cx - 0.15 * r, cy - 0.15 * r, cx - 0.15 * r, cy - 0.15 * r, cx, cy - r)
+      ..cubicTo(
+        cx + 0.15 * r,
+        cy - 0.15 * r,
+        cx + 0.15 * r,
+        cy - 0.15 * r,
+        cx + r,
+        cy,
+      )
+      ..cubicTo(
+        cx + 0.15 * r,
+        cy + 0.15 * r,
+        cx + 0.15 * r,
+        cy + 0.15 * r,
+        cx,
+        cy + r,
+      )
+      ..cubicTo(
+        cx - 0.15 * r,
+        cy + 0.15 * r,
+        cx - 0.15 * r,
+        cy + 0.15 * r,
+        cx - r,
+        cy,
+      )
+      ..cubicTo(
+        cx - 0.15 * r,
+        cy - 0.15 * r,
+        cx - 0.15 * r,
+        cy - 0.15 * r,
+        cx,
+        cy - r,
+      )
       ..close();
 
     final paint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          Color(0xFF4285F4),
-          Color(0xFF9B72CF),
-          Color(0xFFFBBC05),
-        ],
+        colors: [Color(0xFF4285F4), Color(0xFF9B72CF), Color(0xFFFBBC05)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(path, paint);
@@ -149,10 +169,38 @@ class LlamaLogoPainter extends CustomPainter {
 
     final path = Path()
       ..moveTo(cx - 0.40 * w, cy)
-      ..cubicTo(cx - 0.40 * w, cy - 0.35 * h, cx - 0.10 * w, cy - 0.35 * h, cx, cy)
-      ..cubicTo(cx + 0.10 * w, cy + 0.35 * h, cx + 0.40 * w, cy + 0.35 * h, cx + 0.40 * w, cy)
-      ..cubicTo(cx + 0.40 * w, cy - 0.35 * h, cx + 0.10 * w, cy - 0.35 * h, cx, cy)
-      ..cubicTo(cx - 0.10 * w, cy + 0.35 * h, cx - 0.40 * w, cy + 0.35 * h, cx - 0.40 * w, cy);
+      ..cubicTo(
+        cx - 0.40 * w,
+        cy - 0.35 * h,
+        cx - 0.10 * w,
+        cy - 0.35 * h,
+        cx,
+        cy,
+      )
+      ..cubicTo(
+        cx + 0.10 * w,
+        cy + 0.35 * h,
+        cx + 0.40 * w,
+        cy + 0.35 * h,
+        cx + 0.40 * w,
+        cy,
+      )
+      ..cubicTo(
+        cx + 0.40 * w,
+        cy - 0.35 * h,
+        cx + 0.10 * w,
+        cy - 0.35 * h,
+        cx,
+        cy,
+      )
+      ..cubicTo(
+        cx - 0.10 * w,
+        cy + 0.35 * h,
+        cx - 0.40 * w,
+        cy + 0.35 * h,
+        cx - 0.40 * w,
+        cy,
+      );
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -161,11 +209,7 @@ class LlamaLogoPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
-        colors: [
-          Color(0xFF0081FB),
-          Color(0xFF0064E0),
-          Color(0xFF00C6FF),
-        ],
+        colors: [Color(0xFF0081FB), Color(0xFF0064E0), Color(0xFF00C6FF)],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
 
     canvas.drawPath(path, paint);
@@ -330,9 +374,7 @@ class QwenLogoWidget extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: const CustomPaint(
-        painter: QwenLogoPainter(),
-      ),
+      child: const CustomPaint(painter: QwenLogoPainter()),
     );
   }
 }
@@ -354,11 +396,14 @@ class QwenLogoPainter extends CustomPainter {
       ..close();
 
     final centerPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF4C2CD8), Color(0xFF381CB8)],
-      ).createShader(Rect.fromLTWH(cx - 0.3 * r, cy - 0.3 * r, 0.6 * r, 0.6 * r));
+      ..shader =
+          const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF4C2CD8), Color(0xFF381CB8)],
+          ).createShader(
+            Rect.fromLTWH(cx - 0.3 * r, cy - 0.3 * r, 0.6 * r, 0.6 * r),
+          );
 
     canvas.drawPath(centerTriangle, centerPaint);
 
@@ -440,11 +485,7 @@ class QwenLogoPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFF9F7FF),
-            Color(0xFFEBE5FF),
-          ],
+          colors: [Color(0xFFFFFFFF), Color(0xFFF9F7FF), Color(0xFFEBE5FF)],
         ).createShader(Rect.fromLTWH(-r, -r, 2 * r, 2 * r));
 
       canvas.drawPath(topWhite, topWhitePaint);

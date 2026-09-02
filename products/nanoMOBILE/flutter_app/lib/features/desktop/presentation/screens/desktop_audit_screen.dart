@@ -76,7 +76,9 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _message = ok ? '$label: completado.' : '$label: fallo. Revisa red, espacio o repositorios Termux.';
+      _message = ok
+          ? '$label: completado.'
+          : '$label: fallo. Revisa red, espacio o repositorios Termux.';
     });
   }
 
@@ -85,7 +87,10 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
   }
 
   Future<void> _installPackage(String packageName) {
-    return _run('Instalando $packageName', () => _pkg.installPackages([packageName]));
+    return _run(
+      'Instalando $packageName',
+      () => _pkg.installPackages([packageName]),
+    );
   }
 
   Future<void> _launchApp(String appId) {
@@ -108,9 +113,7 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
           backgroundColor: colors.backgroundPrimary,
           body: Stack(
             children: [
-              const Positioned.fill(
-                child: NanoAmbientBackground(),
-              ),
+              const Positioned.fill(child: NanoAmbientBackground()),
               SafeArea(
                 child: Center(
                   child: ConstrainedBox(
@@ -137,7 +140,9 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
                                 const SizedBox(height: 12),
                                 _KaliCard(
                                   installed: kali?.isInstalled == true,
-                                  summary: kali == null ? 'Kali no disponible.' : kali.coverageSummary(),
+                                  summary: kali == null
+                                      ? 'Kali no disponible.'
+                                      : kali.coverageSummary(),
                                   missingCount: missing.length,
                                 ),
                                 const SizedBox(height: 12),
@@ -297,10 +302,10 @@ class _StatusCard extends StatelessWidget {
     final text = status == null
         ? 'Leyendo estado real del runtime.'
         : status!.installed
-            ? status!.graphicalExtras
-                ? 'Rootfs y escritorio gráfico instalados. Stage: ${status!.stage}.'
-                : 'Rootfs instalado, faltan extras gráficos. Stage: ${status!.stage}.'
-            : 'Rootfs gráfico pendiente. Stage: ${status!.stage}.';
+        ? status!.graphicalExtras
+              ? 'Rootfs y escritorio gráfico instalados. Stage: ${status!.stage}.'
+              : 'Rootfs instalado, faltan extras gráficos. Stage: ${status!.stage}.'
+        : 'Rootfs gráfico pendiente. Stage: ${status!.stage}.';
 
     return _InfoCard(
       title: 'Estado NanoAI',
@@ -350,12 +355,16 @@ class _KaliCard extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     return _InfoCard(
       title: 'Kali / Rootfs',
-      body: missingCount == 0 ? summary : '$summary. Faltan $missingCount herramientas auditadas.',
+      body: missingCount == 0
+          ? summary
+          : '$summary. Faltan $missingCount herramientas auditadas.',
       trailing: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(99),
-          color: (installed ? colors.accentMint : colors.warning).withValues(alpha: 0.15),
+          color: (installed ? colors.accentMint : colors.warning).withValues(
+            alpha: 0.15,
+          ),
           border: Border.all(
             color: installed ? colors.accentMint : colors.warning,
             width: 0.8,
@@ -462,7 +471,11 @@ class _AppTile extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       child: Row(
         children: [
-          Icon(app.icon, color: installed ? colors.accentMint : colors.accentSky, size: 22),
+          Icon(
+            app.icon,
+            color: installed ? colors.accentMint : colors.accentSky,
+            size: 22,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -485,7 +498,11 @@ class _AppTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     if (installed)
-                      Icon(Icons.check_circle_rounded, size: 14, color: colors.accentMint),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: colors.accentMint,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -509,8 +526,12 @@ class _AppTile extends StatelessWidget {
               color: colors.accentSky,
             ),
           IconButton(
-            tooltip: graphicalReady ? 'Abrir ${app.label}' : 'Instala el escritorio primero',
-            onPressed: busy || !desktopReady || !graphicalReady ? null : () => onLaunch(app.appId),
+            tooltip: graphicalReady
+                ? 'Abrir ${app.label}'
+                : 'Instala el escritorio primero',
+            onPressed: busy || !desktopReady || !graphicalReady
+                ? null
+                : () => onLaunch(app.appId),
             icon: const Icon(Icons.open_in_new_rounded, size: 20),
             color: colors.textPrimary,
           ),
@@ -521,7 +542,12 @@ class _AppTile extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.title, this.body, this.bodyWidget, this.trailing});
+  const _InfoCard({
+    required this.title,
+    this.body,
+    this.bodyWidget,
+    this.trailing,
+  });
 
   final String title;
   final String? body;

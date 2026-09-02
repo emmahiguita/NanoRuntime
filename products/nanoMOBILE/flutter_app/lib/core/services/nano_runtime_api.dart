@@ -14,6 +14,10 @@ abstract final class NanoRuntimeChannels {
   static const agent = 'com.nanoai/agent';
   static const engine = 'com.nanoai/engine';
   static const modelStorage = 'com.nanoai/model_storage';
+  static const notifications = 'com.nanoai/notifications';
+  static const devicePermissions = 'com.nanoai/device_permissions';
+  static const speech = 'com.nanoai/speech';
+  static const system = 'com.nanoai/system';
 }
 
 /// Resultado del handshake de runtime.
@@ -72,6 +76,14 @@ class NanoRuntimeApi {
   static const _metrics = MethodChannel(NanoRuntimeChannels.deviceMetrics);
   static const _agent = MethodChannel(NanoRuntimeChannels.agent);
   static const _engine = MethodChannel(NanoRuntimeChannels.engine);
+  static const _notifications = MethodChannel(
+    NanoRuntimeChannels.notifications,
+  );
+  static const _devicePermissions = MethodChannel(
+    NanoRuntimeChannels.devicePermissions,
+  );
+  static const _speech = MethodChannel(NanoRuntimeChannels.speech);
+  static const _speechPartial = EventChannel('com.nanoai/speech_partial');
 
   Future<RuntimeInfo>? _handshake;
 
@@ -490,8 +502,10 @@ class NanoRuntimeApi {
 
   /// Nodos cuyo texto/desc contiene [query]. maxResults limita el volcado
   /// (default 10) — el agente LLM solo necesita los mejores candidatos.
-  @Deprecated('Usa NanoAgentExecutor / NanoSelectorEngine: resuelve con '
-      'puntuación ponderada y aborta en ambigüedad.')
+  @Deprecated(
+    'Usa NanoAgentExecutor / NanoSelectorEngine: resuelve con '
+    'puntuación ponderada y aborta en ambigüedad.',
+  )
   Future<List<dynamic>> agentFindText(
     String query, {
     int maxResults = 10,
@@ -510,8 +524,10 @@ class NanoRuntimeApi {
 
   /// Tap sobre el nodo cuyo texto/desc contiene [text] (bounds reales del
   /// nodo, no coordenadas adivinadas).
-  @Deprecated('Peligroso: coge el primer nodo con contains sin unicidad ni '
-      'estado. Usa NanoAgentExecutor.tap() con NanoSelector.')
+  @Deprecated(
+    'Peligroso: coge el primer nodo con contains sin unicidad ni '
+    'estado. Usa NanoAgentExecutor.tap() con NanoSelector.',
+  )
   Future<bool> agentTapOnText(String text) async {
     try {
       return await _agent.invokeMethod<bool>('tapOnText', {'text': text}) ==
@@ -529,6 +545,31 @@ class NanoRuntimeApi {
     } catch (e) {
       debugPrint('[runtime] agentTapAt error: $e');
       return false;
+    }
+  }
+
+  /// Click ligado a la identidad de un nodo observado. El nativo revalida el
+  /// target y prefiere ACTION_CLICK; sólo usa gesto tras una coincidencia única.
+  Future<Map<dynamic, dynamic>?> agentClickTarget({
+    required String packageName,
+    required String resourceId,
+    required String className,
+    required String text,
+    required String description,
+    required List<int> bounds,
+  }) async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>('clickTarget', {
+        'packageName': packageName,
+        'resourceId': resourceId,
+        'className': className,
+        'text': text,
+        'description': description,
+        'bounds': bounds,
+      });
+    } catch (e) {
+      debugPrint('[runtime] agentClickTarget error: $e');
+      return null;
     }
   }
 
@@ -568,7 +609,8 @@ class NanoRuntimeApi {
     }
   }
 
-  /// Escribe [text] en el campo enfocado (ACTION_SET_TEXT del nodo editable).
+  /// API heredada. El canal actual exige un objetivo ligado y devuelve false
+  /// si un cliente antiguo intenta escribir sin esa evidencia.
   Future<bool> agentInputText(String text) async {
     try {
       return await _agent.invokeMethod<bool>('inputText', {'text': text}) ==
@@ -576,6 +618,44 @@ class NanoRuntimeApi {
     } catch (e) {
       debugPrint('[runtime] agentInputText error: $e');
       return false;
+    }
+  }
+
+  /// Escribe [text] en el campo enfocado que además coincide con el objetivo
+  /// recién resuelto. El nativo rechaza la operación si foco, id o bounds ya
+  /// cambiaron: nunca degrada a "cualquier editable focusable".
+  Future<bool> agentInputTextAtTarget(
+    String text, {
+    required String targetResourceId,
+    required List<int> targetBounds,
+  }) async {
+    try {
+      return await _agent.invokeMethod<bool>('inputText', {
+            'text': text,
+            'targetResourceId': targetResourceId,
+            'targetBounds': targetBounds,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] agentInputTextAtTarget error: $e');
+      return false;
+    }
+  }
+
+  /// Pulsa la acción semántica Enter/Buscar/Ir del IME sobre el único editable
+  /// enfocado. El nativo vuelve a validar el package para impedir que un cambio
+  /// de pantalla redirija el submit a otra aplicación.
+  Future<Map<dynamic, dynamic>?> agentSubmitFocusedInput({
+    String expectedPackageName = '',
+  }) async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>(
+        'submitFocusedInput',
+        {'expectedPackageName': expectedPackageName},
+      );
+    } catch (e) {
+      debugPrint('[runtime] agentSubmitFocusedInput error: $e');
+      return null;
     }
   }
 
@@ -687,6 +767,351 @@ class NanoRuntimeApi {
     } catch (e) {
       debugPrint('[runtime] engineEnsureExtracted error: $e');
       return null;
+    }
+  }
+
+  // ── Permisos del dispositivo ──
+
+  Future<Map<dynamic, dynamic>> devicePermissionStatus() async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'status',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] devicePermissionStatus error: $e');
+      return const {};
+    }
+  }
+
+  /// A14.3 — estado FACTUAL de Shizuku (pasivo). El backend Kotlin consulta
+  /// instalación (PackageManager), binder vivo (pingBinder) y autorización
+  /// (checkSelfPermission) SIN abrir diálogos ni ejecutar acciones. Devuelve
+  /// vacío (honesto) si el canal no responde; el mapeo a ShizukuStatus ocurre
+  /// en el provider de dominio, nunca aquí.
+  Future<Map<dynamic, dynamic>> queryShizukuStatus() async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'queryShizukuStatus',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] queryShizukuStatus error: $e');
+      return const {};
+    }
+  }
+
+  /// A14.4 — solicita la conexión con Shizuku (automatiza el emparejamiento).
+  /// Si ya está autorizada devuelve true; si no, dispara el diálogo Shizuku
+  /// para que el usuario toque Permitir. El consentimiento humano no se salta.
+  Future<bool> shizukuRequestPermission() async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>(
+            'shizukuRequestPermission',
+          ) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuRequestPermission error: $e');
+      return false;
+    }
+  }
+
+  /// A14.5.4 — estado semántico factual del sistema (media reproduciéndose,
+  /// Bluetooth/WiFi on/off). Lectura pasiva; devuelve vacío si el canal falla.
+  Future<Map<dynamic, dynamic>> systemState() async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'systemState',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] systemState error: $e');
+      return const {};
+    }
+  }
+
+  /// A14.9 — abrir una URL externa (solo http/https) con intent VIEW. El nativo
+  /// valida el esquema para evitar intents arbitrarios. Devuelve false si falla.
+  Future<bool> openUrl(String url) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>('openUrl', {
+            'url': url,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] openUrl error: $e');
+      return false;
+    }
+  }
+
+  /// A16 — etiquetado de imagen on-device (ML Kit). Devuelve [{label, confidence,
+  /// bounds}] como observación estructurada. El llamador decide (percepción, no
+  /// autoridad). Vacío si falla el canal o el nativo.
+  Future<List<dynamic>> visionLabel(Uint8List pngBytes) async {
+    try {
+      return await _agent.invokeListMethod<dynamic>('visionLabel', {
+            'png': pngBytes,
+          }) ??
+          const [];
+    } catch (e) {
+      debugPrint('[runtime] visionLabel error: $e');
+      return const [];
+    }
+  }
+
+  /// A16 — entrada por voz: reconocimiento de voz del sistema Android. Devuelve
+  /// el texto transcrito, o null si falló/canceló. El texto entra al MISMO
+  /// motor de ejecución (AutomationCoordinator), no a un motor de voz separado.
+  Future<String?> startVoiceRecognition({String language = 'es-ES'}) async {
+    try {
+      return await _speech.invokeMethod<String>('startListening', {
+        'language': language,
+      });
+    } on PlatformException catch (e) {
+      // A16: sin RECORD_AUDIO concedido, el nativo reporta mic_permission_denied.
+      // Se solicita el permiso runtime y se reintenta UNA vez (método real de
+      // permisos: el diálogo del sistema concede y el reconocimiento continúa).
+      if (e.code == 'mic_permission_denied') {
+        final granted = await requestRuntimePermissions();
+        if (granted) {
+          try {
+            return await _speech.invokeMethod<String>('startListening', {
+              'language': language,
+            });
+          } catch (e2) {
+            debugPrint('[runtime] startVoiceRecognition reintento error: $e2');
+            return null;
+          }
+        }
+        debugPrint(
+          '[runtime] startVoiceRecognition: micrófono denegado por el usuario',
+        );
+        return null;
+      }
+      debugPrint('[runtime] startVoiceRecognition error: $e');
+      return null;
+    } catch (e) {
+      debugPrint('[runtime] startVoiceRecognition error: $e');
+      return null;
+    }
+  }
+
+  /// A16 — salida por voz (TTS): habla el texto. Devuelve false si falló.
+  Future<bool> speak(String text) async {
+    try {
+      return await _speech.invokeMethod<bool>('speak', {'text': text}) == true;
+    } catch (e) {
+      debugPrint('[runtime] speak error: $e');
+      return false;
+    }
+  }
+
+  /// A16 — stream de resultados PARCIALES del reconocimiento (dictado en vivo).
+  /// El nativo emite el texto parcial mientras el usuario habla; el final llega
+  /// por [startVoiceRecognition]. Usado por la UI para escribir en tiempo real.
+  Stream<String> get voicePartialStream => _speechPartial
+      .receiveBroadcastStream()
+      .where((e) => e is String)
+      .cast<String>();
+
+  /// A16 — detiene la reproducción de voz (barge-in). true si se detuvo.
+  Future<bool> stopSpeech() async {
+    try {
+      await _speech.invokeMethod<void>('stop');
+      return true;
+    } catch (e) {
+      debugPrint('[runtime] stopSpeech error: $e');
+      return false;
+    }
+  }
+
+  /// A14.4 — acción Shizuku TIPADA: detener una app (reversible).
+  /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
+  /// el packageName. El estado de autorización lo valida el broker antes.
+  Future<bool> shizukuForceStop(String packageName) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>('shizukuForceStop', {
+            'packageName': packageName,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuForceStop error: $e');
+      return false;
+    }
+  }
+
+  /// A14.4 — acción Shizuku TIPADA (irreversible): instala un APK desde ruta
+  /// local. Gobernada arriba (riesgo install). El nativo valida que la ruta exista.
+  Future<bool> shizukuInstall(String apkPath) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>('shizukuInstall', {
+            'apkPath': apkPath,
+          }) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuInstall error: $e');
+      return false;
+    }
+  }
+
+  /// A14.4 — acción Shizuku TIPADA (cambia seguridad): concede un permiso
+  /// runtime a un paquete. Gobernada arriba (riesgo grant).
+  Future<bool> shizukuGrantPermission(
+    String packageName,
+    String permission,
+  ) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>(
+            'shizukuGrantPermission',
+            {'packageName': packageName, 'permission': permission},
+          ) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] shizukuGrantPermission error: $e');
+      return false;
+    }
+  }
+
+  /// A14.4 — primera acción Shizuku TIPADA: consulta metadatos de un paquete
+  /// con privilegios (read-only, `cmd package dump`). El llamador debe verificar
+  /// disponibilidad/autorización ANTES (queryShizukuStatus); el nativo valida el
+  /// packageName y no acepta comandos libres. Devuelve vacío si el canal falla.
+  Future<Map<dynamic, dynamic>> shizukuQueryPackage(String packageName) async {
+    try {
+      return await _devicePermissions.invokeMethod<Map<dynamic, dynamic>>(
+            'shizukuQueryPackage',
+            {'packageName': packageName},
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] shizukuQueryPackage error: $e');
+      return const {'ok': false, 'code': 'CHANNEL_ERROR'};
+    }
+  }
+
+  Future<bool> requestRuntimePermissions() =>
+      _invokePermissionAction('requestRuntime');
+
+  Future<bool> openAccessibilitySettings() =>
+      _invokePermissionAction('openAccessibility');
+
+  Future<bool> openNotificationAccessSettings() =>
+      _invokePermissionAction('openNotificationAccess');
+
+  Future<bool> openAllFilesAccessSettings() =>
+      _invokePermissionAction('openAllFilesAccess');
+
+  Future<bool> openAppPermissionSettings() =>
+      _invokePermissionAction('openAppDetails');
+
+  Future<bool> _invokePermissionAction(String method) async {
+    try {
+      return await _devicePermissions.invokeMethod<bool>(method) == true;
+    } catch (e) {
+      debugPrint('[runtime] $method error: $e');
+      return false;
+    }
+  }
+
+  // ── Automatización local de notificaciones ──
+
+  Future<Map<dynamic, dynamic>> notificationStatus() async {
+    try {
+      return await _notifications.invokeMethod<Map<dynamic, dynamic>>(
+            'status',
+          ) ??
+          const {};
+    } catch (e) {
+      debugPrint('[runtime] notificationStatus error: $e');
+      return const {};
+    }
+  }
+
+  Future<bool> requestNotificationAccess() async {
+    try {
+      return await _notifications.invokeMethod<bool>('requestAccess') == true;
+    } catch (e) {
+      debugPrint('[runtime] requestNotificationAccess error: $e');
+      return false;
+    }
+  }
+
+  Future<List<dynamic>> listActiveNotifications({int limit = 30}) async {
+    try {
+      return await _notifications.invokeListMethod<dynamic>('list', {
+            'limit': limit.clamp(1, 100),
+          }) ??
+          const [];
+    } catch (e) {
+      debugPrint('[runtime] listActiveNotifications error: $e');
+      return const [];
+    }
+  }
+
+  /// Muestra un aviso local cuando una automatización queda pausada esperando
+  /// confirmación. El aviso solo abre Nano; nunca autoriza la acción por sí
+  /// mismo, por lo que la firma y el consumo siguen perteneciendo al Journal.
+  Future<bool> showAutomationConfirmation() async {
+    try {
+      return await _notifications.invokeMethod<bool>(
+            'showAutomationConfirmation',
+          ) ==
+          true;
+    } catch (e) {
+      debugPrint('[runtime] showAutomationConfirmation error: $e');
+      return false;
+    }
+  }
+
+  Future<void> dismissAutomationConfirmation() async {
+    try {
+      await _notifications.invokeMethod<void>('dismissAutomationConfirmation');
+    } catch (e) {
+      debugPrint('[runtime] dismissAutomationConfirmation error: $e');
+    }
+  }
+
+  static const EventChannel _automationConfirmationEvents = EventChannel(
+    'com.nanoai/automation_confirmation_events',
+  );
+
+  /// Acciones explícitas del usuario sobre la notificación de gobernanza.
+  /// El evento no transporta autoridad: el Dashboard solo puede consumir la
+  /// ActionConfirmation firmada y pendiente que ya conserva el run activo.
+  Stream<String> get automationConfirmationActions =>
+      _automationConfirmationEvents
+          .receiveBroadcastStream()
+          .where((event) => event is String)
+          .cast<String>();
+
+  /// Evento en vivo de notificación entrante (EventChannel). null-safe: si el
+  /// listener nativo no está conectado, simplemente no emite.
+  static const EventChannel _notificationEvents = EventChannel(
+    'com.nanoai/notification_events',
+  );
+
+  Stream<Map<dynamic, dynamic>> get notificationEvents => _notificationEvents
+      .receiveBroadcastStream()
+      .map((e) => Map<dynamic, dynamic>.from(e as Map));
+
+  Future<Map<dynamic, dynamic>> replyToNotification({
+    required String key,
+    required String text,
+    required bool confirmed,
+  }) async {
+    if (!confirmed) {
+      return const {'ok': false, 'code': 'CONFIRMATION_REQUIRED'};
+    }
+    try {
+      return await _notifications.invokeMethod<Map<dynamic, dynamic>>('reply', {
+            'key': key,
+            'text': text,
+            'confirmed': true,
+          }) ??
+          const {'ok': false, 'code': 'EMPTY_RESPONSE'};
+    } catch (e) {
+      debugPrint('[runtime] replyToNotification error: $e');
+      return {'ok': false, 'code': e.toString()};
     }
   }
 }

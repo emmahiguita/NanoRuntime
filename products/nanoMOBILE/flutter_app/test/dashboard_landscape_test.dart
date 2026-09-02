@@ -29,18 +29,29 @@ void main() {
       final router = GoRouter(
         initialLocation: '/dashboard',
         routes: [
-          GoRoute(path: '/dashboard', builder: (_, __) => const DashboardScreen()),
+          GoRoute(
+            path: '/dashboard',
+            builder: (_, __) => const DashboardScreen(),
+          ),
         ],
       );
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             dashboardProvider.overrideWith(
-              (ref) => DashboardNotifier.fixed(ref, const DashboardState(
-                ramFreeGb: 3.9, ramTotalGb: 8.0, cpuCores: 8,
-                tempC: 35, storageTotalGb: 256, storageFreeGb: 209,
-                batteryPct: 100, isLive: true,
-              )),
+              (ref) => DashboardNotifier.fixed(
+                ref,
+                const DashboardState(
+                  ramFreeGb: 3.9,
+                  ramTotalGb: 8.0,
+                  cpuCores: 8,
+                  tempC: 35,
+                  storageTotalGb: 256,
+                  storageFreeGb: 209,
+                  batteryPct: 100,
+                  isLive: true,
+                ),
+              ),
             ),
             rootfsProvider.overrideWithValue(RootfsManager()),
             kaliProvider.overrideWithValue(null),
@@ -55,15 +66,16 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 900));
-      expect(tester.takeException(), isNull,
-          reason: 'landscape sin overflow ni excepción');
-      // La home es un carousel: solo la tarjeta central (Terminal) y sus
-      // adyacentes se construyen; el resto se alcanza deslizando. Lo que
-      // debe estar presente en todo layout: identidad, estado Kali y la
-      // tarjeta central.
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'landscape sin overflow ni excepción',
+      );
+      // Linux se organiza como telemetría/entrada del módulo Terminal, no
+      // como un atajo adicional que duplique la navegación principal.
       expect(find.text('Terminal'), findsOneWidget);
-      expect(find.text('Kali'), findsOneWidget);
-      expect(find.text('nanoai'), findsOneWidget);
+      expect(find.text('LINUX'), findsOneWidget);
+      expect(find.text('Kali'), findsNothing);
     });
   }
 }

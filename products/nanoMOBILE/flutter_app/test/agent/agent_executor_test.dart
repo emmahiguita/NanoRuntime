@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/actionability_engine.dart';
-import 'package:nanoai/core/agent/agent_executor.dart';
-import 'package:nanoai/core/agent/agent_result.dart';
-import 'package:nanoai/core/agent/nano_selector.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_executor.dart';
+import 'package:nanoai/features/automation/engine/execution/agent_result.dart';
+import 'package:nanoai/features/automation/engine/perception/nano_selector.dart';
 
 import 'fixtures.dart';
 
@@ -50,23 +50,31 @@ void main() {
     focusedAfterTap = true;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      methodCalls.add(call.method);
-      switch (call.method) {
-        case 'dumpSnapshot':
-          if (channelDead) throw PlatformException(code: 'dead');
-          return dumpProvider(dumpCalls++);
-        case 'tapAt':
-          focusedAfterTap = true;
-          final args = call.arguments as Map;
-          tapCalls.add([args['x'] as int, args['y'] as int]);
-          return tapResult;
-        case 'inputText':
-          inputCalls.add((call.arguments as Map)['text'] as String);
-          return inputResult;
-        default:
-          return null;
-      }
-    });
+          methodCalls.add(call.method);
+          switch (call.method) {
+            case 'dumpSnapshot':
+              if (channelDead) throw PlatformException(code: 'dead');
+              return dumpProvider(dumpCalls++);
+            case 'clickTarget':
+              focusedAfterTap = true;
+              final args = call.arguments as Map;
+              final bounds = (args['bounds'] as List).cast<int>();
+              tapCalls.add([
+                (bounds[0] + bounds[2]) ~/ 2,
+                (bounds[1] + bounds[3]) ~/ 2,
+              ]);
+              return {
+                'ok': tapResult,
+                'method': 'ACTION_CLICK',
+                'code': tapResult ? 'OK' : 'ACTION_REJECTED',
+              };
+            case 'inputText':
+              inputCalls.add((call.arguments as Map)['text'] as String);
+              return inputResult;
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -74,18 +82,20 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('tap ok → un solo tapAt en el centro del bounds, nunca tapOnText',
-      () async {
-    final r = await executor.tap(const NanoSelector(text: 'Bluetooth'));
-    expect(r.ok, isTrue);
-    expect(r.targetNode!.bounds.centerX, 540);
-    expect(r.targetNode!.bounds.centerY, 340);
-    expect(tapCalls, [
-      [540, 340]
-    ]);
-    expect(methodCalls, isNot(contains('tapOnText')));
-    expect(methodCalls, isNot(contains('inputText')));
-  });
+  test(
+    'tap ok → un solo clickTarget ligado al nodo, nunca tapOnText',
+    () async {
+      final r = await executor.tap(const NanoSelector(text: 'Bluetooth'));
+      expect(r.ok, isTrue);
+      expect(r.targetNode!.bounds.centerX, 540);
+      expect(r.targetNode!.bounds.centerY, 340);
+      expect(tapCalls, [
+        [540, 340],
+      ]);
+      expect(methodCalls, isNot(contains('tapOnText')));
+      expect(methodCalls, isNot(contains('inputText')));
+    },
+  );
 
   test('ambiguous → failure tipado sin gesto', () async {
     dumpProvider = (_) => snapshotDobleAceptar();
@@ -101,7 +111,7 @@ void main() {
     final r = await executor.tap(const NanoSelector(text: 'Bluetooth'));
     expect(r.ok, isTrue);
     expect(tapCalls, [
-      [540, 340]
+      [540, 340],
     ]);
   });
 
@@ -145,7 +155,7 @@ void main() {
     expect(r.ok, isTrue);
     expect(tapCalls.length, 1); // tap de foco al EditText (centro 540,480)
     expect(tapCalls, [
-      [540, 480]
+      [540, 480],
     ]);
     expect(inputCalls, ['wifi']);
   });
@@ -161,19 +171,21 @@ void main() {
     expect(inputCalls, ['wifi']);
   });
 
-  test('setText: tap de foco no enfoca → notActionable, sin inputText',
-      () async {
-    // El tap se ejecuta pero el campo nunca gana foco.
-    dumpProvider = (_) => ajustesFocused(focused: false);
-    final r = await executor.setText(
-      const NanoSelector(editable: true),
-      'wifi',
-    );
-    expect(r.ok, isFalse);
-    expect(r.errorCode, AgentErrorCode.notActionable);
-    expect(r.reason, contains('no enfocable'));
-    expect(inputCalls, isEmpty);
-  });
+  test(
+    'setText: tap de foco no enfoca → notActionable, sin inputText',
+    () async {
+      // El tap se ejecuta pero el campo nunca gana foco.
+      dumpProvider = (_) => ajustesFocused(focused: false);
+      final r = await executor.setText(
+        const NanoSelector(editable: true),
+        'wifi',
+      );
+      expect(r.ok, isFalse);
+      expect(r.errorCode, AgentErrorCode.notActionable);
+      expect(r.reason, contains('no enfocable'));
+      expect(inputCalls, isEmpty);
+    },
+  );
 
   test('package mismatch → notFound', () async {
     final r = await executor.tap(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'terminal_modifier_bar.dart';
@@ -18,6 +19,10 @@ import '../../core/services/hardware_info_service.dart';
 import '../../core/services/terminal_dependencies.dart';
 import 'i_bin_executor.dart';
 import 'keyboard_mapper.dart';
+import 'command_executor.dart';
+import 'command_tagger.dart';
+import 'noar_persistence.dart';
+import 'noar_builtin_commands.dart';
 
 import 'noar_panel.dart';
 import 'ansi_terminal.dart';
@@ -41,15 +46,15 @@ class NanoTerminal extends StatefulWidget {
   final LLMEngineClient? engine;
   final void Function(String title)? onTitle;
 
-  /// true = pestaña visible en el IndexedStack. Dirige pause/resume del
-  /// polling PTY: solo la pestaña activa consume 20 polls/seg (rate limit).
+  /// true = pestaÃ±a visible en el IndexedStack. Dirige pause/resume del
+  /// polling PTY: solo la pestaÃ±a activa consume 20 polls/seg (rate limit).
   final bool visible;
   final TerminalDependencies? deps; // optional override for testing
 
-  /// Comando que se ejecuta una sola vez cuando el shell está listo
+  /// Comando que se ejecuta una sola vez cuando el shell estÃ¡ listo
   /// (ej: "kali shell" desde la card Kali del dashboard). Cuando existe,
-  /// se suprime el bash PTY automático para que el stream del comando
-  /// sea el dueño del terminal.
+  /// se suprime el bash PTY automÃ¡tico para que el stream del comando
+  /// sea el dueÃ±o del terminal.
   final String? initialCommand;
   const NanoTerminal({
     super.key,
@@ -75,7 +80,7 @@ class _TermState extends State<NanoTerminal> {
   DockerManager? get _docker => _deps.docker;
 
   /// TerminalServices para plugins (DIP). Cached to avoid re-allocation on
-  /// every plugin call — the closures capture `this` so the instance stays
+  /// every plugin call â€” the closures capture `this` so the instance stays
   /// valid for the widget's lifetime.
   late final TerminalServices _services = TerminalServices(
     ctx: _ctx,
@@ -112,8 +117,17 @@ class _TermState extends State<NanoTerminal> {
       _fn = FocusNode();
   final _lines = <TL>[], _hist = <String>[], _timers = <Timer>[];
   final _ctx = TerminalCtx();
-  int _hIdx = -1;
+  // Ref: el CommandExecutor muta estos campos en la instancia de CmdExecCtx
+  // que recibe por copia; el holder compartido conserva la mutación.
+  final _hIdx = Ref<int>(-1);
   bool _ctrl = false, _alive = true;
+  // TER-13: feedback de presión del FAB (escala al tocar).
+  bool _fabPressed = false;
+  // TER-14: FAB glass — colapsa a círculo compacto en reposo (estilo iOS
+  // discreto) y se oculta mientras el panel Noar está abierto.
+  bool _fabCollapsed = false;
+  bool _fabHidden = false;
+  Timer? _fabTimer;
   bool _initialCmdDone = false;
   LLMEngineClient? _engine;
   PtySession? _pty;
@@ -133,22 +147,27 @@ class _TermState extends State<NanoTerminal> {
 
   Offset _fabOffset = Offset.zero;
   bool _fabInit = false;
-  static const double _fabSize = 40;
+  // TER-12/14: FAB pill compacta (icono + "Noar") que colapsa a círculo.
+  static const double _fabW = 104;
+  static const double _fabH = 44;
+  // TER-13: paleta pizarra/cian del FAB (sin verde neón en botones).
+  static const Color _accent = Color(0xFF38BDF8);
+  static const Color _fabText = Color(0xFFE2E8F0);
 
-  String _bashCwd = '/';
+  final _bashCwd = Ref<String>('/');
 
   /// Fallback dart:io real (ver real_fs_shell.dart). Solo se usa en hosts sin
   /// binarios Android (desktop/tests): los comandos FS operan sobre el
-  /// filesystem real del host bajo un raíz sandbox. En Android manda el motor
-  /// NanoRuntime (BusyBox vía Nanoshell FFI / rootfs).
+  /// filesystem real del host bajo un raÃ­z sandbox. En Android manda el motor
+  /// NanoRuntime (BusyBox vÃ­a Nanoshell FFI / rootfs).
   late final RealFsShell _realFs;
 
-  /// Whitelist de comandos con ejecución real vía BusyBox (ver realCommands
+  /// Whitelist de comandos con ejecuciÃ³n real vÃ­a BusyBox (ver realCommands
   /// en terminal_types.dart). En hosts sin binarios Android, RealFsShell
   /// implementa el subconjunto dart:io como fallback real.
   String get _ps1 {
     final h = _devId?['hostname'] as String? ?? 'oppo';
-    String home = _bashCwd;
+    String home = _bashCwd.value;
     if (home == '/systemTemp/nano_real_root' || home == '/') {
       home = '~';
     } else if (home.startsWith('/systemTemp/nano_real_root/')) {
@@ -199,14 +218,15 @@ class _TermState extends State<NanoTerminal> {
     _buildRegistry(); // terminal-specific commands (ai, gpu, docker, kali, etc.)
     _fetchDeviceIdentity(); // async: uid, uname, hostname reales del device
     _initShell(); // async: extrae bash/toybox + verifica rootfs (crea ShellExecutor + RootfsManager compartidos)
-    _loadNoar(); // async: carga librería de comandos guardados
+    _noar.load(); // async: carga librerÃ­a de comandos guardados
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_fabInit && mounted) {
         final sz = MediaQuery.of(context).size;
         setState(() {
-          _fabOffset = Offset(sz.width - _fabSize - 12, sz.height * 0.35);
+          _fabOffset = Offset(sz.width - _fabW - 12, sz.height * 0.35);
           _fabInit = true;
         });
+        _restartFabTimer();
       }
     });
     _out('NanoTerminal  rootfs ARM64', Ln.header);
@@ -231,12 +251,24 @@ class _TermState extends State<NanoTerminal> {
     }
   }
 
-  /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info auténtica sin depender de execve() (bloqueado por SELinux en este device).
+  /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info autÃ©ntica sin depender de execve() (bloqueado por SELinux en este device).
   Future<void> _fetchDeviceIdentity() => _hw.fetchDeviceIdentity();
+
+  /// TER-21: OSC 7 del bash PTY — el shell reporta su cwd real con cada
+  /// prompt. Sincroniza la línea de estado; antes era heurística Dart
+  /// que se desfasaba al hacer `cd` dentro del bash real.
+  void _onBashCwd(String cwd) {
+    if (cwd == _bashCwd.value) {
+      return;
+    }
+    debugPrint('[TER-21] bash cwd: $cwd');
+    _bashCwd.value = cwd;
+    if (mounted) setState(() {});
+  }
 
   Future<double?> _readCpuTemp() => _hw.readCpuTemp();
 
-  /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  ¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalación esté sincronizado.
+  /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  Â¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalaciÃ³n estÃ© sincronizado.
   Future<void> _initShell() async {
     if (_deps.rootfs == null) {
       await _deps.initAll(onProgress: (msg) => _out('[init] $msg', Ln.system));
@@ -254,8 +286,10 @@ class _TermState extends State<NanoTerminal> {
       rootfs: _rootfs,
       rootfsEnv: _deps.rootfsEnv,
       onTitle: widget.onTitle,
-      // P1: sin este callback, _ansi seguía apuntando al ChangeNotifier ya
-      // dispuesto por el manager tras el fin de la sesión (Ctrl-D/exit) —
+      // TER-21: cwd real del bash (OSC 7) → línea de estado.
+      onCwd: _onBashCwd,
+      // P1: sin este callback, _ansi seguÃ­a apuntando al ChangeNotifier ya
+      // dispuesto por el manager tras el fin de la sesiÃ³n (Ctrl-D/exit) â€”
       // cualquier rebuild posterior lanzaba "used after being disposed".
       onSessionEnd: () {
         if (!mounted) return;
@@ -285,7 +319,7 @@ class _TermState extends State<NanoTerminal> {
         _ctx.env['ANDROID_DATA'] = '/data';
         _ctx.env['ANDROID_ROOT'] = '/system';
         _ctx.env['LANG'] = 'en_US.UTF-8';
-        _bashCwd = '$base/home';
+        _bashCwd.value = '$base/home';
         try {
           Directory('$base/home').createSync(recursive: true);
         } catch (_) {}
@@ -299,17 +333,25 @@ class _TermState extends State<NanoTerminal> {
           Directory('$usr/var/log').createSync(recursive: true);
         } catch (_) {}
       }
-      // Sin comando inicial inyectado: bash PTY automático. Con comando
+      // Sin comando inicial inyectado: bash PTY automÃ¡tico. Con comando
       // inicial (ej: kali shell), el dispatcher y su stream proot son el
-      // dueño del terminal; abrir bash encima mezclaría las dos sesiones.
+      // dueÃ±o del terminal; abrir bash encima mezclarÃ­a las dos sesiones.
       if (widget.initialCommand == null) {
-        _after(const Duration(milliseconds: 500), () => _ptyOpen(['bash']));
+        // TER-21: PROMPT_COMMAND hace que el bash reporte su $PWD real
+        // con cada prompt (OSC 7) — la línea de estado deja de depender
+        // de la heurística Dart (que se desfasaba con `cd`).
+        _after(
+          const Duration(milliseconds: 500),
+          () => _ptyOpen(['bash'], env: {
+            'PROMPT_COMMAND': r'printf "\033]7;file://%s\033\\" "$PWD"',
+          }),
+        );
       }
     } else {
       _out('[rootfs] no instalado. Ejecuta "bootstrap".', Ln.info);
     }
     if (_proot != null && _proot!.isReady) {
-      _out('[proot] listo → chroot sin root disponible', Ln.system);
+      _out('[proot] listo â†’ chroot sin root disponible', Ln.system);
     } else {
       _out('[proot] no disponible (ptrace bloqueado por SELinux?)', Ln.warn);
     }
@@ -326,14 +368,50 @@ class _TermState extends State<NanoTerminal> {
     // dispatcher ya construido, se ejecuta una sola vez.
     if (widget.initialCommand != null && !_initialCmdDone) {
       _initialCmdDone = true;
-      _execAsync(widget.initialCommand!);
+      CommandExecutor.execute(widget.initialCommand!, _execCtx());
     }
+  }
+
+  /// TER-14: programa el colapso del FAB a círculo compacto (estilo iOS:
+  /// discreto en reposo). Se rearma en cada interacción.
+  void _restartFabTimer() {
+    _fabTimer?.cancel();
+    _fabTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (mounted) setState(() => _fabCollapsed = true);
+    });
+  }
+
+  /// TER-14: abre la Noar Library ocultando el FAB mientras el panel vive
+  /// y rearmando el colapso al cerrar.
+  void _fabTap() {
+    final c = NanoThemeExtension.of(context).colors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
+    _fabTimer?.cancel();
+    setState(() => _fabHidden = true);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => NoarPanel(
+        library: _noarLib,
+        fg: fg,
+        dark: dark,
+        onUse: _useCommand,
+      ),
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() => _fabHidden = false);
+        _restartFabTimer();
+      }
+    });
   }
 
   @override
   void dispose() {
     _saveHistory();
     _alive = false;
+    _fabTimer?.cancel();
     _ptyClose(notify: false);
     for (final t in _timers) {
       t.cancel();
@@ -341,12 +419,10 @@ class _TermState extends State<NanoTerminal> {
     _timers.clear();
     _cron?.dispose();
     _cron = null;
-    try {
-      _shell?.killAll();
-    } catch (_) {}
-    try {
-      _docker?.dispose();
-    } catch (_) {}
+    // El shell y el runtime Docker pertenecen a TerminalDependencies
+    // (singleton compartido entre pestañas). Cerrar UNA pestaña no debe
+    // matar los workers FFI ni el runtime de las demás sesiones: el dueño
+    // único los libera en TerminalDependencies.dispose() (vida de la app).
     _in.dispose();
     _sc.dispose();
     _fn.dispose();
@@ -366,16 +442,16 @@ class _TermState extends State<NanoTerminal> {
     NetworkPlugin().register(r, s);
     DevOpsPlugin().register(r, s);
     DashboardPlugin().register(r, s);
-    // crontab/watch REALES: timers que ejecutan _execAsync de verdad.
-    // Registrados después de DevOpsPlugin para pisar cualquier stub.
-    // P2: la instancia se guarda — antes su dispose() nunca se llamaba y
+    // crontab/watch REALES: timers que ejecutan CommandExecutor de verdad.
+    // Registrados despuÃ©s de DevOpsPlugin para pisar cualquier stub.
+    // P2: la instancia se guarda â€” antes su dispose() nunca se llamaba y
     // los timers de crontab/watch quedaban vivos para siempre.
     _cron = CronScheduler(
-      execCmd: (raw) => _execAsync(raw),
+      execCmd: (raw) => CommandExecutor.execute(raw, _execCtx()),
       isAlive: () => _alive,
     )..register(r, _out);
-    // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
-    // nunca finge apertura — este registro lo reemplaza por el real).
+    // pty REAL: abre sesiÃ³n interactiva via _ptyOpen (el stub del plugin
+    // nunca finge apertura â€” este registro lo reemplaza por el real).
     _cmds['pty'] = (a, c, o, af) {
       final usr = _rootfs?.usrDir;
       if (usr == null) {
@@ -389,7 +465,7 @@ class _TermState extends State<NanoTerminal> {
       final all = a.contains('--all'),
           mem = all || a.contains('--memory'),
           cpu = all || a.contains('--cpu');
-      o('══ NanoRuntime Status ══', Ln.header);
+      o('â•â• NanoRuntime Status â•â•', Ln.header);
       if (mem) {
         final d = _devId;
         final double totalKb = (d?['memTotalKb'] as num?)?.toDouble() ?? 0.0;
@@ -412,7 +488,7 @@ class _TermState extends State<NanoTerminal> {
           o('RAM: (leyendo /proc/meminfo...)', Ln.stdout);
         }
         o(
-          'Modelo/KV: sin datos del motor LLM — usa "tune" para diagnóstico real',
+          'Modelo/KV: sin datos del motor LLM â€” usa "tune" para diagnÃ³stico real',
           Ln.info,
         );
       }
@@ -422,7 +498,7 @@ class _TermState extends State<NanoTerminal> {
         final hw = _devId?['cpuHardware'] as String?;
         final tempC = await _readCpuTemp();
         final tempStr = tempC != null
-            ? ' | Temp: ${tempC.toStringAsFixed(1)}°C'
+            ? ' | Temp: ${tempC.toStringAsFixed(1)}Â°C'
             : '';
         o(
           'CPU: $cores cores${hw != null ? ' ($hw)' : ''}$tempStr | Procs: ${ProcFs.listPids().length}',
@@ -455,12 +531,12 @@ class _TermState extends State<NanoTerminal> {
           })
           .catchError((e) {
             if (!_alive || !mounted) return;
-            o('infer: el motor no respondió — $e', Ln.stderr);
+            o('infer: el motor no respondiÃ³ â€” $e', Ln.stderr);
           });
     };
     _cmds['ai'] = (a, c, o, af) {
       if (a.isEmpty) {
-        o('ai: escribe un prompt. Ej: ai ¿cómo optimizar RAM?', Ln.stderr);
+        o('ai: escribe un prompt. Ej: ai Â¿cÃ³mo optimizar RAM?', Ln.stderr);
         return;
       }
       final prompt = a.join(' ');
@@ -484,14 +560,14 @@ class _TermState extends State<NanoTerminal> {
           .catchError((e) {
             if (!_alive || !mounted) return;
             o(
-              'ai: el motor no respondió. ¿Está corriendo llama.cpp en 127.0.0.1:8080?',
+              'ai: el motor no respondiÃ³. Â¿EstÃ¡ corriendo llama.cpp en 127.0.0.1:8080?',
               Ln.stderr,
             );
             o('  $e', Ln.stderr);
           });
     };
     _cmds['tune'] = (a, c, o, af) async {
-      o('══ NanoAI Auto-Tune ══', Ln.header);
+      o('â•â• NanoAI Auto-Tune â•â•', Ln.header);
       final mem = ProcFs.meminfo();
       final totalMb = (mem['MemTotal'] ?? 0) ~/ 1024;
       final availMb = (mem['MemAvailable'] ?? mem['MemFree'] ?? 0) ~/ 1024;
@@ -499,7 +575,7 @@ class _TermState extends State<NanoTerminal> {
       final tempC = await _readCpuTemp();
       o(
         'Device: ${totalMb}MB RAM, ${availMb}MB libre, $cores cores'
-        '${tempC != null ? ', ${tempC.toStringAsFixed(1)}°C' : ''}',
+        '${tempC != null ? ', ${tempC.toStringAsFixed(1)}Â°C' : ''}',
         Ln.info,
       );
       final engine = _engine;
@@ -530,38 +606,38 @@ class _TermState extends State<NanoTerminal> {
         if (res.tps != null) {
           o('Velocidad: ${res.tps!.toStringAsFixed(1)} tok/s', Ln.success);
           if (res.tps! < 5) {
-            o('⚠ TPS bajo. Considera:', Ln.warn);
+            o('âš  TPS bajo. Considera:', Ln.warn);
             o(
-              '  - Usar un modelo más pequeño (Qwen 0.5B en vez de 1.5B)',
+              '  - Usar un modelo mÃ¡s pequeÃ±o (Qwen 0.5B en vez de 1.5B)',
               Ln.info,
             );
             o('  - Reducir context window (--ctx-size 512)', Ln.info);
-            o('  - Deshabilitar GPU layers si tenés poca RAM', Ln.info);
+            o('  - Deshabilitar GPU layers si tenÃ©s poca RAM', Ln.info);
           } else if (res.tps! < 20) {
             o('TPS aceptable. Optimizaciones:', Ln.info);
             o('  - Subir --threads a $cores para mejor rendimiento', Ln.info);
-            o('  - Aumentar --batch-size a 512 si tenés RAM', Ln.info);
+            o('  - Aumentar --batch-size a 512 si tenÃ©s RAM', Ln.info);
           } else {
             o('TPS excelente. Sugerencias:', Ln.info);
-            o('  - Podés usar modelos más grandes (Qwen 3B, 7B)', Ln.info);
+            o('  - PodÃ©s usar modelos mÃ¡s grandes (Qwen 3B, 7B)', Ln.info);
             o('  - Aumentar --ctx-size a 4096 para prompts largos', Ln.info);
           }
         }
         if (availMb < 500) {
           o(
-            '⚠ RAM baja (${availMb}MB libre). Riesgo de OOM con modelos grandes.',
+            'âš  RAM baja (${availMb}MB libre). Riesgo de OOM con modelos grandes.',
             Ln.warn,
           );
         } else if (availMb > 2000) {
           o(
-            'RAM suficiente para modelos de hasta ~2B parámetros (Qwen-1.5B, Gemma-2B).',
+            'RAM suficiente para modelos de hasta ~2B parÃ¡metros (Qwen-1.5B, Gemma-2B).',
             Ln.info,
           );
         } else {
-          o('RAM adecuada para modelos de ~1B parámetros.', Ln.info);
+          o('RAM adecuada para modelos de ~1B parÃ¡metros.', Ln.info);
         }
       } on LLMEngineException catch (e) {
-        o('Benchmark falló: ${e.message}', Ln.stderr);
+        o('Benchmark fallÃ³: ${e.message}', Ln.stderr);
       }
     };
     _cmds['gpu'] = (a, c, o, af) {
@@ -572,7 +648,7 @@ class _TermState extends State<NanoTerminal> {
       final temp = info['tempC'];
       final freqStr = freq != null ? ' | Freq: $freq MHz' : '';
       final tempStr = temp != null
-          ? ' | Temp: ${temp.toStringAsFixed(1)}°C'
+          ? ' | Temp: ${temp.toStringAsFixed(1)}Â°C'
           : '';
       o('GPU: $name$freqStr$tempStr', Ln.stdout);
       final load = info['gpuLoad'];
@@ -593,10 +669,12 @@ class _TermState extends State<NanoTerminal> {
       final info = _hw.readGpuInfo();
       final name = (info['name'] as String?) ?? 'desconocida';
       final freq = info['freqMhz'];
-      o('╔══ nvtop ══╗', Ln.header);
-      o('║ GPU: $name ${" ".padLeft(15 - name.length)}║', Ln.header);
-      if (freq != null) o('║ Freq: $freq MHz ${" ".padLeft(8)}║', Ln.header);
-      o('╚═══════════╝', Ln.header);
+      o('â•”â•â• nvtop â•â•â•—', Ln.header);
+      o('â•‘ GPU: $name ${" ".padLeft(15 - name.length)}â•‘', Ln.header);
+      if (freq != null) {
+        o('â•‘ Freq: $freq MHz ${" ".padLeft(8)}â•‘', Ln.header);
+      }
+      o('â•šâ•â•â•â•â•â•â•â•â•â•â•â•', Ln.header);
     };
   }
 
@@ -626,7 +704,7 @@ class _TermState extends State<NanoTerminal> {
     return t;
   }
 
-  /// Detecta operadores de shell (| > < >> && || ;) fuera de comillas. Si están presentes, el comando debe delegarse a bash -c.
+  /// Detecta operadores de shell (| > < >> && || ;) fuera de comillas. Si estÃ¡n presentes, el comando debe delegarse a bash -c.
   bool _hasShellOps(String cmd) {
     bool sq = false, dq = false;
     for (int i = 0; i < cmd.length; i++) {
@@ -650,19 +728,34 @@ class _TermState extends State<NanoTerminal> {
   }
 
   void _exec(String raw) {
-    _execAsync(raw);
-  } // puente sync→async para onSubmitted
+    CommandExecutor.execute(raw, _execCtx());
+  } // puente syncâ†’async para onSubmitted
+
+  /// TER-10 — "usar" un comando de la Noar Library en el terminal activo.
+  /// Con bash PTY: bytes crudos + \r (mismo camino del KeyEvent, verificado
+  /// en device — el onSubmitted del IME no alimenta al PTY). Sin PTY:
+  /// insertar en el input y ejecutar vía dispatcher.
+  void _useCommand(String cmd) {
+    if (_ptyActive) {
+      _pty!.writeBytes(utf8.encode(cmd));
+      _pty!.writeBytes([0x0d]);
+      _fn.requestFocus();
+    } else {
+      _in.text = cmd;
+      _exec(cmd);
+    }
+  }
 
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
 
   int _ptyRows = 24, _ptyCols = 80;
 
-  /// Aplica el tamaño del área visible al PTY y al buffer ANSI. Los apps fullscreen (vim/htop) consultan TIOCGWINSZ en cada redibujo; sin resize real dibujan en 24x80 aunque la pantalla sea mayor. Se difiere a post-frame porque toca ChangeNotifier (evita rebuild en build).
+  /// Aplica el tamaÃ±o del Ã¡rea visible al PTY y al buffer ANSI. Los apps fullscreen (vim/htop) consultan TIOCGWINSZ en cada redibujo; sin resize real dibujan en 24x80 aunque la pantalla sea mayor. Se difiere a post-frame porque toca ChangeNotifier (evita rebuild en build).
   ///
-  /// Usa las MISMAS métricas de celda que AnsiTerminalView (AnsiMetrics):
-  /// antes se asumía 7.6px de ancho y 20px de alto a mano; con la fuente
-  /// real del device el grid del render y el del buffer divergían y las
-  /// cajas/columnas de apps fullscreen se descuadraban (errores de píxel).
+  /// Usa las MISMAS mÃ©tricas de celda que AnsiTerminalView (AnsiMetrics):
+  /// antes se asumÃ­a 7.6px de ancho y 20px de alto a mano; con la fuente
+  /// real del device el grid del render y el del buffer divergÃ­an y las
+  /// cajas/columnas de apps fullscreen se descuadraban (errores de pÃ­xel).
   void _applyPtySize(double w, double h) {
     if (_pty == null || !_ptyActive || _ansi == null) return;
     final m = AnsiMetrics.measure();
@@ -677,7 +770,7 @@ class _TermState extends State<NanoTerminal> {
     });
   }
 
-  /// Abre una sesión PTY con [argv]. Si falla, vuelca error por [o].
+  /// Abre una sesiÃ³n PTY con [argv]. Si falla, vuelca error por [o].
   Future<void> _ptyOpen(
     List<String> argv, {
     Map<String, String>? env,
@@ -685,13 +778,13 @@ class _TermState extends State<NanoTerminal> {
     void Function(String, Ln)? o,
   }) async {
     final out = o ?? _out;
-    // Diagnóstico temprano: binario ausente → sugerir pkg install.
+    // DiagnÃ³stico temprano: binario ausente â†’ sugerir pkg install.
     if (argv.isNotEmpty && argv.first.contains('/')) {
       try {
         if (!File(argv.first).existsSync()) {
           final name = argv.first.split('/').last;
           out(
-            'pty: "$name" no está en el rootfs. Ejecuta "pkg install $name".',
+            'pty: "$name" no estÃ¡ en el rootfs. Ejecuta "pkg install $name".',
             Ln.stderr,
           );
           return;
@@ -703,20 +796,31 @@ class _TermState extends State<NanoTerminal> {
       out('[pty] gestor de sesiones no inicializado.', Ln.stderr);
       return;
     }
-    final ok = await pm.open(argv, env: env, ldPreload: ldPreload);
+    // Los binarios del rootfs Termux enlazan rutas hardcodeadas y SELinux
+    // deniega el execve directo desde el contexto PTY sin interceptación:
+    // el mismo bash sin libnanoroot.so deja "ls: Permission denied" en
+    // cualquier binario del rootfs. El hijo necesita fakechroot — mismo
+    // preload que ya usan los caminos `!` y shell-ops.
+    final ok = await pm.open(
+      argv,
+      env: env,
+      ldPreload:
+          ldPreload ??
+          (_rootfs?.isInstalled == true ? 'libnanoroot.so' : null),
+    );
     if (!ok) {
-      // Un único camino de apertura. El fallback histórico abría una segunda
-      // sesión PtySession paralela duplicando el ciclo de vida del
+      // Un Ãºnico camino de apertura. El fallback histÃ³rico abrÃ­a una segunda
+      // sesiÃ³n PtySession paralela duplicando el ciclo de vida del
       // AnsiTerminal y sus listeners (riesgo de doble dispose). El error se
       // reporta y PtyManager deja el estado limpio.
-      out('[pty] no se pudo abrir la sesión interactiva.', Ln.stderr);
+      out('[pty] no se pudo abrir la sesiÃ³n interactiva.', Ln.stderr);
       return;
     }
     _pty = pm.session;
     _ansi = pm.ansi;
     if (mounted) setState(() {});
     out(
-      '— terminal interactivo (Ctrl+C para SIGINT, escribe "exit") —',
+      'â€” terminal interactivo (Ctrl+C para SIGINT, escribe "exit") â€”',
       Ln.system,
     );
     out('pty> ', Ln.prompt);
@@ -748,236 +852,42 @@ class _TermState extends State<NanoTerminal> {
     if (notify && mounted) setState(() {});
   }
 
-  final List<Map<String, dynamic>> _noarLib = [];
+  /// Persistencia Noar (librerÃ­a de comandos). SRP: la lÃ³gica vive en
+  /// [NoarPersistence]; este campo es la instancia que la UI lee.
+  final NoarPersistence _noar = NoarPersistence();
+  List<Map<String, dynamic>> get _noarLib => _noar.entries;
 
-  /// Guarda un comando ejecutado en la librería Noar con timestamp y tag.
-  void _saveToNoar(String cmd, String tag) {
-    _noarLib.insert(0, {
-      'cmd': cmd,
-      'tag': tag,
-      'ts': DateTime.now().toIso8601String(),
-    });
-    if (_noarLib.length > 500) _noarLib.removeRange(500, _noarLib.length);
-    SharedPreferences.getInstance().then((p) {
-      p.setString('noar_library', jsonEncode(_noarLib.take(500).toList()));
-    });
-  }
 
-  Future<void> _loadNoar() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final j = p.getString('noar_library');
-      if (j != null) {
-        final list = (jsonDecode(j) as List).cast<Map>();
-        _noarLib.addAll(list.map((m) => Map<String, dynamic>.from(m)));
-      }
-    } catch (_) {}
-  }
-
-  /// Clasifica un comando en un tag basado en su nombre.
-  String _tagFor(String cmd) {
-    final name = cmd.split(' ').first;
-    if ([
-      'ls',
-      'cat',
-      'cd',
-      'pwd',
-      'mkdir',
-      'touch',
-      'rm',
-      'cp',
-      'mv',
-      'echo',
-      'grep',
-      'find',
-      'wc',
-      'head',
-      'tail',
-      'diff',
-      'chmod',
-      'tree',
-    ].contains(name)) {
-      return 'fs';
-    }
-    if (['apt', 'pkg', 'pip', 'npm', 'gem', 'cargo'].contains(name)) {
-      return 'pkgs';
-    }
-    if (['docker'].contains(name)) return 'containers';
-    if (['kali'].contains(name)) return 'kali';
-    if (['ps', 'kill', 'htop', 'top', 'pstree', 'free', 'df'].contains(name)) {
-      return 'monitor';
-    }
-    if (['git', 'ssh', 'curl', 'wget', 'scp'].contains(name)) return 'remote';
-    if (['ai', 'infer', 'stat', 'tune', 'gpu', 'nvtop'].contains(name)) {
-      return 'ai';
-    }
-    if (['bootstrap'].contains(name)) return 'rootfs';
-    if (['bash', 'toybox'].contains(name)) return 'shell';
-    if (cmd.startsWith('!')) return 'shell';
-    return 'general';
-  }
-
-  Future<void> _execAsync(String raw) async {
-    if (_ptyActive) {
-      final cmd = raw.trim();
-      if (cmd == 'exit' || cmd == 'logout' || cmd == '^D') {
-        await _ptyClose();
-        return;
-      }
-      // In PTY mode, onChanged already sent each character as it was typed.
-      // onSubmitted only needs to send CR (Enter). Sending the full text again
-      // would duplicate every character the user typed.
-      _pty!.writeBytes([0x0d]);
-      return;
-    }
-    _out(_ps1 + raw, Ln.prompt);
-    final cmd = raw.trim();
-    if (cmd.isEmpty) return;
-    _hist.add(cmd);
-    _hIdx = -1;
-    _in.clear();
-    _saveToNoar(cmd, _tagFor(cmd));
-    if (cmd == 'exit' || cmd == 'logout') {
-      _out('— Sesion finalizada ($cmd) —', Ln.system);
-      return;
-    }
-    if (_dispatcher != null && !_hasShellOps(cmd)) {
-      final parts = cmd.split(RegExp(r'\s+'));
-      if (parts.isNotEmpty &&
-          _dispatcher!.dispatch(
-            parts[0],
-            parts.length > 1 ? parts.sublist(1) : <String>[],
-          )) {
-        return;
-      }
-    }
-    // persistir en libreria Noar
-
-    if (cmd.startsWith('!')) {
-      final shellCmd = cmd.substring(1).trim();
-      if (shellCmd.isEmpty) return;
-      if (shellCmd.startsWith('cd ') || shellCmd == 'cd') {
-        final target = shellCmd.length > 3 ? shellCmd.substring(3).trim() : '/';
-        if (target == '..') {
-          _bashCwd = _bashCwd == '/'
-              ? '/'
-              : _bashCwd.substring(0, _bashCwd.lastIndexOf('/'));
-          if (_bashCwd.isEmpty) _bashCwd = '/';
-        } else if (target.startsWith('/')) {
-          _bashCwd = target;
-        } else if (target.isNotEmpty) {
-          _bashCwd = _bashCwd == '/' ? '/$target' : '$_bashCwd/$target';
-        }
-        _out('[ash] cd → $_bashCwd', Ln.system);
-      }
-      if (_shell != null && _shell!.initialized) {
-        _out('[ash] $shellCmd', Ln.system);
-        final extraEnv = _rootfs?.isInstalled == true
-            ? <String, String>{
-                'LD_PRELOAD': 'libnanoroot.so',
-                'NANO_ROOTFS': _shell!.usrDir!,
-                'LD_LIBRARY_PATH': '${_shell!.usrDir}/lib',
-                'HOME': '${_shell!.baseDir!}/home',
-                'PATH':
-                    '${_shell!.usrDir}/bin:${_shell!.usrDir}/bin/applets:/system/bin:/system/xbin',
-                'TERMUX': 'true',
-                'LANG': 'en_US.UTF-8',
-              }
-            : null;
-        final r = await _shell!.toybox([
-          'ash',
-          '-c',
-          shellCmd,
-        ], extraEnv: extraEnv);
-        _shellOut(r);
-      } else {
-        _out('! : shell no disponible (binarios no extraídos)', Ln.stderr);
-      }
-      return;
-    }
-    if (_hasShellOps(cmd)) {
-      // Host con sh real (Linux/macOS desktop): pipes/redirección/&& reales
-      // delegando a `sh -c` sobre el sandbox real. En Android manda toybox
-      // ash del motor NanoRuntime. Sin ninguno: error honesto.
-      if (!Platform.isAndroid && _realFs.hasRealShell) {
-        await _realFs.runShell(cmd, out: _out);
-        return;
-      }
-      if (_shell != null && _shell!.initialized) {
-        _out('[ash] $cmd', Ln.system);
-        final extraEnv = _rootfs?.isInstalled == true
-            ? _deps.rootfsEnv(ldPreload: 'libnanoroot.so')
-            : null;
-        final r = await _shell!.toybox(['ash', '-c', cmd], extraEnv: extraEnv);
-        _shellOut(r);
-        return;
-      }
-      _out('sh: no disponible (sin rootfs ni shell del host)', Ln.stderr);
-      return;
-    }
-    var parts = _tok(cmd);
-    if (parts.isNotEmpty && _ctx.aliases.containsKey(parts[0])) {
-      parts = _tok(_ctx.aliases[parts[0]]!);
-    }
-    if (parts.isEmpty) return;
-    final name = parts[0], args = parts.sublist(1);
-    if (name == 'bash' && _shell != null && _shell!.initialized) {
-      final shellCmd = args.isNotEmpty ? args.join(' ') : '-i';
-      _out('[ash] $shellCmd', Ln.system);
-      final r = await _shell!.toybox(['ash', '-c', shellCmd]);
-      _shellOut(r);
-      return;
-    }
-    if (name == 'toybox' && _shell != null && _shell!.initialized) {
-      final result = await _shell!.toybox(args);
-      _shellOut(result);
-      return;
-    }
-    if (realCommands.contains(name)) {
-      if (_shell != null && _shell!.initialized && Platform.isAndroid) {
-        final r = await _shell!.toybox([name, ...args]);
-        _shellOut(r);
-      } else if (!Platform.isAndroid &&
-          (_realFs.supports(name) || _realFs.hasRealShell)) {
-        // Desktop: binario real del host (sed/awk/tar/chmod... GNU reales)
-        // con fallback dart:io para el subconjunto soportado.
-        await _realFs.run(name, args, out: _out);
-        if (name == 'cd') _bashCwd = _realFs.cwd;
-      } else if (!Platform.isAndroid) {
-        _out('$name: no disponible (sin binarios en este host)', Ln.stderr);
-      } else {
-        _out('$name: shell engine not initialized.', Ln.stderr);
-      }
-      return;
-    }
-    // Fallback dart:io para comandos fuera de realCommands (tree, source)
-    // en hosts sin binarios Android.
-    if (!Platform.isAndroid && _realFs.supports(name)) {
-      await _realFs.run(name, args, out: _out);
-      if (name == 'cd') _bashCwd = _realFs.cwd;
-      return;
-    }
-    if (name == 'source') {
-      if (args.isEmpty) {
-        _out('source: falta archivo', Ln.stderr);
-        return;
-      }
-      if (_shell != null && _shell!.initialized) {
-        final r = await _shell!.toybox(['ash', '-c', 'source ${args[0]}']);
-        _shellOut(r);
-      } else {
-        _out('source: shell engine not initialized.', Ln.stderr);
-      }
-      return;
-    }
-    final handler = _cmds[name];
-    if (handler != null) {
-      final result = handler(args, _ctx, _out, _after);
-      if (result is Future) await result;
-    } else {
-      _out('$name: comando no encontrado. "help" para ver todos.', Ln.stderr);
-    }
-  }
+  /// Construye el contexto de ejecuciÃ³n del CommandExecutor (T0.1B). Cada
+  /// campo mutable se toma del state en el momento de la llamada; el executor
+  /// es la Ãºnica implementaciÃ³n del pipeline, el state solo presta sus campos.
+  CmdExecCtx _execCtx() => CmdExecCtx(
+    out: _out,
+    after: _after,
+    pty: _pty,
+    ptyActive: _ptyActive,
+    closePty: () => _ptyClose(),
+    ps1: _ps1,
+    history: _hist,
+    historyIndex: _hIdx,
+    input: _in,
+    saveToNoar: (cmd, tag) => _noar.save(cmd, tag),
+    tagFor: (cmd) => CommandTagger.tag(cmd),
+    dispatcher: _dispatcher,
+    hasShellOps: _hasShellOps,
+    shell: _shell,
+    bashCwd: _bashCwd,
+    rootfs: _rootfs,
+    realFs: _realFs,
+    isAndroid: Platform.isAndroid,
+    rootfsEnv: _deps.rootfsEnv,
+    shellOut: _shellOut,
+    tokenize: _tok,
+    ctx: _ctx,
+    cmds: _cmds,
+    audit: null,
+    alive: _alive,
+  );
 
   /// Vuelca la salida de un ShellResult en el buffer del terminal.
   void _shellOut(ShellResult r) {
@@ -990,7 +900,7 @@ class _TermState extends State<NanoTerminal> {
     }
   }
 
-  /// Handler global de teclado (HardwareKeyboard).  En modo PTY interactivo cada keydown se convierte a bytes y se envía al terminal (vim/htop/python necesitan teclas individuales, no líneas con Enter). Fuera de PTY conserva Ctrl+L/C de la shell integrada.
+  /// Handler global de teclado (HardwareKeyboard).  En modo PTY interactivo cada keydown se convierte a bytes y se envÃ­a al terminal (vim/htop/python necesitan teclas individuales, no lÃ­neas con Enter). Fuera de PTY conserva Ctrl+L/C de la shell integrada.
   bool _onKey(KeyEvent e) {
     if (e is! KeyDownEvent) {
       if (e is KeyUpEvent &&
@@ -1009,7 +919,12 @@ class _TermState extends State<NanoTerminal> {
       if (_ctrl) {
         if (e.logicalKey == LogicalKeyboardKey.keyC) {
           _ctrl = false;
-          _pty!.signal(2);
+          // TER-11 v2: signal(2)=kill(-pid) NO mata en este device — sticky
+          // Ctrl + "c" dejó el sleep 60 vivo (verificado por ps). Seccomp
+          // ColorOS filtra kill desde la app (precedente shmget→SIGSYS).
+          // El byte 0x03 por ISIG del kernel SÍ genera SIGINT al foreground
+          // (probado: tecla Ctrl+C mató el sleep 30). Unificado al camino byte.
+          _pty!.writeBytes([0x03]);
           return true;
         }
         if (e.logicalKey == LogicalKeyboardKey.keyL) {
@@ -1118,19 +1033,72 @@ class _TermState extends State<NanoTerminal> {
       children: [
         Column(
           children: [
+            // TER-15: header glass — gradiente pizarra + dot de estado con
+            // glow del color del estado + texto con letterSpacing.
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-              color: chrome,
-              child: Text(
-                _ptyActive
-                    ? 'PTY: bash (rootfs real)'
-                    : 'OFFLINE (rootfs no instalado)',
-                style: TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 10,
-                  color: _ptyActive ? c.success : c.warning,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0E2238),
+                          const Color(0xFF07192B),
+                        ]
+                      : [
+                          c.terminalBg.withValues(alpha: 0.9),
+                          c.terminalBg,
+                        ],
                 ),
+                border: Border(
+                  bottom: BorderSide(color: fg.withValues(alpha: 0.08)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _ptyActive ? c.success : c.warning,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_ptyActive ? c.success : c.warning)
+                              .withValues(alpha: 0.5),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    _ptyActive
+                        ? 'PTY: bash (rootfs real)'
+                        : 'OFFLINE (rootfs no instalado)',
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 10,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600,
+                      color: _ptyActive ? c.success : c.warning,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'NANORUNTIME',
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 9,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: fg.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -1249,6 +1217,8 @@ class _TermState extends State<NanoTerminal> {
                     _ansi?.screen.bracketedPasteMode ?? false,
               ),
             if (sug.isNotEmpty && _in.text.isNotEmpty && _fn.hasFocus)
+              // TER-15: sugerencias glass — gradiente pizarra, chips con
+              // estado pressed (escala) y acento cian al tocar.
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1256,7 +1226,19 @@ class _TermState extends State<NanoTerminal> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: chrome,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: dark
+                        ? [
+                            const Color(0xFF0E2238),
+                            const Color(0xFF07192B),
+                          ]
+                        : [
+                            c.terminalBg.withValues(alpha: 0.9),
+                            c.terminalBg,
+                          ],
+                  ),
                   border: Border(
                     top: BorderSide(color: fg.withValues(alpha: 0.08)),
                   ),
@@ -1266,45 +1248,47 @@ class _TermState extends State<NanoTerminal> {
                   runSpacing: 4,
                   children: sug
                       .map(
-                        (s) => GestureDetector(
+                        (s) => _SuggestionChip(
+                          label: s,
+                          fg: fg,
                           onTap: () {
                             _in.text = s;
                             _in.selection = TextSelection.collapsed(
                               offset: s.length,
                             );
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: fg.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(
-                                color: fg.withValues(alpha: 0.08),
-                              ),
-                            ),
-                            child: Text(
-                              s,
-                              style: TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 11.5,
-                                color: fg.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ),
                         ),
                       )
                       .toList(),
                 ),
               ),
+            // TER-15: barra de input glass — gradiente pizarra translúcido,
+            // borde superior con brillo tenue del prompt.
             Container(
               decoration: BoxDecoration(
-                color: chrome,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0E2238),
+                          const Color(0xFF07192B),
+                        ]
+                      : [
+                          c.terminalBg.withValues(alpha: 0.9),
+                          c.terminalBg,
+                        ],
+                ),
                 border: Border(
                   top: BorderSide(color: fg.withValues(alpha: 0.12)),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: fg.withValues(alpha: 0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
               ),
               padding: const EdgeInsets.fromLTRB(16, 12, 14, 14),
               child: Row(
@@ -1329,9 +1313,9 @@ class _TermState extends State<NanoTerminal> {
                     child: CallbackShortcuts(
                       bindings: {
                         const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-                          if (_hIdx < _hist.length - 1) {
-                            _hIdx++;
-                            _in.text = _hist.reversed.toList()[_hIdx];
+                          if (_hIdx.value < _hist.length - 1) {
+                            _hIdx.value++;
+                            _in.text = _hist.reversed.toList()[_hIdx.value];
                             _in.selection = TextSelection.collapsed(
                               offset: _in.text.length,
                             );
@@ -1340,11 +1324,11 @@ class _TermState extends State<NanoTerminal> {
                         const SingleActivator(
                           LogicalKeyboardKey.arrowDown,
                         ): () {
-                          if (_hIdx > 0) {
-                            _hIdx--;
-                            _in.text = _hist.reversed.toList()[_hIdx];
+                          if (_hIdx.value > 0) {
+                            _hIdx.value--;
+                            _in.text = _hist.reversed.toList()[_hIdx.value];
                           } else {
-                            _hIdx = -1;
+                            _hIdx.value = -1;
                             _in.clear();
                           }
                         },
@@ -1374,7 +1358,7 @@ class _TermState extends State<NanoTerminal> {
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                           hintText: _ptyActive
-                              ? 'terminal interactivo — escribe directo (Ctrl+C salir)'
+                              ? 'terminal interactivo â€” escribe directo (Ctrl+C salir)'
                               : 'comando o "ai <pregunta>"...',
                           hintStyle: TextStyle(
                             fontFamily: 'JetBrainsMono',
@@ -1385,6 +1369,33 @@ class _TermState extends State<NanoTerminal> {
                         onSubmitted: _exec,
                         onChanged: (v) {
                           if (_ptyActive && v.isNotEmpty) {
+                            // TER-11: Ctrl fijo (botón "Ctrl ON" de la barra)
+                            // + tecla del teclado táctil. El KeyEvent Ctrl+C
+                            // de _onKey solo llega con teclado hardware; el
+                            // IME no genera KeyEvents, así que sin esto Ctrl+C
+                            // era inalcanzable en táctil (letra "c" literal
+                            // al bash) y top/htop/python quedaban colgados.
+                            if (_ctrl) {
+                              final c = v.codeUnitAt(0);
+                              setState(() => _ctrl = false);
+                              if (c == 0x63 || c == 0x43) {
+                                // Ctrl+C: byte 0x03 — el kernel (ISIG del
+                                // termios que readline/bash ponen) genera el
+                                // SIGINT al grupo foreground. No se llama
+                                // kill() desde la app (seccomp ColorOS ya
+                                // mató shmget con SIGSYS: cero syscalls
+                                // innecesarias).
+                                _pty!.writeBytes([0x03]);
+                              } else if (c >= 0x61 && c <= 0x7a) {
+                                _pty!.writeBytes([c - 0x60]);
+                              } else if (c >= 0x41 && c <= 0x5a) {
+                                _pty!.writeBytes([c - 0x40]);
+                              } else {
+                                _pty!.writeBytes(utf8.encode(v));
+                              }
+                              _in.value = TextEditingValue.empty;
+                              return;
+                            }
                             // Send raw bytes including printable chars. Control chars
                             // (backspace 0x7F, etc.) are handled by _onKey/modifier row,
                             // not the soft keyboard, so filtering >= 0x20 is correct.
@@ -1394,7 +1405,7 @@ class _TermState extends State<NanoTerminal> {
                             _in.value = TextEditingValue.empty;
                             return;
                           }
-                          _hIdx = -1;
+                          _hIdx.value = -1;
                         },
                       ),
                     ),
@@ -1408,46 +1419,175 @@ class _TermState extends State<NanoTerminal> {
           Positioned(
             left: _fabOffset.dx,
             top: _fabOffset.dy,
-            child: GestureDetector(
-              onPanUpdate: (d) {
-                setState(() {
-                  final sw = MediaQuery.of(context).size.width;
-                  final sh = MediaQuery.of(context).size.height;
-                  _fabOffset = Offset(
-                    (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabSize),
-                    (_fabOffset.dy + d.delta.dy).clamp(
-                      40.0,
-                      sh - _fabSize - 100,
-                    ),
-                  );
-                });
-              },
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _fabInit ? 0.55 : 0.0,
-                child: Material(
-                  color: chrome,
-                  borderRadius: BorderRadius.circular(12),
-                  elevation: 4,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) =>
-                            NoarPanel(library: _noarLib, fg: fg, dark: dark),
-                      );
-                    },
-                    child: Container(
-                      width: _fabSize,
-                      height: _fabSize,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: fg.withValues(alpha: 0.18)),
+            child: IgnorePointer(
+              ignoring: _fabHidden,
+              child: GestureDetector(
+                onPanStart: (_) {
+                  // Al arrastrar expande: se ve qué se está moviendo.
+                  if (_fabCollapsed) {
+                    setState(() => _fabCollapsed = false);
+                  }
+                },
+                onPanUpdate: (d) {
+                  setState(() {
+                    final sw = MediaQuery.of(context).size.width;
+                    final sh = MediaQuery.of(context).size.height;
+                    _fabOffset = Offset(
+                      (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabW),
+                      (_fabOffset.dy + d.delta.dy).clamp(
+                        40.0,
+                        sh - _fabH - 100,
                       ),
-                      child: Icon(Icons.menu_book_rounded, color: fg, size: 20),
+                    );
+                  });
+                },
+                onPanEnd: (_) => _restartFabTimer(),
+                // TER-14: entrada/dismiss estilo iOS — slide desde la derecha
+                // + escala con overshoot (easeOutBack) al aparecer; se
+                // desliza fuera al abrir el panel (oculto, sin robar espacio
+                // ni atención).
+                child: AnimatedSlide(
+                  offset: (_fabInit && !_fabHidden)
+                      ? Offset.zero
+                      : const Offset(0.9, 0),
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedScale(
+                    scale: (_fabInit && !_fabHidden)
+                        ? (_fabPressed ? 0.94 : 1.0)
+                        : 0.6,
+                    duration: _fabPressed
+                        ? const Duration(milliseconds: 110)
+                        : const Duration(milliseconds: 420),
+                    curve:
+                        _fabPressed ? Curves.easeOut : Curves.easeOutBack,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 260),
+                      opacity: (_fabInit && !_fabHidden) ? 1.0 : 0.0,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(_fabH / 2),
+                          onHighlightChanged: (h) =>
+                              setState(() => _fabPressed = h),
+                          onTap: _fabTap,
+                          // TER-14: glassmorphism — blur real del contenido
+                          // del terminal detrás + tinte translúcido + borde
+                          // blanco fino + sombra profunda + brillo de acento.
+                          // Colapsa a círculo compacto (icono + badge) tras
+                          // 3.5 s sin uso.
+                          child: AnimatedContainer(
+                            width: _fabCollapsed ? _fabH : _fabW,
+                            height: _fabH,
+                            duration: const Duration(milliseconds: 320),
+                            curve: Curves.easeInOutCubic,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.14),
+                                  Colors.white.withValues(alpha: 0.04),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(_fabH / 2),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
+                                ),
+                                BoxShadow(
+                                  color: _accent.withValues(alpha: 0.10),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(_fabH / 2),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 12,
+                                  sigmaY: 12,
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Icono fijo a la izquierda.
+                                    const Positioned(
+                                      left: 13,
+                                      top: 13,
+                                      child: Icon(
+                                        Icons.menu_book_rounded,
+                                        color: _accent,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    // Label corto: fade al colapsar.
+                                    Positioned(
+                                      left: 38,
+                                      right: 8,
+                                      top: 0,
+                                      bottom: 0,
+                                      child: AnimatedOpacity(
+                                        duration: const Duration(
+                                            milliseconds: 180),
+                                        opacity:
+                                            _fabCollapsed ? 0.0 : 1.0,
+                                        child: const Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            'Noar',
+                                            style: TextStyle(
+                                              fontFamily: 'JetBrainsMono',
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: _fabText,
+                                            ),
+                                            maxLines: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Badge contador: solo en modo compacto
+                                    // (no roba espacio en la pill).
+                                    if (_fabCollapsed)
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: Container(
+                                          width: 16,
+                                          height: 16,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: c.warning,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: chrome,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${noarBuiltinCommands.length + _noarLib.length}',
+                                            style: const TextStyle(
+                                              fontFamily: 'JetBrainsMono',
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF1A1200),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1455,6 +1595,77 @@ class _TermState extends State<NanoTerminal> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Chip de sugerencia con presión táctil (escala 0.92) y brillo de acento
+/// mientras se pulsa. TER-15.
+class _SuggestionChip extends StatefulWidget {
+  const _SuggestionChip({
+    required this.label,
+    required this.fg,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color fg;
+  final VoidCallback onTap;
+
+  @override
+  State<_SuggestionChip> createState() => _SuggestionChipState();
+}
+
+class _SuggestionChipState extends State<_SuggestionChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: _pressed
+                ? widget.fg.withValues(alpha: 0.16)
+                : widget.fg.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: _pressed
+                  ? widget.fg.withValues(alpha: 0.35)
+                  : widget.fg.withValues(alpha: 0.08),
+            ),
+            boxShadow: _pressed
+                ? [
+                    BoxShadow(
+                      color: widget.fg.withValues(alpha: 0.15),
+                      blurRadius: 8,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 11.5,
+              fontWeight: _pressed ? FontWeight.w700 : FontWeight.w500,
+              color: _pressed
+                  ? widget.fg
+                  : widget.fg.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

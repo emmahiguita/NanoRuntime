@@ -15,11 +15,17 @@ import 'chat_models.dart';
 enum ModelTier {
   /// ≤3B: tiempo al primer token < ~5s en móvil. Default del chat.
   interactive,
+
   /// 4B–7B: usable pero lento en el primer token.
   deep,
+
   /// 9B+: solo batch/insistencia explícita. Nunca default del chat.
   extreme,
 }
+
+/// Tipo de modelo (A16): el catálogo deja de ser solo LLM. Cada kind se
+/// carga/consume distinto (GGUF → runtime; .tflite → detector de wake word).
+enum ModelKind { llm, wakeWord }
 
 class LmCatalogEntry {
   final String name;
@@ -42,6 +48,9 @@ class LmCatalogEntry {
   /// Tier de rendimiento: guía la selección por defecto (Gate R9).
   final ModelTier tier;
 
+  /// Tipo de modelo (A16): llm por defecto; wakeWord para detectores .tflite.
+  final ModelKind kind;
+
   const LmCatalogEntry(
     this.name,
     this.params,
@@ -53,6 +62,7 @@ class LmCatalogEntry {
     this.sha256, {
     this.template = ChatTemplate.qwen,
     this.tier = ModelTier.interactive,
+    this.kind = ModelKind.llm,
   });
 }
 
@@ -290,6 +300,21 @@ abstract final class NeuralCatalog {
       template: ChatTemplate.deepseek,
       tier: ModelTier.deep,
     ),
+    // A16 — wake word (detector local microWakeWord, modelo .tflite). SHA256
+    // verificado del release oficial OHF-Voice/micro-wake-word v2.1_models.
+    // No hay modelo "Nano" pre-entrenado: se usa "hey mycroft" como base; un
+    // modelo "Nano" se entrenaría con openWakeWord y se añadiría igual.
+    LmCatalogEntry(
+      'Hey Mycroft (wake word)',
+      'microWakeWord',
+      'tflite',
+      0.000055,
+      0.01,
+      'hey_mycroft.tflite',
+      'https://github.com/OHF-Voice/micro-wake-word/releases/download/v2.1_models/hey_mycroft.tflite',
+      'c2a9b6ed51182db72e014781d5a4ece1929dc232a40b5b4be384f0295f0e1571',
+      kind: ModelKind.wakeWord,
+    ),
   ];
 
   static LmCatalogEntry entryOf(String name) =>
@@ -307,6 +332,17 @@ abstract final class NeuralCatalog {
     }
     return models[0];
   }
+
+  /// Devuelve las entradas del catálogo por tipo de modelo (A16).
+  static List<LmCatalogEntry> modelsOf(ModelKind kind) =>
+      models.where((m) => m.kind == kind).toList();
+
+  /// Modelos de wake word (.tflite). A16: aún sin entradas — se añaden con el
+  /// SHA256 verificado del release oficial de microWakeWord (github.com/OHF-Voice/
+  /// micro-wake-word-models). Nunca se inventa un hash: sin SHA256 válido no se
+  /// instala (mismo gate que los GGUF).
+  static List<LmCatalogEntry> get wakeWordModels =>
+      modelsOf(ModelKind.wakeWord);
 
   /// Devuelve el [ChatTemplate] del modelo por nombre exacto de catálogo.
   ///

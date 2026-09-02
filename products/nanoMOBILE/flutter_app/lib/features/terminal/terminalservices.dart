@@ -34,7 +34,8 @@ class TerminalServices {
   final Map<String, String> Function({
     String? ldPreload,
     Map<String, String>? extra,
-  }) rootfsEnv;
+  })
+  rootfsEnv;
 
   // LLM engine (lazy, may be null)
   final Object? Function() getEngine;
@@ -64,9 +65,9 @@ class TerminalServices {
     void Function(String)? onNavigate,
     this.mounted = true,
     Map<String, String>? helpTexts,
-  })  : onClear = onClear ?? _noop,
-        onNavigate = onNavigate ?? _noopStr,
-        helpTexts = helpTexts ?? {};
+  }) : onClear = onClear ?? _noop,
+       onNavigate = onNavigate ?? _noopStr,
+       helpTexts = helpTexts ?? {};
 
   static void _noop() {}
   static void _noopStr(String _) {}

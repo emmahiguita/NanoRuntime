@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nanoai/core/agent/actionability_engine.dart';
-import 'package:nanoai/core/agent/nano_snapshot.dart';
+import 'package:nanoai/features/automation/engine/perception/actionability_engine.dart';
+import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart';
 
 void main() {
   NanoNode node({
@@ -26,7 +26,8 @@ void main() {
       focused: focused,
       visible: visible,
       enabled: enabled,
-      bounds: bounds ?? const NanoBounds(left: 0, top: 0, right: 100, bottom: 50),
+      bounds:
+          bounds ?? const NanoBounds(left: 0, top: 0, right: 100, bottom: 50),
     );
   }
 

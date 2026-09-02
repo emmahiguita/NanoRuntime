@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 
 import 'nano_home_models.dart';
@@ -23,7 +23,13 @@ class NanoHomeScreen extends StatefulWidget {
   final VoidCallback onChatTap;
   final VoidCallback onModelsTap;
   final VoidCallback? onDesktopTap;
+  final VoidCallback? onAutomationTap;
   final VoidCallback onKaliTap;
+
+  /// Estados EN VIVO reales (providers) para los indicadores pulsantes.
+  final bool chatOn;
+  final bool termOn;
+  final bool modelOn;
 
   const NanoHomeScreen({
     super.key,
@@ -35,7 +41,11 @@ class NanoHomeScreen extends StatefulWidget {
     required this.onChatTap,
     required this.onModelsTap,
     this.onDesktopTap,
+    this.onAutomationTap,
     required this.onKaliTap,
+    this.chatOn = false,
+    this.termOn = false,
+    this.modelOn = false,
   });
 
   @override
@@ -55,7 +65,7 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _pageController = PageController(initialPage: 1, viewportFraction: 0.66);
+    _pageController = PageController(initialPage: 1, viewportFraction: 0.88);
 
     _reflectionController = AnimationController(
       vsync: this,
@@ -116,8 +126,8 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
 
   double _viewportFractionFor(Size size) {
     final isLandscape = size.width > size.height;
-    if (isLandscape) return 0.38;
-    return size.width < 360 ? 0.70 : 0.66;
+    if (isLandscape) return 0.62;
+    return size.width < 360 ? 0.84 : 0.88;
   }
 
   @override
@@ -129,21 +139,8 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
     super.dispose();
   }
 
-  Color _activeAccentForPage(int page, NanoColors colors) {
-    switch (page) {
-      case 0:
-        return colors.accentLavender;
-      case 1:
-        return colors.accentCyan;
-      case 2:
-      default:
-        return colors.accentBlue;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
     final media = MediaQuery.of(context);
 
     final terminalSub =
@@ -156,198 +153,68 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
           KaliStatus.starting => 'Preparando Linux',
         };
     final chatSub = widget.chatSubtitle ?? 'Habla con';
-    final activeAccent = _activeAccentForPage(_currentPage, colors);
 
     return Scaffold(
-      backgroundColor: colors.backgroundPrimary,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: NanoAmbientBackground(
-              animated: true,
-              activeAccent: activeAccent,
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxWidth = constraints.maxWidth;
-                final maxHeight = constraints.maxHeight;
-                final isLandscape = maxWidth > maxHeight;
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth;
+            final maxHeight = constraints.maxHeight;
+            final isLandscape = maxWidth > maxHeight;
 
-                if (isLandscape) {
-                  // ─────────────────────────────────────────────
-                  // COMPOSICIÓN LANDSCAPE HORIZONTAL ADAPTATIVA
-                  // ─────────────────────────────────────────────
-                  const headerRowHeight = 26.0;
-                  final telemetryRowHeight = _showTelemetry ? 46.0 : 34.0;
-                  final availableForCarousel =
-                      maxHeight -
-                      headerRowHeight -
-                      4.0 -
-                      telemetryRowHeight -
-                      12.0;
-                  final carouselHeight = availableForCarousel.clamp(
-                    150.0,
-                    260.0,
-                  );
+            if (isLandscape) {
+              // ─────────────────────────────────────────────
+              // COMPOSICIÓN LANDSCAPE HORIZONTAL ADAPTATIVA
+              // ─────────────────────────────────────────────
+              const headerRowHeight = 26.0;
+              final telemetryRowHeight = _showTelemetry ? 46.0 : 34.0;
+              final availableForCarousel =
+                  maxHeight - headerRowHeight - 4.0 - telemetryRowHeight - 12.0;
+              // Sin mínimo forzado: el clamp(150, …) desbordaba el Column
+              // en ventanas paisaje muy bajas (altura < ~238px). La card
+              // escala al espacio real disponible, nunca fuerza overflow.
+              final carouselHeight = availableForCarousel.clamp(0.0, 260.0);
 
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 960),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          20,
-                          4,
-                          20,
-                          math.max(4, media.padding.bottom),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Flexible + FittedBox: el conjunto identidad+Kali
-                                // nunca desborda la fila (pantallas angostas y
-                                // fuentes fallback de test).
-                                const Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: _IdentityHeader(compact: true),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _KaliChip(
-                                  status: widget.kaliStatus,
-                                  onTap: widget.onKaliTap,
-                                  compact: true,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            AnimatedCrossFade(
-                              duration: const Duration(milliseconds: 240),
-                              crossFadeState: _showTelemetry
-                                  ? CrossFadeState.showFirst
-                                  : CrossFadeState.showSecond,
-                              firstChild: _TelemetryGlass(
-                                ram: widget.telemetry.ram,
-                                cpu: widget.telemetry.cpu,
-                                temperature: widget.telemetry.temperature,
-                                storage: widget.telemetry.freeStorage,
-                                battery: widget.telemetry.battery,
-                                compact: true,
-                                onCollapse: () =>
-                                    setState(() => _showTelemetry = false),
-                              ),
-                              secondChild: _TelemetryCornerBadge(
-                                onExpand: () =>
-                                    setState(() => _showTelemetry = true),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Expanded(
-                              child: Center(
-                                child: SizedBox(
-                                  height: carouselHeight,
-                                  child: _FeatureCarousel(
-                                    controller: _pageController,
-                                    reflectionController: _reflectionController,
-                                    currentPage: _currentPage,
-                                    terminalSubtitle: terminalSub,
-                                    chatSubtitle: chatSub,
-                                    onPageChanged: (index) {
-                                      setState(() => _currentPage = index);
-                                    },
-                                    onChat: widget.onChatTap,
-                                    onTerminal: widget.onTerminalTap,
-                                    onModels: widget.onModelsTap,
-                                    onDesktop: widget.onDesktopTap,
-                                    isLandscape: true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                        ),
-                      ),
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      4,
+                      20,
+                      math.max(4, media.padding.bottom),
                     ),
-                  );
-                }
-
-                // ─────────────────────────────────────────────
-                // COMPOSICIÓN PORTRAIT MOBILE-FIRST
-                // ─────────────────────────────────────────────
-                final carouselHeight =
-                    (_showTelemetry ? (maxHeight * 0.65) : (maxHeight * 0.78))
-                        .clamp(300.0, 520.0);
-                final horizontalPadding = maxWidth < 360
-                    ? 12.0
-                    : (maxWidth < 430 ? 16.0 : 20.0);
-
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        10,
-                        horizontalPadding,
-                        math.max(16, media.padding.bottom + 12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _AnimatedEntrance(
-                            controller: _entryController,
-                            begin: 0.0,
-                            end: 0.30,
-                            slideOffset: const Offset(0, -6),
-                            child: const _IdentityHeader(),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 240),
+                          crossFadeState: _showTelemetry
+                              ? CrossFadeState.showFirst
+                              : CrossFadeState.showSecond,
+                          firstChild: _TelemetryGlass(
+                            ram: widget.telemetry.ram,
+                            cpu: widget.telemetry.cpu,
+                            temperature: widget.telemetry.temperature,
+                            storage: widget.telemetry.freeStorage,
+                            battery: widget.telemetry.battery,
+                            kaliStatus: widget.kaliStatus,
+                            onKaliTap: widget.onKaliTap,
+                            compact: true,
+                            onCollapse: () =>
+                                setState(() => _showTelemetry = false),
                           ),
-                          const SizedBox(height: 6),
-                          _KaliChip(
-                            status: widget.kaliStatus,
-                            onTap: widget.onKaliTap,
+                          secondChild: _TelemetryCornerBadge(
+                            onExpand: () =>
+                                setState(() => _showTelemetry = true),
                           ),
-                          const SizedBox(height: 10),
-                          AnimatedCrossFade(
-                            duration: const Duration(milliseconds: 240),
-                            crossFadeState: _showTelemetry
-                                ? CrossFadeState.showFirst
-                                : CrossFadeState.showSecond,
-                            firstChild: _AnimatedEntrance(
-                              controller: _entryController,
-                              begin: 0.05,
-                              end: 0.40,
-                              slideOffset: const Offset(0, -10),
-                              child: _TelemetryGlass(
-                                ram: widget.telemetry.ram,
-                                cpu: widget.telemetry.cpu,
-                                temperature: widget.telemetry.temperature,
-                                storage: widget.telemetry.freeStorage,
-                                battery: widget.telemetry.battery,
-                                compact: true,
-                                onCollapse: () =>
-                                    setState(() => _showTelemetry = false),
-                              ),
-                            ),
-                            secondChild: _TelemetryCornerBadge(
-                              onExpand: () =>
-                                  setState(() => _showTelemetry = true),
-                            ),
-                          ),
-                          const Spacer(),
-                          _AnimatedEntrance(
-                            controller: _entryController,
-                            begin: 0.15,
-                            end: 0.75,
-                            slideOffset: const Offset(0, 16),
+                        ),
+                        const SizedBox(height: 6),
+                        Expanded(
+                          child: Center(
                             child: SizedBox(
                               height: carouselHeight,
                               child: _FeatureCarousel(
@@ -363,20 +230,110 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
                                 onTerminal: widget.onTerminalTap,
                                 onModels: widget.onModelsTap,
                                 onDesktop: widget.onDesktopTap,
-                                isLandscape: false,
+                                onAutomation: widget.onAutomationTap ?? () {},
+                                chatOn: widget.chatOn,
+                                termOn: widget.termOn,
+                                modelOn: widget.modelOn,
+                                isLandscape: true,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              );
+            }
+
+            // ─────────────────────────────────────────────
+            // COMPOSICIÓN PORTRAIT MOBILE-FIRST
+            // ─────────────────────────────────────────────
+            final carouselHeight =
+                (_showTelemetry ? (maxHeight * 0.70) : (maxHeight * 0.82))
+                    .clamp(300.0, 540.0);
+            final horizontalPadding = maxWidth < 360
+                ? 12.0
+                : (maxWidth < 430 ? 16.0 : 20.0);
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    4,
+                    horizontalPadding,
+                    math.max(12, media.padding.bottom + 8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 240),
+                        crossFadeState: _showTelemetry
+                            ? CrossFadeState.showFirst
+                            : CrossFadeState.showSecond,
+                        firstChild: _AnimatedEntrance(
+                          controller: _entryController,
+                          begin: 0.05,
+                          end: 0.40,
+                          slideOffset: const Offset(0, -8),
+                          child: _TelemetryGlass(
+                            ram: widget.telemetry.ram,
+                            cpu: widget.telemetry.cpu,
+                            temperature: widget.telemetry.temperature,
+                            storage: widget.telemetry.freeStorage,
+                            battery: widget.telemetry.battery,
+                            kaliStatus: widget.kaliStatus,
+                            onKaliTap: widget.onKaliTap,
+                            compact: true,
+                            onCollapse: () =>
+                                setState(() => _showTelemetry = false),
+                          ),
+                        ),
+                        secondChild: _TelemetryCornerBadge(
+                          onExpand: () => setState(() => _showTelemetry = true),
+                        ),
+                      ),
+                      const Spacer(),
+                      _AnimatedEntrance(
+                        controller: _entryController,
+                        begin: 0.15,
+                        end: 0.75,
+                        slideOffset: const Offset(0, 16),
+                        child: SizedBox(
+                          height: carouselHeight,
+                          child: _FeatureCarousel(
+                            controller: _pageController,
+                            reflectionController: _reflectionController,
+                            currentPage: _currentPage,
+                            terminalSubtitle: terminalSub,
+                            chatSubtitle: chatSub,
+                            onPageChanged: (index) {
+                              setState(() => _currentPage = index);
+                            },
+                            onChat: widget.onChatTap,
+                            onTerminal: widget.onTerminalTap,
+                            onModels: widget.onModelsTap,
+                            onDesktop: widget.onDesktopTap,
+                            onAutomation: widget.onAutomationTap ?? () {},
+                            chatOn: widget.chatOn,
+                            termOn: widget.termOn,
+                            modelOn: widget.modelOn,
+                            isLandscape: false,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -385,67 +342,33 @@ class _NanoHomeScreenState extends State<NanoHomeScreen>
 // =============================================================
 // IDENTIDAD NANOAI + SUPERFICIE KALI (chip honesto de estado)
 // =============================================================
+// TELEMETRY CON MICRO-MEDIDORES Y TRANSICIONES SUAVES
+// =============================================================
 
-class _IdentityHeader extends StatelessWidget {
+class _TelemetryGlass extends StatelessWidget {
+  final String ram;
+  final String cpu;
+  final String temperature;
+  final String storage;
+  final String battery;
+  final KaliStatus? kaliStatus;
+  final VoidCallback? onKaliTap;
   final bool compact;
+  final VoidCallback? onCollapse;
 
-  const _IdentityHeader({this.compact = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    // Compacto bajo 400 lógicos (360 con padding 16: 'nanoai local
-    // intelligence' a 24px desbordaría la fila en 328px disponibles).
-    final compact = this.compact || MediaQuery.sizeOf(context).width <= 400;
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'nanoai',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: compact ? 18 : 24,
-              height: 1.0,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.8,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Text(
-              'local intelligence',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: compact ? 10 : 12,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.4,
-                color: colors.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _KaliChip extends StatelessWidget {
-  final KaliStatus status;
-  final VoidCallback onTap;
-  final bool compact;
-
-  const _KaliChip({
-    required this.status,
-    required this.onTap,
+  const _TelemetryGlass({
+    required this.ram,
+    required this.cpu,
+    required this.temperature,
+    required this.storage,
+    required this.battery,
+    this.kaliStatus,
+    this.onKaliTap,
     this.compact = false,
+    this.onCollapse,
   });
 
-  Color _statusColor(NanoColors colors) {
+  Color _statusColor(KaliStatus status, NanoColors colors) {
     switch (status) {
       case KaliStatus.running:
         return colors.accentMint;
@@ -459,91 +382,6 @@ class _KaliChip extends StatelessWidget {
         return colors.textSecondary;
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-
-    return NanoOpticalSurface(
-      geometry: NanoSurfaceGeometry.capsule,
-      blurSigma: 10,
-      borderStrength: 0.60,
-      reflectionStrength: 0.45,
-      onTap: onTap,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 12,
-        vertical: compact ? 2 : 4,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.terminal_rounded,
-            size: compact ? 11 : 13,
-            color: colors.accentCyan,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Kali',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: compact ? 10 : 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            width: 1,
-            height: 10,
-            color: colors.metalSilver.withValues(alpha: 0.50),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            status.label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: compact ? 9 : 10.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-              color: _statusColor(colors),
-            ),
-          ),
-          const SizedBox(width: 2),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: compact ? 10 : 12,
-            color: colors.textSecondary.withValues(alpha: 0.70),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================
-// TELEMETRY CON MICRO-MEDIDORES Y TRANSICIONES SUAVES
-// =============================================================
-
-class _TelemetryGlass extends StatelessWidget {
-  final String ram;
-  final String cpu;
-  final String temperature;
-  final String storage;
-  final String battery;
-  final bool compact;
-  final VoidCallback? onCollapse;
-
-  const _TelemetryGlass({
-    required this.ram,
-    required this.cpu,
-    required this.temperature,
-    required this.storage,
-    required this.battery,
-    this.compact = false,
-    this.onCollapse,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -565,6 +403,13 @@ class _TelemetryGlass extends StatelessWidget {
         Icons.battery_full_rounded,
         colors.accentMint,
       ),
+      if (kaliStatus != null)
+        _MetricData(
+          'LINUX',
+          kaliStatus!.label,
+          Icons.terminal_rounded,
+          _statusColor(kaliStatus!, colors),
+        ),
     ];
 
     return RepaintBoundary(
@@ -573,11 +418,26 @@ class _TelemetryGlass extends StatelessWidget {
         blurSigma: 14,
         borderStrength: 0.65,
         reflectionStrength: 0.45,
+        // Firma del módulo automation en el dashboard: tilt 3D (pointer) +
+        // barrido especular animado (autoReflect). Seguro: la telemetry card
+        // no está en el carousel, así que no reproduce el texto sub-píxel
+        // que motivó evitar rotateY en las cards deslizantes.
+        tilt: true,
+        tiltIntensity: 0.06,
+        autoReflect: true,
         padding: const EdgeInsets.fromLTRB(8, 4, 6, 4),
         child: Row(
           children: [
             for (int i = 0; i < metrics.length; i++) ...[
-              Expanded(child: _Metric(data: metrics[i], compact: true)),
+              Expanded(
+                child: metrics[i].label == 'LINUX' && onKaliTap != null
+                    ? InkWell(
+                        onTap: onKaliTap,
+                        borderRadius: BorderRadius.circular(6),
+                        child: _Metric(data: metrics[i], compact: true),
+                      )
+                    : _Metric(data: metrics[i], compact: true),
+              ),
               if (i < metrics.length - 1)
                 Container(
                   width: 0.8,
@@ -763,7 +623,13 @@ class _FeatureCarousel extends StatelessWidget {
   final VoidCallback onTerminal;
   final VoidCallback onModels;
   final VoidCallback? onDesktop;
+  final VoidCallback? onAutomation;
   final bool isLandscape;
+
+  /// Estados EN VIVO reales (provider) para el indicador pulsante de cada card.
+  final bool chatOn;
+  final bool termOn;
+  final bool modelOn;
 
   const _FeatureCarousel({
     required this.controller,
@@ -776,7 +642,11 @@ class _FeatureCarousel extends StatelessWidget {
     required this.onTerminal,
     required this.onModels,
     this.onDesktop,
+    this.onAutomation,
     this.isLandscape = false,
+    this.chatOn = false,
+    this.termOn = false,
+    this.modelOn = false,
   });
 
   @override
@@ -792,6 +662,8 @@ class _FeatureCarousel extends StatelessWidget {
         icon: Icons.chat_bubble_outline_rounded,
         accent: colors.accentLavender,
         secondaryAccent: colors.accentCyan,
+        statusColor: chatOn ? colors.success : colors.warning,
+        statusLabel: chatOn ? 'EN VIVO' : 'MOTOR APAGADO',
         onTap: onChat,
       ),
       NanoFeatureData(
@@ -802,6 +674,8 @@ class _FeatureCarousel extends StatelessWidget {
         icon: Icons.terminal_rounded,
         accent: colors.accentCyan,
         secondaryAccent: colors.accentMint,
+        statusColor: termOn ? colors.success : colors.warning,
+        statusLabel: termOn ? 'LINUX LISTO' : 'PREPARANDO LINUX',
         onTap: onTerminal,
       ),
       NanoFeatureData(
@@ -812,6 +686,8 @@ class _FeatureCarousel extends StatelessWidget {
         icon: Icons.view_in_ar_rounded,
         accent: colors.accentBlue,
         secondaryAccent: colors.accentLavender,
+        statusColor: modelOn ? colors.success : colors.warning,
+        statusLabel: modelOn ? 'MODELO ACTIVO' : 'SIN MODELO',
         onTap: onModels,
       ),
       NanoFeatureData(
@@ -824,6 +700,16 @@ class _FeatureCarousel extends StatelessWidget {
         secondaryAccent: colors.accentSky,
         onTap: onDesktop ?? () {},
       ),
+      NanoFeatureData(
+        id: 'automation',
+        title: 'Automatización',
+        line1: 'Agente que',
+        line2: 'ejecuta acciones',
+        icon: Icons.auto_awesome_rounded,
+        accent: colors.accentLavender,
+        secondaryAccent: colors.accentMint,
+        onTap: onAutomation ?? () {},
+      ),
     ];
 
     return RepaintBoundary(
@@ -832,6 +718,7 @@ class _FeatureCarousel extends StatelessWidget {
           Expanded(
             child: PageView.builder(
               key: const ValueKey('nano-home-carousel'),
+              clipBehavior: Clip.none,
               controller: controller,
               itemCount: items.length,
               onPageChanged: (index) {
@@ -854,25 +741,28 @@ class _FeatureCarousel extends StatelessWidget {
 
                     final reduceMotion = NanoMotion.reduceMotion(context);
 
-                    // Parallax y rotación en perspectiva física 3D
-                    final scale = reduceMotion ? 1.0 : (1.0 - distance * 0.08);
+                    // Coverflow 3D: rotateY por desplazamiento de página.
+                    // La card enfocada (delta≈0) queda plana/nítida; las
+                    // adyacentes giran con perspectiva suave. El ángulo se
+                    // acota (~10°) y las adyacentes ya van atenuadas +escaladas,
+                    // evitando el texto sub-píxel del ángulo grande anterior.
+                    final scale = reduceMotion ? 1.0 : (1.0 - distance * 0.06);
+                    final translationY = reduceMotion
+                        ? distance * 2.0
+                        : distance * 6.0;
+                    final translationX = reduceMotion ? 0.0 : -delta * 4.0;
                     final rotationY = reduceMotion
                         ? 0.0
-                        : -delta * (8.5 * math.pi / 180);
-                    final translationY = reduceMotion
-                        ? distance * 4.0
-                        : distance * 12.0;
-                    final translationX = reduceMotion ? 0.0 : -delta * 6.0;
+                        : (-delta.clamp(-1.0, 1.0) * 0.17);
+                    final perspective = reduceMotion ? 0.0 : 0.00135;
 
                     // Desplazamiento cáustico inercial reactivo al gesto
                     final specularDrift = -(page - page.roundToDouble()) * 0.22;
 
                     return Transform(
-                      alignment: delta > 0
-                          ? Alignment.centerLeft
-                          : Alignment.centerRight,
+                      alignment: Alignment.center,
                       transform: Matrix4.identity()
-                        ..setEntry(3, 2, reduceMotion ? 0.0 : 0.0012)
+                        ..setEntry(3, 2, perspective)
                         ..setTranslationRaw(translationX, translationY, 0.0)
                         ..rotateY(rotationY)
                         ..scaleByDouble(scale, scale, 1.0, 1.0),
@@ -894,7 +784,10 @@ class _FeatureCarousel extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 12),
+          // TER-19: sombra de agua bajo las cards — elíptica y reactiva
+          // al gesto (drift). La card flota sobre un suelo líquido oscuro.
+          _WaterFloorShadow(controller: controller),
+          const SizedBox(height: 6),
           _LiquidPageIndicator(
             controller: controller,
             count: items.length,
@@ -916,6 +809,11 @@ class NanoFeatureData {
   final Color secondaryAccent;
   final VoidCallback onTap;
 
+  /// Indicador de estado EN VIVO (datos reales del provider) que pulsa.
+  /// Vacío/null = no mostrar pill.
+  final String statusLabel;
+  final Color? statusColor;
+
   const NanoFeatureData({
     required this.id,
     required this.title,
@@ -925,12 +823,209 @@ class NanoFeatureData {
     required this.accent,
     required this.secondaryAccent,
     required this.onTap,
+    this.statusLabel = '',
+    this.statusColor,
   });
 }
 
 // =============================================================
 // FEATURE CARD CON PARALLAX MULTICAPA DESACOPLADO
 // =============================================================
+
+/// Indicador de estado EN VIVO: dot que pulsa (animación siempre activa, se
+/// ve en reposo) + etiqueta. Refleja datos reales del provider (motor,
+/// Linux, modelo) — no un simple texto estático.
+class _LiveStatusPill extends StatefulWidget {
+  const _LiveStatusPill({
+    required this.color,
+    required this.label,
+    this.isLandscape = false,
+  });
+
+  final Color color;
+  final String label;
+  final bool isLandscape;
+
+  @override
+  State<_LiveStatusPill> createState() => _LiveStatusPillState();
+}
+
+class _LiveStatusPillState extends State<_LiveStatusPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final pulse = reduceMotion ? 0.0 : _c.value;
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.isLandscape ? 6 : 8,
+            vertical: widget.isLandscape ? 1 : 2,
+          ),
+          decoration: BoxDecoration(
+            color: widget.color.withValues(alpha: 0.10 + pulse * 0.06),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: widget.color.withValues(alpha: 0.30 + pulse * 0.22),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color,
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.color.withValues(alpha: 0.5 + pulse * 0.4),
+                      blurRadius: 5 + pulse * 4,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.color,
+                  fontFamily: 'Inter',
+                  fontSize: widget.isLandscape ? 8.5 : 10,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Creativo promocional exclusivo de Terminal. Es decorativo: el tap sigue
+/// perteneciendo a [NanoOpticalSurface], por lo que no altera la navegación.
+class _TerminalCampaignBanner extends StatefulWidget {
+  const _TerminalCampaignBanner({required this.isLandscape});
+
+  final bool isLandscape;
+
+  @override
+  State<_TerminalCampaignBanner> createState() =>
+      _TerminalCampaignBannerState();
+}
+
+class _TerminalCampaignBannerState extends State<_TerminalCampaignBanner>
+    with WidgetsBindingObserver {
+  static const _campaigns = [
+    'assets/terminal_campaign_1.png',
+    'assets/terminal_campaign_2.png',
+    'assets/terminal_campaign_3.png',
+  ];
+
+  Timer? _rotationTimer;
+  int _activeCampaign = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startRotation();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRotation();
+    } else {
+      _stopRotation();
+    }
+  }
+
+  void _startRotation() {
+    _rotationTimer ??= Timer.periodic(const Duration(seconds: 7), (_) {
+      if (!mounted || MediaQuery.disableAnimationsOf(context)) return;
+      setState(
+        () => _activeCampaign = (_activeCampaign + 1) % _campaigns.length,
+      );
+    });
+  }
+
+  void _stopRotation() {
+    _rotationTimer?.cancel();
+    _rotationTimer = null;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopRotation();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = NanoMotion.reduceMotion(context);
+    // Coincide con el borde de NanoOpticalSurface: la creatividad queda
+    // completamente integrada, sin doble radio ni franja perimetral.
+    final radius = BorderRadius.circular(NanoRadius.large);
+
+    return Semantics(
+      label: 'Promoción de NanoAI Terminal',
+      image: true,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 420),
+              child: Image.asset(
+                _campaigns[_activeCampaign],
+                key: ValueKey(_activeCampaign),
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+              ),
+            ),
+            Positioned(
+              top: 14,
+              right: 16,
+              child: Text(
+                'Terminal',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontSize: widget.isLandscape ? 12 : 14,
+                  fontWeight: FontWeight.w800,
+                  shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class NanoFeatureCard extends StatelessWidget {
   final NanoFeatureData data;
@@ -966,109 +1061,179 @@ class NanoFeatureCard extends StatelessWidget {
 
     return Center(
       child: AspectRatio(
-        aspectRatio: isLandscape ? 1.05 : 0.82,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: NanoOpticalSurface(
-            borderRadius: NanoRadius.large,
-            blurSigma: 18,
-            borderStrength: (0.92 - distance * 0.25).clamp(0.55, 0.92),
-            reflectionStrength: (0.92 - distance * 0.30).clamp(0.55, 0.92),
-            accent: data.accent,
-            reflectionController: reflectionController,
-            specularDrift: specularDrift,
-            onTap: data.onTap,
-            padding: EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: isLandscape ? 8 : 12,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Capa Z-Elevada: Icono flotante con parallax
-                Transform.translate(
-                  offset: iconOffset,
-                  child: _FeatureIcon(
-                    icon: data.icon,
-                    accent: data.accent,
-                    isLandscape: isLandscape,
-                    distance: distance,
+        aspectRatio: isLandscape ? 1.15 : 0.64,
+        child: data.id == 'terminal'
+            ? _TerminalCampaignCard(onTap: data.onTap, isLandscape: isLandscape)
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: NanoOpticalSurface(
+                  borderRadius: NanoRadius.large,
+                  blurSigma: 18,
+                  borderStrength: (0.92 - distance * 0.25).clamp(0.55, 0.92),
+                  reflectionStrength: (0.92 - distance * 0.30).clamp(
+                    0.55,
+                    0.92,
                   ),
-                ),
-                // Capa Z-Media: Textos con micro-desplazamiento
-                Flexible(
-                  child: Transform.translate(
-                    offset: textOffset,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: isLandscape ? 0 : 2,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                  accent: data.accent,
+                  reflectionController: reflectionController,
+                  specularDrift: specularDrift,
+                  onTap: data.onTap,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: isLandscape ? 8 : 12,
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            data.title,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: colors.textPrimary,
-                              fontSize: isLandscape ? 13.5 : 17.5,
-                              height: isLandscape ? 1.1 : 1.2,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.4,
+                          // Capa Z-Elevada: Icono flotante con parallax.
+                          // Flexible + FittedBox(scaleDown): la caja (46px fija) no
+                          // desborda el AspectRatio en alturas compactas (CPH2557);
+                          // se escala manteniendo la proporción (sin franjas amarillas).
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Transform.translate(
+                                offset: iconOffset,
+                                child: _FeatureIcon(
+                                  icon: data.icon,
+                                  accent: data.accent,
+                                  isLandscape: isLandscape,
+                                  distance: distance,
+                                ),
+                              ),
                             ),
                           ),
-                          if (data.line1.isNotEmpty) ...[
-                            SizedBox(height: isLandscape ? 0 : 2),
-                            Text(
-                              data.line1,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: colors.textSecondary,
-                                fontSize: isLandscape ? 10.5 : 12.5,
-                                height: isLandscape ? 1.05 : 1.15,
-                                fontWeight: FontWeight.w400,
+                          // Capa Z-Media: Textos con micro-desplazamiento
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Transform.translate(
+                                offset: textOffset,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: isLandscape ? 0 : 2,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        data.title,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          color: colors.textPrimary,
+                                          fontSize: isLandscape ? 13.5 : 17.5,
+                                          height: isLandscape ? 1.1 : 1.2,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: -0.4,
+                                        ),
+                                      ),
+                                      if (data.statusLabel.isNotEmpty &&
+                                          data.statusColor != null) ...[
+                                        SizedBox(height: isLandscape ? 1 : 3),
+                                        _LiveStatusPill(
+                                          color: data.statusColor!,
+                                          label: data.statusLabel,
+                                          isLandscape: isLandscape,
+                                        ),
+                                      ],
+                                      if (data.line1.isNotEmpty) ...[
+                                        SizedBox(height: isLandscape ? 0 : 2),
+                                        Text(
+                                          data.line1,
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            color: colors.textSecondary,
+                                            fontSize: isLandscape ? 10.5 : 12.5,
+                                            height: isLandscape ? 1.05 : 1.15,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
+                                      if (data.line2.isNotEmpty) ...[
+                                        SizedBox(height: isLandscape ? 0 : 1),
+                                        Text(
+                                          data.line2,
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            color: data.secondaryAccent,
+                                            fontSize: isLandscape ? 10.5 : 12.5,
+                                            height: isLandscape ? 1.05 : 1.15,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                          ],
-                          if (data.line2.isNotEmpty) ...[
-                            SizedBox(height: isLandscape ? 0 : 1),
-                            Text(
-                              data.line2,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: data.secondaryAccent,
-                                fontSize: isLandscape ? 10.5 : 12.5,
-                                height: isLandscape ? 1.05 : 1.15,
-                                fontWeight: FontWeight.w500,
-                              ),
+                          ),
+                          // Capa Z-Elevada: Botón interactivo de acción
+                          Transform.translate(
+                            offset: buttonOffset,
+                            child: _ArrowGlass(
+                              accent: data.accent,
+                              isLandscape: isLandscape,
                             ),
-                          ],
+                          ),
                         ],
                       ),
-                    ),
+                      // TER-19: agua viva — olas senoidales + cáusticos
+                      // sobre el vidrio. Solo en la card cercana al foco
+                      // (distance < 0.75): las laterales no montan la capa
+                      // (repaint cero, el painter de las lejanas no existe).
+                      if (distance < 0.75 && !reduceMotion)
+                        Positioned.fill(
+                          child: _WaterWaves(
+                            controller: reflectionController,
+                            accent: data.accent,
+                            intensity: 1.0 - distance,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-                // Capa Z-Elevada: Botón interactivo de acción
-                Transform.translate(
-                  offset: buttonOffset,
-                  child: _ArrowGlass(
-                    accent: data.accent,
-                    isLandscape: isLandscape,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+      ),
+    );
+  }
+}
+
+/// Variante full-bleed: conserva la acción de abrir Terminal sin aplicar el
+/// bisel de vidrio de las cards informativas sobre el arte publicitario.
+class _TerminalCampaignCard extends StatelessWidget {
+  const _TerminalCampaignCard({required this.onTap, required this.isLandscape});
+
+  final VoidCallback onTap;
+  final bool isLandscape;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Abrir Terminal',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(NanoRadius.large),
+          child: _TerminalCampaignBanner(isLandscape: isLandscape),
         ),
       ),
     );
@@ -1295,6 +1460,158 @@ class _LiquidPageIndicator extends StatelessWidget {
               ),
             );
           }),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================
+// WATER LAYER — ONDAS VIVAS + SOMBRA DE AGUA (TER-19)
+// =============================================================
+
+/// Agua viva sobre la card: olas senoidales + cáusticos de luz (TER-19).
+/// Decorativa — IgnorePointer, no intercepta el tap de la card. Repinta
+/// con el controller compartido del carrusel; el padre solo monta esta
+/// capa en la card cercana al foco (distance < 0.75).
+class _WaterWaves extends StatelessWidget {
+  const _WaterWaves({
+    required this.controller,
+    required this.accent,
+    required this.intensity,
+  });
+
+  final AnimationController controller;
+  final Color accent;
+  final double intensity;
+
+  @override
+  Widget build(BuildContext context) {
+    if (NanoMotion.reduceMotion(context)) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) => CustomPaint(
+          painter: _WaterWavesPainter(
+            t: controller.value,
+            accent: accent,
+            intensity: intensity,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pintor de agua: dos olas desfasadas en el tercio inferior + tres
+/// lóbulos cáusticos que derivan y pulsan. Coste acotado: ~150 puntos
+/// por ola, solo en la card enfocada.
+class _WaterWavesPainter extends CustomPainter {
+  _WaterWavesPainter({
+    required this.t,
+    required this.accent,
+    required this.intensity,
+  });
+
+  final double t; // 0..1 — progreso del controller (loop)
+  final Color accent;
+  final double intensity; // 1.0 hero, decae con la distancia
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (intensity <= 0.02 || size.isEmpty) return;
+    final w = size.width;
+    final h = size.height;
+    final phase = t * 2 * math.pi;
+
+    // Línea de agua: ondas senoidales desfasadas, tercio inferior.
+    for (var layer = 0; layer < 2; layer++) {
+      final baseY = h * (0.62 + layer * 0.16);
+      final amp = h * 0.030 * (layer == 0 ? 1.0 : 0.55);
+      final freq = (layer == 0 ? 2.6 : 3.8) * 2 * math.pi / w;
+      final speed = phase * (layer == 0 ? 1.0 : -0.75);
+      final alpha = (layer == 0 ? 0.14 : 0.07) * intensity;
+      final path = Path();
+      for (var x = 0.0; x <= w; x += 2.0) {
+        final y = baseY + amp * math.sin(freq * x + speed);
+        if (x == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4
+          ..strokeCap = StrokeCap.round
+          ..color = accent.withValues(alpha: alpha),
+      );
+    }
+
+    // Cáusticos: tres lóbulos de luz que derivan y pulsan.
+    for (var i = 0; i < 3; i++) {
+      final drift = math.sin(phase + i * 2.1) * w * 0.12;
+      final cx = w * (0.25 + i * 0.25) + drift;
+      final cy = h * (0.30 + 0.12 * math.sin(phase * 0.7 + i * 1.7));
+      final radius = w * (0.10 + 0.05 * i);
+      final pulse = 0.75 + 0.25 * math.sin(phase + i);
+      final blobAlpha = (0.10 - i * 0.02) * intensity * pulse;
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: blobAlpha),
+            accent.withValues(alpha: blobAlpha * 0.45),
+            Colors.transparent,
+          ],
+        ).createShader(
+          Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+        );
+      canvas.drawCircle(Offset(cx, cy), radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaterWavesPainter old) =>
+      old.t != t || old.intensity != intensity;
+}
+
+/// Sombra elíptica de agua bajo el carrusel: la card flota sobre un
+/// suelo oscuro; la sombra se desplaza con el drift del gesto.
+class _WaterFloorShadow extends StatelessWidget {
+  const _WaterFloorShadow({required this.controller});
+
+  final PageController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (NanoMotion.reduceMotion(context)) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        double page = controller.initialPage.toDouble();
+        if (controller.hasClients && controller.position.haveDimensions) {
+          page = controller.page ?? page;
+        }
+        final drift = -(page - page.roundToDouble());
+        return Transform.translate(
+          offset: Offset(drift * 14, 0),
+          child: Container(
+            height: 12,
+            margin: const EdgeInsets.symmetric(horizontal: 42),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 18,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

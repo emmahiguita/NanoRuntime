@@ -83,6 +83,81 @@ static void _login_tty(int fd) {
 
 // apply_env() and count_argv() are now in util.h/util.c (shared with nanoshell.c).
 
+// Ejecuta el binario por dlopen + main() en el proceso actual (sin execve).
+// No retorna: hace _exit(rc). Vía necesaria en este device: SELinux deniega
+// el execve de binarios app_data (Permission denied) pero el dlopen (mmap
+// exec) sí está permitido. El cap RLIMIT_AS va DESPUÉS de cargar: el linker
+// necesita mmap libre durante el dlopen (zonas CFI shadow de binarios PIE);
+// con el cap antes, el mmap falla y el linker aborta con CHECK
+// 'page != MAP_FAILED' (linker_block_allocator).
+static void _run_via_dlopen(const char* bin, const char* const argv[]) {
+    void* handle = dlopen(bin, RTLD_NOW | RTLD_GLOBAL);
+    if (!handle) {
+        fprintf(stderr, "pty: dlopen(%s) failed: %s\n", bin, dlerror());
+        _exit(127);
+    }
+
+    typedef int (*main_fn)(int, char**);
+    main_fn entry = (main_fn)dlsym(handle, "main");
+    if (!entry) entry = (main_fn)dlsym(handle, "_main");
+    if (!entry) {
+        fprintf(stderr, "pty: dlsym(main) in %s failed: %s\n", bin, dlerror());
+        dlclose(handle);
+        _exit(127);
+    }
+
+    int argc = count_argv(argv);
+    char** mutable_argv = malloc(sizeof(char*) * (argc + 1));
+    if (!mutable_argv) _exit(126);
+    for (int i = 0; i < argc; i++) mutable_argv[i] = strdup(argv[i]);
+    mutable_argv[argc] = NULL;
+
+    // Cap después de cargar: limita el crecimiento del binario, no el
+    // arranque del linker. Floor dinámico en util.c (VA actual + margen)
+    // para no bloquear mmaps legítimos del binario.
+    apply_rlimit_as();
+
+    // El main de un binario ET_DYN espera (int, char**) o (int, char**, char**).
+    // 2-arg es lo estándar para binarios dlopen'eados; los que necesitan envp
+    // usan environ global (llegado con apply_env).
+    int rc = entry(argc, mutable_argv);
+
+    for (int i = 0; i < argc; i++) free(mutable_argv[i]);
+    free(mutable_argv);
+    dlclose(handle);
+    _exit(rc);   // cierra fds, termina sesión → padre ve EOF
+}
+
+// Resuelve el directorio donde vive ESTA lib (libnanoshell.so) leyendo
+// /proc/self/maps. libnanoroot.so está en el mismo nativeLibraryDir del APK,
+// y el dlopen RELATIVO ("libnanoroot.so") da not found en el hijo: el
+// namespace heredado no resuelve el SONAME. La ruta absoluta sale del maps.
+// out termina con '/'. Vacío si no se pudo resolver.
+static void _find_own_libdir(char* out, size_t out_sz) {
+    out[0] = '\0';
+    FILE* f = fopen("/proc/self/maps", "re");
+    if (!f) return;
+    char line[1024];
+    while (fgets(line, sizeof(line), f)) {
+        const char* hit = strstr(line, "/libnanoshell.so");
+        if (!hit) continue;
+        // El path del mapping empieza tras el último espacio antes de hit.
+        // hit apunta a la '/' de "/libnanoshell.so": incluirla (+1) para que
+        // out termine con '/'. Sin ella, concatenar el SONAME daba
+        // ".../lib/arm64libnanoroot.so" (ver device: "pty: preload ... no
+        // existe") y el preload nunca cargó desde TER-06.
+        const char* start = hit;
+        while (start > line && start[-1] != ' ') start--;
+        size_t len = (size_t)(hit - start) + 1;
+        if (len > 0 && len < out_sz) {
+            memcpy(out, start, len);
+            out[len] = '\0';
+            break;
+        }
+    }
+    fclose(f);
+}
+
 int pty_spawn(PtySession* session,
               const char* const argv[],
               const char* const envp[],
@@ -118,24 +193,125 @@ int pty_spawn(PtySession* session,
         // Cerrar fds heredados que no nos interesan
         for (int fd = 3; fd < 256; fd++) close(fd);
 
-        // Cap de mem virtual (512MB default) antes del binario del PTY:
-        // vim/htop/python interactivos no deben poder agotar la RAM.
-
         // Entorno antes de dlopen para que el constructor de libnanoroot
         // lea NANO_ROOTFS.
         apply_env(envp);
 
-        // ── Memory limit (512 MB soft cap) ──
-
         const char* bin = argv && argv[0] ? argv[0] : NULL;
         if (!bin) { _exit(127); }
 
-        // ── Vía primaria: execve via linker64 ──
-        // Construye proceso completo con aux vector, TLS y namespaces.
-        // LD_PRELOAD se hereda vía environ (aplicado con apply_env arriba).
-        // No aplicar RLIMIT_AS antes de linker64: en Android 14/15 el linker
-        // reserva una zona CFI shadow amplia; limitar memoria virtual antes
-        // de execve puede abortar con MapShadow CHECK 'p != MAP_FAILED'.
+        // TER-08: el environ del proceso app puede traer LD_PRELOAD
+        // relativo (init TER-03: "libnanoroot.so"). El linker del binario
+        // app_data no lo resuelve en su namespace → FATAL "library
+        // libnanoroot.so not found: needed by main executable"
+        // (logcat -b crash, 12:32 device). Absolutizar contra el
+        // nativeLibraryDir (mismo dir de libnanoshell.so); si la lib no
+        // existe, quitarlo — bash sin fakechroot es mejor que bash muerto.
+        // LD_LIBRARY_PATH al mismo dir: resuelve NEEDED del rootfs que
+        // están en jniLibs (libiconv.so, libandroid-support.so).
+        {
+            char libdir[512] = {0};
+            _find_own_libdir(libdir, sizeof(libdir));
+            if (libdir[0]) {
+                const char* cur = getenv("LD_PRELOAD");
+                if (cur && cur[0] && cur[0] != '/') {
+                    char abs_pl[512] = {0};
+                    snprintf(abs_pl, sizeof(abs_pl), "%s%s", libdir, cur);
+                    if (access(abs_pl, R_OK) == 0) {
+                        setenv("LD_PRELOAD", abs_pl, 1);
+                    } else {
+                        unsetenv("LD_PRELOAD");
+                    }
+                }
+                const char* cur_lp = getenv("LD_LIBRARY_PATH");
+                if (!cur_lp || !cur_lp[0]) {
+                    setenv("LD_LIBRARY_PATH", libdir, 1);
+                } else {
+                    char combined[1024] = {0};
+                    snprintf(combined, sizeof(combined), "%s:%s", libdir, cur_lp);
+                    setenv("LD_LIBRARY_PATH", combined, 1);
+                }
+            }
+        }
+
+        // TER-09: el bash arranca con el cwd heredado del proceso app ("/"),
+        // denegado por SELinux para listar ("ls: cannot open directory '.':
+        // Permission denied"). chdir(HOME) — mismo patrón validado en el
+        // worker TER-07. libnanoroot virtualiza el cwd al arrancar (getcwd
+        // real bajo el rootfs → "/home").
+        {
+            const char* home = getenv("HOME");
+            if (home && home[0]) chdir(home);
+        }
+
+        // ── Vía con fakechroot: execve(linker64) con preload ABSOLUTO ──
+        // Evidencia de este device:
+        //  • SELinux deniega TODO execve de binarios app_data (EACCES) —
+        //    solo execve("/system/bin/linker64") pasa el kernel.
+        //  • El dlopen en-proceso de binarios PIE aborta el linker
+        //    (linker_block_allocator CHECK 'page != MAP_FAILED': el VA del
+        //    proceso app, 15GB con Flutter+ART, colisiona con las zonas del
+        //    allocator) — la vía dlopen de TER-05 no es viable aquí.
+        //  • dlopen relativo ("libnanoroot.so") da not found en el hijo.
+        // Queda: linker64 como primaria, con LD_PRELOAD en RUTA ABSOLUTA
+        // (resuelta desde /proc/self/maps — mismo dir que libnanoshell.so).
+        // Si el linker del proceso nuevo ignora el preload, emitirá su
+        // warning en logcat; el fallback dlopen (abajo) queda como último
+        // recurso con la ruta absoluta.
+        if (ld_preload && ld_preload[0]) {
+            char abs_preload[512] = {0};
+            char libdir[512] = {0};
+            _find_own_libdir(libdir, sizeof(libdir));
+            if (libdir[0]) {
+                snprintf(abs_preload, sizeof(abs_preload), "%slibnanoroot.so", libdir);
+                if (access(abs_preload, R_OK) == 0) {
+                    setenv("LD_PRELOAD", abs_preload, 1);
+                } else {
+                    fprintf(stderr, "pty: preload %s no existe\n", abs_preload);
+                }
+            }
+            {
+                int argc = count_argv(argv);
+                char** linker_argv = malloc(sizeof(char*) * (argc + 2));
+                if (linker_argv) {
+                    linker_argv[0] = "/system/bin/linker64";
+                    linker_argv[1] = (char*)bin;
+                    for (int i = 1; i < argc; i++) linker_argv[i + 1] = (char*)argv[i];
+                    linker_argv[argc + 1] = NULL;
+                    extern char** environ;
+                    execve("/system/bin/linker64", linker_argv, environ);
+                    fprintf(stderr, "pty: execve(linker64,%s) falló: %s — usando dlopen\n",
+                            bin, strerror(errno));
+                    free(linker_argv);
+                }
+            }
+
+            // ── Fallback: dlopen en-proceso con la ruta absoluta ──
+            const char* preload_path = abs_preload[0] ? abs_preload : ld_preload;
+            void* ph = dlopen(preload_path, RTLD_NOW | RTLD_GLOBAL);
+            if (!ph) {
+                fprintf(stderr, "pty: dlopen(%s) warning: %s\n", preload_path, dlerror());
+            } else {
+                setenv("LD_PRELOAD", preload_path, 1);
+            }
+            _run_via_dlopen(bin, argv);   // no retorna
+        }
+
+        // ── Vía sin preload: execve directo (igual que nanoshell.c) ──
+        // El kernel invoca el PT_INTERP del binario. SIN cap RLIMIT_AS
+        // antes: el límite se heredaría al proceso nuevo y su linker
+        // abortaría reservando zonas (MapShadow/CFI shadow en Android 14+).
+        {
+            extern char** environ;
+            execve(bin, (char* const*)argv, environ);
+            fprintf(stderr, "pty: execve(%s) falló: %s — usando linker64\n",
+                    bin, strerror(errno));
+        }
+
+        // ── Segundo intento: execve via linker64 ──
+        // Solo si el execve directo falla (binario sin PT_INTERP válido).
+        // Sin RLIMIT_AS por la misma razón: el linker del proceso nuevo
+        // necesita VA libre para sus zonas.
         {
             int argc = count_argv(argv);
             char** linker_argv = malloc(sizeof(char*) * (argc + 2));
@@ -153,52 +329,7 @@ int pty_spawn(PtySession* session,
         }
 
         // ── Fallback: dlopen + main ──
-        // En esta ruta no entra el linker como proceso nuevo; aqui si
-        // mantenemos el limite para que un binario interactivo no agote RAM.
-        apply_rlimit_as();
-
-        // Preload fakechroot (igual que nanoshell.c)
-        if (ld_preload && ld_preload[0]) {
-            void* ph = dlopen(ld_preload, RTLD_NOW | RTLD_GLOBAL);
-            if (!ph) {
-                fprintf(stderr, "pty: dlopen(%s) warning: %s\n", ld_preload, dlerror());
-            } else {
-                setenv("LD_PRELOAD", ld_preload, 1);
-            }
-        }
-
-        void* handle = dlopen(bin, RTLD_NOW | RTLD_GLOBAL);
-        if (!handle) {
-            fprintf(stderr, "pty: dlopen(%s) failed: %s\n", bin, dlerror());
-            _exit(127);
-        }
-
-        typedef int (*main_fn)(int, char**);
-        main_fn entry = (main_fn)dlsym(handle, "main");
-        if (!entry) entry = (main_fn)dlsym(handle, "_main");
-
-        if (!entry) {
-            fprintf(stderr, "pty: dlsym(main) in %s failed: %s\n", bin, dlerror());
-            dlclose(handle);
-            _exit(127);
-        }
-
-        int argc = count_argv(argv);
-        char** mutable_argv = malloc(sizeof(char*) * (argc + 1));
-        if (!mutable_argv) _exit(126);
-        for (int i = 0; i < argc; i++) mutable_argv[i] = strdup(argv[i]);
-        mutable_argv[argc] = NULL;
-
-        // pty: el main de un binario ET_DYN espera (int, char**) o (int, char**, char**).
-        // Intentamos la variante de 3 args primero via trampa? No — usar 2-arg
-        // es lo estándar para binarios dlopen'eados. Los que necesitan envp
-        // usan environ global (llegado con apply_env).
-        int rc = entry(argc, mutable_argv);
-
-        for (int i = 0; i < argc; i++) free(mutable_argv[i]);
-        free(mutable_argv);
-        dlclose(handle);
-        _exit(rc);   // cierra fds, termina sesión → padre ve EOF
+        _run_via_dlopen(bin, argv);   // no retorna
     }
 
     // === PARENT ===

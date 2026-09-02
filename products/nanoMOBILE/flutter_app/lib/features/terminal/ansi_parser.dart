@@ -16,12 +16,19 @@ class AnsiParser {
   /// loses focus. The owner should write \x1b[I (gained) or \x1b[O (lost)
   /// directly to the PTY. Null when focus events are disabled.
   void Function({required bool focused})? onFocusChange;
+
   /// Respuestas a queries del programa (DA \x1b[c, DSR \x1b[6n). El owner
   /// escribe este string directo al PTY. Null = se ignora la query.
   void Function(String data)? onResponse;
+
   /// OSC 52 (clipboard): texto deserializado de la secuencia Base64. El owner
   /// lo escribe al portapapeles. Null = se ignora.
   void Function(String text)? onClipboard;
+
+  /// OSC 7 (cwd): path lógico que el shell reporta con cada prompt
+  /// (PROMPT_COMMAND). cwd REAL del bash, no heurística de la UI.
+  /// Null = se ignora.
+  void Function(String cwd)? onCwd;
 
   AnsiParser(this.screen);
 
@@ -150,6 +157,22 @@ class AnsiParser {
       final semi2 = pt.indexOf(';');
       final url = semi2 >= 0 ? pt.substring(semi2 + 1) : pt;
       screen.setLink(url.isEmpty ? null : url);
+    } else if (ps == 7) {
+      // OSC 7 cwd: "file://host/path" — el shell lo envía con cada
+      // prompt. Se quita el prefijo file:// y el host; el path puede
+      // venir percent-encoded (espacios etc.).
+      final uri = pt.startsWith('file://')
+          ? pt.substring('file://'.length)
+          : pt;
+      final slash = uri.indexOf('/');
+      final path = slash >= 0 ? uri.substring(slash) : uri;
+      if (path.isNotEmpty) {
+        try {
+          onCwd?.call(Uri.decodeComponent(path));
+        } catch (_) {
+          onCwd?.call(path);
+        }
+      }
     } else if (ps == 52) {
       // OSC 52 clipboard: "selector;base64". Solo selector "c" (portapapeles).
       final semi2 = pt.indexOf(';');
@@ -248,8 +271,9 @@ class AnsiParser {
         break;
       case 0x6e: // DSR: reportar posición del cursor (solo 6n)
         if (_at(p, 0) == 6) {
-          onResponse
-              ?.call('\x1b[${screen.cursorRow + 1};${screen.cursorCol + 1}R');
+          onResponse?.call(
+            '\x1b[${screen.cursorRow + 1};${screen.cursorCol + 1}R',
+          );
         }
         break;
       default:
@@ -391,8 +415,7 @@ class AnsiParser {
             screen.sgrFg(p[i + 2]);
             i += 2;
           } else if (i + 4 < p.length && p[i + 1] == 2) {
-            screen.sgrFgRgb(
-                (p[i + 2] << 16) | (p[i + 3] << 8) | p[i + 4]);
+            screen.sgrFgRgb((p[i + 2] << 16) | (p[i + 3] << 8) | p[i + 4]);
             i += 4;
           }
           break;
@@ -401,8 +424,7 @@ class AnsiParser {
             screen.sgrBg(p[i + 2]);
             i += 2;
           } else if (i + 4 < p.length && p[i + 1] == 2) {
-            screen.sgrBgRgb(
-                (p[i + 2] << 16) | (p[i + 3] << 8) | p[i + 4]);
+            screen.sgrBgRgb((p[i + 2] << 16) | (p[i + 3] << 8) | p[i + 4]);
             i += 4;
           }
           break;
