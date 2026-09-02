@@ -12,9 +12,19 @@ import 'semantic/semantic_role.dart';
 /// Los valores describen estructura, no una aplicación ni la intención del
 /// usuario. [search] se afirma cuando existe un campo de búsqueda observado
 /// (independiente de la app); [editable] queda para superficies de escritura
-/// sin señal de búsqueda. [unknown] evita inventar una clasificación cuando
-/// falta evidencia.
-enum CurrentSurfaceKind { unknown, dialog, search, editable, collection, content }
+/// sin señal de búsqueda; [picker] para selección evidente (checks/casillas
+/// visibles); [mediaViewer] cuando una imagen domina la pantalla. [unknown]
+/// evita inventar una clasificación cuando falta evidencia.
+enum CurrentSurfaceKind {
+  unknown,
+  dialog,
+  search,
+  editable,
+  picker,
+  collection,
+  mediaViewer,
+  content,
+}
 
 /// Identidad comparable de una entidad observada. Conserva el nombre real y
 /// elimina únicamente decoraciones locales que la app agrega a la conversación

@@ -66,6 +66,23 @@ final class SurfaceClassifier {
       return (CurrentSurfaceKind.editable, editables);
     }
 
+    // Selección evidente: casillas/radios/interruptores visibles o nodos
+    // marcados (checked/selected). Un picker se distingue de una lista
+    // normal porque la selección es parte de la pantalla.
+    final selections = observed
+        .where(
+          (object) =>
+              object.role == SemanticRole.checkbox ||
+              object.role == SemanticRole.radio ||
+              object.role == SemanticRole.switchControl ||
+              object.checked ||
+              object.selected,
+        )
+        .toList(growable: false);
+    if (selections.isNotEmpty) {
+      return (CurrentSurfaceKind.picker, selections);
+    }
+
     final collections = _withRoles(observed, const {
       SemanticRole.list,
       SemanticRole.listItem,
@@ -75,12 +92,38 @@ final class SurfaceClassifier {
       return (CurrentSurfaceKind.collection, collections);
     }
 
+    // Visor multimedia: una imagen domina el área de la pantalla.
+    final images = _withRoles(observed, const {SemanticRole.image});
+    if (_hasDominantImage(images, observed)) {
+      return (CurrentSurfaceKind.mediaViewer, images);
+    }
+
     final content = observed
         .where((object) => object.role != SemanticRole.keyboard)
         .toList(growable: false);
     if (content.isNotEmpty) return (CurrentSurfaceKind.content, content);
 
     return (CurrentSurfaceKind.unknown, const []);
+  }
+
+  /// Una imagen domina la pantalla si su área supera el 55% del área del
+  /// mayor objeto del grafo (el root suele cubrir la ventana completa).
+  bool _hasDominantImage(
+    List<NanoUiObject> images,
+    List<NanoUiObject> observed,
+  ) {
+    if (images.isEmpty || observed.isEmpty) return false;
+    var largestArea = 0.0;
+    for (final object in observed) {
+      final area = object.bounds.width * object.bounds.height;
+      if (area > largestArea) largestArea = area.toDouble();
+    }
+    if (largestArea <= 0) return false;
+    for (final image in images) {
+      final area = image.bounds.width * image.bounds.height;
+      if (area / largestArea > 0.55) return true;
+    }
+    return false;
   }
 
   List<NanoUiObject> _withRoles(

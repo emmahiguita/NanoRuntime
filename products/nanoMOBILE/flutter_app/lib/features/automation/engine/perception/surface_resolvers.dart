@@ -481,6 +481,8 @@ class ActionSurfaceResolver {
         'navigate_up',
         'action_bar_up',
         'up',
+        'arrow_back',
+        'btn_back',
       }.contains(resource),
       'dismiss' => const {
         'close',

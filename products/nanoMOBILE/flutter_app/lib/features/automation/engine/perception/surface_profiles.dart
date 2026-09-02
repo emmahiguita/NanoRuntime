@@ -145,6 +145,10 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'youtube search',
         'search videos',
         'buscar videos',
+        'lupa',
+        'magnifier',
+        'magnifying glass',
+        'lens',
       ],
     ),
     SurfaceElementKind.navigationBackAction => const SurfaceElementProfile(
@@ -162,6 +166,11 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'navigate back',
         'go back',
         'navigate up button',
+        'flecha atrás',
+        'flecha hacia atrás',
+        'arrow back',
+        'back arrow',
+        'back button',
       ],
     ),
     SurfaceElementKind.navigationDismissAction => const SurfaceElementProfile(
@@ -267,6 +276,10 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'escribir mensaje',
         'iniciar chat',
         'start chat',
+        'burbuja de chat',
+        'chat bubble',
+        'nuevo mensaje',
+        'new message',
       ],
     ),
     SurfaceElementKind.skipAdAction => const SurfaceElementProfile(

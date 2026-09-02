@@ -875,7 +875,9 @@ String _describeSituation(CurrentSituation situation) {
     CurrentSurfaceKind.dialog => 'diálogo',
     CurrentSurfaceKind.search => 'búsqueda',
     CurrentSurfaceKind.editable => 'campo editable',
+    CurrentSurfaceKind.picker => 'selección',
     CurrentSurfaceKind.collection => 'lista',
+    CurrentSurfaceKind.mediaViewer => 'visor multimedia',
     CurrentSurfaceKind.content => 'contenido',
     CurrentSurfaceKind.unknown => 'superficie sin clasificar',
   };
