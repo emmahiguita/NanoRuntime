@@ -784,7 +784,10 @@ class _FeatureCarousel extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 12),
+          // TER-19: sombra de agua bajo las cards — elíptica y reactiva
+          // al gesto (drift). La card flota sobre un suelo líquido oscuro.
+          _WaterFloorShadow(controller: controller),
+          const SizedBox(height: 6),
           _LiquidPageIndicator(
             controller: controller,
             count: items.length,
@@ -1079,110 +1082,127 @@ class NanoFeatureCard extends StatelessWidget {
                     horizontal: 14,
                     vertical: isLandscape ? 8 : 12,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      // Capa Z-Elevada: Icono flotante con parallax.
-                      // Flexible + FittedBox(scaleDown): la caja (46px fija) no
-                      // desborda el AspectRatio en alturas compactas (CPH2557);
-                      // se escala manteniendo la proporción (sin franjas amarillas).
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Transform.translate(
-                            offset: iconOffset,
-                            child: _FeatureIcon(
-                              icon: data.icon,
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Capa Z-Elevada: Icono flotante con parallax.
+                          // Flexible + FittedBox(scaleDown): la caja (46px fija) no
+                          // desborda el AspectRatio en alturas compactas (CPH2557);
+                          // se escala manteniendo la proporción (sin franjas amarillas).
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Transform.translate(
+                                offset: iconOffset,
+                                child: _FeatureIcon(
+                                  icon: data.icon,
+                                  accent: data.accent,
+                                  isLandscape: isLandscape,
+                                  distance: distance,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Capa Z-Media: Textos con micro-desplazamiento
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Transform.translate(
+                                offset: textOffset,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: isLandscape ? 0 : 2,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        data.title,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          color: colors.textPrimary,
+                                          fontSize: isLandscape ? 13.5 : 17.5,
+                                          height: isLandscape ? 1.1 : 1.2,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: -0.4,
+                                        ),
+                                      ),
+                                      if (data.statusLabel.isNotEmpty &&
+                                          data.statusColor != null) ...[
+                                        SizedBox(height: isLandscape ? 1 : 3),
+                                        _LiveStatusPill(
+                                          color: data.statusColor!,
+                                          label: data.statusLabel,
+                                          isLandscape: isLandscape,
+                                        ),
+                                      ],
+                                      if (data.line1.isNotEmpty) ...[
+                                        SizedBox(height: isLandscape ? 0 : 2),
+                                        Text(
+                                          data.line1,
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            color: colors.textSecondary,
+                                            fontSize: isLandscape ? 10.5 : 12.5,
+                                            height: isLandscape ? 1.05 : 1.15,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
+                                      if (data.line2.isNotEmpty) ...[
+                                        SizedBox(height: isLandscape ? 0 : 1),
+                                        Text(
+                                          data.line2,
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            color: data.secondaryAccent,
+                                            fontSize: isLandscape ? 10.5 : 12.5,
+                                            height: isLandscape ? 1.05 : 1.15,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Capa Z-Elevada: Botón interactivo de acción
+                          Transform.translate(
+                            offset: buttonOffset,
+                            child: _ArrowGlass(
                               accent: data.accent,
                               isLandscape: isLandscape,
-                              distance: distance,
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      // Capa Z-Media: Textos con micro-desplazamiento
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Transform.translate(
-                            offset: textOffset,
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                vertical: isLandscape ? 0 : 2,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    data.title,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      color: colors.textPrimary,
-                                      fontSize: isLandscape ? 13.5 : 17.5,
-                                      height: isLandscape ? 1.1 : 1.2,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: -0.4,
-                                    ),
-                                  ),
-                                  if (data.statusLabel.isNotEmpty &&
-                                      data.statusColor != null) ...[
-                                    SizedBox(height: isLandscape ? 1 : 3),
-                                    _LiveStatusPill(
-                                      color: data.statusColor!,
-                                      label: data.statusLabel,
-                                      isLandscape: isLandscape,
-                                    ),
-                                  ],
-                                  if (data.line1.isNotEmpty) ...[
-                                    SizedBox(height: isLandscape ? 0 : 2),
-                                    Text(
-                                      data.line1,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        color: colors.textSecondary,
-                                        fontSize: isLandscape ? 10.5 : 12.5,
-                                        height: isLandscape ? 1.05 : 1.15,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                  if (data.line2.isNotEmpty) ...[
-                                    SizedBox(height: isLandscape ? 0 : 1),
-                                    Text(
-                                      data.line2,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        color: data.secondaryAccent,
-                                        fontSize: isLandscape ? 10.5 : 12.5,
-                                        height: isLandscape ? 1.05 : 1.15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
+                      // TER-19: agua viva — olas senoidales + cáusticos
+                      // sobre el vidrio. Solo en la card cercana al foco
+                      // (distance < 0.75): las laterales no montan la capa
+                      // (repaint cero, el painter de las lejanas no existe).
+                      if (distance < 0.75 && !reduceMotion)
+                        Positioned.fill(
+                          child: _WaterWaves(
+                            controller: reflectionController,
+                            accent: data.accent,
+                            intensity: 1.0 - distance,
                           ),
                         ),
-                      ),
-                      // Capa Z-Elevada: Botón interactivo de acción
-                      Transform.translate(
-                        offset: buttonOffset,
-                        child: _ArrowGlass(
-                          accent: data.accent,
-                          isLandscape: isLandscape,
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -1440,6 +1460,158 @@ class _LiquidPageIndicator extends StatelessWidget {
               ),
             );
           }),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================
+// WATER LAYER — ONDAS VIVAS + SOMBRA DE AGUA (TER-19)
+// =============================================================
+
+/// Agua viva sobre la card: olas senoidales + cáusticos de luz (TER-19).
+/// Decorativa — IgnorePointer, no intercepta el tap de la card. Repinta
+/// con el controller compartido del carrusel; el padre solo monta esta
+/// capa en la card cercana al foco (distance < 0.75).
+class _WaterWaves extends StatelessWidget {
+  const _WaterWaves({
+    required this.controller,
+    required this.accent,
+    required this.intensity,
+  });
+
+  final AnimationController controller;
+  final Color accent;
+  final double intensity;
+
+  @override
+  Widget build(BuildContext context) {
+    if (NanoMotion.reduceMotion(context)) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) => CustomPaint(
+          painter: _WaterWavesPainter(
+            t: controller.value,
+            accent: accent,
+            intensity: intensity,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pintor de agua: dos olas desfasadas en el tercio inferior + tres
+/// lóbulos cáusticos que derivan y pulsan. Coste acotado: ~150 puntos
+/// por ola, solo en la card enfocada.
+class _WaterWavesPainter extends CustomPainter {
+  _WaterWavesPainter({
+    required this.t,
+    required this.accent,
+    required this.intensity,
+  });
+
+  final double t; // 0..1 — progreso del controller (loop)
+  final Color accent;
+  final double intensity; // 1.0 hero, decae con la distancia
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (intensity <= 0.02 || size.isEmpty) return;
+    final w = size.width;
+    final h = size.height;
+    final phase = t * 2 * math.pi;
+
+    // Línea de agua: ondas senoidales desfasadas, tercio inferior.
+    for (var layer = 0; layer < 2; layer++) {
+      final baseY = h * (0.62 + layer * 0.16);
+      final amp = h * 0.030 * (layer == 0 ? 1.0 : 0.55);
+      final freq = (layer == 0 ? 2.6 : 3.8) * 2 * math.pi / w;
+      final speed = phase * (layer == 0 ? 1.0 : -0.75);
+      final alpha = (layer == 0 ? 0.14 : 0.07) * intensity;
+      final path = Path();
+      for (var x = 0.0; x <= w; x += 2.0) {
+        final y = baseY + amp * math.sin(freq * x + speed);
+        if (x == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4
+          ..strokeCap = StrokeCap.round
+          ..color = accent.withValues(alpha: alpha),
+      );
+    }
+
+    // Cáusticos: tres lóbulos de luz que derivan y pulsan.
+    for (var i = 0; i < 3; i++) {
+      final drift = math.sin(phase + i * 2.1) * w * 0.12;
+      final cx = w * (0.25 + i * 0.25) + drift;
+      final cy = h * (0.30 + 0.12 * math.sin(phase * 0.7 + i * 1.7));
+      final radius = w * (0.10 + 0.05 * i);
+      final pulse = 0.75 + 0.25 * math.sin(phase + i);
+      final blobAlpha = (0.10 - i * 0.02) * intensity * pulse;
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: blobAlpha),
+            accent.withValues(alpha: blobAlpha * 0.45),
+            Colors.transparent,
+          ],
+        ).createShader(
+          Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+        );
+      canvas.drawCircle(Offset(cx, cy), radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaterWavesPainter old) =>
+      old.t != t || old.intensity != intensity;
+}
+
+/// Sombra elíptica de agua bajo el carrusel: la card flota sobre un
+/// suelo oscuro; la sombra se desplaza con el drift del gesto.
+class _WaterFloorShadow extends StatelessWidget {
+  const _WaterFloorShadow({required this.controller});
+
+  final PageController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (NanoMotion.reduceMotion(context)) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        double page = controller.initialPage.toDouble();
+        if (controller.hasClients && controller.position.haveDimensions) {
+          page = controller.page ?? page;
+        }
+        final drift = -(page - page.roundToDouble());
+        return Transform.translate(
+          offset: Offset(drift * 14, 0),
+          child: Container(
+            height: 12,
+            margin: const EdgeInsets.symmetric(horizontal: 42),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 18,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
