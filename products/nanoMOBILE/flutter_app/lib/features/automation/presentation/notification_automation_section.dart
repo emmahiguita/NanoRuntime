@@ -393,7 +393,8 @@ class _NotificationAutomationSectionState
                                         ? null
                                         : () {
                                             setState(() {
-                                              _draftController.text = suggestion;
+                                              _draftController.text =
+                                                  suggestion;
                                               _message =
                                                   'Sugerencia cargada. Revísala antes de enviar.';
                                             });
@@ -488,7 +489,14 @@ class _ListLabel extends StatelessWidget {
             color: colors.primary.withValues(alpha: 0.12),
             borderRadius: NanoShapes.full,
           ),
-          child: Text('$count', style: NanoType.caption(colors.primary)),
+          // UI-REV-06: acento crudo sobre su propio fondo no pasa AA —
+          // variante legible de la misma familia.
+          child: Text(
+            '$count',
+            style: NanoType.caption(
+              NanoTextColors.forText(colors.primary, colors),
+            ),
+          ),
         ),
       ],
     );
@@ -511,52 +519,69 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    return Material(
-      color: selected
-          ? colors.primary.withValues(alpha: 0.12)
-          : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: NanoShapes.small,
-        side: BorderSide(
-          color: selected
-              ? colors.primary.withValues(alpha: 0.5)
-              : colors.outlineVariant.withValues(alpha: 0.6),
+    // UI-REV-06: entrada animada (fade + desliz sutil) y mensaje COMPLETO
+    // en Inter — sin ellipsis que corten la frase. El contenido de la
+    // notificación es lo que el usuario viene a leer.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: NanoMotionDurations.standard,
+      curve: NanoCurves.easeOut,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 10 * (1 - t)),
+          child: child,
         ),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        enabled: enabled,
-        selected: selected,
-        onTap: enabled ? onTap : null,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: NanoSpacing.md,
-          vertical: NanoSpacing.xs,
+      child: Material(
+        color: selected
+            ? colors.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: NanoShapes.small,
+          side: BorderSide(
+            color: selected
+                ? colors.primary.withValues(alpha: 0.5)
+                : colors.outlineVariant.withValues(alpha: 0.6),
+          ),
         ),
-        leading: CircleAvatar(
-          backgroundColor: colors.primary.withValues(alpha: 0.12),
-          foregroundColor: colors.primary,
-          child: const Icon(Icons.reply_rounded),
-        ),
-        title: Text(
-          _notificationTitle(notification),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: NanoType.body(colors.onSurface),
-        ),
-        subtitle: Text(
-          notification.text.trim().isEmpty
-              ? notification.packageName
-              : notification.text.trim(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: NanoType.caption(colors.onSurfaceVariant),
-        ),
-        trailing: AnimatedSwitcher(
-          duration: NanoMotionDurations.quick,
-          child: Icon(
-            selected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
-            key: ValueKey(selected),
-            color: selected ? colors.primary : colors.onSurfaceVariant,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          enabled: enabled,
+          selected: selected,
+          onTap: enabled ? onTap : null,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: NanoSpacing.md,
+            vertical: NanoSpacing.xs,
+          ),
+          leading: CircleAvatar(
+            backgroundColor: colors.primary.withValues(alpha: 0.12),
+            foregroundColor: colors.primary,
+            child: const Icon(Icons.reply_rounded),
+          ),
+          title: Text(
+            _notificationTitle(notification),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: NanoType.body(colors.onSurface),
+          ),
+          subtitle: Text(
+            notification.text.trim().isEmpty
+                ? notification.packageName
+                : notification.text.trim(),
+            style: NanoType.caption(
+              colors.onSurfaceVariant,
+            ).copyWith(height: 1.35),
+          ),
+          trailing: AnimatedSwitcher(
+            duration: NanoMotionDurations.quick,
+            child: Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.chevron_right_rounded,
+              key: ValueKey(selected),
+              color: selected ? colors.primary : colors.onSurfaceVariant,
+            ),
           ),
         ),
       ),
@@ -595,12 +620,11 @@ class _ReadOnlyNotifications extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            // UI-REV-06: contenido completo, sin cortar la frase.
             subtitle: Text(
               notification.text.trim().isEmpty
                   ? 'Sin contenido visible'
                   : notification.text.trim(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
       ],

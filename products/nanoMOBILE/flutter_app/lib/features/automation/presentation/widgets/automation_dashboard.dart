@@ -560,6 +560,8 @@ class _TaskComposer extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // UI-REV-06: fuera la marca del robot — estorbaba encima del
+              // botón enviar y comprimía el título cortando las frases.
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,8 +588,6 @@ class _TaskComposer extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              _NanoAssistantMark(active: sensing || running),
             ],
           ),
           const SizedBox(height: 16),
@@ -744,8 +744,8 @@ class _CapabilityHintState extends State<_CapabilityHint> {
       child: Text(
         widget.active ? '¿Qué quieres que haga?' : _capabilities[_index],
         key: ValueKey(widget.active ? 'ask' : _capabilities[_index]),
+        // UI-REV-06: sin ellipsis — la frase completa siempre visible.
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: AutomationVisual.of(context).text,
           fontSize: 16,
@@ -842,45 +842,6 @@ class _ComposerControl extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _NanoAssistantMark extends StatelessWidget {
-  const _NanoAssistantMark({required this.active});
-
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 240),
-      // UI-REV-04: marca compacta (44px) — acompaña al título sin dominar.
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [visual.accentSoft, visual.surface],
-        ),
-        border: Border.all(color: visual.cardBorder, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AutomationVisual.of(
-              context,
-            ).accent.withValues(alpha: active ? 0.24 : 0.10),
-            blurRadius: active ? 14 : 8,
-          ),
-        ],
-      ),
-      child: Icon(
-        Icons.smart_toy_outlined,
-        color: AutomationVisual.of(context).accent,
-        size: 22,
       ),
     );
   }
