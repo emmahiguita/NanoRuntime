@@ -58,7 +58,10 @@ void main() {
       'reply → ejecuta goal grounded en remitente + texto autorizado',
       () async {
         final goals = <String>[];
-        final dispatcher = RuleDispatcher((goal) async {
+        final dispatcher = RuleDispatcher((
+          goal, {
+          AutomationOptions? options,
+        }) async {
           goals.add(goal.text);
           return ok;
         });
@@ -69,14 +72,19 @@ void main() {
     );
 
     test('reply sin mensaje → failed', () async {
-      final dispatcher = RuleDispatcher((_) async => ok);
+      final dispatcher = RuleDispatcher(
+        (_, {AutomationOptions? options}) async => ok,
+      );
       final r = await dispatcher.dispatch(rule(message: ''), notif());
       expect(r.outcome, RuleOutcome.failed);
     });
 
     test('notify → notified sin ejecutar goal', () async {
       var called = false;
-      final dispatcher = RuleDispatcher((_) async {
+      final dispatcher = RuleDispatcher((
+        _, {
+        AutomationOptions? options,
+      }) async {
         called = true;
         return ok;
       });
@@ -89,7 +97,9 @@ void main() {
     });
 
     test('draft → drafted', () async {
-      final dispatcher = RuleDispatcher((_) async => ok);
+      final dispatcher = RuleDispatcher(
+        (_, {AutomationOptions? options}) async => ok,
+      );
       final r = await dispatcher.dispatch(
         rule(action: RuleAction.draft),
         notif(),
@@ -99,7 +109,7 @@ void main() {
 
     test('coordinator falla → failed', () async {
       final dispatcher = RuleDispatcher(
-        (_) async => const AutomationResult(
+        (_, {AutomationOptions? options}) async => const AutomationResult(
           executionId: 'x',
           status: AutomationResultStatus.failed,
           reason: 'x',
@@ -117,7 +127,10 @@ void main() {
       registry.add(rule());
 
       final goals = <String>[];
-      final dispatcher = RuleDispatcher((goal) async {
+      final dispatcher = RuleDispatcher((
+        goal, {
+        AutomationOptions? options,
+      }) async {
         goals.add(goal.text);
         return ok;
       });
@@ -143,11 +156,14 @@ void main() {
         await registry.load();
         registry.add(rule());
 
-        final dispatcher = RuleDispatcher((_) async => ok);
+        final dispatcher = RuleDispatcher(
+          (_, {AutomationOptions? options}) async => ok,
+        );
         final pipeline = RulePipeline(
           registry: registry,
           engine: const RuleEngine(),
           dedupe: MemoryEventDedupeStore(),
+          memory: MemoryConversationMemoryStore(),
           dispatcher: dispatcher,
         );
 
