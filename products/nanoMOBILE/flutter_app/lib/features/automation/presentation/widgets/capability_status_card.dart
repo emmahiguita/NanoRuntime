@@ -206,7 +206,9 @@ class _SummaryBanner extends StatelessWidget {
             child: Text(
               text,
               style: NanoType.label(
-                color,
+                // warning sobre su propio fondo al 12% queda en ≈4.4:1:
+                // forzar variante legible del mismo tono.
+                NanoTextColors.forText(color, colors),
               ).copyWith(fontWeight: FontWeight.w600),
             ),
           ),
@@ -328,7 +330,9 @@ class _CapRow extends StatelessWidget {
     }
     if (a.isAvailable) {
       return (
-        color: colors.success,
+        // success claro (#0F9E6E ≈ 3.6:1 sobre blanco) no pasa AA como texto:
+        // variante oscura del mismo tono, no el acento crudo.
+        color: NanoTextColors.forText(colors.success, colors),
         label: 'Activado',
         icon: Icons.check_circle_rounded,
       );

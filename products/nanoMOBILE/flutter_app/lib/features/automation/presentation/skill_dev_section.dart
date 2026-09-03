@@ -147,7 +147,9 @@ class _SkillDevSectionState extends ConsumerState<SkillDevSection> {
         const SizedBox(height: NanoSpacing.xs),
         Text(
           'origen ${skill.sourceRunId.length > 24 ? '${skill.sourceRunId.substring(0, 24)}…' : skill.sourceRunId}',
-          style: NanoType.caption(colors.outline),
+          // outline claro (#A8B4C2 ≈ 2.2:1 sobre blanco) es ilegible en
+          // caption: usar el secundario legible.
+          style: NanoType.caption(colors.onSurfaceVariant),
         ),
         const SizedBox(height: NanoSpacing.xs),
         Row(

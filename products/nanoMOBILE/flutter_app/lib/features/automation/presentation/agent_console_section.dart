@@ -384,7 +384,9 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
                             _feedback.startsWith('Selector inválido') ||
                             _feedback.startsWith('Escribe')
                         ? colors.error
-                        : colors.primary,
+                        // primary claro (#0891B2 ≈ 4.0:1) no pasa AA en
+                        // caption de 11px: variante legible del mismo tono.
+                        : NanoTextColors.forText(colors.primary, colors),
                   ),
                 ),
               ],

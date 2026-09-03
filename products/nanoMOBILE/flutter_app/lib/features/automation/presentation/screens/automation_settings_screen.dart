@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
@@ -487,7 +488,12 @@ class _ValueBadge extends StatelessWidget {
     child: Text(
       label,
       style: TextStyle(
-        color: AutomationVisual.of(context).accent,
+        // El acento vivo (#FF7A00 sobre blanco ≈ 2.9:1) no pasa AA como color
+        // de fuente en 10px: usar su variante oscura legible, no el acento.
+        color: NanoTextColors.forText(
+          AutomationVisual.of(context).accent,
+          NanoThemeExtension.of(context).colors,
+        ),
         fontSize: 10,
         fontWeight: FontWeight.w700,
       ),
