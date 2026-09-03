@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/nano_motion.dart';
-import '../../services/owl_sound.dart';
 import 'owl_fab.dart';
 
 typedef NavTabSpec = ({IconData icon, IconData sel, String label});
@@ -107,8 +106,6 @@ class _NanoFloatingNavigationFrameState
   // el trayecto animado a la esquina está en curso; se apaga al llegar.
   bool _gliding = false;
   Offset _flightDir = Offset.zero;
-  bool _glideSounded = false;
-
   bool get _atLeft =>
       _dock == NanoNavigationDock.topLeft ||
       _dock == NanoNavigationDock.bottomLeft;
@@ -177,7 +174,6 @@ class _NanoFloatingNavigationFrameState
                 // cancelada no aterriza al búho a mitad de drag.
                 onEnd: () {
                   if (_dragOffset == null && _gliding) {
-                    if (_glideSounded) OwlSound.playLand();
                     setState(() => _gliding = false);
                   }
                 },
@@ -289,16 +285,12 @@ class _NanoFloatingNavigationFrameState
     final target = _offsetForDock(viewport, size, newDock);
     final dir = target + Offset(size.width / 2, size.height / 2) - center;
     final norm = dir.distance;
-    final glide = NanoMotion.adapt(context, NanoMotionDurations.navigation);
-    // reduceMotion o arrastre sin desplazamiento: sin vuelo ni sonido.
-    _glideSounded = glide > Duration.zero && norm > 4;
     setState(() {
       _dock = newDock;
       _dragOffset = null;
       _gliding = true;
       _flightDir = norm > 0.01 ? dir / norm : Offset.zero;
     });
-    if (_glideSounded) OwlSound.playGlide();
     HapticFeedback.selectionClick();
   }
 }
