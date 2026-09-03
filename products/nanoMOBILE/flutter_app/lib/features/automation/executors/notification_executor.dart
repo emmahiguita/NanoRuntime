@@ -139,7 +139,10 @@ class NotificationExecutor {
         temperature: 0.6,
         maxTokens: 240,
       );
-      return parseNotificationSuggestions(result.text);
+      return parseNotificationSuggestions(
+        result.text,
+        packageName: notification.packageName,
+      );
     } catch (_) {
       // Motor local no disponible/falló → sin sugerencias.
       return const [];
