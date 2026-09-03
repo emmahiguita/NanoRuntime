@@ -5,6 +5,8 @@
 /// usa para encender/apagar el búho y ver qué contenido mostraría.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,11 +66,26 @@ class NanoEdgeBubbleToggle extends ConsumerStatefulWidget {
 class _NanoEdgeBubbleToggleState extends ConsumerState<NanoEdgeBubbleToggle> {
   bool _showing = false;
   bool _available = false;
+  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
     _refreshState();
+    // El servicio de accesibilidad conecta/desconecta después del primer
+    // build (rebind de ColorOS, kill en caché). Sondear cada pocos segundos
+    // mantiene el switch sincronizado; sin esto queda deshabilitado para
+    // siempre si la pantalla se abrió con el servicio caído.
+    _poll = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refreshState(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
   }
 
   /// Hidrata disponibilidad + estado real de la ventana. Si el servicio se
