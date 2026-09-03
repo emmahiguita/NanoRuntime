@@ -208,6 +208,7 @@ class _ConversationMirrorCardState
   @override
   void initState() {
     super.initState();
+    // Async: la hidratación del store tarda; el setState va con guard mounted.
     _refreshIds();
   }
 
@@ -217,10 +218,13 @@ class _ConversationMirrorCardState
     super.dispose();
   }
 
-  void _refreshIds() {
+  Future<void> _refreshIds() async {
     final store = ref.read(conversationMemoryStoreProvider);
+    // El store se hidrata asíncrono (load() al crear el provider): esperar
+    // evita leer vacío por raza en el primer build.
+    await store.load();
     final ids = store.knownConversationIds().toList()..sort();
-    setState(() => _ids = ids);
+    if (mounted) setState(() => _ids = ids);
   }
 
   /// Reconstruye la clave desde su id serializado

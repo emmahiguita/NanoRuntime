@@ -21,6 +21,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'incoming_message.dart';
@@ -307,8 +308,12 @@ class SharedPrefsConversationMemoryStore extends _MemoryCore {
       if (raw != null && raw.isNotEmpty) {
         final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
         _hydrate(map);
+        debugPrint('[convmem] load: ${_byConversation.length} conversaciones');
+      } else {
+        debugPrint('[convmem] load: sin datos persistidos');
       }
-    } on Object {
+    } on Object catch (e) {
+      debugPrint('[convmem] load falló: $e');
       // Store corrupto o esquema viejo: arrancar limpio (fail-closed).
     }
     _loaded = true;
