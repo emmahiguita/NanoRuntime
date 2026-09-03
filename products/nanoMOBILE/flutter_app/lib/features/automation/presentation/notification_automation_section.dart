@@ -31,6 +31,7 @@ class _NotificationAutomationSectionState
   DeviceNotification? _selected;
   bool _busy = false;
   String? _message;
+  List<String> _suggestions = const [];
 
   NotificationExecutor get _service => ref.read(notificationExecutorProvider);
 
@@ -100,7 +101,10 @@ class _NotificationAutomationSectionState
     final changed = _selected?.key != notification.key;
     setState(() {
       _selected = notification;
-      if (changed) _draftController.clear();
+      if (changed) {
+        _draftController.clear();
+        _suggestions = const [];
+      }
       _message = 'Escribe una respuesta o genera un borrador local.';
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -116,6 +120,29 @@ class _NotificationAutomationSectionState
       }
       _draftFocusNode.requestFocus();
     });
+  }
+
+  Future<void> _suggest(DeviceNotification notification) async {
+    setState(() {
+      _busy = true;
+      _selected = notification;
+      _message = 'Generando sugerencias…';
+    });
+    try {
+      final suggestions = await _service.generateSuggestions(notification);
+      if (!mounted) return;
+      setState(() {
+        _suggestions = suggestions;
+        _message = suggestions.isEmpty
+            ? 'El motor local no produjo sugerencias. Genera un borrador o escribe manualmente.'
+            : 'Elige una sugerencia para editarla; nada se envía sin revisar.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _message = 'No se pudieron generar: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _generate(DeviceNotification notification) async {
@@ -316,6 +343,7 @@ class _NotificationAutomationSectionState
                                         setState(() {
                                           _selected = null;
                                           _draftController.clear();
+                                          _suggestions = const [];
                                           _message = null;
                                         });
                                       },
@@ -339,11 +367,55 @@ class _NotificationAutomationSectionState
                               border: OutlineInputBorder(),
                             ),
                           ),
+                          if (_suggestions.isNotEmpty) ...[
+                            const SizedBox(height: NanoSpacing.sm),
+                            Wrap(
+                              spacing: NanoSpacing.sm,
+                              runSpacing: NanoSpacing.sm,
+                              children: [
+                                for (final suggestion in _suggestions)
+                                  ActionChip(
+                                    avatar: const Icon(
+                                      Icons.lightbulb_outline_rounded,
+                                      size: NanoIcons.small,
+                                    ),
+                                    label: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 260,
+                                      ),
+                                      child: Text(
+                                        suggestion,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    onPressed: _busy
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _draftController.text = suggestion;
+                                              _message =
+                                                  'Sugerencia cargada. Revísala antes de enviar.';
+                                            });
+                                          },
+                                  ),
+                              ],
+                            ),
+                          ],
                           Wrap(
                             spacing: NanoSpacing.sm,
                             runSpacing: NanoSpacing.sm,
                             alignment: WrapAlignment.end,
                             children: [
+                              OutlinedButton.icon(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _suggest(_selected!),
+                                icon: const Icon(
+                                  Icons.lightbulb_outline_rounded,
+                                ),
+                                label: const Text('Sugerir'),
+                              ),
                               OutlinedButton.icon(
                                 onPressed: _busy
                                     ? null

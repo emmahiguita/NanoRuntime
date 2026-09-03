@@ -106,6 +106,30 @@ class NotificationExecutor {
     return 'Gracias por escribirme. ¿En qué puedo ayudarte?';
   }
 
+  /// SUG-01 — variantes de respuesta para que el usuario elija. LLM OPCIONAL:
+  /// sin motor o sin salida utilizable → lista vacía (jamás variantes
+  /// genéricas inventadas). El usuario siempre confirma el envío.
+  Future<List<String>> generateSuggestions(
+    DeviceNotification notification,
+  ) async {
+    if (!notification.canReply) return const [];
+    try {
+      final result = await _engine.generate(
+        prompt: notificationSuggestionsPromptFor(
+          packageName: notification.packageName,
+          title: notification.title,
+          text: notification.text,
+        ),
+        temperature: 0.6,
+        maxTokens: 240,
+      );
+      return parseNotificationSuggestions(result.text);
+    } catch (_) {
+      // Motor local no disponible/falló → sin sugerencias.
+      return const [];
+    }
+  }
+
   Future<bool> confirmAndReply(
     DeviceNotification notification,
     String text,
