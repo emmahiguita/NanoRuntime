@@ -15,6 +15,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.RuntimeHeartbeat
+import dev.nanoai.mobile.edge.NanoOverlayBridge
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -65,6 +66,8 @@ class AgentAccessibilityService : AccessibilityService() {
         // eventTypes, canRetrieveWindowContent) ya viene de
         // res/xml/accessibility_service_config.xml.
         AgentAccessibilityBridge.onConnected(this)
+        // EDGE-01: el overlay del búho solo existe con el servicio conectado.
+        NanoOverlayBridge.onServiceConnected(this)
         Log.i(TAG, "AgentAccessibilityService conectado")
         // U-10: vector resurrección — tras un cached-kill de ColorOS el
         // sistema re-vincula este service él mismo (los accessibility
@@ -94,11 +97,13 @@ class AgentAccessibilityService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         Log.i(TAG, "onUnbind — service se desvincula, bridge null temporal")
         AgentAccessibilityBridge.onDisconnected()
+        NanoOverlayBridge.onServiceDisconnected()
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         AgentAccessibilityBridge.onDisconnected()
+        NanoOverlayBridge.onServiceDisconnected()
         executor.shutdownNow()
         super.onDestroy()
     }
