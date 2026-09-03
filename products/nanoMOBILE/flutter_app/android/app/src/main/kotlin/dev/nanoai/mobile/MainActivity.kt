@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import dev.nanoai.mobile.appfunctions.AppFunctionChannelHandler
 import dev.nanoai.mobile.channels.AgentChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
@@ -313,6 +314,11 @@ class MainActivity : FlutterActivity() {
                     },
                 ).also { modelStorageHandler = it },
             )
+
+        // APPFN-01: sonda de App Functions (Android 16+). SOLO consulta de
+        // disponibilidad; el canal no expone ejecución en v1.
+        MethodChannel(messenger, AppFunctionChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(AppFunctionChannelHandler(this))
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

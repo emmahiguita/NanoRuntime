@@ -39,6 +39,11 @@
     <!-- Sin permisos de foreground service: el worker nanoshell es bind-only
          (exported=false, sin startForeground/startService en todo el código).
          Declararlos sin uso dispara el escrutinio specialUse de Play. -->
+    <!-- APPFN-01: App Functions (Android 16, API 36). Permiso appop para
+         EJECUTAR funciones de apps; en v1 SOLO se declara para que la sonda
+         reporte su estado factual (probe, sin ejecución). En Android < 36 el
+         sistema ignora el nombre desconocido: declararlo no otorga nada. -->
+    <uses-permission android:name="android.permission.EXECUTE_APP_FUNCTIONS"/>
 
     <!-- A-30: el agente lanza apps Android por packageName (elegido por el
          LLM en runtime — imposible declararlas una a una). Android 11+
