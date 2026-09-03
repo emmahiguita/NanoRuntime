@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
+import 'package:nanoai/features/automation/engine/messaging/conversation_memory.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
@@ -124,6 +125,7 @@ void main() {
         registry: registry,
         engine: const RuleEngine(),
         dedupe: MemoryEventDedupeStore(),
+        memory: MemoryConversationMemoryStore(),
         dispatcher: dispatcher,
       );
 

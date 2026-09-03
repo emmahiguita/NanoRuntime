@@ -100,7 +100,8 @@ bool evaluateTrigger(Trigger trigger, TriggerEvent event) {
     final pkgOk =
         trigger.packageName == null || trigger.packageName == event.packageName;
     final match = trigger.senderMatch;
-    final senderOk = match == null ||
+    final senderOk =
+        match == null ||
         match.isEmpty ||
         '${event.sender ?? ''} ${event.conversationTitle ?? ''}'
             .toLowerCase()

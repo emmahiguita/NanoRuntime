@@ -18,6 +18,7 @@ library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../messaging/conversation_memory.dart';
 import '../messaging/incoming_message.dart';
 import '../notifications/notification_object.dart';
 import 'event_dedupe_store.dart';
@@ -32,15 +33,20 @@ class RulePipeline {
     required RuleRegistry registry,
     required RuleEngine engine,
     required EventDedupeStore dedupe,
+    required ConversationMemoryStore memory,
     required RuleDispatcher dispatcher,
   }) : _registry = registry,
        _engine = engine,
        _dedupe = dedupe,
+       _memory = memory,
        _dispatcher = dispatcher;
 
   final RuleRegistry _registry;
   final RuleEngine _engine;
   final EventDedupeStore _dedupe;
+
+  /// WA-MEM-08 — memoria aislada por conversación (escritura honesta).
+  final ConversationMemoryStore _memory;
   final RuleDispatcher _dispatcher;
 
   /// Procesa una notificación entrante: pasa la puerta de deduplicación,
@@ -85,6 +91,8 @@ class RulePipeline {
 
     final results = <RuleDispatchResult>[];
     var replyAttempted = false;
+    var replyText = '';
+    var replyRuleId = '';
     for (final rule in matched) {
       final r = await _dispatchOne(
         rule,
@@ -104,6 +112,8 @@ class RulePipeline {
           rule.message,
           atMs: nowMs,
         );
+        replyText = rule.message;
+        replyRuleId = rule.id;
       }
       // Registrar el disparo para cooldown de regla (T3.6). El evento fallado
       // no cuenta como disparo: el siguiente evento real puede reintentar.
@@ -124,6 +134,33 @@ class RulePipeline {
       '${results.map((r) => r.outcome.name).join(',')} '
       'razones="${results.map((r) => r.reason).join(' | ')}"',
     );
+
+    // WA-MEM-08 — memoria por conversación con honestidad de estado. El
+    // inbound se registra como observación; el outbound SOLO con su estado
+    // real (verified/dispatched/effectUnknown), jamás como éxito inventado.
+    if (message.conversation.key.id.isNotEmpty) {
+      _memory.appendInbound(message, atMs: nowMs);
+      if (replyAttempted && replyText.isNotEmpty) {
+        final kind = switch (terminal) {
+          DedupeEventState.replyVerified =>
+            ConversationMemoryEntryKind.outboundVerified,
+          DedupeEventState.replyDispatched =>
+            ConversationMemoryEntryKind.outboundDispatched,
+          DedupeEventState.outcomeUnknown =>
+            ConversationMemoryEntryKind.effectUnknown,
+          _ => null,
+        };
+        if (kind != null) {
+          _memory.appendOutbound(
+            conversationId,
+            replyText,
+            kind: kind,
+            ruleId: replyRuleId,
+            atMs: nowMs,
+          );
+        }
+      }
+    }
     return results;
   }
 
