@@ -25,6 +25,9 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_animate: ^4.5.2
   google_fonts: ^6.2.1
+  # TER-22: sonido armónico del búho (glide + pose). WAVs sintetizados
+  # locales; sin dependencias de red ni assets remotos.
+  audioplayers: ^6.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -59,6 +62,7 @@ flutter:
     - assets/owl/idle/
     - assets/owl/sleep/
     - assets/owl/takeoff/
+    - assets/sounds/
   fonts:
     - family: Inter
       fonts:

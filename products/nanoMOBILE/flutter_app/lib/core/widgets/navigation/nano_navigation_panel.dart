@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/nano_motion.dart';
+import '../../services/owl_sound.dart';
 import 'owl_fab.dart';
 
 typedef NavTabSpec = ({IconData icon, IconData sel, String label});
@@ -102,10 +103,11 @@ class _NanoFloatingNavigationFrameState
   Offset? _dragOffset;
   Size _lastPanelSize = const Size.square(_fabSize);
   Size? _dragSize;
-
-  bool get _atTop =>
-      _dock == NanoNavigationDock.topLeft ||
-      _dock == NanoNavigationDock.topRight;
+  // TER-22: coreografía de vuelo al soltar. _gliding señala al búho que
+  // el trayecto animado a la esquina está en curso; se apaga al llegar.
+  bool _gliding = false;
+  Offset _flightDir = Offset.zero;
+  bool _glideSounded = false;
 
   bool get _atLeft =>
       _dock == NanoNavigationDock.topLeft ||
@@ -129,7 +131,9 @@ class _NanoFloatingNavigationFrameState
   Widget build(BuildContext context) {
     final style =
         widget.style ?? NanoFloatingNavigationStyle.fromTheme(context);
-    final motion = NanoMotion.adapt(context, NanoMotionDurations.emphasized);
+    // TER-22: trayecto de vuelo al soltar — navigation (480 ms) para que
+    // el aleteo se aprecie; reduceMotion lo deja en 0 (pose instantáneo).
+    final motion = NanoMotion.adapt(context, NanoMotionDurations.navigation);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -167,6 +171,16 @@ class _NanoFloatingNavigationFrameState
               AnimatedPositioned(
                 duration: _dragOffset == null ? motion : Duration.zero,
                 curve: NanoMotionCurves.glassSpring,
+                // TER-22: llegada a la esquina — apaga la señal de vuelo
+                // y suena la pose. Protegido: si un nuevo arrastre empezó
+                // (_dragOffset != null), el onEnd espurio de la animación
+                // cancelada no aterriza al búho a mitad de drag.
+                onEnd: () {
+                  if (_dragOffset == null && _gliding) {
+                    if (_glideSounded) OwlSound.playLand();
+                    setState(() => _gliding = false);
+                  }
+                },
                 left: position.dx,
                 top: position.dy,
                 width: panelSize.width,
@@ -180,6 +194,8 @@ class _NanoFloatingNavigationFrameState
                     expanded: _expanded,
                     landscape: landscape,
                     dockedAtLeft: _atLeft,
+                    gliding: _gliding,
+                    flightDirection: _flightDir,
                     onToggle: _toggle,
                     onNavigate: _navigate,
                     onPanStart: (_) => _startDrag(viewport),
@@ -196,10 +212,17 @@ class _NanoFloatingNavigationFrameState
     );
   }
 
-  Offset _offsetForDock(Size viewport, Size panelSize) {
+  Offset _offsetForDock(Size viewport, Size panelSize, [NanoNavigationDock? dock]) {
+    final d = dock ?? _dock;
+    final atLeft =
+        d == NanoNavigationDock.topLeft ||
+        d == NanoNavigationDock.bottomLeft;
+    final atTop =
+        d == NanoNavigationDock.topLeft ||
+        d == NanoNavigationDock.topRight;
     final right = math.max(_gap, viewport.width - panelSize.width - _gap);
     final bottom = math.max(_gap, viewport.height - panelSize.height - _gap);
-    return Offset(_atLeft ? _gap : right, _atTop ? _gap : bottom);
+    return Offset(atLeft ? _gap : right, atTop ? _gap : bottom);
   }
 
   void _toggle() {
@@ -255,15 +278,27 @@ class _NanoFloatingNavigationFrameState
     final left = center.dx <= viewport.width / 2;
     final top = center.dy <= viewport.height / 2;
     _dragSize = null;
+    final newDock = switch ((top, left)) {
+      (true, true) => NanoNavigationDock.topLeft,
+      (true, false) => NanoNavigationDock.topRight,
+      (false, true) => NanoNavigationDock.bottomLeft,
+      (false, false) => NanoNavigationDock.bottomRight,
+    };
+    // TER-22: vector del trayecto (centro actual → centro del dock).
+    // Inclina al búho hacia donde vuela; dirección nula si no se movió.
+    final target = _offsetForDock(viewport, size, newDock);
+    final dir = target + Offset(size.width / 2, size.height / 2) - center;
+    final norm = dir.distance;
+    final glide = NanoMotion.adapt(context, NanoMotionDurations.navigation);
+    // reduceMotion o arrastre sin desplazamiento: sin vuelo ni sonido.
+    _glideSounded = glide > Duration.zero && norm > 4;
     setState(() {
-      _dock = switch ((top, left)) {
-        (true, true) => NanoNavigationDock.topLeft,
-        (true, false) => NanoNavigationDock.topRight,
-        (false, true) => NanoNavigationDock.bottomLeft,
-        (false, false) => NanoNavigationDock.bottomRight,
-      };
+      _dock = newDock;
       _dragOffset = null;
+      _gliding = true;
+      _flightDir = norm > 0.01 ? dir / norm : Offset.zero;
     });
+    if (_glideSounded) OwlSound.playGlide();
     HapticFeedback.selectionClick();
   }
 }
@@ -276,6 +311,8 @@ class _GlassNavigationPanel extends StatelessWidget {
     required this.expanded,
     required this.landscape,
     required this.dockedAtLeft,
+    required this.gliding,
+    required this.flightDirection,
     required this.onToggle,
     required this.onNavigate,
     required this.onPanStart,
@@ -290,6 +327,8 @@ class _GlassNavigationPanel extends StatelessWidget {
   final bool expanded;
   final bool landscape;
   final bool dockedAtLeft;
+  final bool gliding;
+  final Offset flightDirection;
   final VoidCallback onToggle;
   final ValueChanged<int> onNavigate;
   final GestureDragStartCallback onPanStart;
@@ -316,6 +355,8 @@ class _GlassNavigationPanel extends StatelessWidget {
               child: OwlFloatingActionButton(
                 size: _NanoFloatingNavigationFrameState._fabSize,
                 expanded: false,
+                gliding: gliding,
+                flightDirection: flightDirection,
                 onTap: onToggle,
                 onPanStart: onPanStart,
                 onPanUpdate: onPanUpdate,
@@ -374,6 +415,8 @@ class _GlassNavigationPanel extends StatelessWidget {
                       child: OwlFloatingActionButton(
                         size: _NanoFloatingNavigationFrameState._fabSize,
                         expanded: true,
+                        gliding: gliding,
+                        flightDirection: flightDirection,
                         onTap: onToggle,
                         onPanStart: onPanStart,
                         onPanUpdate: onPanUpdate,
@@ -395,6 +438,8 @@ class _GlassNavigationPanel extends StatelessWidget {
                       style: style,
                       landscape: landscape,
                       dockedAtLeft: dockedAtLeft,
+                      gliding: gliding,
+                      flightDirection: flightDirection,
                       onToggle: onToggle,
                       onNavigate: onNavigate,
                       onPanStart: onPanStart,
@@ -427,6 +472,8 @@ class _ExpandedNavigation extends StatelessWidget {
     required this.style,
     required this.landscape,
     required this.dockedAtLeft,
+    required this.gliding,
+    required this.flightDirection,
     required this.onToggle,
     required this.onNavigate,
     required this.onPanStart,
@@ -440,6 +487,8 @@ class _ExpandedNavigation extends StatelessWidget {
   final NanoFloatingNavigationStyle style;
   final bool landscape;
   final bool dockedAtLeft;
+  final bool gliding;
+  final Offset flightDirection;
   final VoidCallback onToggle;
   final ValueChanged<int> onNavigate;
   final GestureDragStartCallback onPanStart;
@@ -453,6 +502,8 @@ class _ExpandedNavigation extends StatelessWidget {
     final handle = OwlFloatingActionButton(
       size: _NanoFloatingNavigationFrameState._fabSize,
       expanded: true,
+      gliding: gliding,
+      flightDirection: flightDirection,
       onTap: onToggle,
       onPanStart: onPanStart,
       onPanUpdate: onPanUpdate,

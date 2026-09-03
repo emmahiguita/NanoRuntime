@@ -23,11 +23,21 @@ enum _OwlState { sleeping, idle, takeoff, flying }
 /// - Durante el arrastre (onPanStart): despegue con alas y vuela
 ///   mientras se mueve; al soltar (onPanEnd/Cancel) aterriza y vuelve
 ///   al estado que corresponde al panel.
+///
+/// TER-22 coreografía de vuelo al soltar: si [gliding] es true, el
+/// búho NO aterriza al soltar — sigue aleteando durante el trayecto
+/// animado a la esquina y se posa cuando el marco apaga la señal
+/// (llegada del `AnimatedPositioned`). Cinemática 3D sobre los sprites:
+/// inclinación direccional ([flightDirection]), squash & stretch en
+/// fase con el aleteo, sway secundario, paralaje de sombra y squash de
+/// aterrizaje al posarse.
 class OwlFloatingActionButton extends StatefulWidget {
   const OwlFloatingActionButton({
     super.key,
     this.size = 56.0,
     this.expanded = false,
+    this.gliding = false,
+    this.flightDirection = Offset.zero,
     required this.onTap,
     this.onPanStart,
     this.onPanUpdate,
@@ -38,6 +48,15 @@ class OwlFloatingActionButton extends StatefulWidget {
   /// Diámetro del círculo base del FAB (el personaje asoma ligeramente).
   final double size;
   final bool expanded;
+
+  /// Señal del marco: trayecto animado a la esquina en curso. Mientras
+  /// es true el búho no aterriza al soltar; al pasar a false, se posa.
+  final bool gliding;
+
+  /// Dirección normalizada del trayecto de vuelo (eje Y hacia abajo).
+  /// Inclina al búho hacia donde vuela y desplaza la sombra en contra.
+  final Offset flightDirection;
+
   final VoidCallback onTap;
   final GestureDragStartCallback? onPanStart;
   final GestureDragUpdateCallback? onPanUpdate;
@@ -86,10 +105,19 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
   late AnimationController _breathController;
   late AnimationController _hoverController;
   late AnimationController _zzzController;
+  // TER-22: squash de aterrizaje (pico a mitad: sin(pi * t)).
+  late AnimationController _landController;
+  // TER-22: multiplicador 0..1 de la inclinación direccional.
+  late AnimationController _tiltController;
   late Animation<double> _breathScaleY;
   late Animation<double> _breathScaleX;
   late Animation<double> _hoverOffsetY;
   late Animation<double> _hoverRotation;
+
+  // TER-22: objetivos de inclinación calculados desde flightDirection.
+  double _tiltRotZ = 0;
+  double _tiltSkewX = 0;
+  Offset _shadowOffset = Offset.zero;
 
   int _frameIndex = 0;
   bool _blinkedOnce = false;
@@ -146,6 +174,18 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
       duration: const Duration(milliseconds: 2600),
     )..repeat();
 
+    // TER-22: pose física — squash breve al posarse (240 ms). Sin curva:
+    // la forma sin(pi * t) ya dibuja el hundimiento y la recuperación.
+    _landController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+    );
+    // TER-22: inclinación direccional entra/sale suave (200 ms).
+    _tiltController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+
     _startStateLoop();
     // TER-20: precarga de TODOS los sprites — la primera transición de
     // estado ya no decodifica PNGs en el hilo de UI (causa del lag al
@@ -185,6 +225,36 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
       _frameIndex = 0;
       _startStateLoop();
     }
+    // TER-22: señal del marco. Arranca el trayecto → entra la
+    // inclinación; llega a la esquina → pose.
+    if (widget.gliding != oldWidget.gliding) {
+      if (widget.gliding) {
+        _tiltController.forward(from: 0);
+      } else if (_state == _OwlState.flying) {
+        _land();
+      }
+    }
+    if (widget.flightDirection != oldWidget.flightDirection) {
+      _updateTiltTarget(widget.flightDirection);
+      if (widget.gliding) _tiltController.forward(from: 0);
+    }
+  }
+
+  /// TER-22: traduce la dirección del trayecto a inclinación (banco
+  /// lateral en X, pitch simulado en Y) y paralaje de la sombra.
+  void _updateTiltTarget(Offset dir) {
+    final norm = sqrt(dir.dx * dir.dx + dir.dy * dir.dy);
+    if (norm < 0.01) {
+      _tiltRotZ = 0;
+      _tiltSkewX = 0;
+      _shadowOffset = Offset.zero;
+      return;
+    }
+    final nx = dir.dx / norm;
+    final ny = dir.dy / norm;
+    _tiltRotZ = nx * 0.10;
+    _tiltSkewX = ny * 0.05;
+    _shadowOffset = Offset(-nx * 5, -ny * 3);
   }
 
   void _startStateLoop() {
@@ -283,7 +353,8 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     });
   }
 
-  /// Aterrizaje: vuelve a dormido o despierto según el panel.
+  /// Aterrizaje: vuelve a dormido o despierto según el panel. TER-22:
+  /// pose física con squash de aterrizaje y retorno de la inclinación.
   void _land() {
     if (_state != _OwlState.flying) return;
     _frameTimer?.cancel();
@@ -293,6 +364,8 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
       ..stop()
       ..value = 0;
     _breathController.repeat(reverse: true);
+    _tiltController.reverse();
+    _landController.forward(from: 0);
     setState(() {
       _state = widget.expanded ? _OwlState.idle : _OwlState.sleeping;
       _frameIndex = 0;
@@ -305,6 +378,8 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     _breathController.dispose();
     _hoverController.dispose();
     _zzzController.dispose();
+    _landController.dispose();
+    _tiltController.dispose();
     _blinkTimer?.cancel();
     _frameTimer?.cancel();
     super.dispose();
@@ -335,12 +410,21 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
         },
         onPanUpdate: widget.onPanUpdate,
         onPanEnd: (d) {
-          _land();
+          // TER-22: la decisión de aterrizar es del marco (gliding).
+          // El marco setea la señal dentro de este mismo callback; se
+          // resuelve en el postFrame con el valor ya actualizado.
           widget.onPanEnd?.call(d);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (!widget.gliding && _state == _OwlState.flying) _land();
+          });
         },
         onPanCancel: () {
-          _land();
           widget.onPanCancel?.call();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (!widget.gliding && _state == _OwlState.flying) _land();
+          });
         },
         child: SizedBox(
           width: size,
@@ -352,25 +436,35 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
               children: [
                 // CAPA 0: sombra proyectada en el suelo — se expande y
                 // difumina cuando el búho despega o vuela (más altura =
-                // sombra más tenue y ancha). Ultra realista sin tocar el FAB.
+                // sombra más tenue y ancha). TER-22: en vuelo se desplaza
+                // contra la dirección del trayecto (paralaje de
+                // profundidad). Ultra realista sin tocar el FAB.
                 Positioned(
                   bottom: airborne ? -14 : -9,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeInOutCubic,
-                    width: airborne ? size * 0.92 : size * 0.68,
-                    height: airborne ? 12 : 10,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(50),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: airborne ? 0.14 : 0.30,
-                          ),
-                          blurRadius: airborne ? 14 : 8,
-                          spreadRadius: airborne ? 3 : 0,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Transform.translate(
+                      offset:
+                          _state == _OwlState.flying ? _shadowOffset : Offset.zero,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOutCubic,
+                        width: airborne ? size * 0.92 : size * 0.68,
+                        height: airborne ? 12 : 10,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(50),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: airborne ? 0.14 : 0.30,
+                              ),
+                              blurRadius: airborne ? 14 : 8,
+                              spreadRadius: airborne ? 3 : 0,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -447,25 +541,54 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
                 ),
 
                 // CAPA 2: personaje con cinemática (respiración / vuelo).
+                // TER-22: en vuelo suma squash & stretch en fase con el
+                // aleteo, inclinación direccional y sway secundario; al
+                // posarse, squash de aterrizaje (sin(pi * t)).
                 AnimatedBuilder(
                   animation: Listenable.merge([
                     _breathController,
                     _hoverController,
+                    _landController,
+                    _tiltController,
                   ]),
                   builder: (context, child) {
                     final flying = _state == _OwlState.flying;
                     final offsetY = flying ? _hoverOffsetY.value : 0.0;
                     final rot = flying ? _hoverRotation.value : 0.0;
-                    final scaleX = flying ? 1.05 : _breathScaleX.value;
-                    final scaleY = flying ? 1.05 : _breathScaleY.value;
+                    // Squash & stretch de aleteo: el cuerpo late con
+                    // cada batida de ala (periodo = 5 frames * 80 ms).
+                    final wingPhase = sin(
+                      2 * pi * (_frameIndex % _flightFrames.length) /
+                          _flightFrames.length,
+                    );
+                    final scaleX = flying ? 1.05 + 0.05 * wingPhase : _breathScaleX.value;
+                    final scaleY = flying ? 1.05 - 0.04 * wingPhase : _breathScaleY.value;
+                    // Pose física: squash al posarse, recuperación suave.
+                    final landT = _landController.isAnimating
+                        ? _landController.value
+                        : 0.0;
+                    final landSquash = sin(pi * landT);
+                    final sx = scaleX * (1 + 0.08 * landSquash);
+                    final sy = scaleY * (1 - 0.10 * landSquash);
+                    // Inclinación direccional (banco + pitch simulado).
+                    final tilt = _tiltController.value;
+                    final rotZ = rot + tilt * _tiltRotZ;
+                    final skew = tilt * _tiltSkewX;
+                    // Sway secundario: oscilación lateral suave en fase
+                    // con la flotación — movimiento vivo, no rígido.
+                    final swayX = flying
+                        ? sin(_hoverController.value * 2 * pi * 2) * 1.6
+                        : 0.0;
                     return Positioned(
                       bottom:
                           -(spriteSize - size) / 2 + 2 - offsetY,
                       child: Transform(
                         alignment: const FractionalOffset(0.5, 0.88),
                         transform: Matrix4.identity()
-                          ..rotateZ(rot)
-                          ..scaleByDouble(scaleX, scaleY, 1, 1),
+                          ..setEntry(1, 0, skew)
+                          ..rotateZ(rotZ)
+                          ..scaleByDouble(sx, sy, 1, 1)
+                          ..translateByDouble(swayX, 0, 0, 1),
                         child: SizedBox(
                           width: spriteSize,
                           height: spriteSize,
