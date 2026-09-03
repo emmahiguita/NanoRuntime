@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 
+import 'assistant_role.dart';
 import 'nano_edge_controller.dart';
 import 'nano_edge_state.dart';
 import 'panels/context_panel_registry.dart';
@@ -73,9 +74,10 @@ final nanoEdgeCoordinatorProvider = Provider<NanoEdgeCoordinator>((ref) {
 });
 
 /// Provider del SystemContextProvider (EDGE-02): fusión read-only sobre
-/// NanoRuntimeApi.
+/// NanoRuntimeApi + la sesión de asistencia (ROLE-01).
 final systemContextProvider = Provider<SystemContextProvider>(
   (ref) => RuntimeSystemContextProvider(
     api: ref.watch(nanoRuntimeApiProvider),
+    assistantRole: ref.watch(assistantRoleManagerProvider),
   ),
 );

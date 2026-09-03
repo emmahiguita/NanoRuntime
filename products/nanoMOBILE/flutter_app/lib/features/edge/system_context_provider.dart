@@ -18,6 +18,8 @@ import 'package:nanoai/features/automation/engine/notifications/notification_obj
 import 'package:nanoai/features/automation/engine/perception/nano_snapshot.dart';
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 
+import 'assistant_role.dart';
+
 /// Resumen derivado del [ScreenGraph] actual (solo lectura, sin acciones).
 final class ScreenGraphSummary {
   const ScreenGraphSummary({
@@ -76,9 +78,9 @@ final class DeviceState {
   );
 }
 
-/// Contexto del trigger de asistencia (voz). La fuente nativa existe
-/// (NanoVoiceInteractionService) pero aún no expone contexto en Dart:
-/// este tipo declara el contrato; ROLE-01 lo llena. Null = sin trigger.
+/// Contexto del trigger de asistencia (voz). ROLE-01 expone la sesión viva
+/// vía [AssistantRoleManager.isSessionActive] (contador de onCreate/onDestroy
+/// en NanoVoiceInteractionSession): factual, jamás inventado.
 final class AssistContext {
   const AssistContext({required this.sessionActive});
 
@@ -130,10 +132,16 @@ abstract interface class SystemContextProvider {
 final class RuntimeSystemContextProvider implements SystemContextProvider {
   RuntimeSystemContextProvider({
     required NanoRuntimeApi api,
+    AssistantRoleManager? assistantRole,
     this.refreshInterval = const Duration(seconds: 5),
-  }) : _api = api;
+  }) : _api = api,
+       _assistantRole = assistantRole;
 
   final NanoRuntimeApi _api;
+
+  /// Fuente de asistencia (ROLE-01). null = no cableada → assistContext
+  /// queda null (ausencia honesta, jamás se inventa un valor).
+  final AssistantRoleManager? _assistantRole;
   final Duration refreshInterval;
 
   @override
@@ -177,6 +185,19 @@ final class RuntimeSystemContextProvider implements SystemContextProvider {
       deviceState = null;
     }
 
+    // Asistencia (ROLE-01): sesión viva observada en el servicio nativo.
+    AssistContext? assistContext;
+    final assistant = _assistantRole;
+    if (assistant != null) {
+      try {
+        assistContext = AssistContext(
+          sessionActive: await assistant.isSessionActive(),
+        );
+      } catch (_) {
+        assistContext = null; // canal ausente = honestamente sin trigger
+      }
+    }
+
     return SystemContextSnapshot(
       observedAt: observedAt,
       foregroundPackage: graph?.package.trim() ?? '',
@@ -185,8 +206,7 @@ final class RuntimeSystemContextProvider implements SystemContextProvider {
           ? null
           : ScreenGraphSummary.fromGraph(graph),
       deviceState: deviceState,
-      // La fuente de asistencia aún no expone contexto en Dart (ROLE-01).
-      assistContext: null,
+      assistContext: assistContext,
     );
   }
 

@@ -27,6 +27,7 @@ import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
 import dev.nanoai.mobile.edge.NanoEdgeChannelHandler
 import dev.nanoai.mobile.edge.NanoOverlayBridge
+import dev.nanoai.mobile.voice.AssistantRoleChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -319,6 +320,11 @@ class MainActivity : FlutterActivity() {
         // disponibilidad; el canal no expone ejecución en v1.
         MethodChannel(messenger, AppFunctionChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(AppFunctionChannelHandler(this))
+
+        // ROLE-01: Assistant Role. requestRole solo se dispara desde un botón
+        // explícito del usuario; isHoldingRole/isSessionActive son pasivos.
+        MethodChannel(messenger, AssistantRoleChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(AssistantRoleChannelHandler(this))
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

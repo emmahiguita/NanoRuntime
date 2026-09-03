@@ -11,6 +11,16 @@ import android.service.voice.VoiceInteractionSession
  */
 class NanoVoiceInteractionSession(context: Context) : VoiceInteractionSession(context) {
 
+    override fun onCreate() {
+        super.onCreate()
+        activeSessions++
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (activeSessions > 0) activeSessions--
+    }
+
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
         // Hotword detectado → sesión activa. La app inicia el STT.
@@ -18,5 +28,16 @@ class NanoVoiceInteractionSession(context: Context) : VoiceInteractionSession(co
 
     override fun onHide() {
         super.onHide()
+    }
+
+    companion object {
+        /** Sesiones vivas (creadas y no destruidas). Contador defensivo:
+         *  el sistema puede solaparlas (re-show). */
+        @Volatile
+        private var activeSessions = 0
+
+        /** Factual: ¿hay una sesión de asistente activa AHORA? (ROLE-01 lo
+         *  expone para llenar el AssistContext del SystemContextProvider). */
+        val isSessionActive: Boolean get() = activeSessions > 0
     }
 }
