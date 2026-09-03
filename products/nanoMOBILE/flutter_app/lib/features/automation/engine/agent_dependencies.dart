@@ -70,6 +70,9 @@ import 'planning/candidates/candidate_tool_call_adapter.dart';
 import 'planning/candidates/koog_candidate_selector.dart';
 import 'planning/candidates/screen_graph_candidate_provider.dart';
 import 'planning/deterministic_catalog.dart';
+import 'skills/approved_skill_candidate_provider.dart';
+import 'skills/nano_skill.dart';
+import 'skills/nano_skills.dart';
 import 'skills/skill_extractor.dart';
 import 'skills/skill_store.dart';
 import 'system/system_intent_catalog.dart';
@@ -486,31 +489,57 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
   final installedCatalog = ref.watch(installedAppCatalogProvider);
   final executor = ref.watch(agentExecutorProvider);
   final notificationDraft = ref.watch(notificationDraftSourceProvider);
+  final skillStore = ref.watch(skillStoreProvider);
 
   return CandidateFirstPlanner(
-    generatorBuilder: (graph) => CandidateActionGenerator([
-      NanoFlowCandidateProvider(experienceCache),
-      SystemIntentCandidateProvider(
-        defaultDeterministicCatalog,
-        graph,
-        SystemIntentCatalog.builtin,
-      ),
-      InstalledAppCandidateProvider(installedCatalog),
-      DeterministicCandidateProvider(defaultDeterministicCatalog),
-      ScreenGraphCandidateProvider(_ExecutorScreenObserver(executor)),
-      // A14.6: notificaciones contestables como capacidad genérica (RemoteInput).
-      // A14.7: sin texto del usuario, el draft contextual LEE y ENTIENDE el
-      // contenido real de la notificación con el runtime local (gateado por
-      // el resolver de modelo; sin modelo → sin borrador → abrir la app).
-      NotificationCandidateProvider(
-        () => NanoRuntimeApi.instance.listActiveNotifications(),
-        draftSource: notificationDraft,
-      ),
-      // A14.9: extracción de datos observados (URL) → Linux write (cross-app).
-      NotificationDataCandidateProvider(
-        () => NanoRuntimeApi.instance.listActiveNotifications(),
-      ),
-    ]),
+    generatorBuilder: (graph) {
+      // SKILL-CONS-01: skills aprobadas por el usuario → NanoSkill concreto.
+      // Solo acciones con skill real; el resto cae a null (sin bridges
+      // inventados). graph llega del builder porque SystemNavigationSkill lo
+      // necesita.
+      NanoSkill? resolveSkill(String semanticAction) {
+        switch (semanticAction) {
+          case 'openApp':
+          case 'open_app':
+            return OpenAppSkill(installedCatalog);
+          case 'readNotification':
+          case 'notifications':
+            return ReadNotificationsSkill(defaultDeterministicCatalog);
+          case 'open_system':
+            return SystemNavigationSkill(
+              defaultDeterministicCatalog,
+              graph,
+              SystemIntentCatalog.builtin,
+            );
+        }
+        return null;
+      }
+
+      return CandidateActionGenerator([
+        ApprovedSkillCandidateProvider(skillStore, resolveSkill),
+        NanoFlowCandidateProvider(experienceCache),
+        SystemIntentCandidateProvider(
+          defaultDeterministicCatalog,
+          graph,
+          SystemIntentCatalog.builtin,
+        ),
+        InstalledAppCandidateProvider(installedCatalog),
+        DeterministicCandidateProvider(defaultDeterministicCatalog),
+        ScreenGraphCandidateProvider(_ExecutorScreenObserver(executor)),
+        // A14.6: notificaciones contestables como capacidad genérica (RemoteInput).
+        // A14.7: sin texto del usuario, el draft contextual LEE y ENTIENDE el
+        // contenido real de la notificación con el runtime local (gateado por
+        // el resolver de modelo; sin modelo → sin borrador → abrir la app).
+        NotificationCandidateProvider(
+          () => NanoRuntimeApi.instance.listActiveNotifications(),
+          draftSource: notificationDraft,
+        ),
+        // A14.9: extracción de datos observados (URL) → Linux write (cross-app).
+        NotificationDataCandidateProvider(
+          () => NanoRuntimeApi.instance.listActiveNotifications(),
+        ),
+      ]);
+    },
     selection: CandidateSelectionEngine(
       ranker: CandidateRanker(),
       koogSelector: ref.watch(koogCandidateSelectorProvider),
