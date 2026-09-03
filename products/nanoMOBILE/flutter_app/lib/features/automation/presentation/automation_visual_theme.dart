@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
+import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 /// Lenguaje visual local de Automatización.
 ///
@@ -338,9 +340,12 @@ class AutomationSurfaceCard extends StatelessWidget {
   const AutomationSurfaceCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    // UI-REV-03: defaults alineados a NanoOpticalSurface de Dev
+    // (padding 12, radius 26, blur 12) — mismo vidrio iOS en todo
+    // el módulo. Antes 20/24/13 hinchaba las cards.
+    this.padding = const EdgeInsets.all(12),
     this.onTap,
-    this.radius = 24,
+    this.radius = 26,
   });
 
   final Widget child;
@@ -372,7 +377,7 @@ class AutomationSurfaceCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: borderRadius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 13, sigmaY: 13),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -481,6 +486,23 @@ class AutomationBackHeader extends StatelessWidget {
           const SizedBox(width: 48),
         ],
       ),
+    );
+  }
+}
+
+/// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas:
+/// ambient estático en modo Claro glass, fluido líquido en el resto.
+/// Se monta como capa base de un Stack con Scaffold transparente.
+class AutomationBackdrop extends StatelessWidget {
+  const AutomationBackdrop({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return Positioned.fill(
+      child: visual.isLightGlass
+          ? const NanoAmbientBackground(animated: false)
+          : const LiquidFluidBackground(),
     );
   }
 }

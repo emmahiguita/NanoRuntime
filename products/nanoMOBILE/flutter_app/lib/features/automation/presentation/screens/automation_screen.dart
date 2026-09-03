@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 import '../automation_visual_theme.dart';
 import '../widgets/automation_bottom_navigation.dart';
@@ -32,18 +31,15 @@ class AutomationScreen extends ConsumerWidget {
       curve: Curves.easeOutCubic,
       child: Builder(
         builder: (context) {
-          final visual = AutomationVisual.of(context);
           final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
           return Scaffold(
             resizeToAvoidBottomInset: true,
-            backgroundColor: visual.canvas,
+            // UI-REV-03: fondo compartido de Dev en el dashboard también.
+            backgroundColor: Colors.transparent,
             body: Stack(
               fit: StackFit.expand,
               children: [
-                if (visual.isGlass)
-                  Positioned.fill(
-                    child: NanoAmbientBackground(animated: visual.isDark),
-                  ),
+                const AutomationBackdrop(),
                 SafeArea(
                   child: AutomationNavigationFrame(
                     hidden: keyboardOpen,

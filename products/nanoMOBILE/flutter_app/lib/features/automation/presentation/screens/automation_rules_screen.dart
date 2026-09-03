@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
@@ -21,8 +22,7 @@ class AutomationRulesScreen extends ConsumerStatefulWidget {
       _AutomationRulesScreenState();
 }
 
-class _AutomationRulesScreenState
-    extends ConsumerState<AutomationRulesScreen> {
+class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   List<ScheduledRule> _rules = const [];
   bool _loaded = false;
 
@@ -68,9 +68,7 @@ class _AutomationRulesScreenState
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: danger,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: danger),
             child: const Text('Borrar'),
           ),
         ],
@@ -84,70 +82,94 @@ class _AutomationRulesScreenState
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return Scaffold(
-      backgroundColor: visual.canvas,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const AutomationBackHeader(),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720), // UI-REV-02: ancho Dev
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // UI-REV-02: título 22px — jerarquía Dev, sin la
-                          // losa de 30px que aplastaba la cabecera.
-                          Text(
-                            'Reglas',
-                            style: TextStyle(
-                              color: visual.text,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Cuándo y cómo Nano responde por ti. Las reglas '
-                            'activas se evalúan con cada notificación.',
-                            style: TextStyle(
-                              color: visual.textMuted,
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          if (!_loaded)
-                            const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          else if (_rules.isEmpty)
-                            _EmptyState(visual: visual)
-                          else
-                            for (final rule in _rules) ...[
-                              _RuleCard(
-                                rule: rule,
-                                onToggle: (v) => _toggle(rule, v),
-                                onDelete: () => _confirmDelete(rule),
+    final visualMode = AutomationVisual.modeFromSetting(
+      ref.watch(settingsProvider.select((settings) => settings.themeMode)),
+    );
+    return AnimatedTheme(
+      data: AutomationVisual.theme(context, mode: visualMode),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      child: Builder(
+        builder: (context) {
+          final visual = AutomationVisual.of(context);
+          return Scaffold(
+            // UI-REV-03: fondo compartido de Dev.
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                const AutomationBackdrop(),
+                SafeArea(
+                  child: Column(
+                    children: [
+                      const AutomationBackHeader(),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
+                          children: [
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 720,
+                                ), // UI-REV-02: ancho Dev
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // UI-REV-02: título 22px — jerarquía Dev, sin la
+                                    // losa de 30px que aplastaba la cabecera.
+                                    Text(
+                                      'Reglas',
+                                      style: TextStyle(
+                                        color: visual.text,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Cuándo y cómo Nano responde por ti. Las reglas '
+                                      'activas se evalúan con cada notificación.',
+                                      style: TextStyle(
+                                        color: visual.textMuted,
+                                        fontSize: 13,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    if (!_loaded)
+                                      const Padding(
+                                        padding: EdgeInsets.all(24),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      )
+                                    else if (_rules.isEmpty)
+                                      _EmptyState(visual: visual)
+                                    else
+                                      for (final rule in _rules) ...[
+                                        _RuleCard(
+                                          rule: rule,
+                                          onToggle: (v) => _toggle(rule, v),
+                                          onDelete: () => _confirmDelete(rule),
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 12),
-                            ],
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -195,7 +217,9 @@ class _RuleCard extends StatelessWidget {
     final visual = AutomationVisual.of(context);
     final danger = NanoThemeExtension.of(context).colors.danger;
     final actionDetail = rule.action == RuleAction.reply && !rule.dynamicReply
-        ? (rule.message.isEmpty ? 'sin texto (fail-closed)' : '"${rule.message}"')
+        ? (rule.message.isEmpty
+              ? 'sin texto (fail-closed)'
+              : '"${rule.message}"')
         : rule.dynamicReply
         ? 'respuesta dinámica (LLM local)'
         : null;
@@ -252,18 +276,12 @@ class _RuleCard extends StatelessWidget {
                         'creada ${_hhmm(rule.createdAt)}',
                         if (lastFired != null) 'última ${_hhmm(lastFired)}',
                       ].join(' · '),
-                      style: TextStyle(
-                        color: visual.textMuted,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: visual.textMuted, fontSize: 11),
                     ),
                   ],
                 ),
               ),
-              Switch(
-                value: rule.enabled,
-                onChanged: onToggle,
-              ),
+              Switch(value: rule.enabled, onChanged: onToggle),
             ],
           ),
           const SizedBox(height: 4),
@@ -273,9 +291,7 @@ class _RuleCard extends StatelessWidget {
               onPressed: onDelete,
               icon: const Icon(Icons.delete_outline_rounded, size: 17),
               label: const Text('Borrar'),
-              style: TextButton.styleFrom(
-                foregroundColor: danger,
-              ),
+              style: TextButton.styleFrom(foregroundColor: danger),
             ),
           ),
         ],

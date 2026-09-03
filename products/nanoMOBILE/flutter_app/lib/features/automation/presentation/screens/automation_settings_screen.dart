@@ -33,172 +33,194 @@ class AutomationSettingsScreen extends ConsumerWidget {
       child: Builder(
         builder: (context) => Scaffold(
           resizeToAvoidBottomInset: true,
-          backgroundColor: AutomationVisual.of(context).canvas,
-          body: SafeArea(
-            child: AutomationNavigationFrame(
-              hidden: keyboardOpen,
-              onAutomationTap: () => Navigator.of(context).maybePop(),
-              child: ListView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720), // UI-REV-02: ancho Dev
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const AutomationBackHeader(),
-                          const SizedBox(height: 20),
-                          // UI-REV-02: título 22px — jerarquía Dev.
-                          Text(
-                            'Configuración',
-                            style: TextStyle(
-                              color: AutomationVisual.of(context).text,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Personaliza cómo Nano ejecuta tus automatizaciones.',
-                            style: TextStyle(
-                              color: AutomationVisual.of(context).textMuted,
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          const AutomationSectionLabel('General'),
-                          _SettingsCard(
+          // UI-REV-03: fondo compartido de Dev.
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              const AutomationBackdrop(),
+              SafeArea(
+                child: AutomationNavigationFrame(
+                  hidden: keyboardOpen,
+                  onAutomationTap: () => Navigator.of(context).maybePop(),
+                  child: ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
+                    children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 720,
+                          ), // UI-REV-02: ancho Dev
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _SettingsRow(
-                                icon: Icons.bolt_rounded,
-                                title: 'Modo de automatización',
-                                subtitle:
-                                    settings.agentAutomationMode.description,
-                                trailing: _ValueBadge(
-                                  label: settings.agentAutomationMode.label
-                                      .toUpperCase(),
+                              const AutomationBackHeader(),
+                              const SizedBox(height: 20),
+                              // UI-REV-02: título 22px — jerarquía Dev.
+                              Text(
+                                'Configuración',
+                                style: TextStyle(
+                                  color: AutomationVisual.of(context).text,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.5,
                                 ),
-                                onTap: () => _pickMode(context, ref),
                               ),
-                              _SettingsRow(
-                                icon: Icons.psychology_outlined,
-                                title: 'Motor de razonamiento',
-                                subtitle: _modelModeLabel(
-                                  settings.automationModelMode,
+                              const SizedBox(height: 4),
+                              Text(
+                                'Personaliza cómo Nano ejecuta tus automatizaciones.',
+                                style: TextStyle(
+                                  color: AutomationVisual.of(context).textMuted,
+                                  fontSize: 13,
+                                  height: 1.4,
                                 ),
-                                onTap: () =>
-                                    _pickModelMode(context, ref, settings),
                               ),
-                              _SettingsRow(
-                                icon: settings.voiceEnabled
-                                    ? Icons.volume_up_outlined
-                                    : Icons.volume_off_outlined,
-                                title: 'Audio de Nano',
-                                subtitle: settings.voiceEnabled
-                                    ? 'Leer respuestas y resultados en voz alta'
-                                    : 'Responder únicamente con texto',
-                                trailing: Switch(
-                                  value: settings.voiceEnabled,
-                                  onChanged: notifier.setVoiceEnabled,
-                                ),
-                                showChevron: false,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
-                          const AutomationSectionLabel('Reglas'),
-                          _SettingsCard(
-                            children: [
-                              _SettingsRow(
-                                icon: Icons.rule_rounded,
-                                title: 'Reglas de automatización',
-                                subtitle:
-                                    'Activar, desactivar o borrar respuestas '
-                                    'automáticas',
-                                onTap: () => Navigator.of(context).push(
-                                  nanoGlassPageRoute<void>(
-                                    builder: (_) =>
-                                        const AutomationRulesScreen(),
+                              const SizedBox(height: 24),
+                              const AutomationSectionLabel('General'),
+                              _SettingsCard(
+                                children: [
+                                  _SettingsRow(
+                                    icon: Icons.bolt_rounded,
+                                    title: 'Modo de automatización',
+                                    subtitle: settings
+                                        .agentAutomationMode
+                                        .description,
+                                    trailing: _ValueBadge(
+                                      label: settings.agentAutomationMode.label
+                                          .toUpperCase(),
+                                    ),
+                                    onTap: () => _pickMode(context, ref),
                                   ),
-                                ),
+                                  _SettingsRow(
+                                    icon: Icons.psychology_outlined,
+                                    title: 'Motor de razonamiento',
+                                    subtitle: _modelModeLabel(
+                                      settings.automationModelMode,
+                                    ),
+                                    onTap: () =>
+                                        _pickModelMode(context, ref, settings),
+                                  ),
+                                  _SettingsRow(
+                                    icon: settings.voiceEnabled
+                                        ? Icons.volume_up_outlined
+                                        : Icons.volume_off_outlined,
+                                    title: 'Audio de Nano',
+                                    subtitle: settings.voiceEnabled
+                                        ? 'Leer respuestas y resultados en voz alta'
+                                        : 'Responder únicamente con texto',
+                                    trailing: Switch(
+                                      value: settings.voiceEnabled,
+                                      onChanged: notifier.setVoiceEnabled,
+                                    ),
+                                    showChevron: false,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
-                          const AutomationSectionLabel('Ejecución'),
-                          const _SettingsCard(
-                            children: [
-                              _SettingsRow(
-                                icon: Icons.verified_user_outlined,
-                                title: 'Acciones críticas protegidas',
-                                subtitle: 'Confirmación y política activas',
-                                trailing: _ReadonlyStatus(),
-                                showChevron: false,
+                              const SizedBox(
+                                height: 24,
+                              ), // UI-REV-02: gap Dev xl
+                              const AutomationSectionLabel('Reglas'),
+                              _SettingsCard(
+                                children: [
+                                  _SettingsRow(
+                                    icon: Icons.rule_rounded,
+                                    title: 'Reglas de automatización',
+                                    subtitle:
+                                        'Activar, desactivar o borrar respuestas '
+                                        'automáticas',
+                                    onTap: () => Navigator.of(context).push(
+                                      nanoGlassPageRoute<void>(
+                                        builder: (_) =>
+                                            const AutomationRulesScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              _SettingsRow(
-                                icon: Icons.fact_check_outlined,
-                                title: 'Verificación de resultados',
-                                subtitle:
-                                    'Comprobar el estado después de actuar',
-                                trailing: _ReadonlyStatus(),
-                                showChevron: false,
+                              const SizedBox(
+                                height: 24,
+                              ), // UI-REV-02: gap Dev xl
+                              const AutomationSectionLabel('Ejecución'),
+                              const _SettingsCard(
+                                children: [
+                                  _SettingsRow(
+                                    icon: Icons.verified_user_outlined,
+                                    title: 'Acciones críticas protegidas',
+                                    subtitle: 'Confirmación y política activas',
+                                    trailing: _ReadonlyStatus(),
+                                    showChevron: false,
+                                  ),
+                                  _SettingsRow(
+                                    icon: Icons.fact_check_outlined,
+                                    title: 'Verificación de resultados',
+                                    subtitle:
+                                        'Comprobar el estado después de actuar',
+                                    trailing: _ReadonlyStatus(),
+                                    showChevron: false,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
-                          const AutomationSectionLabel('Seguridad y accesos'),
-                          const CapabilityStatusCard(),
-                          if (onDevTap != null) ...[
-                            const SizedBox(height: 24), // UI-REV-02: gap Dev xl
-                            const AutomationSectionLabel('Diagnóstico'),
-                            _SettingsCard(
-                              children: [
-                                _SettingsRow(
-                                  icon: Icons.smart_toy_outlined,
-                                  title: 'Herramientas del agente',
-                                  subtitle:
-                                      'Percepción, selectores y estado técnico',
-                                  onTap: onDevTap,
+                              const SizedBox(
+                                height: 24,
+                              ), // UI-REV-02: gap Dev xl
+                              const AutomationSectionLabel(
+                                'Seguridad y accesos',
+                              ),
+                              const CapabilityStatusCard(),
+                              if (onDevTap != null) ...[
+                                const SizedBox(
+                                  height: 24,
+                                ), // UI-REV-02: gap Dev xl
+                                const AutomationSectionLabel('Diagnóstico'),
+                                _SettingsCard(
+                                  children: [
+                                    _SettingsRow(
+                                      icon: Icons.smart_toy_outlined,
+                                      title: 'Herramientas del agente',
+                                      subtitle:
+                                          'Percepción, selectores y estado técnico',
+                                      onTap: onDevTap,
+                                    ),
+                                  ],
                                 ),
                               ],
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                size: 17,
-                                color: AutomationVisual.of(context).textMuted,
-                              ),
-                              const SizedBox(width: 7),
-                              Flexible(
-                                child: Text(
-                                  'Los cambios se guardan automáticamente',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 17,
                                     color: AutomationVisual.of(
                                       context,
                                     ).textMuted,
-                                    fontSize: 12,
                                   ),
-                                ),
+                                  const SizedBox(width: 7),
+                                  Flexible(
+                                    child: Text(
+                                      'Los cambios se guardan automáticamente',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: AutomationVisual.of(
+                                          context,
+                                        ).textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

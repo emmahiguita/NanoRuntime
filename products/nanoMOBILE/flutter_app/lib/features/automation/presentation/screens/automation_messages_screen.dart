@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
 import '../automation_visual_theme.dart';
@@ -36,7 +34,6 @@ class _AutomationMessagesBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
     // Lógica real de retroceso: si hay una ruta padre (entró por push), el
     // gesto atrás hace pop natural; si no (enlace directo/deep-link), el gesto
     // reenvía a /automation en lugar de cerrar la app.
@@ -52,11 +49,8 @@ class _AutomationMessagesBody extends StatelessWidget {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Positioned.fill(
-              child: visual.isLightGlass
-                  ? const NanoAmbientBackground(animated: false)
-                  : const LiquidFluidBackground(),
-            ),
+            // UI-REV-03: fondo compartido del módulo.
+            const AutomationBackdrop(),
             SafeArea(
               child: NanoScreenShell(
                 title: 'Mensajes y notificaciones',
