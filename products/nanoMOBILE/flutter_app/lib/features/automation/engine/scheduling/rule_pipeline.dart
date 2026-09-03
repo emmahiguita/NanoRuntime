@@ -121,7 +121,8 @@ class RulePipeline {
     );
     debugPrint(
       '[rules] terminal=$terminal resultados='
-      '${results.map((r) => r.outcome.name).join(',')}',
+      '${results.map((r) => r.outcome.name).join(',')} '
+      'razones="${results.map((r) => r.reason).join(' | ')}"',
     );
     return results;
   }

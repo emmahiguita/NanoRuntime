@@ -11,6 +11,8 @@ library;
 import '../execution/agent_tool_dispatcher.dart' show ToolCall;
 import '../execution/goal_verifier.dart' show GoalExpectation;
 import '../governance/action_governance_pipeline.dart';
+import '../governance/rule_execution_authority.dart'
+    show RuleExecutionAuthority;
 import '../governance/intent_spec_compiler.dart';
 import '../privilege/shizuku_availability.dart';
 import '../system/system_graph.dart';
@@ -92,7 +94,10 @@ class CandidateFirstPlanner {
   /// disponible (conservador, sin ejecución privilegiada).
   final Future<ShizukuAvailability> Function()? _shizukuSource;
 
-  Future<CandidatePlanResult> plan(String goal) async {
+  Future<CandidatePlanResult> plan(
+    String goal, {
+    RuleExecutionAuthority? authority,
+  }) async {
     final intent = const IntentSpecCompiler().compile(goal);
 
     // A15.7: SystemGraph real (async) para availability + governance.
@@ -114,14 +119,28 @@ class CandidateFirstPlanner {
       return CandidatePlanNoCandidate(candidateCount: candidateCount);
     }
 
-    final outcome = _governance.govern(
-      intent,
-      selected.candidate,
-      graph: graph,
-      shizuku: _shizukuSource == null ? null : await _shizukuSource(),
-    );
-    if (outcome is! GovernanceApproved) {
-      return CandidatePlanGoverned(outcome);
+    // WA-AUTH-04 (verificado en físico): la autoridad standing de una regla se
+    // evalúa ANTES del govern. Sin esto, todo reply irreversible volvía
+    // GovernanceConfirmation('irreversible') y la autoridad — que solo vivía
+    // en runToolGuarded — jamás se consultaba (reglas nunca respondían solas).
+    // La autoridad solo cubre la acción EXACTA (tool + texto fijo de la regla);
+    // cualquier otro candidato conserva la gobernanza completa.
+    final standingGranted =
+        authority != null &&
+        authority.satisfiesCall(
+          selected.candidate.tool,
+          '${selected.candidate.args?['text'] ?? ''}',
+        );
+    if (!standingGranted) {
+      final outcome = _governance.govern(
+        intent,
+        selected.candidate,
+        graph: graph,
+        shizuku: _shizukuSource == null ? null : await _shizukuSource(),
+      );
+      if (outcome is! GovernanceApproved) {
+        return CandidatePlanGoverned(outcome);
+      }
     }
 
     final call = _adapter.toToolCall(selected.candidate);

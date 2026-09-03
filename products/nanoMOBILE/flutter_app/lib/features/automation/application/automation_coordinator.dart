@@ -853,7 +853,10 @@ class AutomationCoordinator {
       if (plan == null &&
           _candidateFirst != null &&
           _looksLikeReplyIntent(goal.text)) {
-        final replyFirst = await _candidateFirst.plan(goal.text);
+        final replyFirst = await _candidateFirst.plan(
+          goal.text,
+          authority: options?.authority,
+        );
         if (replyFirst is CandidatePlanResolved &&
             replyFirst.call.tool == 'reply_notification') {
           plan = [replyFirst.call];
