@@ -21,8 +21,6 @@ import 'package:nanoai/features/automation/engine/perception/mux/perception_cont
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
-import 'package:nanoai/features/automation/engine/messaging/conversation_memory.dart'
-    show ConversationMemoryStore, SharedPrefsConversationMemoryStore;
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
@@ -373,17 +371,6 @@ final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
 /// (shared_prefs JSON); la carga es asíncrona (arranque) igual que las reglas.
 final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
   final store = SharedPrefsEventDedupeStore();
-  store.load();
-  return store;
-});
-
-/// Memoria aislada por conversación (WA-MEM-08): historial factual bounded por
-/// ConversationKey con honestidad de outbound (verified/dispatched/unknown).
-/// Persistente (shared_prefs JSON); la carga es asíncrona (arranque).
-final conversationMemoryStoreProvider = Provider<ConversationMemoryStore>((
-  ref,
-) {
-  final store = SharedPrefsConversationMemoryStore();
   store.load();
   return store;
 });

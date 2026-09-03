@@ -9,6 +9,8 @@ import '../../../core/services/shell_executor_linux_backend.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/chat_provider.dart';
 import '../domain/automation_policy.dart';
+import 'messaging/conversation_memory.dart'
+    show ConversationMemoryStore, SharedPrefsConversationMemoryStore;
 import 'model/automation_model_resolver.dart';
 import 'model/draft_writer.dart';
 import 'platform/linux_tool_adapter.dart';
@@ -122,6 +124,17 @@ final linuxToolAdapterProvider = Provider<LinuxToolAdapter>((ref) {
 /// estados transaccionales separados para la misma acción física.
 final executionJournalProvider = Provider<ExecutionJournal>((ref) {
   return SharedPreferencesExecutionJournal();
+});
+
+/// Memoria aislada por conversación (WA-MEM-08): historial factual bounded por
+/// ConversationKey con honestidad de outbound (verified/dispatched/unknown).
+/// Persistente (shared_prefs JSON); la carga es asíncrona (arranque).
+final conversationMemoryStoreProvider = Provider<ConversationMemoryStore>((
+  ref,
+) {
+  final store = SharedPrefsConversationMemoryStore();
+  store.load();
+  return store;
 });
 
 /// Fuente factual compartida de la situación actual. Cada invocación captura
@@ -423,12 +436,15 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
               .read(automationModelResolverProvider)
               .resolveFor(AutomationModelRole.draftWriter)
               .llmAllowed,
-          ensureReady: (p) =>
-              ref.read(runtimeEngineProvider.notifier).ensureReady(modelPath: p),
+          ensureReady: (p) => ref
+              .read(runtimeEngineProvider.notifier)
+              .ensureReady(modelPath: p),
           modelPath: () => ref
               .read(automationModelResolverProvider)
               .resolveFor(AutomationModelRole.draftWriter)
               .modelPath,
+          // WA-AGENT-09: contexto factual de la conversación (memoria MEM-08).
+          memory: ref.watch(conversationMemoryStoreProvider),
         ).call,
       ),
       // A14.9: extracción de datos observados (URL) → Linux write (cross-app).

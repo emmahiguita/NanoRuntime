@@ -129,7 +129,7 @@ class CandidateFirstPlanner {
         authority != null &&
         authority.satisfiesCall(
           selected.candidate.tool,
-          '${selected.candidate.args?['text'] ?? ''}',
+          '${selected.candidate.args['text'] ?? ''}',
         );
     if (!standingGranted) {
       final outcome = _governance.govern(
