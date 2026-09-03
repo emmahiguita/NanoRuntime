@@ -57,6 +57,9 @@ final class ContextGuardOutcome {
 enum SendEvidenceStatus {
   localSendVerified,
   dispatchedUnverified,
+  /// El canal de despacho rechazó explícitamente la acción: se sabe que NO
+  /// se ejecutó. Distinto de [outcomeUnknown]: aquí el fallo es conocido.
+  notExecuted,
   outcomeUnknown,
   contextChanged,
   incompleteEvidence,
@@ -294,6 +297,7 @@ final class CommitGuard {
     SendEvidenceStatus.localSendVerified => 5,
     SendEvidenceStatus.dispatchedUnverified => 4,
     SendEvidenceStatus.incompleteEvidence => 3,
+    SendEvidenceStatus.notExecuted => 2,
     SendEvidenceStatus.outcomeUnknown => 2,
     SendEvidenceStatus.contextChanged => 1,
   };

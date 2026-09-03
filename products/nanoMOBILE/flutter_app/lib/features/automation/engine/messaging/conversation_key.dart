@@ -13,6 +13,7 @@
 library;
 
 import '../notifications/notification_object.dart';
+import 'messaging_package.dart';
 
 /// Clave estable de conversación. Igualdad por valor: dos eventos de la
 /// misma conversación lógica producen la misma clave.
@@ -181,12 +182,14 @@ ConversationIdentity resolveConversationIdentity(NotificationObject n) {
   );
 }
 
-/// Canal lógico por paquete. WhatsApp y WhatsApp Business son canales
-/// DISTINTOS: jamás se fusionan en una misma identidad de conversación.
+/// Canal lógico por paquete (ChannelAdapter). WhatsApp y WhatsApp Business
+/// son canales DISTINTOS: jamás se fusionan en una misma identidad de
+/// conversación. Única autoridad de este mapeo; los paquetes anclan en
+/// [MessagingPackage].
 String channelForPackage(String packageName) => switch (packageName) {
-  'com.whatsapp' => 'whatsapp',
-  'com.whatsapp.w4b' => 'whatsapp.business',
-  'com.telegram.messenger' => 'telegram',
-  'org.telegram.messenger' => 'telegram',
+  MessagingPackage.whatsapp => 'whatsapp',
+  MessagingPackage.whatsappBusiness => 'whatsapp.business',
+  MessagingPackage.telegram => 'telegram',
+  MessagingPackage.telegramOrg => 'telegram',
   _ => packageName,
 };

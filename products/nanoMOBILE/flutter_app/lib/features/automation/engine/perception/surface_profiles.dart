@@ -5,6 +5,7 @@
 library;
 
 import 'semantic/semantic_role.dart';
+import '../messaging/messaging_package.dart';
 
 enum SurfaceElementKind {
   anyInput,
@@ -365,7 +366,10 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
   static const _applicationProfiles = <ConversationSurfaceProfile>[
     ConversationSurfaceProfile(
       id: 'whatsapp-conversation',
-      packageNames: {'com.whatsapp', 'com.whatsapp.w4b'},
+      packageNames: {
+        MessagingPackage.whatsapp,
+        MessagingPackage.whatsappBusiness,
+      },
       elements: {
         SurfaceElementKind.messageInput: SurfaceElementProfile(
           roles: {SemanticRole.textField},

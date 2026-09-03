@@ -1789,7 +1789,8 @@ class TaskOrchestrator {
       ),
       SendEvidenceStatus.outcomeUnknown ||
       SendEvidenceStatus.contextChanged ||
-      SendEvidenceStatus.incompleteEvidence => TaskStepResult(
+      SendEvidenceStatus.incompleteEvidence ||
+      SendEvidenceStatus.notExecuted => TaskStepResult(
         status: TaskStepStatus.outcomeUnknown,
         reason: evidence.reason,
         failureKind: TaskFailureKind.terminal,
