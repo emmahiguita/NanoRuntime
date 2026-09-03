@@ -11,6 +11,7 @@ import 'package:nanoai/features/edge/edge_dev_section.dart';
 
 import '../agent_console_section.dart';
 import '../automation_visual_theme.dart';
+import '../skill_dev_section.dart';
 import '../widgets/c14_debug_benchmark_section.dart';
 import '../widgets/engine_status_card.dart';
 
@@ -94,9 +95,12 @@ class _AutomationDevBody extends StatelessWidget {
                         // 3 · Búho y edge (validación física: overlay, probe,
                         //    espejo de conversación)
                         const EdgeDevSection(),
+                        const SizedBox(height: NanoSpacing.xl),
+                        // 4 · Skills (SKILL-01): drafts + aprobación humana
+                        const SkillDevSection(),
                         if (kDebugMode) ...[
                           const SizedBox(height: NanoSpacing.xl),
-                          // 4 · Benchmark físico (C14-A)
+                          // 5 · Benchmark físico (C14-A)
                           const C14DebugBenchmarkSection(),
                         ],
                       ],

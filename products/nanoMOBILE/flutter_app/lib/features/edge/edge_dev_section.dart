@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/core/widgets/nano_section_card.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart';
 
@@ -32,10 +33,9 @@ class EdgeDevSection extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionCard(
+        NanoSectionCard(
           title: 'Búho (EDGE-01/03 · ROLE-01)',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Column(            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               NanoEdgeStatusBadge(),
               SizedBox(height: NanoSpacing.sm),
@@ -75,39 +75,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            NanoSpacing.sm,
-            0,
-            NanoSpacing.sm,
-            NanoSpacing.sm,
-          ),
-          child: Text(title, style: NanoType.title(colors.onSurface)),
-        ),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.all(NanoSpacing.md),
-            child: child,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// APPFN-01 — sonda de App Functions (Android 16+). Solo lectura del canal
 /// nativo `appfunctions/probe`; el resultado es el mapa factual del handler
 /// (sdk, apiSupported, permissionDeclared/Granted, available, reason).
@@ -144,7 +111,7 @@ class _AppFunctionProbeCardState extends State<_AppFunctionProbeCard> {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final result = _result;
-    return _SectionCard(
+    return NanoSectionCard(
       title: 'App Functions (APPFN-01)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -291,7 +258,7 @@ class _ConversationMirrorCardState
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final data = _data;
-    return _SectionCard(
+    return NanoSectionCard(
       title: 'Espejo de conversación (WA-MIRROR-01)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
