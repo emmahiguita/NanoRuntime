@@ -868,6 +868,25 @@ class AutomationCoordinator {
           final r = _resultFromGoverned(executionId, replyFirst.outcome);
           return finish(r);
         }
+        // WA-GUI-12 (verificado en físico): una regla automática JAMÁS abre la
+        // app objetivo por GUI como fallback. Solo existe la autoridad del
+        // usuario para la acción exacta de la regla (WA-AUTH-04): si el
+        // RemoteInput grounded no resuelve (notificación consumida, app
+        // cerrada), el resultado honesto es failed — sin lanzar WhatsApp ni
+        // buscar el contacto. Sin este gate, el fallback cross-app (openApp→
+        // openConversation→writeMessage→sendMessage) se ejecutaba tras un
+        // envío ya confirmado por el usuario y abría la app innecesariamente.
+        if (plan == null && options?.authority != null) {
+          final r = AutomationResult(
+            executionId: executionId,
+            status: AutomationResultStatus.failed,
+            reason:
+                'Regla automática: sin RemoteInput grounded para responder '
+                '(la notificación ya no está disponible). No se abre la app '
+                'objetivo por GUI sin instrucción directa del usuario.',
+          );
+          return finish(r);
+        }
       }
 
       if (plan == null) {
