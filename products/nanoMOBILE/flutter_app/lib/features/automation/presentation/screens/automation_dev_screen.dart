@@ -7,6 +7,7 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:nanoai/features/edge/edge_dev_section.dart';
 
 import '../agent_console_section.dart';
 import '../automation_visual_theme.dart';
@@ -89,9 +90,13 @@ class _AutomationDevBody extends StatelessWidget {
                         // 2 · Percepción y acciones (snapshot, selector, toque,
                         //    insertar texto, gestos)
                         const AgentConsoleSection(),
+                        const SizedBox(height: NanoSpacing.xl),
+                        // 3 · Búho y edge (validación física: overlay, probe,
+                        //    espejo de conversación)
+                        const EdgeDevSection(),
                         if (kDebugMode) ...[
                           const SizedBox(height: NanoSpacing.xl),
-                          // 3 · Benchmark físico (C14-A)
+                          // 4 · Benchmark físico (C14-A)
                           const C14DebugBenchmarkSection(),
                         ],
                       ],

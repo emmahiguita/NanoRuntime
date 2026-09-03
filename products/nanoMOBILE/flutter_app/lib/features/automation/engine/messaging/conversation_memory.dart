@@ -126,6 +126,10 @@ abstract interface class ConversationMemoryStore {
   /// Snapshot de la conversación; null si nunca se observó nada.
   ConversationMemory? memoryFor(String conversationId);
 
+  /// Ids de conversaciones con historial retenido (solo lectura, para
+  /// superficies de inspección como la pantalla Dev).
+  Set<String> knownConversationIds();
+
   /// Registra la observación de un mensaje entrante. No-op sin identidad de
   /// conversación (fail-closed) o sin texto.
   void appendInbound(IncomingMessage message, {required int atMs});
@@ -200,6 +204,11 @@ abstract class _MemoryCore implements ConversationMemoryStore {
       lastAtMs: list.last.atMs,
     );
   }
+
+  @override
+  Set<String> knownConversationIds() => Set.unmodifiable(
+    _byConversation.keys.where((id) => _byConversation[id]!.isNotEmpty),
+  );
 
   @override
   void appendInbound(IncomingMessage message, {required int atMs}) {
