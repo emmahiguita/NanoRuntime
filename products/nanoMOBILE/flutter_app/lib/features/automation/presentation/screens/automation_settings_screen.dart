@@ -136,7 +136,7 @@ class AutomationSettingsScreen extends ConsumerWidget {
                             _SettingsCard(
                               children: [
                                 _SettingsRow(
-                                  icon: Icons.build_outlined,
+                                  icon: Icons.smart_toy_outlined,
                                   title: 'Herramientas del agente',
                                   subtitle:
                                       'Percepción, selectores y estado técnico',

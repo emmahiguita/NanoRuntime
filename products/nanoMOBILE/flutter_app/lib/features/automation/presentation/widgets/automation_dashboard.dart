@@ -367,6 +367,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           mode: mode,
           onModeTap: _pickMode,
           onSettingsTap: widget.onSettingsTap,
+          onDevTap: widget.onDevTap,
         );
         final composer = _TaskComposer(
           controller: _taskController,
@@ -489,10 +490,15 @@ class _AgentHeader extends StatelessWidget {
     required this.mode,
     required this.onModeTap,
     this.onSettingsTap,
+    this.onDevTap,
   });
   final AgentAutomationMode mode;
   final VoidCallback onModeTap;
   final VoidCallback? onSettingsTap;
+
+  /// Atajo directo a las herramientas del agente (pantalla Dev). Icono robot,
+  /// siempre visible en la cabecera sin necesidad de scroll.
+  final VoidCallback? onDevTap;
 
   @override
   Widget build(BuildContext context) {
@@ -501,7 +507,9 @@ class _AgentHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(width: 44),
+          // Contrapesa los IconButtons de la derecha para que la marca quede
+          // centrada también con el atajo de herramientas presente.
+          SizedBox(width: onDevTap != null ? 92 : 44),
           Expanded(
             child: Column(
               children: [
@@ -560,6 +568,16 @@ class _AgentHeader extends StatelessWidget {
               size: 26,
             ),
           ),
+          if (onDevTap != null)
+            IconButton(
+              tooltip: 'Herramientas del agente',
+              onPressed: onDevTap,
+              icon: Icon(
+                Icons.smart_toy_outlined,
+                color: AutomationVisual.of(context).accent,
+                size: 26,
+              ),
+            ),
         ],
       ),
     );
@@ -1142,7 +1160,7 @@ class QuickAutomationActions extends StatelessWidget {
             ),
           if (onDevTap != null)
             _DashboardEntryTile(
-              icon: Icons.build_outlined,
+              icon: Icons.smart_toy_outlined,
               title: 'Herramientas del agente',
               subtitle: 'Percepción, selectores y estado técnico',
               onTap: onDevTap!,
