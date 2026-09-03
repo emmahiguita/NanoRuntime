@@ -16,6 +16,11 @@ import 'skill.dart';
 import 'verified_skill.dart';
 
 abstract interface class SkillStore {
+  /// Hidrata el estado persistido (una vez, al arrancar el provider). Los
+  /// consumidores deben esperar esto antes de leer; sin espera, una lectura
+  /// temprana ve el store vacío (mismo contrato que ConversationMemoryStore).
+  Future<void> load();
+
   /// Guarda (o reemplaza) el draft de una skill.
   Future<void> saveDraft(Skill skill);
 
@@ -48,6 +53,10 @@ abstract class _SkillCore implements SkillStore {
 
   final Map<String, Skill> _drafts = {};
   final Map<String, VerifiedSkill> _approved = {};
+
+  /// true tras hidratar. Antes, las escrituras no se persisten: evita que un
+  /// saveDraft temprano pise el estado persistido con un snapshot vacío.
+  bool _loaded = false;
 
   @override
   Future<void> saveDraft(Skill skill) async {
@@ -129,6 +138,11 @@ class MemorySkillStore extends _SkillCore {
   MemorySkillStore({super.maxDrafts});
 
   @override
+  Future<void> load() async {
+    _loaded = true;
+  }
+
+  @override
   void _markDirty() {
     // Sin persistencia.
   }
@@ -142,6 +156,7 @@ class SharedPrefsSkillStore extends _SkillCore {
 
   @override
   void _markDirty() {
+    if (!_loaded) return;
     unawaited(_write());
   }
 
@@ -151,6 +166,7 @@ class SharedPrefsSkillStore extends _SkillCore {
   }
 
   /// Hidrata el estado persistido (una vez, al arrancar el provider).
+  @override
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -162,5 +178,6 @@ class SharedPrefsSkillStore extends _SkillCore {
     } on Object {
       // Store corrupto o esquema viejo: arrancar limpio (fail-closed).
     }
+    _loaded = true;
   }
 }

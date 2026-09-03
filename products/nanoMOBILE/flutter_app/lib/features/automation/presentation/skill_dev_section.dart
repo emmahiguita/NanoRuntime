@@ -31,8 +31,13 @@ class _SkillDevSectionState extends ConsumerState<SkillDevSection> {
     _refresh();
   }
 
-  void _refresh() {
+  /// La hidratación del store es asíncrona: esperar load() antes de leer
+  /// evita mostrar "Sin drafts" por raza en el primer build (mismo patrón
+  /// que el espejo de conversación).
+  Future<void> _refresh() async {
     final store = ref.read(skillStoreProvider);
+    await store.load();
+    if (!mounted) return;
     setState(() {
       _drafts = store.allDrafts();
       _approved = store.approved();
