@@ -123,6 +123,11 @@ final class ExecutionJournalEntry {
   final ActionConfirmation? pendingConfirmation;
   final Map<String, RequiredEvidence> evidenceByStep;
 
+  /// Acción semántica del TaskPlan (vocabulario [kTaskSemanticActionNames]).
+  /// '' = la traza no proviene de un plan semántico (p. ej. tool-calling
+  /// directo): honesta ausencia, jamás se inventa una.
+  final String semanticAction;
+
   const ExecutionJournalEntry({
     required this.runId,
     required this.planSignature,
@@ -137,6 +142,7 @@ final class ExecutionJournalEntry {
     this.supersededByRunId,
     this.pendingConfirmation,
     this.evidenceByStep = const {},
+    this.semanticAction = '',
   });
 
   ExecutionJournalEntry copyWith({
@@ -162,6 +168,7 @@ final class ExecutionJournalEntry {
         ? null
         : pendingConfirmation ?? this.pendingConfirmation,
     evidenceByStep: evidenceByStep,
+    semanticAction: semanticAction,
   );
 
   Map<String, Object?> toJson() => {
@@ -186,6 +193,7 @@ final class ExecutionJournalEntry {
     'evidenceByStep': {
       for (final entry in evidenceByStep.entries) entry.key: entry.value.name,
     },
+    if (semanticAction.isNotEmpty) 'semanticAction': semanticAction,
   };
 
   factory ExecutionJournalEntry.fromJson(Map<String, Object?> json) {
@@ -219,6 +227,7 @@ final class ExecutionJournalEntry {
                 ),
             }
           : const {},
+      semanticAction: json['semanticAction'] as String? ?? '',
     );
   }
 }

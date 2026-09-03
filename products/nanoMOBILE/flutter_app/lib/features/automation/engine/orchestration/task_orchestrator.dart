@@ -110,9 +110,11 @@ class TaskOrchestrator {
     Future<int?> Function()? detectSearchResults,
     CommitGuard? commitGuard,
     ExecutionJournal? journal,
+    void Function(ExecutionJournalEntry verifiedEntry)? onVerifiedStep,
     this.maxAttemptsPerStep = 2,
     this.maxReplansPerTask = 2,
-  }) : _listNotifications = listNotifications,
+  }) : _onVerifiedStep = onVerifiedStep,
+       _listNotifications = listNotifications,
        _openUrl = openUrl,
        _writeFile = writeFile,
        _launchApp = launchApp,
@@ -175,6 +177,11 @@ class TaskOrchestrator {
   final Future<int?> Function()? _detectSearchResults;
   final CommitGuard? _commitGuard;
   final ExecutionJournal? _journal;
+
+  /// Notificación post-verificación (best-effort): la usa el extractor de
+  /// skills para convertir trazas VERIFICADAS en drafts. Jamás bloquea ni
+  /// falla la ejecución (se invoca en try silencioso).
+  final void Function(ExecutionJournalEntry verifiedEntry)? _onVerifiedStep;
 
   /// A15.1 — presupuesto de recuperación acotado.
   final int maxAttemptsPerStep;
@@ -393,6 +400,7 @@ class TaskOrchestrator {
         verificationState: 'plan validado; acción aún no iniciada',
         timestamp: DateTime.now().toUtc(),
         evidenceByStep: decisionContext.evidence,
+        semanticAction: step.semanticAction,
       );
       final confirmedStep =
           validConfirmation && stepIndex == presentedConfirmation!.stepIndex;
@@ -536,23 +544,23 @@ class TaskOrchestrator {
       if (result.status != TaskStepStatus.needsConfirmation) {
         activeRun.beginVerification();
       }
+      final finalEntry = ExecutionJournalEntry(
+        runId: runId,
+        planSignature: planSignature,
+        goalFingerprint: goalFingerprint,
+        currentStep: stepIndex,
+        stepId: step.id,
+        status: _journalStatus(result.status),
+        irreversible: irreversible,
+        actionSignature: semanticActionSignature,
+        verificationState: result.reason,
+        timestamp: DateTime.now().toUtc(),
+        pendingConfirmation: result.confirmation,
+        evidenceByStep: activeRun.evidenceSnapshot,
+        semanticAction: step.semanticAction,
+      );
       try {
-        await journal?.save(
-          ExecutionJournalEntry(
-            runId: runId,
-            planSignature: planSignature,
-            goalFingerprint: goalFingerprint,
-            currentStep: stepIndex,
-            stepId: step.id,
-            status: _journalStatus(result.status),
-            irreversible: irreversible,
-            actionSignature: semanticActionSignature,
-            verificationState: result.reason,
-            timestamp: DateTime.now().toUtc(),
-            pendingConfirmation: result.confirmation,
-            evidenceByStep: activeRun.evidenceSnapshot,
-          ),
-        );
+        await journal?.save(finalEntry);
       } on Object catch (error) {
         if (!irreversible) rethrow;
         result = TaskStepResult(
@@ -564,6 +572,20 @@ class TaskOrchestrator {
       }
       results.add(result);
       if (result.isFailure) break;
+
+      // SKILL-01 — notificar la traza VERIFICADA (best-effort): el extractor
+      // la convierte en draft de skill. Nunca interfiere con la ejecución:
+      // cualquier fallo del collector se traga aquí.
+      final verifiedHook = _onVerifiedStep;
+      if (verifiedHook != null &&
+          finalEntry.status == ExecutionJournalStatus.verified) {
+        try {
+          verifiedHook(finalEntry);
+        } on Object {
+          // Best-effort: la recolección de skills jamás falla la tarea.
+        }
+      }
+
       if (step.produces != null && result.output != null) {
         values[step.produces!] = result.output!;
       }

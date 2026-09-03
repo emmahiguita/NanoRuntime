@@ -70,6 +70,8 @@ import 'planning/candidates/candidate_tool_call_adapter.dart';
 import 'planning/candidates/koog_candidate_selector.dart';
 import 'planning/candidates/screen_graph_candidate_provider.dart';
 import 'planning/deterministic_catalog.dart';
+import 'skills/skill_extractor.dart';
+import 'skills/skill_store.dart';
 import 'system/system_intent_catalog.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
@@ -402,6 +404,28 @@ final koogCandidateSelectorProvider = Provider<CandidateSelector>((ref) {
 /// Solo PROPONE: jamás ejecuta, autoriza ni verifica.
 final koogSupervisorProvider = Provider<KoogSupervisor>((ref) {
   return LlmKoogSupervisor(ref.read(runtimeEngineProvider.notifier).client);
+});
+
+/// Extractor de skills (SKILL-01): trazas VERIFICADAS del journal → drafts.
+/// Puro y determinista: deriva condiciones de la política semántica canónica.
+final skillExtractorProvider = Provider<SkillExtractor>((ref) {
+  return const PolicySkillExtractor();
+});
+
+/// Store de skills (SKILL-01): drafts + aprobaciones explícitas del usuario.
+/// Persistente (shared_preferences JSON); la carga es asíncrona (arranque).
+final skillStoreProvider = Provider<SkillStore>((ref) {
+  final store = SharedPrefsSkillStore();
+  store.load();
+  return store;
+});
+
+/// Recolector de skills (SKILL-01): puente journal → drafts. Best-effort.
+final skillCollectorProvider = Provider<SkillCollector>((ref) {
+  return SkillCollector(
+    extractor: ref.watch(skillExtractorProvider),
+    store: ref.watch(skillStoreProvider),
+  );
 });
 
 /// Observador shadow del supervisor (WA-KOOG-10). ROLLOUT: deshabilitado por

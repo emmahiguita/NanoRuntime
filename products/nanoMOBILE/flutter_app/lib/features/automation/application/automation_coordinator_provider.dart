@@ -348,6 +348,15 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       },
       commitGuard: CommitGuard(observe: currentGraph),
       journal: ref.watch(executionJournalProvider),
+      // SKILL-01 — trazas verificadas → drafts de skills (best-effort: el
+      // collector nunca interfiere con la ejecución de la tarea).
+      onVerifiedStep: (entry) {
+        try {
+          ref.read(skillCollectorProvider).collectEntry(entry);
+        } on Object catch (error) {
+          debugPrint('[skills] recolección de draft falló: $error');
+        }
+      },
     ),
     // A15.2: descomposición template determinista + LLM validado.
     taskDecomposer: LlmTaskDecomposer(
