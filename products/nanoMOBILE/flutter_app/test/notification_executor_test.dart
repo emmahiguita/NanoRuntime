@@ -114,9 +114,12 @@ class _FakeRuntime extends NanoRuntimeApi {
 
   @override
   Future<Map<dynamic, dynamic>> replyToNotification({
-    required String key,
-    required String text,
+    int? actionIndex,
     required bool confirmed,
+    String? contextFingerprint,
+    required String key,
+    String? remoteInputKey,
+    required String text,
   }) async {
     replyCalls++;
     lastConfirmed = confirmed;
