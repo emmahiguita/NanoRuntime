@@ -1037,15 +1037,10 @@ class AgentToolDispatcher {
         executionStatus: executionStatus,
       );
     }
-    final terminalStatus = switch (executionStatus) {
-      ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
-      ToolExecutionStatus.completedUnverified =>
-        ExecutionJournalStatus.completedUnverified,
-      ToolExecutionStatus.outcomeUnknown =>
-        ExecutionJournalStatus.outcomeUnknown,
-      ToolExecutionStatus.failed ||
-      ToolExecutionStatus.notExecuted => ExecutionJournalStatus.failed,
-    };
+    final terminalStatus = _journalStatusFor(
+      executionStatus,
+      notExecutedAs: ExecutionJournalStatus.failed,
+    );
     try {
       await journal.save(
         verifyingEntry.copyWith(
@@ -1296,16 +1291,10 @@ class AgentToolDispatcher {
         }
         await journal.save(
           verifying.copyWith(
-            status: switch (outcome.executionStatus) {
-              ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
-              ToolExecutionStatus.completedUnverified =>
-                ExecutionJournalStatus.completedUnverified,
-              ToolExecutionStatus.outcomeUnknown =>
-                ExecutionJournalStatus.outcomeUnknown,
-              ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
-              ToolExecutionStatus.notExecuted =>
-                ExecutionJournalStatus.cancelled,
-            },
+            status: _journalStatusFor(
+              outcome.executionStatus,
+              notExecutedAs: ExecutionJournalStatus.cancelled,
+            ),
             verificationState: outcome.feedback,
             timestamp: DateTime.now().toUtc(),
           ),
@@ -1485,6 +1474,13 @@ class AgentToolDispatcher {
   }
 
   static ToolExecutionStatus _executionStatusFor(String feedback) {
+    // REVIEW-01: '[completed]' es el ÚNICO marcador de ÉXITO que lleva
+    // corchetes (reply con evidencia reconciliada, L2176). El regex genérico
+    // de _isFailedFeedback lo clasificaría como fallo — tratarlo ANTES:
+    // un envío verificado jamás puede quedar 'failed' en el journal durable.
+    if (feedback.startsWith('[completed]')) {
+      return ToolExecutionStatus.completed;
+    }
     if (feedback.startsWith('[completedUnverified]')) {
       return ToolExecutionStatus.completedUnverified;
     }
@@ -1494,6 +1490,25 @@ class AgentToolDispatcher {
     if (_isFailedFeedback(feedback)) return ToolExecutionStatus.failed;
     return ToolExecutionStatus.completed;
   }
+
+  /// Mapeo único ToolExecutionStatus → ExecutionJournalStatus. Antes había
+  /// dos tablas duplicadas en este archivo que YA habían divergido en
+  /// notExecuted. [notExecutedAs] hace la diferencia de ruta explícita y
+  /// documentada: standalone reporta failed (acción suelta no llegó a
+  /// ejecutarse), el plan reporta cancelled (paso del plan descartado).
+  static ExecutionJournalStatus _journalStatusFor(
+    ToolExecutionStatus s, {
+    required ExecutionJournalStatus notExecutedAs,
+  }) =>
+      switch (s) {
+        ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
+        ToolExecutionStatus.completedUnverified =>
+          ExecutionJournalStatus.completedUnverified,
+        ToolExecutionStatus.outcomeUnknown =>
+          ExecutionJournalStatus.outcomeUnknown,
+        ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
+        ToolExecutionStatus.notExecuted => notExecutedAs,
+      };
 
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
   /// confirmación a texto (llamadores que no manejan el diálogo).

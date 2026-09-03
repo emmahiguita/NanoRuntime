@@ -188,6 +188,12 @@ abstract class _DedupeCore implements EventDedupeStore {
   /// bloquea ráfagas casi simultáneas sin tragarse mensajes reales separados.
   static const defaultCooldownMs = 5000;
 
+  /// Expiración de un intento EN VUELO (_pendingReplies) sin terminal
+  /// registrado. Solo red de seguridad (proceso murió o excepción sin
+  /// record): la liberación normal es explícita en [record]. Un reply
+  /// dinámico puede tardar >1 min en hardware lento; 10 min cubre con margen.
+  static const defaultPendingReplyTtlMs = 600000;
+
   /// Ventana tras la cual un evento que falló SIN efecto irreversible puede
   /// reintentarse (si la app origen re-publica el mismo evento).
   static const defaultFailedBackoffMs = 30000;
@@ -219,8 +225,12 @@ abstract class _DedupeCore implements EventDedupeStore {
       changed = changed || gone;
       return gone;
     });
+    // REVIEW-01: el intento en vuelo NO expira con cooldownMs (5 s). Un reply
+    // dinámico tarda decenas de segundos y podarlo a los 5 s dejaba pasar un
+    // segundo evento de la MISMA conversación → dispatch doble concurrente.
+    // Expira solo como red de seguridad; la liberación normal es en record().
     _pendingReplies.removeWhere((_, at) {
-      final gone = _expired(at, nowMs, cooldownMs);
+      final gone = _expired(at, nowMs, defaultPendingReplyTtlMs);
       changed = changed || gone;
       return gone;
     });
@@ -333,6 +343,14 @@ abstract class _DedupeCore implements EventDedupeStore {
       ..state = state
       ..atMs = atMs
       ..reason = reason;
+    // REVIEW-01: el terminal del evento dueño libera el intento en vuelo de
+    // su conversación — el estado terminal ya gobierna el cooldown desde
+    // _lastReplyAttemptAtMs. Guard <= atMs: jamás borrar un pending más
+    // nuevo (otro evento en vuelo de la misma conversación).
+    final pendingAt = _pendingReplies[entry.conversationId];
+    if (pendingAt != null && pendingAt <= atMs) {
+      _pendingReplies.remove(entry.conversationId);
+    }
     _markDirty();
   }
 

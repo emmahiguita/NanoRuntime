@@ -62,12 +62,24 @@ final class SharedPreferencesContactRateLimiter implements ContactRateLimiter {
   final Map<String, List<int>> _attempts = {};
   bool _loaded = false;
 
-  Future<void> load() async {
-    if (_loaded) return;
-    _loaded = true;
+  Future<void>? _loading;
+
+  Future<void> load() {
+    if (_loaded) return Future.value();
+    // REVIEW-01: future compartido — una segunda llamada espera la MISMA
+    // hidratación en vez de decidir sobre _attempts todavía vacío (antes
+    // _loaded se ponía true ANTES del primer await: carrera de decisión
+    // pre-hidratación y persistencia que pisaba el historial).
+    return _loading ??= _doLoad();
+  }
+
+  Future<void> _doLoad() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storeKey);
-    if (raw == null) return;
+    if (raw == null) {
+      _loaded = true;
+      return;
+    }
     try {
       final decoded = _decodeAttempts(raw);
       _attempts
@@ -78,6 +90,7 @@ final class SharedPreferencesContactRateLimiter implements ContactRateLimiter {
       // rearma solo; jamás se lanza (el pipeline no debe caer por esto).
       _attempts.clear();
     }
+    _loaded = true;
   }
 
   @override

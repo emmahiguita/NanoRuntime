@@ -552,9 +552,9 @@ class AutomationCoordinator {
       } else {
         planRun.beginVerification();
       }
-      if (recordGoal != null) {
-        await _learn(recordGoal, plan, outcome, expectation);
-      }
+      // REVIEW-01: el aprendizaje SOUND ya no ocurre aquí. La verificación del
+      // objetivo la decide _finalizeExecution (una ÚNICA observación de
+      // pantalla); _learn consume ese veredicto en execute().
       _record(
         executionId: planRun.executionId,
         goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
@@ -599,25 +599,22 @@ class AutomationCoordinator {
   }
 
   /// Aprendizaje SOUND (C7): memorizar SOLO planes cuyo objetivo se verificó
-  /// satisfecho. Sin expectativa o sin verifier → no aprender (evita memorizar
-  /// planes que "completaron" a nivel pasos sin lograr el objetivo).
+  /// satisfecho. El veredicto YA lo decidió [_finalizeExecution] con UNA
+  /// observación de pantalla: `completed` = objetivo probado satisfecho.
+  /// Re-verificar aquí duplicaría la observación y podría divergir del
+  /// veredicto original (envenenamiento del cache SOUND). Sin expectativa →
+  /// no aprender (evita memorizar planes que "completaron" a nivel pasos sin
+  /// lograr el objetivo demostrable).
   Future<void> _learn(
     String goal,
     List<ToolCall> plan,
-    PlanOutcome outcome,
+    AutomationResult result,
     GoalExpectation? expectation,
   ) async {
     final cache = _cache;
     if (cache == null) return;
-    if (!outcome.completed) {
-      cache.recordFailure(goal);
-      return;
-    }
     if (expectation == null) return;
-    final verify = _verifyGoal;
-    if (verify == null) return;
-    final v = await verify(goal, planCompleted: true, expectation: expectation);
-    if (v.status == GoalStatus.satisfied) {
+    if (result.status == AutomationResultStatus.completed) {
       cache.recordSuccess(goal, plan);
     } else {
       cache.recordFailure(goal);
@@ -1074,6 +1071,9 @@ class AutomationCoordinator {
         expectation: runExpectation,
         outputProvesGoal: outputProvesGoal,
       );
+      // REVIEW-01: el cache SOUND consume el veredicto de _finalizeExecution
+      // (única verificación), no una segunda observación propia.
+      await _learn(goal.text, plan, r, runExpectation);
       _recordMemory(goal.text, plan, r.status);
       return finish(r);
     } on ExecutionCancelled {
