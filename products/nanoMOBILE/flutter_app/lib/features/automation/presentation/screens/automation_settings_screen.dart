@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
 import '../automation_visual_theme.dart';
 import '../widgets/automation_bottom_navigation.dart';
 import '../widgets/capability_status_card.dart';
+import 'automation_rules_screen.dart';
 
 /// Configuración del agente basada exclusivamente en estados persistidos y
 /// capacidades reales. No presenta toggles que el runtime no consuma.
@@ -104,6 +106,25 @@ class AutomationSettingsScreen extends ConsumerWidget {
                                   onChanged: notifier.setVoiceEnabled,
                                 ),
                                 showChevron: false,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 28),
+                          const AutomationSectionLabel('Reglas'),
+                          _SettingsCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.rule_rounded,
+                                title: 'Reglas de automatización',
+                                subtitle:
+                                    'Activar, desactivar o borrar respuestas '
+                                    'automáticas',
+                                onTap: () => Navigator.of(context).push(
+                                  nanoGlassPageRoute<void>(
+                                    builder: (_) =>
+                                        const AutomationRulesScreen(),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
