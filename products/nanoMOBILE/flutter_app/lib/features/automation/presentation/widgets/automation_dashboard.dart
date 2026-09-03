@@ -63,6 +63,7 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     super.key,
     this.onSettingsTap,
     this.onMessagesTap,
+    this.onDevTap,
   });
 
   /// Abre la configuración visual de Automatización. La lógica y la
@@ -71,6 +72,10 @@ class AutomationDashboard extends ConsumerStatefulWidget {
 
   /// Abre la pantalla de Mensajes (función de usuario, no Dev).
   final VoidCallback? onMessagesTap;
+
+  /// Abre la pantalla Dev (herramientas del agente) sin pasar por Ajustes.
+  /// Solo se conecta en modo debug (misma puerta que el acceso de Ajustes).
+  final VoidCallback? onDevTap;
 
   @override
   ConsumerState<AutomationDashboard> createState() =>
@@ -390,6 +395,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         final quick = QuickAutomationActions(
           onRun: _runTask,
           onMessagesTap: widget.onMessagesTap,
+          onDevTap: widget.onDevTap,
         );
 
         final left = <Widget>[
@@ -1097,11 +1103,16 @@ class QuickAutomationActions extends StatelessWidget {
     super.key,
     required this.onRun,
     this.onMessagesTap,
+    this.onDevTap,
   });
   final ValueChanged<String> onRun;
 
   /// Abre la pantalla de Mensajes (función de usuario, destacada).
   final VoidCallback? onMessagesTap;
+
+  /// Abre la pantalla Dev (herramientas del agente) directo desde el
+  /// dashboard principal. Solo presente en modo debug.
+  final VoidCallback? onDevTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', Icons.bluetooth_rounded),
@@ -1120,11 +1131,25 @@ class QuickAutomationActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AutomationSectionLabel('Sugerencias'),
-        if (onMessagesTap != null) ...[
-          _MessagesEntryTile(onTap: onMessagesTap!),
-          const SizedBox(height: 10),
+        if (onMessagesTap != null || onDevTap != null) ...[
+          const AutomationSectionLabel('Accesos'),
+          if (onMessagesTap != null)
+            _DashboardEntryTile(
+              icon: Icons.mark_chat_unread_outlined,
+              title: 'Responder mensajes',
+              subtitle: 'Ver notificaciones y responderlas',
+              onTap: onMessagesTap!,
+            ),
+          if (onDevTap != null)
+            _DashboardEntryTile(
+              icon: Icons.build_outlined,
+              title: 'Herramientas del agente',
+              subtitle: 'Percepción, selectores y estado técnico',
+              onTap: onDevTap!,
+            ),
+          const SizedBox(height: 18),
         ],
+        const AutomationSectionLabel('Sugerencias'),
         LayoutBuilder(
           builder: (context, constraints) {
             const gap = 10.0;
@@ -1208,44 +1233,67 @@ class _QuickActionTile extends StatelessWidget {
   );
 }
 
-/// Entrada destacada a la función de usuario "Responder mensajes".
-class _MessagesEntryTile extends StatelessWidget {
-  const _MessagesEntryTile({required this.onTap});
+/// Entrada destacada a una pantalla hermana del dashboard (Mensajes, Dev).
+/// Un solo widget para todos los accesos: icono + título + subtítulo.
+class _DashboardEntryTile extends StatelessWidget {
+  const _DashboardEntryTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
+  final IconData icon;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => AutomationSurfaceCard(
-    padding: EdgeInsets.zero,
-    radius: 18,
-    onTap: onTap,
-    child: SizedBox(
-      height: 64,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Icon(
-              Icons.mark_chat_unread_outlined,
-              color: AutomationVisual.of(context).accent,
-              size: 23,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Responder mensajes',
-                style: TextStyle(
-                  color: AutomationVisual.of(context).text,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: AutomationSurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: 18,
+      onTap: onTap,
+      child: SizedBox(
+        height: 64,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: AutomationVisual.of(context).accent, size: 23),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: AutomationVisual.of(context).text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AutomationVisual.of(context).textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AutomationVisual.of(context).textMuted,
-            ),
-          ],
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AutomationVisual.of(context).textMuted,
+              ),
+            ],
+          ),
         ),
       ),
     ),

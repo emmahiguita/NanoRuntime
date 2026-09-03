@@ -59,7 +59,7 @@ class _AutomationMessagesBody extends StatelessWidget {
             ),
             SafeArea(
               child: NanoScreenShell(
-                title: 'Mensajes',
+                title: 'Mensajes y notificaciones',
                 showBack: true,
                 body: SingleChildScrollView(
                   keyboardDismissBehavior:

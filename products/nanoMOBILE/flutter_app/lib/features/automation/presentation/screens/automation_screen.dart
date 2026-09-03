@@ -50,6 +50,9 @@ class AutomationScreen extends ConsumerWidget {
                     child: AutomationDashboard(
                       onSettingsTap: () => _openSettings(context),
                       onMessagesTap: () => context.push('/automation/messages'),
+                      // Acceso directo a las herramientas del agente desde la
+                      // pantalla principal (misma puerta de debug que Ajustes).
+                      onDevTap: kDebugMode ? () => _openDev(context) : null,
                     ),
                   ),
                 ),

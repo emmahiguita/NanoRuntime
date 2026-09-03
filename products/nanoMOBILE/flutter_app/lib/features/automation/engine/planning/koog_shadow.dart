@@ -12,7 +12,6 @@
 ///     integridad de la frontera de candidatos (WA-PHYS-11).
 library;
 
-import 'candidates/candidate_action.dart' show CandidateId;
 import 'koog_supervisor.dart';
 
 /// Resultado autoritativo del ciclo (lo que el pipeline ya decidió).
