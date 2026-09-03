@@ -1,5 +1,6 @@
 package dev.nanoai.mobile.edge
 
+import android.content.Context
 import android.util.Log
 import dev.nanoai.mobile.services.AgentAccessibilityService
 import io.flutter.plugin.common.EventChannel
@@ -18,6 +19,12 @@ object NanoOverlayBridge {
 
     private const val TAG = "nanoedge"
 
+    /** Archivo de preferencias del búho (vive en el contexto del servicio). */
+    private const val PREFS_NAME = "nano_edge"
+
+    /** true = el usuario dejó la burbuja encendida (restaurar al conectar). */
+    private const val KEY_BUBBLE_ENABLED = "bubble_enabled"
+
     /** Canal de comandos Dart → overlay. */
     const val CHANNEL_NAME = "com.nanoai/edge"
 
@@ -30,10 +37,23 @@ object NanoOverlayBridge {
     @Volatile
     var eventsSink: EventChannel.EventSink? = null
 
+    /**
+     * Intención persistida del usuario (EDGE-PERSIST). ColorOS mata la app en
+     * caché; al re-vincular el servicio de accesibilidad solo, la burbuja debe
+     * volver sin intervención si el usuario la dejó encendida. Un solo
+     * escritor (este bridge): Dart lee el estado real vía [isShowing].
+     */
+    @Volatile
+    private var prefs: android.content.SharedPreferences? = null
+
     /** Llamado desde AgentAccessibilityService.onServiceConnected. */
     fun onServiceConnected(service: AgentAccessibilityService) {
+        prefs = service.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         controller = NanoOverlayController(service) { event, args ->
             eventsSink?.success(mapOf("event" to event) + args)
+        }
+        if (prefs?.getBoolean(KEY_BUBBLE_ENABLED, false) == true) {
+            controller?.showBubble()
         }
     }
 
@@ -41,17 +61,26 @@ object NanoOverlayBridge {
     fun onServiceDisconnected() {
         controller?.detach()
         controller = null
+        prefs = null
     }
 
     /** true si el servicio está conectado (y por tanto el overlay es posible). */
     fun isAvailable(): Boolean = controller != null
 
-    fun showBubble(): Boolean = controller?.showBubble() ?: false
+    fun showBubble(): Boolean {
+        val ok = controller?.showBubble() ?: return false
+        prefs?.edit()?.putBoolean(KEY_BUBBLE_ENABLED, true)?.apply()
+        return ok
+    }
 
     fun showPanel(title: String, body: String): Boolean =
         controller?.showPanel(NanoEdgeContent(title = title, body = body)) ?: false
 
-    fun hide(): Boolean = controller?.hide() ?: false
+    fun hide(): Boolean {
+        val ok = controller?.hide() ?: return false
+        prefs?.edit()?.putBoolean(KEY_BUBBLE_ENABLED, false)?.apply()
+        return ok
+    }
 
     fun isShowing(): Boolean = controller?.isShowing ?: false
 }

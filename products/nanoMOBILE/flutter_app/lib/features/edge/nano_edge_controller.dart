@@ -27,6 +27,9 @@ abstract interface class NanoEdgeController {
   /// true si el servicio de accesibilidad está conectado (overlay posible).
   Future<bool> isAvailable();
 
+  /// true si la ventana del búho está añadida ahora mismo (burbuja o panel).
+  Future<bool> isShowing();
+
   /// Eventos del overlay (bubbleTapped, panelDismissed). Sin listener
   /// nativo conectado el stream simplemente no emite.
   Stream<NanoEdgeEvent> get events;
@@ -85,6 +88,16 @@ final class MethodChannelNanoEdgeController implements NanoEdgeController {
       return await _channel.invokeMethod<bool>('isAvailable') ?? false;
     } catch (e) {
       debugPrint('[edge] isAvailable error: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> isShowing() async {
+    try {
+      return await _channel.invokeMethod<bool>('isShowing') ?? false;
+    } catch (e) {
+      debugPrint('[edge] isShowing error: $e');
       return false;
     }
   }

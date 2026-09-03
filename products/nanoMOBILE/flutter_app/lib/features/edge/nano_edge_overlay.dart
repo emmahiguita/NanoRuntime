@@ -68,13 +68,21 @@ class _NanoEdgeBubbleToggleState extends ConsumerState<NanoEdgeBubbleToggle> {
   @override
   void initState() {
     super.initState();
-    _refreshAvailability();
+    _refreshState();
   }
 
-  Future<void> _refreshAvailability() async {
-    final available = await ref.read(nanoEdgeControllerProvider).isAvailable();
+  /// Hidrata disponibilidad + estado real de la ventana. Si el servicio se
+  /// re-vinculó tras un kill de ColorOS y restauró la burbuja solo
+  /// (EDGE-PERSIST), el switch debe reflejarlo.
+  Future<void> _refreshState() async {
+    final controller = ref.read(nanoEdgeControllerProvider);
+    final available = await controller.isAvailable();
+    final showing = available ? await controller.isShowing() : false;
     if (!mounted) return;
-    setState(() => _available = available);
+    setState(() {
+      _available = available;
+      _showing = showing;
+    });
   }
 
   @override
