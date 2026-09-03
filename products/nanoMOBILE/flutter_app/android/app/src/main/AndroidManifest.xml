@@ -185,29 +185,6 @@
                 <action android:name="rikka.shizuku.intent.action.USER_SERVICE" />
             </intent-filter>
         </service>
-
-        <!-- A16: Assistant Role de Android. Servicio LIGERO (sin LLM/ScreenGraph
-             residente). El sistema lo mantiene activo cuando Nano se selecciona
-             como asistente global; delega la interacción a la sesión. -->
-        <service
-            android:name="dev.nanoai.mobile.voice.NanoVoiceInteractionService"
-            android:exported="true"
-            android:permission="android.permission.BIND_VOICE_INTERACTION">
-            <intent-filter>
-                <action android:name="android.service.voice.VoiceInteractionService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.voice_interaction"
-                android:resource="@xml/voice_interaction_service" />
-        </service>
-        <service
-            android:name="dev.nanoai.mobile.voice.NanoVoiceInteractionSessionService"
-            android:exported="true"
-            android:permission="android.permission.BIND_VOICE_INTERACTION">
-            <intent-filter>
-                <action android:name="android.service.voice.VoiceInteractionSessionService" />
-            </intent-filter>
-        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -1,12 +1,12 @@
 /// VAL-UI — Sección Dev de validación física del edge.
 ///
 /// Superficie de prueba manual:
-/// - ROLE-01: botón explícito de assistant role.
 /// - APPFN-01: sonda de App Functions (canal nativo, solo lectura).
 /// - WA-MIRROR-01: espejo de conversación (historial, resumen, búsqueda).
 ///
 /// Solo diagnóstico, como el resto de la pantalla Dev. El búho (overlay
-/// flotante) se retiró: el icono de accesibilidad del sistema ya da acceso.
+/// flotante) y el role de asistente (ROLE-01) se retiraron: el icono de
+/// accesibilidad del sistema ya da el acceso, sin capa visual ni role extra.
 /// El espejo es read-only: jamás escribe ni ejecuta.
 library;
 
@@ -19,7 +19,6 @@ import 'package:nanoai/core/widgets/nano_section_card.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart';
 
-import 'assistant_role_button.dart';
 import 'panels/conversation_mirror.dart';
 import 'panels/conversation_search.dart';
 
@@ -32,14 +31,6 @@ class EdgeDevSection extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NanoSectionCard(
-          title: 'Asistente (ROLE-01)',
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: NanoAssistantRoleButton(),
-          ),
-        ),
-        SizedBox(height: NanoSpacing.lg),
         _AppFunctionProbeCard(),
         SizedBox(height: NanoSpacing.lg),
         _ConversationMirrorCard(),
