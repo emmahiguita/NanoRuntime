@@ -8,6 +8,8 @@
 /// ejecuta, NO verifica, NO entrena memoria.
 library;
 
+import 'dart:async' show unawaited;
+
 import '../execution/agent_tool_dispatcher.dart' show ToolCall;
 import '../execution/goal_verifier.dart' show GoalExpectation;
 import '../governance/action_governance_pipeline.dart';
@@ -23,6 +25,8 @@ import 'candidates/candidate_selection.dart';
 import 'candidates/candidate_selection_engine.dart';
 import 'candidates/candidate_selector.dart';
 import 'candidates/candidate_tool_call_adapter.dart';
+import 'koog_shadow.dart' show AuthoritativeOutcome, KoogShadowObserver;
+import 'koog_supervisor.dart' show KoogCandidateView, KoogSupervisionContext;
 
 sealed class CandidatePlanResult {
   const CandidatePlanResult();
@@ -76,12 +80,14 @@ class CandidateFirstPlanner {
     required CandidateToolCallAdapter adapter,
     required Future<SystemGraph> Function() getGraph,
     Future<ShizukuAvailability> Function()? shizukuSource,
+    KoogShadowObserver? koogShadow,
   }) : _generatorBuilder = generatorBuilder,
        _selection = selection,
        _governance = governance,
        _adapter = adapter,
        _getGraph = getGraph,
-       _shizukuSource = shizukuSource;
+       _shizukuSource = shizukuSource,
+       _koogShadow = koogShadow;
 
   final CandidateActionGenerator Function(SystemGraph) _generatorBuilder;
   final CandidateSelectionEngine _selection;
@@ -93,6 +99,11 @@ class CandidateFirstPlanner {
   /// solo en producción; ausente en tests → el broker la trata como no
   /// disponible (conservador, sin ejecución privilegiada).
   final Future<ShizukuAvailability> Function()? _shizukuSource;
+
+  /// Observador shadow de Koog (WA-KOOG-10). Opcional y deshabilitado por
+  /// defecto: observa y compara la decisión Koog contra el resultado
+  /// autoritativo SIN alterarlo nunca. Null en tests del pipeline previo.
+  final KoogShadowObserver? _koogShadow;
 
   Future<CandidatePlanResult> plan(
     String goal, {
@@ -108,6 +119,14 @@ class CandidateFirstPlanner {
     ).generate(CandidateRequest(goal));
     final candidateCount = generated.candidates.length;
     if (generated.candidates.isEmpty) {
+      unawaited(
+        _shadowObserve(
+          goal: goal,
+          graph: graph,
+          candidates: const [],
+          authoritative: AuthoritativeOutcome.noCandidate,
+        ),
+      );
       return CandidatePlanNoCandidate(candidateCount: candidateCount);
     }
 
@@ -116,6 +135,14 @@ class CandidateFirstPlanner {
     );
     final koogInvoked = _selection.lastKoogInvoked;
     if (selected is! SelectedCandidate) {
+      unawaited(
+        _shadowObserve(
+          goal: goal,
+          graph: graph,
+          candidates: generated.candidates.items,
+          authoritative: AuthoritativeOutcome.noCandidate,
+        ),
+      );
       return CandidatePlanNoCandidate(candidateCount: candidateCount);
     }
 
@@ -144,6 +171,15 @@ class CandidateFirstPlanner {
     }
 
     final call = _adapter.toToolCall(selected.candidate);
+    unawaited(
+      _shadowObserve(
+        goal: goal,
+        graph: graph,
+        candidates: generated.candidates.items,
+        authoritative: AuthoritativeOutcome.selectedCandidate,
+        selectedCandidateId: selected.candidate.id.value,
+      ),
+    );
     return CandidatePlanResolved(
       call: call,
       candidate: selected.candidate,
@@ -154,6 +190,42 @@ class CandidateFirstPlanner {
       koogInvoked: koogInvoked,
       candidateCount: candidateCount,
     );
+  }
+
+  /// WA-KOOG-10: observación shadow post-plan. Nunca altera el resultado
+  /// autoritativo (el observer solo compara y reporta); el planner NO espera
+  /// la inferencia shadow (fire-and-forget, costo cero con observer off).
+  Future<void> _shadowObserve({
+    required String goal,
+    required SystemGraph graph,
+    required List<CandidateAction> candidates,
+    required AuthoritativeOutcome authoritative,
+    String? selectedCandidateId,
+  }) async {
+    final shadow = _koogShadow;
+    if (shadow == null) return;
+    await shadow.observe(
+      context: KoogSupervisionContext(
+        goal: goal,
+        situationSummary: _systemGraphSummary(graph),
+        candidates: candidates
+            .map(KoogCandidateView.fromCandidate)
+            .toList(growable: false),
+      ),
+      authoritative: authoritative,
+      authoritativeCandidateId: selectedCandidateId,
+    );
+  }
+
+  /// Resumen factual mínimo del dispositivo para el contexto de supervisión.
+  /// Solo hechos del SystemGraph (apps + capabilities); sin interpretación.
+  String _systemGraphSummary(SystemGraph graph) {
+    final caps = graph.capabilities.entries
+        .where((e) => e.value.isAvailable)
+        .map((e) => e.key.name)
+        .join(', ');
+    return 'apps instaladas: ${graph.apps.length}; '
+        'capabilities disponibles: $caps';
   }
 
   /// Deriva la expectativa de GOAL (GoalVerifier) de la postcondición de la

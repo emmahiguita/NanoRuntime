@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/linux/linux_distribution_registry.dart';
@@ -54,6 +55,8 @@ import 'governance/intent_firewall.dart';
 import 'governance/pre_action_critic.dart';
 import 'governance/privilege_broker.dart';
 import 'planning/candidate_first_planner.dart';
+import 'planning/koog_shadow.dart' show KoogShadowObserver;
+import 'planning/koog_supervisor.dart' show KoogSupervisor, LlmKoogSupervisor;
 import 'planning/candidates/candidate_generator.dart';
 import 'planning/candidates/candidate_providers.dart';
 import 'model/automation_model.dart' show AutomationModelRole;
@@ -394,6 +397,30 @@ final koogCandidateSelectorProvider = Provider<CandidateSelector>((ref) {
   );
 });
 
+/// Supervisor Koog (WA-KOOG-10): decisión tipada del siguiente paso del ciclo
+/// sobre candidatos EXISTENTES (mismo runtime local, no un segundo modelo).
+/// Solo PROPONE: jamás ejecuta, autoriza ni verifica.
+final koogSupervisorProvider = Provider<KoogSupervisor>((ref) {
+  return LlmKoogSupervisor(ref.read(runtimeEngineProvider.notifier).client);
+});
+
+/// Observador shadow del supervisor (WA-KOOG-10). ROLLOUT: deshabilitado por
+/// defecto (costo cero: no llama al LLM). Activación explícita cuando
+/// WA-PHYS-11 valide el pipeline: shadow → medir desacuerdos → autoridad de
+/// selección SOLO con la frontera de candidatos demostrada.
+final koogShadowObserverProvider = Provider<KoogShadowObserver>((ref) {
+  return KoogShadowObserver(
+    supervisor: ref.watch(koogSupervisorProvider),
+    onDisagreement: (d) => debugPrint(
+      '[koog-shadow] desacuerdo | goal="${d.contextGoal}" | '
+      'autoritativo=${d.authoritative.name}'
+      '${d.authoritativeCandidateId != null ? ' (${d.authoritativeCandidateId})' : ''}'
+      ' | koog=${d.koogDecision.runtimeType}',
+    ),
+    enabled: false, // activación explícita tras validación física
+  );
+});
+
 /// Redacción de borradores (T4.3): MISMO runtime, role=draftWriter.
 final automationDraftWriterProvider = Provider<AutomationDraftWriter>((ref) {
   final engine = ref.read(runtimeEngineProvider.notifier);
@@ -464,5 +491,6 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
     adapter: CandidateToolCallAdapter(),
     getGraph: () => ref.read(systemGraphProvider.future),
     shizukuSource: () => ref.read(shizukuAvailabilityProvider).status(),
+    koogShadow: ref.watch(koogShadowObserverProvider),
   );
 });
