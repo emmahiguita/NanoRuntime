@@ -291,10 +291,12 @@ class AutomationVisualPalette {
       AutomationVisualPalette(
         // Lerp campo a campo via _LerpedNanoColors: al animar el cambio de
         // modo (AnimatedTheme) la familia entera transiciona sin salto.
-        resolvedColors: (NanoThemeExtension(colors: resolvedColors)
-                .lerp(NanoThemeExtension(colors: other.resolvedColors), t)
-            as NanoThemeExtension)
-            .colors,
+        resolvedColors:
+            (NanoThemeExtension(
+                      colors: resolvedColors,
+                    ).lerp(NanoThemeExtension(colors: other.resolvedColors), t)
+                    as NanoThemeExtension)
+                .colors,
         isDark: t < 0.5 ? isDark : other.isDark,
         isGlass: t < 0.5 ? isGlass : other.isGlass,
         isLightGlass: t < 0.5 ? isLightGlass : other.isLightGlass,
@@ -455,16 +457,26 @@ class AutomationBrand extends StatelessWidget {
         ),
         children: [
           const TextSpan(text: 'NANO '),
-          TextSpan(text: 'AI', style: TextStyle(color: visual.accent)),
+          TextSpan(
+            text: 'AI',
+            // UI-REV-05: naranja crudo sobre fondo claro ≈ 2.9:1 — ilegible
+            // ("NANO AI no se ve"). Variante oscura legible de la familia.
+            style: TextStyle(
+              color: NanoTextColors.forText(
+                visual.accent,
+                visual.resolvedColors,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Cabecera de sub-pantalla del módulo: 52px, botón atrás a la izquierda,
-/// marca centrada, contrapeso de 48 a la derecha. Rules y Settings la tenían
-/// duplicada byte a byte (solo cambiaba el origen del onBack).
+/// Cabecera de sub-pantalla del módulo: 52px, botón atrás a la izquierda y
+/// marca alineada al inicio — sin centrado forzado ni contrapesos ciegos
+/// (UI-REV-05: aprovecha el ancho y deja el texto completo visible).
 class AutomationBackHeader extends StatelessWidget {
   const AutomationBackHeader({super.key, this.onBack});
 
@@ -479,11 +491,13 @@ class AutomationBackHeader extends StatelessWidget {
         children: [
           IconButton(
             tooltip: 'Atrás',
+            visualDensity: VisualDensity.compact,
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, size: 27),
+            icon: const Icon(Icons.arrow_back_rounded, size: 24),
           ),
-          const Expanded(child: Center(child: AutomationBrand())),
-          const SizedBox(width: 48),
+          const SizedBox(width: 4),
+          const AutomationBrand(),
+          const Spacer(),
         ],
       ),
     );

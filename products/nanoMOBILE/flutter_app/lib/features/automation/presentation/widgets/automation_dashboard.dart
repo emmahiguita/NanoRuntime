@@ -360,7 +360,6 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final header = _AgentHeader(
       mode: mode,
       onModeTap: _pickMode,
-      onSettingsTap: widget.onSettingsTap,
       onDevTap: widget.onDevTap,
     );
     final composer = _TaskComposer(
@@ -390,6 +389,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final quick = QuickAutomationActions(
       onRun: _runTask,
       onMessagesTap: widget.onMessagesTap,
+      onSettingsTap: widget.onSettingsTap,
     );
 
     return SingleChildScrollView(
@@ -424,12 +424,10 @@ class _AgentHeader extends StatelessWidget {
   const _AgentHeader({
     required this.mode,
     required this.onModeTap,
-    this.onSettingsTap,
     this.onDevTap,
   });
   final AgentAutomationMode mode;
   final VoidCallback onModeTap;
-  final VoidCallback? onSettingsTap;
 
   /// Atajo directo a las herramientas del agente (pantalla Dev). Icono robot,
   /// siempre visible en la cabecera sin necesidad de scroll.
@@ -440,7 +438,9 @@ class _AgentHeader extends StatelessWidget {
     final visual = AutomationVisual.of(context);
     // UI-REV-02: cabecera compacta estilo Dev — título de pantalla (18px,
     // mismo patrón de NanoScreenShell) en vez de la marca gigante de 30px.
-    // El chip de modo queda junto al título; los atajos a la derecha.
+    // UI-REV-05: fuera el icono de ajustes — el acceso a Configuración vive
+    // como tile con texto en Accesos (más visible y profesional). El robot
+    // (Dev) queda solo, a la derecha, sin competir con el título.
     return Semantics(
       header: true,
       child: Row(
@@ -478,7 +478,12 @@ class _AgentHeader extends StatelessWidget {
                       child: Text(
                         'Modo ${mode.label}',
                         style: TextStyle(
-                          color: visual.accent,
+                          // Naranja crudo sobre accentSoft no pasa AA en claro
+                          // (~2.9:1): variante legible de la misma familia.
+                          color: NanoTextColors.forText(
+                            visual.accent,
+                            NanoThemeExtension.of(context).colors,
+                          ),
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
@@ -488,12 +493,6 @@ class _AgentHeader extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            tooltip: 'Configuración de automatización',
-            visualDensity: VisualDensity.compact,
-            onPressed: onSettingsTap,
-            icon: Icon(Icons.settings_outlined, color: visual.text, size: 21),
           ),
           if (onDevTap != null)
             IconButton(
@@ -1114,11 +1113,16 @@ class QuickAutomationActions extends StatelessWidget {
     super.key,
     required this.onRun,
     this.onMessagesTap,
+    this.onSettingsTap,
   });
   final ValueChanged<String> onRun;
 
   /// Abre la pantalla de Mensajes (función de usuario, destacada).
   final VoidCallback? onMessagesTap;
+
+  /// Abre la configuración del agente. Vive aquí como tile con TEXTO visible
+  /// (UI-REV-05) — el icono suelto de la cabecera estorbaba y era poco claro.
+  final VoidCallback? onSettingsTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', Icons.bluetooth_rounded),
@@ -1137,14 +1141,22 @@ class QuickAutomationActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (onMessagesTap != null) ...[
+        if (onSettingsTap != null || onMessagesTap != null) ...[
           const AutomationSectionLabel('Accesos'),
-          _DashboardEntryTile(
-            icon: Icons.mark_chat_unread_outlined,
-            title: 'Responder mensajes',
-            subtitle: 'Ver notificaciones y responderlas',
-            onTap: onMessagesTap!,
-          ),
+          if (onSettingsTap != null)
+            _DashboardEntryTile(
+              icon: Icons.settings_outlined,
+              title: 'Configuración',
+              subtitle: 'Modo, razonamiento, audio y permisos',
+              onTap: onSettingsTap!,
+            ),
+          if (onMessagesTap != null)
+            _DashboardEntryTile(
+              icon: Icons.mark_chat_unread_outlined,
+              title: 'Responder mensajes',
+              subtitle: 'Ver notificaciones y responderlas',
+              onTap: onMessagesTap!,
+            ),
           const SizedBox(height: 16),
         ],
         const AutomationSectionLabel('Sugerencias'),
