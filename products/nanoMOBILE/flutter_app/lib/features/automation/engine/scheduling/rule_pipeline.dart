@@ -18,9 +18,11 @@ library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../messaging/conversation_key.dart';
 import '../messaging/conversation_memory.dart';
 import '../messaging/incoming_message.dart';
 import '../notifications/notification_object.dart';
+import 'contact_rate_limiter.dart';
 import 'event_dedupe_store.dart';
 import 'notification_event_adapter.dart';
 import 'rule_dispatcher.dart';
@@ -35,15 +37,20 @@ class RulePipeline {
     required EventDedupeStore dedupe,
     required ConversationMemoryStore memory,
     required RuleDispatcher dispatcher,
+    required ContactRateLimiter rateLimiter,
   }) : _registry = registry,
        _engine = engine,
        _dedupe = dedupe,
        _memory = memory,
-       _dispatcher = dispatcher;
+       _dispatcher = dispatcher,
+       _rateLimiter = rateLimiter;
 
   final RuleRegistry _registry;
   final RuleEngine _engine;
   final EventDedupeStore _dedupe;
+
+  /// RATE-01 — límite duro de respuestas por conversación (ventana).
+  final ContactRateLimiter _rateLimiter;
 
   /// WA-MEM-08 — memoria aislada por conversación (escritura honesta).
   final ConversationMemoryStore _memory;
@@ -97,6 +104,7 @@ class RulePipeline {
       final r = await _dispatchOne(
         rule,
         notif,
+        message.conversation.key,
         conversationId,
         nowMs,
         replyAttempted: replyAttempted,
@@ -169,6 +177,7 @@ class RulePipeline {
   Future<RuleDispatchResult> _dispatchOne(
     ScheduledRule rule,
     NotificationObject notif,
+    ConversationKey key,
     String conversationId,
     int nowMs, {
     required bool replyAttempted,
@@ -179,6 +188,23 @@ class RulePipeline {
           ruleId: rule.id,
           outcome: RuleOutcome.ignored,
           reason: 'otra regla ya intentó responder a este evento',
+        );
+      }
+      // RATE-01 — puerta de saturación ANTES del envío. El intento permitido
+      // queda registrado en la ventana (el canal paga el costo aunque el
+      // envío luego falle); el bloqueado jamás llega al dispatcher.
+      final allowed = await _rateLimiter.allowReply(
+        key,
+        at: DateTime.fromMillisecondsSinceEpoch(nowMs),
+      );
+      if (!allowed) {
+        final p = _rateLimiter.policy;
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.ignored,
+          reason:
+              'rate limit per-contacto '
+              '(máx ${p.maxRepliesPerWindow}/${p.window.inMinutes}min)',
         );
       }
       // Marca el intento de escritura como EN VUELO antes de ejecutar: un

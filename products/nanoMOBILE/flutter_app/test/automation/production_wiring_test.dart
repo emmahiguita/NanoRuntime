@@ -10,6 +10,10 @@ import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
 import 'package:nanoai/features/automation/engine/governance/action_governance_pipeline.dart';
 import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 import 'package:nanoai/features/automation/engine/governance/intent_firewall.dart';
+import 'package:nanoai/features/automation/engine/governance/rule_execution_authority.dart';
+import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart'
+    show ExecutionJournalEntry;
+import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
 import 'package:nanoai/features/automation/engine/governance/pre_action_critic.dart';
 import 'package:nanoai/features/automation/engine/governance/privilege_broker.dart';
 import 'package:nanoai/features/automation/engine/planning/candidate_first_planner.dart';
@@ -39,8 +43,13 @@ class _FakeDispatcher extends AgentToolDispatcher {
   @override
   Future<ToolOutcome> runToolGuarded(
     ToolCall call, {
+    RuleExecutionAuthority? authority,
+    ToolExecutionBudget? budget,
+    ExecutionCancellationToken? cancellation,
     bool humanInitiated = false,
     bool confirmed = false,
+    String? executionId,
+    ExecutionJournalEntry? executionIntent,
   }) async {
     calls.add(call);
     return const ToolOutcome(verdict: PolicyVerdict.allow, feedback: 'ok');
@@ -49,10 +58,13 @@ class _FakeDispatcher extends AgentToolDispatcher {
   @override
   Future<PlanOutcome> runPlanGuarded(
     List<ToolCall> plan, {
+    RuleExecutionAuthority? authority,
+    ExecutionCancellationToken? cancellation,
     bool humanInitiated = false,
     ActionConfirmation? confirmation,
     String? executionId,
     bool confirmed = false,
+    void Function(int)? onStep,
   }) async {
     calls.addAll(plan);
     return PlanOutcome(

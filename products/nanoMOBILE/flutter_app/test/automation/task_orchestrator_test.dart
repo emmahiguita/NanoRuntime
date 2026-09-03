@@ -33,8 +33,9 @@ TaskOrchestrator _orchestrator({
 }) {
   return TaskOrchestrator(
     listNotifications: () async => [],
-    openUrl: (_, {confirmedActionSignature}) async => _failed,
-    writeFile: (_, __, {confirmedActionSignature}) async => _failed,
+    openUrl: (_, {confirmedActionSignature, semanticAction}) async => _failed,
+    writeFile: (_, __, {confirmedActionSignature, semanticAction}) async =>
+        _failed,
     launchApp: launchApp,
     tap: tap,
     writeText: writeText,
@@ -152,7 +153,12 @@ void main() {
         String? selector;
         String? text;
         final orchestrator = _orchestrator(
-          writeText: (value, valueText, {confirmedActionSignature}) async {
+          writeText: (
+            value,
+            valueText, {
+            confirmedActionSignature,
+            semanticAction,
+          }) async {
             selector = value;
             text = valueText;
             return _completed;
@@ -200,10 +206,20 @@ void main() {
       () async {
         var taps = 0;
         final orchestrator = _orchestrator(
-          writeText: (_, __, {confirmedActionSignature}) async =>
-              _completedUnverified,
+          writeText: (
+            _,
+            __, {
+            confirmedActionSignature,
+            semanticAction,
+          }) async => _completedUnverified,
           resolveInputSurfaceFor: (_) async => 'id=com.chat:id/composer',
-          tap: (_, {confirmedActionSignature}) async {
+          tap: (
+            _, {
+            confirmedActionSignature,
+            semanticAction,
+            executionId,
+            executionIntent,
+          }) async {
             taps++;
             return _completed;
           },
@@ -248,7 +264,13 @@ void main() {
         },
       );
       final orchestrator = _orchestrator(
-        tap: (_, {confirmedActionSignature}) async {
+        tap: (
+          _, {
+          confirmedActionSignature,
+          semanticAction,
+          executionId,
+          executionIntent,
+        }) async {
           taps++;
           return _completed;
         },
@@ -274,7 +296,13 @@ void main() {
         },
       );
       final orchestrator = _orchestrator(
-        tap: (_, {confirmedActionSignature}) async {
+        tap: (
+          _, {
+          confirmedActionSignature,
+          semanticAction,
+          executionId,
+          executionIntent,
+        }) async {
           taps++;
           return _completed;
         },
@@ -295,7 +323,13 @@ void main() {
           observe: () async => _chatGraph(draft: 'hola'),
         );
         final orchestrator = _orchestrator(
-          tap: (_, {confirmedActionSignature}) async {
+          tap: (
+            _, {
+            confirmedActionSignature,
+            semanticAction,
+            executionId,
+            executionIntent,
+          }) async {
             taps++;
             return _completed;
           },
@@ -312,7 +346,13 @@ void main() {
     test('snapshot truncado bloquea el commit antes del tap', () async {
       var taps = 0;
       final orchestrator = _orchestrator(
-        tap: (_, {confirmedActionSignature}) async {
+        tap: (
+          _, {
+          confirmedActionSignature,
+          semanticAction,
+          executionId,
+          executionIntent,
+        }) async {
           taps++;
           return _completed;
         },
@@ -436,7 +476,13 @@ void main() {
     var taps = 0;
     final orchestrator = _orchestrator(
       journal: journal,
-      tap: (_, {confirmedActionSignature}) async {
+      tap: (
+        _, {
+        confirmedActionSignature,
+        semanticAction,
+        executionId,
+        executionIntent,
+      }) async {
         taps++;
         return _completed;
       },

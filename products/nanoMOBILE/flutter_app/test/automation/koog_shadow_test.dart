@@ -43,7 +43,7 @@ void main() {
 
   test('mismo candidato seleccionado → acuerdo, sin reporte', () async {
     final supervisor = _FakeSupervisor(
-      const KoogAct(CandidateId('app:launch:com.whatsapp')),
+      KoogAct(CandidateId('app:launch:com.whatsapp')),
     );
     final reports = <KoogShadowDisagreement>[];
     final observer = KoogShadowObserver(
@@ -61,7 +61,7 @@ void main() {
 
   test('candidato distinto → desacuerdo reportado', () async {
     final supervisor = _FakeSupervisor(
-      const KoogAct(CandidateId('app:launch:com.whatsapp.w4b')),
+      KoogAct(CandidateId('app:launch:com.whatsapp.w4b')),
     );
     final reports = <KoogShadowDisagreement>[];
     final observer = KoogShadowObserver(
@@ -86,7 +86,7 @@ void main() {
 
   test('autoritativo noCandidate + KoogAct → desacuerdo', () async {
     final supervisor = _FakeSupervisor(
-      const KoogAct(CandidateId('app:launch:com.whatsapp')),
+      KoogAct(CandidateId('app:launch:com.whatsapp')),
     );
     final reports = <KoogShadowDisagreement>[];
     final observer = KoogShadowObserver(

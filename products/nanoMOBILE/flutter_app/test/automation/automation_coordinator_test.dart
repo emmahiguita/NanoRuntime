@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
+import 'package:nanoai/features/automation/engine/governance/rule_execution_authority.dart';
 import 'package:nanoai/features/automation/engine/memory/experience_cache.dart';
+import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart'
+    show ExecutionJournalEntry;
+import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart'
     show GoalExpectation, GoalStatus, GoalVerification;
 import 'package:nanoai/features/automation/engine/execution/tool_registry.dart'
@@ -22,8 +26,13 @@ class _FailedToolDispatcher extends AgentToolDispatcher {
   @override
   Future<ToolOutcome> runToolGuarded(
     ToolCall call, {
+    RuleExecutionAuthority? authority,
+    ToolExecutionBudget? budget,
+    ExecutionCancellationToken? cancellation,
     bool humanInitiated = false,
     bool confirmed = false,
+    String? executionId,
+    ExecutionJournalEntry? executionIntent,
   }) async => ToolOutcome(
     verdict: PolicyVerdict.allow,
     feedback: '[notFound] objetivo no visible',
@@ -32,10 +41,13 @@ class _FailedToolDispatcher extends AgentToolDispatcher {
   @override
   Future<PlanOutcome> runPlanGuarded(
     List<ToolCall> plan, {
+    RuleExecutionAuthority? authority,
+    ExecutionCancellationToken? cancellation,
     bool humanInitiated = false,
     ActionConfirmation? confirmation,
     String? executionId,
     bool confirmed = false,
+    void Function(int)? onStep,
   }) async {
     final failure = ToolOutcome(
       verdict: PolicyVerdict.allow,

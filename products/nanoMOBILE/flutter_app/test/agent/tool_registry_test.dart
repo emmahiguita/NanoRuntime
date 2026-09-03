@@ -249,42 +249,52 @@ void main() {
         policy: PolicyEngine(maxStepsPerTurn: 2),
       );
 
-      // write sin selector → allow y falla en validación (no toca executor).
+      // El presupuesto vive en [ToolExecutionBudget], compartido por las
+      // llamadas de un mismo turno (write sin selector → allow y falla en
+      // validación, sin tocar executor).
+      final budget = ToolExecutionBudget();
       final o1 = await dispatcher.runToolGuarded(
         const ToolCall(tool: 'write', selector: ''),
         confirmed: true,
+        budget: budget,
       );
       final o2 = await dispatcher.runToolGuarded(
         const ToolCall(tool: 'write', selector: ''),
         confirmed: true,
+        budget: budget,
       );
       final o3 = await dispatcher.runToolGuarded(
         const ToolCall(tool: 'write', selector: ''),
         confirmed: true,
+        budget: budget,
       );
 
       expect(o1.verdict, PolicyVerdict.allow);
       expect(o2.verdict, PolicyVerdict.allow);
       expect(o3.verdict, PolicyVerdict.denied);
       expect(o3.feedback, contains('límite de pasos'));
-      expect(dispatcher.stepsUsed, 2);
+      expect(budget.stepsUsed, 2);
     });
 
     test(
-      'resetTurn reinicia el presupuesto (nuevo envío del usuario)',
+      'standalone sin budget: cada llamada es un turno fresco',
       () async {
         final dispatcher = AgentToolDispatcher(
           executor: NanoAgentExecutor(api: FakeAgentApi()),
           policy: PolicyEngine(maxStepsPerTurn: 2),
         );
-        await dispatcher.runToolGuarded(
+        // Sin budget compartido no hay herencia de pasos: ninguna llamada
+        // ve los pasos de la anterior (resetTurn es no-op de compatibilidad).
+        final o1 = await dispatcher.runToolGuarded(
           const ToolCall(tool: 'write', selector: ''),
           confirmed: true,
         );
-        expect(dispatcher.stepsUsed, 1);
-
-        dispatcher.resetTurn();
-        expect(dispatcher.stepsUsed, 0);
+        final o2 = await dispatcher.runToolGuarded(
+          const ToolCall(tool: 'write', selector: ''),
+          confirmed: true,
+        );
+        expect(o1.verdict, PolicyVerdict.allow);
+        expect(o2.verdict, PolicyVerdict.allow);
       },
     );
 

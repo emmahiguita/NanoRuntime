@@ -2,7 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
+import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_memory.dart';
+import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
@@ -36,6 +38,20 @@ const ok = AutomationResult(
   status: AutomationResultStatus.completed,
   reason: 'ok',
 );
+
+/// Mantenimiento de compilación (RATE-01): el pipeline exige un
+/// [ContactRateLimiter]; estos tests no cubren rate limit, así que uno
+/// que siempre permite reproduce el comportamiento anterior.
+class _AllowAllRateLimiter implements ContactRateLimiter {
+  const _AllowAllRateLimiter();
+
+  @override
+  ContactRatePolicy get policy => const ContactRatePolicy();
+
+  @override
+  Future<bool> allowReply(ConversationKey key, {required DateTime at}) async =>
+      true;
+}
 
 void main() {
   ScheduledRule rule({
@@ -140,6 +156,7 @@ void main() {
         dedupe: MemoryEventDedupeStore(),
         memory: MemoryConversationMemoryStore(),
         dispatcher: dispatcher,
+        rateLimiter: const _AllowAllRateLimiter(),
       );
 
       final results = await pipeline.onNotification(notif(sender: 'Juan'));
@@ -165,6 +182,7 @@ void main() {
           dedupe: MemoryEventDedupeStore(),
           memory: MemoryConversationMemoryStore(),
           dispatcher: dispatcher,
+          rateLimiter: const _AllowAllRateLimiter(),
         );
 
         final results = await pipeline.onNotification(notif(sender: 'María'));

@@ -7,7 +7,11 @@ import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/execution/goal_verifier.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_registry.dart';
+import 'package:nanoai/features/automation/engine/governance/rule_execution_authority.dart';
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
+import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart'
+    show ExecutionJournalEntry;
+import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
 import 'package:nanoai/features/automation/engine/perception/mux/object_memory_perception_source.dart';
 import 'package:nanoai/features/automation/engine/perception/perception_mux.dart';
 import 'package:nanoai/features/automation/engine/planning/deterministic_catalog.dart';
@@ -18,8 +22,13 @@ class _SuccessDispatcher extends AgentToolDispatcher {
   @override
   Future<ToolOutcome> runToolGuarded(
     ToolCall call, {
+    RuleExecutionAuthority? authority,
+    ToolExecutionBudget? budget,
+    ExecutionCancellationToken? cancellation,
     bool humanInitiated = false,
     bool confirmed = false,
+    String? executionId,
+    ExecutionJournalEntry? executionIntent,
   }) async {
     lastCall = call;
     return const ToolOutcome(verdict: PolicyVerdict.allow, feedback: 'ok');

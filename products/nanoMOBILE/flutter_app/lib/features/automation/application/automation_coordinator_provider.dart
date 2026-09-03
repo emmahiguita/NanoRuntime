@@ -21,6 +21,7 @@ import 'package:nanoai/features/automation/engine/perception/mux/perception_cont
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
+import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
@@ -375,6 +376,14 @@ final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
   return store;
 });
 
+/// RATE-01: límite duro de respuestas por conversación (ventana deslizante).
+/// Persistente (shared_prefs JSON), misma carga asíncrona que el dedupe.
+final contactRateLimiterProvider = Provider<ContactRateLimiter>((ref) {
+  final limiter = SharedPreferencesContactRateLimiter();
+  limiter.load();
+  return limiter;
+});
+
 /// Pipeline WhatsApp-first (T3.3): notificación → dedupe → match → coordinator.
 /// El dispatcher ejecuta el goal por el MISMO coordinator (nunca un motor aparte).
 final rulePipelineProvider = Provider<RulePipeline>((ref) {
@@ -383,6 +392,7 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     engine: const RuleEngine(),
     dedupe: ref.watch(eventDedupeStoreProvider),
     memory: ref.watch(conversationMemoryStoreProvider),
+    rateLimiter: ref.watch(contactRateLimiterProvider),
     dispatcher: RuleDispatcher(
       (goal, {AutomationOptions? options}) => ref
           .read(automationCoordinatorProvider)
