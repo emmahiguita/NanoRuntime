@@ -38,13 +38,15 @@ class EngineStatusCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // UI-REV-04: mismo overline del módulo (10px w600
+                      // ls 0.6) — antes 12px w700 competía con los títulos.
                       Text(
                         'ESTADO DEL SISTEMA',
                         style: TextStyle(
                           color: AutomationVisual.of(context).textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.7,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.6,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -276,30 +278,32 @@ class _SystemReadyMark extends StatelessWidget {
     final color = ready
         ? AutomationVisual.of(context).success
         : AutomationVisual.of(context).accent;
+    // UI-REV-04: marca compacta (64px) — los anillos de 92px dominaban la
+    // card de estado; el sistema no es el protagonista del dashboard.
     return SizedBox.square(
-      dimension: 92,
+      dimension: 64,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
-            width: 88,
-            height: 88,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: color.withValues(alpha: 0.20)),
             ),
           ),
           Container(
-            width: 70,
-            height: 70,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: color.withValues(alpha: 0.34)),
             ),
           ),
           Container(
-            width: 48,
-            height: 48,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.14),
               shape: BoxShape.circle,
@@ -307,7 +311,7 @@ class _SystemReadyMark extends StatelessWidget {
             child: Icon(
               ready ? Icons.check_rounded : Icons.pause_rounded,
               color: color,
-              size: 26,
+              size: 18,
             ),
           ),
         ],

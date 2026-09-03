@@ -11,8 +11,6 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
-import 'package:nanoai/core/widgets/nano_optical_surface.dart';
-import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../application/automation_engine_provider.dart';
 import '../../application/automation_feedback_presenter.dart';
@@ -22,8 +20,6 @@ import '../../domain/automation_result.dart';
 import '../../engine/agent_dependencies.dart';
 import '../../engine/perception/current_situation.dart';
 import '../../engine/voice/voice_runtime.dart';
-import '../../ledger/action_ledger_provider.dart';
-import '../../ledger/automation_trace.dart';
 
 import '../automation_visual_theme.dart';
 import 'engine_status_card.dart';
@@ -394,7 +390,6 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final quick = QuickAutomationActions(
       onRun: _runTask,
       onMessagesTap: widget.onMessagesTap,
-      onDevTap: widget.onDevTap,
     );
 
     return SingleChildScrollView(
@@ -498,11 +493,7 @@ class _AgentHeader extends StatelessWidget {
             tooltip: 'Configuración de automatización',
             visualDensity: VisualDensity.compact,
             onPressed: onSettingsTap,
-            icon: Icon(
-              Icons.settings_outlined,
-              color: visual.text,
-              size: 21,
-            ),
+            icon: Icon(Icons.settings_outlined, color: visual.text, size: 21),
           ),
           if (onDevTap != null)
             IconButton(
@@ -574,15 +565,7 @@ class _TaskComposer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '¿Qué quieres que haga?',
-                      style: TextStyle(
-                        color: AutomationVisual.of(context).text,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
+                    _CapabilityHint(active: stateActive),
                     const SizedBox(height: 3),
                     Semantics(
                       liveRegion: true,
@@ -711,6 +694,70 @@ class _TaskComposer extends StatelessWidget {
   }
 }
 
+/// Título del composer con los ALCANCES reales del agente. Inactivo: rota
+/// frases cortas de lo que puede hacer (invita a pedir tareas reales). En
+/// actividad: título fijo "¿Qué quieres que haga?" — el estado debajo ya
+/// comunica el resto. Un solo Timer de texto, sin tickers decorativos.
+class _CapabilityHint extends StatefulWidget {
+  const _CapabilityHint({required this.active});
+
+  /// true cuando escucha/observa/ejecuta: título fijo, sin rotación.
+  final bool active;
+
+  @override
+  State<_CapabilityHint> createState() => _CapabilityHintState();
+}
+
+class _CapabilityHintState extends State<_CapabilityHint> {
+  // Alcances verificables del agente — mismos dominios de las quick actions
+  // y del pipeline real (apps/ajustes, mensajes, notificaciones, archivos,
+  // terminal Linux). Nada que el motor no sepa hacer hoy.
+  static const _capabilities = [
+    'Abro apps y ajustes del dispositivo',
+    'Respondo mensajes y notificaciones',
+    'Leo y analizo tus notificaciones',
+    'Analizo archivos y carpetas',
+    'Ejecuto tareas en la terminal Linux',
+  ];
+
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 2600), (_) {
+      if (!mounted) return;
+      setState(() => _index = (_index + 1) % _capabilities.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: NanoMotionDurations.quick,
+      child: Text(
+        widget.active ? '¿Qué quieres que haga?' : _capabilities[_index],
+        key: ValueKey(widget.active ? 'ask' : _capabilities[_index]),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: AutomationVisual.of(context).text,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.4,
+        ),
+      ),
+    );
+  }
+}
+
 class _ComposerControl extends StatelessWidget {
   const _ComposerControl({
     required this.icon,
@@ -730,31 +777,34 @@ class _ComposerControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Deshabilitado: alpha 0.6 — visible pero claramente apagado. Antes 0.5
+    // fundía el icono con el fondo y parecía roto.
     final color = active
         ? AutomationVisual.of(context).accent
         : enabled
         ? AutomationVisual.of(context).textMuted
-        : AutomationVisual.of(context).textMuted.withValues(alpha: 0.5);
+        : AutomationVisual.of(context).textMuted.withValues(alpha: 0.6);
     return Semantics(
       button: true,
       enabled: enabled,
       label: label,
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
             duration: NanoMotionDurations.quick,
-            // UI-REV-02: control compacto (60px) — proporción Dev.
-            constraints: const BoxConstraints(minHeight: 60),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            // UI-REV-04: control mínimo (44px) — fila de 3 capacidades
+            // ligera, sin competir con el composer ni el dashboard.
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             decoration: BoxDecoration(
               color: active
                   ? AutomationVisual.of(context).accentSoft
                   : AutomationVisual.of(context).inputFill,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: active
                     ? AutomationVisual.of(
@@ -763,28 +813,30 @@ class _ComposerControl extends StatelessWidget {
                     : AutomationVisual.of(context).line,
               ),
             ),
-            child: Column(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (busy)
                   SizedBox.square(
-                    dimension: 24,
+                    dimension: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: color,
                     ),
                   )
                 else
-                  Icon(icon, color: color, size: 25),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  Icon(icon, color: color, size: 19),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 10.5,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -806,8 +858,9 @@ class _NanoAssistantMark extends StatelessWidget {
     final visual = AutomationVisual.of(context);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 240),
-      width: 54,
-      height: 54,
+      // UI-REV-04: marca compacta (44px) — acompaña al título sin dominar.
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -815,20 +868,20 @@ class _NanoAssistantMark extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [visual.accentSoft, visual.surface],
         ),
-        border: Border.all(color: visual.cardBorder, width: 2),
+        border: Border.all(color: visual.cardBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: AutomationVisual.of(
               context,
             ).accent.withValues(alpha: active ? 0.24 : 0.10),
-            blurRadius: active ? 18 : 10,
+            blurRadius: active ? 14 : 8,
           ),
         ],
       ),
       child: Icon(
         Icons.smart_toy_outlined,
         color: AutomationVisual.of(context).accent,
-        size: 29,
+        size: 22,
       ),
     );
   }
@@ -1061,16 +1114,11 @@ class QuickAutomationActions extends StatelessWidget {
     super.key,
     required this.onRun,
     this.onMessagesTap,
-    this.onDevTap,
   });
   final ValueChanged<String> onRun;
 
   /// Abre la pantalla de Mensajes (función de usuario, destacada).
   final VoidCallback? onMessagesTap;
-
-  /// Abre la pantalla Dev (herramientas del agente) directo desde el
-  /// dashboard principal. Solo presente en modo debug.
-  final VoidCallback? onDevTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', Icons.bluetooth_rounded),
@@ -1089,22 +1137,14 @@ class QuickAutomationActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (onMessagesTap != null || onDevTap != null) ...[
+        if (onMessagesTap != null) ...[
           const AutomationSectionLabel('Accesos'),
-          if (onMessagesTap != null)
-            _DashboardEntryTile(
-              icon: Icons.mark_chat_unread_outlined,
-              title: 'Responder mensajes',
-              subtitle: 'Ver notificaciones y responderlas',
-              onTap: onMessagesTap!,
-            ),
-          if (onDevTap != null)
-            _DashboardEntryTile(
-              icon: Icons.smart_toy_outlined,
-              title: 'Herramientas del agente',
-              subtitle: 'Percepción, selectores y estado técnico',
-              onTap: onDevTap!,
-            ),
+          _DashboardEntryTile(
+            icon: Icons.mark_chat_unread_outlined,
+            title: 'Responder mensajes',
+            subtitle: 'Ver notificaciones y responderlas',
+            onTap: onMessagesTap!,
+          ),
           const SizedBox(height: 16),
         ],
         const AutomationSectionLabel('Sugerencias'),
@@ -1260,205 +1300,4 @@ class _DashboardEntryTile extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// Últimas ejecuciones reales (del ledger), recientes primero.
-class RecentExecutionsCard extends ConsumerWidget {
-  const RecentExecutionsCard({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final traces = ref.watch(actionLedgerProvider).entries;
-    // Card ESTÁTICA (surface, sin shimmer/tilt): el historial no es el
-    // protagonista; solo la ejecución activa anima.
-    return NanoOpticalSurface(
-      borderStrength: 0.45,
-      reflectionStrength: 0.28,
-      blurSigma: 12,
-      padding: const EdgeInsets.all(NanoSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            'Ejecuciones recientes',
-            Icons.history_rounded,
-            colors: colors,
-          ),
-          const SizedBox(height: NanoSpacing.xs),
-          if (traces.isEmpty)
-            Text(
-              'Sin ejecuciones todavía.',
-              style: NanoType.body(colors.onSurfaceVariant),
-            )
-          else ...[
-            for (final t in traces.take(3))
-              _HistoryTile(trace: t, colors: colors),
-            const SizedBox(height: NanoSpacing.sm),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => _showFullHistory(context, traces, colors),
-                icon: const Icon(Icons.history_rounded, size: 16),
-                label: const Text('Ver historial'),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _showFullHistory(
-    BuildContext context,
-    List<AutomationTrace> traces,
-    NanoColors colors,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        builder: (ctx, scroll) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              NanoSpacing.lg,
-              0,
-              NanoSpacing.lg,
-              NanoSpacing.lg,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SectionHeader(
-                  'Historial completo',
-                  Icons.history_rounded,
-                  colors: colors,
-                ),
-                const SizedBox(height: NanoSpacing.sm),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scroll,
-                    itemCount: traces.length,
-                    itemBuilder: (_, i) =>
-                        _HistoryTile(trace: traces[i], colors: colors),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Una fila del historial: estado honesto + objetivo (2 líneas) + tiempo
-/// relativo. Tap → detalles completos (sin truncar).
-class _HistoryTile extends StatelessWidget {
-  final AutomationTrace trace;
-  final NanoColors colors;
-
-  const _HistoryTile({required this.trace, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = _statusPresentation(trace.status, colors);
-    return InkWell(
-      onTap: () => _showDetails(context),
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(p.icon, size: 16, color: p.color),
-            const SizedBox(width: NanoSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    trace.goal,
-                    maxLines: 2,
-                    style: NanoType.body(colors.textPrimary),
-                  ),
-                  Text(p.label, style: NanoType.label(p.color)),
-                ],
-              ),
-            ),
-            const SizedBox(width: NanoSpacing.sm),
-            Text(
-              _relativeTime(trace.endedAt.difference(trace.startedAt)),
-              style: NanoType.label(colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDetails(BuildContext context) {
-    final p = _statusPresentation(trace.status, colors);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        final c = NanoThemeExtension.of(ctx).colors;
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              NanoSpacing.lg,
-              0,
-              NanoSpacing.lg,
-              NanoSpacing.lg,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SectionHeader(
-                  'Detalle de ejecución',
-                  p.icon,
-                  colors: c,
-                  iconColor: p.color,
-                ),
-                const SizedBox(height: NanoSpacing.sm),
-                Text(
-                  trace.goal,
-                  style: NanoType.body(
-                    c.onSurface,
-                  ).copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: NanoSpacing.sm),
-                Text('Estado: ${p.label}', style: NanoType.body(p.color)),
-                if (trace.summary.isNotEmpty) ...[
-                  const SizedBox(height: NanoSpacing.sm),
-                  SelectableText(
-                    trace.summary,
-                    style: NanoType.body(c.onSurfaceVariant),
-                  ),
-                ],
-                const SizedBox(height: NanoSpacing.sm),
-                Text(
-                  'Duración: ${_relativeTime(trace.endedAt.difference(trace.startedAt))}',
-                  style: NanoType.label(c.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Tiempo relativo humano ("hace 3 min"), honesto y legible.
-String _relativeTime(Duration d) {
-  if (d.inSeconds < 60) return 'hace ${d.inSeconds}s';
-  if (d.inMinutes < 60) return 'hace ${d.inMinutes} min';
-  if (d.inHours < 24) return 'hace ${d.inHours} h';
-  return 'hace ${d.inDays} d';
 }

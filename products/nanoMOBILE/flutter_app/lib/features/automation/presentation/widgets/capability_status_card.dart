@@ -63,11 +63,12 @@ class CapabilityStatusCard extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         'PERMISOS DEL AGENTE',
+                        // UI-REV-04: overline estándar del módulo.
                         style: TextStyle(
                           color: visual.textMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.55,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.6,
                         ),
                       ),
                     ),
