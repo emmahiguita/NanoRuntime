@@ -111,6 +111,16 @@ class NotificationCandidateProvider implements CandidateProvider {
           'remoteInputKey': capability.remoteInputResultKey,
         if (capability != null && capability.isUsable)
           'contextFingerprint': capability.contextFingerprint,
+        // WA-PHYS-11: identidad del MENSAJE en la firma de la acción. Sin
+        // estos campos, dos mensajes distintos que actualizan la MISMA
+        // notificación (misma key + texto fijo de la regla) producen la MISMA
+        // actionSignature y el journal exact-once bloquea el segundo reply
+        // ("ejecución no reconciliada"), aunque sea un inbound nuevo.
+        // Verificado en dispositivo con Emm: solo el primer mensaje recibía
+        // respuesta. El nativo ignora estos campos (solo firman la acción).
+        if (target.messageTimestamp > 0)
+          'messageTimestamp': target.messageTimestamp,
+        if (target.postTime > 0) 'observedAt': target.postTime,
       },
       channel: ActionChannel.notification,
       groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,
