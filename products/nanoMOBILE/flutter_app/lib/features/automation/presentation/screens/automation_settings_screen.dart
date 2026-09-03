@@ -49,7 +49,7 @@ class AutomationSettingsScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const _SettingsHeader(),
+                          const AutomationBackHeader(),
                           const SizedBox(height: 28),
                           Text(
                             'Configuración',
@@ -323,55 +323,6 @@ class AutomationSettingsScreen extends ConsumerWidget {
     AutomationModelMode.deterministicOnly =>
       'No invoca un modelo; ejecuta únicamente rutas verificables conocidas.',
   };
-}
-
-class _SettingsHeader extends StatelessWidget {
-  const _SettingsHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Atrás',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, size: 27),
-          ),
-          const Expanded(child: Center(child: _CompactBrand())),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
-}
-
-class _CompactBrand extends StatelessWidget {
-  const _CompactBrand();
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return RichText(
-      text: TextSpan(
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: visual.text,
-          fontSize: 23,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.6,
-        ),
-        children: [
-          const TextSpan(text: 'NANO '),
-          TextSpan(
-            text: 'AI',
-            style: TextStyle(color: visual.accent),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SettingsCard extends StatelessWidget {

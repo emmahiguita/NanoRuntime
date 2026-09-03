@@ -109,6 +109,10 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
   late AnimationController _landController;
   // TER-22: multiplicador 0..1 de la inclinación direccional.
   late AnimationController _tiltController;
+  // UI-REV-01: opacidad de la burbuja de vidrio. Controller explícito (no
+  // AnimatedOpacity): cuando llega a 0 el BackdropFilter sale del árbol —
+  // un blur sigma 14 invisible durante el vuelo igual paga GPU en Mali.
+  late AnimationController _bubbleController;
   late Animation<double> _breathScaleY;
   late Animation<double> _breathScaleX;
   late Animation<double> _hoverOffsetY;
@@ -169,10 +173,12 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
       CurvedAnimation(parent: _hoverController, curve: Curves.easeInOutSine),
     );
 
+    // UI-REV-01: sin repeat() incondicional — el ticker solo corre cuando
+    // el búho duerme (Zzz visibles). _startStateLoop lo arranca/para.
     _zzzController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2600),
-    )..repeat();
+    );
 
     // TER-22: pose física — squash breve al posarse (240 ms). Sin curva:
     // la forma sin(pi * t) ya dibuja el hundimiento y la recuperación.
@@ -184,6 +190,12 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     _tiltController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
+    );
+    // UI-REV-01: burbuja visible en reposo; se desvanece al despegar.
+    _bubbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+      value: 1.0,
     );
 
     _startStateLoop();
@@ -262,6 +274,8 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     _blinkTimer?.cancel();
     switch (_state) {
       case _OwlState.sleeping:
+        // UI-REV-01: el ticker de Zzz solo vive mientras se ven.
+        if (!_zzzController.isAnimating) _zzzController.repeat();
         _frameTimer = Timer.periodic(const Duration(milliseconds: 380), (t) {
           if (!mounted || _state != _OwlState.sleeping) {
             t.cancel();
@@ -270,9 +284,13 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
           setState(() => _frameIndex++);
         });
       case _OwlState.idle:
-        _scheduleNextBlink();
       case _OwlState.takeoff:
       case _OwlState.flying:
+        // UI-REV-01: sin Zzz visibles → sin ticker de Zzz.
+        _zzzController
+          ..stop()
+          ..value = 0;
+        if (_state == _OwlState.idle) _scheduleNextBlink();
         break;
     }
   }
@@ -317,6 +335,11 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     // TER-20: breath pausado en vuelo — un solo controller repinta el
     // personaje (hover); la respiración queda congelada hasta aterrizar.
     _breathController.stop();
+    // UI-REV-01: Zzz fuera (dormido → volando) y burbuja se desvanece.
+    _zzzController
+      ..stop()
+      ..value = 0;
+    _bubbleController.reverse();
     setState(() {
       _state = _OwlState.takeoff;
       _frameIndex = 0;
@@ -366,6 +389,8 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     _breathController.repeat(reverse: true);
     _tiltController.reverse();
     _landController.forward(from: 0);
+    // UI-REV-01: la burbuja de vidrio reaparece al posarse.
+    _bubbleController.forward();
     setState(() {
       _state = widget.expanded ? _OwlState.idle : _OwlState.sleeping;
       _frameIndex = 0;
@@ -380,6 +405,7 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
     _zzzController.dispose();
     _landController.dispose();
     _tiltController.dispose();
+    _bubbleController.dispose();
     _blinkTimer?.cancel();
     _frameTimer?.cancel();
     super.dispose();
@@ -473,13 +499,18 @@ class _OwlFloatingActionButtonState extends State<OwlFloatingActionButton>
                 // real del fondo, anillo blanco y brillo especular. Se
                 // desvanece desde el despegue (airborne): nunca flota
                 // detrás del personaje en vuelo.
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeInOutCubic,
-                  opacity: airborne ? 0.0 : 1.0,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
+                // UI-REV-01: AnimatedBuilder en vez de AnimatedOpacity —
+                // al llegar a 0 el BackdropFilter sale del ÁRBOL (blur
+                // sigma 14 invisible durante el vuelo igual paga GPU,
+                // visible como lag de arrastre en Mali/Oppo).
+                AnimatedBuilder(
+                  animation: _bubbleController,
+                  builder: (context, child) {
+                    final v = _bubbleController.value;
+                    if (v <= 0.0) return const SizedBox.shrink();
+                    return Opacity(opacity: v, child: child);
+                  },
+                  child: Container(
                     width: size,
                     height: size,
                     decoration: BoxDecoration(

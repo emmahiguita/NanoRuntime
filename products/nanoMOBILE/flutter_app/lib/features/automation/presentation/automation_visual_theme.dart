@@ -394,3 +394,65 @@ class AutomationSectionLabel extends StatelessWidget {
     );
   }
 }
+
+/// Marca NANO AI única del módulo (DRY): 'NANO ' en color de texto, 'AI' en
+/// accent. Antes había tres variantes divergentes (Rules usaba texto plano sin
+/// accent; Settings duplicaba el RichText; Dashboard lo repetía inline).
+class AutomationBrand extends StatelessWidget {
+  const AutomationBrand({
+    super.key,
+    this.fontSize = 23,
+    this.letterSpacing = 1.6,
+  });
+
+  final double fontSize;
+  final double letterSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontFamily: 'Inter',
+          color: visual.text,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w800,
+          letterSpacing: letterSpacing,
+        ),
+        children: [
+          const TextSpan(text: 'NANO '),
+          TextSpan(text: 'AI', style: TextStyle(color: visual.accent)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cabecera de sub-pantalla del módulo: 52px, botón atrás a la izquierda,
+/// marca centrada, contrapeso de 48 a la derecha. Rules y Settings la tenían
+/// duplicada byte a byte (solo cambiaba el origen del onBack).
+class AutomationBackHeader extends StatelessWidget {
+  const AutomationBackHeader({super.key, this.onBack});
+
+  /// Si es null, hace Navigator.maybePop() (comportamiento de Settings).
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Atrás',
+            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_rounded, size: 27),
+          ),
+          const Expanded(child: Center(child: AutomationBrand())),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+}

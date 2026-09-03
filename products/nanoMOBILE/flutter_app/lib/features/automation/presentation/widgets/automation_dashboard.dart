@@ -9,6 +9,7 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_breakpoint.dart';
+import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
@@ -513,26 +514,7 @@ class _AgentHeader extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: AutomationVisual.of(context).text,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2.0,
-                    ),
-                    children: [
-                      const TextSpan(text: 'NANO '),
-                      TextSpan(
-                        text: 'AI',
-                        style: TextStyle(
-                          color: AutomationVisual.of(context).accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const AutomationBrand(fontSize: 30, letterSpacing: 2.0),
                 const SizedBox(height: 8),
                 Material(
                   color: AutomationVisual.of(context).accentSoft,
@@ -752,7 +734,7 @@ class _TaskComposer extends StatelessWidget {
           if (senseFeedback != null && senseFeedback!.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: NanoMotionDurations.quick,
               child: Text(
                 senseFeedback!,
                 key: ValueKey(senseFeedback),
@@ -807,7 +789,7 @@ class _ComposerControl extends StatelessWidget {
           onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(16),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: NanoMotionDurations.quick,
             constraints: const BoxConstraints(minHeight: 76),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
             decoration: BoxDecoration(
@@ -1077,7 +1059,7 @@ class _ActiveExecutionCardState extends State<_ActiveExecutionCard>
             ),
             const SizedBox(height: NanoSpacing.sm),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: NanoMotionDurations.quick,
               child: Text(
                 widget.running
                     ? 'Ejecutando en el dispositivo…'

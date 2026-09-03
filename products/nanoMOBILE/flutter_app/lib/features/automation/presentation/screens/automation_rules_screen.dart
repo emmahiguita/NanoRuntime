@@ -90,7 +90,7 @@ class _AutomationRulesScreenState
       body: SafeArea(
         child: Column(
           children: [
-            _RulesHeader(onBack: () => Navigator.of(context).maybePop()),
+            const AutomationBackHeader(),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
@@ -146,43 +146,6 @@ class _AutomationRulesScreenState
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _RulesHeader extends StatelessWidget {
-  const _RulesHeader({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return SizedBox(
-      height: 52,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Atrás',
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded, size: 27),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'NANO AI',
-                style: TextStyle(
-                  color: visual.text,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.6,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
       ),
     );
   }

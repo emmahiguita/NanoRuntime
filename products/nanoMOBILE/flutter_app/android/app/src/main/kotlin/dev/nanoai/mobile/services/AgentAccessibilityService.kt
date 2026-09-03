@@ -65,7 +65,6 @@ class AgentAccessibilityService : AccessibilityService() {
         // eventTypes, canRetrieveWindowContent) ya viene de
         // res/xml/accessibility_service_config.xml.
         AgentAccessibilityBridge.onConnected(this)
-        // EDGE-01: el overlay del búho solo existe con el servicio conectado.
         Log.i(TAG, "AgentAccessibilityService conectado")
         // U-10: vector resurrección — tras un cached-kill de ColorOS el
         // sistema re-vincula este service él mismo (los accessibility
