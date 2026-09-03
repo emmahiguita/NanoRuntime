@@ -51,13 +51,20 @@ class NanoGlassMorphTransition extends StatelessWidget {
         final scaleIn = lerpDouble(0.982, 1.0, t)!;
         final translateYIn = lerpDouble(12.0, 0.0, t)!;
         final opacityIn = ((t - 0.20) / 0.80).clamp(0.0, 1.0);
-        final radiusIn = lerpDouble(32.0, 0.0, t)!;
+        // UI-REV-02: el clip redondeado solo se ve al inicio del vuelo.
+        // Antes radiusIn tardaba todo el viaje en llegar a 0 — el
+        // ClipRRect seguía montado (capa nueva por frame) hasta t≈0.98
+        // aunque el radio ya fuera invisible: jank gratuito en Mali.
+        // Ahora muere en t=0.4 y el resto de la transición corre sin clip.
+        final radiusIn = lerpDouble(32.0, 0.0, (t / 0.4).clamp(0.0, 1.0))!;
 
         // Interpolación de salida secundaria (Origin Page cuando otra ruta se superpone o en back predictivo)
         final scaleOut = lerpDouble(1.0, 0.985, secT)!;
         final translateXOut = lerpDouble(0.0, -18.0, secT)!;
         final opacityOut = lerpDouble(1.0, 0.85, secT)!;
-        final radiusOut = lerpDouble(0.0, 16.0, secT)!;
+        // UI-REV-02: mismo principio que radiusIn — el redondeo de salida
+        // se percibe solo al arrancar el back; muere en secT=0.4.
+        final radiusOut = lerpDouble(0.0, 16.0, (secT / 0.4).clamp(0.0, 1.0))!;
 
         final effectiveScale = scaleIn * scaleOut;
         final effectiveRadius = radiusIn > 0 ? radiusIn : radiusOut;

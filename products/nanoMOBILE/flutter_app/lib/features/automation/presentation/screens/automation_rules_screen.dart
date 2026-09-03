@@ -93,30 +93,32 @@ class _AutomationRulesScreenState
             const AutomationBackHeader(),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
                 children: [
                   Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 920),
+                      constraints: const BoxConstraints(maxWidth: 720), // UI-REV-02: ancho Dev
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // UI-REV-02: título 22px — jerarquía Dev, sin la
+                          // losa de 30px que aplastaba la cabecera.
                           Text(
                             'Reglas',
                             style: TextStyle(
                               color: visual.text,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Text(
                             'Cuándo y cómo Nano responde por ti. Las reglas '
                             'activas se evalúan con cada notificación.',
                             style: TextStyle(
                               color: visual.textMuted,
-                              fontSize: 14,
+                              fontSize: 13,
                               height: 1.4,
                             ),
                           ),

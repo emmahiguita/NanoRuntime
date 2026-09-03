@@ -54,6 +54,13 @@ abstract final class AutomationVisual {
         ? NanoLightColors()
         : inheritedColors;
     return AutomationVisualPalette(
+      // UI-REV-02: familia de colores RESUELTA para el scope. Antes el
+      // ThemeData del scope preservaba la NanoThemeExtension global
+      // original (p.ej. oscura con modo Claro glass): las secciones que
+      // leen NanoThemeExtension.of (notificaciones, console, c14, skills,
+      // engine status) pintaban textos/acentos del tema oscuro sobre
+      // canvas claro — mezcla de modos ilegible.
+      resolvedColors: colors,
       isDark: isDark,
       isGlass: isGlass,
       isLightGlass: isLightGlass,
@@ -142,8 +149,14 @@ abstract final class AutomationVisual {
       scaffoldBackgroundColor: visual.canvas,
       extensions: [
         ...base.extensions.values.where(
-          (extension) => extension is! AutomationVisualTheme,
+          (extension) =>
+              extension is! AutomationVisualTheme &&
+              // UI-REV-02: la extensión global se sustituye por la familia
+              // resuelta — fuera la mezcla claro/oscuro de las secciones
+              // que leen NanoThemeExtension.of(context).
+              extension is! NanoThemeExtension,
         ),
+        NanoThemeExtension(colors: visual.resolvedColors),
         AutomationVisualTheme(palette: visual),
       ],
       textTheme: base.textTheme.apply(
@@ -224,6 +237,7 @@ abstract final class AutomationVisual {
 @immutable
 class AutomationVisualPalette {
   const AutomationVisualPalette({
+    required this.resolvedColors,
     required this.isDark,
     required this.isGlass,
     required this.isLightGlass,
@@ -244,6 +258,12 @@ class AutomationVisualPalette {
     required this.shadowSoft,
     required this.success,
   });
+
+  /// Familia de colores semánticos resuelta para el scope visual (clara u
+  /// oscura según el modo). Se instala como NanoThemeExtension dentro del
+  /// ThemeData del scope para que los widgets que leen la extensión global
+  /// vean colores coherentes con el canvas del módulo.
+  final NanoColors resolvedColors;
 
   final bool isDark;
   final bool isGlass;
@@ -267,6 +287,12 @@ class AutomationVisualPalette {
 
   AutomationVisualPalette lerp(AutomationVisualPalette other, double t) =>
       AutomationVisualPalette(
+        // Lerp campo a campo via _LerpedNanoColors: al animar el cambio de
+        // modo (AnimatedTheme) la familia entera transiciona sin salto.
+        resolvedColors: (NanoThemeExtension(colors: resolvedColors)
+                .lerp(NanoThemeExtension(colors: other.resolvedColors), t)
+            as NanoThemeExtension)
+            .colors,
         isDark: t < 0.5 ? isDark : other.isDark,
         isGlass: t < 0.5 ? isGlass : other.isGlass,
         isLightGlass: t < 0.5 ? isLightGlass : other.isLightGlass,
@@ -380,15 +406,17 @@ class AutomationSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
+    // UI-REV-02: overline 10px — mismo patrón que SectionHeader de Dev
+    // (NanoType.overline). Antes 12px/0.7 rompía la jerarquía tipográfica.
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10),
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
           color: visual.textMuted,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.7,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
         ),
       ),
     );

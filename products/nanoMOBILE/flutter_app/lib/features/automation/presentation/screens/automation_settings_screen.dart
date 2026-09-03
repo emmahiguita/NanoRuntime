@@ -41,35 +41,36 @@ class AutomationSettingsScreen extends ConsumerWidget {
               child: ListView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
                 children: [
                   Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 920),
+                      constraints: const BoxConstraints(maxWidth: 720), // UI-REV-02: ancho Dev
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const AutomationBackHeader(),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
+                          // UI-REV-02: título 22px — jerarquía Dev.
                           Text(
                             'Configuración',
                             style: TextStyle(
                               color: AutomationVisual.of(context).text,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Text(
                             'Personaliza cómo Nano ejecuta tus automatizaciones.',
                             style: TextStyle(
                               color: AutomationVisual.of(context).textMuted,
-                              fontSize: 14,
+                              fontSize: 13,
                               height: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24),
                           const AutomationSectionLabel('General'),
                           _SettingsCard(
                             children: [
@@ -109,7 +110,7 @@ class AutomationSettingsScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Reglas'),
                           _SettingsCard(
                             children: [
@@ -128,7 +129,7 @@ class AutomationSettingsScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Ejecución'),
                           const _SettingsCard(
                             children: [
@@ -149,11 +150,11 @@ class AutomationSettingsScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Seguridad y accesos'),
                           const CapabilityStatusCard(),
                           if (onDevTap != null) ...[
-                            const SizedBox(height: 28),
+                            const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                             const AutomationSectionLabel('Diagnóstico'),
                             _SettingsCard(
                               children: [

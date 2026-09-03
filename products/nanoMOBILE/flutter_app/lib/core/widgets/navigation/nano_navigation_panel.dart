@@ -163,7 +163,12 @@ class _NanoFloatingNavigationFrameState
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
-            widget.child,
+            // UI-REV-02: el drag (setState por cada onPanUpdate) no debe
+            // repintar la pantalla entera. RepaintBoundary cachea la
+            // superficie de la app — el arrastre del búho solo mueve su
+            // capa y repinta el FAB. Sin esto, cada evento de drag
+            // re-evaluaba el subtree completo (cards glass, blur, listas).
+            RepaintBoundary(child: widget.child),
             if (!widget.hidden)
               AnimatedPositioned(
                 duration: _dragOffset == null ? motion : Duration.zero,

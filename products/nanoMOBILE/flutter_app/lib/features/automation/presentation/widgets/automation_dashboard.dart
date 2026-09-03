@@ -8,7 +8,6 @@ import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/theme/nano_breakpoint.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
@@ -358,130 +357,70 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final settings = ref.watch(settingsProvider);
     final mode = settings.agentAutomationMode;
 
-    // La jerarquía cambia por breakpoint, pero los mismos callbacks y estados
-    // alimentan ambas composiciones. No existe una segunda ruta de ejecución.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= NanoBreakpoints.mediumMax;
+    // UI-REV-02: composición única estilo Dev — columna centrada de 720
+    // con cabecera compacta. Antes había dos jerarquías (wide 2 columnas
+    // / narrow) con el mismo contenido duplicado; la 2 columnas estiraba
+    // cards y rompía la proporción del resto del módulo.
+    final header = _AgentHeader(
+      mode: mode,
+      onModeTap: _pickMode,
+      onSettingsTap: widget.onSettingsTap,
+      onDevTap: widget.onDevTap,
+    );
+    final composer = _TaskComposer(
+      controller: _taskController,
+      running: _running,
+      voiceEnabled: settings.voiceEnabled,
+      voiceState: _voiceState,
+      observingScreen: _observingScreen,
+      sensing: _sensing,
+      senseFeedback: _senseFeedback,
+      onVoice: _activateVoice,
+      onVoiceOutputToggle: _toggleVoiceOutput,
+      onObserve: _observeScreen,
+      onRun: _runTask,
+    );
+    final active = (_running || _lastStatus != null)
+        ? _ActiveExecutionCard(
+            goal: _lastGoal,
+            running: _running,
+            status: _lastStatus,
+            reason: _lastReason,
+            onConfirm: _lastStatus == AutomationResultStatus.paused
+                ? () => _runTask(_lastGoal, confirmation: _lastConfirmation)
+                : null,
+          )
+        : null;
+    final quick = QuickAutomationActions(
+      onRun: _runTask,
+      onMessagesTap: widget.onMessagesTap,
+      onDevTap: widget.onDevTap,
+    );
 
-        final header = _AgentHeader(
-          mode: mode,
-          onModeTap: _pickMode,
-          onSettingsTap: widget.onSettingsTap,
-          onDevTap: widget.onDevTap,
-        );
-        final composer = _TaskComposer(
-          controller: _taskController,
-          running: _running,
-          voiceEnabled: settings.voiceEnabled,
-          voiceState: _voiceState,
-          observingScreen: _observingScreen,
-          sensing: _sensing,
-          senseFeedback: _senseFeedback,
-          onVoice: _activateVoice,
-          onVoiceOutputToggle: _toggleVoiceOutput,
-          onObserve: _observeScreen,
-          onRun: _runTask,
-        );
-        final active = (_running || _lastStatus != null)
-            ? _ActiveExecutionCard(
-                goal: _lastGoal,
-                running: _running,
-                status: _lastStatus,
-                reason: _lastReason,
-                onConfirm: _lastStatus == AutomationResultStatus.paused
-                    ? () => _runTask(_lastGoal, confirmation: _lastConfirmation)
-                    : null,
-              )
-            : null;
-        final quick = QuickAutomationActions(
-          onRun: _runTask,
-          onMessagesTap: widget.onMessagesTap,
-          onDevTap: widget.onDevTap,
-        );
-
-        final left = <Widget>[
-          composer,
-          if (active != null) ...[
-            const SizedBox(height: NanoSpacing.lg),
-            active,
-          ],
-          const SizedBox(height: NanoSpacing.xl),
-          quick,
-        ];
-        final right = <Widget>[const EngineStatusCard(cleanAppearance: true)];
-
-        return SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(
-            wide ? NanoSpacing.xl : NanoSpacing.lg,
-            NanoSpacing.md,
-            wide ? NanoSpacing.xl : NanoSpacing.lg,
-            NanoSpacing.xxxl,
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              const SizedBox(height: NanoSpacing.xl),
+              composer,
+              if (active != null) ...[
+                const SizedBox(height: NanoSpacing.lg),
+                active,
+              ],
+              const SizedBox(height: NanoSpacing.xl),
+              quick,
+              const SizedBox(height: NanoSpacing.xl),
+              const EngineStatusCard(cleanAppearance: true),
+            ],
           ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: wide ? 1080 : 720),
-              child: wide
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        header,
-                        const SizedBox(height: NanoSpacing.xl),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Columnas acotadas (máx 520) → las cards NO se
-                            // estiran a todo el ancho en horizontal.
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 520,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: left,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: NanoSpacing.xxl),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 520,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: right,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        header,
-                        const SizedBox(height: NanoSpacing.xl),
-                        ...left,
-                        const SizedBox(height: NanoSpacing.xl),
-                        ...right,
-                      ],
-                    ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -503,35 +442,49 @@ class _AgentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    // UI-REV-02: cabecera compacta estilo Dev — título de pantalla (18px,
+    // mismo patrón de NanoScreenShell) en vez de la marca gigante de 30px.
+    // El chip de modo queda junto al título; los atajos a la derecha.
     return Semantics(
       header: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Contrapesa los IconButtons de la derecha para que la marca quede
-          // centrada también con el atajo de herramientas presente.
-          SizedBox(width: onDevTap != null ? 92 : 44),
           Expanded(
-            child: Column(
+            child: Row(
               children: [
-                const AutomationBrand(fontSize: 30, letterSpacing: 2.0),
-                const SizedBox(height: 8),
+                Flexible(
+                  child: Text(
+                    'Automatización',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: visual.text,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Material(
-                  color: AutomationVisual.of(context).accentSoft,
+                  color: visual.accentSoft,
                   borderRadius: BorderRadius.circular(99),
                   child: InkWell(
                     onTap: onModeTap,
                     borderRadius: BorderRadius.circular(99),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       child: Text(
                         'Modo ${mode.label}',
                         style: TextStyle(
-                          color: AutomationVisual.of(context).accent,
-                          fontSize: 12,
+                          color: visual.accent,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -543,21 +496,23 @@ class _AgentHeader extends StatelessWidget {
           ),
           IconButton(
             tooltip: 'Configuración de automatización',
+            visualDensity: VisualDensity.compact,
             onPressed: onSettingsTap,
             icon: Icon(
               Icons.settings_outlined,
-              color: AutomationVisual.of(context).text,
-              size: 26,
+              color: visual.text,
+              size: 21,
             ),
           ),
           if (onDevTap != null)
             IconButton(
               tooltip: 'Herramientas del agente',
+              visualDensity: VisualDensity.compact,
               onPressed: onDevTap,
               icon: Icon(
                 Icons.smart_toy_outlined,
-                color: AutomationVisual.of(context).accent,
-                size: 26,
+                color: visual.accent,
+                size: 21,
               ),
             ),
         ],
@@ -605,8 +560,10 @@ class _TaskComposer extends StatelessWidget {
             _ => running ? 'Ejecutando' : 'Listo',
           };
     final stateActive = voiceActive || observingScreen || sensing || running;
+    // UI-REV-02: paddings y tipografía del composer acotados al lenguaje
+    // Dev (card 16, título 16px) — antes 20/20 estiraba la pantalla.
     return AutomationSurfaceCard(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -621,9 +578,9 @@ class _TaskComposer extends StatelessWidget {
                       '¿Qué quieres que haga?',
                       style: TextStyle(
                         color: AutomationVisual.of(context).text,
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                        letterSpacing: -0.4,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -671,7 +628,7 @@ class _TaskComposer extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               SizedBox.square(
-                dimension: 52,
+                dimension: 46,
                 child: FilledButton(
                   onPressed: running || sensing
                       ? null
@@ -688,12 +645,12 @@ class _TaskComposer extends StatelessWidget {
                             color: AutomationVisual.of(context).onAccent,
                           ),
                         )
-                      : const Icon(Icons.arrow_forward_rounded, size: 25),
+                      : const Icon(Icons.arrow_forward_rounded, size: 22),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -790,8 +747,9 @@ class _ComposerControl extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: AnimatedContainer(
             duration: NanoMotionDurations.quick,
-            constraints: const BoxConstraints(minHeight: 76),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            // UI-REV-02: control compacto (60px) — proporción Dev.
+            constraints: const BoxConstraints(minHeight: 60),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             decoration: BoxDecoration(
               color: active
                   ? AutomationVisual.of(context).accentSoft
@@ -1147,12 +1105,12 @@ class QuickAutomationActions extends StatelessWidget {
               subtitle: 'Percepción, selectores y estado técnico',
               onTap: onDevTap!,
             ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
         ],
         const AutomationSectionLabel('Sugerencias'),
         LayoutBuilder(
           builder: (context, constraints) {
-            const gap = 10.0;
+            const gap = 8.0;
             // Mantiene un ancho táctil/legible real. En vertical estrecho pasa
             // a una columna; en horizontal aprovecha el espacio con 3 o 4 sin
             // reducir cada acción a un icono diminuto.
@@ -1203,24 +1161,26 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AutomationSurfaceCard(
     padding: EdgeInsets.zero,
-    radius: 18,
+    radius: 16,
     onTap: onTap,
+    // UI-REV-02: tile compacto (48px) — el acceso directo ocupa lo justo,
+    // sin la losa de 68px que rompía la proporción del dashboard.
     child: SizedBox(
-      height: 68,
+      height: 48,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: AutomationVisual.of(context).accent),
-            const SizedBox(width: 10),
+            Icon(icon, size: 18, color: AutomationVisual.of(context).accent),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
-                maxLines: 2,
-                overflow: TextOverflow.clip,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AutomationVisual.of(context).text,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                 ),
@@ -1250,19 +1210,20 @@ class _DashboardEntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 8),
     child: AutomationSurfaceCard(
       padding: EdgeInsets.zero,
-      radius: 18,
+      radius: 16,
       onTap: onTap,
+      // UI-REV-02: tile compacto (52px) — mismo lenguaje que Dev.
       child: SizedBox(
-        height: 64,
+        height: 52,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(icon, color: AutomationVisual.of(context).accent, size: 23),
-              const SizedBox(width: 12),
+              Icon(icon, color: AutomationVisual.of(context).accent, size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1272,7 +1233,7 @@ class _DashboardEntryTile extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: AutomationVisual.of(context).text,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1282,7 +1243,7 @@ class _DashboardEntryTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: AutomationVisual.of(context).textMuted,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -1290,6 +1251,7 @@ class _DashboardEntryTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
+                size: 20,
                 color: AutomationVisual.of(context).textMuted,
               ),
             ],
