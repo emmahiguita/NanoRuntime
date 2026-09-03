@@ -25,8 +25,6 @@ import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
 import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
-import dev.nanoai.mobile.edge.NanoEdgeChannelHandler
-import dev.nanoai.mobile.edge.NanoOverlayBridge
 import dev.nanoai.mobile.voice.AssistantRoleChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -285,24 +283,6 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(messenger, ChannelNames.SYSTEM)
             .setMethodCallHandler(SystemInventoryChannelHandler(this))
-
-        // EDGE-01: overlay del búho (TYPE_ACCESSIBILITY_OVERLAY). Los comandos
-        // viajan por MethodChannel; los eventos del overlay (tap/dismiss)
-        // vuelven por EventChannel.
-        MethodChannel(messenger, NanoOverlayBridge.CHANNEL_NAME)
-            .setMethodCallHandler(NanoEdgeChannelHandler())
-        EventChannel(messenger, NanoOverlayBridge.EVENTS_CHANNEL_NAME)
-            .setStreamHandler(
-                object : EventChannel.StreamHandler {
-                    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                        NanoOverlayBridge.eventsSink = events
-                    }
-
-                    override fun onCancel(arguments: Any?) {
-                        NanoOverlayBridge.eventsSink = null
-                    }
-                },
-            )
 
         MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
             .setMethodCallHandler(

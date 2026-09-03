@@ -1,14 +1,13 @@
 /// VAL-UI — Sección Dev de validación física del edge.
 ///
-/// Superficie de prueba manual para los sprints del búho:
-/// - EDGE-01/03: badge de disponibilidad + conmutador de burbuja.
+/// Superficie de prueba manual:
 /// - ROLE-01: botón explícito de assistant role.
 /// - APPFN-01: sonda de App Functions (canal nativo, solo lectura).
 /// - WA-MIRROR-01: espejo de conversación (historial, resumen, búsqueda).
 ///
-/// Solo diagnóstico, como el resto de la pantalla Dev. Los widgets de control
-/// del overlay viven en nano_edge_overlay.dart; aquí se exponen. El espejo es
-/// read-only: jamás escribe ni ejecuta.
+/// Solo diagnóstico, como el resto de la pantalla Dev. El búho (overlay
+/// flotante) se retiró: el icono de accesibilidad del sistema ya da acceso.
+/// El espejo es read-only: jamás escribe ni ejecuta.
 library;
 
 import 'package:flutter/material.dart';
@@ -20,7 +19,7 @@ import 'package:nanoai/core/widgets/nano_section_card.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart';
 
-import 'nano_edge_overlay.dart';
+import 'assistant_role_button.dart';
 import 'panels/conversation_mirror.dart';
 import 'panels/conversation_search.dart';
 
@@ -34,24 +33,10 @@ class EdgeDevSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         NanoSectionCard(
-          title: 'Búho (EDGE-01/03 · ROLE-01)',
-          child: Column(            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              NanoEdgeStatusBadge(),
-              SizedBox(height: NanoSpacing.sm),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _SectionLabel('Burbuja sobre apps'),
-                  NanoEdgeBubbleToggle(),
-                ],
-              ),
-              SizedBox(height: NanoSpacing.sm),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: NanoAssistantRoleButton(),
-              ),
-            ],
+          title: 'Asistente (ROLE-01)',
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: NanoAssistantRoleButton(),
           ),
         ),
         SizedBox(height: NanoSpacing.lg),
@@ -60,18 +45,6 @@ class EdgeDevSection extends StatelessWidget {
         _ConversationMirrorCard(),
       ],
     );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Text(text, style: NanoType.label(colors.onSurfaceVariant));
   }
 }
 
