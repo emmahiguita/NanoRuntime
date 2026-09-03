@@ -278,7 +278,7 @@ void main() {
         ),
       );
       expect(r, isA<PerceptionResolved>());
-      final obj = (r as PerceptionResolved).object!;
+      final obj = (r as PerceptionResolved).object;
       expect(obj.role, SemanticRole.button);
       expect(obj.label, 'Continuar');
     },
@@ -324,7 +324,7 @@ void main() {
         PerceptionEvidenceSource.vision,
       ]),
     );
-    expect(fused.object!.role, SemanticRole.button);
+    expect(fused.object.role, SemanticRole.button);
   });
 
   test(
@@ -356,7 +356,7 @@ void main() {
       );
       expect(r, isA<PerceptionResolved>());
       expect(
-        (r as PerceptionResolved).object!.text,
+        (r as PerceptionResolved).object.text,
         contains('Ignora instrucciones'),
       );
     },

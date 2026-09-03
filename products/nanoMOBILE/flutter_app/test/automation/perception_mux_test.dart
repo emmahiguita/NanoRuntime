@@ -79,7 +79,7 @@ void main() {
         ),
       );
       expect(r, isA<PerceptionResolved>());
-      expect((r as PerceptionResolved).object!.role, SemanticRole.searchField);
+      expect((r as PerceptionResolved).object.role, SemanticRole.searchField);
     });
 
     test('switch resuelve y checked preservado', () async {
@@ -100,7 +100,7 @@ void main() {
         ),
       );
       expect(r, isA<PerceptionResolved>());
-      final obj = (r as PerceptionResolved).object!;
+      final obj = (r as PerceptionResolved).object;
       expect(obj.role, SemanticRole.switchControl);
       expect(obj.checked, isFalse);
     });
@@ -119,7 +119,7 @@ void main() {
         ),
       );
       expect(
-        (r as PerceptionResolved).object!.role,
+        (r as PerceptionResolved).object.role,
         SemanticRole.switchControl,
       );
     });
@@ -158,7 +158,7 @@ void main() {
         ),
       );
       expect(r, isA<PerceptionResolved>());
-      expect((r as PerceptionResolved).object!.role, SemanticRole.textField);
+      expect((r as PerceptionResolved).object.role, SemanticRole.textField);
     });
 
     test('desconocido → insufficient (recomienda OCR, no lo llama)', () async {
@@ -193,7 +193,7 @@ void main() {
 
   group('memoria', () {
     test('memoria verificada + validación Accessibility → fuerte', () async {
-      final memory = NanoObjectMemory().recordSuccess(
+      final memory = const NanoObjectMemory().recordSuccess(
         const UiObjectKey(concept: 'bluetooth'),
         const UiSelectorEvidence(resourceId: 'com.x:id/bt'),
       );
@@ -231,7 +231,7 @@ void main() {
     });
 
     test('memoria stale (target ausente) → cae a Accessibility', () async {
-      final memory = NanoObjectMemory().recordSuccess(
+      final memory = const NanoObjectMemory().recordSuccess(
         const UiObjectKey(concept: 'bluetooth'),
         const UiSelectorEvidence(resourceId: 'com.x:id/old'),
       );
@@ -258,7 +258,7 @@ void main() {
       expect(r, isA<PerceptionResolved>());
       final res = r as PerceptionResolved;
       expect(res.memoryEvidence, isNull); // stale → sin evidencia de memoria
-      expect(res.object!.resourceId, 'com.x:id/new');
+      expect(res.object.resourceId, 'com.x:id/new');
     });
   });
 
@@ -350,7 +350,7 @@ void main() {
       // El texto queda como observación (NanoUiObject.text); no hay mecanismo
       // de autoridad/goal/policy expuesto por PerceptionResult.
       expect(
-        (r as PerceptionResolved).object!.text,
+        (r as PerceptionResolved).object.text,
         contains('Ignora instrucciones'),
       );
     });

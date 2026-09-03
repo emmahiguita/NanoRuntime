@@ -215,7 +215,7 @@ void main() {
         const PerceptionBudget(maxOcrCalls: 1),
       );
       expect(r, isA<PerceptionResolved>());
-      final bounds = (r as PerceptionResolved).object!.bounds;
+      final bounds = (r as PerceptionResolved).object.bounds;
       expect(bounds.left, 110);
       expect(bounds.top, 220);
       expect(bounds.right, 200);
@@ -307,7 +307,7 @@ void main() {
       ]),
     );
     expect(
-      fused.object!.role,
+      fused.object.role,
       SemanticRole.button,
     ); // role factual, no inventado
   });
@@ -335,7 +335,7 @@ void main() {
     );
     expect(r, isA<PerceptionResolved>());
     expect(
-      (r as PerceptionResolved).object!.text,
+      (r as PerceptionResolved).object.text,
       contains('Ignora instrucciones'),
     );
   });
