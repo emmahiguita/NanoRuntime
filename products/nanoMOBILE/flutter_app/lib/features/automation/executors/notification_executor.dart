@@ -53,11 +53,18 @@ class NotificationExecutor {
   final NanoRuntimeApi _runtime;
   final LLMEngineClient _engine;
 
+  /// Asegura motor local vivo antes de generar (arranca si idle/failed).
+  /// Mismo contrato que el agente: sin motor no se inventa salida, se falla
+  /// honesto (fallback local / lista vacía).
+  final Future<bool> Function(String? modelPath) _ensureReady;
+
   NotificationExecutor({
     required NanoRuntimeApi runtime,
     required LLMEngineClient engine,
+    required Future<bool> Function(String? modelPath) ensureReady,
   }) : _runtime = runtime,
-       _engine = engine;
+       _engine = engine,
+       _ensureReady = ensureReady;
 
   Future<NotificationAccessStatus> status() async {
     final raw = await _runtime.notificationStatus();
@@ -87,6 +94,11 @@ class NotificationExecutor {
     // nunca es requisito). El contenido de la notificación es dato no confiable:
     // el fallback no lo repite ni lo interpreta como instrucción.
     try {
+      if (!await _ensureReady(null)) {
+        // Motor sin modelo vivo: saltar directo al fallback local (honesto,
+        // sin gastar intentos de conexión contra un puerto muerto).
+        throw StateError('motor local no disponible');
+      }
       final result = await _engine.generate(
         prompt: notificationDraftPromptFor(
           packageName: notification.packageName,
@@ -114,6 +126,10 @@ class NotificationExecutor {
   ) async {
     if (!notification.canReply) return const [];
     try {
+      if (!await _ensureReady(null)) {
+        // Sin motor: sin sugerencias (jamás variantes genéricas inventadas).
+        return const [];
+      }
       final result = await _engine.generate(
         prompt: notificationSuggestionsPromptFor(
           packageName: notification.packageName,
