@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 
@@ -12,7 +13,10 @@ final notificationExecutorProvider = Provider<NotificationExecutor>((ref) {
     runtime: ref.watch(nanoRuntimeApiProvider),
     engine: notifier.client,
     // SUG-01: arranca el motor si está muerto (idle/failed) antes de generar.
-    // Sin esto, Sugerir/borrador devolvían silencio con el motor apagado.
-    ensureReady: (path) => notifier.ensureReady(modelPath: path),
+    // El path del modelo activo sale de Chat (mismo patrón que el agente):
+    // con null el supervisor arrancaría --no-model y /completion colgaría.
+    ensureReady: (_) => notifier.ensureReady(
+      modelPath: ref.read(chatProvider).activeModelPath,
+    ),
   );
 });
