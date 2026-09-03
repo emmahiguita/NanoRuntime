@@ -36,6 +36,13 @@ class ScheduledRule {
   /// Texto fijo de respuesta (para `reply`). '' = redactar/borrador.
   final String message;
 
+  /// WA-AGENT-09 — reply DINÁMICO: con [message] vacío, el motor local redacta
+  /// la respuesta con el historial factual de la conversación. Sin este flag,
+  /// una regla reply sin mensaje NO responde (fail-closed). El LLM solo
+  /// redacta texto: destinatario, paquete y conversación siguen anclados a la
+  /// notificación observada.
+  final bool dynamicReply;
+
   final bool enabled;
 
   /// Marca de creación (autoridad temporal para auditar la regla).
@@ -53,6 +60,7 @@ class ScheduledRule {
     required this.trigger,
     required this.action,
     this.message = '',
+    this.dynamicReply = false,
     this.enabled = true,
     required this.createdAt,
     this.lastFiredAt,
@@ -62,6 +70,7 @@ class ScheduledRule {
   ScheduledRule copyWith({
     RuleAction? action,
     String? message,
+    bool? dynamicReply,
     bool? enabled,
     DateTime? lastFiredAt,
   }) => ScheduledRule(
@@ -69,6 +78,7 @@ class ScheduledRule {
     trigger: trigger,
     action: action ?? this.action,
     message: message ?? this.message,
+    dynamicReply: dynamicReply ?? this.dynamicReply,
     enabled: enabled ?? this.enabled,
     createdAt: createdAt,
     lastFiredAt: lastFiredAt ?? this.lastFiredAt,
@@ -80,6 +90,7 @@ class ScheduledRule {
     'trigger': triggerToJson(trigger),
     'action': action.name,
     'message': message,
+    'dynamicReply': dynamicReply,
     'enabled': enabled,
     'createdAt': createdAt.toIso8601String(),
     'lastFiredAt': lastFiredAt?.toIso8601String(),
@@ -91,6 +102,7 @@ class ScheduledRule {
     trigger: triggerFromJson((m['trigger'] as Map).cast<String, dynamic>()),
     action: RuleAction.values.byName(m['action'] as String),
     message: (m['message'] as String?) ?? '',
+    dynamicReply: m['dynamicReply'] == true,
     enabled: m['enabled'] != false,
     createdAt: DateTime.parse(m['createdAt'] as String),
     lastFiredAt: m['lastFiredAt'] == null

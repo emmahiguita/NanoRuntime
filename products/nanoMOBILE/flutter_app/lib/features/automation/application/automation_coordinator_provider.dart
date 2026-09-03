@@ -406,6 +406,13 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       (goal, {AutomationOptions? options}) => ref
           .read(automationCoordinatorProvider)
           .execute(goal, options: options),
+      // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
+      // contextual que el candidato de notificación (un solo motor).
+      draftSource: ref.watch(notificationDraftSourceProvider),
+      // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
+      // nano_rule_notices). Fallo honesto si el sistema lo rechaza.
+      notifyLocal: (title, body) =>
+          NanoRuntimeApi.instance.notifyRuleEvent(title: title, body: body),
     ),
   );
 });

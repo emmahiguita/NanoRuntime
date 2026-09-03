@@ -27,6 +27,10 @@ class NotificationAutomationChannelHandler(
         const val CHANNEL_NAME = "com.nanoai/notifications"
         private const val CONFIRMATION_CHANNEL_ID = "nano_automation_confirmation"
         private const val CONFIRMATION_NOTIFICATION_ID = 0x4E41
+
+        /** NOTIFY-01: avisos locales de reglas (RuleAction.notify). */
+        private const val NOTICE_CHANNEL_ID = "nano_rule_notices"
+        private const val NOTICE_NOTIFICATION_ID = 0x4E42
         const val CONFIRMATION_EVENTS_CHANNEL_NAME =
             "com.nanoai/automation_confirmation_events"
         const val ACTION_CONFIRM_AUTOMATION =
@@ -91,6 +95,12 @@ class NotificationAutomationChannelHandler(
                 result.success(true)
             }
 
+            "notifyRuleEvent" -> {
+                val title = call.argument<String>("title").orEmpty()
+                val body = call.argument<String>("body").orEmpty()
+                result.success(notifyRuleEvent(title, body))
+            }
+
             "reply" -> {
                 val key = call.argument<String>("key")
                 val text = call.argument<String>("text")
@@ -134,6 +144,58 @@ class NotificationAutomationChannelHandler(
 
     override fun onCancel(arguments: Any?) {
         confirmationEventsSink = null
+    }
+
+    /**
+     * NOTIFY-01 — aviso local de una regla: "cuando X me escriba, avísame".
+     * Notificación propia de Nano; el tap solo abre Nano. Un aviso nuevo
+     * reemplaza al anterior (ID fijo): es señal, no historial.
+     */
+    private fun notifyRuleEvent(title: String, body: String): Boolean {
+        val manager = NotificationManagerCompat.from(activity)
+        if (!manager.areNotificationsEnabled()) return false
+        if (title.isBlank() && body.isBlank()) return false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                NOTICE_CHANNEL_ID,
+                "Avisos de reglas",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "Mensajes nuevos que activaron una regla de aviso"
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+            }
+            activity.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
+        }
+
+        val openIntent = Intent(activity, activity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        val openPendingIntent = PendingIntent.getActivity(
+            activity,
+            NOTICE_NOTIFICATION_ID,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(activity, NOTICE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_nano_confirmation)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(openPendingIntent)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .build()
+
+        return try {
+            manager.notify(NOTICE_NOTIFICATION_ID, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     /**

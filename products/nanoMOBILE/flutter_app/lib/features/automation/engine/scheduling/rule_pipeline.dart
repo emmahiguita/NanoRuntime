@@ -114,13 +114,17 @@ class RulePipeline {
 
       if (r.isReplyAttempt) {
         // Texto del envío con posible aterrizaje: servirá para ignorar el eco
-        // que la app origen publique después ("Tú: ...").
+        // que la app origen publique después ("Tú: ..."). WA-AGENT-09: el
+        // texto real (fijo o borrador LLM) viaja en el resultado del dispatch.
+        final sentText = r.dispatchedText.isNotEmpty
+            ? r.dispatchedText
+            : rule.message;
         _dedupe.recordVerifiedOutbound(
           conversationId,
-          rule.message,
+          sentText,
           atMs: nowMs,
         );
-        replyText = rule.message;
+        replyText = sentText;
         replyRuleId = rule.id;
       }
       // Registrar el disparo para cooldown de regla (T3.6). El evento fallado

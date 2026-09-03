@@ -1126,4 +1126,23 @@ class NanoRuntimeApi {
       return {'ok': false, 'code': e.toString()};
     }
   }
+
+  /// NOTIFY-01 — aviso local de una regla (RuleAction.notify): "cuando Juan
+  /// me escriba, avísame". Notificación propia de Nano; tocar abre Nano, nada
+  /// más (jamás autoriza acciones).
+  Future<bool> notifyRuleEvent({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      return await _notifications.invokeMethod<bool>('notifyRuleEvent', {
+            'title': title,
+            'body': body,
+          }) ??
+          false;
+    } catch (e) {
+      debugPrint('[runtime] notifyRuleEvent error: $e');
+      return false;
+    }
+  }
 }

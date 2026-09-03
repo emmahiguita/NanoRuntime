@@ -18,6 +18,8 @@ library;
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_result.dart';
 import '../governance/rule_execution_authority.dart';
+import '../notifications/notification_draft_writer.dart'
+    show NotificationDraftSource;
 import '../notifications/notification_object.dart';
 import 'scheduled_rule.dart';
 
@@ -54,11 +56,17 @@ class RuleDispatchResult {
   final AutomationResult? automationResult;
   final String reason;
 
+  /// Texto REAL que se intentó enviar (fijo de la regla o borrador LLM
+  /// dinámico). Lo consume el pipeline para dedupe de eco y memoria honesta;
+  /// vacío cuando no hubo texto (regla dinámica sin motor disponible).
+  final String dispatchedText;
+
   const RuleDispatchResult({
     required this.ruleId,
     required this.outcome,
     this.automationResult,
     this.reason = '',
+    this.dispatchedText = '',
   });
 
   /// true si la regla llegó a ejecutar un envío posiblemente irreversible
@@ -70,7 +78,12 @@ class RuleDispatchResult {
 }
 
 class RuleDispatcher {
-  RuleDispatcher(this._execute);
+  RuleDispatcher(
+    this._execute, {
+    NotificationDraftSource? draftSource,
+    Future<bool> Function(String title, String body)? notifyLocal,
+  }) : _draftSource = draftSource,
+       _notifyLocal = notifyLocal;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -80,16 +93,38 @@ class RuleDispatcher {
   })
   _execute;
 
+  /// WA-AGENT-09 — redacción contextual para reglas reply dinámicas. null =
+  /// sin motor: la regla dinámica falla honesta, jamás responde genérico.
+  final NotificationDraftSource? _draftSource;
+
+  /// NOTIFY-01 — aviso local real para RuleAction.notify. null = sin canal
+  /// (tests): el outcome sigue siendo notified, sin efecto local.
+  final Future<bool> Function(String title, String body)? _notifyLocal;
+
   Future<RuleDispatchResult> dispatch(
     ScheduledRule rule,
     NotificationObject notif,
   ) async {
     switch (rule.action) {
       case RuleAction.notify:
-        // T3.3: solo marca; la notificación local al usuario llega en T3.6.
+        final notifyLocal = _notifyLocal;
+        if (notifyLocal == null) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.notified,
+          );
+        }
+        final title = notif.sender.isEmpty
+            ? 'Nano: mensaje nuevo'
+            : 'Nano: ${notif.sender}';
+        final body = notif.text.isEmpty
+            ? 'Un mensaje activó la regla ${rule.id}.'
+            : notif.text;
+        final ok = await notifyLocal(title, body);
         return RuleDispatchResult(
           ruleId: rule.id,
-          outcome: RuleOutcome.notified,
+          outcome: ok ? RuleOutcome.notified : RuleOutcome.failed,
+          reason: ok ? '' : 'el aviso local no se pudo publicar',
         );
 
       case RuleAction.draft:
@@ -100,13 +135,6 @@ class RuleDispatcher {
         );
 
       case RuleAction.reply:
-        if (rule.message.isEmpty) {
-          return RuleDispatchResult(
-            ruleId: rule.id,
-            outcome: RuleOutcome.failed,
-            reason: 'regla sin mensaje de respuesta',
-          );
-        }
         if (notif.sender.isEmpty) {
           return RuleDispatchResult(
             ruleId: rule.id,
@@ -114,16 +142,46 @@ class RuleDispatcher {
             reason: 'notificación sin remitente',
           );
         }
+        // WA-AGENT-09 — reply dinámico: la regla no fija texto; el motor
+        // local redacta con el historial factual de la conversación. Sin
+        // motor/borrador → failed honesto, jamás respuesta genérica.
+        var text = rule.message;
+        if (text.trim().isEmpty && rule.dynamicReply) {
+          final draftSource = _draftSource;
+          if (draftSource == null) {
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.failed,
+              reason: 'regla dinámica sin motor de redacción disponible',
+            );
+          }
+          final draft = await draftSource(notif);
+          if (draft == null || draft.trim().isEmpty) {
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.failed,
+              reason: 'regla dinámica: el motor local no produjo borrador',
+            );
+          }
+          text = draft.trim();
+        } else if (text.trim().isEmpty) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'regla sin mensaje de respuesta',
+          );
+        }
         final AutomationResult result;
         try {
           // WA-AUTH-04: la regla fue creada explícitamente por el usuario →
-          // autoridad standing para su acción EXACTA. El coordinator/dispatcher
-          // solo la acepta si la llamada concreta satisface tool+texto+paquete;
-          // si no, la confirmación humana normal sigue igual.
+          // autoridad standing para su acción EXACTA (o su reply dinámico).
+          // El coordinator/dispatcher solo la acepta si la llamada concreta
+          // satisface tool+texto+paquete; si no, la confirmación humana
+          // normal sigue igual.
           final authority = RuleExecutionAuthority.fromRule(rule);
           result = await _execute(
             AutomationGoal(
-              text: 'responde a ${notif.sender} que ${rule.message}',
+              text: 'responde a ${notif.sender} que $text',
             ),
             options: authority == null
                 ? null
@@ -136,12 +194,16 @@ class RuleDispatcher {
             reason: 'excepción en ejecución: $e',
           );
         }
-        return _replyOutcome(rule.id, result);
+        return _replyOutcome(rule.id, result, dispatchedText: text);
     }
   }
 
   /// Mapeo honesto del estado del coordinator al outcome de la regla.
-  RuleDispatchResult _replyOutcome(String ruleId, AutomationResult result) {
+  RuleDispatchResult _replyOutcome(
+    String ruleId,
+    AutomationResult result, {
+    String dispatchedText = '',
+  }) {
     final outcome = switch (result.status) {
       AutomationResultStatus.completed => RuleOutcome.replyVerified,
       AutomationResultStatus.completedUnverified =>
@@ -156,6 +218,7 @@ class RuleDispatcher {
       outcome: outcome,
       automationResult: result,
       reason: result.reason,
+      dispatchedText: dispatchedText,
     );
   }
 }

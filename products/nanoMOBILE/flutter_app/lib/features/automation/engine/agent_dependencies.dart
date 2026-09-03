@@ -455,6 +455,28 @@ final automationDraftWriterProvider = Provider<AutomationDraftWriter>((ref) {
   );
 });
 
+/// Redacción contextual de respuestas a notificación (WA-AGENT-09): el motor
+/// local lee el contenido REAL y el historial factual de la conversación y
+/// redacta la respuesta. Gateada por el resolver de modelo (sin LLM permitido
+/// o sin motor → null, jamás texto genérico). Compartida por el candidato de
+/// notificación (respuestas del chat) y las reglas reply dinámicas.
+final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
+  ref,
+) {
+  final engine = ref.read(runtimeEngineProvider.notifier);
+  final resolver = ref.watch(automationModelResolverProvider);
+  return RuntimeNotificationDraftWriter(
+    client: engine.client,
+    llmAllowed: () =>
+        resolver.resolveFor(AutomationModelRole.draftWriter).llmAllowed,
+    ensureReady: (p) => engine.ensureReady(modelPath: p),
+    modelPath: () =>
+        resolver.resolveFor(AutomationModelRole.draftWriter).modelPath,
+    // WA-MEM-08: contexto factual de la conversación.
+    memory: ref.watch(conversationMemoryStoreProvider),
+  ).call;
+});
+
 /// Planificador Candidate-First de producción (A13.5/A15.7): generator →
 /// selection → governance → adapter, con SystemGraph real cargado lazy.
 final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
@@ -463,6 +485,7 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
   final experienceCache = ref.watch(experienceCacheProvider);
   final installedCatalog = ref.watch(installedAppCatalogProvider);
   final executor = ref.watch(agentExecutorProvider);
+  final notificationDraft = ref.watch(notificationDraftSourceProvider);
 
   return CandidateFirstPlanner(
     generatorBuilder: (graph) => CandidateActionGenerator([
@@ -481,22 +504,7 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
       // el resolver de modelo; sin modelo → sin borrador → abrir la app).
       NotificationCandidateProvider(
         () => NanoRuntimeApi.instance.listActiveNotifications(),
-        draftSource: RuntimeNotificationDraftWriter(
-          client: ref.read(runtimeEngineProvider.notifier).client,
-          llmAllowed: () => ref
-              .read(automationModelResolverProvider)
-              .resolveFor(AutomationModelRole.draftWriter)
-              .llmAllowed,
-          ensureReady: (p) => ref
-              .read(runtimeEngineProvider.notifier)
-              .ensureReady(modelPath: p),
-          modelPath: () => ref
-              .read(automationModelResolverProvider)
-              .resolveFor(AutomationModelRole.draftWriter)
-              .modelPath,
-          // WA-AGENT-09: contexto factual de la conversación (memoria MEM-08).
-          memory: ref.watch(conversationMemoryStoreProvider),
-        ).call,
+        draftSource: notificationDraft,
       ),
       // A14.9: extracción de datos observados (URL) → Linux write (cross-app).
       NotificationDataCandidateProvider(
