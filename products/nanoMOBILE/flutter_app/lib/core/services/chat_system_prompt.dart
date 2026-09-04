@@ -10,7 +10,7 @@ import 'device_info.dart';
 /// con el protocolo del agente. El registro continúa siendo la única fuente
 /// de verdad de las herramientas anunciadas.
 abstract final class ChatSystemPrompt {
-  static const int maxChars = 1200;
+  static const int maxChars = 2200;
 
   static String build({
     required ToolRegistry registry,
@@ -18,18 +18,21 @@ abstract final class ChatSystemPrompt {
     required DateTime now,
     required DeviceInfo device,
   }) {
-    final context = <String>[
+    final core = <String>[
       'Eres NanoAI, un asistente local que se ejecuta realmente en este dispositivo Android.',
       'Responde SIEMPRE en el idioma del usuario. En español usa ortografía completa: tildes, «ñ», signos de apertura (¿ ¡) y puntuación correctos. Sé claro y directo. No inventes datos ni afirmes una acción sin evidencia de herramienta.',
       'Modelo: $modelName. Fecha local: ${now.toIso8601String()}.',
       _deviceLine(device),
-      AgentToolPrompt.build(registry),
     ].where((line) => line.isNotEmpty).join('\n');
 
-    assert(
-      context.length <= maxChars,
-      'El system prompt excede el presupuesto móvil: ${context.length}',
-    );
+    // El bloque de herramientas NUNCA se trunca a mitad: un formato de agente
+    // cortado desboca la generación (bug real — el recorte por substring dejó
+    // al modelo generando 1300+ tokens sin fin). Si no cabe entero, se omite
+    // completo con marca honesta; jamás se parte.
+    final toolsBlock = AgentToolPrompt.build(registry);
+    final context = core.length + 1 + toolsBlock.length <= maxChars
+        ? '$core\n$toolsBlock'
+        : '$core\n[herramientas omitidas: exceden el presupuesto móvil]';
     return context;
   }
 

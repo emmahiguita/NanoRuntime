@@ -1036,22 +1036,37 @@ class ChatNotifier extends StateNotifier<ChatState> {
   /// Devuelve el historial ANTES del último mensaje user con [text].
   /// Busca de atrás hacia adelante para capturar el turno actual, no uno
   /// anterior con el mismo texto (evita bug con textos duplicados).
+  ///
+  /// Sanitización del contexto (bug real — desbocada en cadena):
+  /// los mensajes AI con status error se EXCLUYEN: alimentar al modelo con
+  /// el texto de su propio fallo lo confunde y degrada la generación.
+  /// La ventana ya se acota en `_buildHistory` (últimos 10 mensajes).
   List<ChatMessage> _historyBeforeCurrentUser(String text) {
     // Buscar el último mensaje user (independientemente del texto) que
     // coincida con el texto actual. Si hay duplicados, el último es el actual.
     for (var i = state.messages.length - 1; i >= 0; i--) {
       final msg = state.messages[i];
       if (msg.sender == MessageSender.user && msg.text == text) {
-        return state.messages.sublist(0, i);
+        return _sanitizeContext(state.messages.sublist(0, i));
       }
     }
     // Fallback: si no se encontró (no debería pasar), excluir el último user.
     final lastUserIdx = state.messages.lastIndexWhere(
       (m) => m.sender == MessageSender.user,
     );
-    if (lastUserIdx >= 0) return state.messages.sublist(0, lastUserIdx);
-    return state.messages;
+    if (lastUserIdx >= 0) {
+      return _sanitizeContext(state.messages.sublist(0, lastUserIdx));
+    }
+    return _sanitizeContext(state.messages);
   }
+
+  /// Quita mensajes AI fallidos del contexto. No altera el estado.
+  List<ChatMessage> _sanitizeContext(List<ChatMessage> messages) => messages
+      .where(
+        (m) =>
+            !(m.sender == MessageSender.ai && m.status == MessageStatus.error),
+      )
+      .toList();
 
   /// Una ronda de generación. [toolTrace] contiene pares
   /// (llamadaJSON, resultado) de herramientas ya ejecutadas en este turno;
