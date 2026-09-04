@@ -8,6 +8,7 @@ import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger_parser.dart';
 
+import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 
 /// Gestión de reglas de automatización (listar / activar / desactivar / borrar).
@@ -186,9 +187,12 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                           children: [
                             Center(
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 720,
-                                ), // UI-REV-02: ancho Dev
+                                // UI-REV-13: ancho adaptativo por orientación.
+                                constraints: BoxConstraints(
+                                  maxWidth: AutomationLayout.contentMaxWidth(
+                                    context,
+                                  ),
+                                ),
                                 child: Column(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
@@ -328,14 +332,19 @@ class _RuleCreatorCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Se evalúa con cada notificación · hora con la app abierta',
-                style: TextStyle(
-                  color: visual.textMuted,
-                  fontSize: 11,
-                  fontFamily: 'Inter',
+              // UI-REV-13: Expanded — el hint cede ancho y el botón jamás
+              // desborda en pantallas angostas (overflow horizontal).
+              Expanded(
+                child: Text(
+                  'Se evalúa con cada notificación · hora con la app abierta',
+                  style: TextStyle(
+                    color: visual.textMuted,
+                    fontSize: 11,
+                    fontFamily: 'Inter',
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               FilledButton(
                 onPressed: onCreate,
                 style: FilledButton.styleFrom(

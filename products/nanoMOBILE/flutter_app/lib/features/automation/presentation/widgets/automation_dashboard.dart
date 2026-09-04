@@ -332,11 +332,17 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       builder: (context) => AlertDialog(
         backgroundColor: AutomationVisual.of(context).surface,
         title: Text('Aviso a las ${picked.format(context)}'),
-        content: TextField(
-          controller: messageController,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Qué avisar (opcional)'),
-          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        // UI-REV-13: contenido scrolleable — con teclado abierto en horizontal
+        // el dialog jamás hace overflow de píxeles.
+        content: SingleChildScrollView(
+          child: TextField(
+            controller: messageController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Qué avisar (opcional)',
+            ),
+            onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+          ),
         ),
         actions: [
           TextButton(
@@ -456,30 +462,63 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       onTimeRuleTap: _createTimeRule,
     );
 
-    return SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              header,
-              const SizedBox(height: NanoSpacing.xl),
-              composer,
-              if (active != null) ...[
-                const SizedBox(height: NanoSpacing.lg),
-                active,
-              ],
-              const SizedBox(height: NanoSpacing.xl),
-              quick,
-              const SizedBox(height: NanoSpacing.xl),
-              const EngineStatusCard(cleanAppearance: true),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // UI-REV-13: horizontal — DOS columnas para aprovechar el ancho:
+        // composer protagonista a la izquierda, accesos/sugerencias a la
+        // derecha. Vertical: columna única como siempre. Misma composición,
+        // cero widgets duplicados — solo cambia el árbol de layout.
+        final landscape = constraints.maxWidth > constraints.maxHeight;
+        final mainColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            const SizedBox(height: NanoSpacing.xl),
+            composer,
+            if (active != null) ...[
+              const SizedBox(height: NanoSpacing.lg),
+              active,
             ],
+          ],
+        );
+        final sideColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            quick,
+            const SizedBox(height: NanoSpacing.xl),
+            const EngineStatusCard(cleanAppearance: true),
+          ],
+        );
+        final content = landscape
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: mainColumn),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 2, child: sideColumn),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  mainColumn,
+                  const SizedBox(height: NanoSpacing.xl),
+                  sideColumn,
+                ],
+              );
+        return SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
+          child: Center(
+            child: ConstrainedBox(
+              // UI-REV-13: horizontal respira (1280) — vertical conserva el
+              // ancho Dev de 720.
+              constraints: BoxConstraints(maxWidth: landscape ? 1280 : 720),
+              child: content,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

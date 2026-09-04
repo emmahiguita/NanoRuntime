@@ -5,6 +5,7 @@ import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 
+import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../notification_automation_section.dart';
 
@@ -66,7 +67,11 @@ class _AutomationMessagesBody extends StatelessWidget {
                   ),
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
+                      // UI-REV-13: ancho adaptativo (720 vertical / 1080
+                      // horizontal) — punto único en AutomationLayout.
+                      constraints: BoxConstraints(
+                        maxWidth: AutomationLayout.contentMaxWidth(context),
+                      ),
                       child: const NotificationAutomationSection(),
                     ),
                   ),

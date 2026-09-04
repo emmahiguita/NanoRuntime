@@ -7,6 +7,7 @@ import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
+import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/automation_bottom_navigation.dart';
 import '../widgets/capability_status_card.dart';
@@ -50,9 +51,11 @@ class AutomationSettingsScreen extends ConsumerWidget {
                     children: [
                       Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 720,
-                          ), // UI-REV-02: ancho Dev
+                          // UI-REV-13: ancho adaptativo por orientación
+                          // (720 vertical / 1080 horizontal).
+                          constraints: BoxConstraints(
+                            maxWidth: AutomationLayout.contentMaxWidth(context),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [

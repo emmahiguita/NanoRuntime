@@ -8,6 +8,7 @@ import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/features/edge/edge_dev_section.dart';
 
 import '../agent_console_section.dart';
+import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../skill_dev_section.dart';
 import '../widgets/c14_debug_benchmark_section.dart';
@@ -62,7 +63,10 @@ class _AutomationDevBody extends StatelessWidget {
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
+                    // UI-REV-13: ancho adaptativo por orientación.
+                    constraints: BoxConstraints(
+                      maxWidth: AutomationLayout.contentMaxWidth(context),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
