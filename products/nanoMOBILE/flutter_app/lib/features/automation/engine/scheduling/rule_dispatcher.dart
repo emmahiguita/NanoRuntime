@@ -101,6 +101,46 @@ class RuleDispatcher {
   /// (tests): el outcome sigue siendo notified, sin efecto local.
   final Future<bool> Function(String title, String body)? _notifyLocal;
 
+  /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
+  /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
+  /// posible: falla honesto, jamás responde a un destinatario inventado.
+  Future<RuleDispatchResult> dispatchScheduled(ScheduledRule rule) async {
+    switch (rule.action) {
+      case RuleAction.notify:
+        final notifyLocal = _notifyLocal;
+        if (notifyLocal == null) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.notified,
+          );
+        }
+        final body = rule.message.isEmpty
+            ? 'La regla "${rule.id}" disparó a esta hora.'
+            : rule.message;
+        final ok = await notifyLocal('Nano: recordatorio', body);
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: ok ? RuleOutcome.notified : RuleOutcome.failed,
+          reason: ok ? '' : 'el aviso local no se pudo publicar',
+        );
+
+      case RuleAction.draft:
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.drafted,
+        );
+
+      case RuleAction.reply:
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.failed,
+          reason:
+              'trigger por hora sin remitente — '
+              'para responder usa un trigger de notificación',
+        );
+    }
+  }
+
   Future<RuleDispatchResult> dispatch(
     ScheduledRule rule,
     NotificationObject notif,
@@ -180,9 +220,7 @@ class RuleDispatcher {
           // normal sigue igual.
           final authority = RuleExecutionAuthority.fromRule(rule);
           result = await _execute(
-            AutomationGoal(
-              text: 'responde a ${notif.sender} que $text',
-            ),
+            AutomationGoal(text: 'responde a ${notif.sender} que $text'),
             options: authority == null
                 ? null
                 : AutomationOptions(authority: authority),

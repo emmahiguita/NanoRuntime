@@ -29,6 +29,7 @@ import 'rule_dispatcher.dart';
 import 'rule_engine.dart';
 import 'rule_registry.dart';
 import 'scheduled_rule.dart';
+import 'trigger.dart' show TickEvent;
 
 class RulePipeline {
   RulePipeline({
@@ -119,11 +120,7 @@ class RulePipeline {
         final sentText = r.dispatchedText.isNotEmpty
             ? r.dispatchedText
             : rule.message;
-        _dedupe.recordVerifiedOutbound(
-          conversationId,
-          sentText,
-          atMs: nowMs,
-        );
+        _dedupe.recordVerifiedOutbound(conversationId, sentText, atMs: nowMs);
         replyText = sentText;
         replyRuleId = rule.id;
       }
@@ -172,6 +169,40 @@ class RulePipeline {
           );
         }
       }
+    }
+    return results;
+  }
+
+  /// TRIG-01 — tick de reloj (TimeTickScheduler): matchea reglas de hora
+  /// habilitadas y las ejecuta SIN notificación entrante. Sin puerta de dedupe
+  /// (el tick de cada minuto es único por construcción) y sin reply (no hay
+  /// remitente: el dispatcher falla honesto en ese caso).
+  Future<List<RuleDispatchResult>> onTick(TickEvent event) async {
+    final matched = _engine.match(_registry.rules, event);
+    final hhmm =
+        '${event.now.hour.toString().padLeft(2, '0')}:'
+        '${event.now.minute.toString().padLeft(2, '0')}';
+    debugPrint(
+      '[rules] tick $hhmm cargadas=${_registry.rules.length} '
+      'matcheadas=${matched.length}',
+    );
+    final results = <RuleDispatchResult>[];
+    for (final rule in matched) {
+      final r = await _dispatcher.dispatchScheduled(rule);
+      results.add(r);
+      // Registrar el disparo para cooldown de regla: solo efectos reales
+      // (aviso publicado o borrador); el reply fallado no cuenta.
+      if (r.outcome == RuleOutcome.notified ||
+          r.outcome == RuleOutcome.drafted) {
+        _registry.markFired(rule.id, event.now);
+      }
+    }
+    if (results.isNotEmpty) {
+      debugPrint(
+        '[rules] tick resultados='
+        '${results.map((r) => r.outcome.name).join(',')} '
+        'razones="${results.map((r) => r.reason).join(' | ')}"',
+      );
     }
     return results;
   }

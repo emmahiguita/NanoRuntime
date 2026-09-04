@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart'
-    show notificationEventRouterProvider;
+    show notificationEventRouterProvider, timeTickSchedulerProvider;
 
 import 'package:nanoai/features/home/nano_home_screen.dart';
 import 'package:nanoai/features/home/nano_home_models.dart';
@@ -31,6 +31,9 @@ class DashboardScreen extends ConsumerWidget {
     // ningún provider instancia el router y las reglas nunca procesan
     // notificaciones reales.
     ref.watch(notificationEventRouterProvider);
+    // TRIG-01: mismo consumidor permanente para el ticker de reloj — las
+    // reglas de hora (TimeTrigger) disparan mientras la app esté viva.
+    ref.watch(timeTickSchedulerProvider);
     final dashboard = ref.watch(dashboardProvider);
     final rootfs = ref.watch(rootfsProvider);
     final chat = ref.watch(chatProvider);

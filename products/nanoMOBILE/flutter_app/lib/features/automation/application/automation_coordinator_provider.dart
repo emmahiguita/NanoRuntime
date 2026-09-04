@@ -28,6 +28,7 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dar
 import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
+import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 
 import '../domain/automation_goal.dart' show AutomationOptions;
@@ -427,4 +428,15 @@ final notificationEventRouterProvider = Provider<NotificationEventRouter>((
   )..start();
   ref.onDispose(router.stop);
   return router;
+});
+
+/// TRIG-01 — ticker de reloj en-app: productor real de TickEvent para reglas
+/// de hora (TimeTrigger). Arranca al leerse (dashboard lo mantiene vivo igual
+/// que el router) y alimenta el MISMO pipeline que las notificaciones.
+final timeTickSchedulerProvider = Provider<TimeTickScheduler>((ref) {
+  final scheduler = TimeTickScheduler(
+    onMinute: (event) => ref.read(rulePipelineProvider).onTick(event),
+  )..start();
+  ref.onDispose(scheduler.stop);
+  return scheduler;
 });

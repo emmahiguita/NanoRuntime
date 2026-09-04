@@ -199,9 +199,20 @@ class _RuleCard extends StatelessWidget {
       if (sender == null || sender.isEmpty) return package;
       return '$package · contacto "$sender"';
     }
-    if (trigger is ConnectivityTrigger) return 'wifi';
+    // TRIG-01: la regla de hora ahora dispara (ticker en-app, app viva).
+    if (trigger is TimeTrigger) {
+      final hh = trigger.hour.toString().padLeft(2, '0');
+      final mm = trigger.minute.toString().padLeft(2, '0');
+      if (trigger.weekdays.isEmpty) return 'a las $hh:$mm';
+      return 'a las $hh:$mm (días ${trigger.weekdays.join(',')})';
+    }
+    // TRIG-01: honestidad — conectividad/batería no tienen productor de
+    // eventos todavía; la regla existe pero jamás disparará. La UI no miente.
+    if (trigger is ConnectivityTrigger) {
+      return 'wifi (sin soporte aún)';
+    }
     if (trigger is BatteryTrigger) {
-      return 'batería < ${trigger.belowPercent}%';
+      return 'batería < ${trigger.belowPercent}% (sin soporte aún)';
     }
     return trigger.runtimeType.toString();
   }
