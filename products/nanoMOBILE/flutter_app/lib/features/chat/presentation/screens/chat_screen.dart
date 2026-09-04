@@ -244,42 +244,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // El shell conserva su geometría cuando aparece el teclado. El
       // compositor se mueve de manera independiente sobre el inset para no
       // desplazar lista, encabezado ni contenido ya leído.
-      hideHeader: _isReadingMode,
+      // UI-REV-15: en horizontal NO hay header — la franja del título se
+      // regala al contenido y las acciones del chat flotan sobre los
+      // mensajes (mismas acciones, otro lugar, cero espacio perdido).
+      hideHeader: _isReadingMode || isLandscape,
       resizeToAvoidBottomInset: false,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (state.messages.isNotEmpty)
-            IconButton(
-              key: const ValueKey('chat_reading_mode_toggle'),
-              tooltip: 'Modo lectura',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => setState(() => _isReadingMode = true),
-              icon: Icon(
-                Icons.chrome_reader_mode_rounded,
-                color: colors.onSurface.withValues(alpha: 0.72),
-                size: 20,
-              ),
-            ),
-          if (state.messages.isNotEmpty)
-            IconButton(
-              tooltip: 'Limpiar conversación',
-              onPressed: state.generating
-                  ? null
-                  : () => _showClearDialog(notifier),
-              icon: Icon(
-                Icons.delete_sweep_rounded,
-                color: colors.onSurface.withValues(alpha: 0.72),
-                size: 22,
-              ),
-            ),
-          const SizedBox(width: 4),
-          _EngineBadge(
-            online: state.engineOnline,
-            loading: state.connection == ModelConnectionState.loadingModel,
-          ),
-        ],
-      ),
+      trailing: isLandscape ? null : _chatActions(state, notifier, colors),
       body: _isReadingMode
           ? _ReadingMode(
               messages: state.messages,
@@ -377,15 +347,62 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  /// UI-REV-15 — acciones del chat (modo lectura, limpiar, estado del motor)
+  /// en un solo lugar. En vertical viven en el header del shell; en
+  /// horizontal flotan sobre los mensajes — mismas acciones, sin duplicar.
+  Widget _chatActions(
+    ChatState state,
+    ChatNotifier notifier,
+    NanoColors colors,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (state.messages.isNotEmpty)
+          IconButton(
+            key: const ValueKey('chat_reading_mode_toggle'),
+            tooltip: 'Modo lectura',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => setState(() => _isReadingMode = true),
+            icon: Icon(
+              Icons.chrome_reader_mode_rounded,
+              color: colors.onSurface.withValues(alpha: 0.72),
+              size: 20,
+            ),
+          ),
+        if (state.messages.isNotEmpty)
+          IconButton(
+            tooltip: 'Limpiar conversación',
+            onPressed: state.generating
+                ? null
+                : () => _showClearDialog(notifier),
+            icon: Icon(
+              Icons.delete_sweep_rounded,
+              color: colors.onSurface.withValues(alpha: 0.72),
+              size: 22,
+            ),
+          ),
+        const SizedBox(width: 4),
+        _EngineBadge(
+          online: state.engineOnline,
+          loading: state.connection == ModelConnectionState.loadingModel,
+        ),
+      ],
+    );
+  }
+
   /// UI-REV-14 — chat horizontal profesional: los mensajes dominan TODO el
   /// ancho y la escritura vive en un panel lateral acotado (400px) con
   /// cabecera propia. La barra puede minimizarse (burbuja) u ocultarse del
   /// todo (chip flotante "Escribir" para reabrir). Nada se estira a 2400px.
+  /// UI-REV-15: sin header — las acciones flotan arriba a la derecha sobre
+  /// los mensajes (vidrio), la franja del título es contenido.
   Widget _buildLandscapeChat(
     ChatState state,
     ChatNotifier notifier,
     MediaQueryData mediaQuery,
   ) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     // UI-REV-12: mismo despeje de la línea del FAB que en vertical.
     const fabClearance = 78.0;
     return Padding(
@@ -403,6 +420,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     bottomPadding: mediaQuery.padding.bottom + 24,
                     emptyBottomPadding: 0,
                     sidePadding: 18,
+                    // UI-REV-15: despeje para la toolbar flotante.
+                    topPadding: 52,
+                  ),
+                ),
+                // UI-REV-15: toolbar flotante de acciones (lectura, limpiar,
+                // estado del motor) — vidrio sobre el contenido.
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: _FloatingChatActions(
+                    child: _chatActions(state, notifier, colors),
                   ),
                 ),
                 if (_composerHidden)
@@ -469,14 +497,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   /// UI-REV-14 — lista de mensajes compartida vertical/horizontal. Un solo
-  /// builder para las dos orientaciones; solo cambia el despeje inferior
-  /// (barra en vertical, nada en horizontal) y el lateral.
+  /// builder para las dos orientaciones; solo cambian los despejes (inferior
+  /// para la barra en vertical, superior para la toolbar flotante en
+  /// horizontal) y el lateral.
   Widget _messageList(
     ChatState state,
     ChatNotifier notifier, {
     required double bottomPadding,
     required double emptyBottomPadding,
     required double sidePadding,
+    double topPadding = 8,
   }) {
     if (state.messages.isEmpty) {
       return Padding(
@@ -495,7 +525,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return ListView.builder(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(sidePadding, 8, sidePadding, bottomPadding),
+      padding: EdgeInsets.fromLTRB(
+        sidePadding,
+        topPadding,
+        sidePadding,
+        bottomPadding,
+      ),
       itemCount: state.messages.length + (state.generating ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == state.messages.length) {
@@ -1265,6 +1300,32 @@ class _EngineBadgeState extends State<_EngineBadge>
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+}
+
+/// UI-REV-15 — cápsula de vidrio para las acciones del chat cuando flotan
+/// sobre los mensajes en horizontal (sin header). Legibles sobre cualquier
+/// contenido, sin tapar con bloques opacos.
+class _FloatingChatActions extends StatelessWidget {
+  const _FloatingChatActions({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+    return NanoOpticalSurface(
+      geometry: NanoSurfaceGeometry.capsule,
+      borderRadius: 999,
+      blurSigma: 14,
+      borderStrength: 0.70,
+      reflectionStrength: 0.40,
+      depth: 0.9,
+      accent: isDark ? colors.accentCyan : colors.primary,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: child,
+    );
   }
 }
 
