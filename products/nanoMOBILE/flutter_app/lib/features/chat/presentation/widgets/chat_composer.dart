@@ -118,8 +118,8 @@ class _ChatComposerState extends State<ChatComposer> {
 
     return NanoOpticalSurface(
       geometry: NanoSurfaceGeometry.roundedRectangle,
-      borderRadius: 26,
-      blurSigma: widget.compact ? 16.0 : 20.0,
+      borderRadius: 28,
+      blurSigma: widget.compact ? 16.0 : 22.0,
       borderStrength: _isFocused ? 1.0 : 0.80,
       // El campo de texto es una superficie de trabajo: la caustica movil no
       // debe atravesar las letras. En escritorio se conserva el barrido al
@@ -131,7 +131,7 @@ class _ChatComposerState extends State<ChatComposer> {
       accent: _isFocused
           ? (isDark ? colors.accent : colors.accentCyan)
           : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
-      padding: const EdgeInsets.fromLTRB(6, 2, 6, 4),
+      padding: const EdgeInsets.fromLTRB(8, 2, 8, 5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -268,8 +268,9 @@ class _ChatComposerState extends State<ChatComposer> {
               ),
             ),
 
-          // Fila de escritura: [mic] [attach] [ CAMPO AMPLIO ] [enviar].
-          // El campo es el protagonista; las acciones se agrupan a los lados.
+          // Fila de escritura: [mic] [ CAMPO AMPLIO ] [attach] [enviar].
+          // UI-REV-11: el campo es el protagonista absoluto — adjuntar se
+          // mueve a la derecha (patrón Gemini) y cede al texto todo el ancho.
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -288,30 +289,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
-
-              // Botón Adjuntar Archivo (compacto: cede ancho al campo)
-              Tooltip(
-                message: 'Adjuntar archivo',
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(99),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(99),
-                    onTap: widget.onAttach,
-                    child: SizedBox(
-                      width: widget.compact ? 30 : 34,
-                      height: widget.compact ? 34 : 38,
-                      child: Icon(
-                        Icons.attach_file_rounded,
-                        color: colors.onSurface.withValues(alpha: 0.58),
-                        size: 19,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
 
               // Campo de texto: protagonista de la card. Ocupa todo el ancho
               // libre y su padding vertical mínimo (8) lo alinea con los
@@ -346,8 +324,32 @@ class _ChatComposerState extends State<ChatComposer> {
                     filled: false,
                     fillColor: Colors.transparent,
                     contentPadding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 4,
+                      vertical: 9,
+                      horizontal: 6,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+
+              // Botón Adjuntar — a la derecha del campo, junto al enviar
+              // (patrón Gemini): todo el ancho libre es del texto.
+              Tooltip(
+                message: 'Adjuntar archivo',
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(99),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(99),
+                    onTap: widget.onAttach,
+                    child: SizedBox(
+                      width: widget.compact ? 28 : 30,
+                      height: widget.compact ? 34 : 40,
+                      child: Icon(
+                        Icons.attach_file_rounded,
+                        color: colors.onSurface.withValues(alpha: 0.55),
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -368,8 +370,8 @@ class _ChatComposerState extends State<ChatComposer> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOutCubic,
-                      width: widget.compact ? 36 : 38,
-                      height: widget.compact ? 36 : 38,
+                      width: widget.compact ? 38 : 40,
+                      height: widget.compact ? 38 : 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: widget.generating
