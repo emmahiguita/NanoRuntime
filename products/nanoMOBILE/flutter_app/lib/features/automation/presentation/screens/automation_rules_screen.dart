@@ -5,6 +5,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
+import 'package:nanoai/features/automation/engine/scheduling/trigger_parser.dart';
 
 import '../automation_visual_theme.dart';
 
@@ -25,6 +26,82 @@ class AutomationRulesScreen extends ConsumerStatefulWidget {
 class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   List<ScheduledRule> _rules = const [];
   bool _loaded = false;
+
+  final _createController = TextEditingController();
+  String? _createError;
+
+  /// RULES-CREATE-01: verbos de acción del lenguaje natural de la regla.
+  /// Se limpian del mensaje (quedan en la acción, no en el texto).
+  static final _replyVerbs = RegExp(
+    r'^(respóndele|respondele|responde|responder|contéstale|contestale|contesta|contestar)\s*',
+    caseSensitive: false,
+  );
+  static final _notifyVerbs = RegExp(
+    r'^(avísame|avisame|avísar|avisar|notifícame|notificame|notificar)\s*',
+    caseSensitive: false,
+  );
+
+  @override
+  void dispose() {
+    _createController.dispose();
+    super.dispose();
+  }
+
+  /// RULES-CREATE-01 — crea una regla desde lenguaje natural con el MISMO
+  /// TriggerParser del pipeline. Acción por verbo (responder → reply,
+  /// resto → notify); reply con trigger de hora se rechaza honesto (un tick
+  /// no trae remitente) y reply sin texto queda como respuesta dinámica.
+  void _createRule() {
+    final text = _createController.text.trim();
+    if (text.isEmpty) return;
+    final parsed = const TriggerParser().parse(text);
+    if (parsed == null) {
+      setState(
+        () => _createError =
+            'No entendí el disparo. Prueba «a las 8:30 avísame que es hora» '
+            'o «cuando Juan me escriba, respóndele estoy ocupado».',
+      );
+      return;
+    }
+    final goal = parsed.goal.trim();
+    final String message;
+    final RuleAction action;
+    var dynamicReply = false;
+    if (_replyVerbs.hasMatch(goal)) {
+      action = RuleAction.reply;
+      message = goal.replaceFirst(_replyVerbs, '').trim();
+      dynamicReply = message.isEmpty;
+    } else {
+      action = RuleAction.notify;
+      message = goal.replaceFirst(_notifyVerbs, '').trim();
+    }
+    if (parsed.trigger is TimeTrigger && action == RuleAction.reply) {
+      setState(
+        () => _createError =
+            'Responder necesita un remitente: usa un trigger de notificación '
+            '(«cuando Juan me escriba, respóndele X»). Con hora solo puedo '
+            'avisarte.',
+      );
+      return;
+    }
+    final rule = ScheduledRule(
+      id: 'rule-${DateTime.now().millisecondsSinceEpoch}',
+      trigger: parsed.trigger,
+      action: action,
+      message: message,
+      dynamicReply: dynamicReply,
+      createdAt: DateTime.now(),
+    );
+    ref.read(ruleRegistryProvider).add(rule);
+    setState(() {
+      _rules = ref.read(ruleRegistryProvider).rules;
+      _createError = null;
+    });
+    _createController.clear();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Regla creada: ${rule.id}')));
+  }
 
   @override
   void initState() {
@@ -138,6 +215,15 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 24),
+                                    // RULES-CREATE-01: creación en lenguaje
+                                    // natural — el MISMO TriggerParser que
+                                    // evalúa el pipeline, sin duplicar lógica.
+                                    _RuleCreatorCard(
+                                      controller: _createController,
+                                      error: _createError,
+                                      onCreate: _createRule,
+                                    ),
+                                    const SizedBox(height: 16),
                                     if (!_loaded)
                                       const Padding(
                                         padding: EdgeInsets.all(24),
@@ -170,6 +256,101 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// RULES-CREATE-01 — campo de creación de reglas en lenguaje natural.
+/// Presentación pura: el parseo y el registry viven en la pantalla.
+class _RuleCreatorCard extends StatelessWidget {
+  const _RuleCreatorCard({
+    required this.controller,
+    required this.error,
+    required this.onCreate,
+  });
+
+  final TextEditingController controller;
+  final String? error;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    final colors = NanoThemeExtension.of(context).colors;
+    return AutomationSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: controller,
+            minLines: 1,
+            maxLines: 3,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => onCreate(),
+            style: TextStyle(
+              color: visual.text,
+              fontSize: 14,
+              fontFamily: 'Inter',
+            ),
+            decoration: InputDecoration(
+              hintText: 'Nueva regla… p. ej. «a las 8:30 avísame que es hora»',
+              hintStyle: TextStyle(
+                color: visual.textMuted.withValues(alpha: 0.7),
+                fontSize: 13,
+                fontFamily: 'Inter',
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: visual.inputFill,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: TextStyle(
+                color: colors.danger,
+                fontSize: 12,
+                height: 1.35,
+                fontFamily: 'Inter',
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Se evalúa con cada notificación · hora con la app abierta',
+                style: TextStyle(
+                  color: visual.textMuted,
+                  fontSize: 11,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              FilledButton(
+                onPressed: onCreate,
+                style: FilledButton.styleFrom(
+                  backgroundColor: visual.accent,
+                  foregroundColor: colors.onAccent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                ),
+                child: const Text('Crear'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
