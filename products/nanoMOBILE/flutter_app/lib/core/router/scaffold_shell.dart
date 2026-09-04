@@ -56,11 +56,15 @@ class ScaffoldShell extends StatelessWidget {
     final branchCanPop =
         AppRouter.branchKeys[currentIndex].currentState?.canPop() ?? false;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    // UI-REV-08: en claro el fondo es la aurora líquida naranja (la misma de
-    // dev/automation); en oscuro se conserva el ambient con glows orbitales.
-    final isDark =
-        Theme.of(context).extension<NanoThemeExtension>()!.colors
-            is NanoDarkColors;
+    // UI-REV-08/09: en claro el fondo es la aurora líquida naranja (la misma
+    // de dev/automation); el oscuro normal conserva el ambient con glows
+    // orbitales. La identidad "Clásico" (familia oscura naranja de dev,
+    // isClassicOrange) también usa la aurora líquida.
+    final shellColors = Theme.of(
+      context,
+    ).extension<NanoThemeExtension>()!.colors;
+    final isDark = shellColors is NanoDarkColors;
+    final useLiquid = !isDark || shellColors.isClassicOrange;
 
     final shellContent = MediaQuery.removePadding(
       context: context,
@@ -90,9 +94,9 @@ class ScaffoldShell extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Positioned.fill(
-              child: isDark
-                  ? const NanoAmbientBackground()
-                  : const LiquidFluidBackground(),
+              child: useLiquid
+                  ? const LiquidFluidBackground()
+                  : const NanoAmbientBackground(),
             ),
             SafeArea(
               child: NanoFloatingNavigationFrame(

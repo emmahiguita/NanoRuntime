@@ -106,6 +106,11 @@ abstract class NanoColors {
   Color get borderPrimaryColor;
   Color get borderSecondaryColor;
   Color get borderAccentColor;
+
+  /// UI-REV-09: marca la identidad "Clásico" (modo Claro = dev oscuro naranja).
+  /// El shell usa aurora líquida con estas familias; el oscuro normal conserva
+  /// los glows orbitales.
+  bool get isClassicOrange => false;
 }
 
 class NanoDarkColors implements NanoColors {
@@ -296,6 +301,9 @@ class NanoDarkColors implements NanoColors {
   final borderSecondaryColor = const Color(0x2E97A1BF); // rgba(151,170,191,0.18)
   @override
   final borderAccentColor = const Color(0x4042F5E3); // rgba(66,245,227,0.25)
+
+  @override
+  bool get isClassicOrange => false;
 }
 
 class NanoLightColors implements NanoColors {
@@ -486,6 +494,9 @@ class NanoLightColors implements NanoColors {
   final borderSecondaryColor = const Color(0x40DCE5ED); // Línea metálica suave (Silver)
   @override
   final borderAccentColor = const Color(0x6055DCE8); // Cyan borde reflectivo
+
+  @override
+  bool get isClassicOrange => false;
 }
 
 /// Identidad cálida de Nano usada únicamente cuando el usuario elige
@@ -568,6 +579,53 @@ class NanoSystemDarkColors extends NanoDarkColors {
   Color get accentLavender => const Color(0xFFFFC078);
   @override
   Color get borderAccentColor => const Color(0x66FF9A3D);
+}
+
+/// Identidad "Clásico" (UI-REV-09, borrador del usuario): el modo Claro de la
+/// app adopta el fondo profundo de Dev con aurora naranja viva de marca —
+/// mismo lenguaje que Automatización. No es una paleta clara: es la gama
+/// naranja pura (FF7A00) sobre la familia oscura, con textos claros y vidrio.
+/// El modo Oscuro explícito conserva la gama menta/cyan original.
+class NanoClassicDarkColors extends NanoDarkColors {
+  @override
+  bool get isClassicOrange => true;
+
+  @override
+  Color get primary => const Color(0xFFFF7A00);
+  @override
+  Color get primaryContainer => const Color(0xFF5A2A00);
+  @override
+  Color get onPrimaryContainer => const Color(0xFFFFE8D1);
+  @override
+  Color get secondary => const Color(0xFFF28B22);
+  @override
+  Color get secondaryContainer => const Color(0xFF47270B);
+  @override
+  Color get accent => const Color(0xFFFF7A00);
+  @override
+  Color get onAccent => const Color(0xFFFFFFFF);
+  @override
+  Color get glassOverlay => const Color(0x14FF7A00);
+  @override
+  Color get nanoCyan => const Color(0xFFFF7A00);
+  @override
+  Color get nanoTurquoise => const Color(0xFFE96B00);
+  @override
+  Color get nanoBlue => const Color(0xFFD85A00);
+  @override
+  Color get nanoViolet => const Color(0xFFF09A3E);
+  @override
+  Color get accentCyan => const Color(0xFFFF7A00);
+  @override
+  Color get accentMint => const Color(0xFFF28B22);
+  @override
+  Color get accentSky => const Color(0xFFFF9F43);
+  @override
+  Color get accentBlue => const Color(0xFFE76F00);
+  @override
+  Color get accentLavender => const Color(0xFFF6B16A);
+  @override
+  Color get borderAccentColor => const Color(0x66FF7A00);
 }
 
 class _LerpedNanoColors implements NanoColors {
@@ -767,6 +825,9 @@ class _LerpedNanoColors implements NanoColors {
       _l(a.borderSecondaryColor, b.borderSecondaryColor);
   @override
   Color get borderAccentColor => _l(a.borderAccentColor, b.borderAccentColor);
+
+  @override
+  bool get isClassicOrange => t < 0.5 ? a.isClassicOrange : b.isClassicOrange;
 }
 
 /// ── Spacing Tokens (8dp grid) ──

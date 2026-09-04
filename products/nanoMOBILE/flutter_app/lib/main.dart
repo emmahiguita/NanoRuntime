@@ -74,7 +74,7 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     return MaterialApp.router(
       title: 'NanoPlatform',
       debugShowCheckedModeBanner: false,
-      theme: usesSystemPalette ? AppTheme.systemLight : AppTheme.light,
+      theme: usesSystemPalette ? AppTheme.systemLight : AppTheme.classic,
       darkTheme: usesSystemPalette ? AppTheme.systemDark : AppTheme.dark,
       themeMode: themeMode,
       themeAnimationDuration:

@@ -35,29 +35,18 @@ abstract final class AutomationVisual {
     BuildContext context,
     AutomationVisualMode mode,
   ) {
-    final theme = Theme.of(context);
     final inheritedColors = NanoThemeExtension.of(context).colors;
-    // UI-REV-07: dos ramas reales. Modo visualmente claro = Claro explícito O
-    // Sistema con el dispositivo en claro — en ambos casos el vidrio claro de
-    // Dev. Antes "Sistema-claro" caía a un tercer ramo "clásico" (canvas
-    // sólido sin vidrio) y el backdrop pintaba el fluido líquido OSCURO sobre
-    // una app clara. Fuera el ramo muerto.
-    final isDark =
-        mode == AutomationVisualMode.dark ||
-        (mode == AutomationVisualMode.system &&
-            theme.brightness == Brightness.dark);
-    final isLightGlass = !isDark;
-    // "Sistema" conserva la identidad naranja de Nano Automation aunque el
-    // brillo del dispositivo sea oscuro. Solo el modo Oscuro explícito adopta
-    // el acento óptico menta del shell nocturno.
+    // UI-REV-09: el ramo visual sigue a la familia instalada por el tema real,
+    // no al setting ni al brightness. Con "Claro" la app instala la familia
+    // oscura naranja de Dev (NanoClassicDarkColors): automation pinta vidrio
+    // oscuro con acento naranja — nunca vidrio claro sobre fondo oscuro.
+    // "Oscuro" (familia oscura menta) conserva el acento menta del shell
+    // nocturno; "Sistema"-claro conserva la familia clara.
+    final isDark = inheritedColors is NanoDarkColors;
+    // Solo el modo Oscuro explícito adopta el acento menta del shell
+    // nocturno; el resto conserva la identidad naranja de Nano Automation.
     final usesDarkAccent = mode == AutomationVisualMode.dark;
-    final colors = isDark
-        ? inheritedColors is NanoDarkColors
-              ? inheritedColors
-              : NanoDarkColors()
-        : inheritedColors is NanoDarkColors
-        ? NanoLightColors()
-        : inheritedColors;
+    final colors = inheritedColors;
     return AutomationVisualPalette(
       // UI-REV-02: familia de colores RESUELTA para el scope. Antes el
       // ThemeData del scope preservaba la NanoThemeExtension global
@@ -67,7 +56,6 @@ abstract final class AutomationVisual {
       // canvas claro — mezcla de modos ilegible.
       resolvedColors: colors,
       isDark: isDark,
-      isLightGlass: isLightGlass,
       accent: usesDarkAccent ? colors.accentMint : lightAccent,
       onAccent: usesDarkAccent ? colors.onAccent : Colors.white,
       accentSoft: usesDarkAccent
@@ -90,10 +78,12 @@ abstract final class AutomationVisual {
       cardEnd: isDark
           ? colors.glassBlue.withValues(alpha: 0.62)
           : colors.glassSecondary.withValues(alpha: colors.glassMedium),
+      // UI-REV-09: borde naranja más presente en la gama dev (0.32) —
+      // "bordes profesionales" del borrador.
       cardBorder: isDark
           ? usesDarkAccent
                 ? colors.borderAccentColor
-                : lightAccent.withValues(alpha: 0.28)
+                : lightAccent.withValues(alpha: 0.32)
           : colors.borderPrimaryColor,
       shadow: isDark ? const Color(0x59000000) : const Color(0x160D1726),
       shadowSoft: isDark ? const Color(0x33000000) : const Color(0x0D0D1726),
@@ -213,7 +203,6 @@ class AutomationVisualPalette {
   const AutomationVisualPalette({
     required this.resolvedColors,
     required this.isDark,
-    required this.isLightGlass,
     required this.accent,
     required this.onAccent,
     required this.accentSoft,
@@ -239,7 +228,6 @@ class AutomationVisualPalette {
   final NanoColors resolvedColors;
 
   final bool isDark;
-  final bool isLightGlass;
   final Color accent;
   final Color onAccent;
   final Color accentSoft;
@@ -268,7 +256,6 @@ class AutomationVisualPalette {
                     as NanoThemeExtension)
                 .colors,
         isDark: t < 0.5 ? isDark : other.isDark,
-        isLightGlass: t < 0.5 ? isLightGlass : other.isLightGlass,
         accent: Color.lerp(accent, other.accent, t)!,
         onAccent: Color.lerp(onAccent, other.onAccent, t)!,
         accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
@@ -474,9 +461,11 @@ class AutomationBackHeader extends StatelessWidget {
 }
 
 /// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas y el
-/// mismo del shell en claro (UI-REV-08): aurora líquida que se adapta al modo
-/// (blobs naranjas sobre lienzo claro / blobs de acento sobre fondo profundo
-/// en oscuro). Se monta como capa base de un Stack con Scaffold transparente.
+/// mismo del shell (UI-REV-08/09): aurora líquida que se adapta a la familia
+/// del tema (en "Claro" = dev oscuro naranja, blobs naranjas sobre fondo
+/// profundo; en "Sistema"-claro, lienzo claro cálido; en "Oscuro", blobs de
+/// acento sobre fondo profundo). Se monta como capa base de un Stack con
+/// Scaffold transparente.
 class AutomationBackdrop extends StatelessWidget {
   const AutomationBackdrop({super.key});
 
