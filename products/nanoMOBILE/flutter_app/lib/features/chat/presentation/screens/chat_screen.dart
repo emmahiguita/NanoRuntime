@@ -41,6 +41,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   StreamSubscription<String>? _partialSub;
   bool _isComposerMinimized = false;
   bool _isReadingMode = false;
+  // UI-REV-14: en horizontal la barra puede OCULTARSE del todo (queda un chip
+  // flotante "Escribir" para reabrir) — no solo minimizarse. Solo landscape.
+  bool _composerHidden = false;
 
   /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
@@ -213,6 +216,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final isNarrow = screenSize.width < 600;
     final isCompactLandscape =
         screenSize.width > screenSize.height && screenSize.height < 520;
+    // UI-REV-14: chat horizontal = modo escritorio — mensajes a ancho completo
+    // y barra de escritura como panel lateral acotado (no estirada a 2400px).
+    final isLandscape = screenSize.width > screenSize.height;
     // El teclado no debe cambiar la variante del compositor: hacerlo causaba
     // un segundo reflow (controles que aparecen/desaparecen) justo al enfocar
     // el campo. Solo el ancho/orientación definen la composición compacta.
@@ -280,6 +286,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               model: state.activeModel,
               onExit: () => setState(() => _isReadingMode = false),
             )
+          : isLandscape
+          ? _buildLandscapeChat(state, notifier, mediaQuery)
           : Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -290,83 +298,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: state.messages.isEmpty
-                          ? Padding(
-                              // UI-REV-12: mismo despeje de la card elevada
-                              // (78 + alto de la barra) en el estado vacío.
-                              padding: const EdgeInsets.only(bottom: 162),
-                              child: EmptyChat(
-                                engineOnline: state.engineOnline,
-                                hasModel: state.activeModelPath != null,
-                                onSuggestion: (text) {
-                                  notifier.send(text);
-                                },
-                                onRetry: () => notifier.refreshEngine(),
-                                onGoModels: () => context.go('/models'),
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              physics: const BouncingScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(
-                                isCompactLandscape ? 10 : 18,
-                                8,
-                                isCompactLandscape ? 10 : 18,
-                                // UI-REV-12: reserva estable para que la
-                                // última respuesta nunca quede bajo la barra
-                                // (ahora elevada 78px sobre la línea del FAB).
-                                180 + mediaQuery.padding.bottom,
-                              ),
-                              itemCount:
-                                  state.messages.length +
-                                  (state.generating ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.messages.length) {
-                                  return StreamingBubble(
-                                    text: state.streamingText,
-                                    model: state.activeModel,
-                                  );
-                                }
-
-                                final message = state.messages[index];
-                                final isUser =
-                                    message.sender == MessageSender.user;
-                                final isError =
-                                    message.status == MessageStatus.error;
-
-                                return AnimatedMessageEntry(
-                                  key: ValueKey(message.id),
-                                  isUser: isUser,
-                                  child: GestureDetector(
-                                    onLongPress: state.generating
-                                        ? null
-                                        : () => _showDeleteDialog(
-                                            notifier,
-                                            message,
-                                          ),
-                                    child: MessageBubble(
-                                      text: message.text,
-                                      isUser: isUser,
-                                      model: state.activeModel,
-                                      timestamp: message.timestamp,
-                                      isError: isError,
-                                      source: message.source,
-                                      attachmentNames: message.attachmentNames,
-                                      tps: message.tps,
-                                      onRetry: isError && !state.generating
-                                          ? () => notifier.retry(message.id)
-                                          : null,
-                                      onDelete: state.generating
-                                          ? null
-                                          : () => _showDeleteDialog(
-                                              notifier,
-                                              message,
-                                            ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                      // UI-REV-14: lista de mensajes compartida con el modo
+                      // horizontal — un solo builder, solo cambia el despeje
+                      // inferior según quién ocupa la franja baja.
+                      child: _messageList(
+                        state,
+                        notifier,
+                        bottomPadding: 180 + mediaQuery.padding.bottom,
+                        emptyBottomPadding: 162,
+                        sidePadding: isCompactLandscape ? 10.0 : 18.0,
+                      ),
                     ),
 
                     // Android ya redimensiona esta Activity con adjustResize.
@@ -433,6 +374,167 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  /// UI-REV-14 — chat horizontal profesional: los mensajes dominan TODO el
+  /// ancho y la escritura vive en un panel lateral acotado (400px) con
+  /// cabecera propia. La barra puede minimizarse (burbuja) u ocultarse del
+  /// todo (chip flotante "Escribir" para reabrir). Nada se estira a 2400px.
+  Widget _buildLandscapeChat(
+    ChatState state,
+    ChatNotifier notifier,
+    MediaQueryData mediaQuery,
+  ) {
+    // UI-REV-12: mismo despeje de la línea del FAB que en vertical.
+    const fabClearance = 78.0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: _messageList(
+                    state,
+                    notifier,
+                    bottomPadding: mediaQuery.padding.bottom + 24,
+                    emptyBottomPadding: 0,
+                    sidePadding: 18,
+                  ),
+                ),
+                if (_composerHidden)
+                  Positioned(
+                    right: 4,
+                    bottom: fabClearance,
+                    child: _WriteAgainChip(
+                      onTap: () => setState(() => _composerHidden = false),
+                    ),
+                  )
+                else if (_isComposerMinimized)
+                  Positioned(
+                    right: 4,
+                    bottom: fabClearance,
+                    child: _MinimizedComposerBubble(
+                      key: const ValueKey('minimized_bubble_landscape'),
+                      onExpand: () =>
+                          setState(() => _isComposerMinimized = false),
+                      hasAttachments: state.attachments.isNotEmpty,
+                      listening: _listening,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Panel de escritura acotado — jamás compite con los mensajes.
+          SizedBox(
+            width: 400,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: fabClearance),
+              child: _ComposerPanel(
+                composer: ChatComposer(
+                  key: const ValueKey('landscape_composer'),
+                  controller: _inputController,
+                  // El compositor no depende del GGUF: comandos
+                  // deterministas (p. ej. notificaciones) usan Android
+                  // nativo y deben funcionar con el motor parado.
+                  enabled: !state.generating,
+                  generating: state.generating,
+                  listening: _listening,
+                  attachments: state.attachments,
+                  onRemoveAttachment: notifier.removeAttachment,
+                  onAttach: _attachFile,
+                  onMic: _toggleMic,
+                  onMinimize: () => setState(() => _isComposerMinimized = true),
+                  compact: false,
+                  onSend: () {
+                    final text = _inputController.text.trim();
+                    if (text.isEmpty) return;
+                    notifier.send(text);
+                    _inputController.clear();
+                  },
+                  onStop: notifier.stop,
+                ),
+                onMinimize: () => setState(() => _isComposerMinimized = true),
+                onHide: () => setState(() => _composerHidden = true),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// UI-REV-14 — lista de mensajes compartida vertical/horizontal. Un solo
+  /// builder para las dos orientaciones; solo cambia el despeje inferior
+  /// (barra en vertical, nada en horizontal) y el lateral.
+  Widget _messageList(
+    ChatState state,
+    ChatNotifier notifier, {
+    required double bottomPadding,
+    required double emptyBottomPadding,
+    required double sidePadding,
+  }) {
+    if (state.messages.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: emptyBottomPadding),
+        child: EmptyChat(
+          engineOnline: state.engineOnline,
+          hasModel: state.activeModelPath != null,
+          onSuggestion: (text) {
+            notifier.send(text);
+          },
+          onRetry: () => notifier.refreshEngine(),
+          onGoModels: () => context.go('/models'),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(sidePadding, 8, sidePadding, bottomPadding),
+      itemCount: state.messages.length + (state.generating ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == state.messages.length) {
+          return StreamingBubble(
+            text: state.streamingText,
+            model: state.activeModel,
+          );
+        }
+
+        final message = state.messages[index];
+        final isUser = message.sender == MessageSender.user;
+        final isError = message.status == MessageStatus.error;
+
+        return AnimatedMessageEntry(
+          key: ValueKey(message.id),
+          isUser: isUser,
+          child: GestureDetector(
+            onLongPress: state.generating
+                ? null
+                : () => _showDeleteDialog(notifier, message),
+            child: MessageBubble(
+              text: message.text,
+              isUser: isUser,
+              model: state.activeModel,
+              timestamp: message.timestamp,
+              isError: isError,
+              source: message.source,
+              attachmentNames: message.attachmentNames,
+              tps: message.tps,
+              onRetry: isError && !state.generating
+                  ? () => notifier.retry(message.id)
+                  : null,
+              onDelete: state.generating
+                  ? null
+                  : () => _showDeleteDialog(notifier, message),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1163,6 +1265,161 @@ class _EngineBadgeState extends State<_EngineBadge>
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+}
+
+/// UI-REV-14 — panel lateral de escritura en horizontal: cabecera compacta
+/// (título + minimizar + ocultar) y el composer con scroll propio si el texto
+/// crece. La barra queda acotada y jamás estira su ancho.
+class _ComposerPanel extends StatelessWidget {
+  const _ComposerPanel({
+    required this.composer,
+    required this.onMinimize,
+    required this.onHide,
+  });
+
+  final Widget composer;
+  final VoidCallback onMinimize;
+  final VoidCallback onHide;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.edit_note_rounded,
+              size: 18,
+              color: colors.onSurface.withValues(alpha: 0.60),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Componer',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurface.withValues(alpha: 0.78),
+                ),
+              ),
+            ),
+            _PanelIconButton(
+              tooltip: 'Minimizar barra',
+              icon: Icons.keyboard_arrow_down_rounded,
+              onTap: onMinimize,
+            ),
+            const SizedBox(width: 2),
+            _PanelIconButton(
+              tooltip: 'Ocultar barra',
+              icon: Icons.close_rounded,
+              onTap: onHide,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: SingleChildScrollView(
+            // El composer crece con el texto (hasta 8 líneas); el scroll
+            // garantiza que nunca desborde la altura disponible.
+            child: composer,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Botón compacto de la cabecera del panel de escritura.
+class _PanelIconButton extends StatelessWidget {
+  const _PanelIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(99),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(99),
+          onTap: onTap,
+          child: SizedBox(
+            width: 30,
+            height: 26,
+            child: Icon(
+              icon,
+              size: 18,
+              color: colors.onSurface.withValues(alpha: 0.50),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// UI-REV-14 — chip flotante para reabrir la barra cuando está OCULTA en
+/// horizontal. Más discreto que la burbuja minimizada: la barra no existe,
+/// solo queda la invitación a escribir.
+class _WriteAgainChip extends StatelessWidget {
+  const _WriteAgainChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+    final accent = isDark ? colors.accentCyan : colors.primary;
+    return Tooltip(
+      message: 'Mostrar barra de escritura',
+      child: Semantics(
+        button: true,
+        label: 'Mostrar barra de escritura',
+        child: GestureDetector(
+          onTap: onTap,
+          child: NanoOpticalSurface(
+            geometry: NanoSurfaceGeometry.capsule,
+            borderRadius: 999,
+            blurSigma: 14,
+            borderStrength: 0.70,
+            reflectionStrength: 0.55,
+            depth: 0.8,
+            accent: accent,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.edit_rounded, size: 17, color: accent),
+                const SizedBox(width: 7),
+                Text(
+                  'Escribir',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
