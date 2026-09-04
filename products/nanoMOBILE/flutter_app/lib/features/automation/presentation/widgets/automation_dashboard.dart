@@ -14,11 +14,14 @@ import 'package:nanoai/core/widgets/nano_choice_group.dart';
 
 import '../../application/automation_engine_provider.dart';
 import '../../application/automation_feedback_presenter.dart';
+import '../../application/rule_creator.dart';
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_policy.dart';
 import '../../domain/automation_result.dart';
 import '../../engine/agent_dependencies.dart';
 import '../../engine/perception/current_situation.dart';
+import '../../engine/scheduling/scheduled_rule.dart';
+import '../../engine/scheduling/trigger.dart';
 import '../../engine/voice/voice_runtime.dart';
 
 import '../automation_visual_theme.dart';
@@ -59,6 +62,7 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     super.key,
     this.onSettingsTap,
     this.onMessagesTap,
+    this.onRulesTap,
     this.onDevTap,
   });
 
@@ -68,6 +72,10 @@ class AutomationDashboard extends ConsumerStatefulWidget {
 
   /// Abre la pantalla de Mensajes (función de usuario, no Dev).
   final VoidCallback? onMessagesTap;
+
+  /// RULES-CREATE-02 — abre la pantalla de Reglas (lista completa). Antes
+  /// solo era alcanzable desde Configuración: acceso directo visible.
+  final VoidCallback? onRulesTap;
 
   /// Abre la pantalla Dev (herramientas del agente) sin pasar por Ajustes.
   /// Solo se conecta en modo debug (misma puerta que el acceso de Ajustes).
@@ -309,6 +317,60 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     return reason.isEmpty ? prefix : '$prefix $reason';
   }
 
+  /// RULES-CREATE-02 — acceso "Por hora": reloj del sistema + mensaje → regla
+  /// TimeTrigger+notify creada por el MISMO RuleCreator de la pantalla Reglas.
+  /// Mensaje vacío permitido: el dispatcher publica su fallback honesto.
+  Future<void> _createTimeRule() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked == null || !mounted) return;
+    final messageController = TextEditingController();
+    final message = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AutomationVisual.of(context).surface,
+        title: Text('Aviso a las ${picked.format(context)}'),
+        content: TextField(
+          controller: messageController,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Qué avisar (opcional)'),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(messageController.text.trim()),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+    messageController.dispose();
+    if (message == null || !mounted) return;
+    final rule = ref
+        .read(ruleCreatorProvider)
+        .create(
+          trigger: TimeTrigger(hour: picked.hour, minute: picked.minute),
+          action: RuleAction.notify,
+          message: message,
+        );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Regla creada: ${rule.id} — avisará cada día a las '
+          '${picked.format(context)}',
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickMode() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -390,6 +452,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       onRun: _runTask,
       onMessagesTap: widget.onMessagesTap,
       onSettingsTap: widget.onSettingsTap,
+      onRulesTap: widget.onRulesTap,
+      onTimeRuleTap: _createTimeRule,
     );
 
     return SingleChildScrollView(
@@ -1075,6 +1139,8 @@ class QuickAutomationActions extends StatelessWidget {
     required this.onRun,
     this.onMessagesTap,
     this.onSettingsTap,
+    this.onRulesTap,
+    this.onTimeRuleTap,
   });
   final ValueChanged<String> onRun;
 
@@ -1084,6 +1150,12 @@ class QuickAutomationActions extends StatelessWidget {
   /// Abre la configuración del agente. Vive aquí como tile con TEXTO visible
   /// (UI-REV-05) — el icono suelto de la cabecera estorbaba y era poco claro.
   final VoidCallback? onSettingsTap;
+
+  /// RULES-CREATE-02 — abre la pantalla de Reglas (antes solo desde Ajustes).
+  final VoidCallback? onRulesTap;
+
+  /// RULES-CREATE-02 — crea regla por hora con reloj del sistema + mensaje.
+  final VoidCallback? onTimeRuleTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', Icons.bluetooth_rounded),
@@ -1102,8 +1174,27 @@ class QuickAutomationActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (onSettingsTap != null || onMessagesTap != null) ...[
+        if (onSettingsTap != null ||
+            onMessagesTap != null ||
+            onRulesTap != null ||
+            onTimeRuleTap != null) ...[
           const AutomationSectionLabel('Accesos'),
+          // RULES-CREATE-02: las reglas primero — el reloj es el acceso que
+          // el usuario busca; antes Reglas quedaba escondido en Configuración.
+          if (onTimeRuleTap != null)
+            _DashboardEntryTile(
+              icon: Icons.schedule_rounded,
+              title: 'Aviso por hora',
+              subtitle: 'Crear un recordatorio con reloj',
+              onTap: onTimeRuleTap!,
+            ),
+          if (onRulesTap != null)
+            _DashboardEntryTile(
+              icon: Icons.rule_rounded,
+              title: 'Reglas',
+              subtitle: 'Todas tus automatizaciones',
+              onTap: onRulesTap!,
+            ),
           if (onSettingsTap != null)
             _DashboardEntryTile(
               icon: Icons.settings_outlined,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
+import 'package:nanoai/features/automation/application/rule_creator.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger_parser.dart';
@@ -84,15 +85,14 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
       );
       return;
     }
-    final rule = ScheduledRule(
-      id: 'rule-${DateTime.now().millisecondsSinceEpoch}',
-      trigger: parsed.trigger,
-      action: action,
-      message: message,
-      dynamicReply: dynamicReply,
-      createdAt: DateTime.now(),
-    );
-    ref.read(ruleRegistryProvider).add(rule);
+    final rule = ref
+        .read(ruleCreatorProvider)
+        .create(
+          trigger: parsed.trigger,
+          action: action,
+          message: message,
+          dynamicReply: dynamicReply,
+        );
     setState(() {
       _rules = ref.read(ruleRegistryProvider).rules;
       _createError = null;

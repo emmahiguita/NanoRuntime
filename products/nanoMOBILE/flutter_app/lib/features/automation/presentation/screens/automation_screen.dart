@@ -9,6 +9,7 @@ import '../automation_visual_theme.dart';
 import '../widgets/automation_bottom_navigation.dart';
 import '../widgets/automation_dashboard.dart';
 import 'automation_dev_screen.dart';
+import 'automation_rules_screen.dart';
 import 'automation_settings_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
@@ -46,6 +47,9 @@ class AutomationScreen extends ConsumerWidget {
                     child: AutomationDashboard(
                       onSettingsTap: () => _openSettings(context),
                       onMessagesTap: () => context.push('/automation/messages'),
+                      // RULES-CREATE-02: Reglas alcanzable desde el dashboard,
+                      // ya no escondida dentro de Configuración.
+                      onRulesTap: () => _openRules(context),
                       // Acceso directo a las herramientas del agente desde la
                       // pantalla principal (misma puerta de debug que Ajustes).
                       onDevTap: kDebugMode ? () => _openDev(context) : null,
@@ -73,6 +77,12 @@ class AutomationScreen extends ConsumerWidget {
   static void _openDev(BuildContext context) {
     Navigator.of(context).push(
       nanoGlassPageRoute<void>(builder: (_) => const AutomationDevScreen()),
+    );
+  }
+
+  static void _openRules(BuildContext context) {
+    Navigator.of(context).push(
+      nanoGlassPageRoute<void>(builder: (_) => const AutomationRulesScreen()),
     );
   }
 }
