@@ -44,6 +44,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // UI-REV-14: en horizontal la barra puede OCULTARSE del todo (queda un chip
   // flotante "Escribir" para reabrir) — no solo minimizarse. Solo landscape.
   bool _composerHidden = false;
+  // UI-REV-16: altura libre de la barra en vertical (handle de arrastre).
+  // 0 = línea base (sobre el FAB); crece hacia arriba. Solo portrait y sin
+  // teclado: con teclado la barra vuelve anclada al borde visible.
+  double _composerLift = 0;
 
   /// Máximo de caracteres de un archivo adjunto que se insertan en el input.
   static const _maxAttachChars = 8000;
@@ -249,7 +253,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // mensajes (mismas acciones, otro lugar, cero espacio perdido).
       hideHeader: _isReadingMode || isLandscape,
       resizeToAvoidBottomInset: false,
-      trailing: isLandscape ? null : _chatActions(state, notifier, colors),
+      trailing: isLandscape
+          ? null
+          : _chatActions(state, notifier, colors, landscape: false),
       body: _isReadingMode
           ? _ReadingMode(
               messages: state.messages,
@@ -265,138 +271,245 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   // márgenes muertos); se mantiene una cota por legibilidad.
                   maxWidth: isCompactLandscape ? 1440 : 1400,
                 ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      // UI-REV-14: lista de mensajes compartida con el modo
-                      // horizontal — un solo builder, solo cambia el despeje
-                      // inferior según quién ocupa la franja baja.
-                      child: _messageList(
-                        state,
-                        notifier,
-                        bottomPadding: 180 + mediaQuery.padding.bottom,
-                        emptyBottomPadding: 162,
-                        sidePadding: isCompactLandscape ? 10.0 : 18.0,
-                      ),
-                    ),
-
-                    // Android ya redimensiona esta Activity con adjustResize.
-                    // No sumar viewInsets aquí: era un segundo desplazamiento
-                    // que elevaba el compositor completo al abrir el teclado.
-                    // UI-REV-12: en reposo (sin teclado) la card reserva la
-                    // franja del FAB flotante (56 + gap 12 + respiro 10 = 78):
-                    // el búho vive en su línea y nunca tapa la barra de
-                    // escritura. Con teclado el FAB está oculto y la card
-                    // vuelve pegada al borde inferior visible.
-                    if (!_isReadingMode)
-                      Positioned(
-                        left: isCompactLandscape ? 8 : 14,
-                        right: isCompactLandscape ? 8 : 14,
-                        bottom: keyboardOpen
-                            ? (isCompactLandscape ? 5 : 10)
-                            : 78,
-                        child: _ComposerTransition(
-                          child: _isComposerMinimized
-                              ? Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _MinimizedComposerBubble(
-                                    key: const ValueKey('minimized_bubble'),
-                                    onExpand: () => setState(
-                                      () => _isComposerMinimized = false,
-                                    ),
-                                    hasAttachments:
-                                        state.attachments.isNotEmpty,
-                                    listening: _listening,
-                                  ),
-                                )
-                              : ChatComposer(
-                                  key: const ValueKey('expanded_composer'),
-                                  controller: _inputController,
-                                  // El compositor no depende del GGUF:
-                                  // comandos deterministas (p. ej.
-                                  // notificaciones) usan Android nativo
-                                  // y deben funcionar con el motor parado.
-                                  // Si el texto sí necesita LLM, send()
-                                  // devuelve el error de modelo honesto.
-                                  enabled: !state.generating,
-                                  generating: state.generating,
-                                  listening: _listening,
-                                  attachments: state.attachments,
-                                  onRemoveAttachment: notifier.removeAttachment,
-                                  onAttach: _attachFile,
-                                  onMic: _toggleMic,
-                                  onMinimize: () => setState(
-                                    () => _isComposerMinimized = true,
-                                  ),
-                                  compact: compactComposer,
-                                  onSend: () {
-                                    final text = _inputController.text.trim();
-                                    if (text.isEmpty) return;
-
-                                    notifier.send(text);
-                                    _inputController.clear();
-                                  },
-                                  onStop: notifier.stop,
-                                ),
+                // UI-REV-16: LayoutBuilder — el tope del arrastre de la barra
+                // se calcula sobre la altura REAL disponible del viewport.
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // La barra sube hasta el 62% de la altura útil: libertad
+                    // de lectura sin invadir la zona alta de mensajes.
+                    final composerMaxLift = (constraints.maxHeight * 0.62)
+                        .clamp(0.0, double.infinity);
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          // UI-REV-14: lista de mensajes compartida con el modo
+                          // horizontal — un solo builder, solo cambia el despeje
+                          // inferior según quién ocupa la franja baja.
+                          child: _messageList(
+                            state,
+                            notifier,
+                            bottomPadding: 180 + mediaQuery.padding.bottom,
+                            emptyBottomPadding: 162,
+                            sidePadding: isCompactLandscape ? 10.0 : 18.0,
+                          ),
                         ),
-                      ),
-                  ],
+
+                        // Android ya redimensiona esta Activity con adjustResize.
+                        // No sumar viewInsets aquí: era un segundo desplazamiento
+                        // que elevaba el compositor completo al abrir el teclado.
+                        // UI-REV-12: en reposo (sin teclado) la card reserva la
+                        // franja del FAB flotante (56 + gap 12 + respiro 10 = 78):
+                        // el búho vive en su línea y nunca tapa la barra de
+                        // escritura. Con teclado el FAB está oculto y la card
+                        // vuelve pegada al borde inferior visible.
+                        if (!_isReadingMode)
+                          Positioned(
+                            left: isCompactLandscape ? 8 : 14,
+                            right: isCompactLandscape ? 8 : 14,
+                            bottom: keyboardOpen
+                                ? (isCompactLandscape ? 5 : 10)
+                                : 78 + _composerLift,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // UI-REV-16: handle de arrastre — con la barra
+                                // expandida y sin teclado, viaja a la altura que
+                                // el usuario quiera (teclado flotante iOS). Con
+                                // teclado la barra queda anclada al borde y el
+                                // handle desaparece.
+                                if (!keyboardOpen && !_isComposerMinimized) ...[
+                                  Center(
+                                    child: _ComposerDragHandle(
+                                      // UI-REV-16: un solo control — tap
+                                      // pliega, arrastre mueve. Cero
+                                      // duplicados en la franja superior.
+                                      onTap: () => setState(
+                                        () => _isComposerMinimized = true,
+                                      ),
+                                      onDrag: (dy) => setState(
+                                        () =>
+                                            _composerLift = (_composerLift - dy)
+                                                .clamp(0.0, composerMaxLift),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
+                                _ComposerTransition(
+                                  child: _isComposerMinimized
+                                      ? Align(
+                                          alignment: Alignment.centerRight,
+                                          child: _MinimizedComposerBubble(
+                                            key: const ValueKey(
+                                              'minimized_bubble',
+                                            ),
+                                            onExpand: () => setState(
+                                              () =>
+                                                  _isComposerMinimized = false,
+                                            ),
+                                            hasAttachments:
+                                                state.attachments.isNotEmpty,
+                                            listening: _listening,
+                                          ),
+                                        )
+                                      : ChatComposer(
+                                          key: const ValueKey(
+                                            'expanded_composer',
+                                          ),
+                                          controller: _inputController,
+                                          // El compositor no depende del GGUF:
+                                          // comandos deterministas (p. ej.
+                                          // notificaciones) usan Android nativo
+                                          // y deben funcionar con el motor parado.
+                                          // Si el texto sí necesita LLM, send()
+                                          // devuelve el error de modelo honesto.
+                                          enabled: !state.generating,
+                                          generating: state.generating,
+                                          listening: _listening,
+                                          attachments: state.attachments,
+                                          onRemoveAttachment:
+                                              notifier.removeAttachment,
+                                          onAttach: _attachFile,
+                                          onMic: _toggleMic,
+                                          onMinimize: () => setState(
+                                            () => _isComposerMinimized = true,
+                                          ),
+                                          compact: compactComposer,
+                                          onSend: () {
+                                            final text = _inputController.text
+                                                .trim();
+                                            if (text.isEmpty) return;
+
+                                            notifier.send(text);
+                                            _inputController.clear();
+                                          },
+                                          onStop: notifier.stop,
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
     );
   }
 
-  /// UI-REV-15 — acciones del chat (modo lectura, limpiar, estado del motor)
-  /// en un solo lugar. En vertical viven en el header del shell; en
-  /// horizontal flotan sobre los mensajes — mismas acciones, sin duplicar.
+  /// UI-REV-16 — un solo botón ⋮ (patrón estándar): modo lectura y limpiar
+  /// viven en el menú; el estado del motor es un item informativo (ya no un
+  /// badge permanente que roba espacio). En vertical va en el header del
+  /// shell; en horizontal flota en cápsula de vidrio. Cero iconos sueltos.
   Widget _chatActions(
     ChatState state,
     ChatNotifier notifier,
-    NanoColors colors,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    NanoColors colors, {
+    required bool landscape,
+  }) {
+    final loading = state.connection == ModelConnectionState.loadingModel;
+    final engineColor = state.engineOnline && !loading
+        ? colors.success
+        : colors.warning;
+    final engineLabel = loading
+        ? 'Motor local: cargando…'
+        : (state.engineOnline
+              ? 'Motor local: activo'
+              : 'Motor local: detenido');
+    return PopupMenuButton<_ChatMenuAction>(
+      key: const ValueKey('chat_overflow_menu'),
+      tooltip: 'Más opciones',
+      icon: Icon(
+        Icons.more_vert_rounded,
+        color: colors.onSurface.withValues(alpha: 0.75),
+        size: 20,
+      ),
+      onSelected: (action) {
+        switch (action) {
+          case _ChatMenuAction.readingMode:
+            setState(() => _isReadingMode = true);
+          case _ChatMenuAction.clearConversation:
+            _showClearDialog(notifier);
+          case _ChatMenuAction.hideComposer:
+            setState(() => _composerHidden = true);
+          case _ChatMenuAction.showComposer:
+            setState(() {
+              _composerHidden = false;
+              _isComposerMinimized = false;
+            });
+        }
+      },
+      itemBuilder: (context) => [
         if (state.messages.isNotEmpty)
-          IconButton(
-            key: const ValueKey('chat_reading_mode_toggle'),
-            tooltip: 'Modo lectura',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => setState(() => _isReadingMode = true),
-            icon: Icon(
-              Icons.chrome_reader_mode_rounded,
-              color: colors.onSurface.withValues(alpha: 0.72),
-              size: 20,
+          PopupMenuItem(
+            value: _ChatMenuAction.readingMode,
+            child: _ChatMenuItem(
+              icon: Icons.chrome_reader_mode_rounded,
+              label: 'Modo lectura',
             ),
           ),
         if (state.messages.isNotEmpty)
-          IconButton(
-            tooltip: 'Limpiar conversación',
-            onPressed: state.generating
-                ? null
-                : () => _showClearDialog(notifier),
-            icon: Icon(
-              Icons.delete_sweep_rounded,
-              color: colors.onSurface.withValues(alpha: 0.72),
-              size: 22,
+          PopupMenuItem(
+            value: _ChatMenuAction.clearConversation,
+            enabled: !state.generating,
+            child: _ChatMenuItem(
+              icon: Icons.delete_sweep_rounded,
+              label: 'Limpiar conversación',
             ),
           ),
-        const SizedBox(width: 4),
-        _EngineBadge(
-          online: state.engineOnline,
-          loading: state.connection == ModelConnectionState.loadingModel,
+        if (landscape)
+          _composerHidden
+              ? PopupMenuItem(
+                  value: _ChatMenuAction.showComposer,
+                  child: _ChatMenuItem(
+                    icon: Icons.edit_rounded,
+                    label: 'Mostrar barra de escritura',
+                  ),
+                )
+              : PopupMenuItem(
+                  value: _ChatMenuAction.hideComposer,
+                  child: _ChatMenuItem(
+                    icon: Icons.visibility_off_outlined,
+                    label: 'Ocultar barra de escritura',
+                  ),
+                ),
+        // Estado del motor: honesto e informativo, dentro del menú —
+        // cero espacio permanente en la toolbar.
+        PopupMenuItem(
+          enabled: false,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: engineColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Text(
+                engineLabel,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colors.onSurface.withValues(alpha: 0.75),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  /// UI-REV-14 — chat horizontal profesional: los mensajes dominan TODO el
-  /// ancho y la escritura vive en un panel lateral acotado (400px) con
-  /// cabecera propia. La barra puede minimizarse (burbuja) u ocultarse del
-  /// todo (chip flotante "Escribir" para reabrir). Nada se estira a 2400px.
-  /// UI-REV-15: sin header — las acciones flotan arriba a la derecha sobre
-  /// los mensajes (vidrio), la franja del título es contenido.
+  /// UI-REV-16 — chat horizontal limpio: los mensajes dominan TODO el ancho
+  /// (cero panel lateral, cero huecos muertos) y la barra de escritura es
+  /// una card flotante compacta de vidrio en la base derecha, minimizable
+  /// (burbuja) u ocultable (chip "Escribir") desde el menú ⋮. La lista
+  /// reserva la franja que la barra ocupa: nada se solapa.
   Widget _buildLandscapeChat(
     ChatState state,
     ChatNotifier notifier,
@@ -405,94 +518,82 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     // UI-REV-12: mismo despeje de la línea del FAB que en vertical.
     const fabClearance = 78.0;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: _messageList(
-                    state,
-                    notifier,
-                    bottomPadding: mediaQuery.padding.bottom + 24,
-                    emptyBottomPadding: 0,
-                    sidePadding: 18,
-                    // UI-REV-15: despeje para la toolbar flotante.
-                    topPadding: 52,
-                  ),
-                ),
-                // UI-REV-15: toolbar flotante de acciones (lectura, limpiar,
-                // estado del motor) — vidrio sobre el contenido.
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: _FloatingChatActions(
-                    child: _chatActions(state, notifier, colors),
-                  ),
-                ),
-                if (_composerHidden)
-                  Positioned(
-                    right: 4,
-                    bottom: fabClearance,
-                    child: _WriteAgainChip(
-                      onTap: () => setState(() => _composerHidden = false),
-                    ),
-                  )
-                else if (_isComposerMinimized)
-                  Positioned(
-                    right: 4,
-                    bottom: fabClearance,
-                    child: _MinimizedComposerBubble(
-                      key: const ValueKey('minimized_bubble_landscape'),
-                      onExpand: () =>
-                          setState(() => _isComposerMinimized = false),
-                      hasAttachments: state.attachments.isNotEmpty,
-                      listening: _listening,
-                    ),
-                  ),
-              ],
+    // La barra visible mide ~64px: reservar 90 (64 + respiro). Burbuja o
+    // chip miden ~42: reservar 66. La lista jamás entra en esa zona.
+    final barReserve = _composerHidden || _isComposerMinimized ? 66.0 : 90.0;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _messageList(
+            state,
+            notifier,
+            bottomPadding: mediaQuery.padding.bottom + 24 + barReserve,
+            emptyBottomPadding: 0,
+            sidePadding: 18,
+            // UI-REV-15: despeje para la toolbar flotante.
+            topPadding: 52,
+          ),
+        ),
+        // UI-REV-15: cápsula de vidrio con el menú ⋮ del chat.
+        Positioned(
+          top: 4,
+          right: 4,
+          child: _FloatingChatActions(
+            child: _chatActions(state, notifier, colors, landscape: true),
+          ),
+        ),
+        if (_composerHidden)
+          Positioned(
+            right: 12,
+            bottom: fabClearance,
+            child: _WriteAgainChip(
+              onTap: () => setState(() => _composerHidden = false),
+            ),
+          )
+        else if (_isComposerMinimized)
+          Positioned(
+            right: 12,
+            bottom: fabClearance,
+            child: _MinimizedComposerBubble(
+              key: const ValueKey('minimized_bubble_landscape'),
+              onExpand: () => setState(() => _isComposerMinimized = false),
+              hasAttachments: state.attachments.isNotEmpty,
+              listening: _listening,
+            ),
+          )
+        else
+          // Barra flotante compacta (iOS): fina, de vidrio, acotada —
+          // la misma card del chat, sin panel que la encierre.
+          Positioned(
+            right: 12,
+            bottom: fabClearance,
+            width: 420,
+            child: ChatComposer(
+              key: const ValueKey('landscape_composer'),
+              controller: _inputController,
+              // El compositor no depende del GGUF: comandos
+              // deterministas (p. ej. notificaciones) usan Android
+              // nativo y deben funcionar con el motor parado.
+              enabled: !state.generating,
+              generating: state.generating,
+              listening: _listening,
+              attachments: state.attachments,
+              onRemoveAttachment: notifier.removeAttachment,
+              onAttach: _attachFile,
+              onMic: _toggleMic,
+              onMinimize: () => setState(() => _isComposerMinimized = true),
+              // Barra fina iOS: orb 34, hasta 4 líneas visibles.
+              compact: true,
+              onSend: () {
+                final text = _inputController.text.trim();
+                if (text.isEmpty) return;
+                notifier.send(text);
+                _inputController.clear();
+              },
+              onStop: notifier.stop,
             ),
           ),
-          const SizedBox(width: 12),
-          // Panel de escritura acotado — jamás compite con los mensajes.
-          SizedBox(
-            width: 400,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: fabClearance),
-              child: _ComposerPanel(
-                composer: ChatComposer(
-                  key: const ValueKey('landscape_composer'),
-                  controller: _inputController,
-                  // El compositor no depende del GGUF: comandos
-                  // deterministas (p. ej. notificaciones) usan Android
-                  // nativo y deben funcionar con el motor parado.
-                  enabled: !state.generating,
-                  generating: state.generating,
-                  listening: _listening,
-                  attachments: state.attachments,
-                  onRemoveAttachment: notifier.removeAttachment,
-                  onAttach: _attachFile,
-                  onMic: _toggleMic,
-                  onMinimize: () => setState(() => _isComposerMinimized = true),
-                  compact: false,
-                  onSend: () {
-                    final text = _inputController.text.trim();
-                    if (text.isEmpty) return;
-                    notifier.send(text);
-                    _inputController.clear();
-                  },
-                  onStop: notifier.stop,
-                ),
-                onMinimize: () => setState(() => _isComposerMinimized = true),
-                onHide: () => setState(() => _composerHidden = true),
-              ),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -699,6 +800,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } else {
       await notifier.rejectPendingTool();
     }
+  }
+}
+
+/// UI-REV-16 — handle de vidrio para la barra de escritura en vertical
+/// (estilo teclado flotante iOS): tap = plegar, arrastre = mover. La
+/// píldora visible mide 4dp pero el área táctil es generosa (16dp).
+class _ComposerDragHandle extends StatelessWidget {
+  const _ComposerDragHandle({required this.onTap, required this.onDrag});
+
+  final VoidCallback onTap;
+  final ValueChanged<double> onDrag;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    return Semantics(
+      label: 'Toca para plegar o arrastra para mover la barra',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        onVerticalDragUpdate: (details) => onDrag(details.delta.dy),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colors.onSurface.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1183,123 +1318,33 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
   );
 }
 
-/// Badge de estado del motor con pulso lento cuando está online. Detenido:
-/// sin animación (estado quieto, honesto — solo lo vivo respira).
-class _EngineBadge extends StatefulWidget {
-  const _EngineBadge({required this.online, this.loading = false});
-
-  final bool online;
-  final bool loading;
-
-  @override
-  State<_EngineBadge> createState() => _EngineBadgeState();
+/// UI-REV-16 — acciones del menú ⋮ del chat. Un solo enum: el menú es la
+/// única puerta de modo lectura / limpiar / ocultar-mostrar barra.
+enum _ChatMenuAction {
+  readingMode,
+  clearConversation,
+  hideComposer,
+  showComposer,
 }
 
-class _EngineBadgeState extends State<_EngineBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+/// Item del menú ⋮ — icono + etiqueta, presentación pura.
+class _ChatMenuItem extends StatelessWidget {
+  const _ChatMenuItem({required this.icon, required this.label});
 
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    );
-
-    if (widget.online) {
-      _controller.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _EngineBadge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (widget.online) {
-      if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
-      }
-    } else {
-      _controller.stop();
-      _controller.value = 0;
-    }
-  }
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final online = widget.online;
-    final loading = widget.loading;
-    final color = online && !loading ? colors.success : colors.warning;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-
-    return Semantics(
-      label: online ? 'Motor local conectado' : 'Motor local detenido',
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final intensity = reduceMotion
-              ? 0.10
-              : 0.10 + _controller.value * 0.18;
-
-          return Container(
-            key: const ValueKey('chat_engine_status_badge'),
-            constraints: const BoxConstraints(minHeight: 28, maxWidth: 86),
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            decoration: BoxDecoration(
-              color: colors.surfaceVariant.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: color.withValues(alpha: 0.45)),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: intensity),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
-            child: child,
-          );
-        },
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8),
-                ],
-              ),
-            ),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                loading ? 'CARGANDO' : (online ? 'LOCAL' : 'DETENIDO'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: colors.onSurface.withValues(alpha: 0.70)),
+        const SizedBox(width: 10),
+        Text(label, style: TextStyle(fontSize: 13.5, color: colors.onSurface)),
+      ],
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }
 
@@ -1325,109 +1370,6 @@ class _FloatingChatActions extends StatelessWidget {
       accent: isDark ? colors.accentCyan : colors.primary,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       child: child,
-    );
-  }
-}
-
-/// UI-REV-14 — panel lateral de escritura en horizontal: cabecera compacta
-/// (título + minimizar + ocultar) y el composer con scroll propio si el texto
-/// crece. La barra queda acotada y jamás estira su ancho.
-class _ComposerPanel extends StatelessWidget {
-  const _ComposerPanel({
-    required this.composer,
-    required this.onMinimize,
-    required this.onHide,
-  });
-
-  final Widget composer;
-  final VoidCallback onMinimize;
-  final VoidCallback onHide;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.edit_note_rounded,
-              size: 18,
-              color: colors.onSurface.withValues(alpha: 0.60),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Componer',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: colors.onSurface.withValues(alpha: 0.78),
-                ),
-              ),
-            ),
-            _PanelIconButton(
-              tooltip: 'Minimizar barra',
-              icon: Icons.keyboard_arrow_down_rounded,
-              onTap: onMinimize,
-            ),
-            const SizedBox(width: 2),
-            _PanelIconButton(
-              tooltip: 'Ocultar barra',
-              icon: Icons.close_rounded,
-              onTap: onHide,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: SingleChildScrollView(
-            // El composer crece con el texto (hasta 8 líneas); el scroll
-            // garantiza que nunca desborde la altura disponible.
-            child: composer,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Botón compacto de la cabecera del panel de escritura.
-class _PanelIconButton extends StatelessWidget {
-  const _PanelIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(99),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(99),
-          onTap: onTap,
-          child: SizedBox(
-            width: 30,
-            height: 26,
-            child: Icon(
-              icon,
-              size: 18,
-              color: colors.onSurface.withValues(alpha: 0.50),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

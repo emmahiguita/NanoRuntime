@@ -39,7 +39,7 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
     caseSensitive: false,
   );
   static final _notifyVerbs = RegExp(
-    r'^(avísame|avisame|avísar|avisar|notifícame|notificame|notificar)\s*',
+    r'^(avísame|avisame|avisar|notifícame|notificame|notificar)\s*',
     caseSensitive: false,
   );
 
