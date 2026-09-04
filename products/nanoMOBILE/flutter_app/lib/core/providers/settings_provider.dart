@@ -33,7 +33,7 @@ class SettingsRepository {
         themeMode: m['themeMode'] as String? ?? 'Sistema',
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
-        maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 2048,
+        maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
         vncPassword: m['vncPassword'] as String? ?? '',
         desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
         agentAutomationMode: AgentAutomationMode.fromName(
@@ -96,7 +96,7 @@ class SettingsState {
     this.themeMode = 'Sistema',
     this.temperature = 0.7,
     this.topP = 0.9,
-    this.maxTokens = 2048,
+    this.maxTokens = 512,
     this.vncPassword = '',
     this.desktopMobileMode = false,
     this.agentAutomationMode = AgentAutomationMode.assisted,
