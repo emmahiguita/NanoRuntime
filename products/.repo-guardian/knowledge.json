@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "verified_patterns": {},
+  "false_positives": {},
+  "fix_outcomes": [
+    {
+      "fingerprint": "wa-gui-12-auto-rule-gui-fallback-after-remoteinput-consumed",
+      "outcome": "FIX_PASS",
+      "root_cause": "Regla auto (authority != null) con RemoteInput no grounded (notificación consumida por envío manual) caía al fallback cross-app del coordinator (openApp→openConversation→writeMessage→sendMessage): WhatsApp se abría solo y buscaba el contacto tras un envío ya confirmado.",
+      "fix": "Gate en AutomationCoordinator.execute: plan==null + options.authority!=null tras RemoteInput-first → failed honesto, sin fallback GUI. Una regla automática jamás lanza la app objetivo por GUI.",
+      "evidence": "Usuario confirma en físico en Oppo CPH2557: 'yaa se soluciono'. APK debug 522dcbf instalado, accesibilidad bound."
+    }
+  ]
+}
