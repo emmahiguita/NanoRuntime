@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 /// Lenguaje visual local de Automatización.
 ///
@@ -474,20 +473,15 @@ class AutomationBackHeader extends StatelessWidget {
   }
 }
 
-/// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas:
-/// ambient estático en modo claro (con el acento naranja como glow, UI-REV-07),
-/// fluido líquido en oscuro. Se monta como capa base de un Stack con Scaffold
-/// transparente.
+/// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas y el
+/// mismo del shell en claro (UI-REV-08): aurora líquida que se adapta al modo
+/// (blobs naranjas sobre lienzo claro / blobs de acento sobre fondo profundo
+/// en oscuro). Se monta como capa base de un Stack con Scaffold transparente.
 class AutomationBackdrop extends StatelessWidget {
   const AutomationBackdrop({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return Positioned.fill(
-      child: visual.isLightGlass
-          ? NanoAmbientBackground(animated: false, activeAccent: visual.accent)
-          : const LiquidFluidBackground(),
-    );
+    return const Positioned.fill(child: LiquidFluidBackground());
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../theme/design_tokens.dart';
 import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
+import '../widgets/liquid_fluid_background.dart';
 import '../widgets/nano_ambient_background.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 
@@ -12,6 +14,11 @@ class ScaffoldShell extends StatelessWidget {
   const ScaffoldShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
+
+  // UI-REV-08: el último acceso del panel no es una pestaña del shell — es
+  // el atajo a la pantalla de Automatización (ruta global /automation, la
+  // misma que abre el Inicio). Se navega con push, no con goBranch.
+  static const int _automationShortcutIndex = 5;
 
   static const List<NavTabSpec> _tabs = [
     (
@@ -35,6 +42,12 @@ class ScaffoldShell extends StatelessWidget {
       sel: Icons.settings_rounded,
       label: 'Ajustes',
     ),
+    // Acceso directo a Automatización (mismo icono que su tarjeta en Inicio).
+    (
+      icon: Icons.auto_awesome_outlined,
+      sel: Icons.auto_awesome_rounded,
+      label: 'Automatización',
+    ),
   ];
 
   @override
@@ -43,6 +56,11 @@ class ScaffoldShell extends StatelessWidget {
     final branchCanPop =
         AppRouter.branchKeys[currentIndex].currentState?.canPop() ?? false;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // UI-REV-08: en claro el fondo es la aurora líquida naranja (la misma de
+    // dev/automation); en oscuro se conserva el ambient con glows orbitales.
+    final isDark =
+        Theme.of(context).extension<NanoThemeExtension>()!.colors
+            is NanoDarkColors;
 
     final shellContent = MediaQuery.removePadding(
       context: context,
@@ -71,16 +89,23 @@ class ScaffoldShell extends StatelessWidget {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            const Positioned.fill(child: NanoAmbientBackground()),
+            Positioned.fill(
+              child: isDark
+                  ? const NanoAmbientBackground()
+                  : const LiquidFluidBackground(),
+            ),
             SafeArea(
               child: NanoFloatingNavigationFrame(
                 hidden: keyboardOpen,
                 tabs: _tabs,
                 selectedIndex: currentIndex,
-                onDestinationSelected: (index) => shell.goBranch(
-                  index,
-                  initialLocation: index == currentIndex,
-                ),
+                onDestinationSelected: (index) {
+                  if (index == _automationShortcutIndex) {
+                    context.push('/automation');
+                    return;
+                  }
+                  shell.goBranch(index, initialLocation: index == currentIndex);
+                },
                 child: boundedContent,
               ),
             ),
