@@ -42,7 +42,10 @@ class NanoGlassMorphTransition extends StatelessWidget {
 
     return AnimatedBuilder(
       animation: Listenable.merge([curvedForward, curvedSecondary]),
-      child: child,
+      // UI-REV-10: RepaintBoundary aísla la página durante el vuelo — las
+      // transformaciones por frame no repintan el contenido (solo se mueve la
+      // capa), cero jank en GPU Mali.
+      child: RepaintBoundary(child: child),
       builder: (context, child) {
         final t = curvedForward.value;
         final secT = curvedSecondary.value;
@@ -123,7 +126,8 @@ class NanoExpressiveSlideTransition extends StatelessWidget {
 
     return AnimatedBuilder(
       animation: Listenable.merge([forward, secondary]),
-      child: child,
+      // UI-REV-10: misma capa aislada del glass morph — mover sin repintar.
+      child: RepaintBoundary(child: child),
       builder: (context, child) {
         final t = forward.value;
         final secT = secondary.value;

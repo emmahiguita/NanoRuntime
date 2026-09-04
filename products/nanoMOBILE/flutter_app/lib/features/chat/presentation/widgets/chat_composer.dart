@@ -111,6 +111,10 @@ class _ChatComposerState extends State<ChatComposer> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = colors is NanoDarkColors;
+    // UI-REV-10: el header solo vive cuando tiene contenido (estado de voz/
+    // generación o campo enfocado). Sin foco ni estado la card es SOLO la fila
+    // de escritura — cero espacio muerto encima del campo.
+    final showHeader = widget.listening || widget.generating || _isFocused;
 
     return NanoOpticalSurface(
       geometry: NanoSurfaceGeometry.roundedRectangle,
@@ -127,58 +131,69 @@ class _ChatComposerState extends State<ChatComposer> {
       accent: _isFocused
           ? (isDark ? colors.accent : colors.accentCyan)
           : (isDark ? colors.accent.withValues(alpha: 0.7) : colors.accentSky),
-      padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
+      padding: const EdgeInsets.fromLTRB(6, 2, 6, 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header sutil: estado (escuchando/generando) + minimizar a la derecha.
-          // El minimize sale de la fila de escritura para no robarle espacio al
-          // campo de texto.
-          SizedBox(
-            height: 26,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    widget.listening
-                        ? 'Escuchando…'
-                        : (widget.generating ? 'Generando…' : ''),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      color: widget.listening
-                          ? colors.accent
-                          : colors.onSurfaceVariant.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ),
-                Tooltip(
-                  message: 'Minimizar barra',
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(99),
-                    child: InkWell(
-                      key: const ValueKey('chat_composer_minimize'),
-                      borderRadius: BorderRadius.circular(99),
-                      onTap: widget.onMinimize,
-                      child: SizedBox(
-                        width: 28,
-                        height: 24,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: colors.onSurface.withValues(alpha: 0.50),
-                          size: 20,
+          // Header sutil: estado (escuchando/generando) + minimizar a la
+          // derecha. Colapsa a 0 con AnimatedSize cuando no hay nada que
+          // mostrar — el espacio es del campo de texto.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: showHeader
+                ? SizedBox(
+                    height: 24,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            widget.listening
+                                ? 'Escuchando…'
+                                : (widget.generating ? 'Generando…' : ''),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                              color: widget.listening
+                                  ? colors.accent
+                                  : colors.onSurfaceVariant.withValues(
+                                      alpha: 0.55,
+                                    ),
+                            ),
+                          ),
                         ),
-                      ),
+                        Tooltip(
+                          message: 'Minimizar barra',
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(99),
+                            child: InkWell(
+                              key: const ValueKey('chat_composer_minimize'),
+                              borderRadius: BorderRadius.circular(99),
+                              onTap: widget.onMinimize,
+                              child: SizedBox(
+                                width: 28,
+                                height: 24,
+                                child: Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: colors.onSurface.withValues(
+                                    alpha: 0.50,
+                                  ),
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
-            ),
+                  )
+                : const SizedBox.shrink(),
           ),
 
           // Chips de adjuntos (solo si hay).
@@ -273,9 +288,9 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
 
-              // Botón Adjuntar Archivo
+              // Botón Adjuntar Archivo (compacto: cede ancho al campo)
               Tooltip(
                 message: 'Adjuntar archivo',
                 child: Material(
@@ -285,21 +300,22 @@ class _ChatComposerState extends State<ChatComposer> {
                     borderRadius: BorderRadius.circular(99),
                     onTap: widget.onAttach,
                     child: SizedBox(
-                      width: widget.compact ? 32 : 36,
+                      width: widget.compact ? 30 : 34,
                       height: widget.compact ? 34 : 38,
                       child: Icon(
                         Icons.attach_file_rounded,
                         color: colors.onSurface.withValues(alpha: 0.58),
-                        size: 20,
+                        size: 19,
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
 
-              // Campo de texto amplio (card de escritura): multilínea con
-              // padding generoso para que el hint y el texto nunca se corten.
+              // Campo de texto: protagonista de la card. Ocupa todo el ancho
+              // libre y su padding vertical mínimo (8) lo alinea con los
+              // botones de 38px sin aire muerto.
               Expanded(
                 child: TextField(
                   controller: widget.controller,
@@ -330,13 +346,13 @@ class _ChatComposerState extends State<ChatComposer> {
                     filled: false,
                     fillColor: Colors.transparent,
                     contentPadding: const EdgeInsets.symmetric(
-                      vertical: 11,
-                      horizontal: 6,
+                      vertical: 8,
+                      horizontal: 4,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
 
               // Botón Enviar / Detener (vidrio + gradiente dinámico)
               Tooltip(
