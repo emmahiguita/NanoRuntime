@@ -205,6 +205,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
     final mediaQuery = MediaQuery.of(context);
+    // UI-REV-12: con teclado el shell ya oculta el FAB y adjustResize pega
+    // la card al teclado; en reposo la card sube sobre la línea del búho
+    // para que nunca tape enviar/adjuntar.
+    final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
     final screenSize = mediaQuery.size;
     final isNarrow = screenSize.width < 600;
     final isCompactLandscape =
@@ -288,7 +292,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Positioned.fill(
                       child: state.messages.isEmpty
                           ? Padding(
-                              padding: const EdgeInsets.only(bottom: 94),
+                              // UI-REV-12: mismo despeje de la card elevada
+                              // (78 + alto de la barra) en el estado vacío.
+                              padding: const EdgeInsets.only(bottom: 162),
                               child: EmptyChat(
                                 engineOnline: state.engineOnline,
                                 hasModel: state.activeModelPath != null,
@@ -306,9 +312,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 isCompactLandscape ? 10 : 18,
                                 8,
                                 isCompactLandscape ? 10 : 18,
-                                // Reserva estable para que la última
-                                // respuesta nunca quede bajo la barra.
-                                112 + mediaQuery.padding.bottom,
+                                // UI-REV-12: reserva estable para que la
+                                // última respuesta nunca quede bajo la barra
+                                // (ahora elevada 78px sobre la línea del FAB).
+                                180 + mediaQuery.padding.bottom,
                               ),
                               itemCount:
                                   state.messages.length +
@@ -365,11 +372,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     // Android ya redimensiona esta Activity con adjustResize.
                     // No sumar viewInsets aquí: era un segundo desplazamiento
                     // que elevaba el compositor completo al abrir el teclado.
+                    // UI-REV-12: en reposo (sin teclado) la card reserva la
+                    // franja del FAB flotante (56 + gap 12 + respiro 10 = 78):
+                    // el búho vive en su línea y nunca tapa la barra de
+                    // escritura. Con teclado el FAB está oculto y la card
+                    // vuelve pegada al borde inferior visible.
                     if (!_isReadingMode)
                       Positioned(
                         left: isCompactLandscape ? 8 : 14,
                         right: isCompactLandscape ? 8 : 14,
-                        bottom: isCompactLandscape ? 5 : 10,
+                        bottom: keyboardOpen
+                            ? (isCompactLandscape ? 5 : 10)
+                            : 78,
                         child: _ComposerTransition(
                           child: _isComposerMinimized
                               ? Align(

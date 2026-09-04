@@ -299,7 +299,9 @@ class _ChatComposerState extends State<ChatComposer> {
                   controller: widget.controller,
                   focusNode: _focusNode,
                   enabled: widget.enabled,
-                  maxLines: widget.compact ? 4 : 6,
+                  // UI-REV-12: 8 líneas visibles antes de hacer scroll —
+                  // el texto que el usuario escribe se ve completo.
+                  maxLines: widget.compact ? 4 : 8,
                   minLines: 1,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _trySend(),
@@ -325,7 +327,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     fillColor: Colors.transparent,
                     contentPadding: const EdgeInsets.symmetric(
                       vertical: 9,
-                      horizontal: 6,
+                      horizontal: 10,
                     ),
                   ),
                 ),
