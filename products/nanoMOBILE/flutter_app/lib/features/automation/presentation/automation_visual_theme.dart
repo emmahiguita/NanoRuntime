@@ -38,12 +38,16 @@ abstract final class AutomationVisual {
   ) {
     final theme = Theme.of(context);
     final inheritedColors = NanoThemeExtension.of(context).colors;
+    // UI-REV-07: dos ramas reales. Modo visualmente claro = Claro explícito O
+    // Sistema con el dispositivo en claro — en ambos casos el vidrio claro de
+    // Dev. Antes "Sistema-claro" caía a un tercer ramo "clásico" (canvas
+    // sólido sin vidrio) y el backdrop pintaba el fluido líquido OSCURO sobre
+    // una app clara. Fuera el ramo muerto.
     final isDark =
         mode == AutomationVisualMode.dark ||
         (mode == AutomationVisualMode.system &&
             theme.brightness == Brightness.dark);
-    final isLightGlass = mode == AutomationVisualMode.lightGlass;
-    final isGlass = mode != AutomationVisualMode.system;
+    final isLightGlass = !isDark;
     // "Sistema" conserva la identidad naranja de Nano Automation aunque el
     // brillo del dispositivo sea oscuro. Solo el modo Oscuro explícito adopta
     // el acento óptico menta del shell nocturno.
@@ -64,67 +68,36 @@ abstract final class AutomationVisual {
       // canvas claro — mezcla de modos ilegible.
       resolvedColors: colors,
       isDark: isDark,
-      isGlass: isGlass,
       isLightGlass: isLightGlass,
       accent: usesDarkAccent ? colors.accentMint : lightAccent,
       onAccent: usesDarkAccent ? colors.onAccent : Colors.white,
       accentSoft: usesDarkAccent
           ? colors.accentMint.withValues(alpha: 0.14)
-          : isDark
-          ? lightAccent.withValues(alpha: 0.17)
-          : isLightGlass
-          ? const Color(0xB8FFF2E7)
-          : const Color(0xFFFFF2E7),
-      canvas: isDark
-          ? colors.backgroundPrimary
-          : isLightGlass
-          ? colors.backgroundPrimary
-          : const Color(0xFFF8F9FB),
+          : const Color(0xB8FFF2E7),
+      canvas: colors.backgroundPrimary,
       surface: isDark
           ? colors.glassPrimary.withValues(alpha: 0.72)
-          : isLightGlass
-          ? colors.glassSurface
-          : const Color(0xFFFFFFFF),
+          : colors.glassSurface,
       inputFill: isDark
           ? colors.backgroundDeep.withValues(alpha: 0.62)
-          : isLightGlass
-          ? colors.glassSecondary.withValues(alpha: 0.56)
-          : const Color(0xFFFBFBFC),
+          : colors.glassSecondary.withValues(alpha: 0.56),
       text: colors.textPrimary,
       textMuted: colors.textSecondary,
-      line: isDark
-          ? colors.borderSecondaryColor
-          : isLightGlass
-          ? colors.borderSecondaryColor
-          : const Color(0xFFE8EAEE),
+      line: colors.borderSecondaryColor,
       outline: isDark ? colors.outline : const Color(0xFFC9CDD3),
       cardStart: isDark
           ? colors.glass100.withValues(alpha: 0.84)
-          : isLightGlass
-          ? colors.glassPrimary.withValues(alpha: colors.glassOpaque)
-          : const Color(0xF7FFFFFF),
+          : colors.glassPrimary.withValues(alpha: colors.glassOpaque),
       cardEnd: isDark
           ? colors.glassBlue.withValues(alpha: 0.62)
-          : isLightGlass
-          ? colors.glassSecondary.withValues(alpha: colors.glassMedium)
-          : const Color(0xDFFFFFFF),
+          : colors.glassSecondary.withValues(alpha: colors.glassMedium),
       cardBorder: isDark
           ? usesDarkAccent
                 ? colors.borderAccentColor
                 : lightAccent.withValues(alpha: 0.28)
-          : isLightGlass
-          ? colors.borderPrimaryColor
-          : const Color(0xE6FFFFFF),
-      shadow: isDark
-          ? const Color(0x59000000)
-          : isGlass
-          ? const Color(0x160D1726)
-          : const Color(0x120D1726),
-      shadowSoft: isDark
-          ? const Color(0x33000000)
-          : isGlass
-          ? const Color(0x0D0D1726)
-          : const Color(0x0A0D1726),
+          : colors.borderPrimaryColor,
+      shadow: isDark ? const Color(0x59000000) : const Color(0x160D1726),
+      shadowSoft: isDark ? const Color(0x33000000) : const Color(0x0D0D1726),
       success: colors.success,
     );
   }
@@ -241,7 +214,6 @@ class AutomationVisualPalette {
   const AutomationVisualPalette({
     required this.resolvedColors,
     required this.isDark,
-    required this.isGlass,
     required this.isLightGlass,
     required this.accent,
     required this.onAccent,
@@ -268,7 +240,6 @@ class AutomationVisualPalette {
   final NanoColors resolvedColors;
 
   final bool isDark;
-  final bool isGlass;
   final bool isLightGlass;
   final Color accent;
   final Color onAccent;
@@ -298,7 +269,6 @@ class AutomationVisualPalette {
                     as NanoThemeExtension)
                 .colors,
         isDark: t < 0.5 ? isDark : other.isDark,
-        isGlass: t < 0.5 ? isGlass : other.isGlass,
         isLightGlass: t < 0.5 ? isLightGlass : other.isLightGlass,
         accent: Color.lerp(accent, other.accent, t)!,
         onAccent: Color.lerp(onAccent, other.onAccent, t)!,
@@ -505,8 +475,9 @@ class AutomationBackHeader extends StatelessWidget {
 }
 
 /// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas:
-/// ambient estático en modo Claro glass, fluido líquido en el resto.
-/// Se monta como capa base de un Stack con Scaffold transparente.
+/// ambient estático en modo claro (con el acento naranja como glow, UI-REV-07),
+/// fluido líquido en oscuro. Se monta como capa base de un Stack con Scaffold
+/// transparente.
 class AutomationBackdrop extends StatelessWidget {
   const AutomationBackdrop({super.key});
 
@@ -515,7 +486,7 @@ class AutomationBackdrop extends StatelessWidget {
     final visual = AutomationVisual.of(context);
     return Positioned.fill(
       child: visual.isLightGlass
-          ? const NanoAmbientBackground(animated: false)
+          ? NanoAmbientBackground(animated: false, activeAccent: visual.accent)
           : const LiquidFluidBackground(),
     );
   }

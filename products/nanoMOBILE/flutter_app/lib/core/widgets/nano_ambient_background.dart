@@ -8,7 +8,9 @@ import '../theme/nano_motion.dart';
 ///
 /// Unifica el gradiente óptico + resplandores orbitales puros que respiran
 /// sutilmente con física armónica y reaccionan al acento cromático activo,
-/// garantizando máxima nitidez, colores puros y cero halos sucios en modo claro.
+/// garantizando máxima nitidez y colores puros. Ambos modos (claro y oscuro)
+/// llevan glows sutiles: en claro con alphas más altos que en oscuro porque
+/// el color de acento se diluye sobre el lienzo claro (UI-REV-07).
 class NanoAmbientBackground extends StatefulWidget {
   final bool animated;
   final Color? activeAccent;
@@ -101,46 +103,78 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
               widget.activeAccent ??
               (isDark ? colors.accent : colors.accentCyan);
 
-          if (!isDark) {
-            return ColoredBox(color: colors.backgroundPrimary);
-          }
-
           // Modo oscuro uniforme: el cristal aporta la profundidad. Evita la
           // franja turquesa inferior que competía con tarjetas y textos.
+          final darkGlows = <Widget>[
+            Positioned(
+              top: -60 + oy1,
+              right: -110 + ox1,
+              child: _Glow(
+                size: 420,
+                color: Color.lerp(colors.nanoBlue, activeColor, 0.35)!,
+                alpha: 0.055,
+              ),
+            ),
+            Positioned(
+              bottom: -110 + oy2,
+              left: -160 + ox2,
+              child: _Glow(
+                size: 520,
+                color: Color.lerp(colors.nanoCyan, activeColor, 0.45)!,
+                alpha: 0.040,
+              ),
+            ),
+            if (widget.activeAccent != null)
+              Positioned(
+                top: 200 + oy3,
+                left: 40 + ox3,
+                child: _Glow(
+                  size: 260,
+                  color: widget.activeAccent!,
+                  alpha: 0.035,
+                ),
+              ),
+          ];
+
+          // UI-REV-07: el modo claro ya no es un lienzo plano — lleva los
+          // mismos glows orbitales con alphas mayores (el acento se diluye
+          // sobre fondo claro). Si se pide activeAccent, se usa su color.
+          final lightGlows = <Widget>[
+            Positioned(
+              top: -60 + oy1,
+              right: -110 + ox1,
+              child: _Glow(
+                size: 460,
+                color: Color.lerp(colors.nanoBlue, activeColor, 0.35)!,
+                alpha: 0.14,
+              ),
+            ),
+            Positioned(
+              bottom: -110 + oy2,
+              left: -160 + ox2,
+              child: _Glow(
+                size: 560,
+                color: Color.lerp(colors.nanoCyan, activeColor, 0.45)!,
+                alpha: 0.12,
+              ),
+            ),
+            if (widget.activeAccent != null)
+              Positioned(
+                top: 200 + oy3,
+                left: 40 + ox3,
+                child: _Glow(
+                  size: 280,
+                  color: widget.activeAccent!,
+                  alpha: 0.13,
+                ),
+              ),
+          ];
+
           return ColoredBox(
             color: colors.backgroundPrimary,
             child: Stack(
               fit: StackFit.expand,
-              children: [
-                Positioned(
-                  top: -60 + oy1,
-                  right: -110 + ox1,
-                  child: _Glow(
-                    size: 420,
-                    color: Color.lerp(colors.nanoBlue, activeColor, 0.35)!,
-                    alpha: 0.055,
-                  ),
-                ),
-                Positioned(
-                  bottom: -110 + oy2,
-                  left: -160 + ox2,
-                  child: _Glow(
-                    size: 520,
-                    color: Color.lerp(colors.nanoCyan, activeColor, 0.45)!,
-                    alpha: 0.040,
-                  ),
-                ),
-                if (widget.activeAccent != null)
-                  Positioned(
-                    top: 200 + oy3,
-                    left: 40 + ox3,
-                    child: _Glow(
-                      size: 260,
-                      color: widget.activeAccent!,
-                      alpha: 0.035,
-                    ),
-                  ),
-              ],
+              children: isDark ? darkGlows : lightGlows,
             ),
           );
         },
@@ -149,27 +183,66 @@ class _NanoAmbientBackgroundState extends State<NanoAmbientBackground>
   }
 
   Widget _buildStaticBackground(NanoColors colors, bool isDark) {
-    if (!isDark) {
-      return ColoredBox(color: colors.backgroundPrimary);
-    }
+    final activeColor =
+        widget.activeAccent ?? (isDark ? colors.accent : colors.accentCyan);
 
     return RepaintBoundary(
       child: ColoredBox(
         color: colors.backgroundPrimary,
         child: Stack(
           fit: StackFit.expand,
-          children: [
-            Positioned(
-              top: -50,
-              right: -100,
-              child: _Glow(size: 400, color: colors.nanoBlue, alpha: 0.05),
-            ),
-            Positioned(
-              bottom: -100,
-              left: -150,
-              child: _Glow(size: 500, color: colors.nanoCyan, alpha: 0.04),
-            ),
-          ],
+          children: isDark
+              ? [
+                  Positioned(
+                    top: -50,
+                    right: -100,
+                    child: _Glow(
+                      size: 400,
+                      color: colors.nanoBlue,
+                      alpha: 0.05,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -100,
+                    left: -150,
+                    child: _Glow(
+                      size: 500,
+                      color: colors.nanoCyan,
+                      alpha: 0.04,
+                    ),
+                  ),
+                ]
+              // UI-REV-07: versión estática clara con los glows fijos.
+              : [
+                  Positioned(
+                    top: -50,
+                    right: -100,
+                    child: _Glow(
+                      size: 460,
+                      color: Color.lerp(colors.nanoBlue, activeColor, 0.35)!,
+                      alpha: 0.14,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -100,
+                    left: -150,
+                    child: _Glow(
+                      size: 560,
+                      color: Color.lerp(colors.nanoCyan, activeColor, 0.45)!,
+                      alpha: 0.12,
+                    ),
+                  ),
+                  if (widget.activeAccent != null)
+                    Positioned(
+                      top: 180,
+                      left: 60,
+                      child: _Glow(
+                        size: 280,
+                        color: widget.activeAccent!,
+                        alpha: 0.13,
+                      ),
+                    ),
+                ],
         ),
       ),
     );

@@ -8,7 +8,6 @@ import '../../../../core/linux/linux_init.dart';
 import '../../../../core/providers/kali_provider.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/nano_transitions.dart';
-import '../../../../core/widgets/nano_ambient_background.dart';
 import '../../../../core/widgets/nano_optical_surface.dart';
 
 /// Dashboard nativo Mobile Linux Mode (White Optical Glass).
@@ -51,15 +50,11 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
 
     final colors = NanoThemeExtension.of(context).colors;
 
-    return Stack(
+    // UI-REV-07: el fondo ya lo pone el shell — fuera la doble capa.
+    return Column(
       children: [
-        const Positioned.fill(child: NanoAmbientBackground()),
-        Column(
-          children: [
-            _buildHeader(context, colors),
-            Expanded(child: _buildBody(context, colors)),
-          ],
-        ),
+        _buildHeader(context, colors),
+        Expanded(child: _buildBody(context, colors)),
       ],
     );
   }

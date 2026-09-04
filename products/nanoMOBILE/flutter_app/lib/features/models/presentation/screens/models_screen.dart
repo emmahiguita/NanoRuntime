@@ -8,7 +8,6 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
 import 'package:nanoai/features/models/data/model_source_registry.dart';
@@ -267,552 +266,335 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final totalCount = catalogModels.length + detected.length;
     final totalInStorage = detected.length + installedModels.length;
 
-    return Stack(
+    // UI-REV-07: el fondo ya lo pone el shell (NanoAmbientBackground único).
+    // Antes esta pantalla pintaba su propio ambient encima (doble capa).
+    return Column(
       children: [
-        const Positioned.fill(child: NanoAmbientBackground()),
-        Column(
-          children: [
-            if (!state.allFilesGranted)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: _AllFilesBanner(
-                  onGrant: () => notifier.requestAllFilesAccess(),
-                ),
-              ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isLandscape =
-                      constraints.maxWidth > constraints.maxHeight;
-                  final compactLandscape =
-                      isLandscape && constraints.maxHeight < 520;
+        if (!state.allFilesGranted)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: _AllFilesBanner(
+              onGrant: () => notifier.requestAllFilesAccess(),
+            ),
+          ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isLandscape = constraints.maxWidth > constraints.maxHeight;
+              final compactLandscape =
+                  isLandscape && constraints.maxHeight < 520;
 
-                  Widget buildCardAt(int index) {
-                    final item = unifiedList[index];
+              Widget buildCardAt(int index) {
+                final item = unifiedList[index];
 
-                    final Widget card;
-                    if (item.isDetected) {
-                      final detectedModel = item.detected!;
-                      final isActive =
-                          state.activeDetected == detectedModel.name;
-                      card = _DetectedCard(
-                        model: detectedModel,
-                        loading:
-                            state.loadingDetectedUri ==
-                            (detectedModel.path ?? detectedModel.uri),
-                        active: isActive,
-                        reflectionController: _reflectionController,
-                        onTapDetails: () => _openModelDetails(
-                          name: detectedModel.name,
-                          quant: detectedModel.format.name.toUpperCase(),
-                          sizeGb: detectedModel.sizeBytes > 0
-                              ? detectedModel.sizeBytes / (1024 * 1024 * 1024)
-                              : 0,
-                          description: detectedModel.usable
-                              ? 'Modelo local detectado en almacenamiento SD / interno.'
-                              : 'Archivo rechazado: la cabecera GGUF es inválida o incompleta.',
-                          path: detectedModel.path ?? detectedModel.uri,
-                          isDetected: true,
-                          isActive: isActive,
-                          dashboard: dashboard,
-                          onAction: detectedModel.usable
-                              ? () => notifier.useDetected(detectedModel)
-                              : () => ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'No se puede cargar: cabecera GGUF inválida.',
-                                    ),
-                                  ),
-                                ),
-                          actionLabel: detectedModel.usable
-                              ? 'Cargar Modelo'
-                              : 'Archivo no compatible',
-                        ),
-                        onUse: detectedModel.usable
-                            ? () => notifier.useDetected(detectedModel)
-                            : null,
-                      );
-                    } else {
-                      final model = item.catalog!;
-                      final status = _statusOf(model, dashboard);
-
-                      card = _ModelCard(
-                        name: model.name,
-                        quantization: model.quant,
-                        sizeGb: model.sizeGb,
-                        description: model.description,
-                        error: model.error,
-                        status: status,
-                        viability: _modelViability(model, dashboard),
-                        tier: model.tier,
-                        ramNote: status == ModelUiStatus.incompatible
-                            ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
-                            : null,
-                        progress: model.progress,
-                        reflectionController: _reflectionController,
-                        onTapDetails: () => _openModelDetails(
-                          name: model.name,
-                          quant: model.quant,
-                          sizeGb: model.sizeGb,
-                          description: model.description,
-                          ramGb: model.ramGb,
-                          isDetected: false,
-                          isActive: status == ModelUiStatus.active,
-                          dashboard: dashboard,
-                          onAction: () {
-                            if (status == ModelUiStatus.installed) {
-                              _confirmAndUse(model);
-                            } else if (status == ModelUiStatus.available ||
-                                status == ModelUiStatus.error ||
-                                status == ModelUiStatus.incompatible) {
-                              // incompatible también descarga: la ficha mostrada en
-                              // la sábana no debe diferir de la tarjeta (que sí
-                              // ofrece "Descargar" para modelos grandes).
-                              notifier.downloadModel(model.id);
-                            }
-                          },
-                          actionLabel: status == ModelUiStatus.installed
-                              ? 'Cargar en Chat'
-                              : status == ModelUiStatus.active
-                              ? 'Modelo Activo'
-                              : 'Descargar GGUF',
-                        ),
-                        onUse: () => _confirmAndUse(model),
-                        onDownload: () => notifier.downloadModel(model.id),
-                        onCancel: notifier.cancelDownload,
-                      );
-                    }
-
-                    if (MediaQuery.disableAnimationsOf(context)) return card;
-
-                    final start = (index * 0.05).clamp(0.0, 0.75);
-                    final end = (start + 0.20).clamp(0.0, 1.0);
-                    final entry = CurvedAnimation(
-                      parent: _entryController,
-                      curve: Interval(
-                        start,
-                        end,
-                        curve: NanoMotionCurves.standardDecel,
-                      ),
-                    );
-
-                    return AnimatedBuilder(
-                      animation: _entryController,
-                      builder: (_, child) {
-                        final value = entry.value;
-                        return Opacity(
-                          opacity: value.clamp(0.0, 1.0),
-                          child: Transform.translate(
-                            offset: Offset(0, 10 * (1 - value.clamp(0.0, 1.0))),
-                            child: Transform.scale(
-                              scale: 0.96 + 0.04 * value,
-                              child: child,
-                            ),
-                          ),
-                        );
-                      },
-                      child: card,
-                    );
-                  }
-
-                  final hasAny = totalCount > 0;
-
-                  // ==========================================
-                  // TOP HEADER: NANOAI + SEARCH + FILTERS
-                  // ==========================================
-                  final topHeader = Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          height: 42,
-                          child: Row(
-                            children: [
-                              Text(
-                                'Modelos',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.4,
-                                  color: colors.textPrimary,
+                final Widget card;
+                if (item.isDetected) {
+                  final detectedModel = item.detected!;
+                  final isActive = state.activeDetected == detectedModel.name;
+                  card = _DetectedCard(
+                    model: detectedModel,
+                    loading:
+                        state.loadingDetectedUri ==
+                        (detectedModel.path ?? detectedModel.uri),
+                    active: isActive,
+                    reflectionController: _reflectionController,
+                    onTapDetails: () => _openModelDetails(
+                      name: detectedModel.name,
+                      quant: detectedModel.format.name.toUpperCase(),
+                      sizeGb: detectedModel.sizeBytes > 0
+                          ? detectedModel.sizeBytes / (1024 * 1024 * 1024)
+                          : 0,
+                      description: detectedModel.usable
+                          ? 'Modelo local detectado en almacenamiento SD / interno.'
+                          : 'Archivo rechazado: la cabecera GGUF es inválida o incompleta.',
+                      path: detectedModel.path ?? detectedModel.uri,
+                      isDetected: true,
+                      isActive: isActive,
+                      dashboard: dashboard,
+                      onAction: detectedModel.usable
+                          ? () => notifier.useDetected(detectedModel)
+                          : () => ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'No se puede cargar: cabecera GGUF inválida.',
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                            ),
+                      actionLabel: detectedModel.usable
+                          ? 'Cargar Modelo'
+                          : 'Archivo no compatible',
+                    ),
+                    onUse: detectedModel.usable
+                        ? () => notifier.useDetected(detectedModel)
+                        : null,
+                  );
+                } else {
+                  final model = item.catalog!;
+                  final status = _statusOf(model, dashboard);
 
-                              // Barra de búsqueda expandible
-                              Expanded(
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeOutCubic,
-                                  height: 38,
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    switchInCurve: Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeInCubic,
-                                    child: _isSearchExpanded
-                                        ? SizedBox(
-                                            key: const ValueKey(
-                                              'search_expanded',
-                                            ),
-                                            child: NanoOpticalSurface(
-                                              borderRadius: 12,
-                                              blurSigma: 12,
-                                              borderStrength: 0.80,
-                                              reflectionStrength: 0.65,
-                                              accent: colors.accentSky,
-                                              reflectionController:
-                                                  _reflectionController,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.search_rounded,
-                                                    size: 18,
-                                                    color: colors.accentSky,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: TextField(
-                                                      controller:
-                                                          _searchController,
-                                                      focusNode:
-                                                          _searchFocusNode,
-                                                      onChanged: (val) =>
-                                                          setState(
-                                                            () => _searchQuery =
-                                                                val,
-                                                          ),
-                                                      style: TextStyle(
-                                                        fontFamily: 'Inter',
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color:
-                                                            colors.textPrimary,
-                                                      ),
-                                                      decoration: InputDecoration(
-                                                        border:
-                                                            InputBorder.none,
-                                                        isDense: true,
-                                                        contentPadding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 8,
-                                                            ),
-                                                        hintText:
-                                                            'Buscar (Gemma, LLaMA, Qwen, DeepSeek...)',
-                                                        hintStyle: TextStyle(
-                                                          fontFamily: 'Inter',
-                                                          fontSize: 12,
-                                                          color: colors
-                                                              .textSecondary
-                                                              .withValues(
-                                                                alpha: 0.70,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  GestureDetector(
-                                                    onTap: _toggleSearch,
-                                                    child: Icon(
-                                                      Icons.close_rounded,
-                                                      size: 18,
-                                                      color:
-                                                          colors.textSecondary,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          )
-                                        : Row(
-                                            key: const ValueKey(
-                                              'search_collapsed',
-                                            ),
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.end,
+                  card = _ModelCard(
+                    name: model.name,
+                    quantization: model.quant,
+                    sizeGb: model.sizeGb,
+                    description: model.description,
+                    error: model.error,
+                    status: status,
+                    viability: _modelViability(model, dashboard),
+                    tier: model.tier,
+                    ramNote: status == ModelUiStatus.incompatible
+                        ? 'Requiere ${model.ramGb.toStringAsFixed(0)} GB de RAM (dispositivo: ${dashboard.ramTotalGb.toStringAsFixed(1)} GB)'
+                        : null,
+                    progress: model.progress,
+                    reflectionController: _reflectionController,
+                    onTapDetails: () => _openModelDetails(
+                      name: model.name,
+                      quant: model.quant,
+                      sizeGb: model.sizeGb,
+                      description: model.description,
+                      ramGb: model.ramGb,
+                      isDetected: false,
+                      isActive: status == ModelUiStatus.active,
+                      dashboard: dashboard,
+                      onAction: () {
+                        if (status == ModelUiStatus.installed) {
+                          _confirmAndUse(model);
+                        } else if (status == ModelUiStatus.available ||
+                            status == ModelUiStatus.error ||
+                            status == ModelUiStatus.incompatible) {
+                          // incompatible también descarga: la ficha mostrada en
+                          // la sábana no debe diferir de la tarjeta (que sí
+                          // ofrece "Descargar" para modelos grandes).
+                          notifier.downloadModel(model.id);
+                        }
+                      },
+                      actionLabel: status == ModelUiStatus.installed
+                          ? 'Cargar en Chat'
+                          : status == ModelUiStatus.active
+                          ? 'Modelo Activo'
+                          : 'Descargar GGUF',
+                    ),
+                    onUse: () => _confirmAndUse(model),
+                    onDownload: () => notifier.downloadModel(model.id),
+                    onCancel: notifier.cancelDownload,
+                  );
+                }
+
+                if (MediaQuery.disableAnimationsOf(context)) return card;
+
+                final start = (index * 0.05).clamp(0.0, 0.75);
+                final end = (start + 0.20).clamp(0.0, 1.0);
+                final entry = CurvedAnimation(
+                  parent: _entryController,
+                  curve: Interval(
+                    start,
+                    end,
+                    curve: NanoMotionCurves.standardDecel,
+                  ),
+                );
+
+                return AnimatedBuilder(
+                  animation: _entryController,
+                  builder: (_, child) {
+                    final value = entry.value;
+                    return Opacity(
+                      opacity: value.clamp(0.0, 1.0),
+                      child: Transform.translate(
+                        offset: Offset(0, 10 * (1 - value.clamp(0.0, 1.0))),
+                        child: Transform.scale(
+                          scale: 0.96 + 0.04 * value,
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
+                  child: card,
+                );
+              }
+
+              final hasAny = totalCount > 0;
+
+              // ==========================================
+              // TOP HEADER: NANOAI + SEARCH + FILTERS
+              // ==========================================
+              final topHeader = Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 42,
+                      child: Row(
+                        children: [
+                          Text(
+                            'Modelos',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.4,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Barra de búsqueda expandible
+                          Expanded(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOutCubic,
+                              height: 38,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                child: _isSearchExpanded
+                                    ? SizedBox(
+                                        key: const ValueKey('search_expanded'),
+                                        child: NanoOpticalSurface(
+                                          borderRadius: 12,
+                                          blurSigma: 12,
+                                          borderStrength: 0.80,
+                                          reflectionStrength: 0.65,
+                                          accent: colors.accentSky,
+                                          reflectionController:
+                                              _reflectionController,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          child: Row(
                                             children: [
-                                              if (totalInStorage > 0)
-                                                Flexible(
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 4,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: colors.accentSky
-                                                          .withValues(
-                                                            alpha: 0.12,
-                                                          ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            99,
-                                                          ),
-                                                      border: Border.all(
-                                                        color: colors.accentSky
-                                                            .withValues(
-                                                              alpha: 0.35,
-                                                            ),
-                                                        width: 0.8,
-                                                      ),
-                                                    ),
-                                                    child: Text(
-                                                      '$totalInStorage en memoria',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontFamily: 'Inter',
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: colors
-                                                            .textSecondary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
+                                              Icon(
+                                                Icons.search_rounded,
+                                                size: 18,
+                                                color: colors.accentSky,
+                                              ),
                                               const SizedBox(width: 6),
-                                              NanoOpticalSurface(
-                                                geometry:
-                                                    NanoSurfaceGeometry.circle,
-                                                blurSigma: 8,
-                                                borderStrength: 0.60,
-                                                reflectionStrength: 0.40,
-                                                accent: colors.accentSky,
-                                                onTap: _toggleSearch,
-                                                child: SizedBox(
-                                                  width: 34,
-                                                  height: 34,
-                                                  child: Icon(
-                                                    Icons.search_rounded,
-                                                    size: 18,
-                                                    color: colors.accentSky,
+                                              Expanded(
+                                                child: TextField(
+                                                  controller: _searchController,
+                                                  focusNode: _searchFocusNode,
+                                                  onChanged: (val) => setState(
+                                                    () => _searchQuery = val,
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: colors.textPrimary,
+                                                  ),
+                                                  decoration: InputDecoration(
+                                                    border: InputBorder.none,
+                                                    isDense: true,
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 8,
+                                                        ),
+                                                    hintText:
+                                                        'Buscar (Gemma, LLaMA, Qwen, DeepSeek...)',
+                                                    hintStyle: TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 12,
+                                                      color: colors
+                                                          .textSecondary
+                                                          .withValues(
+                                                            alpha: 0.70,
+                                                          ),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 6),
-                                              NanoOpticalSurface(
-                                                geometry:
-                                                    NanoSurfaceGeometry.circle,
-                                                blurSigma: 8,
-                                                borderStrength: 0.60,
-                                                reflectionStrength: 0.40,
-                                                accent: colors.accentSky,
-                                                onTap: notifier.scanStorageAll,
-                                                child: SizedBox(
-                                                  width: 34,
-                                                  height: 34,
-                                                  child: Icon(
-                                                    state.scanning
-                                                        ? Icons.sync_rounded
-                                                        : Icons.refresh_rounded,
-                                                    size: 18,
-                                                    color: colors.accentSky,
-                                                  ),
+                                              GestureDetector(
+                                                onTap: _toggleSearch,
+                                                child: Icon(
+                                                  Icons.close_rounded,
+                                                  size: 18,
+                                                  color: colors.textSecondary,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Filtros Rápidos por Categoría y Familia de Modelos
-                        SizedBox(
-                          height: 32,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            itemCount: _ModelFilter.values.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 6),
-                            itemBuilder: (context, index) {
-                              final filter = _ModelFilter.values[index];
-                              final isSelected = filter == _selectedFilter;
-
-                              return NanoOpticalSurface(
-                                geometry: NanoSurfaceGeometry.capsule,
-                                blurSigma: 8,
-                                borderStrength: isSelected ? 0.85 : 0.45,
-                                reflectionStrength: isSelected ? 0.65 : 0.30,
-                                accent: isSelected
-                                    ? colors.accentSky
-                                    : colors.metalSilver,
-                                onTap: () =>
-                                    setState(() => _selectedFilter = filter),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 11,
-                                  vertical: 5,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      filter.icon,
-                                      size: 13,
-                                      color: isSelected
-                                          ? colors.accentSky
-                                          : colors.textSecondary,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      filter.label,
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 11.5,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        color: isSelected
-                                            ? colors.textPrimary
-                                            : colors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (isLandscape) {
-                    return Column(
-                      children: [
-                        topHeader,
-                        Expanded(
-                          child: !hasAny
-                              ? const _EmptyModels()
-                              : totalFilteredCount == 0
-                              ? _EmptySearchResults(
-                                  query: _searchQuery,
-                                  onClear: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _searchQuery = '';
-                                      _selectedFilter = _ModelFilter.all;
-                                    });
-                                  },
-                                )
-                              : GridView.builder(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    12,
-                                    4,
-                                    12,
-                                    12,
-                                  ),
-                                  gridDelegate: compactLandscape
-                                      ? SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount:
-                                              constraints.maxWidth >= 560
-                                              ? 3
-                                              : 2,
-                                          crossAxisSpacing: 8,
-                                          mainAxisSpacing: 8,
-                                          mainAxisExtent: 178,
-                                        )
-                                      : const SliverGridDelegateWithMaxCrossAxisExtent(
-                                          maxCrossAxisExtent: 360,
-                                          crossAxisSpacing: 8,
-                                          mainAxisSpacing: 8,
-                                          // Altura reservada para nombre en
-                                          // 2 líneas + descripción en 2 (sin
-                                          // overflow al envolver texto).
-                                          mainAxisExtent: 212,
                                         ),
-                                  itemCount: totalFilteredCount,
-                                  itemBuilder: (context, index) =>
-                                      buildCardAt(index),
-                                ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      child: Column(
-                        children: [
-                          topHeader,
-                          Expanded(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              transitionBuilder: (child, animation) {
-                                final offset = Tween<Offset>(
-                                  begin: const Offset(0, 0.035),
-                                  end: Offset.zero,
-                                ).animate(animation);
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: offset,
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: KeyedSubtree(
-                                key: ValueKey(
-                                  '${_selectedFilter.name}_${_searchQuery.trim()}',
-                                ),
-                                child: !hasAny
-                                    ? const _EmptyModels()
-                                    : totalFilteredCount == 0
-                                    ? _EmptySearchResults(
-                                        query: _searchQuery,
-                                        onClear: () {
-                                          _searchController.clear();
-                                          setState(() {
-                                            _searchQuery = '';
-                                            _selectedFilter = _ModelFilter.all;
-                                          });
-                                        },
                                       )
-                                    : ListView.builder(
-                                        physics: const BouncingScrollPhysics(),
-                                        padding: const EdgeInsets.fromLTRB(
-                                          14,
-                                          2,
-                                          14,
-                                          20,
-                                        ),
-                                        itemCount: totalFilteredCount + 1,
-                                        itemBuilder: (context, index) {
-                                          if (index == totalFilteredCount) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 10,
+                                    : Row(
+                                        key: const ValueKey('search_collapsed'),
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          if (totalInStorage > 0)
+                                            Flexible(
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: colors.accentSky
+                                                      .withValues(alpha: 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(99),
+                                                  border: Border.all(
+                                                    color: colors.accentSky
+                                                        .withValues(
+                                                          alpha: 0.35,
+                                                        ),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  '$totalInStorage en memoria',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: colors.textSecondary,
+                                                  ),
+                                                ),
                                               ),
-                                              child: _StorageUsage(
-                                                usedGb: usedGb,
-                                                storageTotalGb:
-                                                    dashboard.storageTotalGb,
-                                                storageFreeGb:
-                                                    dashboard.storageFreeGb,
-                                              ),
-                                            );
-                                          }
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 10,
                                             ),
-                                            child: buildCardAt(index),
-                                          );
-                                        },
+                                          const SizedBox(width: 6),
+                                          NanoOpticalSurface(
+                                            geometry:
+                                                NanoSurfaceGeometry.circle,
+                                            blurSigma: 8,
+                                            borderStrength: 0.60,
+                                            reflectionStrength: 0.40,
+                                            accent: colors.accentSky,
+                                            onTap: _toggleSearch,
+                                            child: SizedBox(
+                                              width: 34,
+                                              height: 34,
+                                              child: Icon(
+                                                Icons.search_rounded,
+                                                size: 18,
+                                                color: colors.accentSky,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          NanoOpticalSurface(
+                                            geometry:
+                                                NanoSurfaceGeometry.circle,
+                                            blurSigma: 8,
+                                            borderStrength: 0.60,
+                                            reflectionStrength: 0.40,
+                                            accent: colors.accentSky,
+                                            onTap: notifier.scanStorageAll,
+                                            child: SizedBox(
+                                              width: 34,
+                                              height: 34,
+                                              child: Icon(
+                                                state.scanning
+                                                    ? Icons.sync_rounded
+                                                    : Icons.refresh_rounded,
+                                                size: 18,
+                                                color: colors.accentSky,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                               ),
                             ),
@@ -820,11 +602,196 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
+                    const SizedBox(height: 8),
+
+                    // Filtros Rápidos por Categoría y Familia de Modelos
+                    SizedBox(
+                      height: 32,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _ModelFilter.values.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) {
+                          final filter = _ModelFilter.values[index];
+                          final isSelected = filter == _selectedFilter;
+
+                          return NanoOpticalSurface(
+                            geometry: NanoSurfaceGeometry.capsule,
+                            blurSigma: 8,
+                            borderStrength: isSelected ? 0.85 : 0.45,
+                            reflectionStrength: isSelected ? 0.65 : 0.30,
+                            accent: isSelected
+                                ? colors.accentSky
+                                : colors.metalSilver,
+                            onTap: () =>
+                                setState(() => _selectedFilter = filter),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 5,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  filter.icon,
+                                  size: 13,
+                                  color: isSelected
+                                      ? colors.accentSky
+                                      : colors.textSecondary,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  filter.label,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11.5,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? colors.textPrimary
+                                        : colors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (isLandscape) {
+                return Column(
+                  children: [
+                    topHeader,
+                    Expanded(
+                      child: !hasAny
+                          ? const _EmptyModels()
+                          : totalFilteredCount == 0
+                          ? _EmptySearchResults(
+                              query: _searchQuery,
+                              onClear: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                  _selectedFilter = _ModelFilter.all;
+                                });
+                              },
+                            )
+                          : GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                              gridDelegate: compactLandscape
+                                  ? SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount:
+                                          constraints.maxWidth >= 560 ? 3 : 2,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                      mainAxisExtent: 178,
+                                    )
+                                  : const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 360,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                      // Altura reservada para nombre en
+                                      // 2 líneas + descripción en 2 (sin
+                                      // overflow al envolver texto).
+                                      mainAxisExtent: 212,
+                                    ),
+                              itemCount: totalFilteredCount,
+                              itemBuilder: (context, index) =>
+                                  buildCardAt(index),
+                            ),
+                    ),
+                  ],
+                );
+              }
+
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Column(
+                    children: [
+                      topHeader,
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) {
+                            final offset = Tween<Offset>(
+                              begin: const Offset(0, 0.035),
+                              end: Offset.zero,
+                            ).animate(animation);
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: offset,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: KeyedSubtree(
+                            key: ValueKey(
+                              '${_selectedFilter.name}_${_searchQuery.trim()}',
+                            ),
+                            child: !hasAny
+                                ? const _EmptyModels()
+                                : totalFilteredCount == 0
+                                ? _EmptySearchResults(
+                                    query: _searchQuery,
+                                    onClear: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = '';
+                                        _selectedFilter = _ModelFilter.all;
+                                      });
+                                    },
+                                  )
+                                : ListView.builder(
+                                    physics: const BouncingScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      14,
+                                      2,
+                                      14,
+                                      20,
+                                    ),
+                                    itemCount: totalFilteredCount + 1,
+                                    itemBuilder: (context, index) {
+                                      if (index == totalFilteredCount) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 10,
+                                          ),
+                                          child: _StorageUsage(
+                                            usedGb: usedGb,
+                                            storageTotalGb:
+                                                dashboard.storageTotalGb,
+                                            storageFreeGb:
+                                                dashboard.storageFreeGb,
+                                          ),
+                                        );
+                                      }
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        child: buildCardAt(index),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );

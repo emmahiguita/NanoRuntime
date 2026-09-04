@@ -633,8 +633,9 @@ class _ReadingModeState extends State<_ReadingMode> {
 
     final surface = Stack(
       children: [
-        // Superficie serena de lectura: degradado vertical suave y profundo,
-        // sin reflejos ruidosos, para lectura prolongada sin fatiga.
+        // UI-REV-07: vidrio sutil de lectura — antes el gradiente claro iba
+        // al 40/72% de blanco y tapaba el fondo vivo del shell. Ahora asoma
+        // el ambient sin sacrificar la legibilidad del texto centrado.
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -643,14 +644,14 @@ class _ReadingModeState extends State<_ReadingMode> {
                 end: Alignment.bottomCenter,
                 colors: isDark
                     ? [
-                        colors.glass100.withValues(alpha: 0.12),
-                        colors.surface.withValues(alpha: 0.90),
-                        colors.glass300.withValues(alpha: 0.16),
+                        colors.glass100.withValues(alpha: 0.08),
+                        colors.surface.withValues(alpha: 0.72),
+                        colors.glass300.withValues(alpha: 0.10),
                       ]
                     : [
-                        colors.surface.withValues(alpha: 0.40),
-                        Colors.white.withValues(alpha: 0.72),
-                        colors.surface.withValues(alpha: 0.45),
+                        colors.surface.withValues(alpha: 0.16),
+                        Colors.white.withValues(alpha: 0.30),
+                        colors.surface.withValues(alpha: 0.18),
                       ],
               ),
             ),
