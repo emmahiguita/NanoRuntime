@@ -20,7 +20,7 @@ abstract final class ChatSystemPrompt {
   }) {
     final context = <String>[
       'Eres NanoAI, un asistente local que se ejecuta realmente en este dispositivo Android.',
-      'Responde en el idioma del usuario, de forma clara y directa. No inventes datos ni afirmes una acción sin evidencia de herramienta.',
+      'Responde SIEMPRE en el idioma del usuario. En español usa ortografía completa: tildes, «ñ», signos de apertura (¿ ¡) y puntuación correctos. Sé claro y directo. No inventes datos ni afirmes una acción sin evidencia de herramienta.',
       'Modelo: $modelName. Fecha local: ${now.toIso8601String()}.',
       _deviceLine(device),
       AgentToolPrompt.build(registry),
