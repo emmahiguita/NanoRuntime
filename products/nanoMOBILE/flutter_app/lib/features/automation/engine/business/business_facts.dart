@@ -101,25 +101,41 @@ final class BusinessFacts {
     'delivery': delivery,
   };
 
-  /// Bloque autorizado para el prompt. Vacío → '' (el prompt no cambia y el
-  /// agente pregunta con honestidad cuando le falta un dato).
-  String formatPromptBlock() {
-    if (isEmpty) return '';
-    final buffer = StringBuffer('<DATOS DEL NEGOCIO>\n');
-    if (products.isNotEmpty) {
-      buffer
-        ..writeln('Productos en venta:')
-        ..writeln(products.map((p) => p.promptLine()).join('\n'));
-    }
-    if (hours.trim().isNotEmpty) {
-      buffer.writeln('Horario: ${hours.trim()}');
-    }
-    if (delivery.trim().isNotEmpty) {
-      buffer.writeln('Envío: ${delivery.trim()}');
-    }
-    buffer.write('</DATOS DEL NEGOCIO>');
-    return buffer.toString();
+  /// Bloque autorizado para el prompt (todo el catálogo). Vacío → ''.
+  String formatPromptBlock() => buildBusinessBlock(
+    products: products,
+    hours: hours,
+    delivery: delivery,
+  );
+}
+
+/// UNICA fuente de formato del bloque <DATOS DEL NEGOCIO> — compartida por
+/// [BusinessFacts.formatPromptBlock] (catálogo completo) y por el selector
+/// de hechos (WA-BUSINESS-02, subconjunto relevante). Sin duplicado.
+String buildBusinessBlock({
+  required List<BusinessProduct> products,
+  required String hours,
+  required String delivery,
+}) {
+  final cleanHours = hours.trim();
+  final cleanDelivery = delivery.trim();
+  if (products.isEmpty && cleanHours.isEmpty && cleanDelivery.isEmpty) {
+    return '';
   }
+  final buffer = StringBuffer('<DATOS DEL NEGOCIO>\n');
+  if (products.isNotEmpty) {
+    buffer
+      ..writeln('Productos en venta:')
+      ..writeln(products.map((p) => p.promptLine()).join('\n'));
+  }
+  if (cleanHours.isNotEmpty) {
+    buffer.writeln('Horario: $cleanHours');
+  }
+  if (cleanDelivery.isNotEmpty) {
+    buffer.writeln('Envío: $cleanDelivery');
+  }
+  buffer.write('</DATOS DEL NEGOCIO>');
+  return buffer.toString();
 }
 
 /// Persistencia de hechos (DIP). Producción = AutomationStoreDb sección

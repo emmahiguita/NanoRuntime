@@ -81,6 +81,20 @@ respuesta.
   leído en vivo, sin reiniciar).
 - Sin datos cargados: el agente no afirma precios ni stock.
 
+## WA-BUSINESS-02 — selector de hechos por mensaje
+
+Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
+
+- "¿cuánto vale el negro?" → responde SOLO datos del negro (no confunde con
+  otros productos; bloque contiene solo el matcheado).
+- "¿y el azul?" (referencia posterior) → matchea por variante "azul".
+- "¿qué modelos tienes?" → catálogo completo al prompt (resumen con verdad).
+- "¿a qué hora atienden?" → horario al prompt.
+- "¿hacen envíos?" → envío al prompt; sin mención de producto NO entran
+  productos (bloque pequeño = menos tokens).
+- Producto NO cargado ("¿tienes el s25 ultra?") → bloque vacío: el agente
+  pregunta/confirma, jamás inventa especificaciones.
+
 ## WA-PROD-02 — estado durable
 
 - Forzar cierre (kill) justo tras recibir mensaje → al reabrir Nano la
