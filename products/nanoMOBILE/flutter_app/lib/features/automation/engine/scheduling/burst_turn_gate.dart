@@ -33,12 +33,19 @@ final class BurstTurnGate {
     this.maxWait = const Duration(milliseconds: 3000),
     this.maxBurst = 6,
     this.onInbound,
+    this.onTurnComplete,
   });
 
   /// WA-CONV-03 — notifica cada mensaje REAL entrante (incluidos los que
   /// llegan mientras un turno corre): el supersede guard incrementa la
   /// versión de la conversación con cada uno.
   final void Function(String conversationId)? onInbound;
+
+  /// WA-STATE-01 — notifica el turno AGREGADO que terminó (conversación +
+  /// notificación unida): el wiring recuerda qué producto consultó el
+  /// cliente (selector determinista contra el catálogo).
+  final void Function(String conversationId, NotificationObject aggregated)?
+  onTurnComplete;
 
   /// Ventana de asentamiento tras el primer mensaje de la ráfaga.
   final Duration settle;
@@ -90,6 +97,7 @@ final class BurstTurnGate {
           maxWait: maxWait,
           maxBurst: maxBurst,
           runTurn: runTurn,
+          onTurnComplete: onTurnComplete,
           onResolved: (members, turnResults) {
             for (final m in members) {
               results[m.index] = turnResults;
@@ -126,6 +134,7 @@ class _Bucket {
     required this.runTurn,
     required this.onResolved,
     required this.onIdle,
+    required this.onTurnComplete,
   });
 
   final String key;
@@ -136,6 +145,10 @@ class _Bucket {
       runTurn;
   final void Function(List<_Member> members, List<RuleDispatchResult> results)
       onResolved;
+
+  /// WA-STATE-01 — turno agregado terminado (conversación + notificación).
+  final void Function(String conversationId, NotificationObject aggregated)?
+  onTurnComplete;
 
   /// El bucket se retira SOLO cuando quedó vacío y sin turno en curso
   /// (nunca antes: un miembro en cola huérfano colgaría su futuro).
@@ -185,6 +198,7 @@ class _Bucket {
       final results = await runTurn(aggregated);
       // Sin await entre la resolución y el chequeo de cola: nadie puede
       // intercalar un push a mitad (un solo hilo de eventos).
+      onTurnComplete?.call(key.startsWith('anon:') ? '' : key, aggregated);
       onResolved(members, results);
       if (!_resolved.isCompleted) _resolved.complete();
       if (_queue.isEmpty) onIdle();

@@ -31,6 +31,7 @@ final class RuntimeNotificationDraftWriter {
     required String Function() styleText,
     String Function(String messageText)? businessBlock,
     String Function()? toneBlock,
+    String Function(String conversationId)? clientContextFor,
     ConversationMemoryStore? memory,
   }) : _client = client,
        _llmAllowed = llmAllowed,
@@ -40,6 +41,7 @@ final class RuntimeNotificationDraftWriter {
        _styleText = styleText,
        _businessBlock = businessBlock,
        _toneBlock = toneBlock,
+       _clientContextFor = clientContextFor,
        _memory = memory;
 
   final LLMEngineClient _client;
@@ -61,6 +63,10 @@ final class RuntimeNotificationDraftWriter {
   /// WA-NATURAL-01 — bloque <TONO DE RESPUESTA> (frases deterministas del
   /// perfil; '' si deshabilitado). Leído EN VIVO en cada borrador.
   final String Function()? _toneBlock;
+
+  /// WA-STATE-01 — recuerdo estructurado de la consulta anterior de ESTA
+  /// conversación (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar).
+  final String Function(String conversationId)? _clientContextFor;
 
   /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
   /// para el borrador). null = el writer conserva el prompt sin historial.
@@ -115,6 +121,7 @@ final class RuntimeNotificationDraftWriter {
           style: _styleEnabled() ? _styleText() : null,
           business: _businessBlock?.call(notification.text),
           tone: _toneBlock?.call(),
+          clientContext: _clientContextFor?.call(conversationId),
         ),
         temperature: 0.3,
         maxTokens: 320,

@@ -217,16 +217,20 @@ Reglas duras:
 /// bloque <TONO DE RESPUESTA> (WA-NATURAL-01). Van junto al estilo ANTES de
 /// la conversación, en orden MI ESTILO → TONO → DATOS: forma del dueño,
 /// guía de tono (cede ante MI ESTILO por su propia regla), hechos.
+/// [clientContext] = bloque <CONTEXTO DEL CLIENTE> (WA-STATE-01): recuerdo
+/// estructurado de la consulta anterior de ESTE cliente.
 String conversationAgentPromptFor({
   required String history,
   required String text,
   String? style,
   String? business,
   String? tone,
+  String? clientContext,
 }) {
   final s = _usableStyle(style);
   final facts = business?.trim() ?? '';
   final toneBlock = tone?.trim() ?? '';
+  final context = clientContext?.trim() ?? '';
   final base = conversationAgentPrompt
       .replaceFirst('{history}', history)
       .replaceFirst('{text}', text);
@@ -234,6 +238,7 @@ String conversationAgentPromptFor({
     if (s != null) _styleBlock(s),
     if (toneBlock.isNotEmpty) toneBlock,
     if (facts.isNotEmpty) facts,
+    if (context.isNotEmpty) context,
   ];
   if (prefix.isEmpty) return base;
   return base.replaceFirst(

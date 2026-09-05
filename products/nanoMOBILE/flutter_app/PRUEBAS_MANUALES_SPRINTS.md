@@ -129,6 +129,16 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Ráfaga agregada normal sigue respondiendo UNA vez (sin supersede falso).
 - Mensajes con >3s de separación: cada turno responde (sin supersede falso).
 
+## WA-STATE-01 — contexto del cliente por conversación
+
+- Día 1: cliente pregunta "¿tienes el negro?" (producto cargado en catálogo).
+- Día 2: cliente escribe "¿y el que te pregunté ayer?" → responde sobre el
+  negro (bloque <CONTEXTO DEL CLIENTE> en el prompt; traza/logcat revisable).
+- Cliente pregunta por OTRO producto: el recuerdo se ignora (regla del
+  bloque) y el nuevo producto reemplaza al anterior.
+- Sin catálogo cargado: nunca se recuerda nada (selector sin match).
+- Persistencia: cerrar/reabrir conserva el recuerdo (sección `convstate`).
+
 ## FIX-VISUAL-01 — diseño estable al escribir (doble encogido)
 
 - Mensajes y Dev (automatización): abrir el teclado NO aplasta ni solapa

@@ -5,6 +5,7 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
+import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
@@ -414,6 +415,7 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     ref.read(conversationMemoryStoreProvider).load(),
     ref.read(businessFactsNotifierProvider.notifier).ready,
     ref.read(toneProfileNotifierProvider.notifier).ready,
+    ref.read(conversationStateNotifierProvider.notifier).ready,
   ]);
 });
 
@@ -464,6 +466,21 @@ final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
     // corre) incrementa la versión → supersede del draft en curso.
     onInbound: (conversationId) =>
         ref.read(turnSupersedeGuardProvider).bump(conversationId),
+    // WA-STATE-01: al terminar un turno agregado, recordar el producto que
+    // consultó el cliente (el store interno filtra si no hay match).
+    onTurnComplete: (conversationId, aggregated) async {
+      if (conversationId.isEmpty) return;
+      final text = aggregated.messageText.isNotEmpty
+          ? aggregated.messageText
+          : aggregated.text;
+      await ref
+          .read(conversationStateNotifierProvider.notifier)
+          .rememberProductFrom(
+            conversationId,
+            text,
+            ref.read(businessFactsNotifierProvider),
+          );
+    },
   );
 });
 
