@@ -113,6 +113,17 @@ class RulePipeline {
         return const [];
     }
 
+    // WA-PROD-02.2 — la reserva queda DURABLE antes de cualquier dispatch:
+    // un kill entre este punto y el envío deja la puerta persistida; el
+    // replay del próximo wake devuelve duplicate (jamás doble envío).
+    try {
+      await _dedupe.flush();
+    } on Object catch (e) {
+      // Persistencia best-effort: si la escritura falló el dispatch sigue
+      // (comportamiento histórico), pero el fallo queda traceable.
+      debugPrint('[rules] flush dedupe falló: $e');
+    }
+
     final results = <RuleDispatchResult>[];
     var replyAttempted = false;
     var replyText = '';

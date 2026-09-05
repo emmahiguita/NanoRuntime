@@ -92,6 +92,12 @@ abstract interface class EventDedupeStore {
   /// Hidrata el estado persistido (una vez, al arrancar el provider).
   Future<void> load();
 
+  /// WA-PROD-02.2 — espera a que TODAS las escrituras pendientes terminaron.
+  /// El pipeline la invoca entre la reserva del evento y el dispatch: un
+  /// kill después de este punto jamás pierde la reserva (el replay del wake
+  /// devuelve duplicate, nunca doble envío).
+  Future<void> flush();
+
   /// Decide y reserva el evento en una sola operación síncrona:
   /// - `duplicate` si ya existe dentro del TTL (o falló hace menos del backoff);
   /// - `bounceback`/`cooldown` si el texto/conversación lo bloquean;
@@ -222,6 +228,26 @@ abstract class _DedupeCore implements EventDedupeStore {
 
   /// Persistencia best-effort del snapshot (no-op en el store de memoria).
   void _markDirty();
+
+  /// Escritura concreta del subtipo (prefs/sqlite); memoria = no-op.
+  Future<void> _write();
+
+  /// Cola de escrituras SERIALIZADA: cada snapshot espera al anterior (una
+  /// escritura vieja nunca completa después de una nueva pisando el estado)
+  /// y [flush] puede esperar la cola completa antes de una acción
+  /// irreversible (WA-PROD-02.2).
+  Future<void>? _writeChain;
+
+  void _queueWrite() {
+    final write = _write();
+    _writeChain = (_writeChain ?? Future.value()).then((_) => write);
+    unawaited(_writeChain);
+  }
+
+  @override
+  Future<void> flush() async {
+    await _writeChain;
+  }
 
   static bool _expired(int atMs, int nowMs, int ttlMs) => nowMs - atMs >= ttlMs;
 
@@ -410,6 +436,11 @@ class MemoryEventDedupeStore extends _DedupeCore {
   void _markDirty() {
     // Sin persistencia.
   }
+
+  @override
+  Future<void> _write() async {
+    // Sin persistencia.
+  }
 }
 
 /// Persistencia en shared_preferences (JSON). Producción. Mismo patrón que
@@ -473,9 +504,10 @@ class SharedPrefsEventDedupeStore extends _DedupeCore {
   @override
   void _markDirty() {
     if (!_loaded) return; // no pisar el historial antes de hidratarlo
-    unawaited(_write());
+    _queueWrite();
   }
 
+  @override
   Future<void> _write() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -568,9 +600,10 @@ class SqliteEventDedupeStore extends _DedupeCore {
   @override
   void _markDirty() {
     if (!_loaded) return;
-    unawaited(_write());
+    _queueWrite();
   }
 
+  @override
   Future<void> _write() async {
     await AutomationDbStoreClient.instance.putSection(
       _section,
