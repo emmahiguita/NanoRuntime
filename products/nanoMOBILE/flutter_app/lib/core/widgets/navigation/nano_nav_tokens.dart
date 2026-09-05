@@ -71,9 +71,10 @@ class NanoNavTokens {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xA5183868), // azul zafiro translúcido
-      Color(0x95122850), // azul profundo translúcido
-      Color(0x850C1D3E), // azul noche translúcido
+      Color(0x66183868), // azul zafiro translúcido (barra flotante: el fondo
+      // debe verse a través del vidrio — antes 0xA5 tiraba a sólido)
+      Color(0x58122850), // azul profundo translúcido
+      Color(0x4D0C1D3E), // azul noche translúcido
     ],
     stops: [0.0, 0.50, 1.0],
   );
@@ -83,9 +84,9 @@ class NanoNavTokens {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xCCFFFFFF),
-      Color(0xB5F4F8FF),
-      Color(0x9EE8F0FF),
+      Color(0xB8FFFFFF),
+      Color(0x9CF4F8FF),
+      Color(0x82E8F0FF),
     ],
     stops: [0.0, 0.55, 1.0],
   );
