@@ -6,12 +6,54 @@ import 'package:http/http.dart' as http;
 import 'nano_runtime_api.dart';
 import 'sha256_file.dart';
 
+/// LINUX-PROD-01 — NanoRootfsManifest: rootfs PINNED (nunca 'latest').
+///
+/// Un bootstrap upstream nuevo puede romper paths, linker, TERMUX_*, X11 o
+/// el escritorio sin aviso. En producción Nano instala EXACTAMENTE este
+/// release: tag + URL + SHA-256 verificados (hash del asset publicado,
+/// re-verificado por descarga local al fijar el pin). El pin solo cambia con
+/// un commit deliberado (bump + validación física), jamás por lo que
+/// upstream publique hoy.
+///
+/// Escape hatch: en builds DEBUG (kDebugMode) se permite seguir el release
+/// 'latest' dinámico para desarrollo; en release la constante pinned es la
+/// ÚNICA ruta (fail-closed: sin red o hash distinto = instalación abortada).
+class NanoRootfsManifest {
+  /// Release exacto fijado (asset verificado el 2026-09-05).
+  static const String bootstrapTag = 'bootstrap-2026.08.30-r1+apt.android-7';
+
+  /// ABI soportada por este pin (el bootstrap de Nano es aarch64).
+  static const String abi = 'aarch64';
+
+  /// SHA-256 del asset bootstrap-aarch64.zip del tag fijado (verificado por
+  /// descarga local + Get-FileHash al fijar; minúsculas).
+  static const String bootstrapSha256 =
+      '7e92f4c435d16207cdda63d5629e666ab98441f09eefa6a8423037ef13263346';
+
+  /// URL del asset EXACTO (tag en el path, jamás /latest/ en release).
+  static const String bootstrapUrl =
+      'https://github.com/termux/termux-packages/releases/download/'
+      '$bootstrapTag/bootstrap-aarch64.zip';
+
+  /// Versionado de compatibilidad del pin (paths/linker/X11 del rootfs).
+  static const int compatibilityVersion = 1;
+
+  /// Android mínimo requerido por el pin (linker namespaces del proyecto).
+  static const String minimumAndroidSdk = '26';
+
+  /// true SOLO en debug: seguir 'latest' dinámico. En release siempre false
+  /// (constante: el tree-shaker elimina la rama dinámica).
+  static bool get allowDynamicLatestInDebug => kDebugMode;
+}
+
 /// Gestiona la instalación del rootfs Termux (bootstrap-aarch64.zip) en el
 /// directorio privado de la app (`files/nano/`).
 ///
 /// Flujo de vida:
 ///   1. isInstalled() → verifica si files/nano/usr/bin/bash existe y es ejecutable.
-///   2. Si no está instalado, install() → obtiene el SHA-256 oficial (API de GitHub, digest del asset), descarga el zip (~30 MB), verifica hash y extrae.
+///   2. Si no está instalado, install() → LINUX-PROD-01: SHA-256 del PIN
+///      (NanoRootfsManifest, jamás 'latest' en release), descarga el zip
+///      (~31 MB), verifica hash (fail-closed) y extrae.
 ///   3. installStatus stream → reporta progreso (descarga, extracción, listo).
 ///
 /// Después de instalar, ShellExecutor redirige sus paths a files/nano/usr/bin/
@@ -23,20 +65,20 @@ class RootfsManager {
   static RootfsManager? _shared;
   static RootfsManager get instance => _shared ??= RootfsManager();
 
-  /// Bootstrap-aarch64.zip oficial del repo Termux.
-  /// Redirect de GitHub releases — apunta a la última versión disponible.
-  static const bootstrapUrl =
+  /// LINUX-PROD-01 — URL del release 'latest' dinámico. SOLO debug
+  /// (NanoRootfsManifest.allowDynamicLatestInDebug); en release se usa el
+  /// asset pinned del manifiesto.
+  static const dynamicLatestBootstrapUrl =
       'https://github.com/termux/termux-packages/releases/latest/download/bootstrap-aarch64.zip';
 
-  /// SHA256SUMS oficial del release termux-packages.
+  /// SHA256SUMS oficial del release termux-packages (debug/latest).
   /// Upstream dejó de publicar este asset en releases recientes (HTTP 404),
   /// se conserva como fallback legado por si vuelve a existir.
   static const sha256SumsUrl =
       'https://github.com/termux/termux-packages/releases/latest/download/SHA256SUMS';
 
-  /// API de GitHub del release latest. Cada asset expone su SHA-256 en el
-  /// campo `digest` (formato "sha256:<hex>") — la fuente de verificación
-  /// actual, firmada por el repo oficial de Termux.
+  /// API de GitHub del release latest (debug/latest). Cada asset expone su
+  /// SHA-256 en el campo `digest` (formato "sha256:<hex>").
   static const releasesApiUrl =
       'https://api.github.com/repos/termux/termux-packages/releases/latest';
 
@@ -59,10 +101,40 @@ class RootfsManager {
     if (_usrDir == null) await _resolveDirs();
     try {
       _installed = await NanoRuntimeApi.instance.isBootstrapInstalled(_usrDir!);
+      if (_installed) _logInstalledVersion();
       return _installed;
     } catch (_) {
       _installed = false;
       return false;
+    }
+  }
+
+  /// LINUX-PROD-01 — traza honesta del pin instalado: un rootfs de otro pin
+  /// se conserva (jamás se pisa solo); el log dice qué versión hay.
+  void _logInstalledVersion() {
+    try {
+      final usr = _usrDir;
+      if (usr == null) return;
+      final marker = File('${usr.substring(0, usr.length - 4)}/rootfs-manifest.txt');
+      if (!marker.existsSync()) {
+        debugPrint(
+          '[rootfs] instalado sin marker (pre-pin o instalación manual) — '
+          'pin actual=${NanoRootfsManifest.bootstrapTag}; conservado',
+        );
+        return;
+      }
+      final installedTag = marker.readAsLinesSync().firstOrNull ?? '';
+      if (installedTag != NanoRootfsManifest.bootstrapTag) {
+        debugPrint(
+          '[rootfs] instalado=$installedTag pin actual='
+          '${NanoRootfsManifest.bootstrapTag} — conservado; migrar requiere '
+          'borrar files/nano/usr y reinstalar',
+        );
+      } else {
+        debugPrint('[rootfs] pin verificado: $installedTag');
+      }
+    } on Object {
+      // Marker ilegible: solo diagnóstico, nunca bloquea el arranque.
     }
   }
 
@@ -107,10 +179,23 @@ class RootfsManager {
     onProgress?.call('download', 0);
 
     try {
-      // 1. Obtener el SHA-256 oficial (API GitHub asset digest, con
-      //    fallback al SHA256SUMS legado)
+      // 1. SHA-256 esperado: PIN del manifiesto en release; en debug puede
+      //    seguir el release dinámico (API GitHub digest → SHA256SUMS legado).
+      //    Fail-closed intacto: sin hash esperado la instalación se aborta.
       onProgress?.call('verify', 0);
-      final expectedHash = await _fetchExpectedSha256();
+      final pinned = !NanoRootfsManifest.allowDynamicLatestInDebug;
+      final expectedHash = pinned
+          ? NanoRootfsManifest.bootstrapSha256
+          : await _fetchExpectedSha256();
+      final downloadUrl = pinned
+          ? NanoRootfsManifest.bootstrapUrl
+          : dynamicLatestBootstrapUrl;
+      if (pinned) {
+        debugPrint(
+          '[rootfs] pin=${NanoRootfsManifest.bootstrapTag} '
+          'abi=${NanoRootfsManifest.abi} comp=${NanoRootfsManifest.compatibilityVersion}',
+        );
+      }
       if (expectedHash == null) {
         onProgress?.call('error', 0);
         debugPrint(
@@ -125,7 +210,7 @@ class RootfsManager {
 
       // 2. Descargar bootstrap-aarch64.zip a files/nano/
       onProgress?.call('download', 0);
-      await NanoRuntimeApi.instance.downloadBootstrap(bootstrapUrl);
+      await NanoRuntimeApi.instance.downloadBootstrap(downloadUrl);
       onProgress?.call('download', 100);
 
       // 3. Verificar SHA256 del zip descargado
@@ -168,6 +253,7 @@ class RootfsManager {
 
       // 6. Verificar que bash quedó ejecutable
       _installed = await checkInstalled();
+      if (_installed) await _writeManifestMarker();
       return _installed;
     } catch (e) {
       // Registrar el error REAL (PlatformException del channel) — antes se
@@ -177,6 +263,29 @@ class RootfsManager {
       return false;
     } finally {
       _downloading = false;
+    }
+  }
+
+  /// LINUX-PROD-01 — deja constancia del pin instalado (files/nano/
+  /// rootfs-manifest.txt). Un rootfs previo de otro pin se CONSERVA (borrar
+  /// y reinstalar para migrar): nunca se pisa una instalación con paquetes
+  /// del usuario sin decisión explícita.
+  Future<void> _writeManifestMarker() async {
+    try {
+      final usr = _usrDir;
+      if (usr == null) return;
+      final marker = File(
+        '${usr.substring(0, usr.length - 4)}/rootfs-manifest.txt',
+      );
+      await marker.writeAsString(
+        '${NanoRootfsManifest.bootstrapTag}\n'
+        'abi=${NanoRootfsManifest.abi}\n'
+        'sha256=${NanoRootfsManifest.bootstrapSha256}\n'
+        'compat=${NanoRootfsManifest.compatibilityVersion}\n'
+        'minAndroid=${NanoRootfsManifest.minimumAndroidSdk}\n',
+      );
+    } on Object catch (e) {
+      debugPrint('[rootfs] marker no se pudo escribir: $e');
     }
   }
 

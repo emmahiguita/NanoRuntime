@@ -43,10 +43,11 @@ class TermuxDistribution implements LinuxDistribution {
   ];
 
   @override
-  Uri get rootfsUri => Uri.parse(RootfsManager.bootstrapUrl);
+  Uri get rootfsUri => Uri.parse(NanoRootfsManifest.bootstrapUrl);
 
   @override
-  String? get expectedSha256 => null; // SHA256 se verifica desde SHA256SUMS
+  String? get expectedSha256 => null; // LINUX-PROD-01: la verificación la
+  // hace RootfsManager.install contra el SHA-256 del pin (fail-closed).
 
   @override
   Future<bool> isInstalled() async {

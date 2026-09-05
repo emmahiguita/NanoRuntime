@@ -147,6 +147,17 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
   proporciones (scroll normal).
 - Chat: regresión visual cero (mismo patrón ya documentado).
 
+## LINUX-PROD-01 — rootfs pinned
+
+- Reinstalación limpia (borrar files/nano/usr + app data) con red:
+  instala el bootstrap del pin (logcat `[rootfs] pin=bootstrap-2026.08.30…`),
+  verifica SHA-256 y extrae; bash queda ejecutable.
+- Sin red durante install: aborta fail-closed (nunca instala sin verificar).
+- Rootfs viejo instalado (pre-pin): se conserva; logcat honesto
+  (`[rootfs] instalado sin marker…` o `instalado=<tag viejo>`).
+- Marker escrito tras instalar (`files/nano/rootfs-manifest.txt`);
+  re-arranques muestran `[rootfs] pin verificado: …`.
+
 ## WA-PROD-02 — estado durable
 
 - Forzar cierre (kill) justo tras recibir mensaje → al reabrir Nano la
