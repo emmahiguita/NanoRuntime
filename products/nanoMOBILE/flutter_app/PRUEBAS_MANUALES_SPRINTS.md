@@ -95,6 +95,18 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Producto NO cargado ("¿tienes el s25 ultra?") → bloque vacío: el agente
   pregunta/confirma, jamás inventa especificaciones.
 
+## WA-NATURAL-01 — tono de respuesta
+
+- Toggle OFF (default): respuestas idénticas a antes (cero cambio).
+- Toggle ON + Trato Formal: respuestas con trato formal/respetuoso.
+- Toggle ON + Extensión Breve: respuestas cortas.
+- Emojis ON: emojis con moderación; OFF: sin emojis.
+- Venta Persuasivo vs Natural: diferencia perceptible en ofertas/recomendaciones.
+- MI ESTILO (persona) + tono activos: MI ESTILO gana (el bloque lo declara;
+  verificar que no haya conflicto visible ni mezcla de instrucciones).
+- Cambiar un control → aplica desde el siguiente mensaje sin reiniciar.
+- Persistencia: cerrar y reabrir Ajustes conserva el perfil.
+
 ## WA-PROD-02 — estado durable
 
 - Forzar cierre (kill) justo tras recibir mensaje → al reabrir Nano la

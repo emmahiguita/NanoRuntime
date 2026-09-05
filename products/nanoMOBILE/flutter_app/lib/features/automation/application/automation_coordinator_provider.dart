@@ -5,6 +5,7 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
+import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
@@ -410,6 +411,7 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     ref.read(eventDedupeStoreProvider).load(),
     ref.read(conversationMemoryStoreProvider).load(),
     ref.read(businessFactsNotifierProvider.notifier).ready,
+    ref.read(toneProfileNotifierProvider.notifier).ready,
   ]);
 });
 

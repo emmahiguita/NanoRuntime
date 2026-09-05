@@ -213,22 +213,26 @@ Reglas duras:
 {text}
 </NOTIFICACION>''';
 
-/// [business] = bloque <DATOS DEL NEGOCIO> ya formateado (WA-BUSINESS-01);
-/// va junto al estilo ANTES de la conversación: forma y hechos son
-/// instrucción, jamás contenido del mensaje.
+/// [business] = bloque <DATOS DEL NEGOCIO> (WA-BUSINESS-01); [tone] =
+/// bloque <TONO DE RESPUESTA> (WA-NATURAL-01). Van junto al estilo ANTES de
+/// la conversación, en orden MI ESTILO → TONO → DATOS: forma del dueño,
+/// guía de tono (cede ante MI ESTILO por su propia regla), hechos.
 String conversationAgentPromptFor({
   required String history,
   required String text,
   String? style,
   String? business,
+  String? tone,
 }) {
   final s = _usableStyle(style);
   final facts = business?.trim() ?? '';
+  final toneBlock = tone?.trim() ?? '';
   final base = conversationAgentPrompt
       .replaceFirst('{history}', history)
       .replaceFirst('{text}', text);
   final prefix = <String>[
     if (s != null) _styleBlock(s),
+    if (toneBlock.isNotEmpty) toneBlock,
     if (facts.isNotEmpty) facts,
   ];
   if (prefix.isEmpty) return base;

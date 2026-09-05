@@ -13,6 +13,8 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
+import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
+import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
@@ -129,6 +131,11 @@ class AutomationSettingsScreen extends ConsumerWidget {
                               ), // UI-REV-02: gap Dev xl
                               const AutomationSectionLabel('Datos del negocio'),
                               const _BusinessDataCard(),
+                              const SizedBox(
+                                height: 24,
+                              ), // UI-REV-02: gap Dev xl
+                              const AutomationSectionLabel('Tono de respuesta'),
+                              const _ToneCard(),
                               const SizedBox(
                                 height: 24,
                               ), // UI-REV-02: gap Dev xl
@@ -815,6 +822,111 @@ class _BusinessDataCard extends ConsumerWidget {
     );
     if (value == null || value.trim().isEmpty) return;
     await onSave(value);
+  }
+}
+
+/// WA-NATURAL-01 — perfil de tono de las respuestas automáticas. Controles
+/// deterministas (sin texto libre): cada opción se traduce a frases fijas
+/// del bloque <TONO DE RESPUESTA> que el borrador inyecta al prompt.
+class _ToneCard extends ConsumerWidget {
+  const _ToneCard();
+
+  static const _warmthLabels = {
+    ToneWarmth.cercano: 'Cercano',
+    ToneWarmth.formal: 'Formal',
+  };
+  static const _verbosityLabels = {
+    ToneVerbosity.breve: 'Breve',
+    ToneVerbosity.media: 'Media',
+    ToneVerbosity.extensa: 'Extensa',
+  };
+  static const _salesLabels = {
+    ToneSales.natural: 'Natural',
+    ToneSales.persuasivo: 'Persuasivo',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(toneProfileNotifierProvider);
+    final notifier = ref.read(toneProfileNotifierProvider.notifier);
+    return _SettingsCard(
+      children: [
+        _SettingsRow(
+          icon: Icons.record_voice_over_outlined,
+          title: 'Tono automático',
+          subtitle: profile.enabled
+              ? 'Activo — guía de forma en las respuestas'
+              : 'Inactivo — respuestas como hasta ahora',
+          trailing: Switch(
+            value: profile.enabled,
+            onChanged: (v) => notifier.update(profile.copyWith(enabled: v)),
+          ),
+          showChevron: false,
+        ),
+        if (profile.enabled) ...[
+          _SettingsRow(
+            icon: Icons.waving_hand_outlined,
+            title: 'Trato',
+            subtitle: 'Cómo se dirige al cliente',
+            trailing: _ValueBadge(
+              label: _warmthLabels[profile.warmth]!.toUpperCase(),
+            ),
+            onTap: () => notifier.update(
+              profile.copyWith(
+                warmth: ToneWarmth.values[
+                  (profile.warmth.index + 1) % ToneWarmth.values.length
+                ],
+              ),
+            ),
+            showChevron: false,
+          ),
+          _SettingsRow(
+            icon: Icons.format_size_rounded,
+            title: 'Extensión',
+            subtitle: 'Longitud típica de las respuestas',
+            trailing: _ValueBadge(
+              label: _verbosityLabels[profile.verbosity]!.toUpperCase(),
+            ),
+            onTap: () => notifier.update(
+              profile.copyWith(
+                verbosity: ToneVerbosity.values[
+                  (profile.verbosity.index + 1) % ToneVerbosity.values.length
+                ],
+              ),
+            ),
+            showChevron: false,
+          ),
+          _SettingsRow(
+            icon: Icons.emoji_emotions_outlined,
+            title: 'Emojis',
+            subtitle: profile.emojis
+                ? 'Con moderación'
+                : 'Sin emojis',
+            trailing: Switch(
+              value: profile.emojis,
+              onChanged: (v) => notifier.update(profile.copyWith(emojis: v)),
+            ),
+            showChevron: false,
+          ),
+          _SettingsRow(
+            icon: Icons.trending_up_rounded,
+            title: 'Venta',
+            subtitle: 'Presión comercial en las respuestas',
+            trailing: _ValueBadge(
+              label: _salesLabels[profile.sales]!.toUpperCase(),
+            ),
+            onTap: () => notifier.update(
+              profile.copyWith(
+                sales: ToneSales.values[
+                  (profile.sales.index + 1) % ToneSales.values.length
+                ],
+              ),
+            ),
+            showChevron: false,
+          ),
+        ],
+      ],
+    );
   }
 }
 

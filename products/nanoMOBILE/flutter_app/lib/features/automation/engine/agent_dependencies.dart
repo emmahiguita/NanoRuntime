@@ -12,6 +12,7 @@ import '../../../core/providers/chat_provider.dart';
 import '../domain/automation_policy.dart';
 import 'business/business_facts_providers.dart';
 import 'business/fact_selector.dart';
+import 'messaging/tone_profile_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
 import 'model/automation_model_resolver.dart';
@@ -487,6 +488,8 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
       text,
       ref.read(businessFactsNotifierProvider),
     ).render(),
+    // WA-NATURAL-01 — tono leído EN VIVO ('' si deshabilitado).
+    toneBlock: () => ref.read(toneProfileNotifierProvider).renderBlock(),
     // WA-MEM-08: contexto factual de la conversación.
     memory: ref.watch(conversationMemoryStoreProvider),
   ).call;
