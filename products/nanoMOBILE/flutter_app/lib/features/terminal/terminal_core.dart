@@ -345,7 +345,9 @@ class _TermState extends State<NanoTerminal> {
         _ctx.env['TERMUX'] = 'true';
         _ctx.env['TERMUX_VERSION'] = '0.118.0';
         _ctx.env['TERMUX_APP__PID'] = '$pid';
-        _ctx.env['TERMUX_APK_RELEASE'] = 'F_DROID';
+        // TER-IDENT-01 — honestidad: este entorno no es F-Droid Termux,
+        // es el bootstrap nanoMOBILE (pilar 4: jamás identidad falsa).
+        _ctx.env['TERMUX_APK_RELEASE'] = 'nanoMOBILE';
         _ctx.env['TERMUX_APP__IS_DEBUGGABLE'] = 'false';
         _ctx.env['ANDROID_DATA'] = '/data';
         _ctx.env['ANDROID_ROOT'] = '/system';
