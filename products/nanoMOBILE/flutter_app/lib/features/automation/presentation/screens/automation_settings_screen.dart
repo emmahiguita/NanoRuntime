@@ -11,6 +11,8 @@ import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
+import 'package:nanoai/features/automation/engine/business/business_facts.dart';
+import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
@@ -122,6 +124,11 @@ class AutomationSettingsScreen extends ConsumerWidget {
                                 'Automatización en segundo plano',
                               ),
                               const _BackgroundAutomationCard(),
+                              const SizedBox(
+                                height: 24,
+                              ), // UI-REV-02: gap Dev xl
+                              const AutomationSectionLabel('Datos del negocio'),
+                              const _BusinessDataCard(),
                               const SizedBox(
                                 height: 24,
                               ), // UI-REV-02: gap Dev xl
@@ -618,6 +625,353 @@ class _BackgroundAutomationCardState
               : 'Mensajes en cola: $pending',
           trailing: _ValueBadge(label: '$pending'),
           showChevron: false,
+        ),
+      ],
+    );
+  }
+}
+
+/// WA-BUSINESS-01 — datos reales del negocio que el agente puede afirmar:
+/// productos (nombre, variante, precio, stock), horario y envío. Se guardan
+/// en el store durable y viajan al prompt como bloque <DATOS DEL NEGOCIO>.
+class _BusinessDataCard extends ConsumerWidget {
+  const _BusinessDataCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final facts = ref.watch(businessFactsNotifierProvider);
+    final products = facts.products;
+    return _SettingsCard(
+      children: [
+        _SettingsRow(
+          icon: Icons.sell_outlined,
+          title: 'Productos',
+          subtitle: products.isEmpty
+              ? 'Sin productos — el agente no afirmará precios ni stock'
+              : '${products.length} producto${products.length == 1 ? '' : 's'} · '
+                    'primero: ${products.first.name}',
+          trailing: _ValueBadge(label: '${products.length}'),
+          onTap: () => _openProductsSheet(context, ref),
+        ),
+        _SettingsRow(
+          icon: Icons.schedule_rounded,
+          title: 'Horario',
+          subtitle: facts.hours.trim().isEmpty
+              ? 'Sin definir — no lo afirmará'
+              : facts.hours.trim(),
+          onTap: () => _editText(
+            context,
+            ref,
+            title: 'Horario del negocio',
+            initial: facts.hours,
+            onSave: (v) => ref.read(businessFactsNotifierProvider.notifier)
+                .setHours(v),
+          ),
+        ),
+        _SettingsRow(
+          icon: Icons.local_shipping_outlined,
+          title: 'Envío',
+          subtitle: facts.delivery.trim().isEmpty
+              ? 'Sin definir — no lo afirmará'
+              : facts.delivery.trim(),
+          onTap: () => _editText(
+            context,
+            ref,
+            title: 'Envío',
+            initial: facts.delivery,
+            onSave: (v) => ref.read(businessFactsNotifierProvider.notifier)
+                .setDelivery(v),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openProductsSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Productos del catálogo',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AutomationVisual.of(sheetContext).text,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'El agente responde precios y stock SOLO de lo que está aquí.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AutomationVisual.of(sheetContext).textMuted,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final list = ref.watch(
+                      businessFactsNotifierProvider,
+                    ).products;
+                    if (list.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'Sin productos todavía.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AutomationVisual.of(context).textMuted,
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final p = list[i];
+                        final variant = p.details.trim();
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            variant.isEmpty ? p.name : '${p.name} ($variant)',
+                            style: TextStyle(
+                              color: AutomationVisual.of(context).text,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${p.priceLabel}'
+                            '${p.stock == null ? ' · stock no informado' : ' · stock ${p.stock}'}',
+                            style: TextStyle(
+                              color: AutomationVisual.of(context).textMuted,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: AutomationVisual.of(context).textMuted,
+                            ),
+                            tooltip: 'Quitar producto',
+                            onPressed: () => ref
+                                .read(businessFactsNotifierProvider.notifier)
+                                .removeProduct(p.id),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => _addProduct(sheetContext, ref),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Agregar producto'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addProduct(BuildContext context, WidgetRef ref) async {
+    final product = await showDialog<BusinessProduct>(
+      context: context,
+      builder: (_) => const _ProductDialog(),
+    );
+    if (product == null) return;
+    await ref.read(businessFactsNotifierProvider.notifier).upsertProduct(
+      product,
+    );
+  }
+
+  Future<void> _editText(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required String initial,
+    required Future<void> Function(String) onSave,
+  }) async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (_) => _TextEditDialog(title: title, initial: initial),
+    );
+    if (value == null || value.trim().isEmpty) return;
+    await onSave(value);
+  }
+}
+
+class _ProductDialog extends StatefulWidget {
+  const _ProductDialog();
+
+  @override
+  State<_ProductDialog> createState() => _ProductDialogState();
+}
+
+class _ProductDialogState extends State<_ProductDialog> {
+  final _name = TextEditingController();
+  final _variant = TextEditingController();
+  final _price = TextEditingController();
+  final _stock = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _variant.dispose();
+    _price.dispose();
+    _stock.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return AlertDialog(
+      backgroundColor: visual.surface,
+      title: Text('Nuevo producto', style: TextStyle(color: visual.text)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _name,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nombre (ej. Galaxy S24)',
+              ),
+            ),
+            TextField(
+              controller: _variant,
+              decoration: const InputDecoration(
+                labelText: 'Variante (ej. negro 256GB) — opcional',
+              ),
+            ),
+            TextField(
+              controller: _price,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Precio en pesos (ej. 899000)',
+              ),
+            ),
+            TextField(
+              controller: _stock,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Stock (número) — opcional',
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: visual.textMuted, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+
+  void _save() {
+    final name = _name.text.trim();
+    final price = int.tryParse(_price.text.trim());
+    if (name.isEmpty || price == null || price <= 0) {
+      setState(() {
+        _error = 'Nombre obligatorio y precio numérico mayor que cero.';
+      });
+      return;
+    }
+    final stock = int.tryParse(_stock.text.trim());
+    Navigator.of(context).pop(
+      BusinessProduct(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        name: name,
+        details: _variant.text.trim(),
+        price: price,
+        stock: stock,
+      ),
+    );
+  }
+}
+
+class _TextEditDialog extends StatefulWidget {
+  const _TextEditDialog({required this.title, required this.initial});
+
+  final String title;
+  final String initial;
+
+  @override
+  State<_TextEditDialog> createState() => _TextEditDialogState();
+}
+
+class _TextEditDialogState extends State<_TextEditDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initial);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return AlertDialog(
+      backgroundColor: visual.surface,
+      title: Text(widget.title, style: TextStyle(color: visual.text)),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: 3,
+        minLines: 1,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final v = _controller.text.trim();
+            if (v.isEmpty) return;
+            Navigator.of(context).pop(v);
+          },
+          child: const Text('Guardar'),
         ),
       ],
     );

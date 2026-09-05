@@ -29,6 +29,7 @@ final class RuntimeNotificationDraftWriter {
     required String? Function() modelPath,
     required bool Function() styleEnabled,
     required String Function() styleText,
+    String Function()? businessBlock,
     ConversationMemoryStore? memory,
   }) : _client = client,
        _llmAllowed = llmAllowed,
@@ -36,6 +37,7 @@ final class RuntimeNotificationDraftWriter {
        _modelPath = modelPath,
        _styleEnabled = styleEnabled,
        _styleText = styleText,
+       _businessBlock = businessBlock,
        _memory = memory;
 
   final LLMEngineClient _client;
@@ -48,6 +50,10 @@ final class RuntimeNotificationDraftWriter {
   /// aplica desde el siguiente mensaje, sin reconstruir el writer.
   final bool Function() _styleEnabled;
   final String Function() _styleText;
+
+  /// WA-BUSINESS-01 — bloque <DATOS DEL NEGOCIO> leído EN VIVO (el store se
+  /// actualiza en Ajustes; el cambio aplica desde el siguiente borrador).
+  final String Function()? _businessBlock;
 
   /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
   /// para el borrador). null = el writer conserva el prompt sin historial.
@@ -100,6 +106,7 @@ final class RuntimeNotificationDraftWriter {
           history: formatConversationHistory(history ?? const []),
           text: notification.text,
           style: _styleEnabled() ? _styleText() : null,
+          business: _businessBlock?.call(),
         ),
         temperature: 0.3,
         maxTokens: 320,

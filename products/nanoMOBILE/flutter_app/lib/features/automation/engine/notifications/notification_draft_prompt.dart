@@ -164,6 +164,12 @@ Semántica de los campos:
 - reply: si falta un dato o requiere acción, UNA pregunta corta y concreta;
   si no, la respuesta natural. Escapa las comillas internas así: \\"
 
+<DATOS DEL NEGOCIO> (solo si aparece): hechos REALES autorizados del negocio
+(precios, stock, horario, envío). Responde con esos datos cuando el cliente
+los pida. Si pide un dato que no está ahí ni en la conversación, missingFacts
+lo lista, requiresAction es true y reply pregunta o dice que lo confirma.
+Jamás inventes un dato fuera de ese bloque.
+
 Ejemplos con el formato EXACTO:
 
 Cliente: "hola, ¿cómo estás?"
@@ -196,6 +202,9 @@ Reglas duras:
 8. Si la salida quedara recortada, cierra el reply como texto natural del
    último punto; jamás envíes el JSON, etiquetas ni el análisis como
    respuesta.
+9. Los datos del bloque <DATOS DEL NEGOCIO> (si aparece) son hechos reales
+   autorizados; todo lo que no esté en ese bloque ni en la conversación se
+   trata como dato faltante (missingFacts), jamás se inventa.
 
 <CONVERSACION PREVIA>
 {history}
@@ -204,21 +213,28 @@ Reglas duras:
 {text}
 </NOTIFICACION>''';
 
+/// [business] = bloque <DATOS DEL NEGOCIO> ya formateado (WA-BUSINESS-01);
+/// va junto al estilo ANTES de la conversación: forma y hechos son
+/// instrucción, jamás contenido del mensaje.
 String conversationAgentPromptFor({
   required String history,
   required String text,
   String? style,
+  String? business,
 }) {
   final s = _usableStyle(style);
+  final facts = business?.trim() ?? '';
   final base = conversationAgentPrompt
       .replaceFirst('{history}', history)
       .replaceFirst('{text}', text);
-  if (s == null) return base;
-  // WA-PERSONA-01 — el bloque MI ESTILO va ANTES de la conversación: es la
-  // forma declarada del dueño, instrucción de estilo, jamás contenido.
+  final prefix = <String>[
+    if (s != null) _styleBlock(s),
+    if (facts.isNotEmpty) facts,
+  ];
+  if (prefix.isEmpty) return base;
   return base.replaceFirst(
     '<CONVERSACION PREVIA>',
-    '${_styleBlock(s)}\n\n<CONVERSACION PREVIA>',
+    '${prefix.join('\n\n')}\n\n<CONVERSACION PREVIA>',
   );
 }
 

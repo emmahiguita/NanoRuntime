@@ -10,6 +10,7 @@ import '../../../core/services/shell_executor_linux_backend.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/chat_provider.dart';
 import '../domain/automation_policy.dart';
+import 'business/business_facts_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
 import 'model/automation_model_resolver.dart';
@@ -479,6 +480,9 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     // WA-PERSONA-01 — estilo del dueño leído EN VIVO al redactar.
     styleEnabled: () => ref.read(settingsProvider).waStyleEnabled,
     styleText: () => ref.read(settingsProvider).waStyleText,
+    // WA-BUSINESS-01 — hechos del negocio leídos EN VIVO al redactar.
+    businessBlock: () =>
+        ref.read(businessFactsNotifierProvider).formatPromptBlock(),
     // WA-MEM-08: contexto factual de la conversación.
     memory: ref.watch(conversationMemoryStoreProvider),
   ).call;

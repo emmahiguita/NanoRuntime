@@ -114,6 +114,6 @@ class AutomationStoreDb(context: Context) {
 
         /** Secciones válidas — espejo de las secciones Dart (jamás crecer
          *  desde un canal sin revisión: whitelist explícita). */
-        private val VALID_SECTIONS = setOf("dedupe", "rate", "memory")
+        private val VALID_SECTIONS = setOf("dedupe", "rate", "memory", "business")
     }
 }
