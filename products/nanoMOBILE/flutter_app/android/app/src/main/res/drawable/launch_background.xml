@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Modify this file to customize your launch splash screen -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <!-- TRANSITION-FIX: identidad oscura desde el primer píxel. Antes blanco
+         puro -> flash gris/blanco en arranque y detrás de transiciones con
+         Scaffolds transparentes. #020611 = mismo navy del window de la app. -->
+    <item android:drawable="@color/nano_window_bg" />
 
     <!-- You can insert your own image assets here -->
     <!-- <item>

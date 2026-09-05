@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TRANSITION-FIX: identidad del window (splash y detrás de la UI).
+         Azul noche profundo = mismo tono de la barra de navegación del
+         sistema que MainActivity fija (#020611). Mata flashes gris/blanco
+         en arranque en frío y detrás de Scaffolds transparentes. -->
+    <color name="nano_window_bg">#FF020611</color>
+</resources>

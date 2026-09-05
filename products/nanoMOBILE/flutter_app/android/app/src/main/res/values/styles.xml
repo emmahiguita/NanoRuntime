@@ -13,6 +13,9 @@
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- TRANSITION-FIX: el window detrás de la UI (Scaffolds transparentes,
+             transiciones, teclado) era ?android:colorBackground = blanco ->
+             flashes grises/bordes blancos. Identidad oscura fija. -->
+        <item name="android:windowBackground">@color/nano_window_bg</item>
     </style>
 </resources>
