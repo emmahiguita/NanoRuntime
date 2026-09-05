@@ -39,16 +39,31 @@ class RulePipeline {
     required ConversationMemoryStore memory,
     required RuleDispatcher dispatcher,
     required ContactRateLimiter rateLimiter,
+    Future<void>? readiness,
   }) : _registry = registry,
        _engine = engine,
        _dedupe = dedupe,
        _memory = memory,
        _dispatcher = dispatcher,
-       _rateLimiter = rateLimiter;
+       _rateLimiter = rateLimiter,
+       _readiness = readiness;
 
   final RuleRegistry _registry;
   final RuleEngine _engine;
   final EventDedupeStore _dedupe;
+
+  /// WA-PROD-02 — barrera de hidratación (futuro compartido con el provider):
+  /// ningún evento/tick se decide antes de que los stores terminaron su carga.
+  /// Se espera UNA sola vez por instancia.
+  Future<void>? _readiness;
+
+  Future<void> _waitReady() async {
+    final ready = _readiness;
+    if (ready != null) {
+      _readiness = null;
+      await ready;
+    }
+  }
 
   /// RATE-01 — límite duro de respuestas por conversación (ventana).
   final ContactRateLimiter _rateLimiter;
@@ -63,6 +78,7 @@ class RulePipeline {
   Future<List<RuleDispatchResult>> onNotification(
     NotificationObject notif,
   ) async {
+    await _waitReady();
     final event = const NotificationEventAdapter().fromNotification(notif);
     final matched = _engine.match(_registry.rules, event);
     // WA-PHYS-11: traza física (logcat tag flutter). Reglas cargadas + veredicto
@@ -186,6 +202,7 @@ class RulePipeline {
   /// (el tick de cada minuto es único por construcción) y sin reply (no hay
   /// remitente: el dispatcher falla honesto en ese caso).
   Future<List<RuleDispatchResult>> onTick(TickEvent event) async {
+    await _waitReady();
     final matched = _engine.match(_registry.rules, event);
     final hhmm =
         '${event.now.hour.toString().padLeft(2, '0')}:'

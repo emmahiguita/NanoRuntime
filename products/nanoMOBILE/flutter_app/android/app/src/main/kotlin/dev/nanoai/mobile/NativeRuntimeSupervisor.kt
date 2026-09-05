@@ -40,8 +40,10 @@ class NativeRuntimeSupervisor(
 
     fun start() {
         synchronized(lock) {
-            // No resucitar después de shutdown() — estado terminal.
-            if (shuttingDown) return
+            // WA-PROD-01: re-arranque permitido tras shutdown(). El runtime
+            // vive por demanda de requestors compartidos (UI y automation):
+            // la UI puede cerrar (shutdown) y automation abrir después en el
+            // MISMO proceso — antes cada dueño tenía su propia instancia.
             if (workerClient != null && !shuttingDown) return
             shuttingDown = false
             workerClient = WorkerClient(appContext)

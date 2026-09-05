@@ -12,6 +12,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.nanoai.mobile.appfunctions.AppFunctionChannelHandler
 import dev.nanoai.mobile.channels.AgentChannelHandler
+import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
+import dev.nanoai.mobile.channels.AutomationStoreChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
 import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
@@ -36,15 +38,11 @@ import kotlinx.coroutines.cancel
 
 class MainActivity : FlutterActivity() {
 
-    /** Supervisor único de runtime nativo: worker, paquetes y VNC. */
-    private val nativeSupervisor: NativeRuntimeSupervisor by lazy {
-        NativeRuntimeSupervisor(this, filesDir, pathPolicy)
-    }
-
-    /** Motor de inferencia nanortime (PIE) — usa el worker del supervisor. */
-    private val engineSupervisor: EngineSupervisor by lazy {
-        EngineSupervisor(this, filesDir, pathPolicy) { nativeSupervisor.workerClient() }
-    }
+    /** WA-PROD-01 — runtime compartido en scope de Application: MainActivity
+     *  es UI CLIENT, no dueño. RuntimeScope apaga los supervisores solo cuando
+     *  el ÚLTIMO requestor (UI o automation headless) se va. */
+    private val runtimeScope: RuntimeScope
+        get() = (application as NanoApplication).runtimeScope
 
     /** Canal hacia Dart para navegación forzada desde el sistema. */
     private var navigationChannel: MethodChannel? = null
@@ -79,7 +77,10 @@ class MainActivity : FlutterActivity() {
         // Starting the worker binds a native service and may touch disk. Do it
         // after initial UI work so cold start can render before runtime warmup.
         mainHandler.postDelayed({
-            if (!isFinishing && !isDestroyed) nativeSupervisor.start()
+            if (!isFinishing && !isDestroyed) {
+                runtimeScope.acquire(RuntimeScope.Holder.UI)
+                runtimeScope.nativeSupervisor.start()
+            }
         }, RUNTIME_WARMUP_DELAY_MS)
     }
 
@@ -113,9 +114,10 @@ class MainActivity : FlutterActivity() {
             "activity_destroyed", "Activity destruida antes de contestar permisos", null,
         )
         pendingRuntimePermissionsResult = null
-        // Orden importa: el engine corre en el worker — matar motor primero.
-        engineSupervisor.shutdown()
-        nativeSupervisor.shutdown()
+        // WA-PROD-01: la UI suelta su requestor; el shutdown real ocurre en
+        // RuntimeScope solo si automation no sigue activo (orden interno:
+        // engine antes que worker).
+        runtimeScope.release(RuntimeScope.Holder.UI)
         super.onDestroy()
     }
 
@@ -224,7 +226,7 @@ class MainActivity : FlutterActivity() {
                     downloadService = downloadService,
                     ioScope = ioScope,
                     mainHandler = mainHandler,
-                    nativeSupervisor = nativeSupervisor,
+                    nativeSupervisor = runtimeScope.nativeSupervisor,
                     onRequestStoragePermission = { result -> requestStoragePermission(result) },
                 ),
             )
@@ -241,13 +243,16 @@ class MainActivity : FlutterActivity() {
         val notificationHandler = NotificationAutomationChannelHandler(this)
         MethodChannel(messenger, ChannelNames.NOTIFICATIONS)
             .setMethodCallHandler(notificationHandler)
+        // WA-PROD-01: sink con dueño — la UI que escucha destrona al engine
+        // headless (single consumer). El token evita que un clear ajeno borre
+        // el sink propio.
         EventChannel(messenger, "com.nanoai/notification_events").setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    NotificationAutomationBridge.notificationEventsSink = events
+                    NotificationAutomationBridge.setSink(SINK_UI, events)
                 }
                 override fun onCancel(arguments: Any?) {
-                    NotificationAutomationBridge.notificationEventsSink = null
+                    NotificationAutomationBridge.clearSink(SINK_UI)
                 }
             },
         )
@@ -255,6 +260,12 @@ class MainActivity : FlutterActivity() {
             messenger,
             NotificationAutomationChannelHandler.CONFIRMATION_EVENTS_CHANNEL_NAME,
         ).setStreamHandler(notificationHandler)
+        // WA-PROD-01: estado/config del runtime en segundo plano (solo UI).
+        MethodChannel(messenger, AutomationBackgroundChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(AutomationBackgroundChannelHandler(this))
+        // WA-PROD-02: estado durable del pipeline (dedupe/rate/memoria).
+        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(AutomationStoreChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
             .setMethodCallHandler(
@@ -270,7 +281,7 @@ class MainActivity : FlutterActivity() {
             .setStreamHandler(speechHandler)
 
         MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->
-            EngineChannelHandler(engineSupervisor, ioScope, mainHandler)
+            EngineChannelHandler(runtimeScope.engineSupervisor, ioScope, mainHandler)
                 .also { handler ->
                     handler.attach(engineChannel)
                     engineChannel.setMethodCallHandler(handler)
@@ -290,7 +301,7 @@ class MainActivity : FlutterActivity() {
                     ioScope = ioScope,
                     mainHandler = mainHandler,
                     openFdInWorker = { uri, pfd ->
-                        nativeSupervisor.workerClient()?.openModelFd(uri, pfd)
+                        runtimeScope.nativeSupervisor.workerClient()?.openModelFd(uri, pfd)
                     },
                 ).also { modelStorageHandler = it },
             )
@@ -315,6 +326,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private companion object {
+        private val SINK_UI = Any()
         private const val RUNTIME_WARMUP_DELAY_MS = 1_500L
         private const val REQ_STORAGE_PERMISSION = 4101
         private const val REQ_RUNTIME_PERMISSIONS = 4102

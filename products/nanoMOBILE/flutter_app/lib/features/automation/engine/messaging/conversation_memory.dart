@@ -24,6 +24,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../storage/automation_db_store_client.dart';
 import 'incoming_message.dart';
 
 /// Tipo factual de una entrada de memoria.
@@ -328,5 +329,64 @@ class SharedPrefsConversationMemoryStore extends _MemoryCore {
   Future<void> _write() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(_snapshot()));
+  }
+}
+
+/// Persistencia transaccional (SQLite vía Kotlin — WA-PROD-02). Misma
+/// semántica que [SharedPrefsConversationMemoryStore] con reemplazo atómico
+/// de sección y migración única de la clave legacy.
+class SqliteConversationMemoryStore extends _MemoryCore {
+  static const _section = 'memory';
+  static const _legacyKey = 'automation.conversation_memory.v1';
+
+  SqliteConversationMemoryStore({
+    super.maxEntriesPerConversation,
+    super.maxConversations,
+  });
+
+  @override
+  Future<void> load() async {
+    try {
+      var raw = await AutomationDbStoreClient.instance.section(_section);
+      raw ??= await _migrateLegacy();
+      if (raw != null && raw.isNotEmpty) {
+        _hydrate((jsonDecode(raw) as Map).cast<String, dynamic>());
+        debugPrint('[convmem] load sqlite: ${_byConversation.length}');
+      } else {
+        debugPrint('[convmem] load sqlite: sin datos');
+      }
+    } on Object catch (e) {
+      debugPrint('[convmem] load sqlite falló: $e');
+    }
+    _loaded = true;
+  }
+
+  Future<String?> _migrateLegacy() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_legacyKey);
+      if (raw == null || raw.isEmpty) return null;
+      final ok = await AutomationDbStoreClient.instance.putSection(
+        _section,
+        raw,
+      );
+      if (ok) await prefs.remove(_legacyKey);
+      return ok ? raw : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  void _markDirty() {
+    if (!_loaded) return;
+    unawaited(_write());
+  }
+
+  Future<void> _write() async {
+    await AutomationDbStoreClient.instance.putSection(
+      _section,
+      jsonEncode(_snapshot()),
+    );
   }
 }

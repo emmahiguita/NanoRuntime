@@ -382,7 +382,7 @@ final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
 /// eventos vistos + ecos de envíos + cooldown por conversación. Persistente
 /// (shared_prefs JSON); la carga es asíncrona (arranque) igual que las reglas.
 final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
-  final store = SharedPrefsEventDedupeStore();
+  final store = SqliteEventDedupeStore();
   store.load();
   return store;
 });
@@ -390,9 +390,25 @@ final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
 /// RATE-01: límite duro de respuestas por conversación (ventana deslizante).
 /// Persistente (shared_prefs JSON), misma carga asíncrona que el dedupe.
 final contactRateLimiterProvider = Provider<ContactRateLimiter>((ref) {
-  final limiter = SharedPreferencesContactRateLimiter();
+  final limiter = SqliteContactRateLimiter();
   limiter.load();
   return limiter;
+});
+
+/// WA-PROD-02 — barrera global de hidratación: futuro único que espera la
+/// carga completa de los stores críticos (reglas, dedupe, memoria) +
+/// settings. RulePipeline la espera antes del primer evento/tick y el
+/// runtime headless antes de drenar el inbox — la ventana de decisión
+/// pre-hidratación queda cerrada para CUALQUIER consumidor del grafo.
+/// (El rate limiter no entra: se auto-hidrata dentro de allowReply antes de
+/// decidir — mismo patrón que su impl de prefs.)
+final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
+  await ref.read(settingsProvider.notifier).init();
+  await Future.wait([
+    ref.read(ruleRegistryProvider).load(),
+    ref.read(eventDedupeStoreProvider).load(),
+    ref.read(conversationMemoryStoreProvider).load(),
+  ]);
 });
 
 /// Pipeline WhatsApp-first (T3.3): notificación → dedupe → match → coordinator.
@@ -404,6 +420,7 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     dedupe: ref.watch(eventDedupeStoreProvider),
     memory: ref.watch(conversationMemoryStoreProvider),
     rateLimiter: ref.watch(contactRateLimiterProvider),
+    readiness: ref.watch(automationStoresHydratedProvider),
     dispatcher: RuleDispatcher(
       (goal, {AutomationOptions? options}) => ref
           .read(automationCoordinatorProvider)

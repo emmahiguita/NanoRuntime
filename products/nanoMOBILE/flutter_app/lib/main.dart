@@ -11,6 +11,7 @@ import 'core/services/boot_orchestrator.dart';
 import 'core/services/nano_runtime_api.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/nano_motion.dart';
+import 'features/automation/headless/automation_headless_runner.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -18,6 +19,16 @@ const _kNavChannel = MethodChannel('com.nanoai/navigation');
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
+
+  // WA-PROD-01: el MISMO entrypoint sirve a los dos engines. El engine
+  // headless del AutomationRuntimeService no tiene Activity: en vez de
+  // runApp() corre el bootstrap de automatización (barrera de stores →
+  // drenado del inbox durable → RulePipeline intacto).
+  if (await isHeadlessAutomationEngine()) {
+    await runAutomationHeadless();
+    return;
+  }
+
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
 

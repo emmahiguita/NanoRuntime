@@ -33,6 +33,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../storage/automation_db_store_client.dart';
+
 /// Veredicto de la puerta de deduplicación para un evento entrante.
 enum DedupeVerdict {
   /// Primer contacto del evento y sin condición que bloquee: puede despachar.
@@ -478,6 +480,100 @@ class SharedPrefsEventDedupeStore extends _DedupeCore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _key,
+      jsonEncode({
+        'events': {for (final e in _events.entries) e.key: e.value.toJson()},
+        'outbound': {
+          for (final o in _outbound.entries)
+            o.key: [for (final e in o.value) e.toJson()],
+        },
+      }),
+    );
+  }
+}
+
+/// Persistencia transaccional (SQLite vía Kotlin — WA-PROD-02). Reemplaza a
+/// [SharedPrefsEventDedupeStore] en producción: escritor único Kotlin y
+/// reemplazo atómico de sección (WAL). La primera carga migra la clave
+/// legacy de prefs y la borra (una sola vez, idempotente).
+class SqliteEventDedupeStore extends _DedupeCore {
+  static const _section = 'dedupe';
+  static const _legacyKey = 'automation.event_dedupe.v1';
+
+  SqliteEventDedupeStore({
+    super.ttlMs,
+    super.cooldownMs,
+    super.failedBackoffMs,
+    super.bouncebackMs,
+    super.eventCap,
+    super.outboundCap,
+  });
+
+  @override
+  Future<void> load() async {
+    try {
+      var raw = await AutomationDbStoreClient.instance.section(_section);
+      raw ??= await _migrateLegacy();
+      if (raw != null && raw.isNotEmpty) {
+        final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
+        final events = (map['events'] as Map?)?.cast<String, dynamic>() ?? {};
+        for (final e in events.entries) {
+          final m = (e.value as Map).cast<String, dynamic>();
+          _events[e.key] = _DedupeEntry(
+            state: DedupeEventState.values.byName(m['st'] as String),
+            conversationId: (m['cv'] as String?) ?? '',
+            text: (m['tx'] as String?) ?? '',
+            atMs: (m['at'] as num?)?.toInt() ?? 0,
+            reason: (m['rs'] as String?) ?? '',
+          );
+        }
+        final outbound =
+            (map['outbound'] as Map?)?.cast<String, dynamic>() ?? {};
+        for (final o in outbound.entries) {
+          final echoes = <_OutboundEcho>[];
+          for (final m in (o.value as List)) {
+            final mm = (m as Map).cast<String, dynamic>();
+            echoes.add(
+              _OutboundEcho(
+                (mm['t'] as String?) ?? '',
+                (mm['a'] as num?)?.toInt() ?? 0,
+              ),
+            );
+          }
+          _outbound[o.key] = echoes;
+        }
+      }
+    } on Object {
+      // Sección corrupta o esquema viejo: arrancar limpio (fail-closed).
+    }
+    _prune(DateTime.now().millisecondsSinceEpoch);
+    _loaded = true;
+  }
+
+  Future<String?> _migrateLegacy() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_legacyKey);
+      if (raw == null || raw.isEmpty) return null;
+      final ok = await AutomationDbStoreClient.instance.putSection(
+        _section,
+        raw,
+      );
+      if (ok) await prefs.remove(_legacyKey);
+      return ok ? raw : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  void _markDirty() {
+    if (!_loaded) return;
+    unawaited(_write());
+  }
+
+  Future<void> _write() async {
+    await AutomationDbStoreClient.instance.putSection(
+      _section,
       jsonEncode({
         'events': {for (final e in _events.entries) e.key: e.value.toJson()},
         'outbound': {

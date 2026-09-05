@@ -11,7 +11,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/chat_provider.dart';
 import '../domain/automation_policy.dart';
 import 'messaging/conversation_memory.dart'
-    show ConversationMemoryStore, SharedPrefsConversationMemoryStore;
+    show ConversationMemoryStore, SqliteConversationMemoryStore;
 import 'model/automation_model_resolver.dart';
 import 'model/draft_writer.dart';
 import 'platform/linux_tool_adapter.dart';
@@ -140,7 +140,7 @@ final executionJournalProvider = Provider<ExecutionJournal>((ref) {
 final conversationMemoryStoreProvider = Provider<ConversationMemoryStore>((
   ref,
 ) {
-  final store = SharedPrefsConversationMemoryStore();
+  final store = SqliteConversationMemoryStore();
   store.load();
   return store;
 });
@@ -476,6 +476,9 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     ensureReady: (p) => engine.ensureReady(modelPath: p),
     modelPath: () =>
         resolver.resolveFor(AutomationModelRole.draftWriter).modelPath,
+    // WA-PERSONA-01 — estilo del dueño leído EN VIVO al redactar.
+    styleEnabled: () => ref.read(settingsProvider).waStyleEnabled,
+    styleText: () => ref.read(settingsProvider).waStyleText,
     // WA-MEM-08: contexto factual de la conversación.
     memory: ref.watch(conversationMemoryStoreProvider),
   ).call;

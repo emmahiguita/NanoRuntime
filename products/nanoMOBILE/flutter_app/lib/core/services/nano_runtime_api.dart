@@ -84,6 +84,9 @@ class NanoRuntimeApi {
   );
   static const _speech = MethodChannel(NanoRuntimeChannels.speech);
   static const _speechPartial = EventChannel('com.nanoai/speech_partial');
+  static const _automationBackground = MethodChannel(
+    'com.nanoai/automation_background',
+  );
 
   Future<RuntimeInfo>? _handshake;
 
@@ -1184,6 +1187,49 @@ class NanoRuntimeApi {
           false;
     } catch (e) {
       debugPrint('[runtime] notifyRuleEvent error: $e');
+      return false;
+    }
+  }
+
+  /// WA-PROD-01 — estado factual del runtime en segundo plano (Ajustes):
+  /// puerta background, listener, exención de batería, runtime activo y
+  /// mensajes pendientes en la cola durable.
+  Future<Map<dynamic, dynamic>?> automationBackgroundStatus() async {
+    try {
+      return await _automationBackground
+          .invokeMapMethod<dynamic, dynamic>('status');
+    } catch (e) {
+      debugPrint('[runtime] automationBackgroundStatus error: $e');
+      return null;
+    }
+  }
+
+  /// WA-PROD-01 — puerta de usuario del procesamiento en segundo plano
+  /// (la consulta el NotificationListener antes de persistir eventos).
+  Future<bool> setBackgroundAutomation(bool enabled) async {
+    try {
+      return await _automationBackground.invokeMethod<bool>('setEnabled', {
+            'enabled': enabled,
+          }) ??
+          false;
+    } catch (e) {
+      debugPrint('[runtime] setBackgroundAutomation error: $e');
+      return false;
+    }
+  }
+
+  /// WA-PROD-01 — abre la pantalla del sistema que excluye a Nano de la
+  /// optimización de batería (requisito real para FGS desde el listener:
+  /// Android no exime el NLS en background). La decide el usuario, jamás
+  /// se pide a primera ejecución.
+  Future<bool> requestBatteryExemption() async {
+    try {
+      return await _automationBackground.invokeMethod<bool>(
+            'requestBatteryExemption',
+          ) ??
+          false;
+    } catch (e) {
+      debugPrint('[runtime] requestBatteryExemption error: $e');
       return false;
     }
   }

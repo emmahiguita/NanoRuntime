@@ -36,9 +36,20 @@
          sistema (ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION), no runtime.
          Sin él el scanner devuelve vacío (honesto) y queda el SAF. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
-    <!-- Sin permisos de foreground service: el worker nanoshell es bind-only
-         (exported=false, sin startForeground/startService en todo el código).
-         Declararlos sin uso dispara el escrutinio specialUse de Play. -->
+    <!-- El worker nanoshell es bind-only (exported=false). Los permisos FGS
+         declarados abajo pertenecen SOLO al AutomationRuntimeService
+         (dataSync, vida acotada a la ventana de procesamiento). -->
+    <!-- WA-PROD-01: FGS dataSync del runtime de automatización en segundo
+         plano: procesa mensajes con la UI cerrada. Vida acotada — idle →
+         stopSelf; nunca notificación eterna. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <!-- WA-PROD-01: Android NO permite arrancar FGS desde el callback del
+         NotificationListener en background (targetSdk 36) sin una exención
+         de la lista oficial; la única aplicable al flujo es la exclusión de
+         optimización de batería. La petición la hace el usuario desde
+         Ajustes → Automatización (nunca a primera ejecución). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <!-- APPFN-01: App Functions (Android 16, API 36). Permiso appop para
          EJECUTAR funciones de apps; en v1 SOLO se declara para que la sonda
          reporte su estado factual (probe, sin ejecución). En Android < 36 el
@@ -65,7 +76,7 @@
 
     <application
         android:label="NanoAI Local"
-        android:name="${applicationName}"
+        android:name=".NanoApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:description="@string/app_settings_description"
@@ -138,6 +149,14 @@
                 <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
         </service>
+        <!-- WA-PROD-01: runtime headless de automatización (Variante 1):
+             drena el inbox durable con la UI cerrada. FGS dataSync de vida
+             acotada (Dart pide finish al quedar idle; watchdog 120s), mismo
+             proceso main — sin IPC. -->
+        <service
+            android:name=".automation.AutomationRuntimeService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <!-- Acción local de la notificación de gobernanza. No es exportada y
              solo reanuda la confirmación firmada que Flutter mantiene activa. -->
         <receiver

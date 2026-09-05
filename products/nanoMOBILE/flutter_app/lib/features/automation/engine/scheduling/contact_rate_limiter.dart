@@ -20,6 +20,7 @@ import 'dart:convert' show jsonDecode, jsonEncode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../messaging/conversation_key.dart';
+import '../storage/automation_db_store_client.dart';
 
 /// Política de ventana deslizante. `const`: auditable, sin estado.
 final class ContactRatePolicy {
@@ -145,4 +146,101 @@ final class SharedPreferencesContactRateLimiter implements ContactRateLimiter {
 
   static String _encodeAttempts(Map<String, List<int>> attempts) =>
       jsonEncode(attempts);
+}
+
+/// Persistencia transaccional (SQLite vía Kotlin — WA-PROD-02). Misma
+/// semántica que [SharedPreferencesContactRateLimiter] con reemplazo atómico
+/// de sección y migración única de la clave legacy. La decisión se persiste
+/// ANTES de devolver allowReply=true (igual que el impl de prefs).
+final class SqliteContactRateLimiter implements ContactRateLimiter {
+  SqliteContactRateLimiter({this.policy = const ContactRatePolicy()});
+
+  @override
+  final ContactRatePolicy policy;
+
+  static const _section = 'rate';
+  static const _legacyKey = 'automation.contact_rate_limiter.v1';
+
+  final Map<String, List<int>> _attempts = {};
+  bool _loaded = false;
+  Future<void>? _loading;
+
+  // La interfaz no expone load(): cada impl se auto-hidrata en allowReply
+  // (mismo patrón que el impl de prefs) — la barrera global no la espera.
+  Future<void> load() {
+    if (_loaded) return Future.value();
+    return _loading ??= _doLoad();
+  }
+
+  Future<void> _doLoad() async {
+    try {
+      var raw = await AutomationDbStoreClient.instance.section(_section);
+      raw ??= await _migrateLegacy();
+      if (raw != null && raw.isNotEmpty) {
+        _attempts
+          ..clear()
+          ..addAll(SharedPreferencesContactRateLimiter._decodeAttempts(raw));
+      }
+    } catch (e) {
+      // Sección corrupta: empezar limpio y honesto (el límite se rearma).
+      _attempts.clear();
+    }
+    _loaded = true;
+  }
+
+  Future<String?> _migrateLegacy() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_legacyKey);
+      if (raw == null || raw.isEmpty) return null;
+      final ok = await AutomationDbStoreClient.instance.putSection(
+        _section,
+        raw,
+      );
+      if (ok) await prefs.remove(_legacyKey);
+      return ok ? raw : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> allowReply(
+    ConversationKey key, {
+    required DateTime at,
+  }) async {
+    await load();
+    final id = key.id;
+    if (id.isEmpty) return false;
+
+    final atMs = at.millisecondsSinceEpoch;
+    final windowMs = policy.window.inMilliseconds;
+    final current =
+        (_attempts[id] ?? const <int>[])
+            .where((t) => atMs - t < windowMs)
+            .toList();
+    if (current.length >= policy.maxRepliesPerWindow) return false;
+
+    current.add(atMs);
+    _attempts[id] = current;
+    await _persist();
+    return true;
+  }
+
+  Future<void> _persist() async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final windowMs = policy.window.inMilliseconds;
+    final pruned = <String, List<int>>{};
+    for (final entry in _attempts.entries) {
+      final alive = entry.value.where((t) => nowMs - t < windowMs).toList();
+      if (alive.isNotEmpty) pruned[entry.key] = alive;
+    }
+    _attempts
+      ..clear()
+      ..addAll(pruned);
+    await AutomationDbStoreClient.instance.putSection(
+      _section,
+      SharedPreferencesContactRateLimiter._encodeAttempts(_attempts),
+    );
+  }
 }

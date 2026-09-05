@@ -9,11 +9,16 @@ import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import dev.nanoai.mobile.NanoApplication
+import dev.nanoai.mobile.automation.AutomationRuntimeService
+import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 
 /**
- * Listener local de notificaciones. No persiste contenido ni lo envía por
- * red: conserva únicamente referencias activas que Android ya entregó al
- * proceso y permite responder mediante la acción RemoteInput de la app origen.
+ * Listener local de notificaciones. WA-PROD-01: persiste SOLO la identidad
+ * del evento (package + notificationKey + tiempos) en el DurableInbox; el
+ * CONTENIDO nunca se persiste ni se envía por red — se rehidrata de las
+ * notificaciones activas que Android ya entregó al proceso al momento de
+ * procesar. Responde mediante la acción RemoteInput de la app origen.
  */
 class NotificationAutomationService : NotificationListenerService() {
 
@@ -36,17 +41,35 @@ class NotificationAutomationService : NotificationListenerService() {
     }
 
     /**
-     * Notificación entrante → evento en vivo al bridge (EventChannel). El
-     * contenido NO se persiste ni se envía por red: solo se retransmite al
-     * proceso Flutter para triggers/reglas. No dispara para la propia app ni
-     * para resúmenes de grupo.
+     * WA-PROD-01 — sensor, no cerebro: normaliza y persiste el evento en el
+     * inbox durable (<10ms) y sale rápido. Si hay un engine Dart escuchando
+     * (UI o headless) reenvía el evento vivo por el EventChannel; si no, pide
+     * al AutomationRuntimeService que arranque el runtime headless que drenará
+     * la fila. El contenido NO se persiste ni se envía por red (solo se
+     * rehidrata de las notificaciones activas al procesar). No dispara para
+     * la propia app ni para resúmenes de grupo.
      */
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
         if (sbn.packageName == packageName) return
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
-        NotificationAutomationBridge.notificationEventsSink?.success(toMap(sbn))
+
+        val sink = NotificationAutomationBridge.notificationEventsSink
+        if (sink != null) {
+            sink.success(toMap(sbn))
+            return
+        }
+        // Sin consumidor Dart: persistir para el próximo wake. La puerta de
+        // usuario ("procesar en segundo plano") corta también la inserción:
+        // desactivada = comportamiento histórico (solo con la app abierta).
+        if (!AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
+        val inserted = NanoApplication.from(this).durableInbox.insert(
+            sbn.packageName,
+            sbn.key,
+            sbn.postTime,
+        )
+        if (inserted) AutomationRuntimeService.request(this)
     }
 
     fun snapshot(limit: Int = 30): List<Map<String, Any?>> =
@@ -58,6 +81,14 @@ class NotificationAutomationService : NotificationListenerService() {
             .take(limit.coerceIn(1, MAX_NOTIFICATIONS))
             .map(::toMap)
             .toList()
+
+    /** WA-PROD-01 — rehidratación por key para el drenado del inbox: devuelve
+     *  el mapa del evento SOLO si la notificación sigue activa (sin contenido
+     *  persistido no hay otra fuente honesta). */
+    fun byKey(key: String): Map<String, Any?>? =
+        (activeNotifications ?: emptyArray())
+            .firstOrNull { it.key == key }
+            ?.let(::toMap)
 
     /**
      * WA-RI-05 — reply con revalidación EXACTA de la capacidad observada.
@@ -298,4 +329,33 @@ object NotificationAutomationBridge {
     /** Sink del EventChannel de eventos en vivo (null = nadie escuchando). */
     @Volatile
     var notificationEventsSink: io.flutter.plugin.common.EventChannel.EventSink? = null
+
+    /** WA-PROD-01 — dueño del sink: solo UN engine (UI o headless) escucha
+     *  eventos vivos. La UI que se abre destrona al headless (single consumer)
+     *  y pide al runtime headless que se detenga. */
+    private val lock = Any()
+    @Volatile
+    private var sinkOwner: Any? = null
+
+    fun setSink(owner: Any, sink: io.flutter.plugin.common.EventChannel.EventSink?) {
+        val replaced = synchronized(lock) {
+            val previous = sinkOwner
+            sinkOwner = owner
+            notificationEventsSink = sink
+            previous
+        }
+        if (replaced !== owner && replaced != null) {
+            // Otro engine tomó el sink: el headless debe retirarse.
+            dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
+        }
+    }
+
+    fun clearSink(owner: Any) {
+        synchronized(lock) {
+            if (sinkOwner === owner) {
+                sinkOwner = null
+                notificationEventsSink = null
+            }
+        }
+    }
 }

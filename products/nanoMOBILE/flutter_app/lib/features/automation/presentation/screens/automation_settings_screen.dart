@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,7 @@ import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 
 import '../automation_layout.dart';
@@ -34,67 +37,59 @@ class AutomationSettingsScreen extends ConsumerWidget {
       child: Builder(
         builder: (context) => Scaffold(
           resizeToAvoidBottomInset: true,
-          // UI-REV-03: fondo compartido de Dev.
           backgroundColor: Colors.transparent,
-          // NAV-BAR-FIX-03 — barra global también en Configuración.
           body: NanoShellBarScope(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                const AutomationBackdrop(),
-                SafeArea(
-                  child: ListView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
-                    children: [
-                      Center(
-                        child: ConstrainedBox(
-                          // UI-REV-13: ancho adaptativo por orientación
-                          // (720 vertical / 1080 horizontal).
-                          constraints: BoxConstraints(
-                            maxWidth: AutomationLayout.contentMaxWidth(context),
+            slotId: 'automation_settings',
+            child: SafeArea(
+              child: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: AutomationLayout.contentMaxWidth(context),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const AutomationBackHeader(),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Configuración',
+                            style: TextStyle(
+                              color: AutomationVisual.of(context).text,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          const SizedBox(height: 4),
+                          Text(
+                            'Personaliza cómo Nano ejecuta tus automatizaciones.',
+                            style: TextStyle(
+                              color: AutomationVisual.of(context).textMuted,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const AutomationSectionLabel('General'),
+                          _SettingsCard(
                             children: [
-                              const AutomationBackHeader(),
-                              const SizedBox(height: 20),
-                              // UI-REV-02: título 22px — jerarquía Dev.
-                              Text(
-                                'Configuración',
-                                style: TextStyle(
-                                  color: AutomationVisual.of(context).text,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
+                              _SettingsRow(
+                                icon: Icons.bolt_rounded,
+                                title: 'Modo de automatización',
+                                subtitle: settings
+                                    .agentAutomationMode
+                                    .description,
+                                trailing: _ValueBadge(
+                                  label: settings.agentAutomationMode.label
+                                      .toUpperCase(),
                                 ),
+                                onTap: () => _pickMode(context, ref),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Personaliza cómo Nano ejecuta tus automatizaciones.',
-                                style: TextStyle(
-                                  color: AutomationVisual.of(context).textMuted,
-                                  fontSize: 13,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const AutomationSectionLabel('General'),
-                              _SettingsCard(
-                                children: [
-                                  _SettingsRow(
-                                    icon: Icons.bolt_rounded,
-                                    title: 'Modo de automatización',
-                                    subtitle: settings
-                                        .agentAutomationMode
-                                        .description,
-                                    trailing: _ValueBadge(
-                                      label: settings.agentAutomationMode.label
-                                          .toUpperCase(),
-                                    ),
-                                    onTap: () => _pickMode(context, ref),
-                                  ),
                                   _SettingsRow(
                                     icon: Icons.psychology_outlined,
                                     title: 'Motor de razonamiento',
@@ -120,6 +115,13 @@ class AutomationSettingsScreen extends ConsumerWidget {
                                   ),
                                 ],
                               ),
+                              const SizedBox(
+                                height: 24,
+                              ), // UI-REV-02: gap Dev xl
+                              const AutomationSectionLabel(
+                                'Automatización en segundo plano',
+                              ),
+                              const _BackgroundAutomationCard(),
                               const SizedBox(
                                 height: 24,
                               ), // UI-REV-02: gap Dev xl
@@ -221,12 +223,10 @@ class AutomationSettingsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 
   static Future<void> _pickMode(BuildContext context, WidgetRef ref) async {
@@ -510,6 +510,116 @@ class _ReadonlyStatus extends StatelessWidget {
         message: 'Activo',
         child: Icon(Icons.check_circle_rounded, color: success, size: 18),
       ),
+    );
+  }
+}
+
+/// WA-PROD-01 — estado del runtime en segundo plano: puerta de usuario,
+/// accesos reales (listener de notificaciones + exención de batería) y
+/// mensajes pendientes en la cola durable. Solo presenta estados factuales
+/// que consulta el runtime — ningún toggle decorativo.
+class _BackgroundAutomationCard extends ConsumerStatefulWidget {
+  const _BackgroundAutomationCard();
+
+  @override
+  ConsumerState<_BackgroundAutomationCard> createState() =>
+      _BackgroundAutomationCardState();
+}
+
+class _BackgroundAutomationCardState
+    extends ConsumerState<_BackgroundAutomationCard> {
+  Map<dynamic, dynamic>? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refresh());
+  }
+
+  Future<void> _refresh() async {
+    final status = await NanoRuntimeApi.instance.automationBackgroundStatus();
+    if (mounted) setState(() => _status = status);
+  }
+
+  Future<void> _setEnabled(bool enabled) async {
+    await NanoRuntimeApi.instance.setBackgroundAutomation(enabled);
+    await _refresh();
+  }
+
+  Future<void> _openBatteryExemption() async {
+    await NanoRuntimeApi.instance.requestBatteryExemption();
+    // El diálogo del sistema tarda en reflejar el cambio al volver.
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    await _refresh();
+  }
+
+  Future<void> _openListenerSettings() async {
+    await NanoRuntimeApi.instance.requestNotificationAccess();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    if (status == null) {
+      return const _SettingsCard(
+        children: [
+          _SettingsRow(
+            icon: Icons.hourglass_empty,
+            title: 'Estado del runtime',
+            subtitle: 'Consultando…',
+            showChevron: false,
+          ),
+        ],
+      );
+    }
+
+    final enabled = status['backgroundEnabled'] == true;
+    final listenerGranted = status['listenerGranted'] == true;
+    final batteryIgnored = status['batteryIgnored'] == true;
+    final runtimeRunning = status['runtimeRunning'] == true;
+    final pending = (status['pendingCount'] as num?)?.toInt() ?? 0;
+
+    return _SettingsCard(
+      children: [
+        _SettingsRow(
+          icon: enabled ? Icons.phonelink_erase : Icons.phone_android,
+          title: 'Procesar en segundo plano',
+          subtitle: enabled
+              ? 'Responder con Nano cerrada y pantalla apagada'
+              : 'Solo con Nano abierta',
+          trailing: Switch(value: enabled, onChanged: _setEnabled),
+          showChevron: false,
+        ),
+        _SettingsRow(
+          icon: Icons.notifications_active_outlined,
+          title: 'Acceso a notificaciones',
+          subtitle: listenerGranted
+              ? 'Concedido — Nano ve los mensajes entrantes'
+              : 'Necesario para ver los mensajes entrantes',
+          trailing: _ValueBadge(label: listenerGranted ? 'SÍ' : 'FALTA'),
+          onTap: _openListenerSettings,
+          showChevron: false,
+        ),
+        _SettingsRow(
+          icon: Icons.battery_std,
+          title: 'Exención de batería',
+          subtitle: batteryIgnored
+              ? 'Concedida — el sistema permite trabajar en segundo plano'
+              : 'Android bloquea el arranque sin ella: toca para concederla',
+          trailing: _ValueBadge(label: batteryIgnored ? 'SÍ' : 'FALTA'),
+          onTap: _openBatteryExemption,
+          showChevron: false,
+        ),
+        _SettingsRow(
+          icon: Icons.inbox_outlined,
+          title: runtimeRunning ? 'Procesando ahora' : 'En reposo',
+          subtitle: pending == 0
+              ? 'Sin mensajes pendientes'
+              : 'Mensajes en cola: $pending',
+          trailing: _ValueBadge(label: '$pending'),
+          showChevron: false,
+        ),
+      ],
     );
   }
 }

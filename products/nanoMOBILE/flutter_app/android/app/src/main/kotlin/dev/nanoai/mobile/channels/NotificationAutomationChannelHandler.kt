@@ -12,15 +12,21 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.R
 import dev.nanoai.mobile.services.NotificationAutomationBridge
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
-/** Puente Flutter ↔ NotificationListenerService. Todas las acciones son locales. */
+/** Puente Flutter ↔ NotificationListenerService. Todas las acciones son locales.
+ *
+ *  WA-PROD-01: ctor por [Context] (antes Activity) — el MISMO handler sirve
+ *  al engine de la UI (MainActivity) y al engine headless del
+ *  AutomationRuntimeService. Las pantallas de sistema se abren con NEW_TASK
+ *  cuando el contexto no es una Activity. */
 class NotificationAutomationChannelHandler(
-    private val activity: Activity,
+    private val context: Context,
 ) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
 
     companion object {
@@ -61,24 +67,16 @@ class NotificationAutomationChannelHandler(
             "status" -> result.success(
                 mapOf(
                     "accessGranted" to NotificationManagerCompat
-                        .getEnabledListenerPackages(activity)
-                        .contains(activity.packageName),
+                        .getEnabledListenerPackages(context)
+                        .contains(context.packageName),
                     "connected" to (NotificationAutomationBridge.service != null),
                 ),
             )
 
             "requestAccess" -> {
-                try {
-                    activity.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    result.success(true)
-                } catch (_: android.content.ActivityNotFoundException) {
-                    try {
-                        activity.startActivity(Intent(Settings.ACTION_SETTINGS))
-                        result.success(true)
-                    } catch (_: android.content.ActivityNotFoundException) {
-                        result.success(false)
-                    }
-                }
+                val opened = openSystemSettings(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    || openSystemSettings(Settings.ACTION_SETTINGS)
+                result.success(opened)
             }
 
             "list" -> {
@@ -90,7 +88,7 @@ class NotificationAutomationChannelHandler(
                 result.success(showAutomationConfirmation())
 
             "dismissAutomationConfirmation" -> {
-                NotificationManagerCompat.from(activity)
+                NotificationManagerCompat.from(context)
                     .cancel(CONFIRMATION_NOTIFICATION_ID)
                 result.success(true)
             }
@@ -146,13 +144,25 @@ class NotificationAutomationChannelHandler(
         confirmationEventsSink = null
     }
 
+    /** Pantalla de sistema; NEW_TASK solo cuando el contexto no es Activity. */
+    private fun openSystemSettings(action: String): Boolean {
+        return try {
+            val intent = Intent(action)
+            if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            true
+        } catch (_: android.content.ActivityNotFoundException) {
+            false
+        }
+    }
+
     /**
      * NOTIFY-01 — aviso local de una regla: "cuando X me escriba, avísame".
      * Notificación propia de Nano; el tap solo abre Nano. Un aviso nuevo
      * reemplaza al anterior (ID fijo): es señal, no historial.
      */
     private fun notifyRuleEvent(title: String, body: String): Boolean {
-        val manager = NotificationManagerCompat.from(activity)
+        val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return false
         if (title.isBlank() && body.isBlank()) return false
 
@@ -165,20 +175,20 @@ class NotificationAutomationChannelHandler(
                 description = "Mensajes nuevos que activaron una regla de aviso"
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
             }
-            activity.getSystemService(NotificationManager::class.java)
+            context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
 
-        val openIntent = Intent(activity, activity::class.java).apply {
+        val openIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         val openPendingIntent = PendingIntent.getActivity(
-            activity,
+            context,
             NOTICE_NOTIFICATION_ID,
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(activity, NOTICE_CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, NOTICE_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_nano_confirmation)
             .setContentTitle(title)
             .setContentText(body)
@@ -204,7 +214,7 @@ class NotificationAutomationChannelHandler(
      * usuario a la confirmación firmada que conserva Flutter/Journal.
      */
     private fun showAutomationConfirmation(): Boolean {
-        val manager = NotificationManagerCompat.from(activity)
+        val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return false
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -216,30 +226,30 @@ class NotificationAutomationChannelHandler(
                 description = "Solicitudes de revisión antes de acciones sensibles"
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
             }
-            activity.getSystemService(NotificationManager::class.java)
+            context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
 
-        val reviewIntent = Intent(activity, activity::class.java).apply {
+        val reviewIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         val reviewPendingIntent = PendingIntent.getActivity(
-            activity,
+            context,
             CONFIRMATION_NOTIFICATION_ID,
             reviewIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val confirmIntent = Intent(
-            activity,
+            context,
             AutomationConfirmationActionReceiver::class.java,
         ).setAction(ACTION_CONFIRM_AUTOMATION)
         val confirmPendingIntent = PendingIntent.getBroadcast(
-            activity,
+            context,
             CONFIRMATION_NOTIFICATION_ID + 1,
             confirmIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(activity, CONFIRMATION_CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, CONFIRMATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_nano_confirmation)
             .setContentTitle("Nano necesita confirmación")
             .setContentText("Toca para revisar y autorizar la acción pendiente.")
