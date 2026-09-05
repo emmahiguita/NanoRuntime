@@ -121,6 +121,14 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Kill a mitad de ráfaga: solo se pierde la ventana de asentamiento en RAM;
   los eventos persistidos retoman su camino (sin doble envío).
 
+## WA-CONV-03 — supersede (mensaje nuevo mata draft viejo)
+
+- Enviar "¿tienes el negro?" y, mientras Nano redacta (~segundos), mandar
+  "no, mejor el azul": el draft del negro NO se envía (logcat
+  `[rules] … reason='turno superado…'`); el mensaje nuevo se responde.
+- Ráfaga agregada normal sigue respondiendo UNA vez (sin supersede falso).
+- Mensajes con >3s de separación: cada turno responde (sin supersede falso).
+
 ## FIX-VISUAL-01 — diseño estable al escribir (doble encogido)
 
 - Mensajes y Dev (automatización): abrir el teclado NO aplasta ni solapa

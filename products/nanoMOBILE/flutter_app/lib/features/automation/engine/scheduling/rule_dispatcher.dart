@@ -18,10 +18,12 @@ library;
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_result.dart';
 import '../governance/rule_execution_authority.dart';
+import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../notifications/notification_draft_writer.dart'
     show NotificationDraftSource;
 import '../notifications/notification_object.dart';
 import 'scheduled_rule.dart';
+import 'turn_supersede_guard.dart';
 
 enum RuleOutcome {
   /// Acción notify completada (aviso local).
@@ -89,9 +91,11 @@ class RuleDispatcher {
     Future<bool> Function(String title, String body)? notifyLocal,
     Future<bool> Function(String path, String contact, String caption)?
     shareMedia,
+    TurnSupersedeGuard? supersedeGuard,
   }) : _draftSource = draftSource,
        _notifyLocal = notifyLocal,
-       _shareMedia = shareMedia;
+       _shareMedia = shareMedia,
+       _supersedeGuard = supersedeGuard;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -113,6 +117,11 @@ class RuleDispatcher {
   /// (tests): la regla media falla honesta, sin efecto local.
   final Future<bool> Function(String path, String contact, String caption)?
   _shareMedia;
+
+  /// WA-CONV-03 — guard de supersede por conversación. null = sin puerta
+  /// (tests/rutas legacy): el reply dinámico conserva el comportamiento
+  /// histórico.
+  final TurnSupersedeGuard? _supersedeGuard;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -206,6 +215,15 @@ class RuleDispatcher {
             reason: 'notificación sin remitente',
           );
         }
+        // WA-CONV-03 — versión de la conversación al empezar el reply: si
+        // llega un mensaje nuevo mientras Nano redacta o antes de ejecutar,
+        // el turno quedó superado y el draft viejo jamás se envía.
+        final supersedeGuard = _supersedeGuard;
+        final conversationVersion = supersedeGuard == null
+            ? 0
+            : supersedeGuard.versionOf(
+                resolveConversationIdentity(notif).key.id,
+              );
         // WA-AGENT-09 — reply dinámico: la regla no fija texto; el motor
         // local redacta con el historial factual de la conversación. Sin
         // motor/borrador → failed honesto, jamás respuesta genérica.
@@ -227,12 +245,35 @@ class RuleDispatcher {
               reason: 'regla dinámica: el motor local no produjo borrador',
             );
           }
+          if (supersedeGuard != null &&
+              supersedeGuard.versionOf(
+                    resolveConversationIdentity(notif).key.id,
+                  ) !=
+                  conversationVersion) {
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.failed,
+              reason:
+                  'turno superado: llegó un mensaje nuevo durante el borrador',
+            );
+          }
           text = draft.trim();
         } else if (text.trim().isEmpty) {
           return RuleDispatchResult(
             ruleId: rule.id,
             outcome: RuleOutcome.failed,
             reason: 'regla sin mensaje de respuesta',
+          );
+        }
+        if (supersedeGuard != null &&
+            supersedeGuard.versionOf(
+                  resolveConversationIdentity(notif).key.id,
+                ) !=
+                conversationVersion) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'turno superado antes del envío',
           );
         }
         final AutomationResult result;

@@ -28,6 +28,7 @@ import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limite
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
+import 'package:nanoai/features/automation/engine/scheduling/turn_supersede_guard.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart';
@@ -426,10 +427,12 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     memory: ref.watch(conversationMemoryStoreProvider),
     rateLimiter: ref.watch(contactRateLimiterProvider),
     readiness: ref.watch(automationStoresHydratedProvider),
+    supersedeGuard: ref.watch(turnSupersedeGuardProvider),
     dispatcher: RuleDispatcher(
       (goal, {AutomationOptions? options}) => ref
           .read(automationCoordinatorProvider)
           .execute(goal, options: options),
+      supersedeGuard: ref.watch(turnSupersedeGuardProvider),
       // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
       // contextual que el candidato de notificación (un solo motor).
       draftSource: ref.watch(notificationDraftSourceProvider),
@@ -445,11 +448,23 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
   );
 });
 
+/// WA-CONV-03 — versión por conversación (instancia única del engine): el
+/// BurstTurnGate la incrementa por cada inbound, el RulePipeline también en
+/// rutas sin gate y el RuleDispatcher captura/verifica antes del envío.
+final turnSupersedeGuardProvider = Provider<TurnSupersedeGuard>((ref) {
+  return TurnSupersedeGuard();
+});
+
 /// WA-TURN-01 — puerta de ráfagas por conversación (una por engine): agrupa
 /// mensajes de la misma conversación en un único turno y serializa los
 /// turnos por chat. La usa el router de eventos vivos Y el drenado headless.
 final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
-  return BurstTurnGate();
+  return BurstTurnGate(
+    // WA-CONV-03: cada mensaje REAL (incluido el que llega mientras un turno
+    // corre) incrementa la versión → supersede del draft en curso.
+    onInbound: (conversationId) =>
+        ref.read(turnSupersedeGuardProvider).bump(conversationId),
+  );
 });
 
 /// Router de eventos en vivo de notificación (T3.2): EventChannel nativo →

@@ -32,7 +32,13 @@ final class BurstTurnGate {
     this.settle = const Duration(milliseconds: 800),
     this.maxWait = const Duration(milliseconds: 3000),
     this.maxBurst = 6,
+    this.onInbound,
   });
+
+  /// WA-CONV-03 — notifica cada mensaje REAL entrante (incluidos los que
+  /// llegan mientras un turno corre): el supersede guard incrementa la
+  /// versión de la conversación con cada uno.
+  final void Function(String conversationId)? onInbound;
 
   /// Ventana de asentamiento tras el primer mensaje de la ráfaga.
   final Duration settle;
@@ -93,6 +99,7 @@ final class BurstTurnGate {
         ),
       );
       pending[i] = bucket;
+      onInbound?.call(key.startsWith('anon:') ? '' : key);
       bucket.push(event, index: i);
     }
     await Future.wait([

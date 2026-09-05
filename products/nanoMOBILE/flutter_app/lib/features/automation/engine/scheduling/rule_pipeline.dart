@@ -30,6 +30,7 @@ import 'rule_engine.dart';
 import 'rule_registry.dart';
 import 'scheduled_rule.dart';
 import 'trigger.dart' show TickEvent;
+import 'turn_supersede_guard.dart';
 
 class RulePipeline {
   RulePipeline({
@@ -40,13 +41,15 @@ class RulePipeline {
     required RuleDispatcher dispatcher,
     required ContactRateLimiter rateLimiter,
     Future<void>? readiness,
+    TurnSupersedeGuard? supersedeGuard,
   }) : _registry = registry,
        _engine = engine,
        _dedupe = dedupe,
        _memory = memory,
        _dispatcher = dispatcher,
        _rateLimiter = rateLimiter,
-       _readiness = readiness;
+       _readiness = readiness,
+       _supersedeGuard = supersedeGuard;
 
   final RuleRegistry _registry;
   final RuleEngine _engine;
@@ -56,6 +59,10 @@ class RulePipeline {
   /// ningún evento/tick se decide antes de que los stores terminaron su carga.
   /// Se espera UNA sola vez por instancia.
   Future<void>? _readiness;
+
+  /// WA-CONV-03 — versión por conversación: incrementa con cada mensaje REAL
+  /// que entra al pipeline (rutas sin gate; el gate ya lo hace en su push).
+  final TurnSupersedeGuard? _supersedeGuard;
 
   Future<void> _waitReady() async {
     final ready = _readiness;
@@ -123,6 +130,10 @@ class RulePipeline {
       // (comportamiento histórico), pero el fallo queda traceable.
       debugPrint('[rules] flush dedupe falló: $e');
     }
+    // WA-CONV-03 — este mensaje REAL incrementa la versión del turno (el
+    // dispatcher captura DESPUÉS de este punto; el gate ya incrementó por
+    // cada inbound en la ruta con ráfagas).
+    _supersedeGuard?.bump(conversationId);
 
     final results = <RuleDispatchResult>[];
     var replyAttempted = false;
