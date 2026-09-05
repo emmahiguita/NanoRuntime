@@ -86,6 +86,25 @@ class AutomationStoreDb(context: Context) {
         helper.writableDatabase.delete(TABLE, "$COL_KEY = ?", arrayOf(key))
     }
 
+    /** WA-EVLOG-01 — registra un evento de pipeline (append-only, local).
+     *  false = tipo no whitelisted o detalle fuera de límite. */
+    @Synchronized
+    fun appendEvent(convId: String, kind: String, detail: String): Boolean {
+        if (kind !in VALID_EVENT_KINDS) return false
+        if (detail.length > MAX_EVENT_DETAIL) return false
+        val db = helper.writableDatabase
+        db.execSQL(
+            "INSERT INTO pipeline_events (at_ms, conv_id, kind, detail) VALUES (?, ?, ?, ?)",
+            arrayOf(
+                System.currentTimeMillis(),
+                convId.take(120),
+                kind,
+                detail,
+            ),
+        )
+        return true
+    }
+
     private class StoreDb(context: Context) :
         SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         override fun onCreate(db: SQLiteDatabase) {
@@ -97,25 +116,43 @@ class AutomationStoreDb(context: Context) {
                 )
                 """.trimIndent(),
             )
+            db.execSQL(EVENTS_DDL)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            // v1: sin migraciones todavía.
+            // v1 -> v2: bitácora de eventos del pipeline (append-only).
+            if (oldVersion < 2) db.execSQL(EVENTS_DDL)
         }
     }
 
     companion object {
         private const val DB_NAME = "nano_automation_store.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
         private const val TABLE = "store_sections"
         private const val COL_KEY = "section_key"
         private const val COL_DATA = "data"
         private const val MAX_SECTION_CHARS = 2_000_000
+
+        /** WA-EVLOG-01 — bitácora append-only de eventos del pipeline.
+         *  Auditoría diagnóstica local (nunca contenido de conversación):
+         *  cada fila es {momento, conversación, tipo, detalle corto}. */
+        private const val EVENTS_TABLE = "pipeline_events"
+        private const val EVENTS_DDL =
+            "CREATE TABLE IF NOT EXISTS $EVENTS_TABLE (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "at_ms INTEGER NOT NULL, " +
+                "conv_id TEXT NOT NULL DEFAULT '', " +
+                "kind TEXT NOT NULL, " +
+                "detail TEXT NOT NULL DEFAULT '')"
 
         /** Secciones válidas — espejo de las secciones Dart (jamás crecer
          *  desde un canal sin revisión: whitelist explícita). */
         private val VALID_SECTIONS = setOf(
             "dedupe", "rate", "memory", "business", "tone", "convstate",
         )
+
+        /** Kinds de bitácora aceptados (espejo Dart, whitelist explícita). */
+        private val VALID_EVENT_KINDS = setOf("received", "terminal")
+        private const val MAX_EVENT_DETAIL = 400
     }
 }

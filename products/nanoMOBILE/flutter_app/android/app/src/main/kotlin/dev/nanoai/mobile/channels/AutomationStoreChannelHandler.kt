@@ -38,6 +38,18 @@ class AutomationStoreChannelHandler(
                 result.success(db.putSection(key, json))
             }
 
+            // WA-EVLOG-01 — bitácora append-only del pipeline.
+            "appendEvent" -> {
+                val convId = call.argument<String>("convId").orEmpty()
+                val kind = call.argument<String>("kind").orEmpty()
+                val detail = call.argument<String>("detail").orEmpty()
+                if (kind.isEmpty()) {
+                    result.error("BAD_ARG", "kind requerido", null)
+                    return
+                }
+                result.success(db.appendEvent(convId, kind, detail))
+            }
+
             else -> result.notImplemented()
         }
     }

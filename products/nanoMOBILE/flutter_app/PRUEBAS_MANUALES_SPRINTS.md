@@ -158,6 +158,16 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Marker escrito tras instalar (`files/nano/rootfs-manifest.txt`);
   re-arranques muestran `[rootfs] pin verificado: …`.
 
+## WA-EVLOG-01 — bitácora del pipeline
+
+- Verificar con la app instalada y una regla activa: cada mensaje entrante
+  deja su traza en la bitácora local (consulta opcional vía
+  `adb exec-out run-as dev.nanoai.mobile cat databases/nano_automation_store.db`
+  no aplica — sqlite directo requiere copia; alternativa: logcat ya traza
+  `[rules]`). La bitácora es auditoría diagnóstica: no cambia comportamiento.
+- Kill a mitad de pipeline: la fila `received` queda sin su `terminal`
+  (evidencia honesta del corte) — el próximo wake no la reescribe.
+
 ## WA-PROD-02 — estado durable
 
 - Forzar cierre (kill) justo tras recibir mensaje → al reabrir Nano la

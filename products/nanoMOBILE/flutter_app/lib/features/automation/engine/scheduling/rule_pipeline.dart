@@ -16,6 +16,8 @@
 /// de respuesta posiblemente irreversible).
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../messaging/conversation_key.dart';
@@ -25,6 +27,7 @@ import '../notifications/notification_object.dart';
 import 'contact_rate_limiter.dart';
 import 'event_dedupe_store.dart';
 import 'notification_event_adapter.dart';
+import '../storage/automation_db_store_client.dart';
 import 'rule_dispatcher.dart';
 import 'rule_engine.dart';
 import 'rule_registry.dart';
@@ -86,6 +89,15 @@ class RulePipeline {
     NotificationObject notif,
   ) async {
     await _waitReady();
+    // WA-EVLOG-01 — bitácora local append-only (best-effort, jamás interrumpe).
+    unawaited(
+      AutomationDbStoreClient.instance.appendPipelineEvent(
+        conversationId: resolveConversationIdentity(notif).key.id,
+        kind: 'received',
+        detail:
+            'pkg=${notif.packageName} ev=${notif.key.length > 16 ? notif.key.substring(0, 16) : notif.key}',
+      ),
+    );
     final event = const NotificationEventAdapter().fromNotification(notif);
     final matched = _engine.match(_registry.rules, event);
     // WA-PHYS-11: traza física (logcat tag flutter). Reglas cargadas + veredicto
@@ -216,6 +228,15 @@ class RulePipeline {
         }
       }
     }
+    // WA-EVLOG-01 — terminal honesto del evento en la bitácora local.
+    unawaited(
+      AutomationDbStoreClient.instance.appendPipelineEvent(
+        conversationId: conversationId,
+        kind: 'terminal',
+        detail:
+            '${terminal.name} r=${results.map((r) => r.outcome.name).join(',')}',
+      ),
+    );
     return results;
   }
 

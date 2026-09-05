@@ -51,4 +51,24 @@ class AutomationDbStoreClient {
       return false;
     }
   }
+
+  /// WA-EVLOG-01 — bitácora append-only del pipeline (auditoría local).
+  /// Best-effort: un fallo jamás interrumpe el pipeline.
+  Future<bool> appendPipelineEvent({
+    required String conversationId,
+    required String kind,
+    required String detail,
+  }) async {
+    try {
+      return await _channel.invokeMethod<bool>('appendEvent', {
+            'convId': conversationId,
+            'kind': kind,
+            'detail': detail,
+          }) ??
+          false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] appendEvent falló: $error');
+      return false;
+    }
+  }
 }
