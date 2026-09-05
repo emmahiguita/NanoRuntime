@@ -36,7 +36,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify all 6 destination labels are present
+    // 1. Verificar los 6 destinos
     expect(find.text('Inicio'), findsOneWidget);
     expect(find.text('Chat'), findsOneWidget);
     expect(find.text('Modelos'), findsOneWidget);
@@ -44,34 +44,40 @@ void main() {
     expect(find.text('Ajustes'), findsOneWidget);
     expect(find.text('Automatización'), findsOneWidget);
 
-    // Verify search hint is present
-    expect(find.text('Describe qué quieres automatizar...'), findsOneWidget);
+    // 2. Verificar placeholder de búsqueda
+    expect(
+      find.text('Buscar, conversar o ejecutar en Nano AI...'),
+      findsOneWidget,
+    );
 
-    // Tap on 'Chat' destination
+    // 3. Selección animada de Chat
     await tester.tap(find.text('Chat'));
     await tester.pumpAndSettle();
     expect(selectedDest, equals(NanoDestination.chat));
 
-    // Tap on 'Automatización' destination
+    // 4. Selección animada de Automatización
     await tester.tap(find.text('Automatización'));
     await tester.pumpAndSettle();
     expect(selectedDest, equals(NanoDestination.automation));
 
-    // Test text typing and submit
+    // 5. Escritura y envío en barra de búsqueda
     await tester.enterText(
       find.byType(TextField),
-      'Abrir terminal y correr update',
+      'htop',
     );
+    await tester.pump();
+    expect(find.byTooltip('Limpiar texto'), findsOneWidget);
+
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pump();
-    expect(submittedQuery, equals('Abrir terminal y correr update'));
+    expect(submittedQuery, equals('htop'));
 
-    // Test voice button
+    // 6. Botón de micrófono / voz
     await tester.tap(find.bySemanticsLabel('Voz'));
     await tester.pump();
     expect(voiceTapped, isTrue);
 
-    // Test avatar button
+    // 7. Botón de avatar / asistente
     await tester.tap(find.bySemanticsLabel('Asistente Nano AI'));
     await tester.pump();
     expect(avatarTapped, isTrue);

@@ -8,6 +8,7 @@ import '../../../../core/services/llm_engine_client.dart'
     show LLMEngineClient, LLMEngineException;
 import 'automation_model.dart';
 import 'automation_model_resolver.dart';
+import 'cold_start_retry.dart';
 
 /// Solicitud estructurada de redacción. [observedMessage] es UNTRUSTED DATA.
 class DraftRequest {
@@ -82,12 +83,13 @@ class RuntimeAutomationDraftWriter implements AutomationDraftWriter {
       final ready = await _ensureReady(modelPath);
       if (!ready)
         return const DraftUnavailable('runtime no listo con el modelo');
-      final result = await _client.generate(
+      final result = await generateWithColdRetry(
+        _client,
         prompt: _buildPrompt(request),
         temperature: 0.7,
         maxTokens: request.maxLength,
       );
-      final text = result.text.trim();
+      final text = result.trim();
       if (text.isEmpty) return const DraftRejected('texto vacío del modelo');
       return DraftGenerated(text);
     } on LLMEngineException catch (e) {

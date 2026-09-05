@@ -5,14 +5,13 @@ import 'package:flutter/services.dart';
 import 'nano_destination.dart';
 import 'nano_glyph.dart';
 import 'nano_nav_tokens.dart';
+import 'nano_search_dispatcher.dart';
 
-/// Barra de navegación multifunción cósmica de Nano AI.
+/// Barra de navegación multifunción cósmica flotante de Nano AI.
 ///
-/// Implementa la arquitectura de dos niveles:
-/// 1. Nivel superior: Avatar con aro orbital y estado online + Barra de
-///    búsqueda/prompt con botones dedicados para micrófono y envío.
-/// 2. Nivel inferior: Dock de 6 destinos con indicador de punto brillante
-///    neón y efectos de resplandor activo.
+/// Diseño con estética iOS Glass flotante, borde de neón galáctico continuo,
+/// avatar interactivo con estado online, cápsula de búsqueda con comando/voz
+/// y dock de 6 destinos con indicador horizontal deslizante de neón cian.
 class NanoMultiUseNavBar extends StatefulWidget {
   const NanoMultiUseNavBar({
     super.key,
@@ -21,7 +20,7 @@ class NanoMultiUseNavBar extends StatefulWidget {
     this.onSearch,
     this.onVoice,
     this.onAvatarTap,
-    this.searchHint = 'Describe qué quieres automatizar...',
+    this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.brightness,
     this.compact = false,
     this.showFeather = true,
@@ -45,12 +44,19 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   bool _focused = false;
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(() {
       if (mounted) setState(() => _focused = _focusNode.hasFocus);
+    });
+    _controller.addListener(() {
+      final hasTextNow = _controller.text.trim().isNotEmpty;
+      if (hasTextNow != _hasText && mounted) {
+        setState(() => _hasText = hasTextNow);
+      }
     });
   }
 
@@ -62,10 +68,15 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
   }
 
   void _handleSearchSubmit([String? value]) {
-    final query = value ?? _controller.text;
-    if (query.trim().isNotEmpty) {
+    final query = (value ?? _controller.text).trim();
+    if (query.isNotEmpty) {
       HapticFeedback.mediumImpact();
-      widget.onSearch?.call(query);
+      if (widget.onSearch != null) {
+        widget.onSearch!(query);
+      } else {
+        NanoSearchDispatcher.dispatch(context, query);
+      }
+      _focusNode.unfocus();
     }
   }
 
@@ -78,96 +89,155 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final narrow = width < 480 || widget.compact;
-        final radius = narrow ? 26.0 : 30.0;
+        final radius = narrow ? 26.0 : 32.0;
 
         return Semantics(
           container: true,
-          label: 'Barra multifunción Nano AI',
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(radius),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                decoration: BoxDecoration(
-                  gradient: NanoNavTokens.shell(b),
-                  borderRadius: BorderRadius.circular(radius),
-                  border: Border.all(
-                    color: _focused
-                        ? NanoNavTokens.electricBlue.withValues(alpha: .78)
-                        : NanoNavTokens.stroke(b),
-                    width: _focused ? 1.25 : .85,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: NanoNavTokens.accentBlue.withValues(
-                        alpha: isDark ? .28 : .12,
-                      ),
-                      blurRadius: _focused ? 34 : 24,
-                      spreadRadius: _focused ? 1 : -2,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? .38 : .08,
-                      ),
-                      blurRadius: 28,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
+          label: 'Barra cósmica multifunción Nano AI',
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              boxShadow: [
+                // Resplandor de aura cósmica exterior
+                BoxShadow(
+                  color: NanoNavTokens.cyan.withValues(alpha: isDark ? .28 : .14),
+                  blurRadius: _focused ? 32 : 22,
+                  spreadRadius: _focused ? 1.5 : -1,
+                  offset: const Offset(0, 4),
                 ),
-                child: Stack(
-                  children: [
-                    if (widget.showFeather)
+                BoxShadow(
+                  color: NanoNavTokens.accentBlue.withValues(alpha: isDark ? .32 : .12),
+                  blurRadius: 36,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? .48 : .10),
+                  blurRadius: 30,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(radius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    // Fondo galáctico translúcido iOS Glass
+                    gradient: isDark
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xF00A1838),
+                              Color(0xEB07122C),
+                              Color(0xF203091B),
+                            ],
+                            stops: [0.0, 0.48, 1.0],
+                          )
+                        : const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xF5FFFFFF),
+                              Color(0xECF0F6FF),
+                              Color(0xDFE3EEFF),
+                            ],
+                          ),
+                    border: Border.all(
+                      color: _focused
+                          ? NanoNavTokens.cyan.withValues(alpha: .95)
+                          : (isDark
+                              ? NanoNavTokens.electricBlue.withValues(alpha: .68)
+                              : Colors.white.withValues(alpha: .90)),
+                      width: _focused ? 1.3 : 1.1,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Sutil nebulosa estelar decorativa
+                      if (widget.showFeather)
+                        Positioned(
+                          right: -12,
+                          top: -16,
+                          width: narrow ? 150 : 210,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: isDark ? .42 : .18,
+                              child: Image.asset(
+                                'assets/nano/nano_feather.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Brillo especular superior iOS Glass
                       Positioned(
-                        right: -10,
-                        bottom: -28,
-                        width: narrow ? 140 : 190,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: isDark ? .65 : .28,
-                            child: Image.asset(
-                              'assets/nano/nano_feather.png',
-                              fit: BoxFit.contain,
+                        top: 0,
+                        left: 20,
+                        right: 20,
+                        height: 1,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.white.withValues(alpha: isDark ? 0.35 : 0.8),
+                                Colors.transparent,
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        narrow ? 9 : 12,
-                        narrow ? 9 : 11,
-                        narrow ? 9 : 12,
-                        narrow ? 7 : 9,
+
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          narrow ? 10 : 13,
+                          narrow ? 9 : 11,
+                          narrow ? 10 : 13,
+                          narrow ? 8 : 10,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Nivel 1: Avatar del búho + Cápsula de búsqueda universal y voz
+                            _SearchRow(
+                              brightness: b,
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              hint: widget.searchHint,
+                              hasText: _hasText,
+                              onSubmitted: _handleSearchSubmit,
+                              onClear: () {
+                                _controller.clear();
+                                setState(() => _hasText = false);
+                              },
+                              onVoice: widget.onVoice,
+                              onAvatarTap: widget.onAvatarTap,
+                              compact: narrow,
+                            ),
+
+                            SizedBox(height: narrow ? 6 : 9),
+
+                            // Nivel 2: Dock abierto de 6 destinos con indicador horizontal deslizante
+                            _DestinationsDock(
+                              brightness: b,
+                              selected: widget.selected,
+                              compact: narrow,
+                              onSelected: (d) {
+                                HapticFeedback.selectionClick();
+                                widget.onDestinationSelected(d);
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _SearchRow(
-                            brightness: b,
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            hint: widget.searchHint,
-                            onSubmitted: _handleSearchSubmit,
-                            onVoice: widget.onVoice,
-                            onAvatarTap: widget.onAvatarTap,
-                            compact: narrow,
-                          ),
-                          SizedBox(height: narrow ? 6 : 8),
-                          _DestinationDock(
-                            brightness: b,
-                            selected: widget.selected,
-                            compact: narrow,
-                            onSelected: (d) {
-                              HapticFeedback.selectionClick();
-                              widget.onDestinationSelected(d);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -184,7 +254,9 @@ class _SearchRow extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.hint,
+    required this.hasText,
     required this.onSubmitted,
+    required this.onClear,
     required this.onVoice,
     required this.onAvatarTap,
     required this.compact,
@@ -194,7 +266,9 @@ class _SearchRow extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hint;
+  final bool hasText;
   final ValueChanged<String>? onSubmitted;
+  final VoidCallback onClear;
   final VoidCallback? onVoice;
   final VoidCallback? onAvatarTap;
   final bool compact;
@@ -207,48 +281,56 @@ class _SearchRow extends StatelessWidget {
 
     return Row(
       children: [
-        _AvatarButton(
+        // Avatar del búho con aro de neón y punto verde online
+        _OwlAvatarOrb(
           brightness: brightness,
-          size: compact ? 44 : 50,
+          size: compact ? 46 : 52,
           onTap: onAvatarTap,
         ),
-        SizedBox(width: compact ? 7 : 9),
+
+        SizedBox(width: compact ? 8 : 11),
+
+        // Cápsula de búsqueda con botón de micrófono integrado en el extremo
         Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            height: compact ? 42 : 46,
+            height: compact ? 44 : 48,
             decoration: BoxDecoration(
-              color: dark ? const Color(0x75102048) : const Color(0xCCFFFFFF),
+              color: dark
+                  ? const Color(0x750D1D42)
+                  : const Color(0xE0FFFFFF),
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
                 color: focusNode.hasFocus
-                    ? NanoNavTokens.electricBlue.withValues(alpha: .92)
-                    : NanoNavTokens.stroke(brightness).withValues(alpha: .72),
-                width: focusNode.hasFocus ? 1.1 : 0.8,
+                    ? NanoNavTokens.cyan.withValues(alpha: .92)
+                    : (dark
+                        ? const Color(0x6642B7FF)
+                        : const Color(0x403B82F6)),
+                width: focusNode.hasFocus ? 1.2 : .85,
               ),
               boxShadow: focusNode.hasFocus
                   ? [
                       BoxShadow(
-                        color: NanoNavTokens.accentBlue.withValues(alpha: .34),
+                        color: NanoNavTokens.cyan.withValues(alpha: .30),
                         blurRadius: 16,
-                        spreadRadius: -2,
+                        spreadRadius: -1,
                       ),
                     ]
                   : null,
             ),
             child: Row(
               children: [
-                SizedBox(width: compact ? 9 : 12),
+                SizedBox(width: compact ? 11 : 13),
                 NanoGlyph(
                   type: NanoGlyphType.search,
                   color: focusNode.hasFocus
-                      ? NanoNavTokens.electricBlue
+                      ? NanoNavTokens.cyan
                       : muted,
-                  size: compact ? 18 : 20,
+                  size: compact ? 19 : 21,
                   strokeWidth: 1.9,
                 ),
-                SizedBox(width: compact ? 6 : 8),
+                SizedBox(width: compact ? 7 : 9),
                 Expanded(
                   child: TextField(
                     controller: controller,
@@ -257,7 +339,7 @@ class _SearchRow extends StatelessWidget {
                     textInputAction: TextInputAction.search,
                     style: TextStyle(
                       color: text,
-                      fontSize: compact ? 12.5 : 13.5,
+                      fontSize: compact ? 12.8 : 13.8,
                       fontWeight: FontWeight.w500,
                       letterSpacing: .05,
                     ),
@@ -268,48 +350,34 @@ class _SearchRow extends StatelessWidget {
                       hintText: hint,
                       hintStyle: TextStyle(
                         color: muted.withValues(alpha: .80),
-                        fontSize: compact ? 11.5 : 12.8,
+                        fontSize: compact ? 11.6 : 12.8,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),
                 ),
-                Container(
-                  height: 18,
-                  width: 0.7,
-                  color: NanoNavTokens.separator(brightness),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                ),
-                _CircularActionButton(
-                  tooltip: 'Voz',
-                  gradient: const RadialGradient(
-                    center: Alignment(-.25, -.28),
-                    radius: .95,
-                    colors: [
-                      Color(0xFF5CE7FF),
-                      Color(0xFF2A7FFF),
-                      Color(0xFF7058FF),
-                      Color(0xFF1B1C65),
-                    ],
-                    stops: [0.0, .36, .72, 1.0],
+
+                // Botón limpiar cuando hay texto escrito
+                if (hasText)
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: compact ? 16 : 18,
+                      color: muted,
+                    ),
+                    onPressed: onClear,
+                    tooltip: 'Limpiar texto',
+                    splashRadius: 18,
                   ),
-                  shadowColor: NanoNavTokens.cyan.withValues(alpha: .40),
-                  glyph: NanoGlyphType.microphone,
-                  size: compact ? 32 : 36,
-                  iconSize: compact ? 16 : 18,
-                  onTap: onVoice,
+
+                // Botón circular de micrófono (Voice Orb integrado)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: _VoiceOrbButton(
+                    size: compact ? 34 : 38,
+                    onTap: onVoice,
+                  ),
                 ),
-                const SizedBox(width: 4),
-                _CircularActionButton(
-                  tooltip: 'Enviar',
-                  gradient: NanoNavTokens.sendButtonGradient,
-                  shadowColor: NanoNavTokens.accentBlue.withValues(alpha: .50),
-                  glyph: NanoGlyphType.arrowForward,
-                  size: compact ? 32 : 36,
-                  iconSize: compact ? 17 : 19,
-                  onTap: () => onSubmitted?.call(controller.text),
-                ),
-                SizedBox(width: compact ? 4 : 5),
               ],
             ),
           ),
@@ -319,74 +387,9 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
-class _CircularActionButton extends StatelessWidget {
-  const _CircularActionButton({
-    required this.tooltip,
-    required this.gradient,
-    required this.shadowColor,
-    required this.glyph,
-    required this.size,
-    required this.iconSize,
-    required this.onTap,
-  });
-
-  final String tooltip;
-  final Gradient gradient;
-  final Color shadowColor;
-  final NanoGlyphType glyph;
-  final double size;
-  final double iconSize;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap?.call();
-          },
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: gradient,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: .55),
-                width: .85,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: shadowColor,
-                  blurRadius: 12,
-                  spreadRadius: -1,
-                ),
-              ],
-            ),
-            child: Center(
-              child: NanoGlyph(
-                type: glyph,
-                color: Colors.white,
-                size: iconSize,
-                strokeWidth: 2.0,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AvatarButton extends StatelessWidget {
-  const _AvatarButton({
+/// Avatar circular del búho con aro orbital de neón y punto verde online
+class _OwlAvatarOrb extends StatelessWidget {
+  const _OwlAvatarOrb({
     required this.brightness,
     required this.size,
     required this.onTap,
@@ -412,14 +415,14 @@ class _AvatarButton extends StatelessWidget {
             Container(
               width: size,
               height: size,
-              padding: const EdgeInsets.all(2.2),
+              padding: const EdgeInsets.all(2.4),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: NanoNavTokens.activeGradient,
                 boxShadow: [
                   BoxShadow(
-                    color: NanoNavTokens.accentBlue.withValues(alpha: .45),
-                    blurRadius: 14,
+                    color: NanoNavTokens.cyan.withValues(alpha: .50),
+                    blurRadius: 16,
                     spreadRadius: -1,
                   ),
                 ],
@@ -429,7 +432,7 @@ class _AvatarButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: brightness == Brightness.dark
-                      ? const Color(0xFF071224)
+                      ? const Color(0xFF040A18)
                       : Colors.white,
                 ),
                 child: ClipOval(
@@ -441,12 +444,14 @@ class _AvatarButton extends StatelessWidget {
                 ),
               ),
             ),
+
+            // Punto verde esmeralda de estado online
             Positioned(
               right: 1,
               bottom: 1,
               child: Container(
-                width: size * .22,
-                height: size * .22,
+                width: size * .24,
+                height: size * .24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: NanoNavTokens.neonGreen,
@@ -454,13 +459,13 @@ class _AvatarButton extends StatelessWidget {
                     color: brightness == Brightness.dark
                         ? const Color(0xFF030B20)
                         : Colors.white,
-                    width: 1.6,
+                    width: 1.8,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: NanoNavTokens.neonGreen.withValues(alpha: .9),
-                      blurRadius: 6,
-                      spreadRadius: .5,
+                      color: NanoNavTokens.neonGreen.withValues(alpha: .95),
+                      blurRadius: 8,
+                      spreadRadius: .8,
                     ),
                   ],
                 ),
@@ -473,8 +478,76 @@ class _AvatarButton extends StatelessWidget {
   }
 }
 
-class _DestinationDock extends StatelessWidget {
-  const _DestinationDock({
+/// Botón circular de micrófono (Voice Orb) integrado dentro de la cápsula
+class _VoiceOrbButton extends StatelessWidget {
+  const _VoiceOrbButton({
+    required this.size,
+    required this.onTap,
+  });
+
+  final double size;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Voz',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onTap?.call();
+          },
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                center: Alignment(-.25, -.28),
+                radius: .95,
+                colors: [
+                  Color(0xFF5CE7FF),
+                  Color(0xFF2A7FFF),
+                  Color(0xFF7058FF),
+                  Color(0xFF1B1C65),
+                ],
+                stops: [0.0, .36, .72, 1.0],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: .70),
+                width: .9,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: NanoNavTokens.cyan.withValues(alpha: .45),
+                  blurRadius: 14,
+                  spreadRadius: -1,
+                ),
+              ],
+            ),
+            child: Center(
+              child: NanoGlyph(
+                type: NanoGlyphType.microphone,
+                color: Colors.white,
+                size: size * .50,
+                strokeWidth: 2.0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dock de los 6 destinos con indicador de barra horizontal deslizante
+class _DestinationsDock extends StatelessWidget {
+  const _DestinationsDock({
     required this.brightness,
     required this.selected,
     required this.onSelected,
@@ -488,45 +561,77 @@ class _DestinationDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = brightness == Brightness.dark;
+    final selectedIndex = selected.index;
+    final count = NanoDestination.values.length;
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 3 : 6,
-        vertical: compact ? 3 : 4,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: dark
-            ? const Color(0x350A1A3B)
-            : const Color(0x203B82F6),
-        border: Border.all(
-          color: dark
-              ? const Color(0x334B7FFF)
-              : const Color(0x263B82F6),
-          width: 0.7,
-        ),
-      ),
-      child: Row(
-        children: [
-          for (final d in NanoDestination.values)
-            Expanded(
-              child: _DestinationButton(
-                destination: d,
-                selected: selected == d,
-                brightness: brightness,
-                compact: compact,
-                onTap: () => onSelected(d),
+    return Stack(
+      children: [
+        Row(
+          children: [
+            for (final d in NanoDestination.values)
+              Expanded(
+                child: _DestinationTab(
+                  destination: d,
+                  selected: selected == d,
+                  brightness: brightness,
+                  compact: compact,
+                  onTap: () => onSelected(d),
+                ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
+
+        // Barra indicadora horizontal deslizante de neón cian
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tabWidth = constraints.maxWidth / count;
+              final indicatorWidth = compact ? 22.0 : 28.0;
+
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment(
+                  -1.0 + (selectedIndex * (2.0 / (count - 1))),
+                  0,
+                ),
+                child: Container(
+                  width: tabWidth,
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: indicatorWidth,
+                    height: 2.8,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      color: NanoNavTokens.cyan,
+                      boxShadow: [
+                        BoxShadow(
+                          color: NanoNavTokens.cyan.withValues(alpha: .95),
+                          blurRadius: 8,
+                          spreadRadius: .5,
+                        ),
+                        BoxShadow(
+                          color: NanoNavTokens.accentBlue.withValues(alpha: .65),
+                          blurRadius: 14,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _DestinationButton extends StatelessWidget {
-  const _DestinationButton({
+class _DestinationTab extends StatelessWidget {
+  const _DestinationTab({
     required this.destination,
     required this.selected,
     required this.brightness,
@@ -544,7 +649,7 @@ class _DestinationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = NanoNavTokens.textMuted(brightness);
     final active = brightness == Brightness.dark
-        ? const Color(0xFF5CE7FF)
+        ? NanoNavTokens.cyan
         : const Color(0xFF0284C7);
 
     return Semantics(
@@ -552,7 +657,7 @@ class _DestinationButton extends StatelessWidget {
       button: true,
       label: destination.label,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
@@ -563,13 +668,13 @@ class _DestinationButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedScale(
-                duration: const Duration(milliseconds: 220),
+                duration: const Duration(milliseconds: 200),
                 scale: selected ? 1.08 : 1.0,
                 child: NanoGlyph(
                   type: destination.glyph,
                   color: selected ? active : muted,
-                  size: compact ? 19 : 21,
-                  strokeWidth: selected ? 2.1 : 1.7,
+                  size: compact ? 20 : 22,
+                  strokeWidth: selected ? 2.15 : 1.80,
                   glow: selected,
                 ),
               ),
@@ -581,14 +686,14 @@ class _DestinationButton extends StatelessWidget {
                   maxLines: 1,
                   style: TextStyle(
                     color: selected ? active : muted,
-                    fontSize: compact ? 8.6 : 9.5,
-                    height: 1.05,
+                    fontSize: compact ? 8.8 : 9.8,
+                    height: 1.1,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     letterSpacing: -.05,
                     shadows: selected
                         ? [
                             Shadow(
-                              color: active.withValues(alpha: .5),
+                              color: active.withValues(alpha: .6),
                               blurRadius: 8,
                             ),
                           ]
@@ -596,25 +701,8 @@ class _DestinationButton extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 3),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: selected ? 5.5 : 0.0,
-                height: selected ? 5.5 : 0.0,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: active,
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: active.withValues(alpha: .9),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
-              ),
+              // Espacio inferior reservado para la barra indicadora deslizante
+              const SizedBox(height: 7),
             ],
           ),
         ),

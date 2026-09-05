@@ -11,6 +11,7 @@ import 'package:nanoai/core/services/llm_engine_client.dart';
 
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart' show ConversationMemoryStore;
+import '../model/cold_start_retry.dart';
 import 'notification_draft_prompt.dart';
 import 'notification_object.dart';
 

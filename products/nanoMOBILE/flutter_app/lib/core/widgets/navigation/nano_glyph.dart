@@ -16,15 +16,15 @@ enum NanoGlyphType {
 
 /// Glifo vectorial independiente renderizado sobre Canvas de alta precisión.
 ///
-/// Proporciona iconografía personalizada y coherente sin dependencias externas
-/// de fuentes ni paquetes adicionales, asegurando nitidez 1:1 en cualquier DPI.
+/// Iconografía personalizada con fidelidad estética 1:1, pulido profesional
+/// y efectos de resplandor cósmico de neón.
 class NanoGlyph extends StatelessWidget {
   const NanoGlyph({
     super.key,
     required this.type,
     required this.color,
     this.size = 24,
-    this.strokeWidth = 1.9,
+    this.strokeWidth = 1.85,
     this.glow = false,
   });
 
@@ -63,24 +63,37 @@ class _NanoGlyphPainter extends CustomPainter {
 
   @override
   void paint(Canvas c, Size s) {
+    final w = s.width, h = s.height;
+
+    // Efecto de halo de neón brillante cuando está activo
     if (glow) {
-      final glowPaint = Paint()
-        ..color = color.withValues(alpha: 0.45)
+      final glowOuter = Paint()
+        ..color = color.withValues(alpha: 0.38)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = sw + 2.5
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+        ..strokeWidth = sw + 3.2
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.5)
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
 
-      _paintShape(c, s.width, s.height, glowPaint, pf);
+      final glowInner = Paint()
+        ..color = color.withValues(alpha: 0.65)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = sw + 1.4
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      _paintShape(c, w, h, glowOuter, pf);
+      _paintShape(c, w, h, glowInner, pf);
     }
-    _paintShape(c, s.width, s.height, p, pf);
+
+    _paintShape(c, w, h, p, pf);
   }
 
   void _paintShape(Canvas c, double w, double h, Paint stroke, Paint fill) {
     switch (type) {
       case NanoGlyphType.home:
-        _home(c, w, h, stroke, fill);
+        _home(c, w, h, stroke);
         break;
       case NanoGlyphType.chat:
         _chat(c, w, h, stroke, fill);
@@ -101,7 +114,7 @@ class _NanoGlyphPainter extends CustomPainter {
         _search(c, w, h, stroke);
         break;
       case NanoGlyphType.microphone:
-        _mic(c, w, h, stroke);
+        _mic(c, w, h, stroke, fill);
         break;
       case NanoGlyphType.arrowForward:
         _arrowForward(c, w, h, stroke);
@@ -112,22 +125,29 @@ class _NanoGlyphPainter extends CustomPainter {
     }
   }
 
-  void _home(Canvas c, double w, double h, Paint stroke, Paint fill) {
-    final path = Path()
+  void _home(Canvas c, double w, double h, Paint stroke) {
+    final roof = Path()
       ..moveTo(w * .16, h * .46)
-      ..lineTo(w * .50, h * .16)
-      ..lineTo(w * .84, h * .46)
-      ..moveTo(w * .24, h * .43)
-      ..lineTo(w * .24, h * .82)
-      ..lineTo(w * .76, h * .82)
-      ..lineTo(w * .76, h * .43);
-    c.drawPath(path, stroke);
-    // Puerta sutil central
+      ..lineTo(w * .50, h * .17)
+      ..lineTo(w * .84, h * .46);
+    c.drawPath(roof, stroke);
+
+    final body = Path()
+      ..moveTo(w * .25, h * .43)
+      ..lineTo(w * .25, h * .82)
+      ..lineTo(w * .75, h * .82)
+      ..lineTo(w * .75, h * .43);
+    c.drawPath(body, stroke);
+
+    // Puerta con curva superior suave
     final door = Path()
-      ..moveTo(w * .40, h * .82)
-      ..lineTo(w * .40, h * .58)
-      ..lineTo(w * .60, h * .58)
-      ..lineTo(w * .60, h * .82);
+      ..moveTo(w * .41, h * .82)
+      ..lineTo(w * .41, h * .62)
+      ..arcToPoint(
+        Offset(w * .59, h * .62),
+        radius: Radius.circular(w * .09),
+      )
+      ..lineTo(w * .59, h * .82);
     c.drawPath(door, stroke);
   }
 
@@ -138,11 +158,12 @@ class _NanoGlyphPainter extends CustomPainter {
     );
     c.drawRRect(r, stroke);
     final tail = Path()
-      ..moveTo(w * .32, h * .70)
-      ..lineTo(w * .26, h * .84)
-      ..lineTo(w * .44, h * .70);
+      ..moveTo(w * .33, h * .70)
+      ..lineTo(w * .25, h * .85)
+      ..lineTo(w * .45, h * .70);
     c.drawPath(tail, stroke);
-    // 3 puntos de conversación en el centro
+
+    // 3 puntos de conversación alineados horizontalmente
     final dotY = h * .44;
     c.drawCircle(Offset(w * .36, dotY), w * .04, fill);
     c.drawCircle(Offset(w * .50, dotY), w * .04, fill);
@@ -150,29 +171,34 @@ class _NanoGlyphPainter extends CustomPainter {
   }
 
   void _models(Canvas c, double w, double h, Paint stroke) {
-    Path diamond(double cy, double scale) => Path()
-      ..moveTo(w * .50, cy - h * .11 * scale)
-      ..lineTo(w * .80, cy)
-      ..lineTo(w * .50, cy + h * .11 * scale)
-      ..lineTo(w * .20, cy)
+    Path layer(double cy, double scale) => Path()
+      ..moveTo(w * .50, cy - h * .105 * scale)
+      ..lineTo(w * .82, cy)
+      ..lineTo(w * .50, cy + h * .105 * scale)
+      ..lineTo(w * .18, cy)
       ..close();
-    c.drawPath(diamond(h * .28, 1), stroke);
-    c.drawPath(diamond(h * .50, 1), stroke);
-    c.drawPath(diamond(h * .72, 1), stroke);
+
+    c.drawPath(layer(h * .28, 1), stroke);
+    c.drawPath(layer(h * .50, 1), stroke);
+    c.drawPath(layer(h * .72, 1), stroke);
   }
 
   void _terminal(Canvas c, double w, double h, Paint stroke) {
     final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * .14, h * .20, w * .72, h * .60),
-      Radius.circular(w * .14),
+      Rect.fromLTWH(w * .13, h * .19, w * .74, h * .62),
+      Radius.circular(w * .16),
     );
     c.drawRRect(r, stroke);
+
+    // Prompt '>'
     final chevron = Path()
-      ..moveTo(w * .30, h * .40)
+      ..moveTo(w * .29, h * .39)
       ..lineTo(w * .42, h * .50)
-      ..lineTo(w * .30, h * .60);
+      ..lineTo(w * .29, h * .61);
     c.drawPath(chevron, stroke);
-    c.drawLine(Offset(w * .50, h * .60), Offset(w * .68, h * .60), stroke);
+
+    // Cursor '_'
+    c.drawLine(Offset(w * .49, h * .61), Offset(w * .68, h * .61), stroke);
   }
 
   void _settings(Canvas c, double w, double h, Paint stroke, Paint fill) {
@@ -185,62 +211,66 @@ class _NanoGlyphPainter extends CustomPainter {
         center.dy + math.sin(a) * h * .28,
       );
       final a1 = Offset(
-        center.dx + math.cos(a) * w * .38,
-        center.dy + math.sin(a) * h * .38,
+        center.dx + math.cos(a) * w * .39,
+        center.dy + math.sin(a) * h * .39,
       );
       c.drawLine(a0, a1, stroke);
     }
-    c.drawCircle(center, w * .055, fill);
+    c.drawCircle(center, w * .06, fill);
   }
 
   void _automation(Canvas c, double w, double h, Paint stroke, Paint fill) {
-    final center = Offset(w * .50, h * .50);
-    // Planeta central esférico
-    c.drawCircle(center, w * .20, stroke);
-    // Anillo orbital inclinado elíptico
+    final center = Offset(w * .50, h * .51);
+
+    // 1. Esfera central del planeta
+    c.drawCircle(center, w * .21, stroke);
+
+    // 2. Anillo orbital cósmico inclinado a ~-38 grados
     final ringRect = Rect.fromCenter(
       center: center,
-      width: w * .76,
+      width: w * .78,
       height: h * .34,
     );
     c.save();
     c.translate(center.dx, center.dy);
-    c.rotate(-0.55);
+    c.rotate(-0.64);
     c.translate(-center.dx, -center.dy);
     c.drawOval(ringRect, stroke);
     c.restore();
-    // Brillos estelares
-    c.drawCircle(Offset(w * .72, h * .24), w * .04, fill);
-    c.drawCircle(Offset(w * .26, h * .74), w * .035, fill);
+
+    // 3. Brillo estelar orbital en la parte superior derecha
+    c.drawCircle(Offset(w * .73, h * .23), w * .04, fill);
   }
 
   void _search(Canvas c, double w, double h, Paint stroke) {
-    c.drawCircle(Offset(w * .44, h * .43), w * .23, stroke);
-    c.drawLine(Offset(w * .61, h * .61), Offset(w * .82, h * .82), stroke);
+    c.drawCircle(Offset(w * .43, h * .43), w * .23, stroke);
+    c.drawLine(Offset(w * .60, h * .60), Offset(w * .82, h * .82), stroke);
   }
 
-  void _mic(Canvas c, double w, double h, Paint stroke) {
+  void _mic(Canvas c, double w, double h, Paint stroke, Paint fill) {
     final mic = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * .37, h * .16, w * .26, h * .46),
+      Rect.fromLTWH(w * .37, h * .17, w * .26, h * .45),
       Radius.circular(w * .13),
     );
     c.drawRRect(mic, stroke);
+
     final arc = Path()
-      ..moveTo(w * .26, h * .50)
-      ..quadraticBezierTo(w * .28, h * .73, w * .50, h * .74)
-      ..quadraticBezierTo(w * .72, h * .73, w * .74, h * .50);
+      ..moveTo(w * .25, h * .49)
+      ..quadraticBezierTo(w * .27, h * .74, w * .50, h * .75)
+      ..quadraticBezierTo(w * .73, h * .74, w * .75, h * .49);
     c.drawPath(arc, stroke);
-    c.drawLine(Offset(w * .50, h * .74), Offset(w * .50, h * .87), stroke);
-    c.drawLine(Offset(w * .38, h * .87), Offset(w * .62, h * .87), stroke);
+
+    c.drawLine(Offset(w * .50, h * .75), Offset(w * .50, h * .88), stroke);
+    c.drawLine(Offset(w * .36, h * .88), Offset(w * .64, h * .88), stroke);
   }
 
   void _arrowForward(Canvas c, double w, double h, Paint stroke) {
     final path = Path()
-      ..moveTo(w * .26, h * .50)
-      ..lineTo(w * .70, h * .50)
-      ..moveTo(w * .52, h * .32)
+      ..moveTo(w * .25, h * .50)
       ..lineTo(w * .72, h * .50)
-      ..lineTo(w * .52, h * .68);
+      ..moveTo(w * .52, h * .31)
+      ..lineTo(w * .73, h * .50)
+      ..lineTo(w * .52, h * .69);
     c.drawPath(path, stroke);
   }
 

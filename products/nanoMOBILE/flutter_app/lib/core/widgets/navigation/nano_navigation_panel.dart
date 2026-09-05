@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../theme/design_tokens.dart';
 import 'nano_destination.dart';
 import 'nano_multi_use_nav_bar.dart';
+import 'nano_search_dispatcher.dart';
 
 typedef NavTabSpec = ({IconData icon, IconData sel, String label});
 
@@ -57,9 +58,9 @@ class NanoFloatingNavigationStyle {
 
 /// Marco de navegación principal de Nano AI.
 ///
-/// Integra el nuevo dock cósmico multifunción (avatar con punto online,
-/// barra de búsqueda/prompt interactiva y 6 pestañas de navegación con
-/// indicador de punto cian brillante).
+/// Integra la barra cósmica multifunción única con estética iOS Glass
+/// flotante, animación de salida fluida ante el teclado y despacho
+/// inteligente de búsquedas y comandos.
 class NanoFloatingNavigationFrame extends StatelessWidget {
   const NanoFloatingNavigationFrame({
     super.key,
@@ -72,7 +73,7 @@ class NanoFloatingNavigationFrame extends StatelessWidget {
     this.onSearch,
     this.onVoice,
     this.onAvatarTap,
-    this.searchHint = 'Describe qué quieres automatizar...',
+    this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.initialDock = NanoNavigationDock.bottomRight,
   });
 
@@ -104,7 +105,7 @@ class NanoFloatingNavigationFrame extends StatelessWidget {
           children: [
             RepaintBoundary(
               child: Padding(
-                padding: EdgeInsets.only(bottom: hidden ? 0 : 105),
+                padding: EdgeInsets.only(bottom: hidden ? 0 : 110),
                 child: child,
               ),
             ),
@@ -133,7 +134,7 @@ class NanoFloatingNavigationFrame extends StatelessWidget {
                         },
                         onSearch: onSearch ??
                             (query) {
-                              context.push('/automation');
+                              NanoSearchDispatcher.dispatch(context, query);
                             },
                         onVoice: onVoice ??
                             () {
@@ -141,7 +142,7 @@ class NanoFloatingNavigationFrame extends StatelessWidget {
                             },
                         onAvatarTap: onAvatarTap ??
                             () {
-                              context.push('/automation');
+                              context.go('/chat');
                             },
                       ),
                     ),
