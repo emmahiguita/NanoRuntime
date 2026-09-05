@@ -74,27 +74,27 @@ final class RuntimeNotificationDraftWriter {
       // writer de mensajes): sin motor cargado no hay entendimiento.
       await _ensureReady(_modelPath());
       final history = _memory?.memoryFor(conversationId)?.entries;
-      final result = await _client.generate(
+      // WA-CONVERSATION-01 — el CoT (Intención/Hechos/Plan) consume
+      // tokens ANTES de "Respuesta:". Con 200, un mensaje largo cortaba
+      // la salida a mitad del análisis y el extractor devolvía el
+      // razonamiento como respuesta (verificado: respuestas raras con
+      // mensajes amplios). 320 deja margen para análisis + respuesta
+      // proporcionada sin disparar la latencia del 0.5B.
+      // sessionId por conversación: el motor reutiliza el KV del turno
+      // anterior de ESTA conversación (gate R5) y el prefill solo procesa
+      // los tokens nuevos (~20-30s) en vez del prompt completo (~125s en
+      // Oppo). El retry frío conserva la MISMA sesión.
+      final raw = await generateWithColdRetry(
+        _client,
         prompt: conversationAgentPromptFor(
           history: formatConversationHistory(history ?? const []),
           text: notification.text,
         ),
         temperature: 0.3,
-        // WA-CONVERSATION-01 — el CoT (Intención/Hechos/Plan) consume
-        // tokens ANTES de "Respuesta:". Con 200, un mensaje largo cortaba
-        // la salida a mitad del análisis y el extractor devolvía el
-        // razonamiento como respuesta (verificado: respuestas raras con
-        // mensajes amplios). 320 deja margen para análisis + respuesta
-        // proporcionada sin disparar la latencia del 0.5B.
         maxTokens: 320,
-        // WA-CONVERSATION-01 — sesión por conversación: el motor reutiliza
-        // el KV del turno anterior de ESTA conversación (gate R5) y el
-        // prefill solo procesa los tokens nuevos (~20-30s) en vez del prompt
-        // completo (~125s en Oppo). Sin esto, cada borrador arranca con
-        // KV reset y el prefill entero revienta el timeout del cliente.
         sessionId: conversationId,
       );
-      final draft = _extractResponse(result.text);
+      final draft = _extractResponse(raw);
       if (draft.isEmpty) return null;
       return draft.length <= 2000 ? draft : draft.substring(0, 2000);
     } on Object {

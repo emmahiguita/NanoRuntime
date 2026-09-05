@@ -37,6 +37,11 @@ enum RuleOutcome {
   /// objetivo. No cuenta como éxito verificado.
   replyDispatchedUnverified,
 
+  /// WA-MEDIA-01 — WhatsApp se abrió con el archivo+contacto+caption.
+  /// La actividad se LANZÓ; el tap final de envío es del usuario. No es un
+  /// envío verificado.
+  mediaLaunched,
+
   /// El caller agotó su espera; el envío pudo aterrizar o no. Nunca se
   /// reintenta a ciegas.
   outcomeUnknown,
@@ -82,8 +87,11 @@ class RuleDispatcher {
     this._execute, {
     NotificationDraftSource? draftSource,
     Future<bool> Function(String title, String body)? notifyLocal,
+    Future<bool> Function(String path, String contact, String caption)?
+    shareMedia,
   }) : _draftSource = draftSource,
-       _notifyLocal = notifyLocal;
+       _notifyLocal = notifyLocal,
+       _shareMedia = shareMedia;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -100,6 +108,11 @@ class RuleDispatcher {
   /// NOTIFY-01 — aviso local real para RuleAction.notify. null = sin canal
   /// (tests): el outcome sigue siendo notified, sin efecto local.
   final Future<bool> Function(String title, String body)? _notifyLocal;
+
+  /// WA-MEDIA-01 — apertura real de WhatsApp con archivo. null = sin canal
+  /// (tests): la regla media falla honesta, sin efecto local.
+  final Future<bool> Function(String path, String contact, String caption)?
+  _shareMedia;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -137,6 +150,17 @@ class RuleDispatcher {
           reason:
               'trigger por hora sin remitente — '
               'para responder usa un trigger de notificación',
+        );
+
+      case RuleAction.sendMedia:
+        // WA-MEDIA-01 — igual que reply: sin notificación entrante no hay
+        // contacto factual. Jamás se envía a un destinatario inventado.
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.failed,
+          reason:
+              'trigger por hora sin remitente — '
+              'para enviar un archivo usa un trigger de notificación',
         );
     }
   }
@@ -233,6 +257,57 @@ class RuleDispatcher {
           );
         }
         return _replyOutcome(rule.id, result, dispatchedText: text);
+
+      case RuleAction.sendMedia:
+        // WA-MEDIA-01 — Camino A: abre WhatsApp con el archivo del catálogo,
+        // el remitente FACTUAL de la notificación como contacto y el texto
+        // de la regla como caption. El contacto nunca lo decide el LLM.
+        final mediaPath = rule.mediaPath;
+        if (mediaPath == null || mediaPath.trim().isEmpty) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'regla de archivo sin archivo adjunto',
+          );
+        }
+        if (notif.sender.isEmpty) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'notificación sin remitente',
+          );
+        }
+        final shareMedia = _shareMedia;
+        if (shareMedia == null) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'sin canal de envío de archivos disponible',
+          );
+        }
+        try {
+          final launched = await shareMedia(
+            mediaPath,
+            notif.sender,
+            rule.message,
+          );
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            // Honesto: WhatsApp abierto ≠ archivo enviado. El tap final es
+            // del usuario.
+            outcome: launched
+                ? RuleOutcome.mediaLaunched
+                : RuleOutcome.failed,
+            reason: launched ? '' : 'la app de destino no aceptó el archivo',
+            dispatchedText: rule.message,
+          );
+        } catch (e) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'excepción en envío de archivo: $e',
+          );
+        }
     }
   }
 

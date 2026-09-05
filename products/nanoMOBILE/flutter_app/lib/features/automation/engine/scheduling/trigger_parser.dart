@@ -43,8 +43,9 @@ class TriggerParser {
   /// "mensaje de X" (dentro de una cláusula "cuando/si"). La captura para en
   /// comilla, coma o fin: el texto tras el remitente es el filtro, no parte
   /// del nombre ("mensaje de Pedro 'hola'" → Pedro + hola).
+  /// (String normal con escapes: la raw del plan se rompía — " dentro de r"".)
   static final _notifyMessageRe = RegExp(
-    r"mensaje\s+de\s+(.+?)(?=\s+['\"]|,|$)",
+    "mensaje\\s+de\\s+(.+?)(?=\\s+['\"]|,|\$)",
     caseSensitive: false,
   );
 

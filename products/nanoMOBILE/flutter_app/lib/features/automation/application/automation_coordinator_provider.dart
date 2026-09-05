@@ -7,6 +7,7 @@ import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
+import 'package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_decomposer.dart';
 import 'package:nanoai/features/automation/engine/orchestration/commit_guard.dart';
 import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart'
@@ -414,6 +415,10 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       // nano_rule_notices). Fallo honesto si el sistema lo rechaza.
       notifyLocal: (title, body) =>
           NanoRuntimeApi.instance.notifyRuleEvent(title: title, body: body),
+      // WA-MEDIA-01: RuleAction.sendMedia abre WhatsApp con el archivo del
+      // catálogo (Camino A, 1 tap del usuario).
+      shareMedia: (path, contact, caption) => const WhatsAppMediaShare()
+          .shareFile(path: path, contact: contact, caption: caption),
     ),
   );
 });

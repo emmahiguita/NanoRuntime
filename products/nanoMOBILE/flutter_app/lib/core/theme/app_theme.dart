@@ -350,9 +350,9 @@ class AppTheme {
   }
 
   /// UI-REV-09: "Claro" ya no instala una paleta clara — instala la identidad
-  /// oscura naranja de Dev (borrador del usuario): fondo profundo, aurora
-  /// naranja, vidrio, textos claros. "Oscuro" conserva la gama menta/cyan y
-  /// "Sistema" sigue el brillo del dispositivo.
+  /// oscura de Dev (borrador del usuario): fondo profundo, aurora azul de la
+  /// barra de navegación (NAV-BAR-FIX-05), vidrio, textos claros. "Oscuro"
+  /// conserva la gama menta/cyan y "Sistema" sigue el brillo del dispositivo.
   static final classic = _base(NanoClassicDarkColors());
   static final dark = _base(NanoDarkColors());
   static final light = systemLight;

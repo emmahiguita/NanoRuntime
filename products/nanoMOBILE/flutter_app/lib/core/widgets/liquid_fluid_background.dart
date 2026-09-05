@@ -10,7 +10,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 ///
 /// UI-REV-08: el fondo se adapta al modo del tema. En OSCURO conserva los
 /// blobs de acento del tema sobre el fondo profundo original. En CLARO pinta
-/// la gama naranja de la marca (identidad Nano Automation/dev) sobre un
+/// la gama azul de la barra de navegación (NAV-BAR-FIX-05) sobre un
 /// lienzo claro — el modo claro de toda la app hereda el fondo "tipo dev".
 class LiquidFluidBackground extends StatefulWidget {
   final double opacity;
@@ -67,19 +67,21 @@ class _LiquidPainter extends CustomPainter {
     required this.opacity,
   });
 
-  // Gama naranja de la marca para el modo claro (los acentos del tema claro
-  // varían según la paleta elegida; la identidad de dev es SIEMPRE naranja).
+  // NAV-BAR-FIX-05 — gama azul de la barra de navegación (NanoNavTokens:
+  // cyan 5CE7FF, electricBlue 42B7FF, accentBlue 2A7FFF) para el modo claro.
+  // El lienzo pasa de cálido a frío: la identidad clásica es el azul cósmico
+  // de la barra, no la naranja anterior.
   static const _lightBase = [
-    Color(0xFFFDF9F4),
-    Color(0xFFFBF4EE),
-    Color(0xFFF8F6F2),
+    Color(0xFFF5FAFF),
+    Color(0xFFF0F6FF),
+    Color(0xFFE9F1FF),
   ];
   static const _lightBlobs = [
-    (Color(0xFFFF7A00), 0.20), // naranja vivo
-    (Color(0xFFF28B22), 0.16), // ámbar
-    (Color(0xFFF6B16A), 0.14), // durazno
+    (Color(0xFF5CE7FF), 0.20), // cyan barra
+    (Color(0xFF42B7FF), 0.16), // electricBlue barra
+    (Color(0xFF2A7FFF), 0.14), // accentBlue barra
   ];
-  static const _lightSpark = Color(0xFFFF8A2A);
+  static const _lightSpark = Color(0xFF5CE7FF);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -134,7 +136,7 @@ class _LiquidPainter extends CustomPainter {
     }
   }
 
-  /// Rama clara (UI-REV-08): blobs naranjas visibles sobre lienzo claro —
+  /// Rama clara (UI-REV-08): blobs azules visibles sobre lienzo claro —
   /// alphas mayores que en oscuro porque el color se diluye sobre blanco.
   void _paintLight(Canvas canvas, Size size) {
     final w = size.width;

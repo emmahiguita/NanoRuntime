@@ -167,6 +167,20 @@
             android:exported="true"
             android:multiprocess="false"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <!-- WA-MEDIA-01: FileProvider del catálogo (files/nano/catalog).
+             Sirve content:// URIs para ACTION_SEND a WhatsApp (EXTRA_STREAM).
+             No exportado: solo la propia app genera las URIs y concede el
+             permiso de lectura por intent (FLAG_GRANT_READ_URI_PERMISSION). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:enabled="true"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <!-- A14.3: marca la app como cliente Shizuku v3 (binding V3_SUPPORT).
              Pasivo: solo informa al servicio que la app soporta la API v3. -->
         <meta-data

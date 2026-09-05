@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WA-MEDIA-01 — solo el catálogo fijo (files/nano/catalog/) se expone por
+     FileProvider. Nada más del sandbox de la app es servible por URI. -->
+<paths>
+    <files-path name="nano_catalog" path="nano/catalog/" />
+</paths>

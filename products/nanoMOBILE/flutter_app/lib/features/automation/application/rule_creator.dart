@@ -21,6 +21,7 @@ class RuleCreator {
     required RuleAction action,
     String message = '',
     bool dynamicReply = false,
+    String? mediaPath,
   }) {
     final rule = ScheduledRule(
       id: 'rule-${DateTime.now().millisecondsSinceEpoch}',
@@ -28,6 +29,7 @@ class RuleCreator {
       action: action,
       message: message,
       dynamicReply: dynamicReply,
+      mediaPath: mediaPath,
       createdAt: DateTime.now(),
     );
     _registry.add(rule);

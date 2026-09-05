@@ -7,9 +7,10 @@ import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/model/automation_model.dart';
 
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
+
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
-import '../widgets/automation_bottom_navigation.dart';
 import '../widgets/capability_status_card.dart';
 import 'automation_rules_screen.dart';
 
@@ -24,7 +25,6 @@ class AutomationSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final visualMode = AutomationVisual.modeFromSetting(settings.themeMode);
 
     return AnimatedTheme(
@@ -36,14 +36,13 @@ class AutomationSettingsScreen extends ConsumerWidget {
           resizeToAvoidBottomInset: true,
           // UI-REV-03: fondo compartido de Dev.
           backgroundColor: Colors.transparent,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              const AutomationBackdrop(),
-              SafeArea(
-                child: AutomationNavigationFrame(
-                  hidden: keyboardOpen,
-                  onAutomationTap: () => Navigator.of(context).maybePop(),
+          // NAV-BAR-FIX-03 — barra global también en Configuración.
+          body: NanoShellBarScope(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const AutomationBackdrop(),
+                SafeArea(
                   child: ListView(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
@@ -222,8 +221,8 @@ class AutomationSettingsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

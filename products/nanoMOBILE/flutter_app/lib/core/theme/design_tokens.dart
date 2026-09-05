@@ -107,7 +107,8 @@ abstract class NanoColors {
   Color get borderSecondaryColor;
   Color get borderAccentColor;
 
-  /// UI-REV-09: marca la identidad "Clásico" (modo Claro = dev oscuro naranja).
+  /// UI-REV-09: marca la identidad "Clásico" (modo Claro = dev oscuro).
+  /// NAV-BAR-FIX-05: la gama es la azul de la barra de navegación.
   /// El shell usa aurora líquida con estas familias; el oscuro normal conserva
   /// los glows orbitales.
   bool get isClassicOrange => false;
@@ -499,133 +500,134 @@ class NanoLightColors implements NanoColors {
   bool get isClassicOrange => false;
 }
 
-/// Identidad cálida de Nano usada únicamente cuando el usuario elige
-/// "Sistema". Conserva las superficies y el contraste de cada brillo, pero
-/// reemplaza los acentos de marca fríos por la familia naranja de
-/// Automatización. Claro y Oscuro explícitos mantienen sus paletas originales.
+/// NAV-BAR-FIX-05 — identidad de la barra de navegación (azul cósmico:
+/// accentBlue 2A7FFF, electricBlue 42B7FF, cyan 5CE7FF, violet 755DFF de
+/// NanoNavTokens) como color clásico de Nano. La familia "Sistema" conserva
+/// las superficies y el contraste de cada brillo, pero los acentos pasan a
+/// la gama azul de la barra en lugar de la naranja anterior.
 class NanoSystemLightColors extends NanoLightColors {
   @override
-  Color get primary => const Color(0xFFC45100);
+  Color get primary => const Color(0xFF1D6FE8);
   @override
-  Color get primaryContainer => const Color(0xFFFFF0E2);
+  Color get primaryContainer => const Color(0xFFEAF2FF);
   @override
-  Color get onPrimaryContainer => const Color(0xFF3B1800);
+  Color get onPrimaryContainer => const Color(0xFF0A2550);
   @override
-  Color get secondary => const Color(0xFF9A4A00);
+  Color get secondary => const Color(0xFF2A7FFF);
   @override
-  Color get secondaryContainer => const Color(0xFFFFE2C2);
+  Color get secondaryContainer => const Color(0xFFDDEAF2);
   @override
-  Color get accent => const Color(0xFFC45100);
+  Color get accent => const Color(0xFF1D6FE8);
   @override
   Color get onAccent => const Color(0xFFFFFFFF);
   @override
-  Color get glassOverlay => const Color(0x0FFF7A00);
+  Color get glassOverlay => const Color(0x0F2A7FFF);
   @override
-  Color get nanoCyan => const Color(0xFFFF7A00);
+  Color get nanoCyan => const Color(0xFF2A7FFF);
   @override
-  Color get nanoTurquoise => const Color(0xFFE96B00);
+  Color get nanoTurquoise => const Color(0xFF42B7FF);
   @override
-  Color get nanoBlue => const Color(0xFFD85A00);
+  Color get nanoBlue => const Color(0xFF3B82F6);
   @override
-  Color get nanoViolet => const Color(0xFFF09A3E);
+  Color get nanoViolet => const Color(0xFF755DFF);
   @override
-  Color get accentCyan => const Color(0xFFFF7A00);
+  Color get accentCyan => const Color(0xFF2A7FFF);
   @override
-  Color get accentMint => const Color(0xFFF28B22);
+  Color get accentMint => const Color(0xFF42B7FF);
   @override
-  Color get accentSky => const Color(0xFFFF9F43);
+  Color get accentSky => const Color(0xFF5CE7FF);
   @override
-  Color get accentBlue => const Color(0xFFD85A00);
+  Color get accentBlue => const Color(0xFF304CFF);
   @override
-  Color get accentLavender => const Color(0xFFF6B16A);
+  Color get accentLavender => const Color(0xFF755DFF);
   @override
-  Color get borderAccentColor => const Color(0x66FF7A00);
+  Color get borderAccentColor => const Color(0x662A7FFF);
 }
 
 class NanoSystemDarkColors extends NanoDarkColors {
   @override
-  Color get primary => const Color(0xFFFF9A3D);
+  Color get primary => const Color(0xFF5CE7FF);
   @override
-  Color get primaryContainer => const Color(0xFF5A2A00);
+  Color get primaryContainer => const Color(0xFF0A2547);
   @override
-  Color get onPrimaryContainer => const Color(0xFFFFE8D1);
+  Color get onPrimaryContainer => const Color(0xFFDFF0FF);
   @override
-  Color get secondary => const Color(0xFFFFB060);
+  Color get secondary => const Color(0xFF42B7FF);
   @override
-  Color get secondaryContainer => const Color(0xFF47270B);
+  Color get secondaryContainer => const Color(0xFF0B1E3A);
   @override
-  Color get accent => const Color(0xFFFF9A3D);
+  Color get accent => const Color(0xFF5CE7FF);
   @override
-  Color get onAccent => const Color(0xFF301500);
+  Color get onAccent => const Color(0xFF030B20);
   @override
-  Color get glassOverlay => const Color(0x14FF7A00);
+  Color get glassOverlay => const Color(0x145CE7FF);
   @override
-  Color get nanoCyan => const Color(0xFFFF9A3D);
+  Color get nanoCyan => const Color(0xFF5CE7FF);
   @override
-  Color get nanoTurquoise => const Color(0xFFFF8A1F);
+  Color get nanoTurquoise => const Color(0xFF42B7FF);
   @override
-  Color get nanoBlue => const Color(0xFFE76F00);
+  Color get nanoBlue => const Color(0xFF2A7FFF);
   @override
-  Color get nanoViolet => const Color(0xFFFFB56B);
+  Color get nanoViolet => const Color(0xFF755DFF);
   @override
-  Color get accentCyan => const Color(0xFFFF9A3D);
+  Color get accentCyan => const Color(0xFF5CE7FF);
   @override
-  Color get accentMint => const Color(0xFFFFB15C);
+  Color get accentMint => const Color(0xFF42B7FF);
   @override
-  Color get accentSky => const Color(0xFFFF8A1F);
+  Color get accentSky => const Color(0xFF89B7FF);
   @override
-  Color get accentBlue => const Color(0xFFE76F00);
+  Color get accentBlue => const Color(0xFF2A7FFF);
   @override
-  Color get accentLavender => const Color(0xFFFFC078);
+  Color get accentLavender => const Color(0xFF755DFF);
   @override
-  Color get borderAccentColor => const Color(0x66FF9A3D);
+  Color get borderAccentColor => const Color(0x665CE7FF);
 }
 
-/// Identidad "Clásico" (UI-REV-09, borrador del usuario): el modo Claro de la
-/// app adopta el fondo profundo de Dev con aurora naranja viva de marca —
-/// mismo lenguaje que Automatización. No es una paleta clara: es la gama
-/// naranja pura (FF7A00) sobre la familia oscura, con textos claros y vidrio.
+/// NAV-BAR-FIX-05 — identidad "Clásico": el modo Claro de la app adopta el
+/// fondo profundo con aurora de la barra de navegación (azul cósmico).
+/// Mismo lenguaje que la barra: cyan 5CE7FF, electricBlue 42B7FF y
+/// accentBlue 2A7FFF sobre la familia oscura, con textos claros y vidrio.
 /// El modo Oscuro explícito conserva la gama menta/cyan original.
 class NanoClassicDarkColors extends NanoDarkColors {
   @override
   bool get isClassicOrange => true;
 
   @override
-  Color get primary => const Color(0xFFFF7A00);
+  Color get primary => const Color(0xFF42B7FF);
   @override
-  Color get primaryContainer => const Color(0xFF5A2A00);
+  Color get primaryContainer => const Color(0xFF0A2547);
   @override
-  Color get onPrimaryContainer => const Color(0xFFFFE8D1);
+  Color get onPrimaryContainer => const Color(0xFFDFF0FF);
   @override
-  Color get secondary => const Color(0xFFF28B22);
+  Color get secondary => const Color(0xFF2A7FFF);
   @override
-  Color get secondaryContainer => const Color(0xFF47270B);
+  Color get secondaryContainer => const Color(0xFF0B1E3A);
   @override
-  Color get accent => const Color(0xFFFF7A00);
+  Color get accent => const Color(0xFF5CE7FF);
   @override
-  Color get onAccent => const Color(0xFFFFFFFF);
+  Color get onAccent => const Color(0xFF030B20);
   @override
-  Color get glassOverlay => const Color(0x14FF7A00);
+  Color get glassOverlay => const Color(0x145CE7FF);
   @override
-  Color get nanoCyan => const Color(0xFFFF7A00);
+  Color get nanoCyan => const Color(0xFF5CE7FF);
   @override
-  Color get nanoTurquoise => const Color(0xFFE96B00);
+  Color get nanoTurquoise => const Color(0xFF42B7FF);
   @override
-  Color get nanoBlue => const Color(0xFFD85A00);
+  Color get nanoBlue => const Color(0xFF2A7FFF);
   @override
-  Color get nanoViolet => const Color(0xFFF09A3E);
+  Color get nanoViolet => const Color(0xFF755DFF);
   @override
-  Color get accentCyan => const Color(0xFFFF7A00);
+  Color get accentCyan => const Color(0xFF5CE7FF);
   @override
-  Color get accentMint => const Color(0xFFF28B22);
+  Color get accentMint => const Color(0xFF42B7FF);
   @override
-  Color get accentSky => const Color(0xFFFF9F43);
+  Color get accentSky => const Color(0xFF89B7FF);
   @override
-  Color get accentBlue => const Color(0xFFE76F00);
+  Color get accentBlue => const Color(0xFF2A7FFF);
   @override
-  Color get accentLavender => const Color(0xFFF6B16A);
+  Color get accentLavender => const Color(0xFF755DFF);
   @override
-  Color get borderAccentColor => const Color(0x66FF7A00);
+  Color get borderAccentColor => const Color(0x665CE7FF);
 }
 
 class _LerpedNanoColors implements NanoColors {

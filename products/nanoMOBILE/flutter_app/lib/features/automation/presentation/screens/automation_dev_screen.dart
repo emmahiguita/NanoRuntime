@@ -5,6 +5,7 @@ import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/features/edge/edge_dev_section.dart';
 
 import '../agent_console_section.dart';
@@ -42,7 +43,9 @@ class _AutomationDevBody extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
+      // NAV-BAR-FIX-03 — barra global también en Dev.
+      body: NanoShellBarScope(
+        child: Stack(
         fit: StackFit.expand,
         children: [
           // UI-REV-03: fondo compartido del módulo (mismo en todas las
@@ -111,6 +114,7 @@ class _AutomationDevBody extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }

@@ -11,7 +11,9 @@ import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 enum AutomationVisualMode { system, lightGlass, dark }
 
 abstract final class AutomationVisual {
-  static const lightAccent = Color(0xFFFF7A00);
+  /// NAV-BAR-FIX-05 — acento del módulo = accentBlue de la barra de
+  /// navegación (NanoNavTokens). La identidad clásica es el azul cósmico.
+  static const lightAccent = Color(0xFF2A7FFF);
 
   static AutomationVisualMode modeFromSetting(String themeMode) =>
       switch (themeMode) {
@@ -22,7 +24,7 @@ abstract final class AutomationVisual {
 
   /// Paleta semántica del módulo derivada del tema real de la aplicación.
   ///
-  /// Automatización conserva su identidad naranja, pero no mantiene una
+  /// Automatización conserva su identidad de acento, pero no mantiene una
   /// segunda fuente de verdad para claro/oscuro. Esto evita que una ruta
   /// fuerce el modo claro cuando el usuario eligió Oscuro o Sistema.
   static AutomationVisualPalette of(BuildContext context) {
@@ -38,13 +40,13 @@ abstract final class AutomationVisual {
     final inheritedColors = NanoThemeExtension.of(context).colors;
     // UI-REV-09: el ramo visual sigue a la familia instalada por el tema real,
     // no al setting ni al brightness. Con "Claro" la app instala la familia
-    // oscura naranja de Dev (NanoClassicDarkColors): automation pinta vidrio
-    // oscuro con acento naranja — nunca vidrio claro sobre fondo oscuro.
+    // oscura de Dev (NanoClassicDarkColors): automation pinta vidrio
+    // oscuro con acento azul barra — nunca vidrio claro sobre fondo oscuro.
     // "Oscuro" (familia oscura menta) conserva el acento menta del shell
     // nocturno; "Sistema"-claro conserva la familia clara.
     final isDark = inheritedColors is NanoDarkColors;
     // Solo el modo Oscuro explícito adopta el acento menta del shell
-    // nocturno; el resto conserva la identidad naranja de Nano Automation.
+    // nocturno; el resto conserva el azul de la barra de navegación.
     final usesDarkAccent = mode == AutomationVisualMode.dark;
     final colors = inheritedColors;
     return AutomationVisualPalette(
@@ -60,7 +62,7 @@ abstract final class AutomationVisual {
       onAccent: usesDarkAccent ? colors.onAccent : Colors.white,
       accentSoft: usesDarkAccent
           ? colors.accentMint.withValues(alpha: 0.14)
-          : const Color(0xB8FFF2E7),
+          : const Color(0xB8EAF2FF),
       canvas: colors.backgroundPrimary,
       surface: isDark
           ? colors.glassPrimary.withValues(alpha: 0.72)
@@ -78,7 +80,7 @@ abstract final class AutomationVisual {
       cardEnd: isDark
           ? colors.glassBlue.withValues(alpha: 0.62)
           : colors.glassSecondary.withValues(alpha: colors.glassMedium),
-      // UI-REV-09: borde naranja más presente en la gama dev (0.32) —
+      // UI-REV-09: borde de acento más presente en la gama dev (0.32) —
       // "bordes profesionales" del borrador.
       cardBorder: isDark
           ? usesDarkAccent
@@ -462,10 +464,10 @@ class AutomationBackHeader extends StatelessWidget {
 
 /// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas y el
 /// mismo del shell (UI-REV-08/09): aurora líquida que se adapta a la familia
-/// del tema (en "Claro" = dev oscuro naranja, blobs naranjas sobre fondo
-/// profundo; en "Sistema"-claro, lienzo claro cálido; en "Oscuro", blobs de
-/// acento sobre fondo profundo). Se monta como capa base de un Stack con
-/// Scaffold transparente.
+/// del tema (en "Claro" = dev oscuro con blobs azules de la barra sobre
+/// fondo profundo; en "Sistema"-claro, lienzo claro frío; en "Oscuro",
+/// blobs de acento sobre fondo profundo). Se monta como capa base de un
+/// Stack con Scaffold transparente.
 class AutomationBackdrop extends StatelessWidget {
   const AutomationBackdrop({super.key});
 

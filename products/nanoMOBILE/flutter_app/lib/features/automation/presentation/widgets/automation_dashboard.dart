@@ -11,6 +11,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
+import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
 import '../../application/automation_engine_provider.dart';
 import '../../application/automation_feedback_presenter.dart';
@@ -103,8 +104,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   ActionConfirmation? _lastConfirmation;
 
   bool get _voiceBusy =>
-      _voiceSession.state == VoiceSessionState.listening ||
-      _voiceSession.state == VoiceSessionState.processing;
+      _voiceState == VoiceSessionState.listening ||
+      _voiceState == VoiceSessionState.processing;
 
   bool get _sensing => _voiceBusy || _observingScreen;
 
@@ -491,21 +492,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       mode: mode,
       onModeTap: _pickMode,
       onDevTap: widget.onDevTap,
-    );
-    final composer = _TaskComposer(
-      controller: _taskController,
-      running: _running,
-      voiceEnabled: settings.voiceEnabled,
-      voiceState: _voiceState,
-      observingScreen: _observingScreen,
-      sensing: _sensing,
-      senseFeedback: _senseFeedback,
-      conversationActive: _conversationActive,
-      onVoice: _activateVoice,
-      onConversation: _activateConversation,
-      onVoiceOutputToggle: _toggleVoiceOutput,
-      onObserve: _observeScreen,
-      onRun: _runTask,
+      onVoiceOutputTap: _toggleVoiceOutput,
+      isVoiceOutputEnabled: settings.voiceEnabled,
+      onConversationTap: _activateConversation,
+      isConversationActive: _conversationActive,
     );
     final active = (_running || _lastStatus != null)
         ? _ActiveExecutionCard(
@@ -526,25 +516,68 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       onTimeRuleTap: _createTimeRule,
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // UI-REV-13: horizontal — DOS columnas para aprovechar el ancho:
-        // composer protagonista a la izquierda, accesos/sugerencias a la
-        // derecha. Vertical: columna única como siempre. Misma composición,
-        // cero widgets duplicados — solo cambia el árbol de layout.
-        final landscape = constraints.maxWidth > constraints.maxHeight;
-        final mainColumn = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            header,
-            const SizedBox(height: NanoSpacing.xl),
-            composer,
-            if (active != null) ...[
-              const SizedBox(height: NanoSpacing.lg),
-              active,
+    return NanoInputScope(
+      scopeId: 'automation',
+      hint: 'Describe qué quieres automatizar en Nano AI...',
+      onSubmit: (text) => _runTask(text),
+      onVoice: _activateVoice,
+      onAttach: _observeScreen,
+      isGenerating: _running,
+      onStop: _running ? () => setState(() => _running = false) : null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final visual = AutomationVisual.of(context);
+          // UI-REV-13: horizontal — DOS columnas para aprovechar el ancho:
+          // cabecera y estado activo a la izquierda, accesos/sugerencias a la
+          // derecha. Vertical: columna única como siempre.
+          // Cero compositores duplicados — la barra cósmica inferior es la
+          // única fuente de verdad para comandos y automatizaciones.
+          final landscape = constraints.maxWidth > constraints.maxHeight;
+          final mainColumn = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              if (_senseFeedback != null) ...[
+                const SizedBox(height: NanoSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: visual.accentSoft.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: visual.accent.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 16, color: visual.accent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _senseFeedback!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: visual.text,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 14),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => setState(() => _senseFeedback = null),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (active != null) ...[
+                const SizedBox(height: NanoSpacing.lg),
+                active,
+              ],
             ],
-          ],
-        );
+          );
         final sideColumn = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -583,8 +616,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           ),
         );
       },
-    );
-  }
+    ),
+  );
+}
 }
 
 class _AgentHeader extends StatelessWidget {
@@ -592,13 +626,18 @@ class _AgentHeader extends StatelessWidget {
     required this.mode,
     required this.onModeTap,
     this.onDevTap,
+    this.onVoiceOutputTap,
+    this.isVoiceOutputEnabled = false,
+    this.onConversationTap,
+    this.isConversationActive = false,
   });
   final AgentAutomationMode mode;
   final VoidCallback onModeTap;
-
-  /// Atajo directo a las herramientas del agente (pantalla Dev). Icono robot,
-  /// siempre visible en la cabecera sin necesidad de scroll.
   final VoidCallback? onDevTap;
+  final VoidCallback? onVoiceOutputTap;
+  final bool isVoiceOutputEnabled;
+  final VoidCallback? onConversationTap;
+  final bool isConversationActive;
 
   @override
   Widget build(BuildContext context) {
@@ -661,6 +700,28 @@ class _AgentHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (onVoiceOutputTap != null)
+            IconButton(
+              tooltip: isVoiceOutputEnabled ? 'Silenciar audio de Nano' : 'Activar audio de Nano',
+              visualDensity: VisualDensity.compact,
+              onPressed: onVoiceOutputTap,
+              icon: Icon(
+                isVoiceOutputEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: isVoiceOutputEnabled ? visual.accent : visual.textMuted,
+                size: 20,
+              ),
+            ),
+          if (onConversationTap != null)
+            IconButton(
+              tooltip: isConversationActive ? 'Detener conversación' : 'Conversación manos libres',
+              visualDensity: VisualDensity.compact,
+              onPressed: onConversationTap,
+              icon: Icon(
+                isConversationActive ? Icons.record_voice_over_rounded : Icons.voice_chat_outlined,
+                color: isConversationActive ? visual.accent : visual.textMuted,
+                size: 20,
+              ),
+            ),
           if (onDevTap != null)
             IconButton(
               tooltip: 'Herramientas del agente',
@@ -678,366 +739,6 @@ class _AgentHeader extends StatelessWidget {
   }
 }
 
-class _TaskComposer extends StatelessWidget {
-  const _TaskComposer({
-    required this.controller,
-    required this.running,
-    required this.voiceEnabled,
-    required this.voiceState,
-    required this.observingScreen,
-    required this.sensing,
-    required this.senseFeedback,
-    // VOICE-NATURAL-01: conversación continua también en la card de chat del
-    // módulo (escucha → ejecuta → habla → vuelve a escuchar).
-    required this.conversationActive,
-    required this.onConversation,
-    required this.onVoice,
-    required this.onVoiceOutputToggle,
-    required this.onObserve,
-    required this.onRun,
-  });
-  final TextEditingController controller;
-  final bool running;
-  final bool voiceEnabled;
-  final VoiceSessionState voiceState;
-  final bool observingScreen;
-  final bool sensing;
-  final String? senseFeedback;
-  final bool conversationActive;
-  final VoidCallback onConversation;
-  final VoidCallback onVoice;
-  final VoidCallback onVoiceOutputToggle;
-  final VoidCallback onObserve;
-  final ValueChanged<String> onRun;
-
-  @override
-  Widget build(BuildContext context) {
-    final voiceActive =
-        voiceState == VoiceSessionState.listening ||
-        voiceState == VoiceSessionState.processing;
-    final stateLabel = conversationActive
-        ? 'Conversación activa'
-        : observingScreen
-        ? 'Observando'
-        : switch (voiceState) {
-            VoiceSessionState.listening => 'Escuchando',
-            VoiceSessionState.processing => 'Procesando',
-            _ => running ? 'Ejecutando' : 'Listo',
-          };
-    final stateActive =
-        voiceActive || conversationActive || observingScreen || sensing || running;
-    // UI-REV-02: paddings y tipografía del composer acotados al lenguaje
-    // Dev (card 16, título 16px) — antes 20/20 estiraba la pantalla.
-    return AutomationSurfaceCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // UI-REV-06: fuera la marca del robot — estorbaba encima del
-              // botón enviar y comprimía el título cortando las frases.
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CapabilityHint(active: stateActive),
-                    const SizedBox(height: 3),
-                    Semantics(
-                      liveRegion: true,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 160),
-                        child: Text(
-                          stateLabel,
-                          key: ValueKey(stateLabel),
-                          style: TextStyle(
-                            color: stateActive
-                                ? AutomationVisual.of(context).accent
-                                : AutomationVisual.of(context).textMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  minLines: 1,
-                  maxLines: 3,
-                  textCapitalization: TextCapitalization.sentences,
-                  textInputAction: TextInputAction.go,
-                  onSubmitted: (value) =>
-                      !running && !sensing ? onRun(value) : null,
-                  decoration: InputDecoration(
-                    hintText:
-                        conversationActive ? 'Habla tu tarea…' : 'Describe una tarea…',
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox.square(
-                dimension: 46,
-                child: FilledButton(
-                  onPressed: running || sensing
-                      ? null
-                      : () => onRun(controller.text),
-                  style: FilledButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: const CircleBorder(),
-                  ),
-                  child: running
-                      ? SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: AutomationVisual.of(context).onAccent,
-                          ),
-                        )
-                      : const Icon(Icons.arrow_forward_rounded, size: 22),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _ComposerControl(
-                  icon: Icons.mic_none_rounded,
-                  label: 'Voz',
-                  active: voiceActive,
-                  busy: voiceActive,
-                  enabled: !running && !observingScreen,
-                  onTap: onVoice,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ComposerControl(
-                  icon: voiceEnabled
-                      ? Icons.volume_up_outlined
-                      : Icons.volume_off_outlined,
-                  label: 'Audio',
-                  active: voiceEnabled,
-                  enabled: true,
-                  onTap: onVoiceOutputToggle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ComposerControl(
-                  icon: Icons.visibility_outlined,
-                  label: 'Ojos',
-                  active: observingScreen,
-                  busy: observingScreen,
-                  enabled: !running && !sensing,
-                  onTap: onObserve,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ComposerControl(
-                  icon: conversationActive
-                      ? Icons.stop_rounded
-                      : Icons.all_inclusive_rounded,
-                  label: conversationActive ? 'Detener' : 'Hablar',
-                  active: conversationActive,
-                  busy: conversationActive,
-                  // Detener se habilita SIEMPRE durante la conversación
-                  // (parada en caliente); iniciar espera a que no haya tarea.
-                  enabled: conversationActive || (!running && !sensing),
-                  onTap: onConversation,
-                ),
-              ),
-            ],
-          ),
-          if (senseFeedback != null && senseFeedback!.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: NanoMotionDurations.quick,
-              child: Text(
-                senseFeedback!,
-                key: ValueKey(senseFeedback),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AutomationVisual.of(context).textMuted,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Título del composer con los ALCANCES reales del agente. Inactivo: rota
-/// frases cortas de lo que puede hacer (invita a pedir tareas reales). En
-/// actividad: título fijo "¿Qué quieres que haga?" — el estado debajo ya
-/// comunica el resto. Un solo Timer de texto, sin tickers decorativos.
-class _CapabilityHint extends StatefulWidget {
-  const _CapabilityHint({required this.active});
-
-  /// true cuando escucha/observa/ejecuta: título fijo, sin rotación.
-  final bool active;
-
-  @override
-  State<_CapabilityHint> createState() => _CapabilityHintState();
-}
-
-class _CapabilityHintState extends State<_CapabilityHint> {
-  // Alcances verificables del agente — mismos dominios de las quick actions
-  // y del pipeline real (apps/ajustes, mensajes, notificaciones, archivos,
-  // terminal Linux). Nada que el motor no sepa hacer hoy.
-  static const _capabilities = [
-    'Abro apps y ajustes del dispositivo',
-    'Respondo mensajes y notificaciones',
-    'Leo y analizo tus notificaciones',
-    'Analizo archivos y carpetas',
-    'Ejecuto tareas en la terminal Linux',
-  ];
-
-  Timer? _timer;
-  int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 2600), (_) {
-      if (!mounted) return;
-      setState(() => _index = (_index + 1) % _capabilities.length);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: NanoMotionDurations.quick,
-      child: Text(
-        widget.active ? '¿Qué quieres que haga?' : _capabilities[_index],
-        key: ValueKey(widget.active ? 'ask' : _capabilities[_index]),
-        // UI-REV-06: sin ellipsis — la frase completa siempre visible.
-        maxLines: 1,
-        style: TextStyle(
-          color: AutomationVisual.of(context).text,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _ComposerControl extends StatelessWidget {
-  const _ComposerControl({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.enabled,
-    this.onTap,
-    this.busy = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final bool enabled;
-  final VoidCallback? onTap;
-  final bool busy;
-
-  @override
-  Widget build(BuildContext context) {
-    // Deshabilitado: alpha 0.6 — visible pero claramente apagado. Antes 0.5
-    // fundía el icono con el fondo y parecía roto.
-    final color = active
-        ? AutomationVisual.of(context).accent
-        : enabled
-        ? AutomationVisual.of(context).textMuted
-        : AutomationVisual.of(context).textMuted.withValues(alpha: 0.6);
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: NanoMotionDurations.quick,
-            // UI-REV-04: control mínimo (44px) — fila de 3 capacidades
-            // ligera, sin competir con el composer ni el dashboard.
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-            decoration: BoxDecoration(
-              color: active
-                  ? AutomationVisual.of(context).accentSoft
-                  : AutomationVisual.of(context).inputFill,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: active
-                    ? AutomationVisual.of(
-                        context,
-                      ).accent.withValues(alpha: 0.38)
-                    : AutomationVisual.of(context).line,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (busy)
-                  SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: color,
-                    ),
-                  )
-                else
-                  Icon(icon, color: color, size: 19),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 10.5,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 String _describeSituation(CurrentSituation situation) {
   final surface = switch (situation.surfaceKind) {

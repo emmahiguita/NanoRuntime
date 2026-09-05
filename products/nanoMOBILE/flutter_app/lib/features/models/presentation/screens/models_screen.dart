@@ -18,6 +18,7 @@ import 'package:nanoai/features/models/domain/model_viability.dart';
 import 'package:nanoai/features/models/presentation/providers/model_metadata_providers.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_brand_logos.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_detail_bottom_sheet.dart';
+import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
 /// Tokens locales para el módulo de Modelos (White Optical Glass + M3E).
 class _M3 {
@@ -278,8 +279,21 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
     // UI-REV-07: el fondo ya lo pone el shell (NanoAmbientBackground único).
     // Antes esta pantalla pintaba su propio ambient encima (doble capa).
-    return Column(
-      children: [
+    return NanoInputScope(
+      scopeId: 'models',
+      hint: 'Buscar modelos (Gemma, LLaMA, Qwen, DeepSeek)...',
+      initialText: _searchQuery,
+      onChanged: (val) {
+        setState(() {
+          _searchQuery = val;
+        });
+      },
+      // NAV-BAR-FIX-04 — enviar NO navega: la búsqueda ya se aplica en vivo
+      // (onChanged filtra el catálogo) y enviar solo suelta el teclado.
+      onSubmit: (_) => FocusScope.of(context).unfocus(),
+      clearOnSubmit: false,
+      child: Column(
+        children: [
         if (!state.allFilesGranted)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -816,8 +830,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   void _openModelDetails({
     required String name,

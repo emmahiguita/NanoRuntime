@@ -81,8 +81,9 @@ class RuntimeAutomationDraftWriter implements AutomationDraftWriter {
     }
     try {
       final ready = await _ensureReady(modelPath);
-      if (!ready)
+      if (!ready) {
         return const DraftUnavailable('runtime no listo con el modelo');
+      }
       final result = await generateWithColdRetry(
         _client,
         prompt: _buildPrompt(request),

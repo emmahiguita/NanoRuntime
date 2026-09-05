@@ -19,16 +19,32 @@ enum MessageSource { model, device }
 /// y Gemma usa `<start_of_turn>/<end_of_turn>`.
 enum ChatTemplate { qwen, deepseek, llama, mistral, gemma }
 
-/// Adjunto pendiente de envío: un archivo textual elegido en el composer.
+/// Tipo de adjunto pendiente de envío.
+enum ChatAttachmentKind { text, photo, video, document }
+
+/// Adjunto pendiente de envío: un archivo elegido en el composer.
 ///
 /// Solo [name] y [content] viven aquí; el contenido se inyecta al prompt de
 /// la generación que lo consume y nunca se persiste en el historial
 /// (protege SharedPreferences y la ventana de contexto de los GGUF).
+///
+/// NAV-BAR-FIX-05 — foto/video se adjuntan como REFERENCIA honesta: el
+/// contenido describe el archivo real (nombre, tipo, peso) y aclara que el
+/// modelo local aún no puede ver imágenes. Documento sigue siendo texto
+/// real del archivo. [kind] y [sizeBytes] alimentan el chip y esa
+/// referencia; nunca se inventa contenido que el archivo no tiene.
 class ChatAttachment {
   final String name;
   final String content;
+  final ChatAttachmentKind kind;
+  final int sizeBytes;
 
-  const ChatAttachment({required this.name, required this.content});
+  const ChatAttachment({
+    required this.name,
+    required this.content,
+    this.kind = ChatAttachmentKind.text,
+    this.sizeBytes = 0,
+  });
 }
 
 class ChatMessage {

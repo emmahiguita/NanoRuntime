@@ -126,8 +126,16 @@ class RulePipeline {
       }
       // Registrar el disparo para cooldown de regla (T3.6). El evento fallado
       // no cuenta como disparo: el siguiente evento real puede reintentar.
-      if (r.isReplyAttempt || r.outcome == RuleOutcome.notified) {
-        _registry.markFired(rule.id, DateTime.now());
+      // WA-RULES-UI-02 — el outcome real viaja al registry (estado visible
+      // en la pantalla Reglas). mediaLaunched cuenta: WhatsApp se abrió.
+      if (r.isReplyAttempt ||
+          r.outcome == RuleOutcome.notified ||
+          r.outcome == RuleOutcome.mediaLaunched) {
+        _registry.markFired(
+          rule.id,
+          DateTime.now(),
+          outcome: r.outcome.name,
+        );
       }
     }
 
@@ -192,9 +200,10 @@ class RulePipeline {
       results.add(r);
       // Registrar el disparo para cooldown de regla: solo efectos reales
       // (aviso publicado o borrador); el reply fallado no cuenta.
+      // WA-RULES-UI-02 — outcome real para el estado de la pantalla Reglas.
       if (r.outcome == RuleOutcome.notified ||
           r.outcome == RuleOutcome.drafted) {
-        _registry.markFired(rule.id, event.now);
+        _registry.markFired(rule.id, event.now, outcome: r.outcome.name);
       }
     }
     if (results.isNotEmpty) {

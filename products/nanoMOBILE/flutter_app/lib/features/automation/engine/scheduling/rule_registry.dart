@@ -96,10 +96,27 @@ class RuleRegistry {
     _persist();
   }
 
-  /// Registra el disparo (para deduplicación/cooldown en T3.6).
-  void markFired(String id, DateTime at) {
+  /// RULES-EDIT-01 — reemplaza la regla completa (edición profesional:
+  /// trigger, acción, texto, archivo). El id es el ancla; la regla entera
+  /// es el nuevo estado. Mismo camino de persistencia que [setEnabled].
+  void update(String id, ScheduledRule rule) {
     final i = _rules.indexWhere((r) => r.id == id);
-    if (i >= 0) _rules[i] = _rules[i].copyWith(lastFiredAt: at);
+    if (i >= 0) _rules[i] = rule;
+    _persist();
+  }
+
+  /// Registra el disparo (para deduplicación/cooldown en T3.6).
+  /// WA-RULES-UI-02 — [outcome] guarda el resultado real (nombre del
+  /// RuleOutcome) para que la pantalla Reglas muestre el estado de la
+  /// última ejecución sin inventar éxito.
+  void markFired(String id, DateTime at, {String? outcome}) {
+    final i = _rules.indexWhere((r) => r.id == id);
+    if (i >= 0) {
+      _rules[i] = _rules[i].copyWith(
+        lastFiredAt: at,
+        lastOutcome: outcome ?? _rules[i].lastOutcome,
+      );
+    }
     _persist();
   }
 

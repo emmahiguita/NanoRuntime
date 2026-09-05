@@ -20,46 +20,16 @@ class ScaffoldShell extends StatelessWidget {
   // misma que abre el Inicio). Se navega con push, no con goBranch.
   static const int _automationShortcutIndex = 5;
 
-  static const List<NavTabSpec> _tabs = [
-    (
-      icon: Icons.dashboard_outlined,
-      sel: Icons.dashboard_rounded,
-      label: 'Inicio',
-    ),
-    (icon: Icons.chat_outlined, sel: Icons.chat_rounded, label: 'Chat'),
-    (
-      icon: Icons.extension_outlined,
-      sel: Icons.extension_rounded,
-      label: 'Modelos',
-    ),
-    (
-      icon: Icons.terminal_outlined,
-      sel: Icons.terminal_rounded,
-      label: 'Terminal',
-    ),
-    (
-      icon: Icons.settings_outlined,
-      sel: Icons.settings_rounded,
-      label: 'Ajustes',
-    ),
-    // Acceso directo a Automatización (mismo icono que su tarjeta en Inicio).
-    (
-      icon: Icons.auto_awesome_outlined,
-      sel: Icons.auto_awesome_rounded,
-      label: 'Automatización',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final currentIndex = shell.currentIndex;
     final branchCanPop =
         AppRouter.branchKeys[currentIndex].currentState?.canPop() ?? false;
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    // UI-REV-08/09: en claro el fondo es la aurora líquida naranja (la misma
-    // de dev/automation); el oscuro normal conserva el ambient con glows
-    // orbitales. La identidad "Clásico" (familia oscura naranja de dev,
-    // isClassicOrange) también usa la aurora líquida.
+    // UI-REV-08/09: en claro el fondo es la aurora líquida (la misma de
+    // dev/automation); el oscuro normal conserva el ambient con glows
+    // orbitales. La identidad "Clásico" (familia oscura de dev,
+    // isClassicOrange) también usa la aurora líquida. NAV-BAR-FIX-05: la
+    // gama de la aurora es la azul de la barra de navegación.
     final shellColors = Theme.of(
       context,
     ).extension<NanoThemeExtension>()!.colors;
@@ -100,8 +70,7 @@ class ScaffoldShell extends StatelessWidget {
             ),
             SafeArea(
               child: NanoFloatingNavigationFrame(
-                hidden: keyboardOpen,
-                tabs: _tabs,
+                tabs: nanoShellTabs,
                 selectedIndex: currentIndex,
                 onDestinationSelected: (index) {
                   if (index == _automationShortcutIndex) {

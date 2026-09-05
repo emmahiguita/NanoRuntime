@@ -1,22 +1,25 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/nano_runtime_api.dart';
 import 'nano_destination.dart';
 import 'nano_glyph.dart';
 import 'nano_nav_tokens.dart';
 import 'nano_search_dispatcher.dart';
+import 'nano_universal_input.dart';
 
 /// Barra de navegación multifunción cósmica flotante de Nano AI.
 ///
-/// Diseño con estética iOS Glass flotante, borde de neón galáctico continuo,
-/// avatar interactivo con estado online, cápsula de búsqueda con comando/voz
-/// y dock de 6 destinos con indicador horizontal deslizante de neón cian.
+/// Arquitectura SOLID reutilizable: actúa como la barra universal de comando,
+/// escritura y navegación para todas las pantallas de la aplicación.
 class NanoMultiUseNavBar extends StatefulWidget {
   const NanoMultiUseNavBar({
     super.key,
     required this.selected,
     required this.onDestinationSelected,
+    this.inputConfig,
     this.onSearch,
     this.onVoice,
     this.onAvatarTap,
@@ -28,6 +31,7 @@ class NanoMultiUseNavBar extends StatefulWidget {
 
   final NanoDestination selected;
   final ValueChanged<NanoDestination> onDestinationSelected;
+  final NanoUniversalInputConfig? inputConfig;
   final ValueChanged<String>? onSearch;
   final VoidCallback? onVoice;
   final VoidCallback? onAvatarTap;
@@ -46,22 +50,48 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
   bool _focused = false;
   bool _hasText = false;
 
+  // NAV-BAR-FIX-05 — dictado por voz por defecto de la barra. Si la pantalla
+  // no define su propio onVoice (Chat lo define para su conversación
+  // continua), la barra dicta directo: parciales escriben en el campo en
+  // vivo y el resultado final queda listo para enviar. Antes el fallback
+  // navegaba a /automation — el mic no hacía nada útil fuera de Chat.
+  bool _dictating = false;
+  StreamSubscription<String>? _voiceSub;
+
   @override
   void initState() {
     super.initState();
+    if (widget.inputConfig?.initialText != null) {
+      _controller.text = widget.inputConfig!.initialText!;
+      _hasText = _controller.text.trim().isNotEmpty;
+    }
     _focusNode.addListener(() {
       if (mounted) setState(() => _focused = _focusNode.hasFocus);
     });
     _controller.addListener(() {
-      final hasTextNow = _controller.text.trim().isNotEmpty;
+      final text = _controller.text;
+      final hasTextNow = text.trim().isNotEmpty;
       if (hasTextNow != _hasText && mounted) {
         setState(() => _hasText = hasTextNow);
       }
+      widget.inputConfig?.onChanged?.call(text);
     });
   }
 
   @override
+  void didUpdateWidget(covariant NanoMultiUseNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextInit = widget.inputConfig?.initialText;
+    final oldInit = oldWidget.inputConfig?.initialText;
+    if (nextInit != null && nextInit != oldInit && nextInit != _controller.text) {
+      _controller.text = nextInit;
+      _hasText = nextInit.trim().isNotEmpty;
+    }
+  }
+
+  @override
   void dispose() {
+    _voiceSub?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -71,12 +101,71 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
     final query = (value ?? _controller.text).trim();
     if (query.isNotEmpty) {
       HapticFeedback.mediumImpact();
-      if (widget.onSearch != null) {
+      final config = widget.inputConfig;
+      if (config?.onSubmit != null) {
+        config!.onSubmit!(query);
+      } else if (widget.onSearch != null) {
         widget.onSearch!(query);
       } else {
         NanoSearchDispatcher.dispatch(context, query);
       }
-      _focusNode.unfocus();
+      if (config?.clearOnSubmit ?? true) {
+        _controller.clear();
+        setState(() => _hasText = false);
+      }
+      // NAV-BAR-FIX-01 — conversación continua: el chat mantiene el foco y
+      // el teclado abiertos tras enviar; las demás pantallas lo cierran.
+      if (!(config?.keepFocusOnSubmit ?? false)) {
+        _focusNode.unfocus();
+      }
+    }
+  }
+
+  /// Dictado por voz real de la barra (misma API del chat: canal
+  /// `com.nanoai/speech`). Escribe los parciales en el campo en vivo; el
+  /// resultado final queda en el campo y el usuario decide cuándo enviar.
+  /// Errores honestos, nunca excepción suelta.
+  Future<void> _toggleDefaultDictation() async {
+    if (_dictating) {
+      setState(() => _dictating = false);
+      await _voiceSub?.cancel();
+      _voiceSub = null;
+      await NanoRuntimeApi.instance.stopSpeech();
+      return;
+    }
+    setState(() => _dictating = true);
+    _voiceSub = NanoRuntimeApi.instance.voicePartialStream.listen((partial) {
+      if (!mounted || !_dictating) return;
+      _controller.text = partial;
+      _controller.selection = TextSelection.collapsed(offset: partial.length);
+      setState(() => _hasText = partial.trim().isNotEmpty);
+    });
+    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+    await _voiceSub?.cancel();
+    _voiceSub = null;
+    if (!mounted) return;
+    setState(() => _dictating = false);
+    if (text != null && text.trim().isNotEmpty) {
+      _controller.text = text.trim();
+      _controller.selection = TextSelection.collapsed(
+        offset: text.trim().length,
+      );
+      setState(() => _hasText = true);
+    } else if (_controller.text.trim().isEmpty) {
+      // Sin parciales y sin resultado: aviso honesto en vez de silencio.
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No se pudo reconocer el audio. Inténtalo de nuevo.',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
     }
   }
 
@@ -84,6 +173,8 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
   Widget build(BuildContext context) {
     final b = widget.brightness ?? Theme.of(context).brightness;
     final isDark = b == Brightness.dark;
+    final config = widget.inputConfig;
+    final effectiveHint = config?.hint ?? widget.searchHint;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -98,7 +189,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
               boxShadow: [
-                // Resplandor de aura cósmica exterior
                 BoxShadow(
                   color: NanoNavTokens.cyan.withValues(alpha: isDark ? .28 : .14),
                   blurRadius: _focused ? 32 : 22,
@@ -126,7 +216,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                   curve: Curves.easeOutCubic,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
-                    // Fondo galáctico translúcido iOS Glass
                     gradient: isDark
                         ? const LinearGradient(
                             begin: Alignment.topLeft,
@@ -158,7 +247,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                   ),
                   child: Stack(
                     children: [
-                      // Sutil nebulosa estelar decorativa
                       if (widget.showFeather)
                         Positioned(
                           right: -12,
@@ -174,8 +262,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                             ),
                           ),
                         ),
-
-                      // Brillo especular superior iOS Glass
                       Positioned(
                         top: 0,
                         left: 20,
@@ -193,7 +279,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                           ),
                         ),
                       ),
-
                       Padding(
                         padding: EdgeInsets.fromLTRB(
                           narrow ? 10 : 13,
@@ -204,26 +289,32 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Nivel 1: Avatar del búho + Cápsula de búsqueda universal y voz
                             _SearchRow(
                               brightness: b,
                               controller: _controller,
                               focusNode: _focusNode,
-                              hint: widget.searchHint,
+                              hint: effectiveHint,
                               hasText: _hasText,
+                              isGenerating: config?.isGenerating ?? false,
+                              onStop: config?.onStop,
+                              onAttach: config?.onAttach,
                               onSubmitted: _handleSearchSubmit,
                               onClear: () {
                                 _controller.clear();
                                 setState(() => _hasText = false);
                               },
-                              onVoice: widget.onVoice,
+                              // NAV-BAR-FIX-05 — si la pantalla no define
+                              // voz propia, la barra dicta directo al campo.
+                              onVoice:
+                                  config?.onVoice ??
+                                  widget.onVoice ??
+                                  _toggleDefaultDictation,
+                              listening:
+                                  (config?.isListening ?? false) || _dictating,
                               onAvatarTap: widget.onAvatarTap,
                               compact: narrow,
                             ),
-
                             SizedBox(height: narrow ? 6 : 9),
-
-                            // Nivel 2: Dock abierto de 6 destinos con indicador horizontal deslizante
                             _DestinationsDock(
                               brightness: b,
                               selected: widget.selected,
@@ -255,9 +346,13 @@ class _SearchRow extends StatelessWidget {
     required this.focusNode,
     required this.hint,
     required this.hasText,
+    required this.isGenerating,
+    required this.onStop,
+    required this.onAttach,
     required this.onSubmitted,
     required this.onClear,
     required this.onVoice,
+    required this.listening,
     required this.onAvatarTap,
     required this.compact,
   });
@@ -267,9 +362,13 @@ class _SearchRow extends StatelessWidget {
   final FocusNode focusNode;
   final String hint;
   final bool hasText;
+  final bool isGenerating;
+  final VoidCallback? onStop;
+  final VoidCallback? onAttach;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback onClear;
   final VoidCallback? onVoice;
+  final bool listening;
   final VoidCallback? onAvatarTap;
   final bool compact;
 
@@ -281,26 +380,30 @@ class _SearchRow extends StatelessWidget {
 
     return Row(
       children: [
-        // Avatar del búho con aro de neón y punto verde online
-        _OwlAvatarOrb(
-          brightness: brightness,
-          size: compact ? 46 : 52,
-          onTap: onAvatarTap,
-        ),
-
-        SizedBox(width: compact ? 8 : 11),
-
-        // Cápsula de búsqueda con botón de micrófono integrado en el extremo
+        // NAV-BAR-FIX-02 — el orbe es el acceso al asistente: en el propio
+        // chat no aporta (ya estás ahí) y le robaba al campo el espacio que
+        // hoy es el protagonista. Solo se muestra si la pantalla le da uso.
+        if (onAvatarTap != null) ...[
+          _OwlAvatarOrb(
+            brightness: brightness,
+            size: compact ? 46 : 52,
+            onTap: onAvatarTap,
+          ),
+          SizedBox(width: compact ? 8 : 11),
+        ],
         Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            height: compact ? 44 : 48,
+            // NAV-BAR-FIX-02 — sin altura fija: el campo crece hasta 4 líneas
+            // (lógica completa de escritura) y la card crece con él. La lupa
+            // decorativa salió: era ancho robado al texto (el hint ya guía).
+            constraints: BoxConstraints(minHeight: compact ? 44 : 48),
             decoration: BoxDecoration(
               color: dark
                   ? const Color(0x750D1D42)
                   : const Color(0xE0FFFFFF),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(compact ? 22 : 24),
               border: Border.all(
                 color: focusNode.hasFocus
                     ? NanoNavTokens.cyan.withValues(alpha: .92)
@@ -321,22 +424,17 @@ class _SearchRow extends StatelessWidget {
             ),
             child: Row(
               children: [
-                SizedBox(width: compact ? 11 : 13),
-                NanoGlyph(
-                  type: NanoGlyphType.search,
-                  color: focusNode.hasFocus
-                      ? NanoNavTokens.cyan
-                      : muted,
-                  size: compact ? 19 : 21,
-                  strokeWidth: 1.9,
-                ),
-                SizedBox(width: compact ? 7 : 9),
+                SizedBox(width: compact ? 10 : 12),
+
+                // Campo de texto universal (multilínea que crece)
                 Expanded(
                   child: TextField(
                     controller: controller,
                     focusNode: focusNode,
                     onSubmitted: onSubmitted,
-                    textInputAction: TextInputAction.search,
+                    textInputAction: TextInputAction.send,
+                    minLines: 1,
+                    maxLines: compact ? 3 : 5,
                     style: TextStyle(
                       color: text,
                       fontSize: compact ? 12.8 : 13.8,
@@ -357,7 +455,20 @@ class _SearchRow extends StatelessWidget {
                   ),
                 ),
 
-                // Botón limpiar cuando hay texto escrito
+                // Botón de adjuntar archivo si la pantalla lo soporta
+                if (onAttach != null)
+                  IconButton(
+                    icon: Icon(
+                      Icons.attach_file_rounded,
+                      size: compact ? 18 : 20,
+                      color: muted,
+                    ),
+                    onPressed: onAttach,
+                    tooltip: 'Adjuntar archivo',
+                    splashRadius: 18,
+                  ),
+
+                // Botón limpiar cuando hay texto
                 if (hasText)
                   IconButton(
                     icon: Icon(
@@ -370,13 +481,24 @@ class _SearchRow extends StatelessWidget {
                     splashRadius: 18,
                   ),
 
-                // Botón circular de micrófono (Voice Orb integrado)
+                // Botón de detener generación O micrófono de voz
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
-                  child: _VoiceOrbButton(
-                    size: compact ? 34 : 38,
-                    onTap: onVoice,
-                  ),
+                  child: isGenerating
+                      ? _StopButton(
+                          size: compact ? 34 : 38,
+                          onTap: onStop,
+                        )
+                      : hasText
+                          ? _SendActionButton(
+                              size: compact ? 34 : 38,
+                              onTap: () => onSubmitted?.call(controller.text),
+                            )
+                          : _VoiceOrbButton(
+                              size: compact ? 34 : 38,
+                              onTap: onVoice,
+                              listening: listening,
+                            ),
                 ),
               ],
             ),
@@ -387,7 +509,119 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
-/// Avatar circular del búho con aro orbital de neón y punto verde online
+class _SendActionButton extends StatelessWidget {
+  const _SendActionButton({
+    required this.size,
+    required this.onTap,
+  });
+
+  final double size;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Enviar',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onTap?.call();
+          },
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: NanoNavTokens.sendButtonGradient,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: .70),
+                width: .9,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: NanoNavTokens.accentBlue.withValues(alpha: .55),
+                  blurRadius: 14,
+                  spreadRadius: -1,
+                ),
+              ],
+            ),
+            child: Center(
+              child: NanoGlyph(
+                type: NanoGlyphType.arrowForward,
+                color: Colors.white,
+                size: size * .50,
+                strokeWidth: 2.0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StopButton extends StatelessWidget {
+  const _StopButton({
+    required this.size,
+    required this.onTap,
+  });
+
+  final double size;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Detener respuesta',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onTap?.call();
+          },
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: .80),
+                width: .9,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withValues(alpha: .6),
+                  blurRadius: 14,
+                  spreadRadius: -1,
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.stop_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OwlAvatarOrb extends StatelessWidget {
   const _OwlAvatarOrb({
     required this.brightness,
@@ -444,8 +678,6 @@ class _OwlAvatarOrb extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Punto verde esmeralda de estado online
             Positioned(
               right: 1,
               bottom: 1,
@@ -478,21 +710,65 @@ class _OwlAvatarOrb extends StatelessWidget {
   }
 }
 
-/// Botón circular de micrófono (Voice Orb) integrado dentro de la cápsula
-class _VoiceOrbButton extends StatelessWidget {
+class _VoiceOrbButton extends StatefulWidget {
   const _VoiceOrbButton({
     required this.size,
     required this.onTap,
+    required this.listening,
   });
 
   final double size;
   final VoidCallback? onTap;
+  final bool listening;
+
+  @override
+  State<_VoiceOrbButton> createState() => _VoiceOrbButtonState();
+}
+
+class _VoiceOrbButtonState extends State<_VoiceOrbButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+      lowerBound: .92,
+      upperBound: 1.06,
+    );
+    if (widget.listening) _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _VoiceOrbButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.listening && !oldWidget.listening) {
+      _pulse.repeat(reverse: true);
+    } else if (!widget.listening && oldWidget.listening) {
+      _pulse.stop();
+      _pulse.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final size = widget.size;
+    final listening = widget.listening;
+
     return Semantics(
       button: true,
-      label: 'Voz',
+      // NAV-BAR-FIX-05 — el orbe dice la VERDAD: mientras escucha es un
+      // botón de detener (rojo, pulso); en reposo es el micrófono. Antes
+      // el botón siempre parecía "mic disponible" aunque ya grabara.
+      label: listening ? 'Detener dictado' : 'Voz',
       child: Material(
         color: Colors.transparent,
         shape: const CircleBorder(),
@@ -500,42 +776,69 @@ class _VoiceOrbButton extends StatelessWidget {
         child: InkWell(
           onTap: () {
             HapticFeedback.mediumImpact();
-            onTap?.call();
+            widget.onTap?.call();
           },
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                center: Alignment(-.25, -.28),
-                radius: .95,
-                colors: [
-                  Color(0xFF5CE7FF),
-                  Color(0xFF2A7FFF),
-                  Color(0xFF7058FF),
-                  Color(0xFF1B1C65),
-                ],
-                stops: [0.0, .36, .72, 1.0],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: .70),
-                width: .9,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: NanoNavTokens.cyan.withValues(alpha: .45),
-                  blurRadius: 14,
-                  spreadRadius: -1,
-                ),
-              ],
+          child: AnimatedBuilder(
+            animation: _pulse,
+            builder: (context, child) => Transform.scale(
+              scale: listening ? _pulse.value : 1.0,
+              child: child,
             ),
-            child: Center(
-              child: NanoGlyph(
-                type: NanoGlyphType.microphone,
-                color: Colors.white,
-                size: size * .50,
-                strokeWidth: 2.0,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: listening
+                    ? const RadialGradient(
+                        center: Alignment(-.25, -.28),
+                        radius: .95,
+                        colors: [
+                          Color(0xFFFF8A80),
+                          Color(0xFFEF4444),
+                          Color(0xFFDC2626),
+                          Color(0xFF7F1D1D),
+                        ],
+                        stops: [0.0, .36, .72, 1.0],
+                      )
+                    : const RadialGradient(
+                        center: Alignment(-.25, -.28),
+                        radius: .95,
+                        colors: [
+                          Color(0xFF5CE7FF),
+                          Color(0xFF2A7FFF),
+                          Color(0xFF7058FF),
+                          Color(0xFF1B1C65),
+                        ],
+                        stops: [0.0, .36, .72, 1.0],
+                      ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .70),
+                  width: .9,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: listening
+                        ? Colors.red.withValues(alpha: .60)
+                        : NanoNavTokens.cyan.withValues(alpha: .45),
+                    blurRadius: 14,
+                    spreadRadius: -1,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: listening
+                    ? const Icon(
+                        Icons.stop_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      )
+                    : NanoGlyph(
+                        type: NanoGlyphType.microphone,
+                        color: Colors.white,
+                        size: size * .50,
+                        strokeWidth: 2.0,
+                      ),
               ),
             ),
           ),
@@ -545,7 +848,6 @@ class _VoiceOrbButton extends StatelessWidget {
   }
 }
 
-/// Dock de los 6 destinos con indicador de barra horizontal deslizante
 class _DestinationsDock extends StatelessWidget {
   const _DestinationsDock({
     required this.brightness,
@@ -580,8 +882,6 @@ class _DestinationsDock extends StatelessWidget {
               ),
           ],
         ),
-
-        // Barra indicadora horizontal deslizante de neón cian
         Positioned(
           left: 0,
           right: 0,
@@ -701,7 +1001,6 @@ class _DestinationTab extends StatelessWidget {
                   ),
                 ),
               ),
-              // Espacio inferior reservado para la barra indicadora deslizante
               const SizedBox(height: 7),
             ],
           ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
@@ -47,7 +48,9 @@ class _AutomationMessagesBody extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Stack(
+        // NAV-BAR-FIX-03 — barra global también en Mensajes.
+        body: NanoShellBarScope(
+          child: Stack(
           fit: StackFit.expand,
           children: [
             // UI-REV-03: fondo compartido del módulo.
@@ -81,6 +84,7 @@ class _AutomationMessagesBody extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
