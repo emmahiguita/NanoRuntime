@@ -26,6 +26,7 @@ import 'package:nanoai/features/automation/engine/perception/surface_resolvers.d
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
+import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
@@ -444,13 +445,22 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
   );
 });
 
+/// WA-TURN-01 — puerta de ráfagas por conversación (una por engine): agrupa
+/// mensajes de la misma conversación en un único turno y serializa los
+/// turnos por chat. La usa el router de eventos vivos Y el drenado headless.
+final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
+  return BurstTurnGate();
+});
+
 /// Router de eventos en vivo de notificación (T3.2): EventChannel nativo →
-/// RulePipeline. Arranca al leerse por primera vez (escucha de por vida).
+/// BurstTurnGate (agregación por conversación) → RulePipeline. Arranca al
+/// leerse por primera vez (escucha de por vida).
 final notificationEventRouterProvider = Provider<NotificationEventRouter>((
   ref,
 ) {
   final router = NotificationEventRouter(
     pipeline: ref.watch(rulePipelineProvider),
+    gate: ref.watch(burstTurnGateProvider),
   )..start();
   ref.onDispose(router.stop);
   return router;

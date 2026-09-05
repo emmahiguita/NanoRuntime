@@ -107,6 +107,20 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Cambiar un control → aplica desde el siguiente mensaje sin reiniciar.
 - Persistencia: cerrar y reabrir Ajustes conserva el perfil.
 
+## WA-TURN-01 — ráfagas por conversación (actor por chat)
+
+- Mandar 3 mensajes seguidos ("hola" / "¿tienes el negro?" / "¿cuánto vale?")
+  en <3s: UNA sola respuesta que contesta todo (logcat `[turn] agregados=3`),
+  no tres respuestas fragmentadas.
+- Mandar 2 mensajes con más de 3s de separación: dos turnos normales.
+- Ráfaga mientras Nano genera (LLM ocupado): el mensaje nuevo NO se pierde —
+  al terminar el turno en curso responde el siguiente (serialización; traza
+  `[turn]` doble). Un solo envío por turno, jamás dos pipeline concurrentes
+  del mismo chat.
+- Enviar mensaje y verificar dedupe/cooldown siguen bloqueando ecos ("Tú:").
+- Kill a mitad de ráfaga: solo se pierde la ventana de asentamiento en RAM;
+  los eventos persistidos retoman su camino (sin doble envío).
+
 ## FIX-VISUAL-01 — diseño estable al escribir (doble encogido)
 
 - Mensajes y Dev (automatización): abrir el teclado NO aplasta ni solapa

@@ -10,12 +10,17 @@ import 'package:flutter/foundation.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 import '../notifications/notification_object.dart';
+import 'burst_turn_gate.dart';
 import 'rule_pipeline.dart';
 
 class NotificationEventRouter {
-  NotificationEventRouter({required this.pipeline});
+  NotificationEventRouter({required this.pipeline, this.gate});
 
   final RulePipeline pipeline;
+
+  /// WA-TURN-01 — puerta de ráfagas por conversación (null = ruta directa
+  /// legacy para pruebas).
+  final BurstTurnGate? gate;
   StreamSubscription<Map<dynamic, dynamic>>? _sub;
 
   void start() {
@@ -39,6 +44,13 @@ class NotificationEventRouter {
       '[notify-event] ${notif.packageName} key=${notif.key} '
       'sender=${notif.sender} msg="${notif.interpretableText}"',
     );
+    final g = gate;
+    if (g != null) {
+      // WA-TURN-01: los mensajes de una ráfaga de la misma conversación se
+      // agregan en un único turno del pipeline.
+      unawaited(g.submit(notif, (aggregated) => pipeline.onNotification(aggregated)));
+      return;
+    }
     unawaited(pipeline.onNotification(notif));
   }
 

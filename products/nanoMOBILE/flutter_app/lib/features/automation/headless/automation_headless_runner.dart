@@ -53,9 +53,11 @@ Future<void> runAutomationHeadless() async {
     container.read(timeTickSchedulerProvider);
 
     final pipeline = container.read(rulePipelineProvider);
+    final gate = container.read(burstTurnGateProvider);
 
     // Drenado: claim (Kotlin reserva + rehidrata desde notificaciones
-    // ACTIVAS; contenido jamás persistido) → pipeline → complete. Dos pasadas
+    // ACTIVAS; contenido jamás persistido) → BurstTurnGate (ráfagas por
+    // conversación → UN turno agregado) → pipeline → complete. Dos pasadas
     // vacías con asentamiento = idle → finish (el service para y libera).
     var emptyPasses = 0;
     while (emptyPasses < 2) {
@@ -68,18 +70,26 @@ Future<void> runAutomationHeadless() async {
         continue;
       }
       emptyPasses = 0;
-      for (final row in rows) {
-        final payload = row['notification'];
-        if (payload is Map) {
-          try {
-            final notif = NotificationObject.fromMap(payload);
-            await pipeline.onNotification(notif);
-          } on Object catch (error) {
-            // Un evento fallido jamás tumba el drenado; el pipeline ya
-            // registró el estado honesto del intento.
-            debugPrint('[headless] evento fallido: $error');
-          }
+      final notifications = [
+        for (final row in rows)
+          if (row['notification'] is Map)
+            NotificationObject.fromMap(row['notification'] as Map),
+      ];
+      if (notifications.isNotEmpty) {
+        try {
+          // submitAll agrega los eventos de la misma conversación de la
+          // tanda y resuelve por evento cuando su turno terminó.
+          await gate.submitAll(
+            notifications,
+            (aggregated) => pipeline.onNotification(aggregated),
+          );
+        } on Object catch (error) {
+          // Un evento fallido jamás tumba el drenado; el pipeline ya
+          // registró el estado honesto del intento.
+          debugPrint('[headless] tanda fallida: $error');
         }
+      }
+      for (final row in rows) {
         final eventId = row['eventId'];
         if (eventId is String && eventId.isNotEmpty) {
           try {
