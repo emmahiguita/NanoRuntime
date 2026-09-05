@@ -333,9 +333,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         child: _messageList(
                           state,
                           notifier,
-                          // NAV-BAR-FIX-05 — la barra flota encima (overlay);
-                          // la lista reserva su propia franja inferior.
-                          bottomPadding: 170 + mediaQuery.padding.bottom,
+                          // NAV-BAR-FIX-06 — el frame reserva la altura de la
+                          // barra; la lista solo deja su respiro normal.
+                          bottomPadding: 24 + mediaQuery.padding.bottom,
                           emptyBottomPadding: 24,
                           sidePadding: isCompactLandscape ? 10.0 : 18.0,
                         ),

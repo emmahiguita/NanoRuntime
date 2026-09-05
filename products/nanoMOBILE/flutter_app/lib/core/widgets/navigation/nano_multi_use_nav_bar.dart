@@ -237,11 +237,14 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                             ],
                           ),
                     border: Border.all(
+                      // NAV-BAR-FIX-06 — en claro el borde blanco sobre
+                      // superficie blanca era invisible: hairline azul
+                      // eléctrico, borde iOS definido sin dureza.
                       color: _focused
                           ? NanoNavTokens.cyan.withValues(alpha: .95)
                           : (isDark
                               ? NanoNavTokens.electricBlue.withValues(alpha: .68)
-                              : Colors.white.withValues(alpha: .90)),
+                              : NanoNavTokens.electricBlue.withValues(alpha: .38)),
                       width: _focused ? 1.3 : 1.1,
                     ),
                   ),

@@ -115,16 +115,19 @@ abstract class NanoColors {
 }
 
 class NanoDarkColors implements NanoColors {
+  // NAV-BAR-FIX-06 — identidad azul de la barra (NanoNavTokens: cyan
+  // 5CE7FF, electricBlue 42B7FF, accentBlue 2A7FFF, violet 755DFF) en la
+  // familia "Oscuro" también: los tres modos comparten el azul clásico.
   @override
-  final primary = const Color(0xFF00E676); // Verde brillante para alto contraste
+  final primary = const Color(0xFF5CE7FF); // Cyan barra — alto contraste
   @override
-  final primaryContainer = const Color(0xFF1A4D2E); // Más visible
+  final primaryContainer = const Color(0xFF0A2547); // Navy profundo
   @override
-  final onPrimaryContainer = const Color(0xFFB9F6CA);
+  final onPrimaryContainer = const Color(0xFFDFF0FF);
   @override
-  final secondary = const Color(0xFF38BDF8); // Azul cielo
+  final secondary = const Color(0xFF42B7FF); // Electric blue barra
   @override
-  final secondaryContainer = const Color(0xFF1E3A5F); // Más visible
+  final secondaryContainer = const Color(0xFF0B1E3A); // Más visible
   @override
   final surface = const Color(0xFF0F172A); // Slate 900
   @override
@@ -150,9 +153,9 @@ class NanoDarkColors implements NanoColors {
   @override
   final tertiary = const Color(0xFFA855F7); // Púrpura terciario
   @override
-  final accent = const Color(0xFF42F5E3); // Cyan marca Nano
+  final accent = const Color(0xFF5CE7FF); // Cyan marca Nano (barra)
   @override
-  final onAccent = const Color(0xFF062A3A); // Navy profundo sobre cyan
+  final onAccent = const Color(0xFF030B20); // Navy profundo sobre cyan
   @override
   final danger = const Color(0xFFFF5C6C); // Rojo coral vivo
   @override
@@ -223,13 +226,13 @@ class NanoDarkColors implements NanoColors {
   final coldReflect5 = const Color(0xFF8073FF);
 
   @override
-  final nanoCyan = const Color(0xFF42F5E3);
+  final nanoCyan = const Color(0xFF5CE7FF);
   @override
-  final nanoTurquoise = const Color(0xFF28D7CF);
+  final nanoTurquoise = const Color(0xFF42B7FF);
   @override
-  final nanoBlue = const Color(0xFF4A8FFF);
+  final nanoBlue = const Color(0xFF2A7FFF);
   @override
-  final nanoViolet = const Color(0xFF7168FF);
+  final nanoViolet = const Color(0xFF755DFF);
 
   // --- New Semantic Dark Palette Tokens ---
   @override
@@ -275,15 +278,15 @@ class NanoDarkColors implements NanoColors {
   final textDisabled = const Color(0xFF526071);
 
   @override
-  final accentCyan = const Color(0xFF42F5E3);
+  final accentCyan = const Color(0xFF5CE7FF);
   @override
-  final accentMint = const Color(0xFF35E1C3);
+  final accentMint = const Color(0xFF42B7FF);
   @override
-  final accentSky = const Color(0xFF59C8FF);
+  final accentSky = const Color(0xFF89B7FF);
   @override
-  final accentBlue = const Color(0xFF638DFF);
+  final accentBlue = const Color(0xFF2A7FFF);
   @override
-  final accentLavender = const Color(0xFF9184FF);
+  final accentLavender = const Color(0xFF755DFF);
 
   @override
   final iceReflection = const Color(0xFFA9E7FF);
@@ -301,7 +304,7 @@ class NanoDarkColors implements NanoColors {
   @override
   final borderSecondaryColor = const Color(0x2E97A1BF); // rgba(151,170,191,0.18)
   @override
-  final borderAccentColor = const Color(0x4042F5E3); // rgba(66,245,227,0.25)
+  final borderAccentColor = const Color(0x665CE7FF); // rgba(92,231,255,0.40)
 
   @override
   bool get isClassicOrange => false;
@@ -583,11 +586,11 @@ class NanoSystemDarkColors extends NanoDarkColors {
   Color get borderAccentColor => const Color(0x665CE7FF);
 }
 
-/// NAV-BAR-FIX-05 — identidad "Clásico": el modo Claro de la app adopta el
+/// NAV-BAR-FIX-05/06 — identidad "Clásico": el modo Claro de la app adopta el
 /// fondo profundo con aurora de la barra de navegación (azul cósmico).
 /// Mismo lenguaje que la barra: cyan 5CE7FF, electricBlue 42B7FF y
 /// accentBlue 2A7FFF sobre la familia oscura, con textos claros y vidrio.
-/// El modo Oscuro explícito conserva la gama menta/cyan original.
+/// Los tres modos (Claro/Oscuro/Sistema) comparten la gama azul.
 class NanoClassicDarkColors extends NanoDarkColors {
   @override
   bool get isClassicOrange => true;

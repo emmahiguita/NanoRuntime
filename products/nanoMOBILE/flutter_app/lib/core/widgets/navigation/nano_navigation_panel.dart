@@ -156,12 +156,17 @@ class _NanoFloatingNavigationFrameState
         return Stack(
           fit: StackFit.expand,
           children: [
-            // NAV-BAR-FIX-05 — la barra flota ENCIMA del contenido (overlay
-            // iOS real): no empuja el layout. Antes reservaba su altura con
-            // AnimatedPadding y el contenido "saltaba" al crecer el campo
-            // multilínea; ahora el diseño fluye debajo del vidrio y las
-            // pantallas que lo necesitan reservan su propia zona inferior.
-            RepaintBoundary(child: widget.child),
+            // NAV-BAR-FIX-06 — flotante visual + reserva real: la barra
+            // conserva su look de vidrio flotante pero el contenido ADAPTA
+            // su altura (AnimatedPadding con la altura medida de la barra),
+            // nunca queda un componente debajo del otro. Si la card crece
+            // con el campo multilínea, el contenido se empuja suavemente.
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.only(bottom: _dockHeight + 10),
+              child: RepaintBoundary(child: widget.child),
+            ),
             AnimatedPositioned(
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,

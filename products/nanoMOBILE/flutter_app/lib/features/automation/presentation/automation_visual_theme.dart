@@ -42,11 +42,11 @@ abstract final class AutomationVisual {
     // no al setting ni al brightness. Con "Claro" la app instala la familia
     // oscura de Dev (NanoClassicDarkColors): automation pinta vidrio
     // oscuro con acento azul barra — nunca vidrio claro sobre fondo oscuro.
-    // "Oscuro" (familia oscura menta) conserva el acento menta del shell
-    // nocturno; "Sistema"-claro conserva la familia clara.
+    // "Oscuro" (familia oscura azul barra, NAV-BAR-FIX-06) conserva el acento
+    // del shell nocturno; "Sistema"-claro conserva la familia clara.
     final isDark = inheritedColors is NanoDarkColors;
-    // Solo el modo Oscuro explícito adopta el acento menta del shell
-    // nocturno; el resto conserva el azul de la barra de navegación.
+    // El modo Oscuro explícito adopta el accentMint de la familia (hoy azul
+    // eléctrico de la barra); el resto conserva el accentBlue de la barra.
     final usesDarkAccent = mode == AutomationVisualMode.dark;
     final colors = inheritedColors;
     return AutomationVisualPalette(
