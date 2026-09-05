@@ -107,6 +107,14 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Cambiar un control → aplica desde el siguiente mensaje sin reiniciar.
 - Persistencia: cerrar y reabrir Ajustes conserva el perfil.
 
+## FIX-VISUAL-01 — diseño estable al escribir (doble encogido)
+
+- Mensajes y Dev (automatización): abrir el teclado NO aplasta ni solapa
+  contenido — el diseño queda igual, la barra flota sobre el teclado.
+- Dashboard Automatización: con teclado abierto el contenido no cambia de
+  proporciones (scroll normal).
+- Chat: regresión visual cero (mismo patrón ya documentado).
+
 ## WA-PROD-02 — estado durable
 
 - Forzar cierre (kill) justo tras recibir mensaje → al reabrir Nano la

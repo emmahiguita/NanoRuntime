@@ -49,6 +49,9 @@ class _AutomationDevBody extends StatelessWidget {
           child: NanoScreenShell(
             title: 'Dev',
             showBack: true,
+            // DOUBLE-INSET-FIX — el Scaffold exterior (barra universal) ya se
+            // encoge con el teclado; doble encogido aplastaba el contenido.
+            resizeToAvoidBottomInset: false,
             body: SingleChildScrollView(
               keyboardDismissBehavior:
                   ScrollViewKeyboardDismissBehavior.onDrag,

@@ -54,6 +54,11 @@ class _AutomationMessagesBody extends StatelessWidget {
             child: NanoScreenShell(
               title: 'Mensajes y notificaciones',
               showBack: true,
+              // DOUBLE-INSET-FIX — el Scaffold exterior (donde vive la barra
+              // universal) ya se encoge con el teclado; encoger también este
+              // shell interior aplastaba el contenido y solapaba componentes
+              // (mismo patrón documentado en Chat).
+              resizeToAvoidBottomInset: false,
               body: SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
