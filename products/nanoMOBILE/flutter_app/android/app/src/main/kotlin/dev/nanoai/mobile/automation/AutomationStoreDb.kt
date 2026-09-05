@@ -152,7 +152,7 @@ class AutomationStoreDb(context: Context) {
         )
 
         /** Kinds de bitácora aceptados (espejo Dart, whitelist explícita). */
-        private val VALID_EVENT_KINDS = setOf("received", "terminal")
+        private val VALID_EVENT_KINDS = setOf("received", "terminal", "echo")
         private const val MAX_EVENT_DETAIL = 400
     }
 }

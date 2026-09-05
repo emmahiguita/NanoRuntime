@@ -67,6 +67,11 @@ class RulePipeline {
   /// que entra al pipeline (rutas sin gate; el gate ya lo hace en su push).
   final TurnSupersedeGuard? _supersedeGuard;
 
+  /// WA-ECHO-01 — ventana en la que un eco "Tú:" se considera de NUESTRO
+  /// envío reciente (3 min: WhatsApp publica el eco segundos después; un
+  /// texto idéntico legítimo del cliente mucho más tarde no debe confundirse).
+  static const _echoWindowMs = 180000;
+
   Future<void> _waitReady() async {
     final ready = _readiness;
     if (ready != null) {
@@ -127,8 +132,46 @@ class RulePipeline {
       case DedupeVerdict.proceed:
         break;
       case DedupeVerdict.duplicate:
-      case DedupeVerdict.bounceback:
       case DedupeVerdict.cooldown:
+        return const [];
+
+      case DedupeVerdict.bounceback:
+        // WA-ECHO-01 — el eco "Tú: <texto>" de la app origen es evidencia
+        // LOCAL de que el envío aterrizó en el hilo de la conversación
+        // (NO demuestra entrega al destinatario). Si el texto coincide con
+        // nuestro último outbound reciente, queda registrado en la bitácora.
+        try {
+          // memoryFor jamás devuelve lista vacía: entries.last es seguro
+          // cuando la memoria existe.
+          final memory = _memory.memoryFor(conversationId);
+          final candidate = memory == null
+              ? null
+              : memory.entries.lastWhere(
+                  (e) =>
+                      e.kind ==
+                          ConversationMemoryEntryKind.outboundDispatched ||
+                      e.kind == ConversationMemoryEntryKind.outboundVerified ||
+                      e.kind == ConversationMemoryEntryKind.effectUnknown,
+                  orElse: () => memory.entries.last,
+                );
+          final isRecentEcho =
+              candidate != null &&
+              candidate.atMs > 0 &&
+              nowMs - candidate.atMs < _echoWindowMs &&
+              normalizeDedupeText(candidate.text) ==
+                  normalizeDedupeText(message.text);
+          if (isRecentEcho) {
+            unawaited(
+              AutomationDbStoreClient.instance.appendPipelineEvent(
+                conversationId: conversationId,
+                kind: 'echo',
+                detail: 'eco local observado del envío reciente',
+              ),
+            );
+          }
+        } on Object {
+          // El eco se ignora igual; la bitácora es best-effort.
+        }
         return const [];
     }
 

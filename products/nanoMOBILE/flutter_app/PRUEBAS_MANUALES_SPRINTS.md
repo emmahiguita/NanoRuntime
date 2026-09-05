@@ -168,6 +168,15 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
 - Kill a mitad de pipeline: la fila `received` queda sin su `terminal`
   (evidencia honesta del corte) — el próximo wake no la reescribe.
 
+## WA-ECHO-01 — evidencia local de envío (eco "Tú:")
+
+- Responder a un mensaje con regla reply → WhatsApp publica el eco
+  "Tú: <respuesta>" → la bitácora registra `echo` (eco local observado del
+  envío reciente). Esto NO demuestra entrega: solo que el envío aterrizó en
+  el hilo local (honestidad intacta: nada se marca como "entregado").
+- Un texto idéntico llegado del cliente pasados los 3 min NO se confunde con
+  eco (ventana).
+
 ## WA-PROD-02 — estado durable
 
 - Forzar cierre (kill) justo tras recibir mensaje → al reabrir Nano la
