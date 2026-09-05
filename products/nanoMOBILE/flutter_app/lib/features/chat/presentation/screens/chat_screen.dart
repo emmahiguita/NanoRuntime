@@ -186,7 +186,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// heurística binaria: si no es texto imprimible no se inventa contenido.
   Future<void> _attachTextDocument(
     NanoAttachResult picked,
-    dynamic notifier,
+    ChatNotifier notifier,
   ) async {
     try {
       final selected = File(picked.path);
@@ -441,11 +441,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  /// UI-REV-16 — chat horizontal limpio: los mensajes dominan TODO el ancho
-  /// (cero panel lateral, cero huecos muertos) y la barra de escritura es
-  /// una card flotante compacta de vidrio en la base derecha, minimizable
-  /// (burbuja) u ocultable (chip "Escribir") desde el menú ⋮. La lista
-  /// reserva la franja que la barra ocupa: nada se solapa.
+  /// UI-REV-16 — chat horizontal: la lista de mensajes domina TODO el ancho
+  /// (sin panel lateral de escritura; la barra universal del shell sigue
+  /// siendo el punto de escritura) y las acciones del chat flotan en vidrio
+  /// arriba a la derecha. Los adjuntos pendientes se muestran en una franja
+  /// inferior. Nada se solapa: la lista reserva sus despejes.
   Widget _buildLandscapeChat(
     ChatState state,
     ChatNotifier notifier,

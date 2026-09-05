@@ -64,23 +64,29 @@ class ScaffoldShell extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Positioned.fill(
-              child: useLiquid
-                  ? const LiquidFluidBackground()
-                  : const NanoAmbientBackground(),
-            ),
-            SafeArea(
-              child: NanoFloatingNavigationFrame(
-                tabs: nanoShellTabs,
-                selectedIndex: currentIndex,
-                onDestinationSelected: (index) {
-                  if (index == _automationShortcutIndex) {
-                    context.push('/automation');
-                    return;
-                  }
-                  shell.goBranch(index, initialLocation: index == currentIndex);
-                },
-                child: boundedContent,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                child: useLiquid
+                    ? const LiquidFluidBackground(
+                        key: ValueKey('liquid_fluid_bg'),
+                      )
+                    : const NanoAmbientBackground(
+                        key: ValueKey('ambient_bg'),
+                      ),
               ),
+            ),
+            // NAV-UI-AUDIT-01 — el SafeArea vive DENTRO del frame (fuente
+            // única para shell y pantallas empujadas).
+            NanoFloatingNavigationFrame(
+              selectedIndex: currentIndex,
+              onDestinationSelected: (index) {
+                if (index == _automationShortcutIndex) {
+                  context.push('/automation');
+                  return;
+                }
+                shell.goBranch(index, initialLocation: index == currentIndex);
+              },
+              child: boundedContent,
             ),
           ],
         ),

@@ -125,7 +125,15 @@ class NanoUniversalInputNotifier extends StateNotifier<NanoUniversalInputConfig>
 
   void setConfig(NanoUniversalInputConfig config, {String? scopeId}) {
     if (scopeId != null) {
-      if (_byScope[scopeId] == config && state == config) return;
+      final prev = _byScope[scopeId];
+      if (prev != null && _sameData(prev, config)) {
+        // NAV-UI-AUDIT-01 — mismos DATOS: solo refrescar las closures en el
+        // slot (apuntan a notifiers estables) SIN notificar. Antes cada
+        // rebuild del chat reaplicaba la config y reconstruía la barra
+        // entera por cada token de streaming.
+        _byScope[scopeId] = config;
+        return;
+      }
       _byScope[scopeId] = config;
     } else {
       // Equality early-return: los scopes reaplican su config en cada
@@ -135,6 +143,19 @@ class NanoUniversalInputNotifier extends StateNotifier<NanoUniversalInputConfig>
     }
     state = config;
   }
+
+  /// Compara SOLO los campos de datos (nunca closures): dos configs del
+  /// mismo scope con los mismos datos no requieren notificación.
+  static bool _sameData(
+    NanoUniversalInputConfig a,
+    NanoUniversalInputConfig b,
+  ) =>
+      a.hint == b.hint &&
+      a.initialText == b.initialText &&
+      a.isGenerating == b.isGenerating &&
+      a.isListening == b.isListening &&
+      a.clearOnSubmit == b.clearOnSubmit &&
+      a.keepFocusOnSubmit == b.keepFocusOnSubmit;
 
   /// Olvida el slot del ámbito desmontado (ya no informa a la barra).
   void removeScope(String scopeId) {
@@ -209,18 +230,15 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
   NanoUniversalInputConfig? _applied;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _applyConfig());
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Reaplica la config cuando la ruta vuelve a ser la visible (pop de una
     // pantalla empujada encima). ModalRoute.of registra la dependencia de
     // `isCurrent`; sin esto la barra conservaba la config de la pantalla
     // que se cerró hasta el siguiente rebuild casual de esta pantalla.
+    // NAV-UI-AUDIT-01 — este método corre SIEMPRE tras initState antes del
+    // primer build: es la ÚNICA aplicación inicial (antes initState también
+    // programaba un postFrame y la config se aplicaba dos veces).
     final route = ModalRoute.of(context);
     if (route != null && route.isCurrent) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _applyConfig());
@@ -230,15 +248,16 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
   @override
   void didUpdateWidget(covariant NanoInputScope oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // NAV-UI-AUDIT-01 — comparar SOLO los campos de datos. Las closures se
+    // recrean en cada build del chat (apuntan al mismo notifier estable);
+    // compararlas por identidad disparaba _applyConfig → setConfig →
+    // notificación → reconstrucción de la barra entera por cada token de
+    // streaming. Las closures frescas se recogen en _applyConfig cuando
+    // algún dato SÍ cambia.
     if (oldWidget.hint != widget.hint ||
         oldWidget.initialText != widget.initialText ||
-        oldWidget.onSubmit != widget.onSubmit ||
-        oldWidget.onChanged != widget.onChanged ||
-        oldWidget.onVoice != widget.onVoice ||
-        oldWidget.onAttach != widget.onAttach ||
         oldWidget.isGenerating != widget.isGenerating ||
         oldWidget.isListening != widget.isListening ||
-        oldWidget.onStop != widget.onStop ||
         oldWidget.clearOnSubmit != widget.clearOnSubmit ||
         oldWidget.keepFocusOnSubmit != widget.keepFocusOnSubmit) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _applyConfig());
@@ -272,24 +291,19 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
     // Al desmontarse la pantalla que tomó control, se restablece limpiamente
     // SOLO si la config activa sigue siendo la que este scope aplicó. Si otra
     // pantalla la pisó después (ruta empujada encima), no la tocamos.
-    // Usamos Future.microtask para no mutar el notifier durante el dispose
-    // del árbol.
+    // NAV-UI-AUDIT-01 — directo en dispose (ref.read es válido aquí): el
+    // microtask + catch anteriores podían dejar el slot sin liberar sin
+    // rastro si el contenedor ya había muerto.
     final applied = _applied;
     final scopeId = widget.scopeId;
-    Future.microtask(() {
-      try {
-        final notifier = ref.read(nanoUniversalInputProvider.notifier);
-        if (scopeId != null) {
-          // Los scopes con id liberan solo su slot: el frame deriva la
-          // config del destino activo y no hay nada global que resetear.
-          notifier.removeScope(scopeId);
-        } else if (applied == null || notifier.isActive(applied)) {
-          notifier.reset();
-        }
-      } catch (_) {
-        // En caso de cierre de contexto completo
-      }
-    });
+    final notifier = ref.read(nanoUniversalInputProvider.notifier);
+    if (scopeId != null) {
+      // Los scopes con id liberan solo su slot: el frame deriva la
+      // config del destino activo y no hay nada global que resetear.
+      notifier.removeScope(scopeId);
+    } else if (applied == null || notifier.isActive(applied)) {
+      notifier.reset();
+    }
     super.dispose();
   }
 

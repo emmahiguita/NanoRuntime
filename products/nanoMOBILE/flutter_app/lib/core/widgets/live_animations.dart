@@ -32,23 +32,30 @@ class AnimatedMessageEntry extends StatelessWidget {
 
     if (reduceMotion) return child;
 
-    return TweenAnimationBuilder<double>(
-      key: key,
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        final horizontalDirection = isUser ? 12.0 : -12.0;
+    // NAV-UI-AUDIT-01 — RepaintBoundary: la animación de entrada repinta
+    // solo esta capa; los tokens de streaming de la lista no la arrastran.
+    return RepaintBoundary(
+      child: TweenAnimationBuilder<double>(
+        key: key,
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) {
+          final horizontalDirection = isUser ? 12.0 : -12.0;
 
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(horizontalDirection * (1 - value), 6 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: child,
+          return Opacity(
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(
+                horizontalDirection * (1 - value),
+                6 * (1 - value),
+              ),
+              child: child,
+            ),
+          );
+        },
+        child: child,
+      ),
     );
   }
 }

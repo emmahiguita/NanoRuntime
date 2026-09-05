@@ -66,19 +66,27 @@ class NanoNavTokens {
     stops: [0.0, 0.55, 1.0],
   );
 
-  // Gradiente exterior de la carcasa (shell) en modo oscuro
+  // Gradiente exterior de la carcasa (shell) en modo oscuro - Glass Cósmico iOS
   static const shellGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xF21D2D68), Color(0xEC0D1F49), Color(0xF0050E24)],
+    colors: [
+      Color(0xA5183868), // azul zafiro translúcido
+      Color(0x95122850), // azul profundo translúcido
+      Color(0x850C1D3E), // azul noche translúcido
+    ],
     stops: [0.0, 0.50, 1.0],
   );
 
-  // Gradiente exterior de la carcasa en modo claro
+  // Gradiente exterior de la carcasa en modo claro - Glass iOS Blanco Puro
   static const shellGradientLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xF5FFFFFF), Color(0xEAF2F7FF), Color(0xDDE4EEFF)],
+    colors: [
+      Color(0xCCFFFFFF),
+      Color(0xB5F4F8FF),
+      Color(0x9EE8F0FF),
+    ],
     stops: [0.0, 0.55, 1.0],
   );
 

@@ -43,6 +43,8 @@ class SettingsRepository {
         automationModelId: m['automationModelId'] as String? ?? '',
         automationModelPath: m['automationModelPath'] as String? ?? '',
         voiceEnabled: m['voiceEnabled'] as bool? ?? true,
+        waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
+        waStyleText: m['waStyleText'] as String? ?? '',
       );
     } catch (_) {
       return const SettingsState();
@@ -65,6 +67,8 @@ class SettingsRepository {
         'automationModelId': s.automationModelId,
         'automationModelPath': s.automationModelPath,
         'voiceEnabled': s.voiceEnabled,
+        'waStyleEnabled': s.waStyleEnabled,
+        'waStyleText': s.waStyleText,
       }),
     );
   }
@@ -92,6 +96,12 @@ class SettingsState {
   /// V1 — voz (TTS) activada. Cuando false, speakLastResponse() es no-op.
   final bool voiceEnabled;
 
+  /// WA-PERSONA-01 — agente WhatsApp "conteste como yo". Cuando true, los
+  /// prompts de respuesta (reglas y sugerencias manuales) reciben el bloque
+  /// MI ESTILO con [waStyleText]. Off = comportamiento idéntico al anterior.
+  final bool waStyleEnabled;
+  final String waStyleText;
+
   const SettingsState({
     this.themeMode = 'Sistema',
     this.temperature = 0.7,
@@ -104,6 +114,8 @@ class SettingsState {
     this.automationModelId = '',
     this.automationModelPath = '',
     this.voiceEnabled = true,
+    this.waStyleEnabled = false,
+    this.waStyleText = '',
   });
 
   SettingsState copyWith({
@@ -118,6 +130,8 @@ class SettingsState {
     String? automationModelId,
     String? automationModelPath,
     bool? voiceEnabled,
+    bool? waStyleEnabled,
+    String? waStyleText,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -130,6 +144,8 @@ class SettingsState {
     automationModelId: automationModelId ?? this.automationModelId,
     automationModelPath: automationModelPath ?? this.automationModelPath,
     voiceEnabled: voiceEnabled ?? this.voiceEnabled,
+    waStyleEnabled: waStyleEnabled ?? this.waStyleEnabled,
+    waStyleText: waStyleText ?? this.waStyleText,
   );
 }
 
@@ -178,6 +194,14 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setAutomationModel(String id, String path) => _persist(
     state.copyWith(automationModelId: id, automationModelPath: path),
   );
+
+  /// WA-PERSONA-01 — toggle del estilo del agente WhatsApp. Persist inmediata
+  /// (mismo patrón que el resto de setters); las closures de los writers leen
+  /// el estado en vivo al redactar, sin watch.
+  void setWaStyleEnabled(bool v) =>
+      _persist(state.copyWith(waStyleEnabled: v));
+
+  void setWaStyleText(String v) => _persist(state.copyWith(waStyleText: v));
 
   /// Gate global de salida TTS. El estado cambia antes de cualquier await para
   /// que ninguna nueva respuesta pueda empezar a hablar; al apagar también

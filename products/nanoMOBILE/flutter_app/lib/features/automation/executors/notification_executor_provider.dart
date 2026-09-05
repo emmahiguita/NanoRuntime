@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
+import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/nano_runtime_api_provider.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 
@@ -18,5 +19,9 @@ final notificationExecutorProvider = Provider<NotificationExecutor>((ref) {
     ensureReady: (_) => notifier.ensureReady(
       modelPath: ref.read(chatProvider).activeModelPath,
     ),
+    // WA-PERSONA-01 — estilo del dueño leído EN VIVO al redactar (closures,
+    // no watch: el executor es estable y el estilo cambia en cada llamada).
+    styleEnabled: () => ref.read(settingsProvider).waStyleEnabled,
+    styleText: () => ref.read(settingsProvider).waStyleText,
   );
 });

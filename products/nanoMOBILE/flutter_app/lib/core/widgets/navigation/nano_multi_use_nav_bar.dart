@@ -26,7 +26,6 @@ class NanoMultiUseNavBar extends StatefulWidget {
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.brightness,
     this.compact = false,
-    this.showFeather = true,
   });
 
   final NanoDestination selected;
@@ -38,7 +37,6 @@ class NanoMultiUseNavBar extends StatefulWidget {
   final String searchHint;
   final Brightness? brightness;
   final bool compact;
-  final bool showFeather;
 
   @override
   State<NanoMultiUseNavBar> createState() => _NanoMultiUseNavBarState();
@@ -109,7 +107,12 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       } else {
         NanoSearchDispatcher.dispatch(context, query);
       }
-      if (config?.clearOnSubmit ?? true) {
+      // NAV-UI-AUDIT-01 — limpiar SOLO si el envío es aceptable: con la
+      // generación en curso el notifier descarta el texto (chat_provider
+      // send) y antes el campo se limpiaba igual — mensaje perdido en
+      // silencio. Ahora el texto queda visible y se reenvía tras stop.
+      if ((config?.clearOnSubmit ?? true) &&
+          !(config?.isGenerating ?? false)) {
         _controller.clear();
         setState(() => _hasText = false);
       }
@@ -190,78 +193,53 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
               borderRadius: BorderRadius.circular(radius),
               boxShadow: [
                 BoxShadow(
-                  color: NanoNavTokens.cyan.withValues(alpha: isDark ? .28 : .14),
-                  blurRadius: _focused ? 32 : 22,
-                  spreadRadius: _focused ? 1.5 : -1,
+                  color: NanoNavTokens.cyan.withValues(alpha: isDark ? .24 : .12),
+                  blurRadius: _focused ? 30 : 20,
+                  spreadRadius: _focused ? 1.0 : -2,
                   offset: const Offset(0, 4),
                 ),
                 BoxShadow(
-                  color: NanoNavTokens.accentBlue.withValues(alpha: isDark ? .32 : .12),
-                  blurRadius: 36,
-                  offset: const Offset(0, 12),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? .48 : .10),
-                  blurRadius: 30,
-                  offset: const Offset(0, 16),
+                  color: NanoNavTokens.accentBlue.withValues(alpha: isDark ? .26 : .10),
+                  blurRadius: 32,
+                  spreadRadius: -4,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(radius),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
                     gradient: isDark
-                        ? const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xF00A1838),
-                              Color(0xEB07122C),
-                              Color(0xF203091B),
-                            ],
-                            stops: [0.0, 0.48, 1.0],
-                          )
-                        : const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xF5FFFFFF),
-                              Color(0xECF0F6FF),
-                              Color(0xDFE3EEFF),
-                            ],
-                          ),
+                        ? NanoNavTokens.shellGradientDark
+                        : NanoNavTokens.shellGradientLight,
                     border: Border.all(
-                      // NAV-BAR-FIX-06 — en claro el borde blanco sobre
-                      // superficie blanca era invisible: hairline azul
-                      // eléctrico, borde iOS definido sin dureza.
                       color: _focused
-                          ? NanoNavTokens.cyan.withValues(alpha: .95)
+                          ? NanoNavTokens.cyan.withValues(alpha: .92)
                           : (isDark
-                              ? NanoNavTokens.electricBlue.withValues(alpha: .68)
-                              : NanoNavTokens.electricBlue.withValues(alpha: .38)),
-                      width: _focused ? 1.3 : 1.1,
+                              ? Colors.white.withValues(alpha: .24)
+                              : Colors.white.withValues(alpha: .70)),
+                      width: _focused ? 1.4 : 1.1,
                     ),
                   ),
                   child: Stack(
                     children: [
-                      if (widget.showFeather)
-                        Positioned(
-                          right: -12,
-                          top: -16,
-                          width: narrow ? 150 : 210,
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: isDark ? .42 : .18,
-                              child: Image.asset(
-                                'assets/nano/nano_feather.png',
-                                fit: BoxFit.contain,
-                              ),
+                      Positioned(
+                        right: -12,
+                        top: -16,
+                        width: narrow ? 150 : 210,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: isDark ? .42 : .18,
+                            child: Image.asset(
+                              'assets/nano/nano_feather.png',
+                              fit: BoxFit.contain,
+                            ),
                             ),
                           ),
                         ),
@@ -399,28 +377,30 @@ class _SearchRow extends StatelessWidget {
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             // NAV-BAR-FIX-02 — sin altura fija: el campo crece hasta 4 líneas
-            // (lógica completa de escritura) y la card crece con él. La lupa
-            // decorativa salió: era ancho robado al texto (el hint ya guía).
+            // (lógica completa de escritura) y la card crece con él.
+            // NAV-INPUT-FIX-01: color de fondo claro en modo oscuro — el
+            // antiguo 0x750D1D42 era casi negro y producía artefactos de
+            // borde oscuro al renderizar. Ahora azul profundo luminoso.
             constraints: BoxConstraints(minHeight: compact ? 44 : 48),
             decoration: BoxDecoration(
               color: dark
-                  ? const Color(0x750D1D42)
-                  : const Color(0xE0FFFFFF),
+                  ? const Color(0x751E3C6E)   // glass azul translúcido luminoso
+                  : const Color(0xEBFFFFFF),
               borderRadius: BorderRadius.circular(compact ? 22 : 24),
               border: Border.all(
                 color: focusNode.hasFocus
-                    ? NanoNavTokens.cyan.withValues(alpha: .92)
+                    ? NanoNavTokens.cyan.withValues(alpha: .90)
                     : (dark
-                        ? const Color(0x6642B7FF)
-                        : const Color(0x403B82F6)),
-                width: focusNode.hasFocus ? 1.2 : .85,
+                        ? Colors.white.withValues(alpha: .22)
+                        : Colors.black.withValues(alpha: .08)),
+                width: focusNode.hasFocus ? 1.3 : 1.0,
               ),
               boxShadow: focusNode.hasFocus
                   ? [
                       BoxShadow(
-                        color: NanoNavTokens.cyan.withValues(alpha: .30),
-                        blurRadius: 16,
-                        spreadRadius: -1,
+                        color: NanoNavTokens.cyan.withValues(alpha: .24),
+                        blurRadius: 18,
+                        spreadRadius: -2,
                       ),
                     ]
                   : null,
@@ -625,7 +605,9 @@ class _StopButton extends StatelessWidget {
   }
 }
 
-class _OwlAvatarOrb extends StatelessWidget {
+/// Avatar del personaje Nano Owl con animación de flotación realista.
+/// Movimiento vertical suave continuo — el personaje «respira» y flota.
+class _OwlAvatarOrb extends StatefulWidget {
   const _OwlAvatarOrb({
     required this.brightness,
     required this.size,
@@ -637,76 +619,121 @@ class _OwlAvatarOrb extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<_OwlAvatarOrb> createState() => _OwlAvatarOrbState();
+}
+
+class _OwlAvatarOrbState extends State<_OwlAvatarOrb>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _floatController;
+  late final Animation<double> _floatAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    // Flotación suave: sube y baja 3px con easing sinusoidal. 2.4s
+    // por ciclo — el personaje «respira» de forma orgánica.
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+    _floatAnim = Tween<double>(begin: -2.8, end: 2.8).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _floatController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final size = widget.size;
+    final brightness = widget.brightness;
     return Semantics(
       button: true,
       label: 'Asistente Nano AI',
       child: GestureDetector(
         onTap: () {
           HapticFeedback.selectionClick();
-          onTap?.call();
+          widget.onTap?.call();
         },
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: size,
-              height: size,
-              padding: const EdgeInsets.all(2.4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: NanoNavTokens.activeGradient,
-                boxShadow: [
-                  BoxShadow(
-                    color: NanoNavTokens.cyan.withValues(alpha: .50),
-                    blurRadius: 16,
-                    spreadRadius: -1,
-                  ),
-                ],
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(1.8),
+        child: AnimatedBuilder(
+          animation: _floatAnim,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, _floatAnim.value),
+            child: child,
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: size,
+                height: size,
+                padding: const EdgeInsets.all(2.4),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: brightness == Brightness.dark
-                      ? const Color(0xFF040A18)
-                      : Colors.white,
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/nano/nano_owl.png',
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(0, -.15),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 1,
-              bottom: 1,
-              child: Container(
-                width: size * .24,
-                height: size * .24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: NanoNavTokens.neonGreen,
-                  border: Border.all(
-                    color: brightness == Brightness.dark
-                        ? const Color(0xFF030B20)
-                        : Colors.white,
-                    width: 1.8,
-                  ),
+                  gradient: NanoNavTokens.activeGradient,
                   boxShadow: [
                     BoxShadow(
-                      color: NanoNavTokens.neonGreen.withValues(alpha: .95),
-                      blurRadius: 8,
-                      spreadRadius: .8,
+                      color: NanoNavTokens.cyan.withValues(alpha: .55),
+                      blurRadius: 18,
+                      spreadRadius: -1,
+                    ),
+                    BoxShadow(
+                      color: NanoNavTokens.accentBlue.withValues(alpha: .30),
+                      blurRadius: 28,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
+                child: Container(
+                  padding: const EdgeInsets.all(1.8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: brightness == Brightness.dark
+                        ? const Color(0xFF060D22)
+                        : Colors.white,
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/nano/nano_owl.png',
+                      fit: BoxFit.cover,
+                      alignment: const Alignment(0, -.15),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+              // Indicador de estado online — punto verde brillante
+              Positioned(
+                right: 1,
+                bottom: 1,
+                child: Container(
+                  width: size * .24,
+                  height: size * .24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: NanoNavTokens.neonGreen,
+                    border: Border.all(
+                      color: brightness == Brightness.dark
+                          ? const Color(0xFF030B20)
+                          : Colors.white,
+                      width: 1.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: NanoNavTokens.neonGreen.withValues(alpha: .95),
+                        blurRadius: 8,
+                        spreadRadius: .8,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

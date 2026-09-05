@@ -43,6 +43,12 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   String? _pendingMediaPath;
   String? _pendingMediaName;
 
+  /// WA-PERSONA-01 — buffer de edición del estilo del dueño (settings). El
+  /// estado persistido es la fuente de verdad; el controller solo edita. El
+  /// foco evita pisar al usuario si la hidratación de settings llega tarde.
+  final _styleController = TextEditingController();
+  final _styleFocus = FocusNode();
+
   /// RULES-CREATE-01: verbos de acción del lenguaje natural de la regla.
   /// Se limpian del mensaje (quedan en la acción, no en el texto).
   static final _replyVerbs = RegExp(
@@ -63,6 +69,8 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   @override
   void dispose() {
     _createController.dispose();
+    _styleController.dispose();
+    _styleFocus.dispose();
     super.dispose();
   }
 
@@ -134,6 +142,8 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
         _pendingMediaPath!,
       );
       if (mediaPath == null) {
+        // NAV-UI-AUDIT-01 — guard mounted tras el await de la copia.
+        if (!mounted) return;
         setState(
           () => _createError =
               'No se pudo copiar el archivo al catálogo. Intenta de nuevo.',
@@ -180,6 +190,21 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   @override
   void initState() {
     super.initState();
+    // WA-PERSONA-01 — el buffer arranca con lo persistido; si la hidratación
+    // de settings llega tarde, el listen sincroniza cuando el campo no tiene
+    // foco (NAV-UI-AUDIT-01: fuera del build, el build nunca muta).
+    _styleController.text = ref.read(settingsProvider).waStyleText;
+    ref.listen<(bool, String)>(
+      settingsProvider.select(
+        (settings) => (settings.waStyleEnabled, settings.waStyleText),
+      ),
+      (previous, next) {
+        final text = next.$2;
+        if (!_styleFocus.hasFocus && _styleController.text != text) {
+          _styleController.text = text;
+        }
+      },
+    );
     _refresh();
   }
 
@@ -321,6 +346,13 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
     final visualMode = AutomationVisual.modeFromSetting(
       ref.watch(settingsProvider.select((settings) => settings.themeMode)),
     );
+    // WA-PERSONA-01 — estilo del dueño. NAV-UI-AUDIT-01 — select de record:
+    // igualdad estructural, sin rebuild por pulsación de tecla del campo.
+    final styleSettings = ref.watch(
+      settingsProvider.select(
+        (settings) => (settings.waStyleEnabled, settings.waStyleText),
+      ),
+    );
     return AnimatedTheme(
       data: AutomationVisual.theme(context, mode: visualMode),
       duration: const Duration(milliseconds: 280),
@@ -329,21 +361,14 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
         builder: (context) {
           final visual = AutomationVisual.of(context);
           return Scaffold(
-            // UI-REV-03: fondo compartido de Dev.
             backgroundColor: Colors.transparent,
-            // NAV-BAR-FIX-03 — barra global también en Reglas.
             body: NanoShellBarScope(
-              // NAV-BAR-FIX-04 — la barra CREA reglas aquí (no ejecuta la
-              // automatización del dashboard ni salta a otra pantalla).
+              slotId: 'automation_rules',
               child: NanoInputScope(
-                scopeId: 'automation',
+                scopeId: 'automation_rules',
                 hint: 'Crea una regla: «a las 8:30 avísame que es hora»...',
                 onSubmit: (query) => _createRuleFromText(query),
-                child: Stack(
-              fit: StackFit.expand,
-              children: [
-                const AutomationBackdrop(),
-                SafeArea(
+                child: SafeArea(
                   child: Column(
                     children: [
                       const AutomationBackHeader(),
@@ -353,7 +378,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                           children: [
                             Center(
                               child: ConstrainedBox(
-                                // UI-REV-13: ancho adaptativo por orientación.
                                 constraints: BoxConstraints(
                                   maxWidth: AutomationLayout.contentMaxWidth(
                                     context,
@@ -363,8 +387,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    // UI-REV-02: título 22px — jerarquía Dev, sin la
-                                    // losa de 30px que aplastaba la cabecera.
                                     Text(
                                       'Reglas',
                                       style: TextStyle(
@@ -376,24 +398,34 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Cuándo y cómo Nano responde por ti. Las reglas '
-                                      'activas se evalúan con cada notificación.',
+                                      'Automatiza acciones cuando ocurran eventos.',
                                       style: TextStyle(
                                         color: visual.textMuted,
                                         fontSize: 13,
-                                        height: 1.4,
                                       ),
                                     ),
                                     const SizedBox(height: 24),
-                                    // RULES-CREATE-01: creación en lenguaje
-                                    // natural — el MISMO TriggerParser que
-                                    // evalúa el pipeline, sin duplicar lógica.
                                     _RuleCreatorCard(
                                       controller: _createController,
                                       error: _createError,
                                       pendingMediaName: _pendingMediaName,
                                       onCreate: _createRule,
                                       onPickMedia: _pickMedia,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // WA-PERSONA-01 — estilo del dueño para el
+                                    // agente WhatsApp. Siempre visible (sin
+                                    // depender de reglas existentes).
+                                    _StyleCard(
+                                      enabled: styleSettings.$1,
+                                      controller: _styleController,
+                                      focusNode: _styleFocus,
+                                      onToggle: (v) => ref
+                                          .read(settingsProvider.notifier)
+                                          .setWaStyleEnabled(v),
+                                      onTextChanged: (v) => ref
+                                          .read(settingsProvider.notifier)
+                                          .setWaStyleText(v),
                                     ),
                                     const SizedBox(height: 16),
                                     if (!_loaded)
@@ -421,14 +453,12 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      );
-    },
-  ),
-  );
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -916,6 +946,103 @@ class _SectionHeader extends StatelessWidget {
               letterSpacing: 0.2,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// WA-PERSONA-01 — card del estilo del dueño para el agente WhatsApp.
+/// Toggle + campo libre. Honesto: el agente solo ve notificaciones entrantes
+/// (jamás lo que el dueño envía), por eso el estilo SE DECLARA aquí y no se
+/// "aprende". El texto persiste en settings; el controller es solo buffer.
+class _StyleCard extends StatelessWidget {
+  const _StyleCard({
+    required this.enabled,
+    required this.controller,
+    required this.focusNode,
+    required this.onToggle,
+    required this.onTextChanged,
+  });
+
+  final bool enabled;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<String> onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return AutomationSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.person_outline_rounded,
+                color: visual.accent,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Responder con mi estilo',
+                  style: TextStyle(
+                    color: visual.text,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Switch(value: enabled, onChanged: onToggle),
+            ],
+          ),
+          Text(
+            'Nano imita tu forma de hablar al responder por WhatsApp (reglas '
+            'reply y sugerencias). Nano no ve lo que tú envías, así que '
+            'describe aquí cómo hablas.',
+            style: TextStyle(
+              color: visual.textMuted,
+              fontSize: 11.5,
+              height: 1.4,
+            ),
+          ),
+          if (enabled) ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              focusNode: focusNode,
+              minLines: 2,
+              maxLines: 4,
+              onChanged: onTextChanged,
+              style: TextStyle(
+                color: visual.text,
+                fontSize: 13,
+                fontFamily: 'Inter',
+              ),
+              decoration: InputDecoration(
+                hintText:
+                    'Ej.: hablo corto y directo, uso «pana», a veces bromeo',
+                hintStyle: TextStyle(
+                  color: visual.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
+                  fontFamily: 'Inter',
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: visual.inputFill,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

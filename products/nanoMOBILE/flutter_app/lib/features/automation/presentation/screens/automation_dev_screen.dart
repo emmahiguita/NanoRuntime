@@ -43,78 +43,61 @@ class _AutomationDevBody extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      // NAV-BAR-FIX-03 — barra global también en Dev.
       body: NanoShellBarScope(
-        child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // UI-REV-03: fondo compartido del módulo (mismo en todas las
-          // pantallas) — antes duplicado aquí inline.
-          const AutomationBackdrop(),
-          SafeArea(
-            child: NanoScreenShell(
-              title: 'Dev',
-              showBack: true,
-              body: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(
-                  NanoSpacing.md,
-                  NanoSpacing.md,
-                  NanoSpacing.md,
-                  NanoSpacing.xxxl,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    // UI-REV-13: ancho adaptativo por orientación.
-                    constraints: BoxConstraints(
-                      maxWidth: AutomationLayout.contentMaxWidth(context),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Nota breve (una línea): no es la interfaz del asistente.
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            NanoSpacing.sm,
-                            0,
-                            NanoSpacing.sm,
-                            NanoSpacing.md,
-                          ),
-                          child: Text(
-                            'Herramientas de diagnóstico del agente. Solo para '
-                            'depurar la percepción y la ejecución.',
-                            style: NanoType.caption(colors.onSurfaceVariant),
-                          ),
+        slotId: 'automation_dev',
+        child: SafeArea(
+          child: NanoScreenShell(
+            title: 'Dev',
+            showBack: true,
+            body: SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(
+                NanoSpacing.md,
+                NanoSpacing.md,
+                NanoSpacing.md,
+                NanoSpacing.md,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: AutomationLayout.contentMaxWidth(context),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          NanoSpacing.sm,
+                          0,
+                          NanoSpacing.sm,
+                          NanoSpacing.md,
                         ),
-                        // 1 · Motor (estado real del runtime + capacidades)
-                        const EngineStatusCard(),
+                        child: Text(
+                          'Herramientas de diagnóstico del agente. Solo para '
+                          'depurar la percepción y la ejecución.',
+                          style: NanoType.caption(colors.onSurfaceVariant),
+                        ),
+                      ),
+                      const EngineStatusCard(),
+                      const SizedBox(height: NanoSpacing.xl),
+                      const AgentConsoleSection(),
+                      const SizedBox(height: NanoSpacing.xl),
+                      const EdgeDevSection(),
+                      const SizedBox(height: NanoSpacing.xl),
+                      const SkillDevSection(),
+                      if (kDebugMode) ...[
                         const SizedBox(height: NanoSpacing.xl),
-                        // 2 · Percepción y acciones (snapshot, selector, toque,
-                        //    insertar texto, gestos)
-                        const AgentConsoleSection(),
-                        const SizedBox(height: NanoSpacing.xl),
-                        // 3 · Búho y edge (validación física: overlay, probe,
-                        //    espejo de conversación)
-                        const EdgeDevSection(),
-                        const SizedBox(height: NanoSpacing.xl),
-                        // 4 · Skills (SKILL-01): drafts + aprobación humana
-                        const SkillDevSection(),
-                        if (kDebugMode) ...[
-                          const SizedBox(height: NanoSpacing.xl),
-                          // 5 · Benchmark físico (C14-A)
-                          const C14DebugBenchmarkSection(),
-                        ],
+                        const C14DebugBenchmarkSection(),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
   }
 }

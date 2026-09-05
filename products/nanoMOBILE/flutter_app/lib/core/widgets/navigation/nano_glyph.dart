@@ -8,10 +8,8 @@ enum NanoGlyphType {
   terminal,
   settings,
   automation,
-  search,
   microphone,
   arrowForward,
-  spark,
 }
 
 /// Glifo vectorial independiente renderizado sobre Canvas de alta precisión.
@@ -110,17 +108,11 @@ class _NanoGlyphPainter extends CustomPainter {
       case NanoGlyphType.automation:
         _automation(c, w, h, stroke, fill);
         break;
-      case NanoGlyphType.search:
-        _search(c, w, h, stroke);
-        break;
       case NanoGlyphType.microphone:
         _mic(c, w, h, stroke, fill);
         break;
       case NanoGlyphType.arrowForward:
         _arrowForward(c, w, h, stroke);
-        break;
-      case NanoGlyphType.spark:
-        _spark(c, w, h, stroke);
         break;
     }
   }
@@ -242,11 +234,6 @@ class _NanoGlyphPainter extends CustomPainter {
     c.drawCircle(Offset(w * .73, h * .23), w * .04, fill);
   }
 
-  void _search(Canvas c, double w, double h, Paint stroke) {
-    c.drawCircle(Offset(w * .43, h * .43), w * .23, stroke);
-    c.drawLine(Offset(w * .60, h * .60), Offset(w * .82, h * .82), stroke);
-  }
-
   void _mic(Canvas c, double w, double h, Paint stroke, Paint fill) {
     final mic = RRect.fromRectAndRadius(
       Rect.fromLTWH(w * .37, h * .17, w * .26, h * .45),
@@ -271,24 +258,6 @@ class _NanoGlyphPainter extends CustomPainter {
       ..moveTo(w * .52, h * .31)
       ..lineTo(w * .73, h * .50)
       ..lineTo(w * .52, h * .69);
-    c.drawPath(path, stroke);
-  }
-
-  void _spark(Canvas c, double w, double h, Paint stroke) {
-    final center = Offset(w * .5, h * .5);
-    final radius = w * .28;
-    final path = Path();
-    for (int i = 0; i < 8; i++) {
-      final a = -math.pi / 2 + i * math.pi / 4;
-      final r = i.isEven ? radius : radius * .28;
-      final pt = Offset(center.dx + math.cos(a) * r, center.dy + math.sin(a) * r);
-      if (i == 0) {
-        path.moveTo(pt.dx, pt.dy);
-      } else {
-        path.lineTo(pt.dx, pt.dy);
-      }
-    }
-    path.close();
     c.drawPath(path, stroke);
   }
 

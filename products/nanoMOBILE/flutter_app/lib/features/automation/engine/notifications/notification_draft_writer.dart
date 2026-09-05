@@ -25,17 +25,27 @@ final class RuntimeNotificationDraftWriter {
     required bool Function() llmAllowed,
     required Future<void> Function(String? modelPath) ensureReady,
     required String? Function() modelPath,
+    required bool Function() styleEnabled,
+    required String Function() styleText,
     ConversationMemoryStore? memory,
   }) : _client = client,
        _llmAllowed = llmAllowed,
        _ensureReady = ensureReady,
        _modelPath = modelPath,
+       _styleEnabled = styleEnabled,
+       _styleText = styleText,
        _memory = memory;
 
   final LLMEngineClient _client;
   final bool Function() _llmAllowed;
   final Future<void> Function(String? modelPath) _ensureReady;
   final String? Function() _modelPath;
+
+  /// WA-PERSONA-01 — estilo declarado por el dueño. Leído EN VIVO en cada
+  /// borrador (closures sobre settingsProvider): cambiar el toggle o el texto
+  /// aplica desde el siguiente mensaje, sin reconstruir el writer.
+  final bool Function() _styleEnabled;
+  final String Function() _styleText;
 
   /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
   /// para el borrador). null = el writer conserva el prompt sin historial.
@@ -89,6 +99,7 @@ final class RuntimeNotificationDraftWriter {
         prompt: conversationAgentPromptFor(
           history: formatConversationHistory(history ?? const []),
           text: notification.text,
+          style: _styleEnabled() ? _styleText() : null,
         ),
         temperature: 0.3,
         maxTokens: 320,

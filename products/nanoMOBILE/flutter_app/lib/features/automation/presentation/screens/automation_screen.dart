@@ -33,30 +33,24 @@ class AutomationScreen extends ConsumerWidget {
         builder: (context) {
           // NAV-BAR-FIX-03 — barra global (escritura + navegación) también
           // en las visuales fuera del shell: la cáscara
-          // AutomationNavigationFrame (passthrough sin lógica) salió.
+          // La barra universal (NanoShellBarScope) es la única navegación
+          // aquí; el dock inferior antiguo salió por completo.
           return Scaffold(
             resizeToAvoidBottomInset: true,
-            // UI-REV-03: fondo compartido de Dev en el dashboard también.
             backgroundColor: Colors.transparent,
             body: NanoShellBarScope(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const AutomationBackdrop(),
-                  SafeArea(
-                    child: AutomationDashboard(
-                      onSettingsTap: () => _openSettings(context),
-                      onMessagesTap: () => context.push('/automation/messages'),
-                      // RULES-CREATE-02: Reglas alcanzable desde el dashboard,
-                      // ya no escondida dentro de Configuración.
-                      onRulesTap: () => _openRules(context),
-                      // WA-DEV-ACCESS-01 — acceso directo a las herramientas
-                      // del agente SIEMPRE visible (antes solo kDebugMode:
-                      // en release el icono robot desaparecía).
-                      onDevTap: () => _openDev(context),
-                    ),
-                  ),
-                ],
+              child: SafeArea(
+                child: AutomationDashboard(
+                  onSettingsTap: () => _openSettings(context),
+                  onMessagesTap: () => context.push('/automation/messages'),
+                  // RULES-CREATE-02: Reglas alcanzable desde el dashboard,
+                  // ya no escondida dentro de Configuración.
+                  onRulesTap: () => _openRules(context),
+                  // WA-DEV-ACCESS-01 — acceso directo a las herramientas
+                  // del agente SIEMPRE visible (antes solo kDebugMode:
+                  // en release el icono robot desaparecía).
+                  onDevTap: () => _openDev(context),
+                ),
               ),
             ),
           );

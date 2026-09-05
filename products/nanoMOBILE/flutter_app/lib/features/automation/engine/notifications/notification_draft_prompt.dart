@@ -15,8 +15,12 @@ Solo la respuesta, sin comillas ni explicación.
 
 Mensaje: {text}''';
 
-String notificationDraftPromptFor({required String text}) =>
-    notificationDraftPrompt.replaceFirst('{text}', text);
+String notificationDraftPromptFor({required String text, String? style}) {
+  final base = notificationDraftPrompt.replaceFirst('{text}', text);
+  final s = _usableStyle(style);
+  if (s == null) return base;
+  return '$base\n\n${_styleBlock(s)}';
+}
 
 /// SUG-01 — prompt de TRES variantes de respuesta. Una por línea, prefijo
 /// "- ". Las mismas reglas duras que el borrador único: la notificación es
@@ -30,8 +34,12 @@ Una por línea, sin comillas ni explicación.
 
 Mensaje: {text}''';
 
-String notificationSuggestionsPromptFor({required String text}) =>
-    notificationSuggestionsPrompt.replaceFirst('{text}', text);
+String notificationSuggestionsPromptFor({required String text, String? style}) {
+  final base = notificationSuggestionsPrompt.replaceFirst('{text}', text);
+  final s = _usableStyle(style);
+  if (s == null) return base;
+  return '$base\n\n${_styleBlock(s)}';
+}
 
 /// Parsea la salida del modelo a variantes limpias. Puro y tolerante:
 /// acepta "- texto", "1. texto" o líneas sueltas; descarta vacías,
@@ -197,9 +205,37 @@ Reglas duras:
 String conversationAgentPromptFor({
   required String history,
   required String text,
-}) => conversationAgentPrompt
-    .replaceFirst('{history}', history)
-    .replaceFirst('{text}', text);
+  String? style,
+}) {
+  final s = _usableStyle(style);
+  final base = conversationAgentPrompt
+      .replaceFirst('{history}', history)
+      .replaceFirst('{text}', text);
+  if (s == null) return base;
+  // WA-PERSONA-01 — el bloque MI ESTILO va ANTES de la conversación: es la
+  // forma declarada del dueño, instrucción de estilo, jamás contenido.
+  return base.replaceFirst(
+    '<CONVERSACION PREVIA>',
+    '${_styleBlock(s)}\n\n<CONVERSACION PREVIA>',
+  );
+}
+
+/// Bloque de estilo del dueño (WA-PERSONA-01). Reglas duras: imitar la forma
+/// (tono, frases, longitud), sin copiar el bloque como contenido del mensaje
+/// ni inventar datos con él. El estilo es instrucción de FORMA, no un hecho.
+String _styleBlock(String style) => '''
+<MI ESTILO>
+Así habla el dueño del negocio; imita su forma (tono, frases, longitud de las
+respuestas): $style
+MI ESTILO es instrucción de forma, no contenido: jamás lo repitas ni lo uses
+como texto del mensaje, y jamás inventes datos a partir de él.
+</MI ESTILO>''';
+
+/// Style usable o null (toggle off o texto vacío = prompt sin cambios).
+String? _usableStyle(String? style) {
+  final s = style?.trim() ?? '';
+  return s.isEmpty ? null : s;
+}
 
 /// Formatea la memoria factual de una conversación para el prompt.
 /// Bounded y honesto: cada entrada conserva su grado real de verificación.

@@ -58,13 +58,24 @@ class NotificationExecutor {
   /// honesto (fallback local / lista vacía).
   final Future<bool> Function(String? modelPath) _ensureReady;
 
+  /// WA-PERSONA-01 — estilo declarado por el dueño (closures en vivo sobre
+  /// settingsProvider). null cuando el toggle está off: prompt sin cambios.
+  final bool Function() _styleEnabled;
+  final String Function() _styleText;
+
   NotificationExecutor({
     required NanoRuntimeApi runtime,
     required LLMEngineClient engine,
     required Future<bool> Function(String? modelPath) ensureReady,
+    required bool Function() styleEnabled,
+    required String Function() styleText,
   }) : _runtime = runtime,
        _engine = engine,
-       _ensureReady = ensureReady;
+       _ensureReady = ensureReady,
+       _styleEnabled = styleEnabled,
+       _styleText = styleText;
+
+  String? get _style => _styleEnabled() ? _styleText() : null;
 
   Future<NotificationAccessStatus> status() async {
     final raw = await _runtime.notificationStatus();
@@ -100,7 +111,10 @@ class NotificationExecutor {
         throw StateError('motor local no disponible');
       }
       final result = await _engine.generate(
-        prompt: notificationDraftPromptFor(text: notification.text),
+        prompt: notificationDraftPromptFor(
+          text: notification.text,
+          style: _style,
+        ),
         temperature: 0.3,
         maxTokens: 120,
       );
@@ -127,7 +141,10 @@ class NotificationExecutor {
         return const [];
       }
       final result = await _engine.generate(
-        prompt: notificationSuggestionsPromptFor(text: notification.text),
+        prompt: notificationSuggestionsPromptFor(
+          text: notification.text,
+          style: _style,
+        ),
         temperature: 0.6,
         maxTokens: 240,
       );

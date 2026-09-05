@@ -48,43 +48,34 @@ class _AutomationMessagesBody extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        // NAV-BAR-FIX-03 — barra global también en Mensajes.
         body: NanoShellBarScope(
-          child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // UI-REV-03: fondo compartido del módulo.
-            const AutomationBackdrop(),
-            SafeArea(
-              child: NanoScreenShell(
-                title: 'Mensajes y notificaciones',
-                showBack: true,
-                body: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(
-                    NanoSpacing.md,
-                    NanoSpacing.md,
-                    NanoSpacing.md,
-                    NanoSpacing.xxxl,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      // UI-REV-13: ancho adaptativo (720 vertical / 1080
-                      // horizontal) — punto único en AutomationLayout.
-                      constraints: BoxConstraints(
-                        maxWidth: AutomationLayout.contentMaxWidth(context),
-                      ),
-                      child: const NotificationAutomationSection(),
+          slotId: 'automation_messages',
+          child: SafeArea(
+            child: NanoScreenShell(
+              title: 'Mensajes y notificaciones',
+              showBack: true,
+              body: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  NanoSpacing.md,
+                  NanoSpacing.md,
+                  NanoSpacing.md,
+                  NanoSpacing.md,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: AutomationLayout.contentMaxWidth(context),
                     ),
+                    child: const NotificationAutomationSection(),
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }

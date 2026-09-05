@@ -339,26 +339,30 @@ class MessageBubble extends StatelessWidget {
     );
 
     if (!isUser) {
-      bubbleWidget = Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          borderRadius: bubbleBorderRadius,
-          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
-        ),
+      // NAV-UI-AUDIT-01 — RepaintBoundary: el vidrio (BackdropFilter) es
+      // caro; aislado en su capa no se re-renderiza con cada token.
+      bubbleWidget = RepaintBoundary(
         child: Container(
-          padding: const EdgeInsets.all(1.0),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             borderRadius: bubbleBorderRadius,
-            gradient: NanoBorders.specularChamfer(colors),
+            boxShadow: NanoShadows.ambient(colors, depth: 0.6),
           ),
-          child: ClipRRect(
-            borderRadius: bubbleBorderRadius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: reduceMotion ? 0.0 : 12.0,
-                sigmaY: reduceMotion ? 0.0 : 12.0,
+          child: Container(
+            padding: const EdgeInsets.all(1.0),
+            decoration: BoxDecoration(
+              borderRadius: bubbleBorderRadius,
+              gradient: NanoBorders.specularChamfer(colors),
+            ),
+            child: ClipRRect(
+              borderRadius: bubbleBorderRadius,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: reduceMotion ? 0.0 : 12.0,
+                  sigmaY: reduceMotion ? 0.0 : 12.0,
+                ),
+                child: bubbleWidget,
               ),
-              child: bubbleWidget,
             ),
           ),
         ),
@@ -709,26 +713,29 @@ class StreamingBubble extends StatelessWidget {
     // ambiental + vidrio desenfocado. El fondo living se refracta detrás.
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          boxShadow: NanoShadows.ambient(colors, depth: 0.6),
-        ),
+      // NAV-UI-AUDIT-01 — RepaintBoundary: mismo motivo que la burbuja AI.
+      child: RepaintBoundary(
         child: Container(
-          padding: const EdgeInsets.all(1.0),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             borderRadius: radius,
-            gradient: NanoBorders.specularChamfer(colors),
+            boxShadow: NanoShadows.ambient(colors, depth: 0.6),
           ),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: reduceMotion ? 0.0 : 12.0,
-                sigmaY: reduceMotion ? 0.0 : 12.0,
+          child: Container(
+            padding: const EdgeInsets.all(1.0),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: NanoBorders.specularChamfer(colors),
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: reduceMotion ? 0.0 : 12.0,
+                  sigmaY: reduceMotion ? 0.0 : 12.0,
+                ),
+                child: content,
               ),
-              child: content,
             ),
           ),
         ),
@@ -1046,5 +1053,3 @@ class SuggestionChip extends StatelessWidget {
     );
   }
 }
-
-/// Cápsula líquida flotante que se muestra cuando la barra de chat está encogida/minimizada.

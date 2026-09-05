@@ -30,9 +30,11 @@ class NanoScreenShell extends StatelessWidget {
   /// las pestañas del shell no (el back del sistema cambia de pestaña).
   final bool? showBack;
 
-  /// Si el body se encoge cuando el teclado abre (viewInsets). Chat lo
-  /// activa para que el composer se eleve sobre el teclado en vez de quedar
-  /// tapado. El resto de pantallas preservan el valor por defecto.
+  /// Si el body se encoge cuando el teclado abre (viewInsets). Chat pasa
+  /// `false`: su Scaffold exterior (donde vive la barra universal) ya se
+  /// encoge con el valor por defecto, y encoger también este shell interior
+  /// sería un doble encogido. El resto de pantallas preservan el valor por
+  /// defecto.
   final bool resizeToAvoidBottomInset;
 
   @override

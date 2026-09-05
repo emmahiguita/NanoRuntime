@@ -85,10 +85,18 @@ abstract final class AutomationVisual {
       cardBorder: isDark
           ? usesDarkAccent
                 ? colors.borderAccentColor
-                : lightAccent.withValues(alpha: 0.32)
+                : lightAccent.withValues(alpha: 0.38)
           : colors.borderPrimaryColor,
-      shadow: isDark ? const Color(0x59000000) : const Color(0x160D1726),
-      shadowSoft: isDark ? const Color(0x33000000) : const Color(0x0D0D1726),
+      // CARD-FIX-01 — sin negro puro en sombras: el BackdropFilter+ClipRRect
+      // de AutomationSurfaceCard "manchaba" los bordes del blur con el color
+      // del shadow (0x59000000). Azul profundo translúcido = misma profundidad
+      // sin artefacto negro.
+      shadow: isDark
+          ? const Color(0x4A0A1A3D)   // azul marino profundo, no negro
+          : const Color(0x140D1726),
+      shadowSoft: isDark
+          ? const Color(0x280D1F4A)   // azul noche suave
+          : const Color(0x0A0D1726),
       success: colors.success,
     );
   }
@@ -300,9 +308,6 @@ class AutomationSurfaceCard extends StatelessWidget {
   const AutomationSurfaceCard({
     super.key,
     required this.child,
-    // UI-REV-03: defaults alineados a NanoOpticalSurface de Dev
-    // (padding 12, radius 26, blur 12) — mismo vidrio iOS en todo
-    // el módulo. Antes 20/24/13 hinchaba las cards.
     this.padding = const EdgeInsets.all(12),
     this.onTap,
     this.radius = 26,
@@ -317,19 +322,23 @@ class AutomationSurfaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
     final borderRadius = BorderRadius.circular(radius);
-    return DecoratedBox(
+    // CARD-FIX-01 — el shadow se aplica en el Container EXTERIOR al ClipRRect.
+    // Antes el BoxShadow negro estaba dentro del DecoratedBox que envolvía el
+    // BackdropFilter: Flutter "manchaba" los bordes del clip con el color del
+    // shadow, produciendo bordes negros visibles.
+    return Container(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
             color: visual.shadow,
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-            spreadRadius: -8,
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+            spreadRadius: -6,
           ),
           BoxShadow(
             color: visual.shadowSoft,
-            blurRadius: 6,
+            blurRadius: 5,
             offset: const Offset(0, 2),
           ),
         ],
@@ -337,8 +346,8 @@ class AutomationSurfaceCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: borderRadius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: DecoratedBox(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -350,6 +359,7 @@ class AutomationSurfaceCard extends StatelessWidget {
             ),
             child: Material(
               color: Colors.transparent,
+              borderRadius: borderRadius,
               child: InkWell(
                 onTap: onTap,
                 borderRadius: borderRadius,
