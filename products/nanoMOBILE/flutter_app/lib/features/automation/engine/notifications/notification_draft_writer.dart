@@ -7,11 +7,13 @@
 /// contenido de la notificación es dato no confiable; el prompt lo aísla.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/core/services/llm_engine_client.dart';
 
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart' show ConversationMemoryStore;
 import '../model/cold_start_retry.dart';
+import 'conversation_understanding.dart';
 import 'notification_draft_prompt.dart';
 import 'notification_object.dart';
 
@@ -84,12 +86,10 @@ final class RuntimeNotificationDraftWriter {
       // writer de mensajes): sin motor cargado no hay entendimiento.
       await _ensureReady(_modelPath());
       final history = _memory?.memoryFor(conversationId)?.entries;
-      // WA-CONVERSATION-01 — el CoT (Intención/Hechos/Plan) consume
-      // tokens ANTES de "Respuesta:". Con 200, un mensaje largo cortaba
-      // la salida a mitad del análisis y el extractor devolvía el
-      // razonamiento como respuesta (verificado: respuestas raras con
-      // mensajes amplios). 320 deja margen para análisis + respuesta
-      // proporcionada sin disparar la latencia del 0.5B.
+      // WA-CONV-01 — salida JSON estructurada: el razonamiento textual ya no
+      // se pide (quemaba tokens antes de "Respuesta:" y el extractor podía
+      // devolver el análisis como mensaje con salidas recortadas). El parser
+      // tolerante recupera `reply` de JSON completo, JSON roto o legacy.
       // sessionId por conversación: el motor reutiliza el KV del turno
       // anterior de ESTA conversación (gate R5) y el prefill solo procesa
       // los tokens nuevos (~20-30s) en vez del prompt completo (~125s en
@@ -105,7 +105,12 @@ final class RuntimeNotificationDraftWriter {
         maxTokens: 320,
         sessionId: conversationId,
       );
-      final draft = _extractResponse(raw);
+      final draft = parseConversationReply(raw);
+      if (draft.isEmpty && raw.trim().isNotEmpty) {
+        // WA-PHYS-11: sin reply recuperable la traza cruda (acotada) hace
+        // el fallo diagnosticable en dispositivo.
+        debugPrint('[draft] sin reply parseable; raw=${_sample(raw)}');
+      }
       if (draft.isEmpty) return null;
       return draft.length <= 2000 ? draft : draft.substring(0, 2000);
     } on Object {
@@ -114,27 +119,10 @@ final class RuntimeNotificationDraftWriter {
     }
   }
 
-  /// Extrae solo la respuesta del formato CoT ("Razonamiento: ..." /
-  /// "Respuesta: ..."). Tolerante: sin marcador de respuesta se usa el texto
-  /// completo; si el modelo escribió el razonamiento pero olvidó el marcador,
-  /// se descarta la línea de razonamiento y queda el resto.
-  static String _extractResponse(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return '';
-    final respMarker = RegExp(r'Respuesta\s*:', caseSensitive: false);
-    final m = respMarker.firstMatch(trimmed);
-    if (m != null) {
-      final tail = trimmed.substring(m.end).trim();
-      if (tail.isNotEmpty) return tail;
-    }
-    final razonMarker = RegExp(
-      r'Razonamiento\s*:',
-      caseSensitive: false,
-    ).firstMatch(trimmed);
-    if (razonMarker != null) {
-      final rest = trimmed.substring(razonMarker.end).trim();
-      if (rest.isNotEmpty) return rest;
-    }
-    return trimmed;
+  /// Muestra acotada de la salida cruda para trazas físicas (200 chars,
+  /// una línea: el raw completo con saltos inundaba el logcat).
+  static String _sample(String raw) {
+    final single = raw.replaceAll('\n', ' ').trim();
+    return single.length <= 200 ? single : single.substring(0, 200);
   }
 }
