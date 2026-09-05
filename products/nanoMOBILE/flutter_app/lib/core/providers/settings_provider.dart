@@ -29,8 +29,15 @@ class SettingsRepository {
     if (json == null) return const SettingsState();
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
+      // DARK-ONLY (decisión del dueño, 2026-09-05): 'Sistema' guardado por
+      // defaults viejos seguía al teléfono y pintaba la app clara (el "gris"
+      // al navegar). 'Sistema' se trata como Oscuro; la opción Claro
+      // explícita del selector se conserva.
+      final storedTheme = m['themeMode'] as String?;
       return SettingsState(
-        themeMode: m['themeMode'] as String? ?? 'Oscuro',
+        themeMode: storedTheme == null || storedTheme == 'Sistema'
+            ? 'Oscuro'
+            : storedTheme,
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
