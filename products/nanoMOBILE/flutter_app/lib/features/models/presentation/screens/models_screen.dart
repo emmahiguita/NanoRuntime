@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/models/catalog_models.dart';
@@ -174,7 +175,16 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final notifier = ref.read(modelsProvider.notifier);
     final colors = NanoThemeExtension.of(context).colors;
 
-    final catalogModels = List<LocalModel>.of(state.models)
+    // MODELS-CAT-02 — solo se listan modelos que caben en la RAM de ESTE
+    // dispositivo. D1 ya marcaba "incompatible" el exceso sobre la RAM
+    // total; ahora ni aparecen: descargar algo condenado a OOM no es una
+    // opción real para el usuario.
+    final catalogModels = state.models
+        .where(
+          (model) =>
+              dashboard.ramTotalGb <= 0 || model.ramGb <= dashboard.ramTotalGb,
+        )
+        .toList()
       ..sort(
         (a, b) => _listRank(a, dashboard).compareTo(_listRank(b, dashboard)),
       );
@@ -275,6 +285,18 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: _AllFilesBanner(
               onGrant: () => notifier.requestAllFilesAccess(),
+            ),
+          ),
+        // MODELS-CAT-01 — destino de descarga. Solo con acceso completo al
+        // storage: sin MANAGE, Android 11+ no deja escribir en el externo y
+        // un path SAF no sirve para dart:io directo. Sin carpeta elegida,
+        // descarga al interno de la app (comportamiento original).
+        if (state.allFilesGranted)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: _DownloadDirBar(
+              dir: state.downloadDir,
+              onPick: _pickDownloadDir,
             ),
           ),
         Expanded(
@@ -879,6 +901,15 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
           .read(modelsProvider.notifier)
           .loadModel(model.id, confirmedExtreme: true);
     }
+  }
+
+  /// MODELS-CAT-01 — selector de carpeta de descarga (file_picker). Devuelve
+  /// un directorio real del storage externo (MANAGE concedido): las descargas
+  /// quedan ahí de forma permanente. Cancelar no cambia nada.
+  Future<void> _pickDownloadDir() async {
+    final path = await FilePicker.getDirectoryPath();
+    if (path == null || !mounted) return;
+    await ref.read(modelsProvider.notifier).setDownloadDir(path);
   }
 
   int _listRank(LocalModel model, DashboardState dashboard) {
@@ -2007,6 +2038,57 @@ String _statusLabel(ModelUiStatus status) {
       return 'ERROR';
     case ModelUiStatus.incompatible:
       return 'INCOMPATIBLE';
+  }
+}
+
+/// MODELS-CAT-01 — barra del destino de descarga: muestra la carpeta elegida
+/// (persistida en prefs) y permite cambiarla. Sin carpeta elegida, los GGUF
+/// van al storage interno de la app y se pierden al desinstalar.
+class _DownloadDirBar extends StatelessWidget {
+  const _DownloadDirBar({required this.dir, required this.onPick});
+
+  final String? dir;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return Material(
+      color: colors.accentSky.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(12),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.folder_rounded, size: 18, color: colors.accentSky),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                dir == null
+                    ? 'Descargas: storage interno de la app'
+                    : 'Descargas: $dir',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _PillButton(
+              label: dir == null ? 'Elegir carpeta' : 'Cambiar',
+              accent: colors.accentSky,
+              dense: true,
+              onPressed: onPick,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -189,6 +189,62 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     }
   }
 
+  /// VOICE-NATURAL-01 — conversación continua en la card de chat del módulo:
+  /// escucha → ejecuta por el MISMO _runTask → habla el resultado → vuelve a
+  /// escuchar. Un turno vacío (silencio) cierra el ciclo; paused rompe para
+  /// que el flujo de confirmación existente tome el control.
+  bool _conversationActive = false;
+
+  Future<void> _activateConversation() async {
+    // Detener siempre responde: la conversación se para en caliente aunque
+    // haya una tarea en curso (el loop comprueba _conversationActive).
+    if (_conversationActive) {
+      _conversationActive = false;
+      await _voiceSession.stop();
+      if (mounted) setState(() => _senseFeedback = 'Conversación detenida.');
+      return;
+    }
+    if (_running || _observingScreen) return;
+    setState(() => _conversationActive = true);
+    try {
+      // La conversación la abre Nano: saludo hablado antes de escuchar (mismo
+      // patrón del chat) — sin él, el modo arranca en silencio y parece roto.
+      await _voiceSession.respond('Hola, soy Nano. Dime qué quieres que haga.');
+      await _voiceSession.waitForSpeechEnd();
+      while (mounted && _conversationActive) {
+        setState(() => _senseFeedback = 'Conversación activa · habla…');
+        final turn = await _voiceSession.pushToTalk();
+        if (!mounted || !_conversationActive) break;
+        final transcript = turn?.transcript.trim() ?? '';
+        if (transcript.isEmpty) break;
+        _taskController
+          ..text = transcript
+          ..selection = TextSelection.collapsed(offset: transcript.length);
+        final result = await _runTask(
+          transcript,
+          fromVoice: true,
+          speakResult: false,
+        );
+        if (!mounted || !_conversationActive) break;
+        if (result == null) continue;
+        if (result.status == AutomationResultStatus.paused) {
+          // Confirmación pendiente: avisa hablando y cede el control al flujo
+          // de confirmación existente (sin re-escuchar en bucle).
+          await _voiceSession.respond(_spokenResult(result));
+          break;
+        }
+        await _voiceSession.respondAndListen(_spokenResult(result));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _conversationActive = false;
+          _senseFeedback = null;
+        });
+      }
+    }
+  }
+
   Future<void> _toggleVoiceOutput() async {
     final enabled = ref.read(settingsProvider).voiceEnabled;
     await ref.read(settingsProvider.notifier).setVoiceEnabled(!enabled);
@@ -226,13 +282,17 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     }
   }
 
-  Future<void> _runTask(
+  /// Devuelve el resultado (null si no se ejecutó). [speakResult] permite al
+  /// modo conversación hablar el resultado él mismo con re-escucha
+  /// (respondAndListen) en lugar del respond simple de un turno único.
+  Future<AutomationResult?> _runTask(
     String text, {
     ActionConfirmation? confirmation,
     bool fromVoice = false,
+    bool speakResult = true,
   }) async {
     final goal = text.trim();
-    if (goal.isEmpty || _running || (_sensing && !fromVoice)) return;
+    if (goal.isEmpty || _running || (_sensing && !fromVoice)) return null;
     // Capturar referencias ANTES de los awaits: el widget puede desmontarse
     // durante una ejecución larga (carga de modelo) y ref.read posterior
     // lanzaría "Cannot use ref after the widget was disposed".
@@ -280,12 +340,13 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       } else {
         unawaited(NanoRuntimeApi.instance.dismissAutomationConfirmation());
       }
-      if (voiceEnabled) {
+      if (voiceEnabled && speakResult) {
         // El resultado hablado es exactamente el resultado del mismo
         // AutomationEngine. "Audio" gobierna tanto órdenes escritas como de
         // micrófono; TTS es solo una salida y nunca cambia el veredicto.
         await _voiceSession.respond(_spokenResult(result));
       }
+      return result;
     } catch (e, stack) {
       // Nunca tragar una excepción: el usuario necesita la razón real y el
       // logcat la causa para diagnosticar.
@@ -297,6 +358,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           _running = false;
         });
       }
+      return null;
     }
   }
 
@@ -438,7 +500,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       observingScreen: _observingScreen,
       sensing: _sensing,
       senseFeedback: _senseFeedback,
+      conversationActive: _conversationActive,
       onVoice: _activateVoice,
+      onConversation: _activateConversation,
       onVoiceOutputToggle: _toggleVoiceOutput,
       onObserve: _observeScreen,
       onRun: _runTask,
@@ -623,6 +687,10 @@ class _TaskComposer extends StatelessWidget {
     required this.observingScreen,
     required this.sensing,
     required this.senseFeedback,
+    // VOICE-NATURAL-01: conversación continua también en la card de chat del
+    // módulo (escucha → ejecuta → habla → vuelve a escuchar).
+    required this.conversationActive,
+    required this.onConversation,
     required this.onVoice,
     required this.onVoiceOutputToggle,
     required this.onObserve,
@@ -635,6 +703,8 @@ class _TaskComposer extends StatelessWidget {
   final bool observingScreen;
   final bool sensing;
   final String? senseFeedback;
+  final bool conversationActive;
+  final VoidCallback onConversation;
   final VoidCallback onVoice;
   final VoidCallback onVoiceOutputToggle;
   final VoidCallback onObserve;
@@ -645,14 +715,17 @@ class _TaskComposer extends StatelessWidget {
     final voiceActive =
         voiceState == VoiceSessionState.listening ||
         voiceState == VoiceSessionState.processing;
-    final stateLabel = observingScreen
+    final stateLabel = conversationActive
+        ? 'Conversación activa'
+        : observingScreen
         ? 'Observando'
         : switch (voiceState) {
             VoiceSessionState.listening => 'Escuchando',
             VoiceSessionState.processing => 'Procesando',
             _ => running ? 'Ejecutando' : 'Listo',
           };
-    final stateActive = voiceActive || observingScreen || sensing || running;
+    final stateActive =
+        voiceActive || conversationActive || observingScreen || sensing || running;
     // UI-REV-02: paddings y tipografía del composer acotados al lenguaje
     // Dev (card 16, título 16px) — antes 20/20 estiraba la pantalla.
     return AutomationSurfaceCard(
@@ -706,8 +779,9 @@ class _TaskComposer extends StatelessWidget {
                   textInputAction: TextInputAction.go,
                   onSubmitted: (value) =>
                       !running && !sensing ? onRun(value) : null,
-                  decoration: const InputDecoration(
-                    hintText: 'Describe una tarea…',
+                  decoration: InputDecoration(
+                    hintText:
+                        conversationActive ? 'Habla tu tarea…' : 'Describe una tarea…',
                   ),
                 ),
               ),
@@ -769,6 +843,21 @@ class _TaskComposer extends StatelessWidget {
                   busy: observingScreen,
                   enabled: !running && !sensing,
                   onTap: onObserve,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ComposerControl(
+                  icon: conversationActive
+                      ? Icons.stop_rounded
+                      : Icons.all_inclusive_rounded,
+                  label: conversationActive ? 'Detener' : 'Hablar',
+                  active: conversationActive,
+                  busy: conversationActive,
+                  // Detener se habilita SIEMPRE durante la conversación
+                  // (parada en caliente); iniciar espera a que no haya tarea.
+                  enabled: conversationActive || (!running && !sensing),
+                  onTap: onConversation,
                 ),
               ),
             ],

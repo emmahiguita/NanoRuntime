@@ -355,6 +355,7 @@ class AppTheme {
   /// "Sistema" sigue el brillo del dispositivo.
   static final classic = _base(NanoClassicDarkColors());
   static final dark = _base(NanoDarkColors());
+  static final light = systemLight;
   static final systemLight = _base(NanoSystemLightColors());
   static final systemDark = _base(NanoSystemDarkColors());
 }

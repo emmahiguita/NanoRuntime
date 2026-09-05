@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:crypto/crypto.dart';
 
 import 'nano_runtime_api.dart';
+import 'sha256_file.dart';
 import 'proot_manager.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
@@ -121,8 +121,9 @@ class KaliManager {
         log('Error: tarball not found after download');
         return false;
       }
-      final fileBytes = await tarballFile.readAsBytes();
-      final actualHash = sha256.convert(fileBytes).toString();
+      // TER-32: hash streaming — tarball ~200MB sin picos de RAM ni
+      // freeze del isolate principal (readAsBytes+convert síncrono antes).
+      final actualHash = await sha256File(tarball);
       if (actualHash != expectedSha256) {
         log('SECURITY: Rootfs checksum mismatch!');
         log('  Expected: $expectedSha256');

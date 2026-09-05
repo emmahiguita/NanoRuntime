@@ -187,7 +187,10 @@ class DesktopController(
                 // U-1: papelera (trash://) de pcmanfm vía gvfs. Si falta,
                 // installGraphical corre y lo instala (devices existentes
                 // también lo reciben, no solo installs limpios).
-                File(usrDir, "libexec/gvfsd-trash").exists()
+                File(usrDir, "libexec/gvfsd-trash").exists() &&
+                // DESKTOP-FULL-01: panel de tareas tint2. Devices existentes
+                // sin él disparan installGraphical incremental al entrar.
+                File(usrDir, "bin/tint2").exists()
             ),
             // Estado instalado por app del panel (appId → binario ELF en
             // disco). Verdad por existencia real, no por dpkg status: el

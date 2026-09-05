@@ -1,5 +1,6 @@
 package dev.nanoai.mobile
 
+import android.graphics.Bitmap
 import android.util.Log
 import dev.nanoai.mobile.services.XServerBackend
 import dev.nanoai.mobile.services.InternalXvncBackend
@@ -37,6 +38,8 @@ class DesktopSessionManager(
     @Volatile private var openboxPid: Long = -1
     @Volatile private var terminalPid: Long = -1
     @Volatile private var fehPid: Long     = -1
+    @Volatile private var tint2Pid: Long   = -1
+    @Volatile private var pcmanfmPid: Long = -1
     @Volatile private var dbusPid: Long   = -1
     @Volatile private var running = false
     @Volatile private var stopRequested = false
@@ -97,7 +100,15 @@ class DesktopSessionManager(
             "LD_LIBRARY_PATH"  to ldPath,
             "DISPLAY"          to display,
             "XDG_RUNTIME_DIR"  to tmpDir.absolutePath,
+            // DESKTOP-FULL-01: NO cambiar a es_ES.UTF-8 — el rootfs Termux no
+            // trae ese locale (verificado device: 0 archivos .mo en usr/share/
+            // locale) y setlocale fallaría a "C" rompiendo el UTF-8 en TODAS
+            // las apps. LANGUAGE=es es gettext-only (no pasa por setlocale):
+            // hoy es no-op honesto, mañana activa español si llegan .mo.
+            // El español visible es el de los textos PROPIOS: menú openbox,
+            // hud.py, lanzadores del panel tint2.
             "LANG"             to "en_US.UTF-8",
+            "LANGUAGE"         to "es",
             "TERM"             to "xterm-256color",
             // aterm lanza $SHELL como hijo; sin SHELL cae a /bin/sh que
             // nanoroot resuelve pero aterm muere en silencio tras el spawn
@@ -333,6 +344,36 @@ class DesktopSessionManager(
             Log.i(TAG, "feh wallpaper aplicado ($wallFlag ${wallpaper.name}, PID=$fehPid)")
         }
     }
+
+    private fun launchDesktopIcons(wmEnv: Map<String, String>) {
+        // DESKTOP-FIT-01: iconos del escritorio vía pcmanfm --desktop
+        // (gestor real LXDE: muestra ~/Escritorio con los .desktop propios).
+        // Transparente: el fondo lo pinta feh en el root de X, sin conflicto.
+        val pcBin = File(usrDir, "bin/pcmanfm")
+        if (pcBin.exists()) {
+            pcBin.setExecutable(true, false)
+            pcmanfmPid = spawnBg(pcBin.absolutePath, listOf("pcmanfm", "--desktop"), wmEnv)
+            Log.i(TAG, "pcmanfm --desktop PID=$pcmanfmPid")
+        } else {
+            Log.w(TAG, "pcmanfm no instalado — escritorio sin iconos este arranque")
+        }
+    }
+
+    private fun launchTint2(wmEnv: Map<String, String>) {
+        // DESKTOP-FULL-01: panel inferior (lanzadores + tareas + reloj).
+        // Si no está instalado (device existente antes del incremental),
+        // se omite en silencio — el gate graphicalExtras lo instala y el
+        // próximo arranque lo trae. tint2 es daemon persistente: sí entra
+        // al watchdog granular.
+        val tint2Bin = File(usrDir, "bin/tint2")
+        if (tint2Bin.exists()) {
+            tint2Bin.setExecutable(true, false)
+            tint2Pid = spawnBg(tint2Bin.absolutePath, listOf("tint2"), wmEnv)
+            Log.i(TAG, "tint2 panel PID=$tint2Pid")
+        } else {
+            Log.w(TAG, "tint2 no instalado — panel omitido este arranque")
+        }
+    }
     
     private fun launchTerminal(wmEnv: Map<String, String>, onStatus: (String) -> Unit) {
         // Lanzar terminal gráfica
@@ -428,6 +469,8 @@ class DesktopSessionManager(
         setupWallpaper()
         setupGtkTheme()
         setupLxTerminalConfig()
+        setupTint2Config()
+        setupPcmanfmDesktop()
 
         // 3. Lanzar D-Bus session bus
         launchDBusSession(tmpDir, lastWmEnv)
@@ -448,8 +491,15 @@ class DesktopSessionManager(
         }
         if (abortIfStopped("after-openbox-wait", onError)) return
 
-        // 5. Aplicar wallpaper
+        // 5. Aplicar wallpaper (feh pinta el root; pcmanfm --desktop es
+        // transparente y deja verlo — sin conflicto de fondos).
         launchWallpaper(lastWmEnv)
+
+        // 5.4 Iconos del escritorio (pcmanfm --desktop, look LXDE real)
+        launchDesktopIcons(lastWmEnv)
+
+        // 5.5 Panel de tareas inferior (lanzadores + tareas + reloj)
+        launchTint2(lastWmEnv)
 
         // 6. Lanzar terminal
         launchTerminal(lastWmEnv, onStatus)
@@ -572,6 +622,8 @@ class DesktopSessionManager(
         killPid(terminalPid); terminalPid = -1
         killPid(openboxPid); openboxPid = -1
         killPid(fehPid);     fehPid     = -1
+        killPid(tint2Pid);   tint2Pid   = -1
+        killPid(pcmanfmPid); pcmanfmPid = -1
         killPid(dbusPid);    dbusPid    = -1
         running = false
     }
@@ -680,6 +732,30 @@ class DesktopSessionManager(
                             ob.setExecutable(true, false)
                             openboxPid = spawnBg(ob.absolutePath, listOf("openbox"), lastWmEnv)
                             Log.i(TAG, "Watchdog: openbox re-lanzado PID=$openboxPid")
+                        }
+                    }
+                    // tint2 es daemon persistente — mismo patrón que openbox.
+                    val t2Pid = tint2Pid
+                    if (t2Pid > 0 && !File("/proc/$t2Pid").exists()) {
+                        Log.w(TAG, "Watchdog: tint2 PID=$t2Pid muerto — re-lanzando")
+                        tint2Pid = -1
+                        val t2 = File(usrDir, "bin/tint2")
+                        if (t2.exists() && lastWmEnv.isNotEmpty()) {
+                            t2.setExecutable(true, false)
+                            tint2Pid = spawnBg(t2.absolutePath, listOf("tint2"), lastWmEnv)
+                            Log.i(TAG, "Watchdog: tint2 re-lanzado PID=$tint2Pid")
+                        }
+                    }
+                    // pcmanfm --desktop es daemon persistente — mismo patrón.
+                    val pcPid = pcmanfmPid
+                    if (pcPid > 0 && !File("/proc/$pcPid").exists()) {
+                        Log.w(TAG, "Watchdog: pcmanfm --desktop PID=$pcPid muerto — re-lanzando")
+                        pcmanfmPid = -1
+                        val pc = File(usrDir, "bin/pcmanfm")
+                        if (pc.exists() && lastWmEnv.isNotEmpty()) {
+                            pc.setExecutable(true, false)
+                            pcmanfmPid = spawnBg(pc.absolutePath, listOf("pcmanfm", "--desktop"), lastWmEnv)
+                            Log.i(TAG, "Watchdog: pcmanfm --desktop re-lanzado PID=$pcmanfmPid")
                         }
                     }
                     // feh --bg-scale es one-shot: aplica el fondo y SALE
@@ -887,80 +963,272 @@ class DesktopSessionManager(
         }
     }
 
-    // Wallpaper por aspect (D-3): el PNG nano-cyber es 1280x720 landscape.
-    // Si el framebuffer es portrait (device móvil), --bg-fill recortaría el
-    // PNG a la franja central y --bg-scale estiraría el patrón ~3x — en ambos
-    // casos el diseño se destruye. Solo se usa el PNG cuando el aspect casa
-    // (±5%, leído del header IHDR); si no, cae al PPM gradiente vertical
-    // (32x32, --bg-scale suave sin distorsión visible).
+    // DESKTOP-FULL-01: panel tint2 (barra inferior estilo Linux real).
+    // (1) .desktop PROPIOS en ~/.local/share/applications — los de Termux
+    //     pueden no sobrevivir extracciones parciales del rootfs; los
+    //     nuestros apuntan a binarios verificados por la allowlist.
+    // (2) tint2rc oscuro con paleta identidad nanoai: lanzadores +
+    //     tareas + reloj. tooltips y nombres en español (Termux no trae
+    //     .mo de traducción para las apps, pero los textos PROPIOS sí).
+    private fun setupTint2Config() {
+        try {
+            val homeDir = File(usrDir.parentFile, "home")
+            val appsDir = File(homeDir, ".local/share/applications")
+                .also { it.mkdirs() }
+            fun desktop(name: String, exec: String, icon: String) =
+                """
+                [Desktop Entry]
+                Type=Application
+                Name=$name
+                Exec=$exec
+                Icon=$icon
+                Terminal=false
+                Categories=Utility;
+                """.trimIndent()
+            File(appsDir, "nano-terminal.desktop").writeText(
+                desktop("Terminal", "lxterminal -e sh -c \"exec bash -i\"", "utilities-terminal"))
+            File(appsDir, "nano-archivos.desktop").writeText(
+                desktop("Archivos", "pcmanfm", "system-file-manager"))
+            File(appsDir, "nano-editor.desktop").writeText(
+                desktop("Editor", "mousepad", "accessories-text-editor"))
+
+            val tint2Dir = File(homeDir, ".config/tint2").also { it.mkdirs() }
+            File(tint2Dir, "tint2rc").writeText("""
+                # tint2rc — panel NANO AI (generado por DesktopSessionManager)
+                # Barra inferior: lanzadores + tareas + reloj.
+                # Paleta identidad nanoai: fondo #0A1626, activo #21F2B2,
+                # acento #42D9FF sobre texto #E9F1FA.
+
+                # ── Panel ──
+                # DESKTOP-FIX-01: 44→56 px y padding mayor — táctil real.
+                panel_items = LTSC
+                panel_size = 100% 56
+                panel_margin = 0 0
+                panel_padding = 7 4 7
+                panel_background_id = 1
+                panel_position = bottom center vertical
+                panel_layer = top
+                panel_monitor = all
+                wm_menu = 1
+
+                # ── Fondos ──
+                background_1 = #0A1626 96
+                background_2 = #0B2438 100
+                background_3 = #123A57 100
+
+                # ── Lanzador ──
+                # DESKTOP-FIX-01: iconos 28→44 px (diana táctil Material 44).
+                launcher_icon_theme = Adwaita
+                launcher_icon_size = 44
+                launcher_padding = 10 5 5
+                launcher_tooltip = 1
+                launcher_item_app = nano-terminal.desktop
+                launcher_item_app = nano-archivos.desktop
+                launcher_item_app = nano-editor.desktop
+
+                # ── Tareas ──
+                # DESKTOP-FIX-01: botones 34→44 alto, fuente 12→14.
+                taskbar_padding = 5 3 5
+                task_icon = 1
+                task_text = 1
+                task_maximum_size = 260 44
+                task_font = DejaVu Sans 14
+                task_font_color = #E9F1FA 90
+                task_active_font_color = #21F2B2 100
+                task_iconified_font_color = #7A8BA0 70
+                task_background_id = 0
+                task_active_background_id = 2
+                task_urgent_background_id = 3
+                task_iconified_background_id = 0
+
+                # ── Reloj ──
+                time1_format = %H:%M
+                time1_font = DejaVu Sans 14
+                time1_font_color = #21F2B2 100
+                clock_padding = 3 10
+                clock_tooltip = NANO AI
+
+                # ── Tooltip ──
+                tooltip_font = DejaVu Sans 13
+                tooltip_background_id = 1
+                tooltip_font_color = #E9F1FA 100
+                tooltip_padding = 6 4
+            """.trimIndent())
+            Log.i(TAG, "tint2rc + 3 .desktop propios escritos")
+        } catch (e: Exception) {
+            Log.w(TAG, "setupTint2Config: ${e.message}")
+        }
+    }
+
+    // DESKTOP-FIT-01: escritorio con iconos — pcmanfm --desktop muestra el
+    // directorio especial Desktop de GLib. Termux no trae xdg-user-dirs, así
+    // que GLib caería a ~/Desktop (locale C); forzamos ~/Escritorio con
+    // user-dirs.dirs propio y copiamos ahí los .desktop del panel (misma
+    // allowlist: binarios verificados, no exec arbitrario).
+    private fun setupPcmanfmDesktop() {
+        try {
+            val homeDir = File(usrDir.parentFile, "home")
+            val deskDir = File(homeDir, "Escritorio").also { it.mkdirs() }
+            File(homeDir, ".config").also { it.mkdirs() }
+            File(homeDir, ".config/user-dirs.dirs").writeText(
+                "XDG_DESKTOP_DIR=\"${deskDir.absolutePath}\"\n")
+            val appsDir = File(homeDir, ".local/share/applications")
+            listOf("nano-terminal.desktop", "nano-archivos.desktop", "nano-editor.desktop")
+                .forEach { name ->
+                    val src = File(appsDir, name)
+                    val dst = File(deskDir, name)
+                    if (src.exists() && !dst.exists()) src.copyTo(dst)
+                }
+            // Desktop sin papelera ni carpetas especiales (gvfs incompleto
+            // en este rootfs — honesto: trash:// no funciona aún).
+            val confDir = File(homeDir, ".config/pcmanfm/default").also { it.mkdirs() }
+            File(confDir, "desktop-items-0.conf").writeText("""
+                [*]
+                show_trash=0
+                show_documents=0
+            """.trimIndent())
+            // DESKTOP-FIX-01: pcmanfm --desktop es el desktop manager y pinta
+            // SU fondo sobre el root window — sin pcmanfm.conf usaba su
+            // default (wallpaper ausente en Termux = NEGRO) y tapaba el feh.
+            // Aquí pinta la MISMA galaxia (fit 1:1, sin bandas) y sube el
+            // tamaño de los iconos del escritorio (big_icon_size: pcmanfm
+            // los dibuja a tamaño fijo, el dpi del X no los escala).
+            File(confDir, "pcmanfm.conf").writeText("""
+                [desktop]
+                wallpaper_mode=fit
+                wallpaper=${homeDir.absolutePath}/.nano-wallpaper.png
+                desktop_font=DejaVu Sans 16
+                [ui]
+                big_icon_size=64
+            """.trimIndent())
+            Log.i(TAG, "pcmanfm desktop: ~/Escritorio con ${deskDir.listFiles()?.size ?: 0} iconos")
+        } catch (e: Exception) {
+            Log.w(TAG, "setupPcmanfmDesktop: ${e.message}")
+        }
+    }
+
+    // DESKTOP-POLISH-01: el fondo es SIEMPRE la galaxia procedural generada
+    // a la resolución REAL del framebuffer — feh --bg-scale la aplica 1:1
+    // como capa base del root window. El pintor principal es pcmanfm --desktop
+    // (desktop manager: cubre el root; sin pcmanfm.conf pintaba su default
+    // negro — DESKTOP-FIX-01). Mismo PNG para ambos, un solo archivo fuente.
     private fun wallpaperForLaunch(): Pair<File, String> {
         val homeDir = File(usrDir.parentFile, "home")
         val png = File(homeDir, ".nano-wallpaper.png")
-        val ppm = File(homeDir, ".nano-wallpaper.ppm")
-        if (png.exists() && png.length() > 10000 && pngMatchesAspect(png)) {
-            return png to "--bg-fill"
-        }
-        return ppm to "--bg-scale"
+        return png to "--bg-scale"
     }
 
-    private fun pngMatchesAspect(png: File): Boolean {
-        if (fbWidth <= 0 || fbHeight <= 0) return false
-        return try {
-            // IHDR: ancho BE u32 en bytes 16-19, alto BE u32 en bytes 20-23.
-            val hdr = ByteArray(24)
-            png.inputStream().use { ins ->
-                var off = 0
-                while (off < hdr.size) {
-                    val n = ins.read(hdr, off, hdr.size - off)
-                    if (n < 0) return false
-                    off += n
-                }
-            }
-            fun be32(i: Int): Int = ((hdr[i].toInt() and 0xFF) shl 24) or
-                ((hdr[i + 1].toInt() and 0xFF) shl 16) or
-                ((hdr[i + 2].toInt() and 0xFF) shl 8) or
-                (hdr[i + 3].toInt() and 0xFF)
-            val w = be32(16)
-            val h = be32(20)
-            if (w <= 0 || h <= 0) return false
-            val ratio = (w.toDouble() / h) / (fbWidth.toDouble() / fbHeight)
-            ratio in 0.95..1.05
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    // Wallpaper: Genera SIEMPRE un PPM P6 (32x32 px) con el gradiente de la
-    // identidad nanoai: #020611 (azul noche base) hacia #022A2D (verde azulado
-    // profundo). feh --bg-scale lo escala suavemente sin pixelar. Sin
-    // early-return: es un archivo diminuto y así los cambios de diseño
-    // sobreviven a booteos previos.
+    // Galaxia procedural PNG a resolución del framebuffer: cielo espacio
+    // profundo (#020611) + 3 nebulosas gaussianas (violeta/azul/cian de la
+    // identidad nanoai) + estrellas con brillo variable. Seed FIJO: el mismo
+    // cielo en cada arranque (sin saltos entre sesiones). Sin early-return:
+    // se regenera siempre y sobrevive a cambios de geometría por rotación.
+    // DESKTOP-FIX-01: PNG vía android.graphics.Bitmap (antes PPM) — pcmanfm
+    // lo pinta con su loader PNG core (el PNM de gdk-pixbuf no está garantizado
+    // en el rootfs Termux; PNG sí, siempre).
     private fun setupWallpaper() {
         try {
             val homeDir = File(usrDir.parentFile, "home").also { it.mkdirs() }
-            val ppm = File(homeDir, ".nano-wallpaper.ppm")
-            val w = 32
-            val h = 32
-            val header = "P6\n$w $h\n255\n".toByteArray(Charsets.US_ASCII)
-            val pixels = ByteArray(w * h * 3)
+            val png = File(homeDir, ".nano-wallpaper.png")
+            val w = if (fbWidth > 0) fbWidth else 1080
+            val h = if (fbHeight > 0) fbHeight else 1920
+            val rnd = java.util.Random(42L)
+
+            // Nebulosas: centro aleatorio estable, radio ~22-45% del lado
+            // menor, color (fracción de 255) violeta / azul / cian-verde.
+            data class Nebula(
+                val cx: Double, val cy: Double, val r: Double,
+                val cr: Double, val cg: Double, val cb: Double,
+            )
+            val minDim = minOf(w, h).toDouble()
+            val nebulas = listOf(
+                Nebula(w * (0.20 + rnd.nextDouble() * 0.60), h * (0.18 + rnd.nextDouble() * 0.45),
+                    minDim * (0.35 + rnd.nextDouble() * 0.10), 0.36, 0.18, 0.56),
+                Nebula(w * (0.20 + rnd.nextDouble() * 0.60), h * (0.30 + rnd.nextDouble() * 0.45),
+                    minDim * (0.30 + rnd.nextDouble() * 0.10), 0.12, 0.32, 0.58),
+                Nebula(w * (0.20 + rnd.nextDouble() * 0.60), h * (0.20 + rnd.nextDouble() * 0.55),
+                    minDim * (0.24 + rnd.nextDouble() * 0.10), 0.06, 0.50, 0.50),
+            )
+
+            // Estrellas: densidad 1/500 px, brillo 60-255; 25% azuladas,
+            // 8% cian-verdes (pinceladas raras), resto blancas.
+            val starCount = (w * h) / 500
+            val stars = Array(starCount) {
+                val tint = rnd.nextDouble()
+                val color = when {
+                    tint < 0.08 -> intArrayOf(0x80, 0xFF, 0xD8)
+                    tint < 0.33 -> intArrayOf(0xA0, 0xC8, 0xFF)
+                    else -> intArrayOf(0xFF, 0xFF, 0xFF)
+                }
+                intArrayOf(
+                    rnd.nextInt(w), rnd.nextInt(h),
+                    60 + rnd.nextInt(196), color[0], color[1], color[2],
+                )
+            }
+
+            // Base espacial #020611 + suma de nebulosas (k²: núcleo intenso,
+            // caída suave sin sqrt — comparación por dist²). Píxeles ARGB
+            // empaquetados para setPixels del Bitmap.
+            val pixels = IntArray(w * h)
             var idx = 0
             for (y in 0 until h) {
-                val factor = y.toDouble() / (h - 1)
-                // Gradiente: #020611 (2, 6, 17) -> #022A2D (2, 42, 45)
-                val r = (2 + factor * (2 - 2)).toInt().coerceIn(0, 255)
-                val g = (6 + factor * (42 - 6)).toInt().coerceIn(0, 255)
-                val b = (17 + factor * (45 - 17)).toInt().coerceIn(0, 255)
                 for (x in 0 until w) {
-                    pixels[idx++] = r.toByte()
-                    pixels[idx++] = g.toByte()
-                    pixels[idx++] = b.toByte()
+                    var r = 2.0; var g = 6.0; var b = 17.0
+                    for (n in nebulas) {
+                        val dx = x - n.cx
+                        val dy = y - n.cy
+                        val d2 = dx * dx + dy * dy
+                        val rr = n.r * n.r
+                        if (d2 < rr) {
+                            val t = 1.0 - d2 / rr
+                            val k = t * t
+                            r += n.cr * 255.0 * k
+                            g += n.cg * 255.0 * k
+                            b += n.cb * 255.0 * k
+                        }
+                    }
+                    pixels[idx++] = (0xFF shl 24) or
+                        (r.coerceIn(0.0, 255.0).toInt() shl 16) or
+                        (g.coerceIn(0.0, 255.0).toInt() shl 8) or
+                        b.coerceIn(0.0, 255.0).toInt()
                 }
             }
-            ppm.outputStream().use { out ->
-                out.write(header)
-                out.write(pixels)
+            // Estrellas pintadas sobre el cielo (radio 1-2 px con halo).
+            for (s in stars) {
+                val sx = s[0]; val sy = s[1]
+                val bright = s[2] / 255.0
+                val cr = s[3]; val cg = s[4]; val cb = s[5]
+                fun paint(px: Int, py: Int, k: Double) {
+                    if (px < 0 || py < 0 || px >= w || py >= h) return
+                    val o = py * w + px
+                    val cur = pixels[o]
+                    val r = ((cur shr 16) and 0xFF) + (cr * k).toInt()
+                    val g = ((cur shr 8) and 0xFF) + (cg * k).toInt()
+                    val b = (cur and 0xFF) + (cb * k).toInt()
+                    pixels[o] = (0xFF shl 24) or
+                        (r.coerceAtMost(255) shl 16) or
+                        (g.coerceAtMost(255) shl 8) or
+                        b.coerceAtMost(255)
+                }
+                paint(sx, sy, bright)
+                paint(sx - 1, sy, bright * 0.45)
+                paint(sx + 1, sy, bright * 0.45)
+                paint(sx, sy - 1, bright * 0.45)
+                paint(sx, sy + 1, bright * 0.45)
+                if (sx % 3 == 0) { // estrellas "grandes" con halo extra
+                    paint(sx - 1, sy - 1, bright * 0.20)
+                    paint(sx + 1, sy + 1, bright * 0.20)
+                    paint(sx - 1, sy + 1, bright * 0.20)
+                    paint(sx + 1, sy - 1, bright * 0.20)
+                }
             }
-            Log.i(TAG, "wallpaper PPM gradiente NanoAI escrito")
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bmp.setPixels(pixels, 0, w, 0, 0, w, h)
+            png.outputStream().use { out ->
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            bmp.recycle()
+            Log.i(TAG, "galaxia procedural escrita: ${w}x${h} PNG (${nebulas.size} nebulosas, $starCount estrellas)")
         } catch (e: Exception) {
             Log.w(TAG, "setupWallpaper: ${e.message}")
         }

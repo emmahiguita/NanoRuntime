@@ -170,6 +170,7 @@ abstract class _DedupeCore implements EventDedupeStore {
   final int ttlMs;
   final int cooldownMs;
   final int failedBackoffMs;
+  final int bouncebackMs;
   final int eventCap;
   final int outboundCap;
 
@@ -177,16 +178,26 @@ abstract class _DedupeCore implements EventDedupeStore {
     this.ttlMs = defaultTtlMs,
     this.cooldownMs = defaultCooldownMs,
     this.failedBackoffMs = defaultFailedBackoffMs,
+    this.bouncebackMs = defaultBouncebackMs,
     this.eventCap = defaultEventCap,
     this.outboundCap = defaultOutboundCap,
   });
 
-  /// TTL de un evento/eco visto: 24 h.
+  /// TTL de un evento visto (duplicate): 24 h.
   static const defaultTtlMs = Duration.millisecondsPerDay;
 
   /// Pausa por conversación tras un intento de respuesta. Corta a propósito:
   /// bloquea ráfagas casi simultáneas sin tragarse mensajes reales separados.
   static const defaultCooldownMs = 5000;
+
+  /// Ventana de ECO de respuesta propia (bounceback): solo el eco real de la
+  /// app origen llega aquí — WhatsApp publica "Tú: <texto>" SEGUNDOS después
+  /// del envío. Con el TTL de 24 h del ledger, un mensaje legítimo del
+  /// cliente con el MISMO texto que una respuesta previa (ej. "Hola" otra
+  /// vez) moría como bounceback horas después: verificado en Oppo con Emm
+  /// ("Hola" repetido quedaba sin responder). 3 min cubre el eco con margen
+  /// y no traga mensajes reales posteriores.
+  static const defaultBouncebackMs = 180000;
 
   /// Expiración de un intento EN VUELO (_pendingReplies) sin terminal
   /// registrado. Solo red de seguridad (proceso murió o excepción sin
@@ -235,7 +246,10 @@ abstract class _DedupeCore implements EventDedupeStore {
       return gone;
     });
     _outbound.removeWhere((_, list) {
-      list.removeWhere((e) => _expired(e.atMs, nowMs, ttlMs));
+      // El eco de outbound expira con su propia ventana corta (bouncebackMs),
+      // NO con el TTL del ledger: un eco con el mismo texto que un mensaje
+      // legítimo posterior no debe bloquearlo horas después.
+      list.removeWhere((e) => _expired(e.atMs, nowMs, bouncebackMs));
       return list.isEmpty;
     });
     if (changed) _markDirty();
@@ -364,7 +378,7 @@ abstract class _DedupeCore implements EventDedupeStore {
     final normalized = normalizeDedupeText(text);
     if (normalized.isEmpty) return;
     final list = _outbound.putIfAbsent(conversationId, () => []);
-    list.removeWhere((e) => _expired(e.atMs, atMs, ttlMs));
+    list.removeWhere((e) => _expired(e.atMs, atMs, bouncebackMs));
     list.add(_OutboundEcho(normalized, atMs));
     if (list.length > outboundCap) {
       list.removeRange(0, list.length - outboundCap);
@@ -379,6 +393,7 @@ class MemoryEventDedupeStore extends _DedupeCore {
     super.ttlMs,
     super.cooldownMs,
     super.failedBackoffMs,
+    super.bouncebackMs,
     super.eventCap,
     super.outboundCap,
   });
@@ -405,6 +420,7 @@ class SharedPrefsEventDedupeStore extends _DedupeCore {
     super.ttlMs,
     super.cooldownMs,
     super.failedBackoffMs,
+    super.bouncebackMs,
     super.eventCap,
     super.outboundCap,
   });

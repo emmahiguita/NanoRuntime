@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'nano_runtime_api.dart';
+import 'sha256_file.dart';
 
 /// Gestiona la instalación del rootfs Termux (bootstrap-aarch64.zip) en el
 /// directorio privado de la app (`files/nano/`).
@@ -279,9 +279,8 @@ class RootfsManager {
         return '';
       }
 
-      final bytes = await file.readAsBytes();
-      final digest = crypto.sha256.convert(bytes);
-      return digest.toString();
+      // TER-32: hash streaming compartido (zip ~30MB sin picos de RAM).
+      return await sha256File(filePath);
     } catch (e) {
       debugPrint('[rootfs] Error calculando SHA256: $e');
       return '';

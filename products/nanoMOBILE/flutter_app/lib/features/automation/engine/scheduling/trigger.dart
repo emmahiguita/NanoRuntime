@@ -37,7 +37,15 @@ class NotificationTrigger extends Trigger {
   /// Substring en sender/conversationTitle. null = cualquiera.
   final String? senderMatch;
 
-  const NotificationTrigger({this.packageName, this.senderMatch});
+  /// Substring en el contenido del mensaje (interpretableText).
+  /// null = cualquier contenido.
+  final String? textMatch;
+
+  const NotificationTrigger({
+    this.packageName,
+    this.senderMatch,
+    this.textMatch,
+  });
 }
 
 /// Disparo por conectividad: "cuando tenga wifi".
@@ -68,10 +76,14 @@ class NotificationEvent extends TriggerEvent {
   final String? packageName;
   final String? sender;
   final String? conversationTitle;
+
+  /// Texto del mensaje individual (MessagingStyle), si lo expuso la app.
+  final String? text;
   const NotificationEvent({
     this.packageName,
     this.sender,
     this.conversationTitle,
+    this.text,
   });
 }
 
@@ -106,7 +118,12 @@ bool evaluateTrigger(Trigger trigger, TriggerEvent event) {
         '${event.sender ?? ''} ${event.conversationTitle ?? ''}'
             .toLowerCase()
             .contains(match.toLowerCase());
-    return pkgOk && senderOk;
+    final textMatch = trigger.textMatch;
+    final textOk =
+        textMatch == null ||
+        textMatch.isEmpty ||
+        (event.text?.toLowerCase().contains(textMatch.toLowerCase()) ?? false);
+    return pkgOk && senderOk && textOk;
   }
   if (trigger is ConnectivityTrigger && event is ConnectivityEvent) {
     return !trigger.wifiOnly || event.wifiConnected;
@@ -129,6 +146,7 @@ Map<String, dynamic> triggerToJson(Trigger t) => switch (t) {
     'type': 'notification',
     'packageName': t.packageName,
     'senderMatch': t.senderMatch,
+    'textMatch': t.textMatch,
   },
   ConnectivityTrigger() => {'type': 'connectivity', 'wifiOnly': t.wifiOnly},
   BatteryTrigger() => {'type': 'battery', 'belowPercent': t.belowPercent},
@@ -148,6 +166,7 @@ Trigger triggerFromJson(Map<String, dynamic> m) {
       return NotificationTrigger(
         packageName: m['packageName'] as String?,
         senderMatch: m['senderMatch'] as String?,
+        textMatch: m['textMatch'] as String?,
       );
     case 'connectivity':
       return ConnectivityTrigger(wifiOnly: m['wifiOnly'] == true);

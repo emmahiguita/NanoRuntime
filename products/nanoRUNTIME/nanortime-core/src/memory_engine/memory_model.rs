@@ -58,7 +58,13 @@ impl Default for MemoryModel {
         Self {
             overhead_factor: 1.08,
             kv_per_token_mb: 0.03,
-            runtime_overhead_mb: 200.0,
+            // Overhead de runtime REAL medido en dispositivo (Oppo, 1.5B
+            // q4, mmap): PSS post-carga 1117.8 MB con pesos de 1065 MB →
+            // ~53 MB de heap/stack/buffers. 200 MB inflaba la estimación al
+            // punto de forzar survival_fit (ctx=256) cuando había ~1.1 GB
+            // libres para KV — el prompt del agente no cabía y el motor
+            // devolvía content vacío. 130 = ~2.5× el overhead medido.
+            runtime_overhead_mb: 130.0,
             max_vma_ratio: 0.90,
         }
     }

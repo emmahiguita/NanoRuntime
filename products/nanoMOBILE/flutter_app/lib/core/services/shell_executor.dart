@@ -282,10 +282,13 @@ class ShellExecutor implements IBinExecutor {
       final exitCode = await p.exitCode.timeout(
         timeout,
         onTimeout: () {
+          // TER-23: NO cancelar outSub/errSub aquí — await asFuture() abajo
+          // NUNCA completa tras cancel() (cancel no completa el future del
+          // stream), así que stream() colgaba para siempre en todo comando
+          // con timeout. SIGTERM + SIGKILL cierran los pipes del proceso y
+          // eso sí dispara done → asFuture completa.
           // Fase 1: SIGTERM (permite cleanup del proceso)
           p.kill(ProcessSignal.sigterm);
-          outSub.cancel();
-          errSub.cancel();
           // Fase 2: tras 2s, SIGKILL forzoso para evitar zombies
           Future.delayed(const Duration(seconds: 2), () {
             try {
@@ -452,6 +455,7 @@ class ShellExecutor implements IBinExecutor {
   Future<ShellResult> toybox(
     List<String> args, {
     Map<String, String>? extraEnv,
+    Duration? timeout,
   }) async {
     if (args.isEmpty) {
       return const ShellResult(
@@ -462,7 +466,7 @@ class ShellExecutor implements IBinExecutor {
     }
     final env = Map<String, String>.from(_defaultEnv);
     if (extraEnv != null) env.addAll(extraEnv);
-    return _execBusyBox(args, env: env);
+    return _execBusyBox(args, env: env, timeout: timeout);
   }
 
   /// Entorno mínimo para comandos BusyBox via Nanoshell.
@@ -541,6 +545,7 @@ class ShellExecutor implements IBinExecutor {
   Future<ShellResult> _execBusyBox(
     List<String> args, {
     Map<String, String>? env,
+    Duration? timeout,
   }) async {
     // Android 15: fork()+dlopen() en el proceso principal crashea con el CFI
     // shadow del bionic linker (linker_cfi.cpp:158 MapShadow CHECK 'p !=
@@ -555,7 +560,12 @@ class ShellExecutor implements IBinExecutor {
         exitCode: -1,
       );
     }
-    final wr = await _execInWorker(toyboxPath, ['toybox', ...args], env: env);
+    final wr = await _execInWorker(
+      toyboxPath,
+      ['toybox', ...args],
+      env: env,
+      timeout: timeout ?? const Duration(seconds: 60),
+    );
     if (wr != null) return wr;
     return const ShellResult(
       stdout: '',
@@ -590,12 +600,14 @@ class ShellExecutor implements IBinExecutor {
     List<String> args, {
     Map<String, String>? env,
     String? ldPreload,
+    Duration? timeout,
   }) async {
     final wr = await execRootfsWorker(
       binaryPath,
       args,
       env: env,
       ldPreload: ldPreload,
+      timeout: timeout ?? const Duration(seconds: 120),
     );
     if (wr != null) return wr;
     return const ShellResult(

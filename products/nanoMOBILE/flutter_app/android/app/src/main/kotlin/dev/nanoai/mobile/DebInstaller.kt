@@ -90,6 +90,8 @@ class DebInstaller(
             "hicolor-icon-theme", // tema de íconos base XDG para GTK3/pcmanfm
             "adwaita-icon-theme", // tema de íconos premium para GTK3
             "librsvg",          // renderizador de íconos vectoriales SVG para aplicaciones GTK
+            "libgraphite",      // motor de fuentes Graphite (libgraphite2.so) — libharfbuzz lo necesita: openbox/lxterminal mueren status=1 sin él (DESKTOP-CRASH-01)
+            "tint2",            // panel de tareas inferior del escritorio (lanzadores + tareas + reloj) — look Linux real (DESKTOP-FULL-01)
             "psmisc",           // utilidades de procesos: pstree, killall, fuser
             "nano",             // editor de código/texto en terminal
             "curl",             // cliente de red y transferencia HTTP

@@ -50,29 +50,60 @@ class LinuxToolAdapter {
 
   final LinuxExecutionBackend _backend;
 
-  Future<LinuxCommandResult> list(String path) =>
-      _exec('ls', ['-la', path]);
+  Future<LinuxCommandResult> list(
+    String path, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) => _exec('ls', ['-la', path], cwd: cwd, environment: environment, timeout: timeout);
 
-  Future<LinuxCommandResult> readFile(String path) => _exec('cat', [path]);
+  Future<LinuxCommandResult> readFile(
+    String path, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) => _exec('cat', [path], cwd: cwd, environment: environment, timeout: timeout);
 
-  Future<LinuxCommandResult> writeFile(String path, String content) {
+  Future<LinuxCommandResult> writeFile(
+    String path,
+    String content, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) {
     // Heredoc con delimitador aleatorio: contenido arbitrario sin escapes.
     final marker = 'NANOEOF${DateTime.now().microsecondsSinceEpoch}';
     final script = 'cat > ${_quote(path)} << "$marker"\n$content\n$marker';
-    return _shell(script);
+    return _shell(script, cwd: cwd, environment: environment, timeout: timeout);
   }
 
   /// Comando libre (p.ej. git, python) — la política del dispatcher decide
   /// si es seguro; el adapter no valida contenido.
-  Future<LinuxCommandResult> runCommand(String command) => _shell(command);
+  Future<LinuxCommandResult> runCommand(
+    String command, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) => _shell(command, cwd: cwd, environment: environment, timeout: timeout);
 
-  Future<LinuxCommandResult> _exec(String executable, List<String> args) async {
+  Future<LinuxCommandResult> _exec(
+    String executable,
+    List<String> args, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) async {
     try {
       final r = await _backend.execute(
         LinuxExecutionRequest(
           executable: executable,
           arguments: args,
-          timeout: const Duration(seconds: 20),
+          // LINUX-EXEC-01: el contrato core tipa cwd/environment/timeout; el
+          // adapter los PROPAGA en vez de ignorarlos (antes: 20s fijo para
+          // toda tool y ejecución siempre en el cwd del backend).
+          cwd: cwd,
+          environment: environment ?? const {},
+          timeout: timeout ?? const Duration(seconds: 20),
         ),
       );
       return LinuxCommandResult(
@@ -89,13 +120,20 @@ class LinuxToolAdapter {
     }
   }
 
-  Future<LinuxCommandResult> _shell(String script) async {
+  Future<LinuxCommandResult> _shell(
+    String script, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) async {
     try {
       final r = await _backend.execute(
         LinuxExecutionRequest(
           executable: 'bash',
           arguments: ['-c', script],
-          timeout: const Duration(seconds: 20),
+          cwd: cwd,
+          environment: environment ?? const {},
+          timeout: timeout ?? const Duration(seconds: 20),
         ),
       );
       return LinuxCommandResult(

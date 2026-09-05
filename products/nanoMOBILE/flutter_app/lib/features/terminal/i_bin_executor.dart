@@ -35,17 +35,21 @@ abstract class IBinExecutor {
   });
 
   /// Ejecuta in-process vía Nanoshell FFI. Sincrónico (bloqueante).
+  /// [timeout] opcional: límite de espera del worker (null = default 120s).
   Future<ShellResult> execRootfs(
     String binaryPath,
     List<String> args, {
     Map<String, String>? env,
     String? ldPreload,
+    Duration? timeout,
   });
 
   /// BusyBox applet vía Nanoshell FFI.
+  /// [timeout] opcional: límite de espera del worker (null = default 60s).
   Future<ShellResult> toybox(
     List<String> args, {
     Map<String, String>? extraEnv,
+    Duration? timeout,
   });
 
   /// Ejecuta vía /system/bin/sh -c (Process.start).

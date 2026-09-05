@@ -6,6 +6,7 @@ import 'proot_manager.dart';
 import 'kali_manager.dart';
 import 'docker_manager.dart';
 import 'rootfs_env.dart';
+import '../linux/distributions/ubuntu_distribution.dart';
 import 'package:flutter/foundation.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
@@ -18,6 +19,11 @@ typedef KaliFactory =
     });
 typedef DockerFactory =
     DockerManager Function({
+      required ProotManager proot,
+      required IBinExecutor shell,
+    });
+typedef UbuntuFactory =
+    UbuntuDistribution Function({
       required ProotManager proot,
       required IBinExecutor shell,
     });
@@ -37,19 +43,23 @@ class TerminalDependencies {
     ProotManager? proot,
     KaliManager? kali,
     DockerManager? docker,
+    UbuntuDistribution? ubuntu,
     ShellFactory? shellFactory,
     ProotFactory? prootFactory,
     KaliFactory? kaliFactory,
     DockerFactory? dockerFactory,
+    UbuntuFactory? ubuntuFactory,
   }) : _rootfs = rootfs,
        _shell = shell,
        _proot = proot,
        _kali = kali,
        _docker = docker,
+       _ubuntu = ubuntu,
        _shellFactory = shellFactory ?? _defaultShellFactory,
        _prootFactory = prootFactory ?? _defaultProotFactory,
        _kaliFactory = kaliFactory ?? _defaultKaliFactory,
-       _dockerFactory = dockerFactory ?? _defaultDockerFactory;
+       _dockerFactory = dockerFactory ?? _defaultDockerFactory,
+       _ubuntuFactory = ubuntuFactory ?? _defaultUbuntuFactory;
 
   /// Solo para tests: inyecta servicios NULOS para ejercitar la terminal en
   /// modo offline honesto (comandos dart:io reales + errores sin simulación).
@@ -61,20 +71,24 @@ class TerminalDependencies {
       _proot = null,
       _kali = null,
       _docker = null,
+      _ubuntu = null,
       _shellFactory = _defaultShellFactory,
       _prootFactory = _defaultProotFactory,
       _kaliFactory = _defaultKaliFactory,
-      _dockerFactory = _defaultDockerFactory;
+      _dockerFactory = _defaultDockerFactory,
+      _ubuntuFactory = _defaultUbuntuFactory;
 
   RootfsManager? _rootfs;
   IBinExecutor? _shell;
   ProotManager? _proot;
   KaliManager? _kali;
   DockerManager? _docker;
+  UbuntuDistribution? _ubuntu;
   final ShellFactory _shellFactory;
   final ProotFactory _prootFactory;
   final KaliFactory _kaliFactory;
   final DockerFactory _dockerFactory;
+  final UbuntuFactory _ubuntuFactory;
 
   static IBinExecutor _defaultShellFactory(RootfsManager rootfs) =>
       ShellExecutor(rootfs: rootfs);
@@ -88,12 +102,17 @@ class TerminalDependencies {
     required ProotManager proot,
     required IBinExecutor shell,
   }) => DockerManager(proot: proot, shell: shell);
+  static UbuntuDistribution _defaultUbuntuFactory({
+    required ProotManager proot,
+    required IBinExecutor shell,
+  }) => UbuntuDistribution(shell: shell, proot: proot);
 
   RootfsManager? get rootfs => _rootfs;
   IBinExecutor? get shell => _shell;
   ProotManager? get proot => _proot;
   KaliManager? get kali => _kali;
   DockerManager? get docker => _docker;
+  UbuntuDistribution? get ubuntu => _ubuntu;
 
   bool get hasRootfs => _rootfs?.isInstalled == true;
   bool get hasShell => _shell?.initialized == true;
@@ -134,6 +153,12 @@ class TerminalDependencies {
     _docker ??= _dockerFactory(proot: _proot!, shell: _shell!);
   }
 
+  /// Initialize ubuntu distro (requires proot + shell).
+  Future<void> initUbuntu() async {
+    if (_proot == null) await initProot();
+    _ubuntu ??= _ubuntuFactory(proot: _proot!, shell: _shell!);
+  }
+
   Completer<void>? _initCompleter;
 
   /// Full initialization (all services). Call once at app start.
@@ -155,6 +180,8 @@ class TerminalDependencies {
       await initKali();
       onProgress?.call('docker...');
       await initDocker();
+      onProgress?.call('ubuntu...');
+      await initUbuntu();
       completer.complete();
     } catch (e, st) {
       completer.completeError(e, st);
@@ -191,5 +218,6 @@ class TerminalDependencies {
     _proot = null;
     _kali = null;
     _docker = null;
+    _ubuntu = null;
   }
 }

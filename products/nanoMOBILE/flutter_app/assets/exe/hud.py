@@ -88,14 +88,14 @@ left = LOGO
 right = [
     BLD + W + "@" + C + BLD + "nano" + R + " " + DIM + W + "linux" + R,
     "\u2500" * 28,
-    BLD + C + "OS" + R + D + ":" + R + W + " NanoAI Linux Desktop" + R,
-    BLD + C + "WM" + R + D + ":" + R + W + " Openbox (NanoAI)" + R,
-    BLD + C + "KERNEL" + R + D + ":" + R + W + " %s" % kernel + R,
-    BLD + C + "UPTIME" + R + D + ":" + R + W + " %s" % uptime() + R,
-    BLD + C + "MEM" + R + D + ":" + R + W + " %d / %d MiB %s%s  %d%%" % (used, total, D, mem_bar(pct), pct) + R,
-    BLD + C + "CPU" + R + D + ":" + R + W + " %s (%d cores)" % (cpu_model().split()[0][:22], os.cpu_count() or 1) + R,
-    BLD + C + "STORAGE" + R + D + ":" + R + W + " %s" % storage() + R,
-    BLD + C + "NET" + R + D + ":" + R + W + " %s" % local_ip() + R,
+    BLD + C + "SISTEMA" + R + D + ":" + R + W + " NanoAI Linux Desktop" + R,
+    BLD + C + "GESTOR DE VENTANAS" + R + D + ":" + R + W + " Openbox (NanoAI)" + R,
+    BLD + C + "NÚCLEO" + R + D + ":" + R + W + " %s" % kernel + R,
+    BLD + C + "TIEMPO ACTIVO" + R + D + ":" + R + W + " %s" % uptime() + R,
+    BLD + C + "MEMORIA" + R + D + ":" + R + W + " %d / %d MiB %s%s  %d%%" % (used, total, D, mem_bar(pct), pct) + R,
+    BLD + C + "CPU" + R + D + ":" + R + W + " %s (%d núcleos)" % (cpu_model().split()[0][:22], os.cpu_count() or 1) + R,
+    BLD + C + "ALMACENAMIENTO" + R + D + ":" + R + W + " %s" % storage() + R,
+    BLD + C + "RED" + R + D + ":" + R + W + " %s" % local_ip() + R,
     BLD + C + "SHELL" + R + D + ":" + R + W + " bash" + R,
     "\u2500" * 28,
 ]
@@ -111,7 +111,7 @@ for line in lines:
     out += " " + line + "\n"
 out += B + BLD + "\u255a" + "\u2550" * 78 + "\u255d" + R + "\n"
 out += D + "\n  \u26a1 Entorno aislado: rootfs Termux \u00b7 Xvnc :1 \u00b7 RFB 5901 \u00b7 " + BLD + C + "nano-sec" + R + D + " activo" + R + "\n"
-out += D + "  Men\u00fa del escritorio (clic derecho) o panel superior para lanzar apps.\n"
-out += D + "  \u00bfComandos? aterm -e con un shell detr\u00e1s: " + R + W + "python3 %s" % HUD + R + "\n"
+out += D + "  Men\u00fa del escritorio (clic derecho) o panel inferior para lanzar apps.\n"
+out += D + "  \u00bfVolver a verlo? " + R + W + "python3 %s" % HUD + R + D + " \u00b7 el shell sigue activo debajo" + R + "\n"
 sys.stdout.write(out)
 sys.stdout.flush()

@@ -11,6 +11,8 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'conversation/conversational_world_state.dart';
 import 'conversation/grounding_resolver.dart';
 import 'execution_cancellation.dart';
@@ -155,6 +157,10 @@ class VoiceSessionManager {
     }
     sw.stop();
     sttLatencyMs = sw.elapsedMilliseconds;
+    debugPrint(
+      '[voice] pushToTalk: ${sw.elapsedMilliseconds}ms, '
+      'transcript="${transcript ?? ''}"',
+    );
     if (transcript == null || transcript.trim().isEmpty) {
       _set(VoiceSessionState.idle);
       return null;
@@ -197,6 +203,57 @@ class VoiceSessionManager {
         _set(VoiceSessionState.idle);
       }
     });
+  }
+
+  /// Espera hasta que el TTS termine de hablar (bounded). Los saludos de
+  /// apertura usan [respond] + esta espera antes del primer [pushToTalk]:
+  /// sin ella, el micrófono se abre mientras Nano aún habla (captaría su
+  /// propia voz o el audio se solaparía con la locución).
+  ///
+  /// VOICE-PRO-01 — fin confirmado con DOS muestras consecutivas de silencio:
+  /// entre chunks encolados el motor puede reportar isSpeaking=false durante
+  /// una micro-pausa; una sola muestra cortaba la espera a destiempo.
+  /// [isCancelled] opcional: el llamador aborta la espera (p. ej. la sesión
+  /// dejó de esperar follow-up o el usuario detuvo la conversación).
+  Future<void> waitForSpeechEnd({
+    Duration timeout = const Duration(seconds: 30),
+    bool Function()? isCancelled,
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    var silentSamples = 0;
+    while (silentSamples < 2) {
+      if (_disposed || (isCancelled?.call() ?? false)) return;
+      if (DateTime.now().isAfter(deadline)) {
+        await _synthesis.stop();
+        return;
+      }
+      if (await _synthesis.isSpeaking()) {
+        silentSamples = 0;
+      } else {
+        silentSamples++;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  /// VOICE-NATURAL-01 — turno completo de conversación continua: habla la
+  /// respuesta, espera a que el TTS termine de hablar (sin que el micrófono
+  /// capture la propia voz de Nano) y, si la sesión sigue en espera de
+  /// follow-up (no cancelada), vuelve a escuchar el siguiente turno.
+  Future<VoiceTurn?> respondAndListen(String text) async {
+    if (_disposed || text.trim().isEmpty) return null;
+    await respond(text);
+    if (_disposed || _state != VoiceSessionState.waitingFollowUp) return null;
+    // Espera el fin REAL de la locución (el canal reporta isSpeaking).
+    // Bounded: si el motor nunca reporta fin (fallo del canal), se detiene
+    // el TTS y se aborta el turno — fail honesto, sin espera infinita.
+    // Comparte la espera con waitForSpeechEnd (DRY): la única diferencia es
+    // la cancelación cuando la sesión deja de esperar follow-up.
+    await waitForSpeechEnd(
+      isCancelled: () => _state != VoiceSessionState.waitingFollowUp,
+    );
+    if (_disposed || _state != VoiceSessionState.waitingFollowUp) return null;
+    return pushToTalk();
   }
 
   /// A16 — telemetría de voz (sección 19): latencias observadas de STT/TTS.

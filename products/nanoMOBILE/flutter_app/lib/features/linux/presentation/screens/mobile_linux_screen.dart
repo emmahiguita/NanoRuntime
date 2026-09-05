@@ -28,6 +28,11 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _registerKaliIfNeeded();
+      // TER-26: setState aquí, NUNCA dentro de _registerKaliIfNeeded —
+      // build() también la invoca y setState durante build crashea
+      // ("setState() or markNeedsBuild() called during build") si kali
+      // ya existe (cualquier pestaña terminal iniciada antes).
+      if (mounted) setState(() {});
     });
   }
 
@@ -38,12 +43,13 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
     if (kaliManager != null) {
       registerKaliDistribution(kaliManager);
       _kaliRegistered = true;
-      setState(() {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Sin setState: solo adelanta el registro si kali ya existe. El refresh
+    // visual lo garantiza el postFrame de initState (setState único).
     if (!_kaliRegistered) {
       _registerKaliIfNeeded();
     }
@@ -254,8 +260,16 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
               title: 'Abrir Terminal',
               onTap: () {
                 Navigator.pop(context);
-                if (dist.id == 'kali') {
-                  context.push('/terminal/shell?cmd=kali%20shell');
+                // UBUNTU-EXEC-03: cada distro con shell terminal real abre
+                // SU rootfs. Antes el else abría el terminal plano del rootfs
+                // Termux — engañoso: parecía Ubuntu pero era Termux.
+                final cmd = switch (dist.id) {
+                  'kali' => 'kali%20shell',
+                  'ubuntu' => 'ubuntu%20shell',
+                  _ => null,
+                };
+                if (cmd != null) {
+                  context.push('/terminal/shell?cmd=$cmd');
                 } else {
                   context.push('/terminal/shell');
                 }

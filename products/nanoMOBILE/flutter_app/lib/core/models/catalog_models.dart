@@ -4,8 +4,18 @@ import 'chat_models.dart';
 ///
 /// Cada entrada declara URL de descarga directa (`resolve/main/...`) y el
 /// SHA256 exacto del archivo (lfs oid verificado contra la API de
-/// HuggingFace el 2026-08-13). La descarga en la app exige que el hash del
-/// archivo recibido coincida: sin SHA256 válido, el modelo no se instala.
+/// HuggingFace el 2026-08-13 y re-auditado el 2026-09-04). La descarga en
+/// la app exige que el hash del archivo recibido coincida: sin SHA256
+/// válido, el modelo no se instala.
+///
+/// MODELS-CAT-02 — reglas de admisión (auditoría 2026-09-04 contra la API):
+/// 1. El archivo debe existir COMO UN SOLO GGUF en el repo. Fuera los
+///    partidos en shards (qwen2.5-7b/14b/32b): nanortime no soporta split
+///    y la URL apuntaría a un archivo inexistente.
+/// 2. Solo móvil: ramGb ≤ ~7 GB (cabe en un teléfono de 8 GB con margen).
+///    Fuera 27B/32B — nunca cargarán en un móvil, ni en batch.
+/// 3. Un solo cuant por modelo cuando uno es estrictamente peor (Q4_K_S
+///    vs Q4_K_M del mismo modelo: se queda el K_M).
 ///
 /// Un solo motor nanortime corre a la vez: cambiar de modelo requiere
 /// reiniciar el motor, y eso lo orquesta la app vía EngineSupervisor
@@ -130,7 +140,7 @@ abstract final class NeuralCatalog {
       1.31,
       1.9,
       'Qwen3.8-2B-Q4_K_M.gguf',
-      'https://huggingface.co/empero-ai/Qwen3.8-2B-GGUF/resolve/main/Qwen3.8-2B-Q4_K_M.gguf',
+      'https://huggingface.co/empero-ai/Qwen3.8-2B-Distill-GGUF/resolve/main/Qwen3.8-2B-Q4_K_M.gguf',
       '4aa0fb13c431514262f259d420ecc95a8714df58ac2a2384514e20b93983f0ff',
       template: ChatTemplate.qwen,
     ),
@@ -141,21 +151,9 @@ abstract final class NeuralCatalog {
       2.08,
       2.7,
       'Qwen3.8-2B-Q8_0.gguf',
-      'https://huggingface.co/empero-ai/Qwen3.8-2B-GGUF/resolve/main/Qwen3.8-2B-Q8_0.gguf',
+      'https://huggingface.co/empero-ai/Qwen3.8-2B-Distill-GGUF/resolve/main/Qwen3.8-2B-Q8_0.gguf',
       '866773b0d68f09a1db9733555e92daff85b617f9a2e601773dff494c5ca2bbf2',
       template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen3.5-4B',
-      '4B',
-      'Q4_K_S',
-      2.41,
-      3.2,
-      'Qwen3.5-4B-Q4_K_S.gguf',
-      'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_S.gguf',
-      '27caeb0e4b999d92ce0a9fdbdd1a7ba5112908d9de125645883732274be2ea77',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.deep,
     ),
     LmCatalogEntry(
       'Qwen3.5-4B-Q4_K_M',
@@ -168,66 +166,6 @@ abstract final class NeuralCatalog {
       '00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4',
       template: ChatTemplate.qwen,
       tier: ModelTier.deep,
-    ),
-    LmCatalogEntry(
-      'Qwen3.8-27B-Q2_K',
-      '27B',
-      'Q2_K',
-      11.84,
-      13.5,
-      'Qwen3.8-27B-Q2_K.gguf',
-      'https://huggingface.co/bartowski/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q2_K.gguf',
-      '028a1d47b9c822ca76d1e9295d0078d21351a8816ec5612cb4860d7c1ef429d9',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.extreme,
-    ),
-    LmCatalogEntry(
-      'Qwen3.8-27B-Q4_K_M',
-      '27B',
-      'Q4_K_M',
-      17.77,
-      19.5,
-      'Qwen3.8-27B-Q4_K_M.gguf',
-      'https://huggingface.co/bartowski/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q4_K_M.gguf',
-      'e103abf9d914d1d7b2f2592f055f2759a71195c350a01c135f71aaae86bca52b',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.extreme,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-7B-Instruct',
-      '7B',
-      'Q4_K_M',
-      4.68,
-      5.8,
-      'qwen2.5-7b-instruct-q4_k_m.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf',
-      '19572b9a7be8e52dbb050cfd173ecfaec07519bfb8e0e64b88939c0f992bc664',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.deep,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-14B-Instruct-Q2',
-      '14B',
-      'Q2_K',
-      5.82,
-      7.2,
-      'qwen2.5-14b-instruct-q2_k.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-GGUF/resolve/main/qwen2.5-14b-instruct-q2_k.gguf',
-      '95aa0fc9fbe2774db8cfad62e49c7198bb6cf902263158c97daecae348f07297',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.extreme,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-14B-Instruct',
-      '14B',
-      'Q4_K_M',
-      8.98,
-      10.8,
-      'qwen2.5-14b-instruct-q4_k_m.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-GGUF/resolve/main/qwen2.5-14b-instruct-q4_k_m.gguf',
-      'e8cb7ebfe8847e923e16eeab79b5c00e6fe14589d98d249f3e5b72186fafe399',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.extreme,
     ),
     LmCatalogEntry(
       'Phi-3.5-mini-Instruct-3.8B',
@@ -253,30 +191,6 @@ abstract final class NeuralCatalog {
       template: ChatTemplate.llama,
     ),
     LmCatalogEntry(
-      'Gemma-2-27B-IT-Q2',
-      '27B',
-      'Q2_K',
-      10.8,
-      13.5,
-      'gemma-2-27b-it-Q2_K.gguf',
-      'https://huggingface.co/bartowski/gemma-2-27b-it-GGUF/resolve/main/gemma-2-27b-it-Q2_K.gguf',
-      'a361b524be3e172f3535b010c440d352f7f3103eee903d1eb939eea21d40e359',
-      template: ChatTemplate.gemma,
-      tier: ModelTier.extreme,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-32B-Instruct-Q2',
-      '32B',
-      'Q2_K',
-      12.4,
-      14.5,
-      'qwen2.5-32b-instruct-q2_k.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-32B-Instruct-GGUF/resolve/main/qwen2.5-32b-instruct-q2_k.gguf',
-      '47df9d6a365bbbc5eb38ee49d5690b220e2e92c235cb319d67562be56d787093',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.extreme,
-    ),
-    LmCatalogEntry(
       'DeepSeek-R1-Distill-Qwen-7B',
       '7B',
       'Q4_K_M',
@@ -298,6 +212,78 @@ abstract final class NeuralCatalog {
       'https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q2_K.gguf',
       '7680555ca635d38cd851095f0f21caed0632f021005037f7d689de77e8f64c35',
       template: ChatTemplate.deepseek,
+      tier: ModelTier.deep,
+    ),
+    // MODELS-CAT-01 — modelos conversacionales 2025-2026 verificados contra
+    // la API real de HuggingFace (api/models/<repo>/tree/main) el 2026-09-04:
+    // nombre de archivo, tamaño y lfs.oid (SHA256) copiados tal cual, jamás
+    // inventados. El gate de instalación exige coincidencia del hash.
+    LmCatalogEntry(
+      'Qwen3-1.7B-Instruct',
+      '1.7B',
+      'Q8_0',
+      1.83,
+      2.4,
+      'Qwen3-1.7B-Q8_0.gguf',
+      'https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf',
+      '061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a',
+      template: ChatTemplate.qwen,
+    ),
+    LmCatalogEntry(
+      'Gemma-3-1B-IT',
+      '1B',
+      'Q4_K_M',
+      0.81,
+      1.2,
+      'gemma-3-1b-it-Q4_K_M.gguf',
+      'https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf',
+      '8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135',
+      template: ChatTemplate.gemma,
+    ),
+    LmCatalogEntry(
+      'Gemma-3-1B-IT-Q8_0',
+      '1B',
+      'Q8_0',
+      1.07,
+      1.5,
+      'gemma-3-1b-it-Q8_0.gguf',
+      'https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q8_0.gguf',
+      'b205840c5dcef55078e37d344677869a714ffd42a4ae448c48dcfb52e4bb10d5',
+      template: ChatTemplate.gemma,
+    ),
+    LmCatalogEntry(
+      'Llama-3.2-3B-Instruct',
+      '3B',
+      'Q4_K_M',
+      2.02,
+      2.6,
+      'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+      'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+      '6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff',
+      template: ChatTemplate.llama,
+    ),
+    LmCatalogEntry(
+      'Qwen3-4B-Instruct-2507',
+      '4B',
+      'Q4_K_M',
+      2.50,
+      3.2,
+      'Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
+      'https://huggingface.co/lmstudio-community/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
+      '8cdb57cbb880d313736a9bc4e3d3d2485f145b5e19cf33783746e753e82641fc',
+      template: ChatTemplate.qwen,
+      tier: ModelTier.deep,
+    ),
+    LmCatalogEntry(
+      'Ministral-3-3B-Instruct-2512',
+      '3B',
+      'Q4_K_M',
+      2.15,
+      2.8,
+      'Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
+      'https://huggingface.co/MistralAI/Ministral-3-3B-Instruct-2512-GGUF/resolve/main/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
+      '9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8',
+      template: ChatTemplate.mistral,
       tier: ModelTier.deep,
     ),
     // A16 — wake word (detector local microWakeWord, modelo .tflite). SHA256

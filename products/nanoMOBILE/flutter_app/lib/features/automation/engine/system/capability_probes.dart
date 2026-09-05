@@ -44,11 +44,15 @@ class StaticSystemCapabilityProbe implements CapabilityProbe {
         reason: 'Launch por Intent grounded en el catálogo (A2).',
         evidence: [pkg],
       ),
-      // Futuras: sin backend en A3 — nunca `available`.
+      // Futuras: sin backend de ejecución — nunca `available`.
+      // DEVICE-PROFILE-01: shizuku FUERA de esta lista — A14.3 la implementa
+      // de verdad (ShizukuCapabilityProbe + PackageActionService). Antes esta
+      // afirmación "No implementado en A3" contradecía al probe real y solo
+      // sobrevivía por el orden de probes en el builder (frágil). Una
+      // capability = una fuente.
       for (final c in const [
         SystemCapability.mediaProjection,
         SystemCapability.developerAdb,
-        SystemCapability.shizuku,
         SystemCapability.deviceOwner,
         SystemCapability.root,
       ])

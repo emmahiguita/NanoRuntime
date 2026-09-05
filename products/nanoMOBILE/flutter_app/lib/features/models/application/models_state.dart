@@ -29,6 +29,12 @@ class ModelsState {
   /// catálogo o no hay modelo cargado.
   final String? activeDetected;
 
+  /// MODELS-CAT-01 — carpeta de descarga elegida por el usuario. Null =
+  /// destino por defecto (storage interno de la app). Persistida en prefs
+  /// para sobrevivir reinicios: la descarga permanece en el almacenamiento
+  /// del dispositivo, no se borra con la app.
+  final String? downloadDir;
+
   const ModelsState({
     this.models = const [],
     this.detected = const [],
@@ -38,6 +44,7 @@ class ModelsState {
     this.scanError,
     this.loadingDetectedUri,
     this.activeDetected,
+    this.downloadDir,
   });
 
   ModelsState copyWith({
@@ -49,6 +56,7 @@ class ModelsState {
     Object? scanError = _sentinel,
     Object? loadingDetectedUri = _sentinel,
     Object? activeDetected = _sentinel,
+    Object? downloadDir = _sentinel,
   }) {
     return ModelsState(
       models: models ?? this.models,
@@ -65,6 +73,9 @@ class ModelsState {
       activeDetected: identical(activeDetected, _sentinel)
           ? this.activeDetected
           : activeDetected as String?,
+      downloadDir: identical(downloadDir, _sentinel)
+          ? this.downloadDir
+          : downloadDir as String?,
     );
   }
 }

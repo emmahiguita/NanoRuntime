@@ -38,7 +38,9 @@ enum SystemCapability {
   // ── Linux ──
   linuxExecution,
 
-  // ── Futuras (NO implementadas en A3; siempre `unsupported`) ──
+  // ── Futuras (sin backend de ejecución; nunca `available`) ──
+  // DEVICE-PROFILE-01: shizuku movida a implementada (A14.3 ShizukuCapabilityProbe
+  // + A14.4 PackageActionService). Su availability la reporta SOLO ese probe.
   mediaProjection,
   developerAdb,
   shizuku,

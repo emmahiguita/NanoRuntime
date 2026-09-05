@@ -59,6 +59,7 @@ flutter:
     - assets/owl/idle/
     - assets/owl/sleep/
     - assets/owl/takeoff/
+    - assets/nano/
   fonts:
     - family: Inter
       fonts:

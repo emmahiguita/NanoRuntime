@@ -47,11 +47,14 @@ class BootOrchestrator {
     'zstd', 'xz-utils', 'p7zip', 'unzip', 'zip', 'bzip2', 'tar',
     // XML / DB
     'sqlite', 'libxml2', 'libxslt',
-    // Dev / scripting
-    'python', 'python3', 'perl', 'ruby', 'nodejs', 'npm', 'git', 'make',
-    'gcc', 'g++', 'pkg-config',
+    // Dev / scripting — sin 'python3', 'gcc', 'g++', 'man-db' ni 'gpg':
+    // el índice del rootfs embebido no los incluye y el DebInstaller ABORTA
+    // la instalación completa si un solo objetivo falta (verificado en
+    // dispositivo: "objetivos ausentes del índice"). Con ellos en la lista
+    // el bootstrap fallaba SIEMPRE tras bloquear el hilo nativo ~15-20s.
+    'python', 'perl', 'ruby', 'nodejs', 'npm', 'git', 'make', 'pkg-config',
     // Crypto / audit
-    'gpg', 'gnupg',
+    'gnupg',
     // Desktop integration
     'xdg-utils', 'xdg-user-dirs',
   ];
@@ -197,10 +200,30 @@ class BootOrchestrator {
       return;
     }
 
+    // Anti-ANR: si un intento previo ya falló, no reintentar en cada
+    // arranque — la instalación completa corre en el hilo nativo y lo
+    // bloquea ~15-20s (verificado: ANR "Input dispatching timed out" al
+    // arrancar con el sistema bajo presión). Reintento manual disponible
+    // en la pantalla Desktop Audit.
+    final attempted = File('$usr/.runtime-libs-attempted');
+    if (attempted.existsSync()) {
+      debugPrint(
+        '[boot] runtime libraries install: SKIPPED (intento previo falló)',
+      );
+      return;
+    }
+
     debugPrint(
       '[boot] installing runtime libraries (${_runtimePackages.length} packages)...',
     );
     final ok = await _packageService.installPackages(_runtimePackages);
+    if (!ok) {
+      try {
+        attempted.writeAsStringSync('1');
+      } catch (_) {
+        // Best effort: sin marcador, el próximo arranque reintentará.
+      }
+    }
     debugPrint('[boot] runtime libraries install: ${ok ? "OK" : "FAILED"}');
   }
 
@@ -355,10 +378,11 @@ exit $RC
     }
   }
 
-  /// Despliega los assets de "eye candy" del escritorio al home del rootfs:
-  /// wallpaper nano-cyber (PNG 1280x720) y el HUD de bienvenida (hud.py).
+  /// Despliega el HUD de bienvenida (hud.py) al home del rootfs.
   /// Idempotente y no destructivo: escribe solo si faltan o cambió el tamaño.
-  /// Los consume el DesktopSessionManager nativo (feh --bg-fill + lxterminal -e).
+  /// DESKTOP-POLISH-01: fuera el wallpaper PNG — el fondo es la galaxia
+  /// procedural que DesktopSessionManager genera a la resolución del fb.
+  /// Lo consume lxterminal -e (banner de bienvenida).
   Future<void> _deployDesktopEyeCandy() async {
     final usr = _rootfs.usrDir;
     if (usr == null) return;
@@ -367,7 +391,6 @@ exit $RC
     if (!homeDir.existsSync()) return;
 
     for (final entry in const [
-      ('assets/exe/nano-wallpaper.png', '.nano-wallpaper.png'),
       ('assets/exe/hud.py', '.hud.py'),
     ]) {
       try {

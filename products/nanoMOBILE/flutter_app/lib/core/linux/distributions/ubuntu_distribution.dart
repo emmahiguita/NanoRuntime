@@ -1,11 +1,13 @@
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../linux_distribution.dart';
+import '../../services/sha256_file.dart';
 import '../../services/shell_executor.dart';
+import '../../services/proot_manager.dart';
 import '../../services/nano_runtime_api.dart';
+import '../../../features/terminal/i_bin_executor.dart';
 
 /// Adapter de Ubuntu ARM64 que implementa LinuxDistribution.
 ///
@@ -22,14 +24,20 @@ import '../../services/nano_runtime_api.dart';
 ///   4. configure — DNS + sources.list (ubuntu-base no los trae)
 ///   5. finalize  — promover tmp a ubicación final (rollback seguro)
 class UbuntuDistribution implements LinuxDistribution {
-  final ShellExecutor _shell;
+  final IBinExecutor _shell;
+
+  // UBUNTU-EXEC-01: proot es el jail compartido de ejecución (mismo patrón
+  // KaliManager). Lazy para reusar _shell sin duplicar instancias.
+  ProotManager? _proot;
+  ProotManager get _prootMgr => _proot ??= ProotManager(_shell);
 
   // Caché de estado para evitar llamadas repetidas al filesystem
   bool? _cachedInstalled;
   String? _filesDir;
 
-  UbuntuDistribution({ShellExecutor? shell})
-    : _shell = shell ?? ShellExecutor();
+  UbuntuDistribution({IBinExecutor? shell, ProotManager? proot})
+    : _shell = shell ?? ShellExecutor(),
+      _proot = proot;
 
   Future<void> _init() async {
     if (_filesDir != null) return;
@@ -238,6 +246,41 @@ class UbuntuDistribution implements LinuxDistribution {
     // TODO: Implementar terminación real de sesión
   }
 
+  /// Ejecuta un comando dentro del rootfs Ubuntu vía proot (streaming).
+  /// Espejo de KaliManager.run — ProotManager es el jail compartido.
+  Future<int> run(
+    String command,
+    List<String> args, {
+    void Function(String line)? onOut,
+    void Function(String line)? onErr,
+  }) async {
+    if (!await isInstalled()) {
+      onErr?.call('ubuntu: no instalado. Instálalo desde Nano Linux.');
+      return 1;
+    }
+    return _prootMgr.exec(
+      rootfs: _ubuntuRoot,
+      command: command,
+      args: args,
+      onOut: onOut,
+      onErr: onErr,
+    );
+  }
+
+  /// Shell interactiva dentro del rootfs Ubuntu vía proot.
+  /// Mismo patrón verificado de KaliManager.shell.
+  Future<int> shell({
+    void Function(String line)? onOut,
+    void Function(String line)? onErr,
+  }) {
+    return run(
+      '/bin/bash',
+      const ['-c', 'exec bash --norc'],
+      onOut: onOut,
+      onErr: onErr,
+    );
+  }
+
   @override
   Future<LinuxDistributionInfo> getInfo() async {
     await _init();
@@ -280,12 +323,8 @@ class UbuntuDistribution implements LinuxDistribution {
     }
   }
 
-  Future<String> _computeSha256(String filePath) async {
-    final file = File(filePath);
-    final bytes = await file.readAsBytes();
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
+  /// TER-32: hash streaming compartido (tarball ~35MB sin cargar en RAM).
+  Future<String> _computeSha256(String filePath) => sha256File(filePath);
 
   Future<void> _extractTarball(String tarball, String destDir) async {
     Directory(destDir).createSync(recursive: true);

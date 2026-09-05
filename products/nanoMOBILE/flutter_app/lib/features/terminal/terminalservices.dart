@@ -3,6 +3,7 @@ import '../../core/services/rootfs_manager.dart';
 import '../../core/services/docker_manager.dart';
 import '../../core/services/kali_manager.dart';
 import '../../core/services/proot_manager.dart';
+import '../../core/linux/linux_distribution.dart';
 import 'terminal_types.dart';
 
 /// Dependency container for command plugins.
@@ -25,6 +26,10 @@ class TerminalServices {
   final DockerManager? docker;
   final KaliManager? kali;
   final ProotManager? proot;
+
+  // Distros Linux (UBUNTU-EXEC-02): ubuntu es UbuntuDistribution concreto;
+  // el resto de distros del registry expone run/shell por su propia vía.
+  final LinuxDistribution? ubuntu;
 
   // UI callbacks (thin: plugins shouldn't know about setState)
   final void Function() onClear;
@@ -61,6 +66,7 @@ class TerminalServices {
     this.docker,
     this.kali,
     this.proot,
+    this.ubuntu,
     void Function()? onClear,
     void Function(String)? onNavigate,
     this.mounted = true,

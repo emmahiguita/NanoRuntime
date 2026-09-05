@@ -58,6 +58,16 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   bool _helpDismissed = false; // ya visto/cerrado en esta sesión
   bool _helpSeen = false; // flag persistente (SharedPreferences)
   bool _fabOpen = false; // estado del FAB radial
+  // DESKTOP-FULL-01: pantalla completa al conectar — barras de sistema
+  // Android ocultas + franja superior/FAB propios auto-ocultos. Tap en el
+  // borde superior restaura los controles.
+  bool _chromeHidden = false;
+  // DESKTOP-FIT-01: área visible del framebuffer en px físicos (la fija el
+  // LayoutBuilder del Expanded) y adaptación de geometría por rotación o
+  // desktop vivo con resolución vieja.
+  Size? _viewAreaPx;
+  bool _adapting = false;
+  int _adaptCount = 0;
   bool _isMobileMode = true; // modo mobile (true) o desktop (false)
 
   // â”€â”€ Reconexión automática â”€â”€
@@ -132,6 +142,76 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     _connect();
   }
 
+  // DESKTOP-FULL-01: entra en pantalla completa — el visor ocupa todo el
+  // panel. immersiveSticky: las barras de Android se ocultan y un swipe del
+  // usuario las revela temporalmente (Flutter recibe el cambio de
+  // viewInsets/padding sin romper el layout).
+  void _enterImmersive() {
+    if (!mounted) return;
+    setState(() => _chromeHidden = true);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  // Restaura los controles propios y las barras del sistema (edgeToEdge).
+  void _restoreChrome() {
+    if (!mounted) return;
+    setState(() => _chromeHidden = false);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  // DESKTOP-FIT-01: ¿el aspect del framebuffer activo casa con el área
+  // visible? Tolerancia ±12%. Cubre rotación del device y escritorios
+  // vivos de sesiones previas con resolución vieja (startDesktop hace
+  // early-return si el desktop ya corre).
+  bool _fbMismatch() {
+    final client = _client;
+    final area = _viewAreaPx;
+    if (client == null || !client.isInitialized || area == null) return false;
+    if (client.fbWidth <= 0 || client.fbHeight <= 0) return false;
+    final fbAspect = client.fbWidth / client.fbHeight;
+    final areaAspect = area.width / area.height;
+    if (areaAspect <= 0) return false;
+    final ratio = fbAspect / areaAspect;
+    return ratio < 0.88 || ratio > 1.12;
+  }
+
+  // Re-arranca el escritorio con la geometría del área visible actual.
+  // stopDesktop + startDesktop: el manager re-lanza el stack completo
+  // (Xvnc, openbox, pcmanfm, tint2, terminal). Máx 3 intentos anti-loop.
+  void _adaptToViewArea() {
+    if (_adapting || _adaptCount >= 3) return;
+    _adapting = true;
+    _adaptCount++;
+    debugPrint(
+      '[vnc_screen] adaptando geometría al área visible (intento $_adaptCount)',
+    );
+    setState(() {
+      _status = 'Adaptando pantalla...';
+      _detail = 'Reiniciando escritorio con la orientación actual.';
+      _busy = true;
+    });
+    _client?.disconnect();
+    _client = null;
+    _frame = null;
+    _connected = false;
+    _fbWidth = 0;
+    _fbHeight = 0;
+    () async {
+      try {
+        await _pkg.stopDesktop();
+        // El stop del channel espera a que el manager mate el stack;
+        // margen corto para que el puerto RFB quede libre antes del start.
+        await Future.delayed(const Duration(milliseconds: 700));
+        if (mounted) _connect();
+      } catch (e) {
+        debugPrint('[vnc_screen] adapt falló: $e');
+        if (mounted) _connect();
+      } finally {
+        _adapting = false;
+      }
+    }();
+  }
+
   static const _helpSeenKey = 'vnc_help_seen_v1';
 
   @override
@@ -142,6 +222,9 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     _frame?.dispose();
     _keyboardFocus.dispose();
     _keyboardInput.dispose();
+    // DESKTOP-FULL-01: al salir, devolver las barras del sistema al resto
+    // de la app (este screen las dejó en immersiveSticky).
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -337,6 +420,18 @@ class _VncScreenState extends ConsumerState<VncScreen> {
           _scheduleReconnect();
         }
       });
+      // DESKTOP-FULL-01: pantalla completa al conectar (fuera del setState:
+      // _enterImmersive tiene su propio setState y no debe anidarse).
+      if (isConnected) _enterImmersive();
+      // DESKTOP-FIT-01: mismatch tras ServerInit → re-arranque con la
+      // geometría del área visible (postFrame: no re-entrar en _connect).
+      if (isConnected && _fbMismatch()) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _adaptToViewArea();
+        });
+      } else if (isConnected) {
+        _adaptCount = 0; // geometría correcta: reinicia el anti-loop
+      }
     }
   }
 
@@ -401,12 +496,17 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     // píxeles FÍSICOS. Sin el factor el Xvnc nacía en 360x800 — resolución
     // enana: el HUD y las apps wrappeaban a ~20 columnas y el texto se
     // veía roto. Multiplicar por devicePixelRatio restaura 864x1920.
+    // DESKTOP-FIT-01: mejor aún — la geometría sale del ÁREA VISIBLE del
+    // visor (LayoutBuilder), no del viewport completo; casa con lo que el
+    // usuario ve aunque haya franjas.
     final viewport = MediaQuery.sizeOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    final target = _viewAreaPx ??
+        Size(viewport.width * dpr, viewport.height * dpr);
     final started = await _pkg.startDesktop(
       vncPassword: ref.read(settingsProvider).vncPassword,
-      width: (viewport.width * dpr).round(),
-      height: (viewport.height * dpr).round(),
+      width: target.width.round(),
+      height: target.height.round(),
     );
     if (!mounted) return false;
     if (!started) {
@@ -1026,6 +1126,15 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
 
+    // DESKTOP-FIT-01: rotación con sesión viva → adaptar geometría.
+    // Se evalúa en build porque el LayoutBuilder actualiza _viewAreaPx
+    // justo antes; el postFrame evita setState durante el build.
+    if (_connected && !_adapting && _fbMismatch()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _adaptToViewArea();
+      });
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -1040,13 +1149,17 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       child: Scaffold(
         backgroundColor: colors.background,
         // FAB radial circular minimalista para apps del escritorio.
-        floatingActionButton: _RadialFab(
-          isOpen: _fabOpen,
-          onToggle: () => setState(() => _fabOpen = !_fabOpen),
-          onOpenApps: _openAppsSheet,
-          onToggleKeyboard: _toggleKeyboard,
-          showKeyboard: _showKeyboard,
-        ),
+        // DESKTOP-FULL-01: oculto en pantalla completa (tap borde superior
+        // lo restaura junto con la franja).
+        floatingActionButton: (_chromeHidden && _connected)
+            ? null
+            : _RadialFab(
+                isOpen: _fabOpen,
+                onToggle: () => setState(() => _fabOpen = !_fabOpen),
+                onOpenApps: _openAppsSheet,
+                onToggleKeyboard: _toggleKeyboard,
+                showKeyboard: _showKeyboard,
+              ),
         body: SafeArea(
           child: Stack(
             children: [
@@ -1058,6 +1171,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
               Column(
                 children: [
                   // Franja superior: estado + conexión + teclado + modo toggle.
+                  // DESKTOP-FULL-01: oculta en pantalla completa.
+                  if (!(_chromeHidden && _connected))
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                     child: _FloatingControlBar(
@@ -1104,6 +1219,14 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                           constraints.maxWidth,
                           constraints.maxHeight,
                         );
+                        // DESKTOP-FIT-01: el framebuffer debe nacer con el
+                        // aspect de ESTA área (no del viewport completo) —
+                        // así el fit=contain la llena sin bandas.
+                        final dpr = MediaQuery.devicePixelRatioOf(context);
+                        _viewAreaPx = Size(
+                          widgetSize.width * dpr,
+                          widgetSize.height * dpr,
+                        );
                         return _buildContent(colors, widgetSize);
                       },
                     ),
@@ -1114,7 +1237,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                   // fila de teclas, la franja crece y el framebuffer cede
                   // espacio — nunca se superponen.
                   // En modo mobile, ocultar para maximizar espacio de visor.
-                  if (_connected && _frame != null && !_isMobileMode)
+                  if (_connected && _frame != null && !_isMobileMode &&
+                      !_chromeHidden)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                       child: Center(
@@ -1141,6 +1265,20 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     ),
                 ],
               ),
+
+              // DESKTOP-FULL-01: zona de restauración — tap en el borde
+              // superior recupera franja + FAB + barras del sistema.
+              if (_chromeHidden && _connected)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 44,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _restoreChrome,
+                  ),
+                ),
 
               // Overlay de ayuda de gestos (primera vez o manual desde el FAB)
               if (_showHelp ||

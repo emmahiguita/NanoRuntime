@@ -16,6 +16,7 @@ class NotificationEventAdapter {
     packageName: n.packageName,
     sender: n.sender,
     conversationTitle: n.conversationTitle,
+    text: n.interpretableText,
   );
 
   NotificationEvent fromMap(Map<dynamic, dynamic> m) =>

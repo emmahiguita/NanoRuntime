@@ -937,7 +937,14 @@ impl RuntimePlanner {
     }
 
     /// Try to fit a candidate within the ceiling: prefer the largest context
-    /// that fits, degrading KV before context, then halving context.
+    /// that fits, halving context until it does.
+    ///
+    /// El KV se estima SOLO como f16 (`KvCompression::None`): llama.cpp
+    /// asigna el KV real a precisión completa (la compresión es una
+    /// planificación informativa, nunca aplicada — ver model_manager.rs,
+    /// bloque "Hierarchical KV"). Estimar con KV "comprimido" subestimaba
+    /// hasta 8× y producía planes con ctx imposible en RAM real; estimar
+    /// f16 y bajar ctx es la degradación honesta.
     fn fit(
         &self,
         cand: &ModelCandidate,
@@ -945,21 +952,14 @@ impl RuntimePlanner {
         target_ctx: usize,
     ) -> Option<(usize, KvCompression, f64)> {
         let ctx_ladder = Self::context_ladder(target_ctx);
-        let kv_ladder = [
-            KvCompression::None,
-            KvCompression::Int8,
-            KvCompression::Int4,
-            KvCompression::Int2,
-        ];
+        const KV_REAL: KvCompression = KvCompression::None;
 
         for &ctx in &ctx_ladder {
-            for &kv in &kv_ladder {
-                let est = self
-                    .model
-                    .estimate_rss(cand.size_mb as f64, ctx, cand.n_layers, kv);
-                if est.peak_rss_mb <= ceiling_mb {
-                    return Some((ctx, kv, est.peak_rss_mb));
-                }
+            let est =
+                self.model
+                    .estimate_rss(cand.size_mb as f64, ctx, cand.n_layers, KV_REAL);
+            if est.peak_rss_mb <= ceiling_mb {
+                return Some((ctx, KV_REAL, est.peak_rss_mb));
             }
         }
         None

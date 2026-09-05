@@ -188,12 +188,26 @@ class AnsiTerminal extends ChangeNotifier {
     final buf = StringBuffer();
     var i = 0;
     var n = _pendingBytes.length;
+    var runStart = 0; // inicio del run ASCII aún sin decodificar
     while (i < n) {
       final b = _pendingBytes[i];
-      int len;
       if (b < 0x80) {
-        len = 1;
-      } else if ((b & 0xE0) == 0xC0) {
+        // TER-30: acumular run ASCII — decodificar por carácter costaba
+        // ~4k allocs por chunk de 4KB (hasta ~160 chunks/s en polling).
+        i++;
+        continue;
+      }
+      // Byte no-ASCII: flush del run ASCII acumulado en una sola decode.
+      if (i > runStart) {
+        buf.write(
+          utf8.decode(
+            _pendingBytes.sublist(runStart, i),
+            allowMalformed: true,
+          ),
+        );
+      }
+      int len;
+      if ((b & 0xE0) == 0xC0) {
         len = 2;
       } else if ((b & 0xF0) == 0xE0) {
         len = 3;
@@ -203,6 +217,7 @@ class AnsiTerminal extends ChangeNotifier {
         // Byte de continuación suelto o secuencia inválida: descartar.
         _pendingBytes.removeAt(i);
         n = _pendingBytes.length;
+        runStart = i; // el run flusheado terminó; el descarte corrió el resto
         continue;
       }
       if (i + len > n) break; // incompleto: esperar al siguiente chunk
@@ -210,6 +225,12 @@ class AnsiTerminal extends ChangeNotifier {
         utf8.decode(_pendingBytes.sublist(i, i + len), allowMalformed: true),
       );
       i += len;
+      runStart = i;
+    }
+    if (i > runStart) {
+      buf.write(
+        utf8.decode(_pendingBytes.sublist(runStart, i), allowMalformed: true),
+      );
     }
     if (i > 0) _pendingBytes.removeRange(0, i);
     if (buf.isNotEmpty) feed(buf.toString());
@@ -248,6 +269,18 @@ class _AnsiTerminalViewState extends State<AnsiTerminalView> {
     });
     // Cuando el buffer cambia (feed), si estábamos en el fondo, seguirlo.
     _term.addListener(_onBufferChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant AnsiTerminalView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // TER-31: el PTY puede reemplazarse in-place (`pty python` sobre bash
+    // activo) sin que este State se desmonte — el listener quedaba en el
+    // terminal viejo (dispuesto) y el auto-scroll moría para la sesión nueva.
+    if (!identical(oldWidget.terminal, widget.terminal)) {
+      oldWidget.terminal.removeListener(_onBufferChange);
+      _term.addListener(_onBufferChange);
+    }
   }
 
   void _onBufferChange() {

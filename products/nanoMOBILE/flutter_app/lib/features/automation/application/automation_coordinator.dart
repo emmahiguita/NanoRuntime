@@ -44,6 +44,8 @@ import 'package:nanoai/features/automation/engine/governance/action_governance_p
         GovernanceDenied,
         GovernanceMoreEvidence,
         GovernanceOutcome;
+import 'package:nanoai/features/automation/engine/governance/intent_spec.dart'
+    show GovernanceReason;
 import 'package:nanoai/features/automation/engine/planning/candidate_first_planner.dart'
     show
         CandidateFirstPlanner,
@@ -64,6 +66,8 @@ import '../domain/automation_policy.dart'
 import '../domain/automation_result.dart'
     show AutomationResult, AutomationResultStatus;
 import '../benchmark/c14_metrics.dart' show C14Execution;
+import '../engine/capabilities/reply_intent_vocabulary.dart'
+    show ReplyIntentVocabulary;
 import '../engine/execution/tool_registry.dart' show PolicyVerdict;
 import '../engine/governance/action_confirmation.dart' show ActionConfirmation;
 import '../engine/governance/rule_execution_authority.dart'
@@ -849,7 +853,7 @@ class AutomationCoordinator {
       // sendMessage con revalidación de identidad) corre dentro de plan==null.
       if (plan == null &&
           _candidateFirst != null &&
-          _looksLikeReplyIntent(goal.text)) {
+          ReplyIntentVocabulary.matches(goal.text)) {
         final replyFirst = await _candidateFirst.plan(
           goal.text,
           authority: options?.authority,
@@ -862,6 +866,31 @@ class AutomationCoordinator {
           koogInvoked = replyFirst.koogInvoked;
           candidateCount = replyFirst.candidateCount;
         } else if (replyFirst is CandidatePlanGoverned) {
+          // WA-GUI-12 + causa observable: sin RemoteInput, el único candidato
+          // grounded es launch_app (abrir la app por GUI), que el firewall
+          // deniega como outsideIntent. Ese nombre interno no le dice nada al
+          // usuario; se traduce a la causa real. Verificado en Oppo/ColorOS:
+          // con WhatsApp abierto en primer plano la notificación se publica
+          // degradada (sin reply rápido) y NO se restaura hasta un mensaje
+          // nuevo con WhatsApp cerrado.
+          final outcome = replyFirst.outcome;
+          if (outcome is GovernanceDenied &&
+              outcome.reason == GovernanceReason.outsideIntent) {
+            final r = AutomationResult(
+              executionId: executionId,
+              status: AutomationResultStatus.denied,
+              reason: options?.authority != null
+                  ? 'Regla automática: la notificación ya no es contestable '
+                        '(sin RemoteInput activo). Con WhatsApp abierto, '
+                        'ColorOS degrada la notificación y el reply rápido '
+                        'solo se restaura con un mensaje nuevo y WhatsApp '
+                        'cerrado.'
+                  : 'La notificación de la conversación ya no es contestable '
+                        '(sin RemoteInput activo). No se abre la app por GUI '
+                        'sin instrucción directa del usuario.',
+            );
+            return finish(r);
+          }
           final r = _resultFromGoverned(executionId, replyFirst.outcome);
           return finish(r);
         }
@@ -1272,24 +1301,6 @@ class AutomationCoordinator {
   static int _seq = 0;
   static String _newId() =>
       'auto-${DateTime.now().microsecondsSinceEpoch}-${++_seq}';
-
-  /// WA-UI-07 — ¿el goal pide RESPONDER un mensaje? Mismo vocabulario que
-  /// NotificationCandidateProvider: solo estas intenciones reciben el intento
-  /// RemoteInput-first; cualquier otro goal conserva su ruta actual intacta.
-  static const List<String> _replyGoalTerms = [
-    'responde a',
-    'responde',
-    'responder',
-    'contesta a',
-    'contesta',
-    'contestar',
-    'reply',
-  ];
-
-  bool _looksLikeReplyIntent(String goal) {
-    final g = goal.toLowerCase();
-    return _replyGoalTerms.any(g.contains);
-  }
 
   // ── Trazas (ledger) ───────────────────────────────────────────────────────
 

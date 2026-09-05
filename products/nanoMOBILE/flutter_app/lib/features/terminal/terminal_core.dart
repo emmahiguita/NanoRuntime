@@ -15,6 +15,7 @@ import '../../core/services/kali_manager.dart';
 import '../../core/services/docker_manager.dart';
 import '../../core/services/proc_fs.dart';
 import '../../core/services/pty_shell.dart';
+import '../../core/linux/linux_distribution.dart';
 import '../../core/services/hardware_info_service.dart';
 import '../../core/services/terminal_dependencies.dart';
 import 'i_bin_executor.dart';
@@ -78,6 +79,7 @@ class _TermState extends State<NanoTerminal> {
   ProotManager? get _proot => _deps.proot;
   KaliManager? get _kali => _deps.kali;
   DockerManager? get _docker => _deps.docker;
+  LinuxDistribution? get _ubuntu => _deps.ubuntu;
 
   /// TerminalServices para plugins (DIP). Cached to avoid re-allocation on
   /// every plugin call â€” the closures capture `this` so the instance stays
@@ -94,6 +96,7 @@ class _TermState extends State<NanoTerminal> {
     docker: _docker,
     kali: _kali,
     proot: _proot,
+    ubuntu: _ubuntu,
     deviceId: _devId,
     onClear: () {
       if (mounted) setState(() => _lines.clear());
@@ -181,6 +184,10 @@ class _TermState extends State<NanoTerminal> {
 
   void _out(String t, Ln ty) {
     if (t.isEmpty && ty == Ln.stdout) return;
+    // TER-25: continuaciones async (initAll onProgress, _ptyOpen post-await)
+    // pueden reanudar tras dispose del tab → "setState() called after
+    // dispose()". Guard único aquí cubre todas las vías de salida.
+    if (!mounted) return;
     setState(() {
       _lines.add(TL(t, ty));
       if (_lines.length > _maxLines) {
@@ -248,7 +255,31 @@ class _TermState extends State<NanoTerminal> {
           pm.pausePolling();
         }
       }
+      // TER-27: lazy open — el tab nace oculto en el IndexedStack y
+      // visible NUNCA cambia desde false, así que el auto-open del init
+      // gateado por visible deja el PTY sin abrir para siempre. Abrirlo
+      // aquí, en la transición false→true, una sola vez.
+      if (widget.visible &&
+          !_autoPtyDone &&
+          widget.initialCommand == null &&
+          _shell?.initialized == true) {
+        _autoOpenBash();
+      }
     }
+  }
+
+  bool _autoPtyDone = false;
+
+  /// TER-21/TER-27: auto bash PTY con PROMPT_COMMAND OSC 7 (cwd real).
+  /// Un solo punto de apertura — init (si visible) y transición a visible.
+  void _autoOpenBash() {
+    _autoPtyDone = true;
+    _after(
+      const Duration(milliseconds: 500),
+      () => _ptyOpen(['bash'], env: {
+        'PROMPT_COMMAND': r'printf "\033]7;file://%s\033\\" "$PWD"',
+      }),
+    );
   }
 
   /// Obtiene identidad real del device (uid, uname, hostname, meminfo...) desde la plataforma. Los comandos usan estos datos para devolver info autÃ©ntica sin depender de execve() (bloqueado por SELinux en este device).
@@ -336,16 +367,11 @@ class _TermState extends State<NanoTerminal> {
       // Sin comando inicial inyectado: bash PTY automÃ¡tico. Con comando
       // inicial (ej: kali shell), el dispatcher y su stream proot son el
       // dueÃ±o del terminal; abrir bash encima mezclarÃ­a las dos sesiones.
-      if (widget.initialCommand == null) {
-        // TER-21: PROMPT_COMMAND hace que el bash reporte su $PWD real
-        // con cada prompt (OSC 7) — la línea de estado deja de depender
-        // de la heurística Dart (que se desfasaba con `cd`).
-        _after(
-          const Duration(milliseconds: 500),
-          () => _ptyOpen(['bash'], env: {
-            'PROMPT_COMMAND': r'printf "\033]7;file://%s\033\\" "$PWD"',
-          }),
-        );
+      // TER-27: gateado por visible — un tab oculto al nacer spawneaba
+      // bash + polling 20Hz para siempre ocupando 1 de los 8 slots
+      // nativos. El tab oculto abre lazy en didUpdateWidget.
+      if (widget.initialCommand == null && widget.visible) {
+        _autoOpenBash();
       }
     } else {
       _out('[rootfs] no instalado. Ejecuta "bootstrap".', Ln.info);
@@ -764,9 +790,14 @@ class _TermState extends State<NanoTerminal> {
     if (rows == _ptyRows && cols == _ptyCols) return;
     _ptyRows = rows;
     _ptyCols = cols;
+    // TER-28: capturar en schedule — la sesión puede cerrarse (pty=null)
+    // entre el schedule y el callback; _pty! aquí era NPE en vivo.
+    final ansi = _ansi;
+    final pty = _pty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ansi?.reset(rows: rows, cols: cols);
-      _pty!.resize(rows, cols);
+      if (!mounted || pty == null || pty.isClosed) return;
+      ansi?.reset(rows: rows, cols: cols);
+      pty.resize(rows, cols);
     });
   }
 
@@ -861,7 +892,14 @@ class _TermState extends State<NanoTerminal> {
   /// Construye el contexto de ejecuciÃ³n del CommandExecutor (T0.1B). Cada
   /// campo mutable se toma del state en el momento de la llamada; el executor
   /// es la Ãºnica implementaciÃ³n del pipeline, el state solo presta sus campos.
-  CmdExecCtx _execCtx() => CmdExecCtx(
+  CmdExecCtx _execCtx() {
+    // TER-29: _hist crecía sin límite en memoria — el executor añade cada
+    // comando ejecutado y el cap de 500 solo se aplica al persistir. Trim
+    // vivo aquí, punto único de entrega al executor.
+    if (_hist.length > 1000) {
+      _hist.removeRange(0, _hist.length - 1000);
+    }
+    return CmdExecCtx(
     out: _out,
     after: _after,
     pty: _pty,
@@ -888,6 +926,7 @@ class _TermState extends State<NanoTerminal> {
     audit: null,
     alive: _alive,
   );
+  }
 
   /// Vuelca la salida de un ShellResult en el buffer del terminal.
   void _shellOut(ShellResult r) {
@@ -1029,6 +1068,21 @@ class _TermState extends State<NanoTerminal> {
     final chrome = dark ? const Color(0xFF07192B) : c.terminalBg;
     final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
     final sug = _sug();
+    // TER-22: 3 estados honestos. Antes todo _ptyActive==false pintaba
+    // "OFFLINE (rootfs no instalado)" aunque bash+toybox funcionaran
+    // (kali shell vía dispatcher, o sesión PTY terminada con Ctrl+D) —
+    // etiqueta mentirosa. Ahora distingue ausencia real de rootfs.
+    final rootfsOk = _rootfs?.isInstalled == true;
+    final headerLabel = _ptyActive
+        ? 'PTY: bash (rootfs real)'
+        : rootfsOk
+            ? 'bash + toybox (modo comando)'
+            : 'OFFLINE (rootfs no instalado)';
+    final headerColor = _ptyActive
+        ? c.success
+        : rootfsOk
+            ? fg.withValues(alpha: 0.6)
+            : c.warning;
     return Stack(
       children: [
         Column(
@@ -1062,12 +1116,11 @@ class _TermState extends State<NanoTerminal> {
                     width: 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: _ptyActive ? c.success : c.warning,
+                      color: headerColor,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: (_ptyActive ? c.success : c.warning)
-                              .withValues(alpha: 0.5),
+                          color: headerColor.withValues(alpha: 0.5),
                           blurRadius: 6,
                           spreadRadius: 1,
                         ),
@@ -1076,15 +1129,13 @@ class _TermState extends State<NanoTerminal> {
                   ),
                   const SizedBox(width: 7),
                   Text(
-                    _ptyActive
-                        ? 'PTY: bash (rootfs real)'
-                        : 'OFFLINE (rootfs no instalado)',
+                    headerLabel,
                     style: TextStyle(
                       fontFamily: 'JetBrainsMono',
                       fontSize: 10,
                       letterSpacing: 0.5,
                       fontWeight: FontWeight.w600,
-                      color: _ptyActive ? c.success : c.warning,
+                      color: headerColor,
                     ),
                   ),
                   const Spacer(),

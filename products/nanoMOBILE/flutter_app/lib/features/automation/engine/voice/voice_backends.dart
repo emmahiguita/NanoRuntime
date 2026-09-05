@@ -36,5 +36,5 @@ class AndroidSpeechSynthesisBackend implements SpeechSynthesisBackend {
   }
 
   @override
-  Future<bool> isSpeaking() async => false; // no expuesto por el canal aún.
+  Future<bool> isSpeaking() async => NanoRuntimeApi.instance.isSpeechActive();
 }

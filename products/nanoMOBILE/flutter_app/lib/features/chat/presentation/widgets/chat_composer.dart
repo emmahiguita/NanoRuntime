@@ -23,6 +23,11 @@ class ChatComposer extends StatefulWidget {
     required this.enabled,
     required this.generating,
     required this.listening,
+    // VOICE-NATURAL-01: estado real de la sesión de voz (orbe) y modo
+    // conversación continua (hablar ↔ responder ↔ volver a escuchar).
+    required this.voiceState,
+    required this.conversationActive,
+    required this.onConversationToggle,
     required this.attachments,
     required this.onRemoveAttachment,
     required this.onAttach,
@@ -37,6 +42,9 @@ class ChatComposer extends StatefulWidget {
   final bool enabled;
   final bool generating;
   final bool listening;
+  final VoiceSessionState voiceState;
+  final bool conversationActive;
+  final VoidCallback onConversationToggle;
   final List<ChatAttachment> attachments;
   final void Function(String) onRemoveAttachment;
   final VoidCallback onAttach;
@@ -114,7 +122,11 @@ class _ChatComposerState extends State<ChatComposer> {
     // UI-REV-10: el header solo vive cuando tiene contenido (estado de voz/
     // generación o campo enfocado). Sin foco ni estado la card es SOLO la fila
     // de escritura — cero espacio muerto encima del campo.
-    final showHeader = widget.listening || widget.generating || _isFocused;
+    final showHeader =
+        widget.listening ||
+        widget.conversationActive ||
+        widget.generating ||
+        _isFocused;
 
     return NanoOpticalSurface(
       geometry: NanoSurfaceGeometry.roundedRectangle,
@@ -281,11 +293,40 @@ class _ChatComposerState extends State<ChatComposer> {
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(99),
                   child: NanoVoiceOrb(
-                    state: widget.listening
-                        ? VoiceSessionState.listening
-                        : VoiceSessionState.idle,
+                    state: widget.voiceState,
                     onTap: widget.onMic,
                     size: widget.compact ? 34 : 38,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+
+              // VOICE-NATURAL-01: toggle de conversación continua. Tap =
+              // hablar ↔ responder ↔ volver a escuchar hasta detener. El
+              // dictado del mic sigue intacto (turno único con parciales).
+              Tooltip(
+                message: widget.conversationActive
+                    ? 'Detener conversación'
+                    : 'Conversación continua',
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(99),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(99),
+                    onTap: widget.onConversationToggle,
+                    child: SizedBox(
+                      width: widget.compact ? 34 : 38,
+                      height: widget.compact ? 34 : 38,
+                      child: Icon(
+                        widget.conversationActive
+                            ? Icons.stop_rounded
+                            : Icons.all_inclusive_rounded,
+                        size: widget.compact ? 20 : 22,
+                        color: widget.conversationActive
+                            ? colors.accent
+                            : colors.onSurface.withValues(alpha: 0.65),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -313,7 +354,9 @@ class _ChatComposerState extends State<ChatComposer> {
                     height: 1.35,
                   ),
                   decoration: InputDecoration(
-                    hintText: widget.listening
+                    hintText: widget.conversationActive
+                        ? 'Conversación activa · habla…'
+                        : widget.listening
                         ? 'Escuchando voz…'
                         : 'Escribe un mensaje…',
                     hintStyle: TextStyle(

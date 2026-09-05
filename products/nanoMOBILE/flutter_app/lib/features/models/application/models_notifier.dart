@@ -12,6 +12,12 @@ import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
 import 'package:nanoai/features/models/domain/model_storage_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// MODELS-CAT-01 — pref de la carpeta de descarga elegida por el usuario.
+/// Las descargas quedan en el almacenamiento del dispositivo (externo) y
+/// sobreviven reinstalaciones del APK, a diferencia del storage interno.
+const _downloadDirPrefKey = 'nanoai_model_download_dir';
 
 class _CatalogReconciliation {
   const _CatalogReconciliation(this.models, this.detected);
@@ -68,15 +74,45 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   Future<void> _load() async {
     try {
       final models = await _repository.listModels();
+      final downloadDir = await _loadDownloadDirPref();
       if (!mounted) return;
       final lastDetected = _lastDetected;
       // Si el escaneo terminó primero, reconcilia de inmediato: sin esto el
       // catálogo sobrescribiría la lista con modelos sin reconciliar.
       state = lastDetected != null && !state.scanning
-          ? _applyScan(lastDetected, models: models)
-          : state.copyWith(models: models);
+          ? _applyScan(lastDetected, models: models).copyWith(
+              downloadDir: downloadDir,
+            )
+          : state.copyWith(models: models, downloadDir: downloadDir);
     } catch (e) {
       debugPrint('[models] listModels falló: $e');
+    }
+  }
+
+  Future<String?> _loadDownloadDirPref() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_downloadDirPrefKey);
+    } catch (e) {
+      debugPrint('[models] leer downloadDir falló: $e');
+      return null;
+    }
+  }
+
+  /// MODELS-CAT-01 — fija la carpeta de descarga elegida en el picker y la
+  /// persiste: las descargas permanecen en el almacenamiento del dispositivo
+  /// tras reiniciar la app. Null vuelve al destino interno por defecto.
+  Future<void> setDownloadDir(String? path) async {
+    state = state.copyWith(downloadDir: path);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (path == null) {
+        await prefs.remove(_downloadDirPrefKey);
+      } else {
+        await prefs.setString(_downloadDirPrefKey, path);
+      }
+    } catch (e) {
+      debugPrint('[models] persistir downloadDir falló: $e');
     }
   }
 
@@ -107,13 +143,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     );
 
     try {
-      final dir = await _modelsDir();
-      if (dir == null) {
-        throw DownloadException(
-          'getFilesDir no disponible — no se puede descargar',
-        );
-      }
-      final destPath = '$dir/${item.fileName}';
+      final destPath = await _destPathFor(item);
 
       final file = await _downloader.download(
         url: item.url,
@@ -156,6 +186,31 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         _update(id, downloadState: ModelDownloadState.failed, error: '$e');
       }
     }
+  }
+
+  /// MODELS-CAT-01 — destino de descarga: la carpeta elegida por el usuario
+  /// (storage externo permanente) si está configurada; si no, el interno de
+  /// la app (comportamiento original). Si la carpeta elegida desapareció
+  /// (SD expulsada, carpeta borrada), el error es honesto: sin fallback
+  /// silencioso que dejaría el archivo en un lugar distinto al que el
+  /// usuario eligió.
+  Future<String> _destPathFor(LocalModel item) async {
+    final chosen = state.downloadDir;
+    if (chosen != null) {
+      if (!await Directory(chosen).exists()) {
+        throw DownloadException(
+          'La carpeta elegida ya no existe: $chosen. Elige otra carpeta.',
+        );
+      }
+      return '$chosen/${item.fileName}';
+    }
+    final dir = await _modelsDir();
+    if (dir == null) {
+      throw DownloadException(
+        'getFilesDir no disponible — no se puede descargar',
+      );
+    }
+    return '$dir/${item.fileName}';
   }
 
   /// Cancela la descarga en curso (token de cancelación cierra el stream).

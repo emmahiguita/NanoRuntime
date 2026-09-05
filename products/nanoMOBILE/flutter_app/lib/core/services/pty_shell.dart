@@ -187,6 +187,22 @@ class PtySession {
             );
             _closed = true;
             _poll?.cancel();
+            // TER-24: fin natural de sesión (exit/Ctrl-D) debe liberar el
+            // slot nativo del registry (máx 8) y el master fd — antes solo
+            // se cerraban los controllers Dart y cada sesión terminada
+            // filtraba un slot; tras ~7 exits todo pty nuevo fallaba.
+            try {
+              await _runtime.ptyClose(_id);
+            } catch (e, st) {
+              _logger?.event(
+                'pty.close.error',
+                layer: 'pty',
+                traceId: _traceId,
+                error: e,
+                stackTrace: st,
+                data: {'sessionId': _id},
+              );
+            }
             if (!_out.isClosed) _out.close();
             if (!_done.isClosed) {
               _done.add(null);

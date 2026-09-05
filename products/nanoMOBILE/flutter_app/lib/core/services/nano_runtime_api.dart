@@ -864,9 +864,13 @@ class NanoRuntimeApi {
   /// motor de ejecución (AutomationCoordinator), no a un motor de voz separado.
   Future<String?> startVoiceRecognition({String language = 'es-ES'}) async {
     try {
-      return await _speech.invokeMethod<String>('startListening', {
+      final text = await _speech.invokeMethod<String>('startListening', {
         'language': language,
       });
+      // Diagnóstico de conversación continua: saber si el reconocedor entregó
+      // texto, entregó vacío o nunca resolvió (timeout del caller).
+      debugPrint('[runtime] startVoiceRecognition ok: "${text ?? ''}"');
+      return text;
     } on PlatformException catch (e) {
       // A16: sin RECORD_AUDIO concedido, el nativo reporta mic_permission_denied.
       // Se solicita el permiso runtime y se reintenta UNA vez (método real de
@@ -921,6 +925,18 @@ class NanoRuntimeApi {
       return true;
     } catch (e) {
       debugPrint('[runtime] stopSpeech error: $e');
+      return false;
+    }
+  }
+
+  /// A16 — consulta si el TTS sigue hablando. La conversación continua espera
+  /// el fin de la locución antes de volver a escuchar (sin solapar micrófono
+  /// con la propia voz de Nano). false ante cualquier fallo del canal.
+  Future<bool> isSpeechActive() async {
+    try {
+      return await _speech.invokeMethod<bool>('isSpeaking') == true;
+    } catch (e) {
+      debugPrint('[runtime] isSpeechActive error: $e');
       return false;
     }
   }
@@ -1093,6 +1109,32 @@ class NanoRuntimeApi {
   Stream<Map<dynamic, dynamic>> get notificationEvents => _notificationEvents
       .receiveBroadcastStream()
       .map((e) => Map<dynamic, dynamic>.from(e as Map));
+
+  /// Snapshot de notificaciones ACTIVAS del listener nativo (sin resúmenes de
+  /// grupo ni notificaciones propias, ordenadas por postTime desc). Retry en
+  /// frío (WA-GAPS-01): el EventChannel solo emite eventos EN VIVO — los
+  /// mensajes que llegaron con la app muerta (reinstall, kill de ColorOS) se
+  /// perdían porque el sink nativo era null. El router los re-emite desde
+  /// aquí al arrancar; el dedupe persistente decide cuáles pasan.
+  /// Vacío si el listener aún no está conectado (el router reintenta).
+  Future<List<Map<dynamic, dynamic>>> listNotifications({
+    int limit = 30,
+  }) async {
+    try {
+      final raw = await _notifications.invokeMethod<List<dynamic>>(
+        'list',
+        {'limit': limit},
+      );
+      if (raw == null) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<dynamic, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      debugPrint('[runtime] listNotifications error: $e');
+      return const [];
+    }
+  }
 
   /// WA-RI-05: [actionIndex], [remoteInputKey] y [contextFingerprint] son la
   /// capacidad OBSERVADA de la notificación. El nativo los recomputa contra la

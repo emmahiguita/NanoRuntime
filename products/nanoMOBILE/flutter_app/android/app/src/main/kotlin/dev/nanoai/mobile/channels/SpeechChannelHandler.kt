@@ -1,9 +1,11 @@
 package dev.nanoai.mobile.channels
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.speech.RecognitionService
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +13,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -36,11 +39,19 @@ class SpeechChannelHandler(
     companion object {
         const val CHANNEL_NAME = "com.nanoai/speech"
         const val PARTIAL_CHANNEL_NAME = "com.nanoai/speech_partial"
+        private const val TAG = "NanoSpeech"
+
+        // Reconocedor legacy del TTS de Google (server-based): va al final de
+        // la cadena de motores (VOICE-PRO-03).
+        private const val TTS_PACKAGE = "com.google.android.tts"
 
         // Silencio antes de considerar que el usuario terminó (ms). Valores
         // generosos para que el usuario no se quede corto al dictar.
-        private const val COMPLETE_SILENCE_MS = 2000L
-        private const val POSSIBLY_COMPLETE_SILENCE_MS = 1500L
+        // Int (no Long): el servicio de reconocimiento de Google lee estos
+        // extras como Integer y un Long provoca ClassCastException →
+        // silencio 0 y sesión rota.
+        private const val COMPLETE_SILENCE_MS = 2000
+        private const val POSSIBLY_COMPLETE_SILENCE_MS = 1500
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -72,8 +83,14 @@ class SpeechChannelHandler(
                 recognizer?.stopListening()
                 result.success(null)
             }
+            // Conversación continua: la app pregunta si el TTS sigue hablando
+            // antes de volver a escuchar (evita captar la propia voz de Nano).
+            "isSpeaking" -> result.success(tts?.isSpeaking ?: false)
             "cancel" -> {
                 recognizer?.cancel()
+                // VOICE-PRO-01: cancel no destruye el servicio; sin destroy
+                // el recognizer queda vivo (leak) hasta que la app muere.
+                recognizer?.destroy()
                 recognizer = null
                 result.success(null)
             }
@@ -94,9 +111,14 @@ class SpeechChannelHandler(
         }
         // Prefiere el motor de Google TTS (voz natural) sobre el Pico robótico.
         // Fallback al motor por defecto del sistema si Google no está instalado.
+        // VOICE-PRO-01: un motor con init fallido se apaga en el acto; `tts`
+        // jamás queda apuntando a un motor muerto (hablar sobre él = silencio
+        // silencioso con success(false) sin diagnóstico).
         val enginePref = listOf("com.google.android.tts", "com.android.tts", "")
         fun tryInit(index: Int) {
             if (index >= enginePref.size) {
+                tts?.shutdown()
+                tts = null
                 result.error("tts_error", "sin motor TTS disponible", null)
                 return
             }
@@ -108,6 +130,8 @@ class SpeechChannelHandler(
                     if (status == TextToSpeech.SUCCESS && engine != null) {
                         speakNow(engine, text, result)
                     } else {
+                        // Motor fallido: apagarlo antes del siguiente intento.
+                        tts?.shutdown()
                         tryInit(index + 1)
                     }
                 },
@@ -180,6 +204,50 @@ class SpeechChannelHandler(
         return chunks
     }
 
+    /// VOICE-PRO-03 — lista ordenada de motores de reconocimiento reales.
+    /// Motores on-device primero (excluye el recognizer legacy del TTS, que
+    /// detecta voz pero tarda o se cuelga entregando resultados); el TTS al
+    /// final como último recurso: al menos abre el micrófono y da tiempo de
+    /// hablar. Vacía → lista con null (constructor estándar, que hereda el
+    /// setting global del sistema).
+    private fun recognitionServices(): List<ComponentName?> {
+        val intent = Intent(RecognitionService.SERVICE_INTERFACE)
+        val services = context.packageManager.queryIntentServices(intent, 0)
+        val infos = services.mapNotNull { it.serviceInfo }
+        fun components(infos: List<android.content.pm.ServiceInfo>) =
+            infos.map { ComponentName(it.packageName, it.name) }
+        val preferred = components(infos.filter { it.packageName != TTS_PACKAGE })
+        val tts = components(infos.filter { it.packageName == TTS_PACKAGE })
+        val names = preferred + tts
+        return names.ifEmpty { listOf(null) }
+    }
+
+    /// Intent de reconocimiento. Los motores on-device aceptan el intent
+    /// completo (streaming de parciales + silencios generosos). El motor
+    /// legacy del TTS se confunde con esos extras: recibe el intent mínimo
+    /// estándar (modelo libre + idioma).
+    private fun buildRecognitionIntent(language: String, minimal: Boolean): Intent =
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
+            if (!minimal) {
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                // Tiempo de silencio generoso para no cortar el dictado a medias.
+                putExtra(
+                    RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+                    COMPLETE_SILENCE_MS,
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                    POSSIBLY_COMPLETE_SILENCE_MS,
+                )
+            }
+        }
+
     private fun startListening(language: String, result: MethodChannel.Result) {
         // RECORD_AUDIO es permiso runtime. Sin él, SpeechRecognizer falla con
         // ERROR_INSUFFICIENT_PERMISSIONS. Reportamos tipado para que Dart
@@ -198,7 +266,35 @@ class SpeechChannelHandler(
             result.error("speech_unavailable", "Reconocimiento de voz no disponible", null)
             return
         }
-        val rec = SpeechRecognizer.createSpeechRecognizer(context)
+        // VOICE-PRO-01: sesión previa viva (dictado repetido rápido) se
+        // destruye antes de crear la nueva. Dos recognizers simultáneos =
+        // ERROR_RECOGNIZER_BUSY en el segundo o captura doble.
+        recognizer?.destroy()
+        recognizer = null
+        startWithService(0, language, result)
+    }
+
+    /// VOICE-PRO-03 — cadena de fallback de motores: si un motor falla
+    /// (p. ej. el on-device rechaza con TOO_MANY_REQUESTS), se intenta el
+    /// siguiente de la lista. Solo se reporta error al agotar todos.
+    private fun startWithService(
+        serviceIndex: Int,
+        language: String,
+        result: MethodChannel.Result,
+    ) {
+        val services = recognitionServices()
+        if (serviceIndex >= services.size) {
+            result.error("speech_unavailable", "ningún motor de reconocimiento respondió", null)
+            return
+        }
+        val service = services[serviceIndex]
+        val rec = if (service == null) {
+            Log.d(TAG, "recognizer = sistema por defecto")
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else {
+            Log.d(TAG, "recognizer = $service (motor ${serviceIndex + 1}/${services.size})")
+            SpeechRecognizer.createSpeechRecognizer(context, service)
+        }
         recognizer = rec
         rec.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
@@ -208,7 +304,10 @@ class SpeechChannelHandler(
                 recognizer = null
                 mainHandler.post {
                     partialSink?.success(text)
-                    result.success(text)
+                    // VOICE-PRO-01: algunos motores entregan onResults con
+                    // matches vacío en vez de onError. Texto vacío se reporta
+                    // null ("sin resultado"), misma semántica que NO_MATCH.
+                    if (text.isEmpty()) result.success(null) else result.success(text)
                 }
             }
 
@@ -224,38 +323,43 @@ class SpeechChannelHandler(
             }
 
             override fun onError(error: Int) {
+                Log.d(TAG, "onError code=$error (motor ${serviceIndex + 1}/${services.size})")
                 rec.destroy()
                 recognizer = null
                 mainHandler.post {
-                    // No-match o timeout = usuario no dijo nada (o silencio).
-                    // Se reporta tipado; la UI decide el mensaje.
-                    result.error("speech_error", "code=$error", null)
                     partialSink?.endOfStream()
+                    // No-match o timeout del motor actual: el siguiente motor
+                    // de la lista se intenta de inmediato (el último de la
+                    // lista reporta el error tipado; la UI decide el mensaje).
+                    if (serviceIndex + 1 < services.size) {
+                        startWithService(serviceIndex + 1, language, result)
+                    } else {
+                        result.error("speech_error", "code=$error", null)
+                    }
                 }
             }
 
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onReadyForSpeech(params: Bundle?) {
+                Log.d(TAG, "onReadyForSpeech — micrófono abierto")
+            }
+            override fun onBeginningOfSpeech() {
+                Log.d(TAG, "onBeginningOfSpeech — voz detectada")
+            }
+            override fun onRmsChanged(rmsdB: Float) {
+                // Diagnóstico de captura: rms constante ≈ -inf / plano = el
+                // micrófono entrega silencio; valores crecientes (> -20 dB) =
+                // audio real entrando al reconocedor.
+                Log.d(TAG, "rms=$rmsdB")
+            }
             override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
+            override fun onEndOfSpeech() {
+                Log.d(TAG, "onEndOfSpeech — fin de voz")
+            }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            // Tiempo de silencio generoso para no cortar el dictado a medias.
-            putExtra(
-                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-                COMPLETE_SILENCE_MS,
-            )
-            putExtra(
-                RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
-                POSSIBLY_COMPLETE_SILENCE_MS,
-            )
-        }
-        rec.startListening(intent)
+        // El motor legacy del TTS recibe el intent mínimo estándar: los
+        // extras custom (PARTIAL_RESULTS + silencios) lo confunden.
+        val minimal = service == null || service.packageName == TTS_PACKAGE
+        rec.startListening(buildRecognitionIntent(language, minimal))
     }
 }

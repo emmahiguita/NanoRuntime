@@ -55,6 +55,17 @@ class ShellExecutorLinuxBackend implements LinuxExecutionBackend {
     if (!_executor.initialized) {
       await _executor.init();
     }
+    // GAP-1: cwd falla honesto. El worker (:nanoshell) ejecuta tareas en
+    // threads concurrentes — chdir de proceso sería una raza entre tareas.
+    // La vía segura es chdir post-fork en libnanoshell.so (nativo); hasta
+    // entonces, NUNCA ignorar cwd en silencio: el error vuelve al LLM como
+    // infrastructureError y puede corregir (usar rutas absolutas).
+    if (request.cwd != null && request.cwd!.isNotEmpty) {
+      throw UnsupportedError(
+        'cwd no soportado por la vía worker (chdir post-fork requiere libnanoshell); '
+        'usa rutas absolutas o un binario del rootfs (bash -c "cd ... && ...")',
+      );
+    }
     final started = DateTime.now();
     final Map<String, String>? env = request.environment.isEmpty
         ? null
@@ -63,11 +74,12 @@ class ShellExecutorLinuxBackend implements LinuxExecutionBackend {
         ? await _executor.toybox([
             request.executable,
             ...request.arguments,
-          ], extraEnv: env)
+          ], extraEnv: env, timeout: request.timeout)
         : await _executor.execRootfs(
             request.executable,
             request.arguments,
             env: env,
+            timeout: request.timeout,
           );
     return LinuxExecutionResult(
       exitCode: r.exitCode,

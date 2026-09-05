@@ -284,7 +284,8 @@ final systemIntentLauncherProvider = Provider<SystemIntentLauncher>((ref) {
 
 /// Modelo factual del dispositivo (A3). Los probes leen estado real:
 /// accessibility/notification vía devicePermissionStatus, Linux vía el registro
-/// de distribuciones. Añadir Shizuku/ADB/root luego = añadir un probe.
+/// de distribuciones, Shizuku vía el canal nativo pasivo (A14.3).
+/// Añadir ADB/root luego = añadir un probe.
 final systemGraphBuilderProvider = Provider<SystemGraphBuilder>((ref) {
   return SystemGraphBuilder(
     inventory: ref.watch(systemInventoryProvider),

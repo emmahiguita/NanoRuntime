@@ -1,6 +1,7 @@
 import '../terminal_types.dart';
 import '../terminalservices.dart';
 import '../../../core/services/kali_manager.dart';
+import '../../../core/linux/distributions/ubuntu_distribution.dart';
 
 /// DevOps commands: docker, kali, pty, interactive PTY commands,
 /// script, crontab, watch, plugin management.
@@ -221,6 +222,59 @@ class DevOpsPlugin {
             );
             o('  Rootfs: ${k.kaliRoot ?? "?"}', Ln.info);
           }
+          break;
+      }
+    });
+
+    r('ubuntu', (a, c, o, af) {
+      // UBUNTU-EXEC-02: espejo compacto de `kali`. La instalación va por la
+      // UI (Nano Linux); aquí solo ejecución dentro del rootfs ya instalado.
+      final u = s.ubuntu is UbuntuDistribution
+          ? s.ubuntu as UbuntuDistribution
+          : null;
+      if (u == null) {
+        o('ubuntu: runtime no disponible', Ln.stderr);
+        return;
+      }
+      final sub = a.isNotEmpty ? a[0] : '';
+      switch (sub) {
+        case 'shell':
+          u.isInstalled().then((ok) {
+            if (!s.mounted) return;
+            if (!ok) {
+              o('ubuntu: no instalado. Instálalo desde Nano Linux.', Ln.stderr);
+              return;
+            }
+            o('[ubuntu] Shell interactiva (Ubuntu 24.04 ARM64 via proot)', Ln.header);
+            u.shell(onOut: (l) => o(l, Ln.stdout), onErr: (l) => o(l, Ln.stderr));
+          });
+          break;
+        case 'run':
+          if (a.length < 2) {
+            o('ubuntu run <comando>', Ln.stderr);
+            return;
+          }
+          u.isInstalled().then((ok) {
+            if (!s.mounted) return;
+            if (!ok) {
+              o('ubuntu: no instalado. Instálalo desde Nano Linux.', Ln.stderr);
+              return;
+            }
+            final cmd = a[1];
+            final cmdArgs = a.sublist(2);
+            o('[ubuntu] $cmd ${cmdArgs.join(" ")}', Ln.system);
+            u.run(
+              cmd,
+              cmdArgs,
+              onOut: (l) => o(l, Ln.stdout),
+              onErr: (l) => o(l, Ln.stderr),
+            );
+          });
+          break;
+        default:
+          o('ubuntu shell   → abrir shell bash dentro de Ubuntu', Ln.info);
+          o('ubuntu run <cmd> → ejecutar un comando en Ubuntu', Ln.info);
+          o('ubuntu install → usa la pantalla Nano Linux', Ln.info);
           break;
       }
     });

@@ -1677,19 +1677,53 @@ class AgentToolDispatcher {
       return '[tool] ${call.tool} requiere "text" o "selector" con el '
           'argumento.';
     }
+    // LINUX-EXEC-01: la ToolDefinition registrada fija el timeout por tool
+    // (linux.list/readFile 15s, writeFile 20s, run 30s) — ya no se usa el
+    // 20s fijo del adapter. cwd/environment opcionales viajan desde los args
+    // del ToolCall (el LLM puede pedir cwd explícito; environment se
+    // materializa solo si viene como map de strings).
+    final def = registry.lookup(call.tool);
+    final timeout = def?.timeout;
+    final rawCwd = (call.args?['cwd'] as String?)?.trim();
+    final cwd = (rawCwd != null && rawCwd.isNotEmpty) ? rawCwd : null;
+    final envRaw = call.args?['environment'];
+    final environment = envRaw is Map<String, dynamic>
+        ? envRaw.map((k, v) => MapEntry(k, '$v'))
+        : null;
     final LinuxCommandResult result;
     switch (call.tool) {
       case 'linux.list':
-        result = await adapter.list(arg);
+        result = await adapter.list(
+          arg,
+          cwd: cwd,
+          environment: environment,
+          timeout: timeout,
+        );
       case 'linux.readFile':
-        result = await adapter.readFile(arg);
+        result = await adapter.readFile(
+          arg,
+          cwd: cwd,
+          environment: environment,
+          timeout: timeout,
+        );
       case 'linux.writeFile':
         // path viene de `arg` (textArg); content viene de args['content'] (A4
         // canónico) con fallback a `text`. No reusar arg como content.
         final content = (call.args?['content'] as String?) ?? call.text ?? '';
-        result = await adapter.writeFile(arg, content);
+        result = await adapter.writeFile(
+          arg,
+          content,
+          cwd: cwd,
+          environment: environment,
+          timeout: timeout,
+        );
       default:
-        result = await adapter.runCommand(arg);
+        result = await adapter.runCommand(
+          arg,
+          cwd: cwd,
+          environment: environment,
+          timeout: timeout,
+        );
     }
     if (!result.ok) {
       return '[linux] ${result.infrastructureError}';

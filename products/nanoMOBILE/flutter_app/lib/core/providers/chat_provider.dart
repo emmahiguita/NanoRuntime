@@ -468,16 +468,65 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> speakLastResponse() async {
     // V1 — gate: si el usuario desactivó la voz, no hablar.
     if (!_ref.read(settingsProvider).voiceEnabled) return;
-    ChatMessage? ai;
-    for (final m in state.messages.reversed) {
-      if (m.sender == MessageSender.ai) {
-        ai = m;
-        break;
-      }
-    }
+    final ai = _lastAiMessage();
     if (ai != null && ai.text.isNotEmpty) {
       await voiceSession.respond(automationSpokenReason(ai.text));
     }
+  }
+
+  ChatMessage? _lastAiMessage() {
+    for (final m in state.messages.reversed) {
+      if (m.sender == MessageSender.ai) return m;
+    }
+    return null;
+  }
+
+  /// VOICE-NATURAL-01 — modo conversación continua del chat: Nano escucha,
+  /// envía por el MISMO send(), habla la respuesta y vuelve a escuchar, hasta
+  /// que el usuario la detiene o un turno queda en silencio (fin bounded).
+  /// Un turno vacío (silencio/timeout del reconocedor) cierra el ciclo.
+  /// Devuelve true si al menos un turno fue escuchado y enviado (la UI usa
+  /// false para el aviso honesto de "no se escuchó nada").
+  bool _voiceConversationActive = false;
+
+  bool get isVoiceConversationActive => _voiceConversationActive;
+
+  Future<bool> startVoiceConversation() async {
+    if (_voiceConversationActive) return false;
+    _voiceConversationActive = true;
+    var turnsCompleted = 0;
+    try {
+      // La conversación la abre Nano: saludo hablado primero, así el usuario
+      // oye que la sesión está viva y responde. Sin saludo, el modo empieza
+      // en silencio absoluto y parece que "no pasa nada".
+      await voiceSession.respond('Hola, soy Nano. ¿En qué puedo ayudarte?');
+      // Espera el fin real de la locución antes de abrir el micrófono:
+      // sin esto, el primer pushToTalk escucha mientras Nano aún saluda.
+      await voiceSession.waitForSpeechEnd();
+      while (_voiceConversationActive && mounted) {
+        final turn = await voiceSession.pushToTalk();
+        if (!_voiceConversationActive) break;
+        final transcript = turn?.transcript.trim() ?? '';
+        if (transcript.isEmpty) break;
+        await send(transcript);
+        turnsCompleted++;
+        if (!_voiceConversationActive) break;
+        final ai = _lastAiMessage();
+        if (ai == null || ai.text.isEmpty) break;
+        await voiceSession.respondAndListen(automationSpokenReason(ai.text));
+      }
+    } finally {
+      _voiceConversationActive = false;
+    }
+    return turnsCompleted > 0;
+  }
+
+  /// Detiene el modo conversación: cancela el ciclo y hace barge-in del TTS
+  /// y del reconocimiento en curso (el loop sale al ver el flag).
+  void stopVoiceConversation() {
+    if (!_voiceConversationActive) return;
+    _voiceConversationActive = false;
+    unawaited(voiceSession.stop());
   }
 
   /// A16 — sesión de voz (state machine + referentes). resolveGoal devuelve el

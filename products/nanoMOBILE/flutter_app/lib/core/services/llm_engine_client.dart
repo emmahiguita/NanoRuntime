@@ -26,8 +26,13 @@ class LLMEngineClient {
   LLMEngineClient({
     this.baseUrl = 'http://127.0.0.1:8080',
     this.timeout = const Duration(
-      seconds: 120,
-    ), // Aumentado de 60 a 120 segundos para dar más tiempo al motor
+      seconds: 240,
+    ), // Medido en Oppo (1.5B Q4_K_M, ctx 4096): prefill ~125s + decode ~12s
+    // ≈ 137s por borrador CON historial de memoria en el prompt. Con 120s el
+    // cliente cortaba justo antes de la respuesta; el retry chocaba con el
+    // modelo aún ocupado (generation_failed instantáneo) y el borrador ya
+    // generado se perdía en el socket muerto. 240s cubre el peor caso con las
+    // 8 entradas máximas de historial (~950 tokens de prompt).
     http.Client? client,
     http.Client Function()? streamClientFactory,
   }) : _client = client ?? http.Client(),
@@ -144,6 +149,7 @@ class LLMEngineClient {
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
+    String? sessionId,
   }) async {
     final body = jsonEncode({
       'prompt': prompt,
@@ -158,6 +164,11 @@ class LLMEngineClient {
         '<｜end▁of▁sentence｜>',
       ],
       'stream': false,
+      // Sesión estable por conversación: el motor reutiliza el KV del turno
+      // anterior (gate R5) y el prefill solo procesa los tokens nuevos en
+      // vez del prompt completo cada vez. Sin sesión, cada turno paga el
+      // prefill entero (~125s en Oppo).
+      if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
     });
     // Aumentado a 3 intentos para mejor tolerancia a fallos transitorios
     const maxAttempts = 3;

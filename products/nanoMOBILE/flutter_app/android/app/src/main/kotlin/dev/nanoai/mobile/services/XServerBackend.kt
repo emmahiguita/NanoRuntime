@@ -178,9 +178,13 @@ class InternalXvncBackend(
             "-localhost", "yes",
             "-listen", "tcp",
             // DPI móvil: hace que las apps Xft/GTK escalen fuentes y widgets
-            // (110 = 1.15x sobre 96). Flag verificado con `Xvnc -help` en el
-            // rootfs (soportado por el binario TigerVNC de Termux).
-            "-dpi", "110",
+            // (144 = 1.5x sobre 96 — menús y ventanas grandes para dedos;
+            // DESKTOP-FIX-01 subió desde 120 tras feedback físico de iconos
+            // y textos pequeños; los iconos del escritorio pcmanfm y el panel
+            // tint2 llevan su propio tamaño explícito, no escalan por dpi).
+            // Flag verificado con `Xvnc -help` en el rootfs (soportado por
+            // el binario TigerVNC de Termux).
+            "-dpi", "144",
             // U-9: sin -fp el Xvnc nace SIN fuentes core (xdpyinfo vivo: sin
             // "default font path" — los defaults compilados apuntan a paths
             // que no existen en Android). aterm (que NO linkea libXft) caía

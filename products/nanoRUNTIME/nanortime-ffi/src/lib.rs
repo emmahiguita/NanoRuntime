@@ -756,6 +756,29 @@ impl NanoContext {
             ));
         }
 
+        // Presupuesto total de contexto: KV acumulado + prompt nuevo + margen
+        // de salida. Si no cabe, reiniciar el KV y prefillear el prompt
+        // completo — la conversación NO falla, solo se vuelve lenta ese
+        // turno (prefill completo). Sin esto, llama.cpp falla el decode a
+        // mitad del prefill y el turno muere en generation_failed (riesgo
+        // real de conversaciones largas con KV persistente).
+        let total_budget = self
+            .cached_tokens
+            .len()
+            .saturating_add(n_prompt)
+            .saturating_add(params.max_tokens as usize);
+        if total_budget > self.context_size as usize {
+            tracing::warn!(
+                "[NanoContext] contexto lleno (cached={} + prompt={} + max={} > ctx={}) — KV reset, prefill completo",
+                self.cached_tokens.len(),
+                n_prompt,
+                params.max_tokens,
+                self.context_size
+            );
+            self.inner.clear_kv_cache();
+            self.cached_tokens.clear();
+        }
+
         let prefill_batch = self.batch_size as usize;
         let mut common_prefix = self
             .cached_tokens

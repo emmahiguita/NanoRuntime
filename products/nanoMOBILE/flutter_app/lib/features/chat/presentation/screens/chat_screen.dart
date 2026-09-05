@@ -17,6 +17,7 @@ import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
+import 'package:nanoai/features/automation/engine/voice/voice_runtime.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
@@ -39,6 +40,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // Android). Ambos fallan a mensaje honesto, nunca a excepción suelta.
   bool _listening = false;
   StreamSubscription<String>? _partialSub;
+  // VOICE-NATURAL-01: conversación continua (hablar ↔ responder ↔ volver a
+  // escuchar). _voiceState refleja la máquina de estados REAL del manager;
+  // el loop vive en ChatNotifier (la voz es I/O del MISMO send()).
+  bool _conversationActive = false;
+  VoiceSessionState _voiceState = VoiceSessionState.idle;
+  StreamSubscription<VoiceSessionState>? _voiceStateSub;
   bool _isComposerMinimized = false;
   bool _isReadingMode = false;
   // UI-REV-14: en horizontal la barra puede OCULTARSE del todo (queda un chip
@@ -56,11 +63,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _voiceStateSub = ref
+        .read(chatProvider.notifier)
+        .voiceSession
+        .states
+        .listen((state) {
+          if (!mounted) return;
+          setState(() => _voiceState = state);
+        });
   }
 
   @override
   void dispose() {
     _partialSub?.cancel();
+    _voiceStateSub?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -80,11 +96,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
   }
 
-  /// Dictado por voz REAL con streaming + AUTOENVÍO del resultado final.
-  /// Los parciales solo actualizan el input visualmente; el texto final se
-  /// envía automáticamente (manos libres): Voz → send → Automation → Linux.
-  /// Nunca se envía un partial (evita ejecutar comandos incompletos).
+  /// Dictado por voz REAL con streaming: los parciales llenan el campo en
+  /// vivo y el resultado final queda escrito para que el usuario revise y
+  /// envíe cuando quiera (patrón de teclado). Nunca se envía un partial ni
+  /// el final por sí solo. El modo manos libres vive en la conversación
+  /// continua (∞): ahí la voz SÍ se ejecuta directo.
   Future<void> _toggleMic() async {
+    // Conversación continua en curso: detenerla antes de dictar (un solo
+    // micrófono — dictado y conversación no compiten por el audio).
+    if (!_listening && _conversationActive) {
+      await _toggleConversation();
+    }
     if (_listening) {
       setState(() => _listening = false);
       await _partialSub?.cancel();
@@ -118,13 +140,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _inputController.selection = TextSelection.collapsed(
       offset: _inputController.text.length,
     );
-    // T1.7 — autoenvío del resultado FINAL (nunca partial). El partial solo
-    // actualiza el input; enviar aquí evita ejecutar comandos incompletos.
-    await ref.read(chatProvider.notifier).send(trimmed);
-    if (!mounted) return;
-    _inputController.clear();
-    // Responder a VOZ: hablar la respuesta generada por el MISMO send().
-    await ref.read(chatProvider.notifier).speakLastResponse();
+    // VOICE-PRO-04: el dictado LLENA el campo y el usuario decide cuándo
+    // enviar. El autoenvío sorprendía: no daba tiempo a revisar lo que el
+    // reconocedor había entendido (y un error de transcripción se ejecutaba
+    // igual). El envío queda en el botón; el modo manos libres es la
+    // conversación continua (∞), que sí ejecuta directo.
+  }
+
+  /// VOICE-NATURAL-01 — activa/detiene el modo conversación continua. Tap en ∞
+  /// inicia el ciclo (hablar ↔ responder ↔ volver a escuchar); tap en ■ lo
+  /// detiene con barge-in. El dictado del mic sigue intacto.
+  Future<void> _toggleConversation() async {
+    final notifier = ref.read(chatProvider.notifier);
+    if (notifier.isVoiceConversationActive) {
+      notifier.stopVoiceConversation();
+      if (mounted) setState(() => _conversationActive = false);
+      return;
+    }
+    if (_listening) return; // dictado en curso: no pisar el micrófono
+    setState(() => _conversationActive = true);
+    final completed = await notifier.startVoiceConversation();
+    if (mounted) setState(() => _conversationActive = false);
+    if (!completed && mounted) {
+      // El ciclo terminó sin escuchar nada: fallo del reconocedor o silencio
+      // instantáneo. Aviso honesto en vez de "no pasó nada".
+      _showHonestError(
+        'No se pudo escuchar nada. Verifica el micrófono y la conexión.',
+      );
+    }
+  }
+
+  /// Estado del orbe: dictado → listening; conversación → estados reales del
+  /// manager (listening/processing/speaking); reposo → idle.
+  VoiceSessionState get _orbState {
+    if (_listening) return VoiceSessionState.listening;
+    return _voiceState;
   }
 
   /// Abre el selector de archivos (SAF) y registra el contenido textual como
@@ -350,7 +400,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             ),
                                             hasAttachments:
                                                 state.attachments.isNotEmpty,
-                                            listening: _listening,
                                           ),
                                         )
                                       : ChatComposer(
@@ -367,6 +416,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           enabled: !state.generating,
                                           generating: state.generating,
                                           listening: _listening,
+                                          voiceState: _orbState,
+                                          conversationActive:
+                                              _conversationActive,
+                                          onConversationToggle:
+                                              _toggleConversation,
                                           attachments: state.attachments,
                                           onRemoveAttachment:
                                               notifier.removeAttachment,
@@ -558,7 +612,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               key: const ValueKey('minimized_bubble_landscape'),
               onExpand: () => setState(() => _isComposerMinimized = false),
               hasAttachments: state.attachments.isNotEmpty,
-              listening: _listening,
             ),
           )
         else
@@ -577,6 +630,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               enabled: !state.generating,
               generating: state.generating,
               listening: _listening,
+              voiceState: _orbState,
+              conversationActive: _conversationActive,
+              onConversationToggle: _toggleConversation,
               attachments: state.attachments,
               onRemoveAttachment: notifier.removeAttachment,
               onAttach: _attachFile,
@@ -1431,12 +1487,10 @@ class _MinimizedComposerBubble extends StatelessWidget {
     super.key,
     required this.onExpand,
     required this.hasAttachments,
-    required this.listening,
   });
 
   final VoidCallback onExpand;
   final bool hasAttachments;
-  final bool listening;
 
   @override
   Widget build(BuildContext context) {
@@ -1465,7 +1519,10 @@ class _MinimizedComposerBubble extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   Icon(
-                    listening ? Icons.mic_rounded : Icons.edit_rounded,
+                    // VOICE-PRO-01: icono fijo de expandir. Antes alternaba
+                    // a mic cuando escuchaba — affordance engañoso: parecía
+                    // acción de voz y solo expandía la barra.
+                    Icons.edit_rounded,
                     size: 19,
                     color: isDark ? colors.accentCyan : colors.primary,
                   ),
