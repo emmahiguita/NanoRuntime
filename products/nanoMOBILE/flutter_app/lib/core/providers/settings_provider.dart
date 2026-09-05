@@ -30,7 +30,7 @@ class SettingsRepository {
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
       return SettingsState(
-        themeMode: m['themeMode'] as String? ?? 'Sistema',
+        themeMode: m['themeMode'] as String? ?? 'Oscuro',
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
@@ -103,7 +103,7 @@ class SettingsState {
   final String waStyleText;
 
   const SettingsState({
-    this.themeMode = 'Sistema',
+    this.themeMode = 'Oscuro',
     this.temperature = 0.7,
     this.topP = 0.9,
     this.maxTokens = 512,
