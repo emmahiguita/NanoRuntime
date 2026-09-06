@@ -782,6 +782,12 @@ class _RuleCardState extends State<_RuleCard> {
                         Text(
                           '${rule.action.label} · '
                           '${_RuleCard._triggerLabel(rule.trigger)}',
+                          // FIX-VERT-02 — sin espacios entre "días 1,2,3"
+                          // (o la hora) la última "palabra" se partía por
+                          // caracteres y quedaba apilada vertical. Una línea
+                          // con ellipsis: jamás apila.
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: visual.text,
                             fontSize: 14,
@@ -816,6 +822,10 @@ class _RuleCardState extends State<_RuleCard> {
                               ),
                               child: Text(
                                 outcomeLabel,
+                                // FIX-VERT-02 — badge de una línea: nunca se
+                                // apila carácter por carácter.
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: outcomeColor,
                                   fontSize: 10.5,
@@ -829,6 +839,12 @@ class _RuleCardState extends State<_RuleCard> {
                                 lastFired == null
                                     ? 'nunca disparó'
                                     : 'última ${_RuleCard._hhmm(lastFired)}',
+                                // FIX-VERT-02 — el badge largo puede dejar a
+                                // "última 05:12" sin ancho: la hora se partía
+                                // por caracteres y quedaba vertical. Una
+                                // línea con ellipsis: jamás apila.
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: visual.textMuted,
                                   fontSize: 11,
@@ -942,6 +958,11 @@ class _DetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
+              // FIX-VERT-02 — la hora final de "06/09 05:12" o textos sin
+              // espacios no deben partirse por caracteres: truncan con
+              // ellipsis, jamás apilan.
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: visual.text,
                 fontSize: 12,
