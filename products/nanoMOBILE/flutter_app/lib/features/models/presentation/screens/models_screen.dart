@@ -18,6 +18,7 @@ import 'package:nanoai/features/models/domain/model_viability.dart';
 import 'package:nanoai/features/models/presentation/providers/model_metadata_providers.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_brand_logos.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_detail_bottom_sheet.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
 /// Tokens locales para el módulo de Modelos (White Optical Glass + M3E).
@@ -792,11 +793,13 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                   )
                                 : ListView.builder(
                                     physics: const BouncingScrollPhysics(),
+                                    // NAV-FLOAT-01 — reserva propia bajo la
+                                    // barra flotante.
                                     padding: const EdgeInsets.fromLTRB(
                                       14,
                                       2,
                                       14,
-                                      20,
+                                      kNanoBarScrollReserve,
                                     ),
                                     itemCount: totalFilteredCount + 1,
                                     itemBuilder: (context, index) {

@@ -22,7 +22,6 @@ class NanoMultiUseNavBar extends StatefulWidget {
     this.inputConfig,
     this.onSearch,
     this.onVoice,
-    this.onAvatarTap,
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.brightness,
     this.compact = false,
@@ -34,7 +33,6 @@ class NanoMultiUseNavBar extends StatefulWidget {
   final NanoUniversalInputConfig? inputConfig;
   final ValueChanged<String>? onSearch;
   final VoidCallback? onVoice;
-  final VoidCallback? onAvatarTap;
   final String searchHint;
   final Brightness? brightness;
   final bool compact;
@@ -324,8 +322,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                               focusNode: _focusNode,
                               hint: effectiveHint,
                               hasText: _hasText,
-                              isGenerating: config?.isGenerating ?? false,
-                              onStop: config?.onStop,
                               onAttach: config?.onAttach,
                               onSubmitted: _handleSearchSubmit,
                               onClear: () {
@@ -340,7 +336,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                                   _toggleDefaultDictation,
                               listening:
                                   (config?.isListening ?? false) || _dictating,
-                              onAvatarTap: widget.onAvatarTap,
                               compact: narrow,
                               transparent: widget.transparent,
                             ),
@@ -376,14 +371,11 @@ class _SearchRow extends StatelessWidget {
     required this.focusNode,
     required this.hint,
     required this.hasText,
-    required this.isGenerating,
-    required this.onStop,
     required this.onAttach,
     required this.onSubmitted,
     required this.onClear,
     required this.onVoice,
     required this.listening,
-    required this.onAvatarTap,
     required this.compact,
     this.transparent = false,
   });
@@ -393,14 +385,11 @@ class _SearchRow extends StatelessWidget {
   final FocusNode focusNode;
   final String hint;
   final bool hasText;
-  final bool isGenerating;
-  final VoidCallback? onStop;
   final VoidCallback? onAttach;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback onClear;
   final VoidCallback? onVoice;
   final bool listening;
-  final VoidCallback? onAvatarTap;
   final bool compact;
 
   /// HOME-BLEED-01 — el campo flota sin caja: fuera color de fondo y borde.
@@ -415,25 +404,9 @@ class _SearchRow extends StatelessWidget {
 
     return Row(
       children: [
-        // HOME-BLEED-01 — el orbe SIEMPRE visible: la barra mantiene la
-        // misma silueta y proporción en TODAS las pantallas (antes en chat
-        // desaparecía y la barra quedaba desproporcionada). En chat el tap
-        // es no-op (ya estás ahí); en el resto, acceso al asistente.
-        AnimatedSize(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _OwlAvatarOrb(
-                brightness: brightness,
-                size: compact ? 40 : 52,
-                onTap: onAvatarTap,
-              ),
-              SizedBox(width: compact ? 8 : 11),
-            ],
-          ),
-        ),
+        // NAV-FLOAT-01 — fuera el orbe búho: la barra es solo campo +
+        // pestañas. El acceso al chat ya vive en el dock (pestaña Chat);
+        // el orbe era un atajo redundante que ensuciaba la silueta.
         Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
@@ -535,413 +508,42 @@ class _SearchRow extends StatelessWidget {
                     splashRadius: 18,
                   ),
 
-                // Botón de detener generación O micrófono de voz
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: isGenerating
-                      ? _StopButton(size: compact ? 34 : 38, onTap: onStop)
-                      : hasText
-                      ? _SendActionButton(
-                          size: compact ? 34 : 38,
-                          onTap: () => onSubmitted?.call(controller.text),
-                        )
-                      : _VoiceOrbButton(
-                          size: compact ? 34 : 38,
-                          onTap: onVoice,
-                          listening: listening,
-                        ),
+                // NAV-FLOAT-01 — fuera los orbes/botones grandes (mic orbe,
+                // stop, send prominente). El campo lleva iconos compactos
+                // estándar: dictado, limpiar y enviar como sufijos.
+                IconButton(
+                  icon: Icon(
+                    listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                    size: compact ? 18 : 20,
+                    color: listening ? Colors.redAccent : muted,
+                  ),
+                  onPressed: onVoice,
+                  tooltip: 'Dictar por voz',
+                  splashRadius: 18,
                 ),
+
+                // Enviar: icono discreto dentro del campo. El Enter del
+                // teclado inserta salto de línea (multilínea) — el tap es
+                // el envío real.
+                if (hasText)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.arrow_upward_rounded,
+                        size: compact ? 18 : 20,
+                        color: NanoNavTokens.cyan,
+                      ),
+                      onPressed: () => onSubmitted?.call(controller.text),
+                      tooltip: 'Enviar',
+                      splashRadius: 18,
+                    ),
+                  ),
               ],
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SendActionButton extends StatelessWidget {
-  const _SendActionButton({required this.size, required this.onTap});
-
-  final double size;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Enviar',
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.mediumImpact();
-            onTap?.call();
-          },
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: NanoNavTokens.sendButtonGradient,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: .70),
-                width: .9,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: NanoNavTokens.accentBlue.withValues(alpha: .55),
-                  blurRadius: 14,
-                  spreadRadius: -1,
-                ),
-              ],
-            ),
-            child: Center(
-              child: NanoGlyph(
-                type: NanoGlyphType.arrowForward,
-                color: Colors.white,
-                size: size * .50,
-                strokeWidth: 2.0,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StopButton extends StatelessWidget {
-  const _StopButton({required this.size, required this.onTap});
-
-  final double size;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Detener respuesta',
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.mediumImpact();
-            onTap?.call();
-          },
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: .80),
-                width: .9,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.red.withValues(alpha: .6),
-                  blurRadius: 14,
-                  spreadRadius: -1,
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(Icons.stop_rounded, color: Colors.white, size: 20),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Avatar del personaje Nano Owl con animación de flotación realista.
-/// Movimiento vertical suave continuo — el personaje «respira» y flota.
-class _OwlAvatarOrb extends StatefulWidget {
-  const _OwlAvatarOrb({
-    required this.brightness,
-    required this.size,
-    required this.onTap,
-  });
-
-  final Brightness brightness;
-  final double size;
-  final VoidCallback? onTap;
-
-  @override
-  State<_OwlAvatarOrb> createState() => _OwlAvatarOrbState();
-}
-
-class _OwlAvatarOrbState extends State<_OwlAvatarOrb>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _floatController;
-  late final Animation<double> _floatAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    // Flotación suave: sube y baja 3px con easing sinusoidal. 2.4s
-    // por ciclo — el personaje «respira» de forma orgánica.
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    );
-    // En entorno de tests de widgets, un ticker infinito colgaría tester.pumpAndSettle().
-    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains(
-      'Test',
-    );
-    if (!isTesting) {
-      _floatController.repeat(reverse: true);
-    }
-    _floatAnim = Tween<double>(begin: -2.8, end: 2.8).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
-    );
-  }
-
-  @override
-  void dispose() {
-    _floatController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = widget.size;
-    final brightness = widget.brightness;
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
-    return RepaintBoundary(
-      child: Semantics(
-        button: true,
-        label: 'Asistente Nano AI',
-        child: GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            widget.onTap?.call();
-          },
-          child: AnimatedBuilder(
-            animation: _floatAnim,
-            builder: (context, child) => Transform.translate(
-              offset: Offset(0, disableAnimations ? 0.0 : _floatAnim.value),
-              child: child,
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: size,
-                  height: size,
-                  padding: const EdgeInsets.all(2.4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: NanoNavTokens.activeGradient,
-                    boxShadow: [
-                      BoxShadow(
-                        color: NanoNavTokens.cyan.withValues(alpha: .55),
-                        blurRadius: 18,
-                        spreadRadius: -1,
-                      ),
-                      BoxShadow(
-                        color: NanoNavTokens.accentBlue.withValues(alpha: .30),
-                        blurRadius: 28,
-                        spreadRadius: -4,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(1.8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: brightness == Brightness.dark
-                          ? const Color(0xFF060D22)
-                          : Colors.white,
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/nano/nano_owl.png',
-                        fit: BoxFit.cover,
-                        alignment: const Alignment(0, -.15),
-                      ),
-                    ),
-                  ),
-                ),
-                // Indicador de estado online — punto verde brillante
-                Positioned(
-                  right: 1,
-                  bottom: 1,
-                  child: Container(
-                    width: size * .24,
-                    height: size * .24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: NanoNavTokens.neonGreen,
-                      border: Border.all(
-                        color: brightness == Brightness.dark
-                            ? const Color(0xFF030B20)
-                            : Colors.white,
-                        width: 1.8,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: NanoNavTokens.neonGreen.withValues(alpha: .95),
-                          blurRadius: 8,
-                          spreadRadius: .8,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VoiceOrbButton extends StatefulWidget {
-  const _VoiceOrbButton({
-    required this.size,
-    required this.onTap,
-    required this.listening,
-  });
-
-  final double size;
-  final VoidCallback? onTap;
-  final bool listening;
-
-  @override
-  State<_VoiceOrbButton> createState() => _VoiceOrbButtonState();
-}
-
-class _VoiceOrbButtonState extends State<_VoiceOrbButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-      lowerBound: .92,
-      upperBound: 1.06,
-    );
-    if (widget.listening) _pulse.repeat(reverse: true);
-  }
-
-  @override
-  void didUpdateWidget(covariant _VoiceOrbButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.listening && !oldWidget.listening) {
-      _pulse.repeat(reverse: true);
-    } else if (!widget.listening && oldWidget.listening) {
-      _pulse.stop();
-      _pulse.value = 1.0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = widget.size;
-    final listening = widget.listening;
-
-    return Semantics(
-      button: true,
-      // NAV-BAR-FIX-05 — el orbe dice la VERDAD: mientras escucha es un
-      // botón de detener (rojo, pulso); en reposo es el micrófono. Antes
-      // el botón siempre parecía "mic disponible" aunque ya grabara.
-      label: listening ? 'Detener dictado' : 'Voz',
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.mediumImpact();
-            widget.onTap?.call();
-          },
-          child: AnimatedBuilder(
-            animation: _pulse,
-            builder: (context, child) => Transform.scale(
-              scale: listening ? _pulse.value : 1.0,
-              child: child,
-            ),
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: listening
-                    ? const RadialGradient(
-                        center: Alignment(-.25, -.28),
-                        radius: .95,
-                        colors: [
-                          Color(0xFFFF8A80),
-                          Color(0xFFEF4444),
-                          Color(0xFFDC2626),
-                          Color(0xFF7F1D1D),
-                        ],
-                        stops: [0.0, .36, .72, 1.0],
-                      )
-                    : const RadialGradient(
-                        center: Alignment(-.25, -.28),
-                        radius: .95,
-                        colors: [
-                          Color(0xFF5CE7FF),
-                          Color(0xFF2A7FFF),
-                          Color(0xFF7058FF),
-                          Color(0xFF1B1C65),
-                        ],
-                        stops: [0.0, .36, .72, 1.0],
-                      ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: .70),
-                  width: .9,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: listening
-                        ? Colors.red.withValues(alpha: .60)
-                        : NanoNavTokens.cyan.withValues(alpha: .45),
-                    blurRadius: 14,
-                    spreadRadius: -1,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: listening
-                    ? const Icon(
-                        Icons.stop_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      )
-                    : NanoGlyph(
-                        type: NanoGlyphType.microphone,
-                        color: Colors.white,
-                        size: size * .50,
-                        strokeWidth: 2.0,
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

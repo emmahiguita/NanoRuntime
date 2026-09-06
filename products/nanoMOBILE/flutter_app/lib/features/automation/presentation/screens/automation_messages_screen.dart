@@ -62,11 +62,13 @@ class _AutomationMessagesBody extends StatelessWidget {
               body: SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
+                // NAV-FLOAT-01 — la barra flota sin reservar layout: el
+                // scroll reserva su propio espacio inferior.
                 padding: const EdgeInsets.fromLTRB(
                   NanoSpacing.md,
                   NanoSpacing.md,
                   NanoSpacing.md,
-                  NanoSpacing.md,
+                  kNanoBarScrollReserve,
                 ),
                 child: Center(
                   child: ConstrainedBox(

@@ -54,7 +54,9 @@ class AutomationSettingsScreen extends ConsumerWidget {
               child: ListView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
+                // NAV-FLOAT-01 — la barra flota sin reservar layout: el
+                // scroll reserva su propio espacio.
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, kNanoBarScrollReserve),
                 children: [
                   Center(
                     child: ConstrainedBox(

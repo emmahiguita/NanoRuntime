@@ -11,6 +11,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
 import '../../application/automation_diagnostics.dart';
@@ -619,7 +620,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                 );
           return SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
+            // NAV-FLOAT-01 — la barra flota sin reservar layout: el scroll
+            // reserva su propio espacio inferior.
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, kNanoBarScrollReserve),
             child: Center(
               child: ConstrainedBox(
                 // UI-REV-13: horizontal respira (1280) — vertical conserva el

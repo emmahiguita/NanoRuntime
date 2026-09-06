@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/widgets/navigation/nano_attach_sheet.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 import '../widgets/chat_messages.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
@@ -336,9 +337,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         child: _messageList(
                           state,
                           notifier,
-                          // NAV-BAR-FIX-06 — el frame reserva la altura de la
-                          // barra; la lista solo deja su respiro normal.
-                          bottomPadding: 24 + mediaQuery.padding.bottom,
+                          // NAV-FLOAT-01 — el frame ya no reserva franja:
+                          // la lista reserva su propio espacio para que la
+                          // barra flotante jamás tape el último mensaje.
+                          bottomPadding: kNanoBarScrollReserve,
                           emptyBottomPadding: 24,
                           sidePadding: isCompactLandscape ? 10.0 : 18.0,
                         ),
@@ -464,7 +466,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             state,
             notifier,
             topPadding: 52,
-            bottomPadding: 24 + mediaQuery.padding.bottom,
+            // NAV-FLOAT-01 — la barra flota en landscape: reserva propia.
+            bottomPadding: kNanoBarScrollReserve,
             emptyBottomPadding: 24,
             sidePadding: 18,
           ),
@@ -772,7 +775,8 @@ class _ReadingModeState extends State<_ReadingMode> {
               child: ListView.builder(
                 controller: _scroll,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(28, 56, 28, 88),
+                // NAV-FLOAT-01 — reserva propia bajo la barra flotante.
+                padding: const EdgeInsets.fromLTRB(28, 56, 28, kNanoBarScrollReserve),
                 itemCount: widget.messages.length,
                 itemBuilder: (context, i) => _ReadingParagraph(
                   message: widget.messages[i],

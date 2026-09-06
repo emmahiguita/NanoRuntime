@@ -10,7 +10,6 @@ void main() {
     NanoDestination selectedDest = NanoDestination.home;
     String? submittedQuery;
     bool voiceTapped = false;
-    bool avatarTapped = false;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -25,7 +24,6 @@ void main() {
                   },
                   onSearch: (query) => submittedQuery = query,
                   onVoice: () => voiceTapped = true,
-                  onAvatarTap: () => avatarTapped = true,
                 ),
               );
             },
@@ -72,15 +70,10 @@ void main() {
     await tester.pump();
     expect(submittedQuery, equals('htop'));
 
-    // 6. Botón de micrófono / voz
-    await tester.tap(find.bySemanticsLabel('Voz'));
+    // 6. Botón de micrófono / voz (NAV-FLOAT-01: icono de campo compacto)
+    await tester.tap(find.byTooltip('Dictar por voz'));
     await tester.pump();
     expect(voiceTapped, isTrue);
-
-    // 7. Botón de avatar / asistente
-    await tester.tap(find.bySemanticsLabel('Asistente Nano AI'));
-    await tester.pump();
-    expect(avatarTapped, isTrue);
   });
 
   testWidgets('NanoMultiUseNavBar in compact mode renders "Auto" and clears text on tab change', (

@@ -244,3 +244,33 @@ se compactó (ejemplos 3→1, reglas 9→6).
   confirmar el stock…» solo si el cliente pregunta por stock).
 - **Sin eco de ejemplo**: mensaje genérico ("¿cómo estás?") no menciona
   stock/negro/negocio si el cliente no lo trajo.
+
+## NAV-FLOAT-01 — barra de navegación flotante de verdad, sin botones
+
+Rediseño de la barra universal: fuera orbe búho, orbe de micrófono, botón
+stop y botón enviar grande. Queda el campo de escritura (con iconos
+compactos de dictado, adjuntar si aplica, limpiar y enviar) + dock de
+pestañas. La barra ya NO reserva franja en el layout: el contenido pinta a
+pantalla completa y cada pantalla reserva su propio espacio de scroll.
+
+- **Sin botones**: en Inicio, Chat, Modelos, Terminal, Ajustes y Automatización
+  la barra muestra SOLO campo + pestañas. No hay búho, no hay orbes, no hay
+  botón rojo de stop ni botón azul de enviar.
+- **Vertical**: en cualquier pestaña, hacer scroll hasta el final — el último
+  contenido (mensaje del chat, última regla, último ajuste, último modelo)
+  queda COMPLETAMENTE visible encima de la barra, nunca tapado.
+- **Horizontal (landscape)**: rotar — la barra compacta flota centrada sin
+  tapar el último contenido de la lista; el chat en modo escritorio conserva
+  su panel.
+- **Fondo completo**: el fondo líquido/ambiental se ve hasta el borde
+  inferior de la pantalla (sin franja cortada bajo la barra).
+- **Escribir**: tocar el campo abre el teclado y el contenido sube lo justo
+  (sin doble encogido); con texto escrito aparece el icono de enviar (flecha)
+  y funciona (Enter NO envía — multilínea).
+- **Dictado**: el icono de micrófono (compacto, dentro del campo) dicta al
+  campo en vivo; se pone rojo mientras escucha.
+- **Adjuntar en Chat**: el clip del campo sigue abriendo la hoja de adjuntos.
+- **Cancelar generación**: el botón stop YA NO existe en la barra (fuera por
+  diseño; cancelar desde otra vía queda como trabajo pendiente si se usa).
+- **Navegación**: las 6 pestañas siguen navegando igual (el acceso al chat
+  ahora es solo la pestaña Chat, ya no el búho).

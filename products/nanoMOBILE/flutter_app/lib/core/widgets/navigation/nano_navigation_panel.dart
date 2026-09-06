@@ -14,6 +14,12 @@ import 'nano_universal_input.dart';
 /// `nanoUniversalInputProvider` para que la pantalla activa configure de forma
 /// limpia y desacoplada el placeholder, las acciones de envío, voz y adjuntos.
 ///
+/// NAV-FLOAT-01 — reserva inferior que añaden las pantallas hijas en su
+/// propio scroll para que la barra flotante jamás tape el último contenido.
+/// Barra en reposo ~132 + gap 16 + barra de gestos ~24 + holgura 12 ≈ 184;
+/// 200 cubre con margen. En landscape la barra compacta es menor: holgura.
+const double kNanoBarScrollReserve = 200.0;
+
 /// NAV-UI-AUDIT-01 — el SafeArea vive AQUÍ (fuente única): el shell y las
 /// pantallas empujadas reciben los mismos insets de sistema en la barra.
 class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
@@ -25,9 +31,9 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
     this.slotId,
     this.onSearch,
     this.onVoice,
-    this.onAvatarTap,
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.fullBleed = false,
+    this.floatOverContent = false,
     this.transparentDock = false,
     this.protectTop = false,
   });
@@ -44,7 +50,6 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
   final String? slotId;
   final ValueChanged<String>? onSearch;
   final VoidCallback? onVoice;
-  final VoidCallback? onAvatarTap;
   final String searchHint;
 
   /// HOME-BLEED-01 — el child se pinta a pantalla COMPLETA (sin reservar
@@ -52,6 +57,13 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
   /// wallpaper): la imagen llega hasta el borde inferior y la barra flota
   /// encima. Solo cuando abajo no hay contenido interactivo que ocultar.
   final bool fullBleed;
+
+  /// NAV-FLOAT-01 — el child pinta a pantalla completa y la barra flota
+  /// encima SIN reservar franja inferior en el layout (el fondo no se
+  /// recorta). Las pantallas hijas reservan su propio espacio en el scroll
+  /// ([kNanoBarScrollReserve]). A diferencia de fullBleed, el SafeArea top
+  /// se conserva: esto es para pantallas con contenido, no fondos.
+  final bool floatOverContent;
 
   /// HOME-BLEED-01 — el dock deja de pintar su cáscara (gradiente + blur) y
   /// queda transparente: detrás de la barra se ve el MISMO fondo de la
@@ -170,7 +182,15 @@ class _NanoFloatingNavigationFrameState
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutCubic,
                 padding: EdgeInsets.only(
-                  bottom: widget.fullBleed ? 0 : totalBottomPad,
+                  // NAV-FLOAT-01 — floatOverContent: sin reserva para la
+                  // barra (el fondo pinta completo), pero con teclado abierto
+                  // el contenido sube exactamente lo del teclado — sin esto
+                  // el teclado taparía lo que se escribe.
+                  bottom: widget.fullBleed
+                      ? 0
+                      : widget.floatOverContent
+                      ? keyboardInset
+                      : totalBottomPad,
                 ),
                 child: RepaintBoundary(child: widget.child),
               ),
@@ -211,15 +231,9 @@ class _NanoFloatingNavigationFrameState
                                 (query) {
                                   NanoSearchDispatcher.dispatch(context, query);
                                 },
+                            // NAV-FLOAT-01 — el orbe búho salió de la barra:
+                            // el acceso al chat vive en el dock (pestaña Chat).
                             onVoice: widget.onVoice,
-                            onAvatarTap:
-                                widget.selectedIndex ==
-                                    NanoDestination.chat.index
-                                ? null
-                                : (widget.onAvatarTap ??
-                                      () {
-                                        context.go('/chat');
-                                      }),
                           ),
                         ),
                       ),
@@ -273,6 +287,11 @@ class NanoShellBarScope extends StatelessWidget {
           // HOME-BLEED-01 — la cáscara de la barra sale en TODA la app:
           // detrás del dock se ve el mismo fondo de la pantalla.
           transparentDock: true,
+          // NAV-FLOAT-01 — flotación real: la barra NO reserva franja en
+          // el layout (antes el contenido se comprimía ~190px). El fondo
+          // pinta completo y las pantallas hijas reservan su propio
+          // padding de scroll (kNanoBarScrollReserve).
+          floatOverContent: true,
           // TOP-INSET-FIX-01 — fuente única del inset superior en las
           // pantallas empujadas (las hijas no añaden SafeArea top propio).
           protectTop: true,

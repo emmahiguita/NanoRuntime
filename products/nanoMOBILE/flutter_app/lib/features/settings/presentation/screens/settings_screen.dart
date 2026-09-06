@@ -10,6 +10,7 @@ import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
 
@@ -56,11 +57,13 @@ class SettingsScreen extends ConsumerWidget {
 
           return ListView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            // NAV-FLOAT-01 — la barra flota sin reservar layout: el scroll
+            // reserva su propio espacio inferior.
             padding: EdgeInsets.fromLTRB(
               pagePadding,
               NanoSpacing.md,
               pagePadding,
-              NanoSpacing.xxxl,
+              kNanoBarScrollReserve,
             ),
             children: [
               _SettingsIntro(colors: colors, themeMode: state.themeMode),

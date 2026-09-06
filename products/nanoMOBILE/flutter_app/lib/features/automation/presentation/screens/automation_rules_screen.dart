@@ -388,7 +388,14 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                       const AutomationBackHeader(),
                       Expanded(
                         child: ListView(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 48),
+                          // NAV-FLOAT-01 — la barra flota sin reservar
+                          // layout: el scroll reserva su propio espacio.
+                          padding: const EdgeInsets.fromLTRB(
+                            12,
+                            8,
+                            12,
+                            kNanoBarScrollReserve,
+                          ),
                           children: [
                             Center(
                               child: ConstrainedBox(

@@ -87,7 +87,13 @@ class ScaffoldShell extends StatelessWidget {
             // las pantallas ven el mismo fondo detrás de la barra).
             NanoFloatingNavigationFrame(
               selectedIndex: currentIndex,
+              // HOME-BLEED-01 — Inicio (wallpaper) pinta completo.
               fullBleed: currentIndex == NanoDestination.home.index,
+              // NAV-FLOAT-01 — el resto de pestañas pinta a pantalla
+              // completa con la barra flotando encima: cada pantalla
+              // reserva su propio padding de scroll
+              // (kNanoBarScrollReserve) en lugar de comprimir el layout.
+              floatOverContent: currentIndex != NanoDestination.home.index,
               transparentDock: true,
               protectTop: true,
               onDestinationSelected: (index) {
