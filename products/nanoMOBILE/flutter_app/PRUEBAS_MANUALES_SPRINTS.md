@@ -205,6 +205,7 @@ relectura del slot al cambiar pestaña, vocabulario reply ampliado.
 - **Barra**: Dashboard → enviar A → Reglas → enviar B → Dashboard → enviar
   C → cada envío llega a la pantalla correcta (sin callback de la pestaña
   anterior).
-- **Vocabulario**: «dile a Juan que sí» con notificación contestable → reply
-  directo determinista sin LLM. «escribe un resumen» NO debe intentar
-  responder un mensaje (sin falsos positivos de reply).
+- **Vocabulario**: «dile a Juan que sí» y una variante SIN tilde («escribele a
+  Maria que llego») con notificación contestable → reply directo determinista
+  sin LLM. «escribe un resumen» NO debe intentar responder un mensaje (sin
+  falsos positivos de reply).
