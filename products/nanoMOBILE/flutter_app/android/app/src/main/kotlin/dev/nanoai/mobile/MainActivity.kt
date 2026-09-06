@@ -65,6 +65,14 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // WA-REG-01 — acquire(UI) SÍNCRONO: cierra la ventana de handoff
+        // headless→UI. Antes el acquire iba dentro del postDelayed de warmup:
+        // si el service headless soltaba AUTOMATION en esos 1500ms, holders
+        // quedaba vacío y RuntimeScope apagaba el runtime completo (engine LLM
+        // incluido, que no podía re-arrancar en el mismo proceso). Acquire es
+        // solo un add a un set sincronizado — no toca disco ni pelea el
+        // primer frame.
+        runtimeScope.acquire(RuntimeScope.Holder.UI)
         // Barras del sistema oscuras + edge-to-edge: el dashboard dibuja
         // bajo la barra de estado (SafeArea en Flutter evita superposición).
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -78,7 +86,6 @@ class MainActivity : FlutterActivity() {
         // after initial UI work so cold start can render before runtime warmup.
         mainHandler.postDelayed({
             if (!isFinishing && !isDestroyed) {
-                runtimeScope.acquire(RuntimeScope.Holder.UI)
                 runtimeScope.nativeSupervisor.start()
             }
         }, RUNTIME_WARMUP_DELAY_MS)
