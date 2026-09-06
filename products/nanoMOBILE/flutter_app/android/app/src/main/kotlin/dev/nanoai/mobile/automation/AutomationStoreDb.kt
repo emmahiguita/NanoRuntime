@@ -195,6 +195,60 @@ class AutomationStoreDb(context: Context) {
         return deleted > 0
     }
 
+    // ── PERSONA-DATASET-06 — ejemplos del estilo del dueño ─────────────
+    // Cada ejemplo = un mensaje tal como lo escribiría el dueño. El índice
+    // FTS4 (persona_examples_fts) se sincroniza solo por triggers; el
+    // retriever (PERSONA-RETRIEVAL-07) consulta con MATCH compuesto aquí.
+
+    /** Añade un ejemplo (body indexado por FTS4). Devuelve el rowId. */
+    @Synchronized
+    fun addExample(personaKey: String, body: String, toneJson: String, source: String): Long {
+        if (personaKey.length > 80 || body.length > MAX_EXAMPLE_CHARS || toneJson.length > 4_000 || source.length > 80) return -1L
+        val db = helper.writableDatabase
+        val values = android.content.ContentValues().apply {
+            put("persona_key", personaKey)
+            put("body", body)
+            put("tone_json", toneJson)
+            put("source", source)
+            put("created_at_ms", System.currentTimeMillis())
+        }
+        return db.insert("persona_examples", null, values)
+    }
+
+    /** Lista los ejemplos (más recientes primero). */
+    @Synchronized
+    fun listExamples(): List<Map<String, String>> {
+        val out = mutableListOf<Map<String, String>>()
+        helper.readableDatabase.query(
+            "persona_examples",
+            arrayOf("id", "persona_key", "body", "tone_json", "source"),
+            null, null, null, null, "id DESC",
+        ).use { c ->
+            while (c.moveToNext()) {
+                out += mapOf(
+                    "id" to c.getLong(0).toString(),
+                    "personaKey" to c.getString(1),
+                    "body" to c.getString(2),
+                    "toneJson" to c.getString(3),
+                    "source" to c.getString(4),
+                )
+            }
+        }
+        return out
+    }
+
+    /** Borra un ejemplo. false = id inválido o inexistente. */
+    @Synchronized
+    fun deleteExample(id: Long): Boolean {
+        if (id <= 0) return false
+        val deleted = helper.writableDatabase.delete(
+            "persona_examples",
+            "id = ?",
+            arrayOf(id.toString()),
+        )
+        return deleted > 0
+    }
+
     private class StoreDb(context: Context) :
         SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         override fun onCreate(db: SQLiteDatabase) {
@@ -233,6 +287,9 @@ class AutomationStoreDb(context: Context) {
         /** PERSONA-PROFILE-05 — límite de facts_json por perfil (fail-closed:
          *  jamás crecer sin control desde un canal). */
         private const val MAX_PERSONA_FACTS = 20_000
+
+        /** PERSONA-DATASET-06 — límite del body de un ejemplo de estilo. */
+        private const val MAX_EXAMPLE_CHARS = 2_000
 
         /** WA-EVLOG-01 — bitácora append-only de eventos del pipeline.
          *  Auditoría diagnóstica local (nunca contenido de conversación):

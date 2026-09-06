@@ -16,6 +16,7 @@ import 'package:nanoai/features/automation/engine/business/business_facts_provid
 import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_repository.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/persona_example.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/persona_profile.dart';
 
 import '../automation_layout.dart';
@@ -652,6 +653,7 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
   final _nameController = TextEditingController();
   final _notesController = TextEditingController();
   List<RelationshipProfile> _relationships = const [];
+  List<PersonaExample> _examples = const [];
   Timer? _saveDebounce;
 
   @override
@@ -676,11 +678,13 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
       if (p.personaKey == 'owner') owner = p;
     }
     final relationships = await repo.listRelationships();
+    final examples = await repo.listExamples();
     if (!mounted) return;
     setState(() {
       _nameController.text = owner?.displayName ?? '';
       _notesController.text = owner?.facts['notas'] ?? '';
       _relationships = relationships;
+      _examples = examples;
     });
   }
 
@@ -750,6 +754,56 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
 
   Future<void> _deleteRelationship(RelationshipProfile profile) async {
     await PersonaRepository.instance.deleteRelationship(profile.relationshipKey);
+    await _load();
+  }
+
+  Future<void> _addExample() async {
+    final bodyController = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nuevo ejemplo de estilo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: bodyController,
+              autofocus: true,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Así respondería yo…',
+                hintText: 'Ej. "¡Hola Juan! Sí, el negro está disponible. '
+                    '¿Te lo aparto para hoy?"',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    bodyController.dispose();
+    if (saved != true) return;
+    final body = bodyController.text.trim();
+    if (body.isEmpty) return;
+    await PersonaRepository.instance.addExample(
+      personaKey: 'owner',
+      body: body,
+      source: 'manual',
+    );
+    await _load();
+  }
+
+  Future<void> _deleteExample(PersonaExample example) async {
+    await PersonaRepository.instance.deleteExample(example.id);
     await _load();
   }
 
@@ -858,6 +912,63 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
             child: Text(
               'Sin contactos guardados. Añade uno para que Nano recuerde '
               'cómo tratar a cada cliente.',
+              style: TextStyle(color: visual.textMuted, fontSize: 12),
+            ),
+          ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ejemplos de estilo (${_examples.length})',
+                  style: TextStyle(
+                    color: visual.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _addExample,
+                icon: const Icon(Icons.add_comment_outlined, size: 18),
+                label: const Text('Añadir ejemplo'),
+              ),
+            ],
+          ),
+        ),
+        for (final example in _examples)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    example.body,
+                    style: TextStyle(
+                      color: visual.text,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  tooltip: 'Borrar ejemplo',
+                  onPressed: () => _deleteExample(example),
+                ),
+              ],
+            ),
+          ),
+        if (_examples.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+            child: Text(
+              'Sin ejemplos. Guarda mensajes tal como tú los escribirías: '
+              'Nano los usará de guía de estilo para responder.',
               style: TextStyle(color: visual.textMuted, fontSize: 12),
             ),
           ),

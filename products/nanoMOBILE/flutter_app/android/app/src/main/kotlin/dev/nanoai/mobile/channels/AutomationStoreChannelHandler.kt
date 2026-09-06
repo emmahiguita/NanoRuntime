@@ -89,6 +89,26 @@ class AutomationStoreChannelHandler(
                 result.success(db.deleteRelationship(relationshipKey))
             }
 
+            // PERSONA-DATASET-06 — ejemplos del estilo del dueño.
+            "exampleAdd" -> {
+                val personaKey = call.argument<String>("personaKey").orEmpty()
+                val body = call.argument<String>("body").orEmpty()
+                val toneJson = call.argument<String>("toneJson").orEmpty()
+                val source = call.argument<String>("source").orEmpty()
+                if (body.isEmpty()) {
+                    result.error("BAD_ARG", "body requerido", null)
+                    return
+                }
+                result.success(db.addExample(personaKey, body, toneJson, source))
+            }
+
+            "exampleList" -> result.success(db.listExamples())
+
+            "exampleDelete" -> {
+                val id = call.argument<Number>("id")?.toLong() ?: -1L
+                result.success(db.deleteExample(id))
+            }
+
             else -> result.notImplemented()
         }
     }
