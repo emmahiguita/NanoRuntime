@@ -316,7 +316,10 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isLandscape = constraints.maxWidth > constraints.maxHeight;
+              final isDeviceLandscape =
+                  MediaQuery.orientationOf(context) == Orientation.landscape;
+              final isLandscape =
+                  isDeviceLandscape && constraints.maxWidth >= 600;
               final compactLandscape =
                   isLandscape && constraints.maxHeight < 520;
 

@@ -532,7 +532,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
           // derecha. Vertical: columna única como siempre.
           // Cero compositores duplicados — la barra cósmica inferior es la
           // única fuente de verdad para comandos y automatizaciones.
-          final landscape = constraints.maxWidth > constraints.maxHeight;
+          final isDeviceLandscape =
+              MediaQuery.orientationOf(context) == Orientation.landscape;
+          final landscape = isDeviceLandscape && constraints.maxWidth >= 640;
           final mainColumn = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -540,7 +542,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
               if (_senseFeedback != null) ...[
                 const SizedBox(height: NanoSpacing.sm),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: visual.accentSoft.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
@@ -550,7 +555,11 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline_rounded, size: 16, color: visual.accent),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: visual.accent,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -578,47 +587,50 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
               ],
             ],
           );
-        final sideColumn = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            quick,
-            const SizedBox(height: NanoSpacing.xl),
-            const EngineStatusCard(cleanAppearance: true),
-          ],
-        );
-        final content = landscape
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 3, child: mainColumn),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 2, child: sideColumn),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  mainColumn,
-                  const SizedBox(height: NanoSpacing.xl),
-                  sideColumn,
-                ],
-              );
-        return SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
-          child: Center(
-            child: ConstrainedBox(
-              // UI-REV-13: horizontal respira (1280) — vertical conserva el
-              // ancho Dev de 720.
-              constraints: BoxConstraints(maxWidth: landscape ? 1280 : 720),
-              child: content,
+          final sideColumn = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              quick,
+              const SizedBox(height: NanoSpacing.xl),
+              const EngineStatusCard(cleanAppearance: true),
+            ],
+          );
+          final content = landscape
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 3, child: mainColumn),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 2, child: sideColumn),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    mainColumn,
+                    const SizedBox(height: NanoSpacing.xl),
+                    sideColumn,
+                  ],
+                );
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
+            child: Center(
+              child: ConstrainedBox(
+                // UI-REV-13: horizontal respira (1280) — vertical conserva el
+                // ancho Dev de 720.
+                constraints: BoxConstraints(maxWidth: landscape ? 1280 : 720),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [content],
+                ),
+              ),
             ),
-          ),
-        );
-      },
-    ),
-  );
-}
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _AgentHeader extends StatelessWidget {
@@ -702,22 +714,30 @@ class _AgentHeader extends StatelessWidget {
           ),
           if (onVoiceOutputTap != null)
             IconButton(
-              tooltip: isVoiceOutputEnabled ? 'Silenciar audio de Nano' : 'Activar audio de Nano',
+              tooltip: isVoiceOutputEnabled
+                  ? 'Silenciar audio de Nano'
+                  : 'Activar audio de Nano',
               visualDensity: VisualDensity.compact,
               onPressed: onVoiceOutputTap,
               icon: Icon(
-                isVoiceOutputEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                isVoiceOutputEnabled
+                    ? Icons.volume_up_rounded
+                    : Icons.volume_off_rounded,
                 color: isVoiceOutputEnabled ? visual.accent : visual.textMuted,
                 size: 20,
               ),
             ),
           if (onConversationTap != null)
             IconButton(
-              tooltip: isConversationActive ? 'Detener conversación' : 'Conversación manos libres',
+              tooltip: isConversationActive
+                  ? 'Detener conversación'
+                  : 'Conversación manos libres',
               visualDensity: VisualDensity.compact,
               onPressed: onConversationTap,
               icon: Icon(
-                isConversationActive ? Icons.record_voice_over_rounded : Icons.voice_chat_outlined,
+                isConversationActive
+                    ? Icons.record_voice_over_rounded
+                    : Icons.voice_chat_outlined,
                 color: isConversationActive ? visual.accent : visual.textMuted,
                 size: 20,
               ),
@@ -738,7 +758,6 @@ class _AgentHeader extends StatelessWidget {
     );
   }
 }
-
 
 String _describeSituation(CurrentSituation situation) {
   final surface = switch (situation.surfaceKind) {

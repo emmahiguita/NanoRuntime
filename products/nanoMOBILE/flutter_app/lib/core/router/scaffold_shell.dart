@@ -6,6 +6,7 @@ import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/liquid_fluid_background.dart';
 import '../widgets/nano_ambient_background.dart';
+import '../widgets/navigation/nano_destination.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 
 /// Shell principal: conserva los stacks de cada pestaña y entrega la
@@ -59,6 +60,11 @@ class ScaffoldShell extends StatelessWidget {
         if (!didPop && currentIndex != 0) shell.goBranch(0);
       },
       child: Scaffold(
+        // KEYBOARD-FIX-01 — el frame ya mueve la barra sobre el teclado
+        // (floatingBottom = keyboardInset). Si el Scaffold del shell también
+        // encoge el body, todo el layout se comprime dos veces al escribir:
+        // solape + franja oscura de la ventana Flutter bajo el teclado.
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
         body: Stack(
           fit: StackFit.expand,
@@ -70,15 +76,20 @@ class ScaffoldShell extends StatelessWidget {
                     ? const LiquidFluidBackground(
                         key: ValueKey('liquid_fluid_bg'),
                       )
-                    : const NanoAmbientBackground(
-                        key: ValueKey('ambient_bg'),
-                      ),
+                    : const NanoAmbientBackground(key: ValueKey('ambient_bg')),
               ),
             ),
             // NAV-UI-AUDIT-01 — el SafeArea vive DENTRO del frame (fuente
             // única para shell y pantallas empujadas).
+            // HOME-BLEED-01 — Inicio es una pantalla-fondo (wallpaper del
+            // Búho): sin franja reservada (fullBleed) para que el fondo
+            // encaje completo. El dock transparente ahora es GLOBAL (todas
+            // las pantallas ven el mismo fondo detrás de la barra).
             NanoFloatingNavigationFrame(
               selectedIndex: currentIndex,
+              fullBleed: currentIndex == NanoDestination.home.index,
+              transparentDock: true,
+              protectTop: true,
               onDestinationSelected: (index) {
                 if (index == _automationShortcutIndex) {
                   context.push('/automation');

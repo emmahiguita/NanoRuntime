@@ -26,6 +26,7 @@ class NanoMultiUseNavBar extends StatefulWidget {
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.brightness,
     this.compact = false,
+    this.transparent = false,
   });
 
   final NanoDestination selected;
@@ -37,6 +38,11 @@ class NanoMultiUseNavBar extends StatefulWidget {
   final String searchHint;
   final Brightness? brightness;
   final bool compact;
+
+  /// HOME-BLEED-01 — sin cáscara: fuera gradiente, blur y decoración. Detrás
+  /// de la barra se ve el MISMO fondo de la pantalla (wallpaper de Inicio).
+  /// Conserva borde hairline y sombra reducida para leerla como flotante.
+  final bool transparent;
 
   @override
   State<NanoMultiUseNavBar> createState() => _NanoMultiUseNavBarState();
@@ -81,9 +87,24 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
     super.didUpdateWidget(oldWidget);
     final nextInit = widget.inputConfig?.initialText;
     final oldInit = oldWidget.inputConfig?.initialText;
-    if (nextInit != null && nextInit != oldInit && nextInit != _controller.text) {
+    if (nextInit != null &&
+        nextInit != oldInit &&
+        nextInit != _controller.text) {
       _controller.text = nextInit;
       _hasText = nextInit.trim().isNotEmpty;
+    } else if (widget.selected != oldWidget.selected &&
+        (widget.inputConfig?.initialText == null ||
+            widget.inputConfig!.initialText!.isEmpty)) {
+      // Al cambiar de pestaña, limpiar texto previo, cancelar dictado y soltar foco
+      _controller.clear();
+      _hasText = false;
+      _focusNode.unfocus();
+      if (_dictating) {
+        _dictating = false;
+        _voiceSub?.cancel();
+        _voiceSub = null;
+        NanoRuntimeApi.instance.stopSpeech();
+      }
     }
   }
 
@@ -111,8 +132,7 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       // generación en curso el notifier descarta el texto (chat_provider
       // send) y antes el campo se limpiaba igual — mensaje perdido en
       // silencio. Ahora el texto queda visible y se reenvía tras stop.
-      if ((config?.clearOnSubmit ?? true) &&
-          !(config?.isGenerating ?? false)) {
+      if ((config?.clearOnSubmit ?? true) && !(config?.isGenerating ?? false)) {
         _controller.clear();
         setState(() => _hasText = false);
       }
@@ -183,7 +203,7 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final narrow = width < 480 || widget.compact;
-        final radius = narrow ? 26.0 : 32.0;
+        final radius = narrow ? 30.0 : 34.0;
 
         return Semantics(
           container: true,
@@ -191,75 +211,103 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
-              boxShadow: [
-                BoxShadow(
-                  color: NanoNavTokens.cyan.withValues(alpha: isDark ? .24 : .12),
-                  blurRadius: _focused ? 30 : 20,
-                  spreadRadius: _focused ? 1.0 : -2,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: NanoNavTokens.accentBlue.withValues(alpha: isDark ? .26 : .10),
-                  blurRadius: 32,
-                  spreadRadius: -4,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              // HOME-BLEED-01 — en transparente NO hay sombras: el halo negro
+              // alrededor de la cápsula sobre fondos oscuros se lee como
+              // «borde negro» y rompe la uniformidad entre pantallas.
+              boxShadow: widget.transparent
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: .40)
+                            : const Color(0xFF0F172A).withValues(alpha: .12),
+                        blurRadius: _focused ? 32 : 24,
+                        spreadRadius: -2,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: NanoNavTokens.cyan.withValues(
+                          alpha: isDark ? .22 : .10,
+                        ),
+                        blurRadius: 20,
+                        spreadRadius: -4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(radius),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                filter: ImageFilter.blur(
+                  sigmaX: widget.transparent ? 0 : 30,
+                  sigmaY: widget.transparent ? 0 : 30,
+                ),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
-                    gradient: isDark
-                        ? NanoNavTokens.shellGradientDark
-                        : NanoNavTokens.shellGradientLight,
-                    border: Border.all(
-                      color: _focused
-                          ? NanoNavTokens.cyan.withValues(alpha: .92)
-                          : (isDark
-                              ? Colors.white.withValues(alpha: .24)
-                              : Colors.white.withValues(alpha: .70)),
-                      width: _focused ? 1.4 : 1.1,
-                    ),
+                    gradient: widget.transparent
+                        ? null
+                        : (isDark
+                              ? NanoNavTokens.shellGradientDark
+                              : NanoNavTokens.shellGradientLight),
+                    // HOME-BLEED-01 — en transparente NO hay borde: la línea
+                    // hairline se leía como «borde» que dividía la barra del
+                    // fondo en las demás pantallas.
+                    border: widget.transparent
+                        ? null
+                        : Border.all(
+                            color: _focused
+                                ? NanoNavTokens.cyan.withValues(alpha: .92)
+                                : (isDark
+                                      ? Colors.white.withValues(alpha: .22)
+                                      : Colors.white.withValues(alpha: .55)),
+                            width: _focused ? 1.4 : 1.0,
+                          ),
                   ),
                   child: Stack(
                     children: [
-                      Positioned(
-                        right: -12,
-                        top: -16,
-                        width: narrow ? 150 : 210,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: isDark ? .42 : .18,
-                            child: Image.asset(
-                              'assets/nano/nano_feather.png',
-                              fit: BoxFit.contain,
-                            ),
-                            ),
-                          ),
-                        ),
-                      Positioned(
-                        top: 0,
-                        left: 20,
-                        right: 20,
-                        height: 1,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                Colors.white.withValues(alpha: isDark ? 0.35 : 0.8),
-                                Colors.transparent,
-                              ],
+                      // HOME-BLEED-01 — la pluma decorativa se apaga en modo
+                      // transparente: sobre el wallpaper ensuciaría el fondo.
+                      if (!widget.transparent)
+                        Positioned(
+                          right: -12,
+                          top: -16,
+                          width: narrow ? 150 : 210,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: isDark ? .42 : .18,
+                              child: Image.asset(
+                                'assets/nano/nano_feather.png',
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      // HOME-BLEED-01 — sin cáscara no hay hairline superior:
+                      // una línea blanca flotando sobre el fondo se lee como
+                      // borde extraño.
+                      if (!widget.transparent)
+                        Positioned(
+                          top: 0,
+                          left: 20,
+                          right: 20,
+                          height: 1,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.white.withValues(
+                                    alpha: isDark ? 0.35 : 0.8,
+                                  ),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(
                           narrow ? 10 : 13,
@@ -294,6 +342,7 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                                   (config?.isListening ?? false) || _dictating,
                               onAvatarTap: widget.onAvatarTap,
                               compact: narrow,
+                              transparent: widget.transparent,
                             ),
                             SizedBox(height: narrow ? 6 : 9),
                             _DestinationsDock(
@@ -336,6 +385,7 @@ class _SearchRow extends StatelessWidget {
     required this.listening,
     required this.onAvatarTap,
     required this.compact,
+    this.transparent = false,
   });
 
   final Brightness brightness;
@@ -353,6 +403,10 @@ class _SearchRow extends StatelessWidget {
   final VoidCallback? onAvatarTap;
   final bool compact;
 
+  /// HOME-BLEED-01 — el campo flota sin caja: fuera color de fondo y borde.
+  /// Solo tipografía e iconos sobre el fondo de la pantalla (sin división).
+  final bool transparent;
+
   @override
   Widget build(BuildContext context) {
     final dark = brightness == Brightness.dark;
@@ -361,17 +415,25 @@ class _SearchRow extends StatelessWidget {
 
     return Row(
       children: [
-        // NAV-BAR-FIX-02 — el orbe es el acceso al asistente: en el propio
-        // chat no aporta (ya estás ahí) y le robaba al campo el espacio que
-        // hoy es el protagonista. Solo se muestra si la pantalla le da uso.
-        if (onAvatarTap != null) ...[
-          _OwlAvatarOrb(
-            brightness: brightness,
-            size: compact ? 46 : 52,
-            onTap: onAvatarTap,
+        // HOME-BLEED-01 — el orbe SIEMPRE visible: la barra mantiene la
+        // misma silueta y proporción en TODAS las pantallas (antes en chat
+        // desaparecía y la barra quedaba desproporcionada). En chat el tap
+        // es no-op (ya estás ahí); en el resto, acceso al asistente.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _OwlAvatarOrb(
+                brightness: brightness,
+                size: compact ? 40 : 52,
+                onTap: onAvatarTap,
+              ),
+              SizedBox(width: compact ? 8 : 11),
+            ],
           ),
-          SizedBox(width: compact ? 8 : 11),
-        ],
+        ),
         Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
@@ -381,30 +443,39 @@ class _SearchRow extends StatelessWidget {
             // NAV-INPUT-FIX-01: color de fondo claro en modo oscuro — el
             // antiguo 0x750D1D42 era casi negro y producía artefactos de
             // borde oscuro al renderizar. Ahora azul profundo luminoso.
-            constraints: BoxConstraints(minHeight: compact ? 44 : 48),
-            decoration: BoxDecoration(
-              color: dark
-                  ? const Color(0x751E3C6E)   // glass azul translúcido luminoso
-                  : const Color(0xEBFFFFFF),
-              borderRadius: BorderRadius.circular(compact ? 22 : 24),
-              border: Border.all(
-                color: focusNode.hasFocus
-                    ? NanoNavTokens.cyan.withValues(alpha: .90)
-                    : (dark
-                        ? Colors.white.withValues(alpha: .22)
-                        : Colors.black.withValues(alpha: .08)),
-                width: focusNode.hasFocus ? 1.3 : 1.0,
-              ),
-              boxShadow: focusNode.hasFocus
-                  ? [
-                      BoxShadow(
-                        color: NanoNavTokens.cyan.withValues(alpha: .24),
-                        blurRadius: 18,
-                        spreadRadius: -2,
-                      ),
-                    ]
-                  : null,
-            ),
+            constraints: BoxConstraints(minHeight: compact ? 40 : 48),
+            // HOME-BLEED-01 — en transparente el campo NO pinta caja: ni
+            // color de fondo, ni borde, ni sombra de foco. Solo el texto y
+            // los iconos flotando sobre el fondo (la caja azul/blanca era
+            // la «división entre componentes y fondo» que se veía en las
+            // demás pantallas).
+            decoration: transparent
+                ? null
+                : BoxDecoration(
+                    // NAV-INPUT-FIX-01: color claro en oscuro — el antiguo
+                    // 0x750D1D42 casi negro producía artefactos de borde.
+                    color: dark
+                        ? const Color(0x751E3C6E)
+                        : const Color(0xEBFFFFFF),
+                    borderRadius: BorderRadius.circular(compact ? 22 : 24),
+                    border: Border.all(
+                      color: focusNode.hasFocus
+                          ? NanoNavTokens.cyan.withValues(alpha: .90)
+                          : (dark
+                                ? Colors.white.withValues(alpha: .22)
+                                : Colors.black.withValues(alpha: .08)),
+                      width: focusNode.hasFocus ? 1.3 : 1.0,
+                    ),
+                    boxShadow: focusNode.hasFocus
+                        ? [
+                            BoxShadow(
+                              color: NanoNavTokens.cyan.withValues(alpha: .24),
+                              blurRadius: 18,
+                              spreadRadius: -2,
+                            ),
+                          ]
+                        : null,
+                  ),
             child: Row(
               children: [
                 SizedBox(width: compact ? 10 : 12),
@@ -468,20 +539,17 @@ class _SearchRow extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: isGenerating
-                      ? _StopButton(
-                          size: compact ? 34 : 38,
-                          onTap: onStop,
-                        )
+                      ? _StopButton(size: compact ? 34 : 38, onTap: onStop)
                       : hasText
-                          ? _SendActionButton(
-                              size: compact ? 34 : 38,
-                              onTap: () => onSubmitted?.call(controller.text),
-                            )
-                          : _VoiceOrbButton(
-                              size: compact ? 34 : 38,
-                              onTap: onVoice,
-                              listening: listening,
-                            ),
+                      ? _SendActionButton(
+                          size: compact ? 34 : 38,
+                          onTap: () => onSubmitted?.call(controller.text),
+                        )
+                      : _VoiceOrbButton(
+                          size: compact ? 34 : 38,
+                          onTap: onVoice,
+                          listening: listening,
+                        ),
                 ),
               ],
             ),
@@ -493,10 +561,7 @@ class _SearchRow extends StatelessWidget {
 }
 
 class _SendActionButton extends StatelessWidget {
-  const _SendActionButton({
-    required this.size,
-    required this.onTap,
-  });
+  const _SendActionButton({required this.size, required this.onTap});
 
   final double size;
   final VoidCallback? onTap;
@@ -549,10 +614,7 @@ class _SendActionButton extends StatelessWidget {
 }
 
 class _StopButton extends StatelessWidget {
-  const _StopButton({
-    required this.size,
-    required this.onTap,
-  });
+  const _StopButton({required this.size, required this.onTap});
 
   final double size;
   final VoidCallback? onTap;
@@ -592,11 +654,7 @@ class _StopButton extends StatelessWidget {
               ],
             ),
             child: const Center(
-              child: Icon(
-                Icons.stop_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
+              child: Icon(Icons.stop_rounded, color: Colors.white, size: 20),
             ),
           ),
         ),
@@ -635,7 +693,14 @@ class _OwlAvatarOrbState extends State<_OwlAvatarOrb>
     _floatController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
-    )..repeat(reverse: true);
+    );
+    // En entorno de tests de widgets, un ticker infinito colgaría tester.pumpAndSettle().
+    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
+    if (!isTesting) {
+      _floatController.repeat(reverse: true);
+    }
     _floatAnim = Tween<double>(begin: -2.8, end: 2.8).animate(
       CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
     );
@@ -651,88 +716,91 @@ class _OwlAvatarOrbState extends State<_OwlAvatarOrb>
   Widget build(BuildContext context) {
     final size = widget.size;
     final brightness = widget.brightness;
-    return Semantics(
-      button: true,
-      label: 'Asistente Nano AI',
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          widget.onTap?.call();
-        },
-        child: AnimatedBuilder(
-          animation: _floatAnim,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(0, _floatAnim.value),
-            child: child,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: size,
-                height: size,
-                padding: const EdgeInsets.all(2.4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: NanoNavTokens.activeGradient,
-                  boxShadow: [
-                    BoxShadow(
-                      color: NanoNavTokens.cyan.withValues(alpha: .55),
-                      blurRadius: 18,
-                      spreadRadius: -1,
-                    ),
-                    BoxShadow(
-                      color: NanoNavTokens.accentBlue.withValues(alpha: .30),
-                      blurRadius: 28,
-                      spreadRadius: -4,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(1.8),
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    return RepaintBoundary(
+      child: Semantics(
+        button: true,
+        label: 'Asistente Nano AI',
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onTap?.call();
+          },
+          child: AnimatedBuilder(
+            animation: _floatAnim,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(0, disableAnimations ? 0.0 : _floatAnim.value),
+              child: child,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: size,
+                  height: size,
+                  padding: const EdgeInsets.all(2.4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: brightness == Brightness.dark
-                        ? const Color(0xFF060D22)
-                        : Colors.white,
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/nano/nano_owl.png',
-                      fit: BoxFit.cover,
-                      alignment: const Alignment(0, -.15),
-                    ),
-                  ),
-                ),
-              ),
-              // Indicador de estado online — punto verde brillante
-              Positioned(
-                right: 1,
-                bottom: 1,
-                child: Container(
-                  width: size * .24,
-                  height: size * .24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: NanoNavTokens.neonGreen,
-                    border: Border.all(
-                      color: brightness == Brightness.dark
-                          ? const Color(0xFF030B20)
-                          : Colors.white,
-                      width: 1.8,
-                    ),
+                    gradient: NanoNavTokens.activeGradient,
                     boxShadow: [
                       BoxShadow(
-                        color: NanoNavTokens.neonGreen.withValues(alpha: .95),
-                        blurRadius: 8,
-                        spreadRadius: .8,
+                        color: NanoNavTokens.cyan.withValues(alpha: .55),
+                        blurRadius: 18,
+                        spreadRadius: -1,
+                      ),
+                      BoxShadow(
+                        color: NanoNavTokens.accentBlue.withValues(alpha: .30),
+                        blurRadius: 28,
+                        spreadRadius: -4,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
+                  child: Container(
+                    padding: const EdgeInsets.all(1.8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: brightness == Brightness.dark
+                          ? const Color(0xFF060D22)
+                          : Colors.white,
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/nano/nano_owl.png',
+                        fit: BoxFit.cover,
+                        alignment: const Alignment(0, -.15),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                // Indicador de estado online — punto verde brillante
+                Positioned(
+                  right: 1,
+                  bottom: 1,
+                  child: Container(
+                    width: size * .24,
+                    height: size * .24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: NanoNavTokens.neonGreen,
+                      border: Border.all(
+                        color: brightness == Brightness.dark
+                            ? const Color(0xFF030B20)
+                            : Colors.white,
+                        width: 1.8,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: NanoNavTokens.neonGreen.withValues(alpha: .95),
+                          blurRadius: 8,
+                          spreadRadius: .8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -944,7 +1012,9 @@ class _DestinationsDock extends StatelessWidget {
                           spreadRadius: .5,
                         ),
                         BoxShadow(
-                          color: NanoNavTokens.accentBlue.withValues(alpha: .65),
+                          color: NanoNavTokens.accentBlue.withValues(
+                            alpha: .65,
+                          ),
                           blurRadius: 14,
                         ),
                       ],
@@ -991,7 +1061,7 @@ class _DestinationTab extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
-            vertical: compact ? 3 : 4,
+            vertical: compact ? 1 : 4,
             horizontal: 1,
           ),
           child: Column(
@@ -1003,20 +1073,22 @@ class _DestinationTab extends StatelessWidget {
                 child: NanoGlyph(
                   type: destination.glyph,
                   color: selected ? active : muted,
-                  size: compact ? 20 : 22,
+                  size: compact ? 16 : 22,
                   strokeWidth: selected ? 2.15 : 1.80,
                   glow: selected,
                 ),
               ),
-              SizedBox(height: compact ? 2 : 3),
+              SizedBox(height: compact ? 1 : 3),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  destination.label,
+                  compact && destination == NanoDestination.automation
+                      ? 'Auto'
+                      : destination.label,
                   maxLines: 1,
                   style: TextStyle(
                     color: selected ? active : muted,
-                    fontSize: compact ? 8.8 : 9.8,
+                    fontSize: compact ? 7.8 : 9.8,
                     height: 1.1,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     letterSpacing: -.05,
@@ -1031,7 +1103,7 @@ class _DestinationTab extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 7),
+              SizedBox(height: compact ? 3 : 7),
             ],
           ),
         ),

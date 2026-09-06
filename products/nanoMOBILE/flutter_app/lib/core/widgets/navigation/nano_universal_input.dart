@@ -229,6 +229,19 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
   /// dispose una config que otro scope más reciente dejó activa.
   NanoUniversalInputConfig? _applied;
 
+  /// Notifier capturado en initState: `ref` NO es usable dentro de dispose()
+  /// con Flutter 3.24+ (el elemento se marca defunct ANTES de state.dispose();
+  /// flutter_riverpod 2.5.1 lanza "Cannot use ref after the widget was
+  /// disposed"). Ese error durante unmount dejaba el árbol sin desmontar —
+  /// renders huérfanos + pantalla gris tras navegar desde Automatización.
+  late final NanoUniversalInputNotifier _notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier = ref.read(nanoUniversalInputProvider.notifier);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -296,7 +309,8 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
     // rastro si el contenedor ya había muerto.
     final applied = _applied;
     final scopeId = widget.scopeId;
-    final notifier = ref.read(nanoUniversalInputProvider.notifier);
+    // NF-01: usar el notifier capturado, nunca ref (disposed).
+    final notifier = _notifier;
     if (scopeId != null) {
       // Los scopes con id liberan solo su slot: el frame deriva la
       // config del destino activo y no hay nada global que resetear.

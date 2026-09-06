@@ -82,4 +82,47 @@ void main() {
     await tester.pump();
     expect(avatarTapped, isTrue);
   });
+
+  testWidgets('NanoMultiUseNavBar in compact mode renders "Auto" and clears text on tab change', (
+    tester,
+  ) async {
+    NanoDestination selectedDest = NanoDestination.home;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return Center(
+                child: NanoMultiUseNavBar(
+                  compact: true,
+                  selected: selectedDest,
+                  onDestinationSelected: (dest) {
+                    setState(() => selectedDest = dest);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // En modo compacto, Automatización se abrevia a 'Auto' para preservar legibilidad sin aplastar
+    expect(find.text('Auto'), findsOneWidget);
+
+    // Escribir texto
+    await tester.enterText(find.byType(TextField), 'consulta de prueba');
+    await tester.pump();
+    expect(find.text('consulta de prueba'), findsOneWidget);
+
+    // Cambiar de pestaña
+    await tester.tap(find.text('Chat'));
+    await tester.pumpAndSettle();
+
+    // El texto residual debe haberse limpiado automáticamente
+    expect(find.text('consulta de prueba'), findsNothing);
+  });
 }

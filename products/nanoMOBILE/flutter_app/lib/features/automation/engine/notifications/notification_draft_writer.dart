@@ -25,7 +25,9 @@ final class RuntimeNotificationDraftWriter {
   RuntimeNotificationDraftWriter({
     required LLMEngineClient client,
     required bool Function() llmAllowed,
-    required Future<void> Function(String? modelPath) ensureReady,
+    // WA-LIVE-01 — Future<bool>: el writer valida el resultado (antes el
+    // typedef era Future<void> y el bool se descartaba en silencio).
+    required Future<bool> Function(String? modelPath) ensureReady,
     required String? Function() modelPath,
     required bool Function() styleEnabled,
     required String Function() styleText,
@@ -46,7 +48,7 @@ final class RuntimeNotificationDraftWriter {
 
   final LLMEngineClient _client;
   final bool Function() _llmAllowed;
-  final Future<void> Function(String? modelPath) _ensureReady;
+  final Future<bool> Function(String? modelPath) _ensureReady;
   final String? Function() _modelPath;
 
   /// WA-PERSONA-01 — estilo declarado por el dueño. Leído EN VIVO en cada
@@ -103,7 +105,13 @@ final class RuntimeNotificationDraftWriter {
     try {
       // El motor local se asegura bajo demanda (mismo patrón que el draft
       // writer de mensajes): sin motor cargado no hay entendimiento.
-      await _ensureReady(_modelPath());
+      // WA-LIVE-01 — el retorno se VALIDA: antes se ignoraba y el writer
+      // generaba contra un motor no listo (o con otro modelo cargado).
+      final ready = await _ensureReady(_modelPath());
+      if (!ready) {
+        debugPrint('[draft] motor no quedó listo; sin borrador (honesto)');
+        return null;
+      }
       final history = _memory?.memoryFor(conversationId)?.entries;
       // WA-CONV-01 — salida JSON estructurada: el razonamiento textual ya no
       // se pide (quemaba tokens antes de "Respuesta:" y el extractor podía
@@ -135,8 +143,11 @@ final class RuntimeNotificationDraftWriter {
       }
       if (draft.isEmpty) return null;
       return draft.length <= 2000 ? draft : draft.substring(0, 2000);
-    } on Object {
+    } on Object catch (e) {
       // Motor local no disponible o falló → sin borrador (honesto).
+      // WA-LIVE-01 — el catch mudo escondía la razón real del fallo
+      // (evidencia device: 7 min de turno colgado sin una sola traza).
+      debugPrint('[draft] falló: ${e.runtimeType}: $e');
       return null;
     }
   }

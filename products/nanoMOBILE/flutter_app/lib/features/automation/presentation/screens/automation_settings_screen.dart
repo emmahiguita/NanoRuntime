@@ -40,11 +40,17 @@ class AutomationSettingsScreen extends ConsumerWidget {
       curve: Curves.easeOutCubic,
       child: Builder(
         builder: (context) => Scaffold(
-          resizeToAvoidBottomInset: true,
+          // KEYBOARD-FIX-01: false — NanoShellBarScope usa Stack; si el
+          // Scaffold encoge el body con el teclado, la barra salta.
+          resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
           body: NanoShellBarScope(
             slotId: 'automation_settings',
+            // TOP-INSET-FIX-01 — SafeArea top propio: el header queda bajo
+            // la barra de estado (patrón de messages/dev).
             child: SafeArea(
+              top: true,
+              bottom: false,
               child: ListView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
@@ -85,162 +91,143 @@ class AutomationSettingsScreen extends ConsumerWidget {
                               _SettingsRow(
                                 icon: Icons.bolt_rounded,
                                 title: 'Modo de automatización',
-                                subtitle: settings
-                                    .agentAutomationMode
-                                    .description,
+                                subtitle:
+                                    settings.agentAutomationMode.description,
                                 trailing: _ValueBadge(
                                   label: settings.agentAutomationMode.label
                                       .toUpperCase(),
                                 ),
                                 onTap: () => _pickMode(context, ref),
                               ),
-                                  _SettingsRow(
-                                    icon: Icons.psychology_outlined,
-                                    title: 'Motor de razonamiento',
-                                    subtitle: _modelModeLabel(
-                                      settings.automationModelMode,
-                                    ),
-                                    onTap: () =>
-                                        _pickModelMode(context, ref, settings),
-                                  ),
-                                  _SettingsRow(
-                                    icon: settings.voiceEnabled
-                                        ? Icons.volume_up_outlined
-                                        : Icons.volume_off_outlined,
-                                    title: 'Audio de Nano',
-                                    subtitle: settings.voiceEnabled
-                                        ? 'Leer respuestas y resultados en voz alta'
-                                        : 'Responder únicamente con texto',
-                                    trailing: Switch(
-                                      value: settings.voiceEnabled,
-                                      onChanged: notifier.setVoiceEnabled,
-                                    ),
-                                    showChevron: false,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(
-                                height: 24,
-                              ), // UI-REV-02: gap Dev xl
-                              const AutomationSectionLabel(
-                                'Automatización en segundo plano',
-                              ),
-                              const _BackgroundAutomationCard(),
-                              const SizedBox(
-                                height: 24,
-                              ), // UI-REV-02: gap Dev xl
-                              const AutomationSectionLabel('Datos del negocio'),
-                              const _BusinessDataCard(),
-                              const SizedBox(
-                                height: 24,
-                              ), // UI-REV-02: gap Dev xl
-                              const AutomationSectionLabel('Tono de respuesta'),
-                              const _ToneCard(),
-                              const SizedBox(
-                                height: 24,
-                              ), // UI-REV-02: gap Dev xl
-                              const AutomationSectionLabel('Reglas'),
-                              _SettingsCard(
-                                children: [
-                                  _SettingsRow(
-                                    icon: Icons.rule_rounded,
-                                    title: 'Reglas de automatización',
-                                    subtitle:
-                                        'Activar, desactivar o borrar respuestas '
-                                        'automáticas',
-                                    onTap: () => Navigator.of(context).push(
-                                      nanoGlassPageRoute<void>(
-                                        builder: (_) =>
-                                            const AutomationRulesScreen(),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(
-                                height: 24,
-                              ), // UI-REV-02: gap Dev xl
-                              const AutomationSectionLabel('Ejecución'),
-                              const _SettingsCard(
-                                children: [
-                                  _SettingsRow(
-                                    icon: Icons.verified_user_outlined,
-                                    title: 'Acciones críticas protegidas',
-                                    subtitle: 'Confirmación y política activas',
-                                    trailing: _ReadonlyStatus(),
-                                    showChevron: false,
-                                  ),
-                                  _SettingsRow(
-                                    icon: Icons.fact_check_outlined,
-                                    title: 'Verificación de resultados',
-                                    subtitle:
-                                        'Comprobar el estado después de actuar',
-                                    trailing: _ReadonlyStatus(),
-                                    showChevron: false,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(
-                                height: 24,
-                              ), // UI-REV-02: gap Dev xl
-                              const AutomationSectionLabel(
-                                'Seguridad y accesos',
-                              ),
-                              const CapabilityStatusCard(),
-                              if (onDevTap != null) ...[
-                                const SizedBox(
-                                  height: 24,
-                                ), // UI-REV-02: gap Dev xl
-                                const AutomationSectionLabel('Diagnóstico'),
-                                _SettingsCard(
-                                  children: [
-                                    _SettingsRow(
-                                      icon: Icons.smart_toy_outlined,
-                                      title: 'Herramientas del agente',
-                                      subtitle:
-                                          'Percepción, selectores y estado técnico',
-                                      onTap: onDevTap,
-                                    ),
-                                  ],
+                              _SettingsRow(
+                                icon: Icons.psychology_outlined,
+                                title: 'Motor de razonamiento',
+                                subtitle: _modelModeLabel(
+                                  settings.automationModelMode,
                                 ),
-                              ],
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline_rounded,
-                                    size: 17,
-                                    color: AutomationVisual.of(
-                                      context,
-                                    ).textMuted,
-                                  ),
-                                  const SizedBox(width: 7),
-                                  Flexible(
-                                    child: Text(
-                                      'Los cambios se guardan automáticamente',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: AutomationVisual.of(
-                                          context,
-                                        ).textMuted,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                onTap: () =>
+                                    _pickModelMode(context, ref, settings),
+                              ),
+                              _SettingsRow(
+                                icon: settings.voiceEnabled
+                                    ? Icons.volume_up_outlined
+                                    : Icons.volume_off_outlined,
+                                title: 'Audio de Nano',
+                                subtitle: settings.voiceEnabled
+                                    ? 'Leer respuestas y resultados en voz alta'
+                                    : 'Responder únicamente con texto',
+                                trailing: Switch(
+                                  value: settings.voiceEnabled,
+                                  onChanged: notifier.setVoiceEnabled,
+                                ),
+                                showChevron: false,
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          const AutomationSectionLabel(
+                            'Automatización en segundo plano',
+                          ),
+                          const _BackgroundAutomationCard(),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          const AutomationSectionLabel('Datos del negocio'),
+                          const _BusinessDataCard(),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          const AutomationSectionLabel('Tono de respuesta'),
+                          const _ToneCard(),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          const AutomationSectionLabel('Reglas'),
+                          _SettingsCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.rule_rounded,
+                                title: 'Reglas de automatización',
+                                subtitle:
+                                    'Activar, desactivar o borrar respuestas '
+                                    'automáticas',
+                                onTap: () => Navigator.of(context).push(
+                                  nanoGlassPageRoute<void>(
+                                    builder: (_) =>
+                                        const AutomationRulesScreen(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          const AutomationSectionLabel('Ejecución'),
+                          const _SettingsCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.verified_user_outlined,
+                                title: 'Acciones críticas protegidas',
+                                subtitle: 'Confirmación y política activas',
+                                trailing: _ReadonlyStatus(),
+                                showChevron: false,
+                              ),
+                              _SettingsRow(
+                                icon: Icons.fact_check_outlined,
+                                title: 'Verificación de resultados',
+                                subtitle:
+                                    'Comprobar el estado después de actuar',
+                                trailing: _ReadonlyStatus(),
+                                showChevron: false,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          const AutomationSectionLabel('Seguridad y accesos'),
+                          const CapabilityStatusCard(),
+                          if (onDevTap != null) ...[
+                            const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                            const AutomationSectionLabel('Diagnóstico'),
+                            _SettingsCard(
+                              children: [
+                                _SettingsRow(
+                                  icon: Icons.smart_toy_outlined,
+                                  title: 'Herramientas del agente',
+                                  subtitle:
+                                      'Percepción, selectores y estado técnico',
+                                  onTap: onDevTap,
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 17,
+                                color: AutomationVisual.of(context).textMuted,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  'Los cambios se guardan automáticamente',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: AutomationVisual.of(
+                                      context,
+                                    ).textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-        );
+        ),
+      ),
+    );
   }
 
   static Future<void> _pickMode(BuildContext context, WidgetRef ref) async {
@@ -671,8 +658,8 @@ class _BusinessDataCard extends ConsumerWidget {
             ref,
             title: 'Horario del negocio',
             initial: facts.hours,
-            onSave: (v) => ref.read(businessFactsNotifierProvider.notifier)
-                .setHours(v),
+            onSave: (v) =>
+                ref.read(businessFactsNotifierProvider.notifier).setHours(v),
           ),
         ),
         _SettingsRow(
@@ -686,8 +673,8 @@ class _BusinessDataCard extends ConsumerWidget {
             ref,
             title: 'Envío',
             initial: facts.delivery,
-            onSave: (v) => ref.read(businessFactsNotifierProvider.notifier)
-                .setDelivery(v),
+            onSave: (v) =>
+                ref.read(businessFactsNotifierProvider.notifier).setDelivery(v),
           ),
         ),
       ],
@@ -731,9 +718,9 @@ class _BusinessDataCard extends ConsumerWidget {
               Flexible(
                 child: Consumer(
                   builder: (context, ref, _) {
-                    final list = ref.watch(
-                      businessFactsNotifierProvider,
-                    ).products;
+                    final list = ref
+                        .watch(businessFactsNotifierProvider)
+                        .products;
                     if (list.isEmpty) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
@@ -804,9 +791,9 @@ class _BusinessDataCard extends ConsumerWidget {
       builder: (_) => const _ProductDialog(),
     );
     if (product == null) return;
-    await ref.read(businessFactsNotifierProvider.notifier).upsertProduct(
-      product,
-    );
+    await ref
+        .read(businessFactsNotifierProvider.notifier)
+        .upsertProduct(product);
   }
 
   Future<void> _editText(
@@ -873,9 +860,9 @@ class _ToneCard extends ConsumerWidget {
             ),
             onTap: () => notifier.update(
               profile.copyWith(
-                warmth: ToneWarmth.values[
-                  (profile.warmth.index + 1) % ToneWarmth.values.length
-                ],
+                warmth:
+                    ToneWarmth.values[(profile.warmth.index + 1) %
+                        ToneWarmth.values.length],
               ),
             ),
             showChevron: false,
@@ -889,9 +876,9 @@ class _ToneCard extends ConsumerWidget {
             ),
             onTap: () => notifier.update(
               profile.copyWith(
-                verbosity: ToneVerbosity.values[
-                  (profile.verbosity.index + 1) % ToneVerbosity.values.length
-                ],
+                verbosity:
+                    ToneVerbosity.values[(profile.verbosity.index + 1) %
+                        ToneVerbosity.values.length],
               ),
             ),
             showChevron: false,
@@ -899,9 +886,7 @@ class _ToneCard extends ConsumerWidget {
           _SettingsRow(
             icon: Icons.emoji_emotions_outlined,
             title: 'Emojis',
-            subtitle: profile.emojis
-                ? 'Con moderación'
-                : 'Sin emojis',
+            subtitle: profile.emojis ? 'Con moderación' : 'Sin emojis',
             trailing: Switch(
               value: profile.emojis,
               onChanged: (v) => notifier.update(profile.copyWith(emojis: v)),
@@ -917,9 +902,9 @@ class _ToneCard extends ConsumerWidget {
             ),
             onTap: () => notifier.update(
               profile.copyWith(
-                sales: ToneSales.values[
-                  (profile.sales.index + 1) % ToneSales.values.length
-                ],
+                sales:
+                    ToneSales.values[(profile.sales.index + 1) %
+                        ToneSales.values.length],
               ),
             ),
             showChevron: false,
@@ -1005,10 +990,7 @@ class _ProductDialogState extends State<_ProductDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
-        FilledButton(
-          onPressed: _save,
-          child: const Text('Guardar'),
-        ),
+        FilledButton(onPressed: _save, child: const Text('Guardar')),
       ],
     );
   }

@@ -29,15 +29,14 @@ class SettingsRepository {
     if (json == null) return const SettingsState();
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
-      // DARK-ONLY (decisión del dueño, 2026-09-05): 'Sistema' guardado por
-      // defaults viejos seguía al teléfono y pintaba la app clara (el "gris"
-      // al navegar). 'Sistema' se trata como Oscuro; la opción Claro
-      // explícita del selector se conserva.
-      final storedTheme = m['themeMode'] as String?;
+      // DARK-ONLY (decisión del dueño, 2026-09-05, confirmada en validación):
+      // cualquier valor que no sea 'Oscuro' (ausente, 'Sistema' de defaults
+      // viejos o 'Claro' guardado) se carga como 'Oscuro'. El dispositivo
+      // quedó en claro por valores heredados y el usuario percibía las
+      // superficies claras como "pantalla gris" al navegar. El selector de
+      // tema sigue disponible en Ajustes para cambios futuros conscientes.
       return SettingsState(
-        themeMode: storedTheme == null || storedTheme == 'Sistema'
-            ? 'Oscuro'
-            : storedTheme,
+        themeMode: 'Oscuro',
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
@@ -52,6 +51,7 @@ class SettingsRepository {
         voiceEnabled: m['voiceEnabled'] as bool? ?? true,
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
+        waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
       );
     } catch (_) {
       return const SettingsState();
@@ -76,6 +76,7 @@ class SettingsRepository {
         'voiceEnabled': s.voiceEnabled,
         'waStyleEnabled': s.waStyleEnabled,
         'waStyleText': s.waStyleText,
+        'waReplyDelaySeconds': s.waReplyDelaySeconds,
       }),
     );
   }
@@ -109,6 +110,12 @@ class SettingsState {
   final bool waStyleEnabled;
   final String waStyleText;
 
+  /// WA-DELAY-01 — pausa "humana" antes de despachar un reply automático de
+  /// WhatsApp (0 = inmediato). El draft se redacta al recibir el mensaje; la
+  /// pausa ocurre antes de la verificación supersede y del envío: si llega un
+  /// mensaje nuevo durante la espera, el reply se descarta (nunca se envía).
+  final int waReplyDelaySeconds;
+
   const SettingsState({
     this.themeMode = 'Oscuro',
     this.temperature = 0.7,
@@ -123,6 +130,7 @@ class SettingsState {
     this.voiceEnabled = true,
     this.waStyleEnabled = false,
     this.waStyleText = '',
+    this.waReplyDelaySeconds = 0,
   });
 
   SettingsState copyWith({
@@ -139,6 +147,7 @@ class SettingsState {
     bool? voiceEnabled,
     bool? waStyleEnabled,
     String? waStyleText,
+    int? waReplyDelaySeconds,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -153,6 +162,7 @@ class SettingsState {
     voiceEnabled: voiceEnabled ?? this.voiceEnabled,
     waStyleEnabled: waStyleEnabled ?? this.waStyleEnabled,
     waStyleText: waStyleText ?? this.waStyleText,
+    waReplyDelaySeconds: waReplyDelaySeconds ?? this.waReplyDelaySeconds,
   );
 }
 
@@ -209,6 +219,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       _persist(state.copyWith(waStyleEnabled: v));
 
   void setWaStyleText(String v) => _persist(state.copyWith(waStyleText: v));
+
+  /// WA-DELAY-01 — pausa de reply en segundos (0..60, clampa la UI).
+  void setWaReplyDelaySeconds(int v) =>
+      _persist(state.copyWith(waReplyDelaySeconds: v.clamp(0, 60)));
 
   /// Gate global de salida TTS. El estado cambia antes de cualquier await para
   /// que ninguna nueva respuesta pueda empezar a hablar; al apagar también

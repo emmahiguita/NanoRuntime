@@ -92,10 +92,12 @@ class RuleDispatcher {
     Future<bool> Function(String path, String contact, String caption)?
     shareMedia,
     TurnSupersedeGuard? supersedeGuard,
+    Duration Function()? replyDelay,
   }) : _draftSource = draftSource,
        _notifyLocal = notifyLocal,
        _shareMedia = shareMedia,
-       _supersedeGuard = supersedeGuard;
+       _supersedeGuard = supersedeGuard,
+       _replyDelay = replyDelay;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -122,6 +124,13 @@ class RuleDispatcher {
   /// (tests/rutas legacy): el reply dinámico conserva el comportamiento
   /// histórico.
   final TurnSupersedeGuard? _supersedeGuard;
+
+  /// WA-DELAY-01 — pausa "humana" antes del envío (closure en vivo sobre
+  /// settings, como el estilo). null/zero = despacho inmediato. La pausa
+  /// ocurre DESPUÉS del borrador y ANTES de la verificación supersede: si
+  /// llega un mensaje nuevo durante la espera, el turno queda superado y el
+  /// reply jamás se envía.
+  final Duration Function()? _replyDelay;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -264,6 +273,17 @@ class RuleDispatcher {
             outcome: RuleOutcome.failed,
             reason: 'regla sin mensaje de respuesta',
           );
+        }
+        // WA-DELAY-01 — pausa "humana" opcional. El borrador ya está listo;
+        // se espera ANTES de la verificación supersede para que un mensaje
+        // nuevo durante la espera descarte el reply (nunca se envía algo
+        // superado). Sin guard → la pausa no invalida (rutas legacy).
+        final replyDelay = _replyDelay;
+        if (replyDelay != null) {
+          final delay = replyDelay();
+          if (delay > Duration.zero) {
+            await Future<void>.delayed(delay);
+          }
         }
         if (supersedeGuard != null &&
             supersedeGuard.versionOf(

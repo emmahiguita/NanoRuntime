@@ -435,6 +435,11 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
           .read(automationCoordinatorProvider)
           .execute(goal, options: options),
       supersedeGuard: ref.watch(turnSupersedeGuardProvider),
+      // WA-DELAY-01 — pausa de reply leída EN VIVO al despachar (closure,
+      // no watch: el dispatcher es estable y el delay cambia por llamada).
+      replyDelay: () => Duration(
+        seconds: ref.read(settingsProvider).waReplyDelaySeconds,
+      ),
       // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
       // contextual que el candidato de notificación (un solo motor).
       draftSource: ref.watch(notificationDraftSourceProvider),

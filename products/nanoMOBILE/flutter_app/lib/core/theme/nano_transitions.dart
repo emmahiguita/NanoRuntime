@@ -8,7 +8,11 @@ import 'nano_motion.dart';
 
 /// Transición principal de navegación con expansión de contenedor vítreo
 /// y continuidad espacial (Glass Morph Transition).
-class NanoGlassMorphTransition extends StatelessWidget {
+///
+/// MEM-FIX-01: Convertido a StatefulWidget para que CurvedAnimation se
+/// cree en initState y se libere en dispose. Antes cada build() creaba
+/// instancias nuevas que nunca se eliminaban → memory leak acumulativo.
+class NanoGlassMorphTransition extends StatefulWidget {
   final Animation<double> animation;
   final Animation<double> secondaryAnimation;
   final Widget child;
@@ -21,34 +25,67 @@ class NanoGlassMorphTransition extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final reduceMotion = NanoMotion.reduceMotion(context);
+  State<NanoGlassMorphTransition> createState() =>
+      _NanoGlassMorphTransitionState();
+}
 
-    if (reduceMotion) {
-      return FadeTransition(opacity: animation, child: child);
-    }
+class _NanoGlassMorphTransitionState extends State<NanoGlassMorphTransition> {
+  late CurvedAnimation _curvedForward;
+  late CurvedAnimation _curvedSecondary;
 
-    final curvedForward = CurvedAnimation(
-      parent: animation,
+  @override
+  void initState() {
+    super.initState();
+    _buildCurves();
+  }
+
+  void _buildCurves() {
+    _curvedForward = CurvedAnimation(
+      parent: widget.animation,
       curve: NanoMotionCurves.emphasized,
       reverseCurve: NanoMotionCurves.standardAccel,
     );
-
-    final curvedSecondary = CurvedAnimation(
-      parent: secondaryAnimation,
+    _curvedSecondary = CurvedAnimation(
+      parent: widget.secondaryAnimation,
       curve: NanoMotionCurves.standardDecel,
       reverseCurve: NanoMotionCurves.standardAccel,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant NanoGlassMorphTransition old) {
+    super.didUpdateWidget(old);
+    if (old.animation != widget.animation ||
+        old.secondaryAnimation != widget.secondaryAnimation) {
+      _curvedForward.dispose();
+      _curvedSecondary.dispose();
+      _buildCurves();
+    }
+  }
+
+  @override
+  void dispose() {
+    _curvedForward.dispose();
+    _curvedSecondary.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = NanoMotion.reduceMotion(context);
+    if (reduceMotion) {
+      return FadeTransition(opacity: widget.animation, child: widget.child);
+    }
 
     return AnimatedBuilder(
-      animation: Listenable.merge([curvedForward, curvedSecondary]),
+      animation: Listenable.merge([_curvedForward, _curvedSecondary]),
       // UI-REV-10: RepaintBoundary aísla la página durante el vuelo — las
       // transformaciones por frame no repintan el contenido (solo se mueve la
       // capa), cero jank en GPU Mali.
-      child: RepaintBoundary(child: child),
+      child: RepaintBoundary(child: widget.child),
       builder: (context, child) {
-        final t = curvedForward.value;
-        final secT = curvedSecondary.value;
+        final t = _curvedForward.value;
+        final secT = _curvedSecondary.value;
 
         // Interpolación de entrada (Destination Page)
         final scaleIn = lerpDouble(0.982, 1.0, t)!;
@@ -94,7 +131,9 @@ class NanoGlassMorphTransition extends StatelessWidget {
 }
 
 /// Transición secundaria para navegación interna y ajustes (Expressive Slide).
-class NanoExpressiveSlideTransition extends StatelessWidget {
+///
+/// MEM-FIX-01: Misma corrección — CurvedAnimation gestionado por Estado.
+class NanoExpressiveSlideTransition extends StatefulWidget {
   final Animation<double> animation;
   final Animation<double> secondaryAnimation;
   final Widget child;
@@ -107,30 +146,65 @@ class NanoExpressiveSlideTransition extends StatelessWidget {
   });
 
   @override
+  State<NanoExpressiveSlideTransition> createState() =>
+      _NanoExpressiveSlideTransitionState();
+}
+
+class _NanoExpressiveSlideTransitionState
+    extends State<NanoExpressiveSlideTransition> {
+  late CurvedAnimation _forward;
+  late CurvedAnimation _secondary;
+
+  @override
+  void initState() {
+    super.initState();
+    _buildCurves();
+  }
+
+  void _buildCurves() {
+    _forward = CurvedAnimation(
+      parent: widget.animation,
+      curve: NanoMotionCurves.standardDecel,
+      reverseCurve: NanoMotionCurves.standardAccel,
+    );
+    _secondary = CurvedAnimation(
+      parent: widget.secondaryAnimation,
+      curve: NanoMotionCurves.standardDecel,
+      reverseCurve: NanoMotionCurves.standardAccel,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant NanoExpressiveSlideTransition old) {
+    super.didUpdateWidget(old);
+    if (old.animation != widget.animation ||
+        old.secondaryAnimation != widget.secondaryAnimation) {
+      _forward.dispose();
+      _secondary.dispose();
+      _buildCurves();
+    }
+  }
+
+  @override
+  void dispose() {
+    _forward.dispose();
+    _secondary.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (NanoMotion.reduceMotion(context)) {
-      return FadeTransition(opacity: animation, child: child);
+      return FadeTransition(opacity: widget.animation, child: widget.child);
     }
 
-    final forward = CurvedAnimation(
-      parent: animation,
-      curve: NanoMotionCurves.standardDecel,
-      reverseCurve: NanoMotionCurves.standardAccel,
-    );
-
-    final secondary = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: NanoMotionCurves.standardDecel,
-      reverseCurve: NanoMotionCurves.standardAccel,
-    );
-
     return AnimatedBuilder(
-      animation: Listenable.merge([forward, secondary]),
+      animation: Listenable.merge([_forward, _secondary]),
       // UI-REV-10: misma capa aislada del glass morph — mover sin repintar.
-      child: RepaintBoundary(child: child),
+      child: RepaintBoundary(child: widget.child),
       builder: (context, child) {
-        final t = forward.value;
-        final secT = secondary.value;
+        final t = _forward.value;
+        final secT = _secondary.value;
 
         final translateX =
             lerpDouble(24.0, 0.0, t)! + lerpDouble(0.0, -16.0, secT)!;
@@ -175,7 +249,9 @@ Future<T?> showNanoModalDialog<T>({
 }
 
 /// Transición para modales y diálogos de cristal óptico.
-class NanoModalGlassTransition extends StatelessWidget {
+///
+/// MEM-FIX-01: Misma corrección — CurvedAnimation gestionado por Estado.
+class NanoModalGlassTransition extends StatefulWidget {
   final Animation<double> animation;
   final Widget child;
 
@@ -186,21 +262,51 @@ class NanoModalGlassTransition extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (NanoMotion.reduceMotion(context)) {
-      return FadeTransition(opacity: animation, child: child);
-    }
+  State<NanoModalGlassTransition> createState() =>
+      _NanoModalGlassTransitionState();
+}
 
-    final curved = CurvedAnimation(
-      parent: animation,
+class _NanoModalGlassTransitionState extends State<NanoModalGlassTransition> {
+  late CurvedAnimation _curved;
+
+  @override
+  void initState() {
+    super.initState();
+    _curved = CurvedAnimation(
+      parent: widget.animation,
       curve: NanoMotionCurves.emphasized,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant NanoModalGlassTransition old) {
+    super.didUpdateWidget(old);
+    if (old.animation != widget.animation) {
+      _curved.dispose();
+      _curved = CurvedAnimation(
+        parent: widget.animation,
+        curve: NanoMotionCurves.emphasized,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _curved.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (NanoMotion.reduceMotion(context)) {
+      return FadeTransition(opacity: widget.animation, child: widget.child);
+    }
 
     return AnimatedBuilder(
-      animation: curved,
-      child: child,
+      animation: _curved,
+      child: widget.child,
       builder: (context, child) {
-        final t = curved.value;
+        final t = _curved.value;
         final scale = lerpDouble(0.960, 1.0, t)!;
         final translateY = lerpDouble(8.0, 0.0, t)!;
 
@@ -215,6 +321,7 @@ class NanoModalGlassTransition extends StatelessWidget {
     );
   }
 }
+
 
 /// Ruta interna reutilizable para mantener la misma entrada y salida glass de
 /// las rutas declarativas de GoRouter. No crea controladores propios y respeta

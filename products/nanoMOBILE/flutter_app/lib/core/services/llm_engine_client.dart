@@ -151,6 +151,12 @@ class LLMEngineClient {
     int maxTokens = 256,
     String? sessionId,
   }) async {
+    // WA-LIVE-02 — request_id SIEMPRE presente (antes solo en streaming):
+    // tras un timeout el cliente corta el socket y llama /cancel con este id.
+    // Evidencia device: sin cancel, el worker del motor quedaba en
+    // "Model temporarily unavailable (streaming in progress)" PERMANENTE
+    // (active_requests=0 pero todo POST posterior fallaba o salía vacío).
+    final requestId = newRequestId();
     final body = jsonEncode({
       'prompt': prompt,
       'n_predict': maxTokens,
@@ -164,6 +170,7 @@ class LLMEngineClient {
         '<｜end▁of▁sentence｜>',
       ],
       'stream': false,
+      'request_id': requestId,
       // Sesión estable por conversación: el motor reutiliza el KV del turno
       // anterior (gate R5) y el prefill solo procesa los tokens nuevos en
       // vez del prompt completo cada vez. Sin sesión, cada turno paga el
@@ -190,6 +197,24 @@ class LLMEngineClient {
 
         final map = jsonDecode(r.body) as Map<String, dynamic>;
         final text = (map['content'] as String? ?? '').trim();
+
+        // WA-LIVE-01 — warm-up del modelo: la primera llamada tras terminar
+        // la carga devuelve vacío en milisegundos (evidencia WA-PHYS-EMM).
+        // Sin este retry el borrador moría con "0 chars" justo cuando el
+        // modelo quedaba listo, y el retry frío externo no aplica (solo
+        // reintenta salidas vacías RÁPIDAS del PRIMER intento).
+        if (text.isEmpty) {
+          debugPrint(
+            '[llm] generate warm-up vacío attempt ${attempt + 1}/$maxAttempts',
+          );
+          if (attempt == maxAttempts - 1) {
+            throw LLMEngineException(
+              'El motor respondió vacío tras $maxAttempts intentos',
+            );
+          }
+          await Future<void>.delayed(const Duration(seconds: 2));
+          continue;
+        }
 
         double? tps;
         final timings = map['timings'];
@@ -218,9 +243,16 @@ class LLMEngineClient {
             'Timeout al generar la respuesta tras $maxAttempts intentos',
           );
         }
-        // Backoff progresivo: 1s, 2s
+        // WA-LIVE-02 — cortar el socket NO basta: el worker del motor seguía
+        // creyendo que la generación seguía en curso y quedaba corrupto
+        // ("streaming in progress" permanente, active_requests=0). El /cancel
+        // explícito libera el worker antes del retry.
+        await cancelRequest(requestId);
+        // WA-LIVE-01 — el timeout casi siempre es el modelo aún cargando
+        // (carga de ~4 min en Oppo): esperas largas, no 1s/2s. Con 240s de
+        // timeout por intento, 20s/40s de espera cubren la carga en curso.
         await Future<void>.delayed(
-          Duration(milliseconds: 1000 * (attempt + 1)),
+          Duration(seconds: attempt == 0 ? 20 : 40),
         );
       } on http.ClientException catch (e) {
         debugPrint(
@@ -232,7 +264,7 @@ class LLMEngineClient {
           );
         }
         await Future<void>.delayed(
-          Duration(milliseconds: 1000 * (attempt + 1)),
+          Duration(seconds: attempt == 0 ? 20 : 40),
         );
       } on FormatException catch (e) {
         debugPrint('[llm] generate JSON decode error: $e');

@@ -10,9 +10,11 @@
 /// clave vacía (sin identidad) se deniega SIEMPRE: sin identidad no hay
 /// rate limit confiable y el pipeline ya la trata como no escribible.
 ///
-/// El registro del intento ocurre ANTES del envío: el rate limit protege
-/// al canal, no al resultado. Un intento permitido que luego falle sigue
-/// contando en la ventana (el canal ya pagó el costo).
+/// WA-LIVE-01 — el registro ocurre al ATERRIZAR, no al intentar: el pipeline
+/// consulta con [replyCount] (pura, sin registrar) y solo llama [recordReply]
+/// cuando el reply salió al canal con texto real. Un borrador que falló antes
+/// de tocar el canal ya no quema la ventana (loop escribe→falla→bloqueo).
+/// [allowReply] se conserva por compatibilidad (consulta + registro juntos).
 library;
 
 import 'dart:convert' show jsonDecode, jsonEncode;
@@ -40,6 +42,13 @@ final class ContactRatePolicy {
 abstract interface class ContactRateLimiter {
   /// Política vigente (para mensajes de razón honestos).
   ContactRatePolicy get policy;
+
+  /// Intentos vivos en la ventana (consulta pura, SIN registrar).
+  Future<int> replyCount(ConversationKey key, {required DateTime at});
+
+  /// Registra un reply que SÍ salió al canal (con texto real). El conteo
+  /// ocurre al aterrizar, no al intentar (WA-LIVE-01).
+  Future<void> recordReply(ConversationKey key, {required DateTime at});
 
   /// true si el intento está permitido Y queda registrado en la ventana.
   /// false = bloqueado: el llamador NO debe enviar.
@@ -99,22 +108,37 @@ final class SharedPreferencesContactRateLimiter implements ContactRateLimiter {
     ConversationKey key, {
     required DateTime at,
   }) async {
+    final allowed =
+        (await replyCount(key, at: at)) < policy.maxRepliesPerWindow;
+    if (allowed) await recordReply(key, at: at);
+    return allowed;
+  }
+
+  @override
+  Future<int> replyCount(ConversationKey key, {required DateTime at}) async {
     await load();
     final id = key.id;
-    if (id.isEmpty) return false; // sin identidad: denegar siempre
+    // Sin identidad: el pipeline la trata como no escribible; el conteo
+    // máximo fuerza el bloqueo igual que antes.
+    if (id.isEmpty) return policy.maxRepliesPerWindow;
 
     final atMs = at.millisecondsSinceEpoch;
     final windowMs = policy.window.inMilliseconds;
-    final current =
-        (_attempts[id] ?? const <int>[])
-            .where((t) => atMs - t < windowMs)
-            .toList();
-    if (current.length >= policy.maxRepliesPerWindow) return false;
+    return (_attempts[id] ?? const <int>[])
+        .where((t) => atMs - t < windowMs)
+        .length;
+  }
 
-    current.add(atMs);
+  @override
+  Future<void> recordReply(ConversationKey key, {required DateTime at}) async {
+    await load();
+    final id = key.id;
+    if (id.isEmpty) return; // sin identidad: nada que registrar
+
+    final current = (_attempts[id] ?? const <int>[]).toList()
+      ..add(at.millisecondsSinceEpoch);
     _attempts[id] = current;
     await _persist();
-    return true;
   }
 
   Future<void> _persist() async {
@@ -209,22 +233,37 @@ final class SqliteContactRateLimiter implements ContactRateLimiter {
     ConversationKey key, {
     required DateTime at,
   }) async {
+    final allowed =
+        (await replyCount(key, at: at)) < policy.maxRepliesPerWindow;
+    if (allowed) await recordReply(key, at: at);
+    return allowed;
+  }
+
+  @override
+  Future<int> replyCount(ConversationKey key, {required DateTime at}) async {
     await load();
     final id = key.id;
-    if (id.isEmpty) return false;
+    // Sin identidad: el pipeline la trata como no escribible; el conteo
+    // máximo fuerza el bloqueo igual que antes.
+    if (id.isEmpty) return policy.maxRepliesPerWindow;
 
     final atMs = at.millisecondsSinceEpoch;
     final windowMs = policy.window.inMilliseconds;
-    final current =
-        (_attempts[id] ?? const <int>[])
-            .where((t) => atMs - t < windowMs)
-            .toList();
-    if (current.length >= policy.maxRepliesPerWindow) return false;
+    return (_attempts[id] ?? const <int>[])
+        .where((t) => atMs - t < windowMs)
+        .length;
+  }
 
-    current.add(atMs);
+  @override
+  Future<void> recordReply(ConversationKey key, {required DateTime at}) async {
+    await load();
+    final id = key.id;
+    if (id.isEmpty) return; // sin identidad: nada que registrar
+
+    final current = (_attempts[id] ?? const <int>[]).toList()
+      ..add(at.millisecondsSinceEpoch);
     _attempts[id] = current;
     await _persist();
-    return true;
   }
 
   Future<void> _persist() async {

@@ -337,14 +337,16 @@ class RulePipeline {
           reason: 'otra regla ya intentó responder a este evento',
         );
       }
-      // RATE-01 — puerta de saturación ANTES del envío. El intento permitido
-      // queda registrado en la ventana (el canal paga el costo aunque el
-      // envío luego falle); el bloqueado jamás llega al dispatcher.
-      final allowed = await _rateLimiter.allowReply(
+      // RATE-01 — puerta de saturación ANTES del envío. WA-LIVE-01: aquí
+      // SOLO se consulta (replyCount, sin registrar): el registro ocurre
+      // tras el dispatch, y solo si el reply salió con texto real. Antes
+      // allowReply registraba el intento por adelantado y cada borrador
+      // fallido quemaba la ventana (loop escribe→falla→bloqueo 10min).
+      final used = await _rateLimiter.replyCount(
         key,
         at: DateTime.fromMillisecondsSinceEpoch(nowMs),
       );
-      if (!allowed) {
+      if (used >= _rateLimiter.policy.maxRepliesPerWindow) {
         final p = _rateLimiter.policy;
         return RuleDispatchResult(
           ruleId: rule.id,
@@ -359,7 +361,17 @@ class RulePipeline {
       // ejecución cae en cooldown aunque el primero aún no haya terminado.
       _dedupe.markReplyPending(conversationId, nowMs);
     }
-    return _dispatcher.dispatch(rule, notif);
+    final r = await _dispatcher.dispatch(rule, notif);
+    // WA-LIVE-01 — el intento se registra al ATERRIZAR: un borrador que
+    // falló antes de tocar el canal ya no quema la ventana. Sin texto
+    // despachado no hay consumo del canal (el costo nunca se pagó).
+    if (r.isReplyAttempt && r.dispatchedText.isNotEmpty) {
+      await _rateLimiter.recordReply(
+        key,
+        at: DateTime.fromMillisecondsSinceEpoch(nowMs),
+      );
+    }
+    return r;
   }
 
   /// Estado terminal del evento agregando los outcomes de TODAS las reglas:

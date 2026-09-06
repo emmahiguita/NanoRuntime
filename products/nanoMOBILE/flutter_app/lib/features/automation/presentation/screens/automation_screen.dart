@@ -36,19 +36,26 @@ class AutomationScreen extends ConsumerWidget {
           // La barra universal (NanoShellBarScope) es la única navegación
           // aquí; el dock inferior antiguo salió por completo.
           return Scaffold(
-            resizeToAvoidBottomInset: true,
+            // KEYBOARD-FIX-01: false aquí es crítico — NanoShellBarScope usa
+            // un Stack + AnimatedPositioned para la barra. Si el Scaffold
+            // encoge el body al aparecer el teclado, la barra salta.
+            // El frame ya maneja el espacio mediante totalBottomPad.
+            resizeToAvoidBottomInset: false,
             backgroundColor: Colors.transparent,
             body: NanoShellBarScope(
+              // TOP-INSET-FIX-01 — SafeArea top propio (patrón de
+              // messages/dev): el dashboard queda bajo la barra de estado.
+              // KEYBOARD-FIX-02 se mantiene: solo top, sin duplicar bottom
+              // (el frame gestiona el espacio inferior del dock).
               child: SafeArea(
+                top: true,
+                bottom: false,
                 child: AutomationDashboard(
                   onSettingsTap: () => _openSettings(context),
                   onMessagesTap: () => context.push('/automation/messages'),
-                  // RULES-CREATE-02: Reglas alcanzable desde el dashboard,
-                  // ya no escondida dentro de Configuración.
+                  // RULES-CREATE-02: Reglas alcanzable desde el dashboard.
                   onRulesTap: () => _openRules(context),
-                  // WA-DEV-ACCESS-01 — acceso directo a las herramientas
-                  // del agente SIEMPRE visible (antes solo kDebugMode:
-                  // en release el icono robot desaparecía).
+                  // WA-DEV-ACCESS-01 — acceso directo siempre visible.
                   onDevTap: () => _openDev(context),
                 ),
               ),

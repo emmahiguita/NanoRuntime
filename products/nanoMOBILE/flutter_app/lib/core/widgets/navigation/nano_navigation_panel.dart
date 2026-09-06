@@ -27,6 +27,9 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
     this.onVoice,
     this.onAvatarTap,
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
+    this.fullBleed = false,
+    this.transparentDock = false,
+    this.protectTop = false,
   });
 
   final Widget child;
@@ -44,6 +47,24 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
   final VoidCallback? onAvatarTap;
   final String searchHint;
 
+  /// HOME-BLEED-01 — el child se pinta a pantalla COMPLETA (sin reservar
+  /// franja inferior para la barra). Para pantallas-fondo (Inicio con su
+  /// wallpaper): la imagen llega hasta el borde inferior y la barra flota
+  /// encima. Solo cuando abajo no hay contenido interactivo que ocultar.
+  final bool fullBleed;
+
+  /// HOME-BLEED-01 — el dock deja de pintar su cáscara (gradiente + blur) y
+  /// queda transparente: detrás de la barra se ve el MISMO fondo de la
+  /// pantalla, sin corte ni color distinto.
+  final bool transparentDock;
+
+  /// TOP-INSET-FIX-01 — el frame aplica SafeArea superior como FUENTE ÚNICA
+  /// (NAV-UI-AUDIT-01): el contenido jamás queda solapado con la barra de
+  /// estado. Las pantallas hijas NO deben añadir su propio SafeArea top
+  /// (duplicaría el inset). En fullBleed se desactiva (el fondo pinta hasta
+  /// el borde; el contenido se protege solo, p. ej. la marca de Inicio).
+  final bool protectTop;
+
   @override
   ConsumerState<NanoFloatingNavigationFrame> createState() =>
       _NanoFloatingNavigationFrameState();
@@ -51,16 +72,15 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
 
 class _NanoFloatingNavigationFrameState
     extends ConsumerState<NanoFloatingNavigationFrame> {
-  /// Altura real de la barra (crece con el campo multilínea). Inicial 110:
-  /// la altura típica en reposo evita el salto del primer frame.
+  /// Altura real de la barra (crece con el campo multilínea). Inicial 132:
+  /// coincide con la altura calculada en reposo (~132.8px), eliminando
+  /// el salto visual (twitch de 23px) que ocurría en el primer frame.
+  static const double _kInitialDockHeight = 132.0;
   double _dockHeight = _kInitialDockHeight;
   final _barKey = GlobalKey();
 
-  static const double _kInitialDockHeight = 110;
-  /// NAV-LANDSCAPE-01 — gap aumentado en landscape: la barra puede ser más
-  /// alta (campo multilinea) y el aire entre contenido y barra evita solape.
-  static const double _kDockGapPortrait = 12;
-  static const double _kDockGapLandscape = 16;
+  static const double _kDockGapPortrait = 16.0;
+  static const double _kDockGapLandscape = 12.0;
 
   /// Mide la altura real de la barra con PostFrameCallback + notificaciones.
   void _measureBar() {
@@ -79,84 +99,112 @@ class _NanoFloatingNavigationFrameState
   Widget build(BuildContext context) {
     final destination = NanoDestination.fromIndex(widget.selectedIndex);
     final brightness = Theme.of(context).brightness;
-    ref.watch(nanoUniversalInputProvider);
-    final inputConfig = ref
-        .read(nanoUniversalInputProvider.notifier)
-        .slotFor(widget.slotId ?? destination.name);
-    // OVERLAP-FIX-01 — los insets del sistema (home indicator, navbar Android)
-    // se suman al padding del CONTENIDO igual que a la barra flotante para que
-    // nunca quede nada debajo de la barra en ningún dispositivo.
+    // NAV-REBUILD-FIX: usar ref.watch una sola vez y derivar el slot directamente.
+    // Antes: ref.watch() para rebuild + ref.read() para leer = 2 accesos
+    // separados y rebuilds en cada keypress. Ahora un solo acceso.
+    final notifier = ref.read(nanoUniversalInputProvider.notifier);
+    ref.watch(
+      nanoUniversalInputProvider,
+    ); // observar para notificaciones de cambio
+    final inputConfig = notifier.slotFor(widget.slotId ?? destination.name);
+
     final systemBottomInset = MediaQuery.paddingOf(context).bottom;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isLandscape = constraints.maxWidth > constraints.maxHeight;
+        final isDeviceLandscape =
+            MediaQuery.orientationOf(context) == Orientation.landscape;
+        final isLandscape = isDeviceLandscape && constraints.maxWidth > 520;
         final isCompact =
-            constraints.maxWidth < 520 || constraints.maxHeight < 520;
-        final dockGap = isLandscape ? _kDockGapLandscape : _kDockGapPortrait;
-        // OVERLAP-FIX-01 — padding total = altura real de la barra +
-        // gap de aire + insets del sistema. Cero saltos, cero solapamientos.
-        final totalBottomPad = _dockHeight + dockGap + systemBottomInset;
+            constraints.maxWidth < 520 ||
+            (isDeviceLandscape && constraints.maxHeight < 520);
+        final baseGap = isLandscape ? _kDockGapLandscape : _kDockGapPortrait;
+
+        // Flotación real: si el teclado está abierto, flota sobre el teclado.
+        // Si está cerrado, flota con espacio holgado sobre la barra de gestos o
+        // botones del sistema (nunca pegada ni solapando los bordes).
+        final floatingBottom = keyboardInset > 0
+            ? (keyboardInset + 10.0)
+            : (systemBottomInset > 0
+                  ? (systemBottomInset + baseGap)
+                  : (baseGap + 8.0));
+
+        // Margen horizontal generoso para que sea una auténtica cápsula/isla flotante
+        // y nunca toque los bordes laterales del dispositivo.
+        final horizontalMargin = isLandscape ? 32.0 : (isCompact ? 16.0 : 20.0);
+
+        // Padding inferior del contenido para que nada quede oculto tras la barra flotante.
+        final totalBottomPad = _dockHeight + floatingBottom + 12.0;
 
         return Stack(
           fit: StackFit.expand,
           children: [
             // Contenido desplazado exactamente el espacio que ocupa la barra
-            // (incluyendo insets del sistema). AnimatedPadding anima suavemente
-            // cuando el campo crece (multilínea) o cambia orientación.
-            AnimatedPadding(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              padding: EdgeInsets.only(bottom: totalBottomPad),
-              child: RepaintBoundary(child: widget.child),
+            // (incluyendo insets del sistema y teclado). AnimatedPadding anima suavemente
+            // cuando el campo crece (multilínea), cambia orientación o sube el teclado.
+            // HOME-BLEED-01: en fullBleed el child pinta a pantalla completa
+            // (sin padding) — el fondo llega al borde y la barra flota encima.
+            // TOP-INSET-FIX-01: SafeArea top como fuente única de insets.
+            SafeArea(
+              top: widget.protectTop && !widget.fullBleed,
+              bottom: false,
+              left: false,
+              right: false,
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.only(
+                  bottom: widget.fullBleed ? 0 : totalBottomPad,
+                ),
+                child: RepaintBoundary(child: widget.child),
+              ),
             ),
             AnimatedPositioned(
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
               left: 0,
               right: 0,
-              bottom: dockGap,
-              // NAV-UI-AUDIT-01 — SafeArea solo para la barra flotante.
-              // El contenido ya compensó los insets manualmente (totalBottomPad).
-              child: SafeArea(
-                top: false,
-                child: NotificationListener<SizeChangedLayoutNotification>(
-                  onNotification: (_) {
-                    _measureBar();
-                    return false;
-                  },
-                  child: SizeChangedLayoutNotifier(
-                    key: _barKey,
-                    child: Center(
+              bottom: floatingBottom,
+              child: NotificationListener<SizeChangedLayoutNotification>(
+                onNotification: (_) {
+                  _measureBar();
+                  return false;
+                },
+                child: SizeChangedLayoutNotifier(
+                  key: _barKey,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
                       child: Padding(
                         padding: EdgeInsets.symmetric(
-                          horizontal: isCompact ? 10 : 16,
+                          horizontal: horizontalMargin,
                         ),
                         child: RepaintBoundary(
                           child: NanoMultiUseNavBar(
                             selected: destination,
                             compact: isCompact,
                             brightness: brightness,
+                            transparent: widget.transparentDock,
                             inputConfig: inputConfig,
                             searchHint: widget.searchHint,
                             onDestinationSelected: (d) {
                               widget.onDestinationSelected(d.index);
                             },
-                            onSearch: widget.onSearch ??
+                            onSearch:
+                                widget.onSearch ??
                                 (query) {
-                                  NanoSearchDispatcher.dispatch(
-                                    context,
-                                    query,
-                                  );
+                                  NanoSearchDispatcher.dispatch(context, query);
                                 },
                             onVoice: widget.onVoice,
-                            onAvatarTap: widget.selectedIndex ==
+                            onAvatarTap:
+                                widget.selectedIndex ==
                                     NanoDestination.chat.index
                                 ? null
                                 : (widget.onAvatarTap ??
-                                    () {
-                                      context.go('/chat');
-                                    }),
+                                      () {
+                                        context.go('/chat');
+                                      }),
                           ),
                         ),
                       ),
@@ -203,20 +251,21 @@ class NanoShellBarScope extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Positioned.fill(
-          child: background ?? const AutomationBackdrop(),
-        ),
+        Positioned.fill(child: background ?? const AutomationBackdrop()),
         NanoFloatingNavigationFrame(
           slotId: slotId,
           selectedIndex: selectedIndex ?? NanoDestination.automation.index,
+          // HOME-BLEED-01 — la cáscara de la barra sale en TODA la app:
+          // detrás del dock se ve el mismo fondo de la pantalla.
+          transparentDock: true,
+          // TOP-INSET-FIX-01 — fuente única del inset superior en las
+          // pantallas empujadas (las hijas no añaden SafeArea top propio).
+          protectTop: true,
           onDestinationSelected: (index) {
             context.go(NanoDestination.fromIndex(index).route);
           },
-          // NAV-BAR-FIX-04 — las visuales fuera del shell no saltan a otra
-          // pantalla: si el destino activo no definió su onSubmit (p.ej.
-          // Mensajes, slot vacío), el envío se queda aquí en vez de caer al
-          // dispatcher global y navegar a Chat.
-          onSearch: (_) {},
+          // Si no se provee un onSearch específico, hereda el comportamiento
+          // por defecto de NanoFloatingNavigationFrame (NanoSearchDispatcher.dispatch).
           child: child,
         ),
       ],

@@ -60,6 +60,8 @@ flutter:
     - assets/owl/sleep/
     - assets/owl/takeoff/
     - assets/nano/
+    - assets/buho/portrait/
+    - assets/buho/horizontal/
   fonts:
     - family: Inter
       fonts:

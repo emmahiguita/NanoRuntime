@@ -270,9 +270,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final notifier = ref.read(chatProvider.notifier);
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
-    final isCompactLandscape =
-        screenSize.width > screenSize.height && screenSize.height < 520;
-    final isLandscape = screenSize.width > screenSize.height;
+    // ORIENTATION-FIX: usa Orientation real del dispositivo (no width > height).
+    // El teclado reduce la altura disponible en portrait, lo que hace que
+    // width > height sea verdadero erróneamente y activa el layout landscape.
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final isCompactLandscape = isLandscape && screenSize.height < 520;
 
     // Auto-scroll al fondo con cada mensaje nuevo y al arrancar generación.
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
