@@ -12,6 +12,19 @@ class DeviceNotification {
   final bool canReply;
   final bool ongoing;
 
+  /// PERSONA-TOOLS-10 — campos de identidad de conversación (el canal
+  /// nativo ya los envía; antes se descartaban). Vacíos = la app origen no
+  /// los expuso (honesto). Alimentan [ConversationKey] por la MISMA vía de
+  /// evidencia que el pipeline: ownership marcado en la UI matchea la
+  /// conversación que el agente ve en el listener.
+  final String sender;
+  final String senderKey;
+  final String conversationTitle;
+  final String conversationId;
+  final String shortcutId;
+  final String locusId;
+  final String accountHint;
+
   const DeviceNotification({
     required this.key,
     required this.packageName,
@@ -20,6 +33,13 @@ class DeviceNotification {
     required this.postedAt,
     required this.canReply,
     required this.ongoing,
+    this.sender = '',
+    this.senderKey = '',
+    this.conversationTitle = '',
+    this.conversationId = '',
+    this.shortcutId = '',
+    this.locusId = '',
+    this.accountHint = '',
   });
 
   factory DeviceNotification.fromMap(Map<dynamic, dynamic> map) {
@@ -32,6 +52,13 @@ class DeviceNotification {
       postedAt: DateTime.fromMillisecondsSinceEpoch(epoch),
       canReply: map['canReply'] as bool? ?? false,
       ongoing: map['ongoing'] as bool? ?? false,
+      sender: map['sender'] as String? ?? '',
+      senderKey: map['senderKey'] as String? ?? '',
+      conversationTitle: map['conversationTitle'] as String? ?? '',
+      conversationId: map['conversationId'] as String? ?? '',
+      shortcutId: map['shortcutId'] as String? ?? '',
+      locusId: map['locusId'] as String? ?? '',
+      accountHint: map['accountHint'] as String? ?? '',
     );
   }
 }

@@ -99,84 +99,91 @@ final class ConversationIdentity {
 ///  5. título + sender  — contexto conversacional                → 0.60
 ///  6. título a secas   — último recurso, BAJA confianza         → 0.35
 /// Sin ninguna evidencia: clave con fingerprint vacío y confianza 0.
-ConversationIdentity resolveConversationIdentity(NotificationObject n) {
-  final channel = channelForPackage(n.packageName);
+ConversationIdentity resolveConversationIdentity(NotificationObject n) =>
+    conversationIdentityFor(
+      packageName: n.packageName,
+      accountHint: n.accountHint,
+      locusId: n.locusId,
+      shortcutId: n.shortcutId,
+      senderKey: n.senderKey,
+      conversationId: n.conversationId,
+      conversationTitle: n.conversationTitle,
+      sender: n.sender,
+    );
 
-  if (n.locusId.isNotEmpty) {
+/// PERSONA-TOOLS-10 — identidad por CAMPOS (misma evidencia, mismo orden):
+/// la usan el pipeline ([resolveConversationIdentity]) y la pantalla de
+/// Mensajes (vista de notificaciones ACTIVAS). Con la misma evidencia de
+/// Android ambas derivan la MISMA clave — el ownership marcado desde la UI
+/// matchea la conversación que ve el pipeline. Puro, sin LLM.
+ConversationIdentity conversationIdentityFor({
+  required String packageName,
+  String accountHint = '',
+  String locusId = '',
+  String shortcutId = '',
+  String senderKey = '',
+  String conversationId = '',
+  String conversationTitle = '',
+  String sender = '',
+}) {
+  final channel = channelForPackage(packageName);
+  final account = accountHint.trim();
+
+  ConversationKey key(String fingerprint) => ConversationKey(
+    channel: channel,
+    appPackage: packageName,
+    accountFingerprint: account,
+    conversationFingerprint: fingerprint,
+  );
+
+  if (locusId.isNotEmpty) {
     return ConversationIdentity(
-      key: ConversationKey(
-        channel: channel,
-        appPackage: n.packageName,
-        accountFingerprint: n.accountHint.trim(),
-        conversationFingerprint: 'locus:${n.locusId}',
-      ),
+      key: key('locus:$locusId'),
       confidence: 1.0,
       evidenceUsed: const {'locusId'},
     );
   }
-  if (n.shortcutId.isNotEmpty) {
+  if (shortcutId.isNotEmpty) {
     return ConversationIdentity(
-      key: ConversationKey(
-        channel: channel,
-        appPackage: n.packageName,
-        accountFingerprint: n.accountHint.trim(),
-        conversationFingerprint: 'shortcut:${n.shortcutId}',
-      ),
+      key: key('shortcut:$shortcutId'),
       confidence: 0.95,
       evidenceUsed: const {'shortcutId'},
     );
   }
-  if (n.senderKey.isNotEmpty) {
+  if (senderKey.isNotEmpty) {
     return ConversationIdentity(
-      key: ConversationKey(
-        channel: channel,
-        appPackage: n.packageName,
-        accountFingerprint: n.accountHint.trim(),
-        conversationFingerprint: 'person:${n.senderKey}',
-      ),
+      key: key('person:$senderKey'),
       confidence: 0.9,
       evidenceUsed: const {'senderKey'},
     );
   }
-  if (n.conversationId.isNotEmpty) {
+  if (conversationId.isNotEmpty) {
     return ConversationIdentity(
-      key: ConversationKey(
-        channel: channel,
-        appPackage: n.packageName,
-        accountFingerprint: n.accountHint.trim(),
-        conversationFingerprint: 'conv:${n.conversationId}',
-      ),
+      key: key('conv:$conversationId'),
       confidence: 0.85,
       evidenceUsed: const {'conversationId'},
     );
   }
 
-  final title = n.conversationTitle.trim();
-  final sender = n.sender.trim();
+  final title = conversationTitle.trim();
+  final cleanSender = sender.trim();
   if (title.isNotEmpty) {
     // Contexto completo (título + remitente) distingue mejor dos contactos
     // con nombre visible idéntico dentro de la MISMA app... pero sigue sin
     // ser evidencia estable de plataforma.
-    final context = sender.isNotEmpty ? '$title|$sender' : title;
+    final context = cleanSender.isNotEmpty ? '$title|$cleanSender' : title;
     return ConversationIdentity(
-      key: ConversationKey(
-        channel: channel,
-        appPackage: n.packageName,
-        accountFingerprint: n.accountHint.trim(),
-        conversationFingerprint: 'title:$context',
-      ),
-      confidence: sender.isNotEmpty ? 0.6 : 0.35,
-      evidenceUsed: {'conversationTitle', if (sender.isNotEmpty) 'sender'},
+      key: key('title:$context'),
+      confidence: cleanSender.isNotEmpty ? 0.6 : 0.35,
+      evidenceUsed: {
+        'conversationTitle',
+        if (cleanSender.isNotEmpty) 'sender',
+      },
     );
   }
 
   return ConversationIdentity(
-    key: ConversationKey(
-      channel: channel,
-      appPackage: n.packageName,
-      accountFingerprint: n.accountHint.trim(),
-      conversationFingerprint: '',
-    ),
+    key: key(''),
     confidence: 0,
     evidenceUsed: const {},
   );

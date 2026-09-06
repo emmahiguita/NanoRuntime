@@ -6,8 +6,13 @@ import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart'
+    show conversationOwnershipStoreProvider;
+import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
+    show conversationIdentityFor;
 import 'package:nanoai/features/automation/executors/notification_executor.dart';
 import 'package:nanoai/features/automation/executors/notification_executor_provider.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
 
 class NotificationAutomationSection extends ConsumerStatefulWidget {
   const NotificationAutomationSection({super.key});
@@ -195,6 +200,15 @@ class _NotificationAutomationSectionState
     });
     final sent = await _service.confirmAndReply(selected, text);
     if (!mounted) return;
+    if (sent) {
+      // PERSONA-TOOLS-10 — patrón Chatwoot: respondió el humano → esa
+      // conversación es suya; el agente deja de auto-responderla
+      // (DecisionEngine: ownership humana → holdForApproval).
+      ref.read(conversationOwnershipStoreProvider).setOwner(
+        _conversationIdOf(selected),
+        ConversationOwner.human,
+      );
+    }
     setState(() {
       _busy = false;
       _message = sent
@@ -206,6 +220,44 @@ class _NotificationAutomationSectionState
       }
     });
     if (sent) await _refresh();
+  }
+
+  /// PERSONA-TOOLS-10 — misma identidad que el pipeline: con la MISMA
+  /// evidencia de Android (locusId/shortcutId/senderKey) la clave coincide y
+  /// el ownership marcado aquí aplica a la conversación del listener.
+  String _conversationIdOf(DeviceNotification notification) =>
+      conversationIdentityFor(
+        packageName: notification.packageName,
+        accountHint: notification.accountHint,
+        locusId: notification.locusId,
+        shortcutId: notification.shortcutId,
+        senderKey: notification.senderKey,
+        conversationId: notification.conversationId,
+        conversationTitle: notification.conversationTitle,
+        sender: notification.sender,
+      ).key.id;
+
+  /// PERSONA-TOOLS-10 — ¿la conversación seleccionada es del humano?
+  /// Leído EN VIVO en cada build: el toggle refleja el store durable.
+  bool get _selectedOwnership {
+    final selected = _selected;
+    if (selected == null) return false;
+    final ownership = ref
+        .read(conversationOwnershipStoreProvider)
+        .ownershipFor(_conversationIdOf(selected));
+    return ownership?.humanOwns ?? false;
+  }
+
+  void _setOwnership(bool humanOwns) {
+    final selected = _selected;
+    if (selected == null) return;
+    final store = ref.read(conversationOwnershipStoreProvider);
+    if (humanOwns) {
+      store.setOwner(_conversationIdOf(selected), ConversationOwner.human);
+    } else {
+      store.release(_conversationIdOf(selected));
+    }
+    setState(() {});
   }
 
   @override
@@ -352,6 +404,13 @@ class _NotificationAutomationSectionState
                             ],
                           ),
                           const SizedBox(height: NanoSpacing.sm),
+                          _OwnershipControl(
+                            humanOwns: _selectedOwnership,
+                            busy: _busy,
+                            onTakeOver: () => _setOwnership(true),
+                            onHandBack: () => _setOwnership(false),
+                          ),
+                          const SizedBox(height: NanoSpacing.sm),
                           TextField(
                             focusNode: _draftFocusNode,
                             controller: _draftController,
@@ -467,6 +526,72 @@ String _notificationTitle(DeviceNotification notification) =>
     notification.title.trim().isEmpty
     ? notification.packageName
     : notification.title.trim();
+
+/// PERSONA-TOOLS-10 — control de ownership de la conversación seleccionada.
+/// El estado viene del store durable (bot por defecto = paridad con el
+/// comportamiento anterior); el humano toma el control con un toque y lo
+/// devuelve con otro. Honesto: el agente nunca responde mientras el humano
+/// la atiende (DecisionEngine holdForApproval).
+class _OwnershipControl extends StatelessWidget {
+  const _OwnershipControl({
+    required this.humanOwns,
+    required this.busy,
+    required this.onTakeOver,
+    required this.onHandBack,
+  });
+
+  final bool humanOwns;
+  final bool busy;
+  final VoidCallback onTakeOver;
+  final VoidCallback onHandBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: NanoSpacing.sm,
+        vertical: NanoSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: (humanOwns ? colors.warning : colors.primary)
+            .withValues(alpha: 0.08),
+        borderRadius: NanoShapes.small,
+        border: Border.all(
+          color: (humanOwns ? colors.warning : colors.primary)
+              .withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            humanOwns ? Icons.person_rounded : Icons.smart_toy_outlined,
+            size: NanoIcons.small,
+            color: humanOwns ? colors.warning : colors.primary,
+          ),
+          const SizedBox(width: NanoSpacing.sm),
+          Expanded(
+            child: Text(
+              humanOwns
+                  ? 'La atiendes tú: Nano no responderá a esta conversación.'
+                  : 'Nano responde solo a esta conversación.',
+              style: NanoType.caption(colors.onSurfaceVariant),
+            ),
+          ),
+          TextButton(
+            onPressed: busy
+                ? null
+                : humanOwns
+                ? onHandBack
+                : onTakeOver,
+            child: Text(humanOwns ? 'Devuélvelo a Nano' : 'La atiendo yo'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ListLabel extends StatelessWidget {
   const _ListLabel({required this.label, required this.count});
