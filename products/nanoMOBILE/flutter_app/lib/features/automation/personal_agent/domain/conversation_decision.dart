@@ -23,15 +23,23 @@ enum ConversationDisposition {
 /// Nivel de riesgo de un envío automático.
 enum ConversationRisk { low, medium, high }
 
-/// Contexto externo de la decisión. PERSONA-HANDOFF-03 lo alimentará con el
-/// ownership durable por conversación; mientras tanto el caller lo provee
-/// (por defecto: el bot decide solo, paridad con el comportamiento actual).
+/// Contexto externo de la decisión. PERSONA-HANDOFF-03 lo alimenta con el
+/// ownership durable por conversación; PERSONA-AUTONOMY-11 añade la
+/// confianza de identidad (misma evidencia del pipeline).
 final class ConversationDecisionContext {
   /// true = el humano declaró control de ESTA conversación: el bot puede
   /// preparar drafts pero jamás envía sin que el dueño los suelte.
   final bool humanOwnsConversation;
 
-  const ConversationDecisionContext({this.humanOwnsConversation = false});
+  /// Confianza de la identidad de la conversación (ConversationIdentity,
+  /// 0..1). 1.0 por defecto = callers sin evidencia de identidad conservan
+  /// la paridad; el pipeline real la alimenta con la evidencia de Android.
+  final double identityConfidence;
+
+  const ConversationDecisionContext({
+    this.humanOwnsConversation = false,
+    this.identityConfidence = 1.0,
+  });
 }
 
 final class ConversationDecision {

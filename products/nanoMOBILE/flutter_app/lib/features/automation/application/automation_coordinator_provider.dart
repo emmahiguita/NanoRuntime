@@ -459,13 +459,16 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       decisionEngine: const ConversationDecisionEngine(),
       // PERSONA-HANDOFF-03 — ownership por conversación: si el humano tomó
       // el control, el engine retiene el draft (jamás se pisa al dueño).
+      // PERSONA-AUTONOMY-11 — la MISMA identidad resuelta alimenta la
+      // política de autonomía: sin evidencia estable no hay envío.
       decisionContext: (notif) {
-        final conversationId = resolveConversationIdentity(notif).key.id;
+        final identity = resolveConversationIdentity(notif);
         final ownership = ref
             .read(conversationOwnershipStoreProvider)
-            .ownershipFor(conversationId);
+            .ownershipFor(identity.key.id);
         return ConversationDecisionContext(
           humanOwnsConversation: ownership?.humanOwns ?? false,
+          identityConfidence: identity.confidence,
         );
       },
       // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal

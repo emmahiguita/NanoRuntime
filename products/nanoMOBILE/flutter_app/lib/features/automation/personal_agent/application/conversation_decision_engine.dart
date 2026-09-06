@@ -12,6 +12,10 @@
 ///   pudo quedar truncado → riesgo medio, aún enviable (paridad con el
 ///   comportamiento actual).
 /// - ownership humana: retener SIEMPRE (el bot no pisa al dueño).
+/// - PERSONA-AUTONOMY-11 — identidad débil (confidence < 0.95, el umbral
+///   safeToWrite de ConversationIdentity): sin evidencia estable de
+///   plataforma (locusId/shortcutId) no hay envío automático — responder a
+///   la conversación equivocada es el peor fallo de un agente personal.
 ///
 /// Confianza: base 0.85 − penalización por señal. Umbral de envío: 0.6.
 library;
@@ -35,6 +39,22 @@ final class ConversationDecisionEngine {
       return ConversationDecision(
         disposition: ConversationDisposition.holdForApproval,
         risk: ConversationRisk.low,
+        confidence: 0.0,
+        reasons: reasons,
+      );
+    }
+
+    // PERSONA-AUTONOMY-11 — política de autonomía por identidad: sin
+    // evidencia estable de plataforma el bot retiene. El humano puede
+    // aprobar manualmente desde la pantalla Mensajes (TOOLS-10).
+    if (context.identityConfidence < 0.95) {
+      reasons.add(
+        'identidad débil (${context.identityConfidence.toStringAsFixed(2)} '
+        '< 0.95): sin evidencia estable de plataforma',
+      );
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
         confidence: 0.0,
         reasons: reasons,
       );
