@@ -96,6 +96,21 @@ class _NanoFloatingNavigationFrameState
   }
 
   @override
+  void didUpdateWidget(covariant NanoFloatingNavigationFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // WA-REG-01 — al cambiar de pestaña, el build de este frame corre ANTES
+    // de que el scope destino reaplique su config (didChangeDependencies →
+    // postFrame → setConfig); si los datos son iguales no hay notificación y
+    // la barra conserva la config leída antes de la reaplicación. Un rebuild
+    // extra tras el frame cierra el hueco: el slot ya está fresco.
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final destination = NanoDestination.fromIndex(widget.selectedIndex);
     final brightness = Theme.of(context).brightness;
