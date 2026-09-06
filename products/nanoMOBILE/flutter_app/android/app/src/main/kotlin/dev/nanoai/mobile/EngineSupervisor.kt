@@ -370,6 +370,14 @@ class EngineSupervisor(
                             handle = EngineHandle(pid, port)
                         }
                         Log.i(TAG, "engine sano pid=$pid port=$port intento=$attempt")
+                        // WA-CTX-01 — el planner del motor puede arrancar con
+                        // contexto degradado (survival_fit ctx=256 con RAM
+                        // disponible mal medida): el prompt del agente WA
+                        // (~1900 tokens) no cabe y toda generación sale vacía.
+                        // Verificado en Oppo: /reload con context_tokens=4096
+                        // resuelve en runtime. Ajuste post-arranque, sin tocar
+                        // el binario del motor.
+                        ioScope.launch { adjustContextIfNeeded(pid, port, gen) }
                         onState(EngineState.Ready(pid, port))
                         return@launch
                     }
@@ -450,9 +458,94 @@ class EngineSupervisor(
         onState(EngineState.Failed(reason))
     }
 
-    /** GET /health con timeout. Devuelve el body si 200 + status ok, null si no. */
-    fun probeHealth(port: Int, timeoutMs: Int): String? {
+    /** GET /api/status — body JSON o null. */
+    private fun getEngineStatus(port: Int, timeoutMs: Int): String? {
         var conn: HttpURLConnection? = null
+        return try {
+            conn = URL("http://127.0.0.1:$port/api/status").openConnection() as HttpURLConnection
+            conn.connectTimeout = timeoutMs
+            conn.readTimeout = timeoutMs
+            conn.requestMethod = "GET"
+            if (conn.responseCode != 200) return null
+            conn.inputStream.readBytes().toString(Charsets.UTF_8)
+        } catch (e: Exception) {
+            Log.d(TAG, "api/status error: ${e.javaClass.simpleName}")
+            null
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /** POST /reload — true si el server reporta reloaded. */
+    private fun reloadContext(port: Int, contextTokens: Int, timeoutMs: Int): Boolean {
+        var conn: HttpURLConnection? = null
+        return try {
+            conn = URL("http://127.0.0.1:$port/reload").openConnection() as HttpURLConnection
+            conn.connectTimeout = timeoutMs
+            conn.readTimeout = timeoutMs
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            val body = """{"threads":4,"context_tokens":$contextTokens,"batch_size":256}"""
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            if (conn.responseCode != 200) {
+                Log.w(TAG, "reload HTTP ${conn.responseCode}")
+                return false
+            }
+            val resp = conn.inputStream.readBytes().toString(Charsets.UTF_8)
+            resp.contains("\"status\":\"reloaded\"")
+        } catch (e: Exception) {
+            Log.w(TAG, "reload error: ${e.javaClass.simpleName}: ${e.message}")
+            false
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /**
+     * WA-CTX-01 — asegura contexto útil tras el arranque. Espera a que el
+     * modelo termine de cargar (model_loaded=true en /api/status; /health ok
+     * no lo garantiza) y, si el planner degradó el contexto por debajo de lo
+     * usable, lo sube con /reload. El server serializa el reload (dueño único
+     * del modelo), así que una generación en curso solo lo retrasa.
+     */
+    private suspend fun adjustContextIfNeeded(pid: Int, port: Int, gen: Int) {
+        for (attempt in 1..CTX_STATUS_MAX_ATTEMPTS) {
+            synchronized(lock) { if (generation != gen) return }
+            if (!isPidAlive(pid)) return
+            val status = withContext(Dispatchers.IO) { getEngineStatus(port, HEALTH_TIMEOUT_MS) }
+            if (status != null && status.contains("\"model_loaded\":true")) {
+                val ctx = extractJsonInt(status, "context_size") ?: return
+                if (ctx >= CTX_MIN_USABLE) {
+                    Log.d(TAG, "contexto del motor OK: ctx=$ctx")
+                    return
+                }
+                Log.i(TAG, "contexto degradado ctx=$ctx < $CTX_MIN_USABLE — POST /reload context_tokens=$CTX_RELOAD_TARGET")
+                val ok = withContext(Dispatchers.IO) {
+                    reloadContext(port, CTX_RELOAD_TARGET, CTX_RELOAD_TIMEOUT_MS)
+                }
+                Log.i(TAG, if (ok) "reload ctx=$CTX_RELOAD_TARGET aplicado" else "reload falló; el motor seguirá con ctx=$ctx")
+                return
+            }
+            delay(CTX_STATUS_POLL_MS)
+        }
+        Log.w(TAG, "contexto: modelo no terminó de cargar en ${CTX_STATUS_MAX_ATTEMPTS * CTX_STATUS_POLL_MS}ms; sin reload")
+    }
+
+    /** Extrae un entero de un body JSON simple (campo "key":N). */
+    private fun extractJsonInt(body: String?, key: String): Int? {
+        if (body == null) return null
+        val idx = body.indexOf("\"$key\"")
+        if (idx < 0) return null
+        val colon = body.indexOf(':', idx)
+        if (colon < 0) return null
+        var end = colon + 1
+        while (end < body.length && (body[end].isDigit() || body[end] == '-')) end++
+        return body.substring(colon + 1, end).toIntOrNull()
+    }
+
+    /** GET /health con timeout. Devuelve el body si 200 + status ok, null si no. */
+    fun probeHealth(port: Int, timeoutMs: Int): String? {        var conn: HttpURLConnection? = null
         return try {
             conn = URL("http://127.0.0.1:$port/health").openConnection() as HttpURLConnection
             conn.connectTimeout = timeoutMs
@@ -607,6 +700,14 @@ class EngineSupervisor(
         private const val HEALTH_MAX_DELAY_MS = 1_000L
         private const val HEALTH_TIMEOUT_MS = 2_000
         private const val TERM_GRACE_MS = 3_000L
+        /** WA-CTX-01 — contexto mínimo usable para el prompt WA; por debajo
+         *  se fuerza /reload. Verificado en Oppo: ctx=256 (survival_fit) deja
+         *  toda generación vacía; 4096 resuelve con prompt de ~1900 tokens. */
+        private const val CTX_MIN_USABLE = 2048
+        private const val CTX_RELOAD_TARGET = 4096
+        private const val CTX_STATUS_MAX_ATTEMPTS = 36
+        private const val CTX_STATUS_POLL_MS = 5_000L
+        private const val CTX_RELOAD_TIMEOUT_MS = 300_000
         private const val KILL_POLL_MS = 100L
         private const val SIGTERM = 15
         private const val SIGKILL = 9
