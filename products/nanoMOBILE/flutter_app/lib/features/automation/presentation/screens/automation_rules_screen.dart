@@ -88,8 +88,11 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   /// Crea una regla desde texto libre. La card de creación y la barra
   /// universal envían aquí su query — misma validación, mismo catálogo,
   /// un solo camino (NAV-BAR-FIX-04).
+  /// FIX-VERT-01 — el texto puede llegar con saltos de línea por palabra
+  /// (barra multiline Enter, pegado, dictado): se colapsan a espacios para
+  /// que la regla guarde un mensaje de una línea.
   Future<void> _createRuleFromText(String raw) async {
-    final text = raw.trim();
+    final text = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (text.isEmpty) return;
     final parsed = const TriggerParser().parse(text);
     if (parsed == null) {

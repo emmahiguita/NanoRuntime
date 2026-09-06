@@ -112,7 +112,11 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
       return;
     }
 
-    final message = _action == RuleAction.notify ? '' : _message.text.trim();
+    // FIX-VERT-01 — mismo colapso que la creación: el mensaje editado se
+    // guarda de una línea (saltos por pegado/dictado fuera).
+    final message = _action == RuleAction.notify
+        ? ''
+        : _message.text.replaceAll(RegExp(r'\s+'), ' ').trim();
     String? mediaPath;
     if (_action == RuleAction.sendMedia) {
       if (_newMediaPath == null &&
