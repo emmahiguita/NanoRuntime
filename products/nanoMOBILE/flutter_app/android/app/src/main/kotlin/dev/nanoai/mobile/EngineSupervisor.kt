@@ -54,7 +54,10 @@ class EngineSupervisor(
     private data class EngineHandle(val pid: Int, val port: Int)
 
     private val lock = Any()
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // WA-REG-01 — var: re-arranque permitido tras shutdown. El runtime es
+    // compartido (UI + automation headless); un shutdown por vaciado temporal
+    // de holders NO debe matar el motor para siempre en este proceso.
+    private var ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile private var handle: EngineHandle? = null
     @Volatile private var generation = 0
@@ -216,9 +219,14 @@ class EngineSupervisor(
      */
     private fun startInternal(port: Int, modelPath: String?, onState: (EngineState) -> Unit, fallbackMode: Boolean) {
         synchronized(lock) {
-            if (shuttingDown) {
-                onState(EngineState.Failed("supervisor en shutdown"))
-                return
+            // WA-REG-01 — re-arranque permitido tras shutdown(): el patrón de
+            // NativeRuntimeSupervisor.start (flag + scope recreado). El
+            // shutdown es síncrono (SIGKILL + cancel) y generation++ invalida
+            // cualquier start en vuelo, así que un start posterior es un
+            // arranque fresco legítimo del runtime compartido.
+            shuttingDown = false
+            if (ioScope.isActive != true) {
+                ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
             }
             val h = handle
             if (h != null && isPidAlive(h.pid)) {
