@@ -13,6 +13,7 @@ import '../domain/persona_example.dart';
 import '../domain/persona_profile.dart';
 import 'persona_repository.dart';
 import 'persona_retriever.dart';
+import 'persona_validator.dart';
 
 /// Única instancia del contexto personal: la UI de Ajustes refresca este
 /// cache tras editar y el writer lo lee EN VIVO por borrador. Hidratación
@@ -57,30 +58,40 @@ final class PersonaContext {
   /// [sender] es el remitente FACTUAL de la notificación (jamás el LLM) y
   /// matchea la relación por clave normalizada (nombre en minúsculas).
   Future<String> personaBlockFor(String messageText, String sender) async {
+    final relationship = _relationships[sender.trim().toLowerCase()];
+    final examples = await _retriever.retrieve(messageText);
+    // PERSONA-VALIDATE-09 — todo lo que entra al prompt pasa por el
+    // validador determinista: etiquetas neutralizadas, tamaños acotados,
+    // ejemplos dedupe. Sin LLM: chequeos mecánicos.
+    final valid = const PersonaValidator().validate(
+      ownerName: _ownerName,
+      ownerNotes: _ownerNotes,
+      relationshipName: relationship?.displayName,
+      relationshipNotes: relationship?.facts['notas'],
+      examples: examples,
+    );
     final parts = <String>[];
-    if (_ownerName.isNotEmpty) {
+    if (valid.ownerName.isNotEmpty) {
       parts.add(
-        'El dueño del negocio es $_ownerName. Preséntate como su asistente '
-        'solo si el cliente lo pregunta.',
+        'El dueño del negocio es ${valid.ownerName}. Preséntate como su '
+        'asistente solo si el cliente lo pregunta.',
       );
     }
-    if (_ownerNotes.isNotEmpty) {
-      parts.add('Datos del dueño: $_ownerNotes');
+    if (valid.ownerNotes.isNotEmpty) {
+      parts.add('Datos del dueño: ${valid.ownerNotes}');
     }
-    final relationship = _relationships[sender.trim().toLowerCase()];
-    if (relationship != null) {
-      final notes = relationship.facts['notas'];
-      if (notes != null && notes.isNotEmpty) {
-        parts.add(
-          'Sobre el contacto ${relationship.displayName}: $notes',
-        );
-      }
+    if (valid.relationshipNotes != null &&
+        valid.relationshipNotes!.isNotEmpty) {
+      parts.add(
+        'Sobre el contacto '
+        '${valid.relationshipName ?? 'el remitente'}: '
+        '${valid.relationshipNotes}',
+      );
     }
-    final examples = await _retriever.retrieve(messageText);
-    if (examples.isNotEmpty) {
+    if (valid.examples.isNotEmpty) {
       parts.add(
         'Ejemplos de cómo responde el dueño (guía de forma):\n'
-        '${examples.map(_exampleLine).join('\n')}',
+        '${valid.examples.map(_exampleLine).join('\n')}',
       );
     }
     if (parts.isEmpty) return '';
