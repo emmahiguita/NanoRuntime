@@ -16,26 +16,49 @@ abstract final class ReplyIntentVocabulary {
   /// importa para `matches` ("responde a" gana sobre "responde").
   ///
   /// WA-REG-01 — formas naturales ancladas a contacto (escríbele/dile/
-  /// mándale/envíale...). Sin verbos sueltos ("escribe", "envía"): un goal
-  /// como "escribe un resumen" no debe clasificar como reply. El fast-path
-  /// del coordinator además exige una notificación contestable, así que
-  /// estos términos solo activan el camino determinista con destinatario
-  /// real.
+  /// mándale/envíale...), con y sin tilde (los usuarios no tildean) y
+  /// variantes con pronombre "le" (respondele/avísale...). Sin verbos
+  /// sueltos ("escribe", "envía"): un goal como "escribe un resumen" no
+  /// debe clasificar como reply. El fast-path del coordinator además exige
+  /// una notificación contestable, así que estos términos solo activan el
+  /// camino determinista con destinatario real.
   static const List<String> terms = [
     'responde a',
     'contesta a',
     'escríbele a',
     'escríbele',
+    'escribele a',
+    'escribele',
     'escribe a',
     'dile a',
+    'respondele a',
+    'respondele',
+    'contestale a',
+    'contestale',
     'mándale a',
     'mándale',
-    'manda un whatsapp',
+    'mandale a',
+    'mandale',
     'envíale a',
     'envíale',
+    'enviale a',
+    'enviale',
     'envía a',
+    'avísale a',
+    'avísale',
+    'avisale a',
+    'avisale',
+    'escribirle',
+    'mandale un whatsapp',
+    'manda un whatsapp',
+    'mandale un mensaje',
+    'enviale un mensaje',
+    'enviale un whatsapp',
+    'mandar un whatsapp',
+    'enviar un whatsapp',
     'mensaje a',
     'whatsapp a',
+    'un mensaje para',
     'responde',
     'responder',
     'contesta',
