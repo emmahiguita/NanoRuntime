@@ -209,3 +209,22 @@ relectura del slot al cambiar pestaña, vocabulario reply ampliado.
   Maria que llego») con notificación contestable → reply directo determinista
   sin LLM. «escribe un resumen» NO debe intentar responder un mensaje (sin
   falsos positivos de reply).
+
+## WA-CTX-01 — contexto del motor LLM post-arranque + prompt compacto
+
+Contexto: el planner del motor degradaba a `ctx=256` (survival_fit con RAM
+mal medida) y el prompt WA de 5801 chars excedía ese contexto → «El motor
+respondió vacío tras 3 intentos». Fix: el supervisor hace `/reload` con
+`context_tokens=4096` si el motor arranca con contexto < 2048, y el prompt
+se compactó (ejemplos 3→1, reglas 9→6).
+
+- **Arranque frío del motor**: matar el proceso nanortime (o debugKill desde
+  Dev) → siguiente orden LLM re-arranca el motor → logcat Kotlin debe
+  mostrar `contexto degradado ctx=256 < 2048 — POST /reload` y luego
+  `reload ctx=4096 aplicado`; `/api/status` queda en 4096 sin intervención.
+- **Reply real**: mensaje de WhatsApp desde otro teléfono → responde en
+  menos de ~3 min (prefill compacto), SIN «respondió vacío».
+- **Calidad**: un "hola" no debe copiar el ejemplo del prompt («Déjame
+  confirmar el stock…» solo si el cliente pregunta por stock).
+- **Sin eco de ejemplo**: mensaje genérico ("¿cómo estás?") no menciona
+  stock/negro/negocio si el cliente no lo trajo.
