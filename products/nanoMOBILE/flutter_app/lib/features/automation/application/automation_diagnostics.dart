@@ -8,6 +8,7 @@
 /// No tocan el pipeline de notificaciones ni WhatsApp.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:nanoai/core/services/nano_runtime_api.dart';
@@ -35,6 +36,9 @@ class AutomationDiagnostics {
   Future<AutomationResult> run(String goal) async {
     final command = goal.trim().toLowerCase();
     final executionId = 'diag-${DateTime.now().millisecondsSinceEpoch}';
+    // Traza en logcat: el diag es herramienta de diagnóstico — su resultado
+    // debe ser visible sin abrir la pantalla (evidencia real del fallo).
+    debugPrint('[diag] comando="$command" id=$executionId');
     try {
       if (command == '$diagPrefix ping') return await _ping(executionId);
       if (command == '$diagPrefix llm') return await _llm(executionId);
@@ -79,11 +83,13 @@ class AutomationDiagnostics {
       return _fail(executionId, sw, 'native bridge: FAIL ($e)');
     }
     checks.add('latency: ${sw.elapsedMilliseconds} ms');
-    return AutomationResult(
+    final result = AutomationResult(
       executionId: executionId,
       status: AutomationResultStatus.completed,
       reason: 'DIAG PASS — ${checks.join(' | ')}',
     );
+    debugPrint('[diag] $executionId → ${result.reason}');
+    return result;
   }
 
   /// Ruta LLM completa: ensureReady (arranca el motor si cayó) + generación
@@ -113,22 +119,26 @@ class AutomationDiagnostics {
           'motor respondió vacío (posible estado zombi — revive con /reload)',
         );
       }
-      return AutomationResult(
+      final result = AutomationResult(
         executionId: executionId,
         status: AutomationResultStatus.completed,
         reason: 'DIAG LLM PASS — respuesta="$text" '
             't=${sw.elapsedMilliseconds} ms',
       );
+      debugPrint('[diag] $executionId → ${result.reason}');
+      return result;
     } catch (e) {
       return _fail(executionId, sw, 'generación falló: $e');
     }
   }
 
   AutomationResult _fail(String executionId, Stopwatch sw, String reason) {
-    return AutomationResult(
+    final result = AutomationResult(
       executionId: executionId,
       status: AutomationResultStatus.failed,
       reason: 'DIAG FAIL ($reason) t=${sw.elapsedMilliseconds} ms',
     );
+    debugPrint('[diag] $executionId → ${result.reason}');
+    return result;
   }
 }
