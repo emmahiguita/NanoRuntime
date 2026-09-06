@@ -2,8 +2,10 @@
 /// FACTS → DECISION → SEND; la decisión es código, no LLM).
 ///
 /// Señales verificables (ninguna sale del modelo):
-/// - `requiresAction`: el modelo pide una acción fuera de su alcance
-///   (coordinar, permiso, acción física) → humano.
+/// - `requiresAction` CON `missingFacts`: el modelo pide una acción fuera
+///   de su alcance y justifica el dato que falta → humano. Sin
+///   missingFacts la señal es incoherente (el 1.5B la marca hasta en un
+///   saludo) y se degrada a riesgo medio — PERSONA-BUGFIX-02.
 /// - `missingFacts` + reply ASERTIVO: el modelo no sabe un dato y aun así
 ///   afirma → riesgo de alucinación → retener.
 /// - `missingFacts` + reply PREGUNTA: pide el dato que falta al cliente →
@@ -63,8 +65,15 @@ final class ConversationDecisionEngine {
     var confidence = 0.85;
 
     // requiresAction: el modelo detectó que hay que hacer algo que el bot
-    // no debe ejecutar solo.
-    if (understanding.requiresAction) {
+    // no debe ejecutar solo. PERSONA-BUGFIX-02 — la señal SOLO es
+    // verificable si missingFacts la justifica: el 1.5B marca
+    // requiresAction=true hasta en un saludo (missingFacts vacío), y
+    // retener por una señal incoherente dejó el bot mudo en dispositivo
+    // (evidencia: "Hola" → needsHuman → nada se envía). Sin dato faltante
+    // la afirmación "necesito un dato externo" no se sostiene: se degrada
+    // a riesgo medio y el reply sigue su evaluación normal.
+    if (understanding.requiresAction &&
+        understanding.missingFacts.isNotEmpty) {
       reasons.add('requiresAction: el modelo pide acción fuera de su alcance');
       return ConversationDecision(
         disposition: ConversationDisposition.needsHuman,
@@ -72,6 +81,12 @@ final class ConversationDecisionEngine {
         confidence: confidence - 0.5,
         reasons: reasons,
       );
+    }
+    if (understanding.requiresAction) {
+      reasons.add(
+        'requiresAction sin missingFacts: señal incoherente, se degrada',
+      );
+      confidence -= 0.1;
     }
 
     if (understanding.missingFacts.isNotEmpty) {
