@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
@@ -514,6 +515,19 @@ class _RuleCreatorCard extends StatelessWidget {
             maxLines: 3,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => onCreate(),
+            // FIX-VERT-01 — colapsa saltos de línea EN VIVO (pegar, dictado,
+            // Enter): el campo ya no pinta texto vertical mientras se
+            // escribe. La normalización al guardar sigue como segunda capa.
+            inputFormatters: [
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                if (!newValue.text.contains('\n')) return newValue;
+                final collapsed = newValue.text.replaceAll('\n', ' ');
+                return newValue.copyWith(
+                  text: collapsed,
+                  selection: TextSelection.collapsed(offset: collapsed.length),
+                );
+              }),
+            ],
             style: TextStyle(
               color: visual.text,
               fontSize: 14,
