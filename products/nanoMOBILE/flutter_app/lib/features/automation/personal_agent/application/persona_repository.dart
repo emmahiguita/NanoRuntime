@@ -147,4 +147,27 @@ final class PersonaRepository {
       return false;
     }
   }
+
+  // ── PERSONA-RETRIEVAL-07 — búsqueda FTS4 ──────────────────────────────
+
+  /// Ejemplos parecidos al contexto (FTS4 MATCH; el SQL se compone en
+  /// Kotlin). Devuelve vacío si la query no tiene términos buscables.
+  Future<List<PersonaExample>> searchExamples(
+    String query, {
+    int limit = 4,
+  }) async {
+    try {
+      final rows = await _channel.invokeListMethod<dynamic>('exampleSearch', {
+        'query': query,
+        'limit': limit,
+      });
+      return [
+        for (final row in rows ?? const [])
+          if (row is Map) PersonaExample.fromRow(row.cast<dynamic, dynamic>()),
+      ];
+    } on Object catch (error) {
+      debugPrint('[persona] searchExamples falló: $error');
+      return const [];
+    }
+  }
 }

@@ -109,6 +109,13 @@ class AutomationStoreChannelHandler(
                 result.success(db.deleteExample(id))
             }
 
+            // PERSONA-RETRIEVAL-07 — búsqueda FTS4 de ejemplos de estilo.
+            "exampleSearch" -> {
+                val query = call.argument<String>("query").orEmpty()
+                val limit = call.argument<Number>("limit")?.toInt() ?: 4
+                result.success(db.searchExamples(query, limit))
+            }
+
             else -> result.notImplemented()
         }
     }

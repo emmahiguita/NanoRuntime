@@ -249,6 +249,41 @@ class AutomationStoreDb(context: Context) {
         return deleted > 0
     }
 
+    /** PERSONA-RETRIEVAL-07 — busca ejemplos por similitud textual con FTS4.
+     *  El MATCH se compone aquí (términos entrecomillados unidos por OR):
+     *  Dart jamás manda SQL y los términos raros no rompen la sintaxis FTS.
+     *  Orden: relevancia FTS (solo con order=FTS no disponible en fts4 sin
+     *  rank; devolvemos por id DESC como proxy de recencia). */
+    @Synchronized
+    fun searchExamples(query: String, limit: Int): List<Map<String, String>> {
+        val terms = query
+            .split(Regex("[^\\p{L}\\p{N}]+"))
+            .filter { it.isNotBlank() }
+            .take(8)
+        if (terms.isEmpty()) return emptyList()
+        val match = terms.joinToString(" OR ") { "\"${it.replace("\"", "\"\"")}\"" }
+        val cap = limit.coerceIn(1, 10)
+        val out = mutableListOf<Map<String, String>>()
+        helper.readableDatabase.rawQuery(
+            "SELECT e.id, e.persona_key, e.body, e.tone_json, e.source " +
+                "FROM persona_examples_fts f " +
+                "JOIN persona_examples e ON e.id = f.docid " +
+                "WHERE f.body MATCH ? ORDER BY e.id DESC LIMIT ?",
+            arrayOf(match, cap.toString()),
+        ).use { c ->
+            while (c.moveToNext()) {
+                out += mapOf(
+                    "id" to c.getLong(0).toString(),
+                    "personaKey" to c.getString(1),
+                    "body" to c.getString(2),
+                    "toneJson" to c.getString(3),
+                    "source" to c.getString(4),
+                )
+            }
+        }
+        return out
+    }
+
     private class StoreDb(context: Context) :
         SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         override fun onCreate(db: SQLiteDatabase) {
