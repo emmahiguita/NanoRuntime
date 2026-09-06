@@ -15,8 +15,12 @@
 ///   el caller no reintenta a ciegas.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_result.dart';
+import '../../personal_agent/application/conversation_decision_engine.dart';
+import '../../personal_agent/domain/conversation_decision.dart';
 import '../governance/rule_execution_authority.dart';
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../notifications/notification_draft_writer.dart'
@@ -93,11 +97,20 @@ class RuleDispatcher {
     shareMedia,
     TurnSupersedeGuard? supersedeGuard,
     Duration Function()? replyDelay,
+    // PERSONA-DECISION-02 — decisión determinista antes de despachar un
+    // draft dinámico. null = sin motor de decisión (rutas legacy/tests):
+    // el reply conserva el comportamiento histórico.
+    ConversationDecisionEngine? decisionEngine,
+    // Contexto de la decisión por notificación (PERSONA-HANDOFF-03 lo
+    // alimentará con el ownership durable). null = contexto por defecto.
+    ConversationDecisionContext Function(NotificationObject)? decisionContext,
   }) : _draftSource = draftSource,
        _notifyLocal = notifyLocal,
        _shareMedia = shareMedia,
        _supersedeGuard = supersedeGuard,
-       _replyDelay = replyDelay;
+       _replyDelay = replyDelay,
+       _decisionEngine = decisionEngine,
+       _decisionContext = decisionContext;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -131,6 +144,16 @@ class RuleDispatcher {
   /// llega un mensaje nuevo durante la espera, el turno queda superado y el
   /// reply jamás se envía.
   final Duration Function()? _replyDelay;
+
+  /// PERSONA-DECISION-02 — motor de decisión determinista (señales
+  /// verificables, jamás confianza del LLM). null = rutas legacy sin
+  /// decisión (paridad histórica).
+  final ConversationDecisionEngine? _decisionEngine;
+
+  /// PERSONA-HANDOFF-03 — contexto de decisión por notificación (ownership
+  /// durable). null = contexto por defecto.
+  final ConversationDecisionContext Function(NotificationObject)?
+  _decisionContext;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -266,9 +289,35 @@ class RuleDispatcher {
                   'turno superado: llegó un mensaje nuevo durante el borrador',
             );
           }
+          // PERSONA-DECISION-02 — FACTS → DECISION → SEND: antes de
+          // construir el goal, el engine determinista decide con las señales
+          // verificables del entendimiento. No-autoSend = nada sale (la
+          // aprobación humana llega en PERSONA-HANDOFF/TOOLS).
+          final decisionEngine = _decisionEngine;
+          if (decisionEngine != null) {
+            final decision = decisionEngine.decide(
+              understanding: draft.understanding,
+              context:
+                  _decisionContext?.call(notif) ??
+                  const ConversationDecisionContext(),
+            );
+            if (!decision.autoSend) {
+              debugPrint(
+                '[decision] ${decision.disposition.name} '
+                'conf=${decision.confidence.toStringAsFixed(2)} | '
+                '${decision.reasons.join('; ')}',
+              );
+              return RuleDispatchResult(
+                ruleId: rule.id,
+                outcome: RuleOutcome.failed,
+                reason:
+                    'decisión automática ${decision.disposition.name}: '
+                    '${decision.reasons.join('; ')}',
+              );
+            }
+          }
           // PERSONA-CORE-01 — el entendimiento acompaña al texto: el
-          // DecisionEngine (PERSONA-DECISION-02) lo consumirá aquí mismo
-          // antes de construir el goal.
+          // DecisionEngine lo consume justo antes de construir el goal.
           text = draft.reply.trim();
         } else if (text.trim().isEmpty) {
           return RuleDispatchResult(

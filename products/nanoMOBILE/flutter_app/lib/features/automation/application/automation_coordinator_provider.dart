@@ -25,6 +25,7 @@ import 'package:nanoai/features/automation/engine/perception/mux/perception_cont
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
+import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
@@ -443,6 +444,11 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
       // contextual que el candidato de notificación (un solo motor).
       draftSource: ref.watch(notificationDraftSourceProvider),
+      // PERSONA-DECISION-02 — decisión determinista antes de despachar el
+      // draft dinámico (FACTS → DECISION → SEND). Contexto por defecto por
+      // ahora: PERSONA-HANDOFF-03 reemplaza la closure con el ownership
+      // durable por conversación.
+      decisionEngine: const ConversationDecisionEngine(),
       // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
       // nano_rule_notices). Fallo honesto si el sistema lo rechaza.
       notifyLocal: (title, body) =>
