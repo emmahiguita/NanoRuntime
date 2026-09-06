@@ -117,17 +117,24 @@ class AutomationStoreDb(context: Context) {
                 """.trimIndent(),
             )
             db.execSQL(EVENTS_DDL)
+            // PERSONA-STORAGE-04 — instalación limpia: esquema completo v3.
+            db.execSQL(PERSONA_DDL)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // v1 -> v2: bitácora de eventos del pipeline (append-only).
             if (oldVersion < 2) db.execSQL(EVENTS_DDL)
+            // PERSONA-STORAGE-04 — v3: esquema del agente personal (perfiles,
+            // ejemplos con FTS4 y episodios conversacionales). Los consumidores
+            // Dart llegan en PERSONA-PROFILE-05..RETRIEVAL-07; la migración se
+            // aplica UNA vez aquí para no encadenar versiones por tabla.
+            if (oldVersion < 3) db.execSQL(PERSONA_DDL)
         }
     }
 
     companion object {
         private const val DB_NAME = "nano_automation_store.db"
-        private const val DB_VERSION = 2
+        private const val DB_VERSION = 3
         private const val TABLE = "store_sections"
         private const val COL_KEY = "section_key"
         private const val COL_DATA = "data"
@@ -145,10 +152,65 @@ class AutomationStoreDb(context: Context) {
                 "kind TEXT NOT NULL, " +
                 "detail TEXT NOT NULL DEFAULT '')"
 
+        /** PERSONA-STORAGE-04 — esquema v3 del agente personal. Los perfiles
+         *  (persona/relación), los ejemplos de estilo con índice FTS4 y los
+         *  episodios conversacionales necesitan SQL real (búsqueda textual y
+         *  consultas por ventana de tiempo) — por eso son tablas y no
+         *  secciones JSON. El ownership en cambio SÍ viaja por sección
+         *  ("ownership") para usar el mismo patrón de reemplazo atómico que
+         *  dedupe/rate/memory. Los consumidores Dart llegan en
+         *  PERSONA-PROFILE-05..RETRIEVAL-07. */
+        private const val PERSONA_DDL =
+            "CREATE TABLE IF NOT EXISTS persona_profiles (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "persona_key TEXT NOT NULL, " +
+                "display_name TEXT NOT NULL DEFAULT '', " +
+                "facts_json TEXT NOT NULL DEFAULT '{}', " +
+                "created_at_ms INTEGER NOT NULL);" +
+            "CREATE TABLE IF NOT EXISTS relationship_profiles (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "relationship_key TEXT NOT NULL UNIQUE, " +
+                "display_name TEXT NOT NULL DEFAULT '', " +
+                "facts_json TEXT NOT NULL DEFAULT '{}', " +
+                "updated_at_ms INTEGER NOT NULL);" +
+            "CREATE TABLE IF NOT EXISTS persona_examples (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "persona_key TEXT NOT NULL, " +
+                "body TEXT NOT NULL, " +
+                "tone_json TEXT NOT NULL DEFAULT '{}', " +
+                "source TEXT NOT NULL DEFAULT '', " +
+                "created_at_ms INTEGER NOT NULL);" +
+            "CREATE VIRTUAL TABLE IF NOT EXISTS persona_examples_fts " +
+                "USING fts4(body, content='persona_examples');" +
+            "CREATE TRIGGER IF NOT EXISTS persona_examples_ai " +
+                "AFTER INSERT ON persona_examples BEGIN " +
+                "INSERT INTO persona_examples_fts(docid, body) " +
+                "VALUES (new.id, new.body); END;" +
+            "CREATE TRIGGER IF NOT EXISTS persona_examples_ad " +
+                "AFTER DELETE ON persona_examples BEGIN " +
+                "INSERT INTO persona_examples_fts(persona_examples_fts, docid, body) " +
+                "VALUES ('delete', old.id, old.body); END;" +
+            "CREATE TRIGGER IF NOT EXISTS persona_examples_au " +
+                "AFTER UPDATE ON persona_examples BEGIN " +
+                "INSERT INTO persona_examples_fts(persona_examples_fts, docid, body) " +
+                "VALUES ('delete', old.id, old.body); " +
+                "INSERT INTO persona_examples_fts(docid, body) " +
+                "VALUES (new.id, new.body); END;" +
+            "CREATE TABLE IF NOT EXISTS conversation_episodes (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "conv_id TEXT NOT NULL, " +
+                "sender TEXT NOT NULL DEFAULT '', " +
+                "body TEXT NOT NULL, " +
+                "at_ms INTEGER NOT NULL, " +
+                "intent TEXT NOT NULL DEFAULT '', " +
+                "summary TEXT NOT NULL DEFAULT '')"
+
         /** Secciones válidas — espejo de las secciones Dart (jamás crecer
          *  desde un canal sin revisión: whitelist explícita). */
         private val VALID_SECTIONS = setOf(
             "dedupe", "rate", "memory", "business", "tone", "convstate",
+            // PERSONA-HANDOFF-03 — ownership por conversación (bot/humano).
+            "ownership",
         )
 
         /** Kinds de bitácora aceptados (espejo Dart, whitelist explícita). */

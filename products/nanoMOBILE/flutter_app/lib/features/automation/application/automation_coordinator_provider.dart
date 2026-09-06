@@ -421,6 +421,8 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     ref.read(businessFactsNotifierProvider.notifier).ready,
     ref.read(toneProfileNotifierProvider.notifier).ready,
     ref.read(conversationStateNotifierProvider.notifier).ready,
+    // PERSONA-STORAGE-04 — ownership hidratado antes de decidir.
+    ref.read(conversationOwnershipStoreProvider).load(),
   ]);
 });
 
@@ -481,12 +483,12 @@ final turnSupersedeGuardProvider = Provider<TurnSupersedeGuard>((ref) {
   return TurnSupersedeGuard();
 });
 
-/// PERSONA-HANDOFF-03 — ownership por conversación. En memoria del proceso
-/// hasta que PERSONA-STORAGE-04 persista la sección `conversation_ownership`
-/// en SQLite (el contrato no cambia, solo el respaldo).
+/// PERSONA-HANDOFF-03 + PERSONA-STORAGE-04 — ownership por conversación
+/// durable: cache en memoria + sección "ownership" de SQLite (hidratada por
+/// la barrera global antes del primer evento del pipeline).
 final conversationOwnershipStoreProvider =
-    Provider<ConversationOwnershipStore>((ref) {
-  return InMemoryConversationOwnershipStore();
+    Provider<SqliteConversationOwnershipStore>((ref) {
+  return SqliteConversationOwnershipStore();
 });
 
 /// WA-TURN-01 — puerta de ráfagas por conversación (una por engine): agrupa
