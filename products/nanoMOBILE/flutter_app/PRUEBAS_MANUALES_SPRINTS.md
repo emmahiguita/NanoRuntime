@@ -274,3 +274,44 @@ pantalla completa y cada pantalla reserva su propio espacio de scroll.
   diseño; cancelar desde otra vía queda como trabajo pendiente si se usa).
 - **Navegación**: las 6 pestañas siguen navegando igual (el acceso al chat
   ahora es solo la pestaña Chat, ya no el búho).
+
+## PERSONA — Personal Agent Runtime (12 sprints)
+
+Contexto: Nano deja de ser «borrador inteligente» y pasa a agente personal:
+decisión determinista (FACTS → DECISION → PERSONA → SEND), ownership
+bot/humano durable por conversación, perfil del dueño + relaciones +
+ejemplos de estilo con FTS4. Una sola llamada LLM por turno; el modelo
+propone texto, el engine decide. Regla de oro: cero respuestas automáticas
+mientras el humano atiende la conversación.
+
+- **Paridad (sin datos cargados)**: mensaje normal de WhatsApp con regla
+  reply → responde como antes (sin bloque persona: cadena vacía, prompt
+  idéntico a WA-CTX-01). Ningún cambio visible.
+- **Perfil del dueño**: Ajustes → Agente personal: nombre + notas → guardar.
+  Mensaje "¿quién atiende?" → el agente presenta al dueño por su nombre
+  (no inventa datos fuera de las notas).
+- **Relación por contacto**: crear contacto «Juan» con nota «cliente
+  frecuente, trato de confianza» → mensaje de Juan → respuesta acorde
+  (traza logcat `[draft]` sin errores; el bloque entra al prompt).
+- **Ejemplos de estilo**: añadir ejemplo «¡Hola Juan! Sí, el negro está
+  disponible. ¿Te lo aparto para hoy?» → mensaje parecido de Juan → la
+  respuesta imita la FORMA del ejemplo sin copiarlo textual.
+- **Recorte honesto**: notas del dueño con 2000+ chars → logcat
+  `[persona] validator rechazó: …` (bloque recortado, sin romper el
+  prompt) y la respuesta sigue saliendo.
+- **Ownership — tomar control**: pantalla Mensajes → seleccionar
+  conversación contestable → «La atiendo yo» → mensaje nuevo de ESA
+  conversación → Nano NO responde (logcat `[decision] … holdForApproval`);
+  OTRA conversación sin control sigue respondiendo.
+- **Ownership — devolver**: «Devuélvelo a Nano» → mensaje nuevo → Nano
+  responde normal.
+- **Ownership — responder manual**: pantalla Mensajes → responder y enviar
+  desde Android → la conversación queda marcada como humana sola (patrón
+  Chatwoot) y Nano no la pisa hasta devolvérsela.
+- **Autonomía por identidad**: notificación SIN locusId/shortcutId (app
+  sin evidencia estable) → draft retenido con traza `[decision] identidad
+  débil`; con evidencia estable (WhatsApp) → envío normal.
+- **Persistencia**: cerrar y reabrir Nano → perfil/relaciones/ejemplos
+  siguen (SQLite v3); ownership sobrevive a kill.
+- **Sin regresión WA**: órdenes escritas siguen 100/100; ráfagas sin
+  duplicados; @diag ping/llm intactos.
