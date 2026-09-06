@@ -2,7 +2,9 @@ package dev.nanoai.mobile.automation
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
 
 /**
  * WA-PROD-02 — AutomationStoreDb: estado durable de la automatización.
@@ -297,7 +299,18 @@ class AutomationStoreDb(context: Context) {
             )
             db.execSQL(EVENTS_DDL)
             // PERSONA-STORAGE-04 — instalación limpia: esquema completo v3.
-            db.execSQL(PERSONA_DDL)
+            // PERSONA-BUGFIX-01 — sentencias INDIVIDUALES: un único execSQL
+            // multi-sentencia dejó la FTS4 sin crear en dispositivo (el
+            // SQLite de ColorOS detiene la ejecución ante la primera
+            // sentencia que no puede compilar y el resto nunca corre).
+            for (ddl in PERSONA_DDL_STATEMENTS) {
+                try {
+                    db.execSQL(ddl)
+                } catch (e: SQLiteException) {
+                    Log.w(TAG, "DDL falló (continuando): $ddl", e)
+                }
+            }
+            ensureFts(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -307,13 +320,48 @@ class AutomationStoreDb(context: Context) {
             // ejemplos con FTS4 y episodios conversacionales). Los consumidores
             // Dart llegan en PERSONA-PROFILE-05..RETRIEVAL-07; la migración se
             // aplica UNA vez aquí para no encadenar versiones por tabla.
-            if (oldVersion < 3) db.execSQL(PERSONA_DDL)
+            if (oldVersion < 3) {
+                for (ddl in PERSONA_DDL_STATEMENTS) {
+                    try {
+                        db.execSQL(ddl)
+                    } catch (e: SQLiteException) {
+                        Log.w(TAG, "DDL falló (continuando): $ddl", e)
+                    }
+                }
+            }
+            // PERSONA-BUGFIX-01 — v4: repara dispositivos que migraron con la
+            // v3 defectuosa (FTS4 o triggers ausentes). Idempotente: crear lo
+            // que falte y repoblar el índice desde persona_examples.
+            if (oldVersion < 4) ensureFts(db)
+        }
+
+        /** PERSONA-BUGFIX-01 — FTS4 presente y poblada, pase lo que pase con
+         *  la migración. Idempotente: si la tabla virtual o sus triggers no
+         *  existen, se crean; si quedó vacía tras un DDL parcial, se repuebla
+         *  desde persona_examples. Sin FTS4 la búsqueda de estilo muere en
+         *  silencio — el draft sigue, pero RETRIEVAL-07 queda inerte. */
+        private fun ensureFts(db: SQLiteDatabase) {
+            try {
+                db.execSQL(FTS_DDL)
+                db.execSQL(FTS_TRIGGER_AI)
+                db.execSQL(FTS_TRIGGER_AD)
+                db.execSQL(FTS_TRIGGER_AU)
+                db.execSQL(
+                    "INSERT OR IGNORE INTO persona_examples_fts(docid, body) " +
+                        "SELECT id, body FROM persona_examples",
+                )
+            } catch (e: SQLiteException) {
+                Log.w(TAG, "FTS4 no disponible o falló la reparación: $e")
+            }
         }
     }
 
     companion object {
+        private const val TAG = "AutomationStoreDb"
         private const val DB_NAME = "nano_automation_store.db"
-        private const val DB_VERSION = 3
+        // PERSONA-BUGFIX-01 — v4: repara la FTS4 que la v3 (multi-sentencia)
+        // dejó sin crear en dispositivos ya migrados.
+        private const val DB_VERSION = 4
         private const val TABLE = "store_sections"
         private const val COL_KEY = "section_key"
         private const val COL_DATA = "data"
@@ -346,42 +394,26 @@ class AutomationStoreDb(context: Context) {
          *  ("ownership") para usar el mismo patrón de reemplazo atómico que
          *  dedupe/rate/memory. Los consumidores Dart llegan en
          *  PERSONA-PROFILE-05..RETRIEVAL-07. */
-        private const val PERSONA_DDL =
+        private val PERSONA_DDL_STATEMENTS = listOf(
             "CREATE TABLE IF NOT EXISTS persona_profiles (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "persona_key TEXT NOT NULL UNIQUE, " +
                 "display_name TEXT NOT NULL DEFAULT '', " +
                 "facts_json TEXT NOT NULL DEFAULT '{}', " +
-                "created_at_ms INTEGER NOT NULL);" +
+                "created_at_ms INTEGER NOT NULL)",
             "CREATE TABLE IF NOT EXISTS relationship_profiles (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "relationship_key TEXT NOT NULL UNIQUE, " +
                 "display_name TEXT NOT NULL DEFAULT '', " +
                 "facts_json TEXT NOT NULL DEFAULT '{}', " +
-                "updated_at_ms INTEGER NOT NULL);" +
+                "updated_at_ms INTEGER NOT NULL)",
             "CREATE TABLE IF NOT EXISTS persona_examples (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "persona_key TEXT NOT NULL, " +
                 "body TEXT NOT NULL, " +
                 "tone_json TEXT NOT NULL DEFAULT '{}', " +
                 "source TEXT NOT NULL DEFAULT '', " +
-                "created_at_ms INTEGER NOT NULL);" +
-            "CREATE VIRTUAL TABLE IF NOT EXISTS persona_examples_fts " +
-                "USING fts4(body, content='persona_examples');" +
-            "CREATE TRIGGER IF NOT EXISTS persona_examples_ai " +
-                "AFTER INSERT ON persona_examples BEGIN " +
-                "INSERT INTO persona_examples_fts(docid, body) " +
-                "VALUES (new.id, new.body); END;" +
-            "CREATE TRIGGER IF NOT EXISTS persona_examples_ad " +
-                "AFTER DELETE ON persona_examples BEGIN " +
-                "INSERT INTO persona_examples_fts(persona_examples_fts, docid, body) " +
-                "VALUES ('delete', old.id, old.body); END;" +
-            "CREATE TRIGGER IF NOT EXISTS persona_examples_au " +
-                "AFTER UPDATE ON persona_examples BEGIN " +
-                "INSERT INTO persona_examples_fts(persona_examples_fts, docid, body) " +
-                "VALUES ('delete', old.id, old.body); " +
-                "INSERT INTO persona_examples_fts(docid, body) " +
-                "VALUES (new.id, new.body); END;" +
+                "created_at_ms INTEGER NOT NULL)",
             "CREATE TABLE IF NOT EXISTS conversation_episodes (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "conv_id TEXT NOT NULL, " +
@@ -389,7 +421,32 @@ class AutomationStoreDb(context: Context) {
                 "body TEXT NOT NULL, " +
                 "at_ms INTEGER NOT NULL, " +
                 "intent TEXT NOT NULL DEFAULT '', " +
-                "summary TEXT NOT NULL DEFAULT '')"
+                "summary TEXT NOT NULL DEFAULT '')",
+        )
+
+        /** PERSONA-DATASET-06 — índice FTS4 y triggers (DDL separado del de
+         *  tablas: el módulo FTS4 puede faltar en algún SQLite de fábrica y
+         *  su fallo no debe arrastrar al resto del esquema). */
+        private const val FTS_DDL =
+            "CREATE VIRTUAL TABLE IF NOT EXISTS persona_examples_fts " +
+                "USING fts4(body, content='persona_examples')"
+        private const val FTS_TRIGGER_AI =
+            "CREATE TRIGGER IF NOT EXISTS persona_examples_ai " +
+                "AFTER INSERT ON persona_examples BEGIN " +
+                "INSERT INTO persona_examples_fts(docid, body) " +
+                "VALUES (new.id, new.body); END"
+        private const val FTS_TRIGGER_AD =
+            "CREATE TRIGGER IF NOT EXISTS persona_examples_ad " +
+                "AFTER DELETE ON persona_examples BEGIN " +
+                "INSERT INTO persona_examples_fts(persona_examples_fts, docid, body) " +
+                "VALUES ('delete', old.id, old.body); END"
+        private const val FTS_TRIGGER_AU =
+            "CREATE TRIGGER IF NOT EXISTS persona_examples_au " +
+                "AFTER UPDATE ON persona_examples BEGIN " +
+                "INSERT INTO persona_examples_fts(persona_examples_fts, docid, body) " +
+                "VALUES ('delete', old.id, old.body); " +
+                "INSERT INTO persona_examples_fts(docid, body) " +
+                "VALUES (new.id, new.body); END"
 
         /** Secciones válidas — espejo de las secciones Dart (jamás crecer
          *  desde un canal sin revisión: whitelist explícita). */
