@@ -13,6 +13,7 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
+import '../../application/automation_diagnostics.dart';
 import '../../application/automation_engine_provider.dart';
 import '../../application/automation_feedback_presenter.dart';
 import '../../application/rule_creator.dart';
@@ -309,14 +310,17 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       _lastReason = '';
     });
     try {
-      final result = await ref
-          .read(automationEngineProvider)
-          .runGoal(
-            AutomationGoal(text: goal),
-            options: confirmation != null
-                ? AutomationOptions(confirmation: confirmation)
-                : null,
-          );
+      // DIAG-01 — comandos de diagnóstico se ejecutan ANTES del planner, por
+      // su propia ruta (sin LLM ni WhatsApp en @diag ping; @diag llm prueba
+      // solo la ruta del motor). Mismo canal de resultado que el resto.
+      final result = isDiagCommand(goal)
+          ? await ref.read(automationDiagnosticsProvider).run(goal)
+          : await ref.read(automationEngineProvider).runGoal(
+                AutomationGoal(text: goal),
+                options: confirmation != null
+                    ? AutomationOptions(confirmation: confirmation)
+                    : null,
+              );
       if (fromVoice) {
         _voiceSession.world
           ..lastUserIntent = goal
@@ -341,10 +345,11 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       } else {
         unawaited(NanoRuntimeApi.instance.dismissAutomationConfirmation());
       }
-      if (voiceEnabled && speakResult) {
+      if (voiceEnabled && speakResult && !isDiagCommand(goal)) {
         // El resultado hablado es exactamente el resultado del mismo
         // AutomationEngine. "Audio" gobierna tanto órdenes escritas como de
         // micrófono; TTS es solo una salida y nunca cambia el veredicto.
+        // Los comandos @diag se informan por la UI (razón legible), no por voz.
         await _voiceSession.respond(_spokenResult(result));
       }
       return result;
