@@ -79,8 +79,8 @@ class NotificationCandidateProvider implements CandidateProvider {
       final draftSource = this.draftSource;
       if (draftSource != null) {
         final draft = await draftSource(target);
-        if (draft != null && draft.trim().isNotEmpty) {
-          return [_replyCandidate(target, draft.trim())];
+        if (draft != null && draft.hasReply) {
+          return [_replyCandidate(target, draft.reply.trim())];
         }
       }
     }

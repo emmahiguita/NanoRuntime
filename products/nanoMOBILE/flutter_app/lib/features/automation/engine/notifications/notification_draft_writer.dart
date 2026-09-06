@@ -18,8 +18,34 @@ import 'notification_draft_prompt.dart';
 import 'notification_object.dart';
 
 /// Fuente de borrador contextual. null = no se puede redactar hoy.
+///
+/// PERSONA-CORE-01 — devuelve el resultado COMPLETO, no solo el texto: el
+/// entendimiento estructurado (intent/requiresAction/missingFacts) acompaña
+/// al reply para que el DecisionEngine decida con señales verificables en
+/// vez de descartarlas justo antes de necesitarlas.
 typedef NotificationDraftSource =
-    Future<String?> Function(NotificationObject notification);
+    Future<NotificationDraftResult?> Function(NotificationObject notification);
+
+/// Resultado del borrador contextual: reply listo para enviar + entendimiento
+/// tipado que lo produjo.
+final class NotificationDraftResult {
+  /// Entendimiento estructurado del mensaje. Con el escalón de JSON roto
+  /// (salida recortada por maxTokens) los campos no-reply quedan vacíos:
+  /// honesto, jamás se inventa intent ni requiresAction.
+  final ConversationUnderstanding understanding;
+
+  /// Texto listo para enviar (recortado a 2000 chars; el reply del
+  /// [understanding] queda SIN recortar para que la decisión vea el texto
+  /// completo del modelo).
+  final String reply;
+
+  const NotificationDraftResult({
+    required this.understanding,
+    required this.reply,
+  });
+
+  bool get hasReply => reply.isNotEmpty;
+}
 
 final class RuntimeNotificationDraftWriter {
   RuntimeNotificationDraftWriter({
@@ -80,9 +106,9 @@ final class RuntimeNotificationDraftWriter {
   /// rechaza instantáneo (modelo ocupado) y produce un terminal failed
   /// falso. Verificado en dispositivo: notify duplicado a los 10.5s marcó
   /// failed mientras el borrador real llegó 35s después y se envió bien.
-  static final Map<String, Future<String?>> _inFlight = {};
+  static final Map<String, Future<NotificationDraftResult?>> _inFlight = {};
 
-  Future<String?> call(NotificationObject notification) async {
+  Future<NotificationDraftResult?> call(NotificationObject notification) async {
     if (!_llmAllowed()) return null;
     final conversationId = resolveConversationIdentity(notification).key.id;
     final inFlight = _inFlight[conversationId];
@@ -98,7 +124,7 @@ final class RuntimeNotificationDraftWriter {
     }
   }
 
-  Future<String?> _draft(
+  Future<NotificationDraftResult?> _draft(
     NotificationObject notification,
     String conversationId,
   ) async {
@@ -135,14 +161,22 @@ final class RuntimeNotificationDraftWriter {
         maxTokens: 320,
         sessionId: conversationId,
       );
-      final draft = parseConversationReply(raw);
+      // PERSONA-CORE-01 — el entendimiento COMPLETO viaja con el reply:
+      // el DecisionEngine consume intent/requiresAction/missingFacts (antes
+      // se descartaban aquí y la decisión quedaba ciega).
+      final understanding = parseConversationUnderstanding(raw);
+      final draft = understanding?.reply ?? '';
       if (draft.isEmpty && raw.trim().isNotEmpty) {
         // WA-PHYS-11: sin reply recuperable la traza cruda (acotada) hace
         // el fallo diagnosticable en dispositivo.
         debugPrint('[draft] sin reply parseable; raw=${_sample(raw)}');
       }
-      if (draft.isEmpty) return null;
-      return draft.length <= 2000 ? draft : draft.substring(0, 2000);
+      if (draft.isEmpty || understanding == null) return null;
+      final reply = draft.length <= 2000 ? draft : draft.substring(0, 2000);
+      return NotificationDraftResult(
+        understanding: understanding,
+        reply: reply,
+      );
     } on Object catch (e) {
       // Motor local no disponible o falló → sin borrador (honesto).
       // WA-LIVE-01 — el catch mudo escondía la razón real del fallo

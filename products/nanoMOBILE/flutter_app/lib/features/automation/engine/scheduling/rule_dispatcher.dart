@@ -247,7 +247,7 @@ class RuleDispatcher {
             );
           }
           final draft = await draftSource(notif);
-          if (draft == null || draft.trim().isEmpty) {
+          if (draft == null || !draft.hasReply) {
             return RuleDispatchResult(
               ruleId: rule.id,
               outcome: RuleOutcome.failed,
@@ -266,7 +266,10 @@ class RuleDispatcher {
                   'turno superado: llegó un mensaje nuevo durante el borrador',
             );
           }
-          text = draft.trim();
+          // PERSONA-CORE-01 — el entendimiento acompaña al texto: el
+          // DecisionEngine (PERSONA-DECISION-02) lo consumirá aquí mismo
+          // antes de construir el goal.
+          text = draft.reply.trim();
         } else if (text.trim().isEmpty) {
           return RuleDispatchResult(
             ruleId: rule.id,

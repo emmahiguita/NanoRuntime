@@ -54,38 +54,56 @@ final class ConversationUnderstanding {
   static String _cleanReply(String raw) => raw.trim();
 }
 
-/// Parsea la salida cruda del modelo y devuelve el texto a enviar ('' si no
-/// hay nada recuperable). Traza corta para diagnóstico físico (logcat).
-String parseConversationReply(String raw) {
+/// PERSONA-CORE-01 — parsea la salida cruda y devuelve el entendimiento
+/// COMPLETO, no solo el reply. Antes el writer descartaba `intent`,
+/// `questions`, `missingFacts` y `requiresAction` justo antes de necesitarlos
+/// (el DecisionEngine los consume para decidir qué hacer). null = nada
+/// recuperable (sin borrador).
+///
+/// Mismos escalones tolerantes que el parser histórico, conservando los
+/// campos que cada nivel puede recuperar:
+/// 1. JSON completo → todos los campos tipados.
+/// 2. JSON roto → solo reply (resto vacío: honesto, no se inventa intent).
+/// 3. Legacy "Respuesta:" → solo reply.
+ConversationUnderstanding? parseConversationUnderstanding(String raw) {
   final trimmed = raw.trim();
-  if (trimmed.isEmpty) return '';
+  if (trimmed.isEmpty) return null;
 
   // 1) Objeto JSON completo.
-  final jsonReply = _tryFullJson(trimmed);
-  if (jsonReply != null) return jsonReply;
+  final full = _tryFullJson(trimmed);
+  if (full != null) return full;
 
   // 2) reply recuperable de un JSON roto (recorte a mitad de objeto).
   final recovered = _recoverReply(trimmed);
-  if (recovered != null) return recovered;
+  if (recovered != null) return ConversationUnderstanding(reply: recovered);
 
   // 3) Legacy: marcador textual del protocolo anterior.
   final legacy = _legacyMarkerReply(trimmed);
-  if (legacy != null) return legacy;
+  if (legacy != null) return ConversationUnderstanding(reply: legacy);
 
-  return '';
+  return null;
 }
 
-String? _tryFullJson(String trimmed) {
+/// Parsea la salida cruda del modelo y devuelve el texto a enviar ('' si no
+/// hay nada recuperable). Traza corta para diagnóstico físico (logcat).
+/// Conservado por compatibilidad: delega en el parser completo y se queda
+/// solo con el reply.
+String parseConversationReply(String raw) =>
+    parseConversationUnderstanding(raw)?.reply ?? '';
+
+ConversationUnderstanding? _tryFullJson(String trimmed) {
   final start = trimmed.indexOf('{');
   final end = trimmed.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
   try {
     final decoded = jsonDecode(trimmed.substring(start, end + 1));
     if (decoded is Map) {
-      final reply = ConversationUnderstanding.fromJson(
+      final understanding = ConversationUnderstanding.fromJson(
         decoded.cast<String, dynamic>(),
-      ).reply;
-      if (reply.isNotEmpty) return reply;
+      );
+      if (understanding.intent.isNotEmpty || understanding.hasReply) {
+        return understanding;
+      }
     }
   } on Object {
     // JSON inválido: cae al siguiente escalón.
