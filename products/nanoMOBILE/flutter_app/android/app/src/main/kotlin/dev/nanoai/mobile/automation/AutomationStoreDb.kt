@@ -105,6 +105,96 @@ class AutomationStoreDb(context: Context) {
         return true
     }
 
+    // ── PERSONA-PROFILE-05 — perfiles del agente personal ──────────────
+    // El SQL SIEMPRE se compone aquí en Kotlin: Dart manda datos tipados
+    // (key/name/facts) y jamás texto SQL. Límites iguales a las secciones.
+
+    /** Upsert del perfil de la persona (key única). Devuelve el rowId. */
+    @Synchronized
+    fun upsertPersona(personaKey: String, displayName: String, factsJson: String): Long {
+        if (personaKey.length > 80 || displayName.length > 200 || factsJson.length > MAX_PERSONA_FACTS) return -1L
+        val db = helper.writableDatabase
+        val values = android.content.ContentValues().apply {
+            put("persona_key", personaKey)
+            put("display_name", displayName)
+            put("facts_json", factsJson)
+            put("created_at_ms", System.currentTimeMillis())
+        }
+        return db.insertWithOnConflict(
+            "persona_profiles", null, values,
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
+    }
+
+    /** Lista los perfiles de persona: key → (name, facts_json). */
+    @Synchronized
+    fun listPersonas(): List<Map<String, String>> {
+        val out = mutableListOf<Map<String, String>>()
+        helper.readableDatabase.query(
+            "persona_profiles",
+            arrayOf("persona_key", "display_name", "facts_json"),
+            null, null, null, null, null,
+        ).use { c ->
+            while (c.moveToNext()) {
+                out += mapOf(
+                    "personaKey" to c.getString(0),
+                    "displayName" to c.getString(1),
+                    "factsJson" to c.getString(2),
+                )
+            }
+        }
+        return out
+    }
+
+    /** Upsert de un perfil de relación (contacto). Devuelve el rowId. */
+    @Synchronized
+    fun upsertRelationship(relationshipKey: String, displayName: String, factsJson: String): Long {
+        if (relationshipKey.length > 200 || displayName.length > 200 || factsJson.length > MAX_PERSONA_FACTS) return -1L
+        val db = helper.writableDatabase
+        val values = android.content.ContentValues().apply {
+            put("relationship_key", relationshipKey)
+            put("display_name", displayName)
+            put("facts_json", factsJson)
+            put("updated_at_ms", System.currentTimeMillis())
+        }
+        return db.insertWithOnConflict(
+            "relationship_profiles", null, values,
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
+    }
+
+    /** Lista los perfiles de relación: key → (name, facts_json). */
+    @Synchronized
+    fun listRelationships(): List<Map<String, String>> {
+        val out = mutableListOf<Map<String, String>>()
+        helper.readableDatabase.query(
+            "relationship_profiles",
+            arrayOf("relationship_key", "display_name", "facts_json"),
+            null, null, null, null, null,
+        ).use { c ->
+            while (c.moveToNext()) {
+                out += mapOf(
+                    "relationshipKey" to c.getString(0),
+                    "displayName" to c.getString(1),
+                    "factsJson" to c.getString(2),
+                )
+            }
+        }
+        return out
+    }
+
+    /** Borra un perfil de relación. false = key inválida (fail-closed). */
+    @Synchronized
+    fun deleteRelationship(relationshipKey: String): Boolean {
+        if (relationshipKey.length > 200) return false
+        val deleted = helper.writableDatabase.delete(
+            "relationship_profiles",
+            "relationship_key = ?",
+            arrayOf(relationshipKey),
+        )
+        return deleted > 0
+    }
+
     private class StoreDb(context: Context) :
         SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         override fun onCreate(db: SQLiteDatabase) {
@@ -140,6 +230,10 @@ class AutomationStoreDb(context: Context) {
         private const val COL_DATA = "data"
         private const val MAX_SECTION_CHARS = 2_000_000
 
+        /** PERSONA-PROFILE-05 — límite de facts_json por perfil (fail-closed:
+         *  jamás crecer sin control desde un canal). */
+        private const val MAX_PERSONA_FACTS = 20_000
+
         /** WA-EVLOG-01 — bitácora append-only de eventos del pipeline.
          *  Auditoría diagnóstica local (nunca contenido de conversación):
          *  cada fila es {momento, conversación, tipo, detalle corto}. */
@@ -163,7 +257,7 @@ class AutomationStoreDb(context: Context) {
         private const val PERSONA_DDL =
             "CREATE TABLE IF NOT EXISTS persona_profiles (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "persona_key TEXT NOT NULL, " +
+                "persona_key TEXT NOT NULL UNIQUE, " +
                 "display_name TEXT NOT NULL DEFAULT '', " +
                 "facts_json TEXT NOT NULL DEFAULT '{}', " +
                 "created_at_ms INTEGER NOT NULL);" +

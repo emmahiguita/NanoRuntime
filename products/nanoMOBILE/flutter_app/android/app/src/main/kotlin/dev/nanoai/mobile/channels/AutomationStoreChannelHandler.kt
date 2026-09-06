@@ -50,6 +50,45 @@ class AutomationStoreChannelHandler(
                 result.success(db.appendEvent(convId, kind, detail))
             }
 
+            // PERSONA-PROFILE-05 — perfiles del agente personal. Datos
+            // tipados SOLO; el SQL se compone en Kotlin (whitelist).
+            "personaUpsert" -> {
+                val personaKey = call.argument<String>("personaKey").orEmpty()
+                val displayName = call.argument<String>("displayName").orEmpty()
+                val factsJson = call.argument<String>("factsJson").orEmpty()
+                if (personaKey.isEmpty()) {
+                    result.error("BAD_ARG", "personaKey requerido", null)
+                    return
+                }
+                result.success(db.upsertPersona(personaKey, displayName, factsJson))
+            }
+
+            "personaList" -> result.success(db.listPersonas())
+
+            "relationshipUpsert" -> {
+                val relationshipKey = call.argument<String>("relationshipKey").orEmpty()
+                val displayName = call.argument<String>("displayName").orEmpty()
+                val factsJson = call.argument<String>("factsJson").orEmpty()
+                if (relationshipKey.isEmpty()) {
+                    result.error("BAD_ARG", "relationshipKey requerido", null)
+                    return
+                }
+                result.success(
+                    db.upsertRelationship(relationshipKey, displayName, factsJson),
+                )
+            }
+
+            "relationshipList" -> result.success(db.listRelationships())
+
+            "relationshipDelete" -> {
+                val relationshipKey = call.argument<String>("relationshipKey").orEmpty()
+                if (relationshipKey.isEmpty()) {
+                    result.error("BAD_ARG", "relationshipKey requerido", null)
+                    return
+                }
+                result.success(db.deleteRelationship(relationshipKey))
+            }
+
             else -> result.notImplemented()
         }
     }

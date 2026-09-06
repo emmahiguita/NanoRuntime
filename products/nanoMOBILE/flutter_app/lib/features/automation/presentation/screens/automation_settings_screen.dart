@@ -15,6 +15,8 @@ import 'package:nanoai/features/automation/engine/business/business_facts.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
+import 'package:nanoai/features/automation/personal_agent/application/persona_repository.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/persona_profile.dart';
 
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
@@ -137,6 +139,12 @@ class AutomationSettingsScreen extends ConsumerWidget {
                           const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Tono de respuesta'),
                           const _ToneCard(),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          // PERSONA-PROFILE-05 — perfil del dueño y perfiles
+                          // de relación (contactos). El retriever
+                          // (RETRIEVAL-07) los lleva al prompt.
+                          const AutomationSectionLabel('Agente personal'),
+                          const _PersonalAgentCard(),
                           const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Reglas'),
                           _SettingsCard(
@@ -630,6 +638,234 @@ class _BackgroundAutomationCardState
 /// WA-BUSINESS-01 — datos reales del negocio que el agente puede afirmar:
 /// productos (nombre, variante, precio, stock), horario y envío. Se guardan
 /// en el store durable y viajan al prompt como bloque <DATOS DEL NEGOCIO>.
+/// PERSONA-PROFILE-05 — perfil del dueño (nombre + datos que Nano debe
+/// saber) y perfiles de relación por contacto. Guardado automático con
+/// debounce; las relaciones se crean/borran desde la card.
+class _PersonalAgentCard extends StatefulWidget {
+  const _PersonalAgentCard();
+
+  @override
+  State<_PersonalAgentCard> createState() => _PersonalAgentCardState();
+}
+
+class _PersonalAgentCardState extends State<_PersonalAgentCard> {
+  final _nameController = TextEditingController();
+  final _notesController = TextEditingController();
+  List<RelationshipProfile> _relationships = const [];
+  Timer? _saveDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _saveDebounce?.cancel();
+    _nameController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final repo = PersonaRepository.instance;
+    final personas = await repo.listPersonas();
+    PersonaProfile? owner;
+    for (final p in personas) {
+      if (p.personaKey == 'owner') owner = p;
+    }
+    final relationships = await repo.listRelationships();
+    if (!mounted) return;
+    setState(() {
+      _nameController.text = owner?.displayName ?? '';
+      _notesController.text = owner?.facts['notas'] ?? '';
+      _relationships = relationships;
+    });
+  }
+
+  void _scheduleOwnerSave() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 600), () {
+      PersonaRepository.instance.upsertPersona(
+        'owner',
+        _nameController.text.trim(),
+        {'notas': _notesController.text.trim()},
+      );
+    });
+  }
+
+  Future<void> _addRelationship() async {
+    final nameController = TextEditingController();
+    final notesController = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nuevo contacto'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nombre del contacto',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Notas (preferencias, trato, contexto)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    notesController.dispose();
+    if (saved != true) return;
+    final name = nameController.text.trim();
+    final notes = notesController.text.trim();
+    if (name.isEmpty) return;
+    await PersonaRepository.instance.upsertRelationship(
+      name.toLowerCase(),
+      name,
+      {'notas': notes},
+    );
+    await _load();
+  }
+
+  Future<void> _deleteRelationship(RelationshipProfile profile) async {
+    await PersonaRepository.instance.deleteRelationship(profile.relationshipKey);
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return _SettingsCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _nameController,
+                onChanged: (_) => _scheduleOwnerSave(),
+                decoration: const InputDecoration(
+                  labelText: 'Tu nombre (cómo te presenta el agente)',
+                  hintText: 'Ej. Emmanuel',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                style: TextStyle(color: visual.text, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesController,
+                onChanged: (_) => _scheduleOwnerSave(),
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Datos que Nano debe saber de ti',
+                  hintText: 'Ej. "Atiendo en horario de oficina; prefiero '
+                      'respuestas cortas"',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                style: TextStyle(color: visual.text, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Relaciones (${_relationships.length})',
+                  style: TextStyle(
+                    color: visual.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _addRelationship,
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                label: const Text('Añadir contacto'),
+              ),
+            ],
+          ),
+        ),
+        for (final profile in _relationships)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile.displayName,
+                        style: TextStyle(
+                          color: visual.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (profile.facts['notas']?.isNotEmpty ?? false)
+                        Text(
+                          profile.facts['notas']!,
+                          style: TextStyle(
+                            color: visual.textMuted,
+                            fontSize: 12,
+                            height: 1.3,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  tooltip: 'Borrar relación',
+                  onPressed: () => _deleteRelationship(profile),
+                ),
+              ],
+            ),
+          ),
+        if (_relationships.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+            child: Text(
+              'Sin contactos guardados. Añade uno para que Nano recuerde '
+              'cómo tratar a cada cliente.',
+              style: TextStyle(color: visual.textMuted, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _BusinessDataCard extends ConsumerWidget {
   const _BusinessDataCard();
 
