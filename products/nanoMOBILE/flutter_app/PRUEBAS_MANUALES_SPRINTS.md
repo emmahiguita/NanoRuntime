@@ -210,6 +210,22 @@ relectura del slot al cambiar pestaña, vocabulario reply ampliado.
   sin LLM. «escribe un resumen» NO debe intentar responder un mensaje (sin
   falsos positivos de reply).
 
+## DIAG-01 — comandos de diagnóstico deterministas
+
+En la barra del Dashboard de Automatización:
+
+- `@diag ping`: respuesta en la tarjeta de resultado con
+  `DIAG PASS — input: PASS | engine: PASS | coordinator: PASS |
+  native bridge: PASS | latency: N ms`. Sin LLM, sin WhatsApp, típicamente
+  < 1s. Si algo sale FAIL, la razón dice exactamente qué eslabón cayó.
+- `@diag llm`: arranca el motor si está caído y responde
+  `DIAG LLM PASS — respuesta="ok" t=...`. Si sale `respondió vacío` =
+  estado zombi (revive con /reload desde Dev o reiniciando el motor).
+- Comando desconocido (`@diag x`): fallo honesto «Comando diag desconocido».
+- `@diag` en una orden normal de WhatsApp NO debe interferir: los comandos
+  solo se interceptan con el prefijo exacto «@diag ».
+- Con audio ON: el diag se muestra en la UI y NO se habla por voz.
+
 ## WA-CTX-01 — contexto del motor LLM post-arranque + prompt compacto
 
 Contexto: el planner del motor degradaba a `ctx=256` (survival_fit con RAM
