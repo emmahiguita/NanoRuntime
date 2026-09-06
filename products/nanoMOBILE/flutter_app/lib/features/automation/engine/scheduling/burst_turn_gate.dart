@@ -83,9 +83,16 @@ final class BurstTurnGate {
       events.length,
       const [],
     );
+    // WA-REG-01 — resolución por TANDA: cada submitAll espera que TODOS sus
+    // eventos hayan sido consumidos por su turno. Antes cada bucket tenía un
+    // único completer `resolved`: una tanda nueva que llegaba con el bucket
+    // vivo (turno anterior en curso) esperaba un future ya completado y
+    // retornaba con resultados vacíos prematuros. Cada miembro trae su
+    // propia resolución: tandas distintas que comparten bucket no comparten
+    // lista de resultados ni futuro.
+    final batch = _Batch(events.length);
     // Anclar conversaciones ANTES de cualquier await: los eventos viven en
     // una lista estable durante la tanda.
-    final pending = <int, _Bucket>{};
     for (var i = 0; i < events.length; i++) {
       final event = events[i];
       final key = _bucketKey(event);
@@ -98,21 +105,18 @@ final class BurstTurnGate {
           maxBurst: maxBurst,
           runTurn: runTurn,
           onTurnComplete: onTurnComplete,
-          onResolved: (members, turnResults) {
-            for (final m in members) {
-              results[m.index] = turnResults;
-            }
-          },
           onIdle: () => _byConversation.remove(key),
         ),
       );
-      pending[i] = bucket;
       onInbound?.call(key.startsWith('anon:') ? '' : key);
-      bucket.push(event, index: i);
+      bucket.push(
+        _Member(event, (turnResults) {
+          results[i] = turnResults;
+          batch.tick();
+        }),
+      );
     }
-    await Future.wait([
-      for (final b in pending.values) b.resolved,
-    ]);
+    await batch.done.future;
     return results;
   }
 
@@ -132,7 +136,6 @@ class _Bucket {
     required this.maxWait,
     required this.maxBurst,
     required this.runTurn,
-    required this.onResolved,
     required this.onIdle,
     required this.onTurnComplete,
   });
@@ -143,8 +146,6 @@ class _Bucket {
   final int maxBurst;
   final Future<List<RuleDispatchResult>> Function(NotificationObject)
       runTurn;
-  final void Function(List<_Member> members, List<RuleDispatchResult> results)
-      onResolved;
 
   /// WA-STATE-01 — turno agregado terminado (conversación + notificación).
   final void Function(String conversationId, NotificationObject aggregated)?
@@ -158,11 +159,8 @@ class _Bucket {
   Timer? _settleTimer;
   Timer? _deadlineTimer;
   bool _running = false;
-  final Completer<void> _resolved = Completer<void>();
-  late final Future<void> resolved = _resolved.future;
 
-  void push(NotificationObject event, {required int index}) {
-    final member = _Member(event, index);
+  void push(_Member member) {
     if (_running) {
       // Turno en curso: el mensaje espera y formará el próximo turno
       // (serialización; nunca se pierde).
@@ -199,13 +197,15 @@ class _Bucket {
       // Sin await entre la resolución y el chequeo de cola: nadie puede
       // intercalar un push a mitad (un solo hilo de eventos).
       onTurnComplete?.call(key.startsWith('anon:') ? '' : key, aggregated);
-      onResolved(members, results);
-      if (!_resolved.isCompleted) _resolved.complete();
+      for (final m in members) {
+        m.resolve(results);
+      }
       if (_queue.isEmpty) onIdle();
     } on Object catch (e) {
       debugPrint('[turn] ráfaga falló: $e');
-      onResolved(members, const []);
-      if (!_resolved.isCompleted) _resolved.complete();
+      for (final m in members) {
+        m.resolve(const []);
+      }
       if (_queue.isEmpty) onIdle();
     } finally {
       _running = false;
@@ -262,10 +262,36 @@ class _Bucket {
 }
 
 class _Member {
-  _Member(this.event, this.index);
+  _Member(this.event, this.resolve);
 
   final NotificationObject event;
 
-  /// Posición del evento en la tanda original (para resolver su futuro).
-  final int index;
+  /// Resuelve el futuro de ESTE evento con los resultados del turno que lo
+  /// absorbió. Cada miembro trae su propia resolución (WA-REG-01): tandas
+  /// distintas que comparten bucket no comparten lista de resultados.
+  final void Function(List<RuleDispatchResult> results) resolve;
+}
+
+/// WA-REG-01 — una tanda de submitAll: se completa cuando TODOS sus eventos
+/// fueron resueltos por sus turnos (pueden caer en turnos distintos si la
+/// ráfaga se partió). Reemplaza al completer único por bucket, que resolvía
+/// prematuramente las tandas que llegaban con un turno anterior en curso.
+class _Batch {
+  _Batch(this.count);
+
+  /// Eventos totales de la tanda.
+  final int count;
+
+  int _resolved = 0;
+  final Completer<void> done = Completer<void>();
+
+  /// Un evento de la tanda resolvió su turno. Al llegar al total, la tanda
+  /// completa su futuro (idempotente: un turno nunca resuelve dos veces a un
+  /// miembro).
+  void tick() {
+    _resolved++;
+    if (_resolved >= count && !done.isCompleted) {
+      done.complete();
+    }
+  }
 }
