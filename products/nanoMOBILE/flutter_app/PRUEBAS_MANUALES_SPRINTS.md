@@ -183,3 +183,28 @@ Con 3+ productos cargados (p.ej. negro 256GB, azul 128GB, tablet):
   conversación recuerda el hilo (memoria SQLite, migración única desde prefs:
   verificar una sola vez sin pérdida de historial previo).
 - Reglas/dedupe intactos tras reinstalar APK encima (misma appId → misma DB).
+
+## WA-REG-01 — reparación de regresiones (runtime compartido, burst, barra, vocabulario)
+
+Contexto: race de handoff headless→UI apagaba el runtime y el motor LLM
+quedaba muerto para siempre en el proceso (EngineSupervisor irreversible).
+Fixes: acquire(UI) síncrono, engine re-arrancable, BurstTurnGate por tanda,
+relectura del slot al cambiar pestaña, vocabulario reply ampliado.
+
+- **Race/handoff**: WhatsApp cerrado → recibir mensaje → esperar a que el
+  servicio procese y quede idle → abrir Nano justo en esos momentos (ventana
+  de ~1.5s) → orden escrita que use el LLM → debe funcionar. Repetir 3-4
+  ciclos seguidos sin force-stop entre ellos (antes: un solo race dejaba
+  todo muerto hasta matar el proceso).
+- **Re-arranque del motor**: con la app abierta, matar el proceso nanortime
+  (o debugKill desde Dev) → siguiente orden LLM debe re-arrancar el motor
+  (antes: `Failed("supervisor en shutdown")` permanente).
+- **Burst**: 3 mensajes rápidos consecutivos desde otro teléfono → todos
+  obtienen su turno (ningún mensaje resuelto con resultados vacíos ni
+  huérfano), respuestas no duplicadas, una sola por ráfaga.
+- **Barra**: Dashboard → enviar A → Reglas → enviar B → Dashboard → enviar
+  C → cada envío llega a la pantalla correcta (sin callback de la pestaña
+  anterior).
+- **Vocabulario**: «dile a Juan que sí» con notificación contestable → reply
+  directo determinista sin LLM. «escribe un resumen» NO debe intentar
+  responder un mensaje (sin falsos positivos de reply).
