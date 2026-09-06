@@ -119,14 +119,14 @@ class AutomationDiagnostics {
           'motor respondió vacío (posible estado zombi — revive con /reload)',
         );
       }
-      final result = AutomationResult(
+      final diagResult = AutomationResult(
         executionId: executionId,
         status: AutomationResultStatus.completed,
         reason: 'DIAG LLM PASS — respuesta="$text" '
             't=${sw.elapsedMilliseconds} ms',
       );
-      debugPrint('[diag] $executionId → ${result.reason}');
-      return result;
+      debugPrint('[diag] $executionId → ${diagResult.reason}');
+      return diagResult;
     } catch (e) {
       return _fail(executionId, sw, 'generación falló: $e');
     }
