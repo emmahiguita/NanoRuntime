@@ -6,6 +6,8 @@ import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
+import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
+    show resolveConversationIdentity;
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
@@ -26,6 +28,8 @@ import 'package:nanoai/features/automation/engine/perception/semantic/screen_gra
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
+import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
@@ -445,10 +449,19 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       // contextual que el candidato de notificación (un solo motor).
       draftSource: ref.watch(notificationDraftSourceProvider),
       // PERSONA-DECISION-02 — decisión determinista antes de despachar el
-      // draft dinámico (FACTS → DECISION → SEND). Contexto por defecto por
-      // ahora: PERSONA-HANDOFF-03 reemplaza la closure con el ownership
-      // durable por conversación.
+      // draft dinámico (FACTS → DECISION → SEND).
       decisionEngine: const ConversationDecisionEngine(),
+      // PERSONA-HANDOFF-03 — ownership por conversación: si el humano tomó
+      // el control, el engine retiene el draft (jamás se pisa al dueño).
+      decisionContext: (notif) {
+        final conversationId = resolveConversationIdentity(notif).key.id;
+        final ownership = ref
+            .read(conversationOwnershipStoreProvider)
+            .ownershipFor(conversationId);
+        return ConversationDecisionContext(
+          humanOwnsConversation: ownership?.humanOwns ?? false,
+        );
+      },
       // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
       // nano_rule_notices). Fallo honesto si el sistema lo rechaza.
       notifyLocal: (title, body) =>
@@ -466,6 +479,14 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
 /// rutas sin gate y el RuleDispatcher captura/verifica antes del envío.
 final turnSupersedeGuardProvider = Provider<TurnSupersedeGuard>((ref) {
   return TurnSupersedeGuard();
+});
+
+/// PERSONA-HANDOFF-03 — ownership por conversación. En memoria del proceso
+/// hasta que PERSONA-STORAGE-04 persista la sección `conversation_ownership`
+/// en SQLite (el contrato no cambia, solo el respaldo).
+final conversationOwnershipStoreProvider =
+    Provider<ConversationOwnershipStore>((ref) {
+  return InMemoryConversationOwnershipStore();
 });
 
 /// WA-TURN-01 — puerta de ráfagas por conversación (una por engine): agrupa
