@@ -29,6 +29,7 @@ import 'package:nanoai/features/automation/engine/perception/surface_resolvers.d
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
+import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
@@ -423,6 +424,9 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     ref.read(conversationStateNotifierProvider.notifier).ready,
     // PERSONA-STORAGE-04 — ownership hidratado antes de decidir.
     ref.read(conversationOwnershipStoreProvider).load(),
+    // PERSONA-COMPOSE-08 — perfil del dueño + relaciones en cache antes de
+    // que el writer arme bloques <DATOS DE LA PERSONA>.
+    ref.read(personaContextProvider).load(),
   ]);
 });
 

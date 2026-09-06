@@ -15,6 +15,7 @@ import 'package:nanoai/features/automation/engine/business/business_facts.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
+import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_repository.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/persona_example.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/persona_profile.dart';
@@ -642,14 +643,14 @@ class _BackgroundAutomationCardState
 /// PERSONA-PROFILE-05 — perfil del dueño (nombre + datos que Nano debe
 /// saber) y perfiles de relación por contacto. Guardado automático con
 /// debounce; las relaciones se crean/borran desde la card.
-class _PersonalAgentCard extends StatefulWidget {
+class _PersonalAgentCard extends ConsumerStatefulWidget {
   const _PersonalAgentCard();
 
   @override
-  State<_PersonalAgentCard> createState() => _PersonalAgentCardState();
+  ConsumerState<_PersonalAgentCard> createState() => _PersonalAgentCardState();
 }
 
-class _PersonalAgentCardState extends State<_PersonalAgentCard> {
+class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
   final _nameController = TextEditingController();
   final _notesController = TextEditingController();
   List<RelationshipProfile> _relationships = const [];
@@ -691,12 +692,21 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
   void _scheduleOwnerSave() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 600), () {
-      PersonaRepository.instance.upsertPersona(
-        'owner',
-        _nameController.text.trim(),
-        {'notas': _notesController.text.trim()},
-      );
+      PersonaRepository.instance
+          .upsertPersona(
+            'owner',
+            _nameController.text.trim(),
+            {'notas': _notesController.text.trim()},
+          )
+          .then((_) => _refreshSharedContext());
     });
+  }
+
+  /// PERSONA-COMPOSE-08 — el cache compartido del writer (PersonaContext)
+  /// se refresca tras cada mutación: el siguiente borrador ve el dato nuevo
+  /// sin reiniciar la app.
+  void _refreshSharedContext() {
+    unawaited(ref.read(personaContextProvider).refresh());
   }
 
   Future<void> _addRelationship() async {
@@ -749,11 +759,13 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
       name,
       {'notas': notes},
     );
+    _refreshSharedContext();
     await _load();
   }
 
   Future<void> _deleteRelationship(RelationshipProfile profile) async {
     await PersonaRepository.instance.deleteRelationship(profile.relationshipKey);
+    _refreshSharedContext();
     await _load();
   }
 
@@ -799,11 +811,13 @@ class _PersonalAgentCardState extends State<_PersonalAgentCard> {
       body: body,
       source: 'manual',
     );
+    _refreshSharedContext();
     await _load();
   }
 
   Future<void> _deleteExample(PersonaExample example) async {
     await PersonaRepository.instance.deleteExample(example.id);
+    _refreshSharedContext();
     await _load();
   }
 

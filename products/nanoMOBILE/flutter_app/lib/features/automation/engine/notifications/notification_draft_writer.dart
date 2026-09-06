@@ -60,6 +60,7 @@ final class RuntimeNotificationDraftWriter {
     String Function(String messageText)? businessBlock,
     String Function()? toneBlock,
     String Function(String conversationId)? clientContextFor,
+    Future<String> Function(String messageText, String sender)? personaBlock,
     ConversationMemoryStore? memory,
   }) : _client = client,
        _llmAllowed = llmAllowed,
@@ -70,6 +71,7 @@ final class RuntimeNotificationDraftWriter {
        _businessBlock = businessBlock,
        _toneBlock = toneBlock,
        _clientContextFor = clientContextFor,
+       _personaBlock = personaBlock,
        _memory = memory;
 
   final LLMEngineClient _client;
@@ -95,6 +97,12 @@ final class RuntimeNotificationDraftWriter {
   /// WA-STATE-01 — recuerdo estructurado de la consulta anterior de ESTA
   /// conversación (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar).
   final String Function(String conversationId)? _clientContextFor;
+
+  /// PERSONA-COMPOSE-08 — bloque <DATOS DE LA PERSONA> (dueño, relación con
+  /// el remitente y ejemplos FTS4). Async: el retriever consulta SQLite por
+  /// mensaje; '' si no hay perfil ni ejemplos. Remitente factual, jamás LLM.
+  final Future<String> Function(String messageText, String sender)?
+  _personaBlock;
 
   /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
   /// para el borrador). null = el writer conserva el prompt sin historial.
@@ -139,6 +147,14 @@ final class RuntimeNotificationDraftWriter {
         return null;
       }
       final history = _memory?.memoryFor(conversationId)?.entries;
+      // PERSONA-COMPOSE-08 — bloque persona antes del prompt (FTS4 local,
+      // no consume turno del motor). Sin perfil ni ejemplos: cadena vacía y
+      // el prompt queda idéntico al de WA-CTX-01.
+      final persona = await _personaBlock?.call(
+            notification.text,
+            notification.sender,
+          ) ??
+          '';
       // WA-CONV-01 — salida JSON estructurada: el razonamiento textual ya no
       // se pide (quemaba tokens antes de "Respuesta:" y el extractor podía
       // devolver el análisis como mensaje con salidas recortadas). El parser
@@ -155,6 +171,7 @@ final class RuntimeNotificationDraftWriter {
           style: _styleEnabled() ? _styleText() : null,
           business: _businessBlock?.call(notification.text),
           tone: _toneBlock?.call(),
+          persona: persona,
           clientContext: _clientContextFor?.call(conversationId),
         ),
         temperature: 0.3,

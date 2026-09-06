@@ -66,6 +66,8 @@ import 'planning/candidates/candidate_generator.dart';
 import 'planning/candidates/candidate_providers.dart';
 import 'model/automation_model.dart' show AutomationModelRole;
 import 'notifications/notification_draft_writer.dart';
+import '../personal_agent/application/persona_context.dart'
+    show personaContextProvider;
 import 'planning/candidates/notification_candidate_provider.dart';
 import 'planning/candidates/notification_data_candidate_provider.dart';
 import 'planning/candidates/candidate_ranker.dart';
@@ -496,6 +498,9 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     clientContextFor: (conversationId) => formatClientContextBlock(
       ref.read(conversationStateNotifierProvider)[conversationId],
     ),
+    // PERSONA-COMPOSE-08 — dueño + relación + ejemplos FTS4 por mensaje.
+    personaBlock: (text, sender) =>
+        ref.read(personaContextProvider).personaBlockFor(text, sender),
     // WA-MEM-08: contexto factual de la conversación.
     memory: ref.watch(conversationMemoryStoreProvider),
   ).call;
