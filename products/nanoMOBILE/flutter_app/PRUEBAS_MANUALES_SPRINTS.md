@@ -315,3 +315,36 @@ mientras el humano atiende la conversación.
   siguen (SQLite v3); ownership sobrevive a kill.
 - **Sin regresión WA**: órdenes escritas siguen 100/100; ráfagas sin
   duplicados; @diag ping/llm intactos.
+
+## CONTEXT-GATE-01 — gating determinista de contexto conversacional
+
+Contexto: evidencia física de contaminación — tras una consulta del Negro
+($500), un "Hola" respondió con el Negro y su precio. Causa: el recuerdo
+<CONTEXTO DEL CLIENTE> y el historial entraban al prompt SIEMPRE, con la
+relevancia delegada al LLM ("ignóralo si no aplica"). Corrección: la
+información irrelevante no llega al prompt. Regla: MEMORIA DISPONIBLE !=
+MEMORIA RELEVANTE; el mensaje ACTUAL decide.
+
+- **M01 — saludo en conversación nueva**: WhatsApp cerrado → mensaje "Hola"
+  de un contacto nuevo → respuesta = saludo natural. Sin producto, sin
+  precio, sin CTA de compra.
+- **M02 — saludo tras producto**: tras conversar del Negro → mensaje "Hola"
+  → saludo. NO menciona el Negro ni $500 (antes los repetía).
+- **M03 — referencia explícita**: tras conversar del Negro → "¿y ese
+  todavía está disponible?" → resuelve al Negro con datos reales.
+- **M04 — saludo + producto**: "hola, ¿cuánto vale el Negro?" → saludo +
+  precio real.
+- **M05 — producto + envío**: "¿tienen el Negro y hacen domicilio?" →
+  responde ambas con datos reales del bloque de negocio.
+- **M06 — párrafo grande**: saludo + producto + precio + stock + domicilio +
+  fecha en UN mensaje → responde TODAS en orden; lo que no tenga dato real
+  lo pregunta o lo marca (jamás inventa).
+- **M07 — tema nuevo**: tras hablar del Negro → "necesito saber el horario
+  de mañana" → responde horario. Sin mencionar el Negro.
+- **M08 — respuesta corta dependiente**: Nano pregunta "¿confirmo el
+  pedido?" → cliente responde "sí" → resuelve contra el turno activo
+  (el recuerdo SÍ entra con "sí").
+- **M09 — no duplicar**: "Hola Emma" no debe salir si el mensaje es "Hola"
+  (la regla de no repetir nombre ya existe; el gating quita el incitador).
+- **M10 — sin regresión**: órdenes escritas, ráfagas, @diag intactos;
+  logcat `[decision] autoSend` para un saludo limpio.

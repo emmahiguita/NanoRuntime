@@ -7,9 +7,13 @@
 /// WA-BUSINESS-02), se recuerda {producto, variante, precio, cuándo} para
 /// esa conversación y viaja al prompt como <CONTEXTO DEL CLIENTE>.
 ///
-/// Regla de verdad: el contexto es un RECORDATORIO de la consulta anterior
-/// observada — nunca inventa; si el cliente pide algo distinto, el prompt le
-/// ordena ignorarlo. Bounded: un producto activo por conversación + fecha.
+/// CONTEXT-GATE-01 — MEMORIA DISPONIBLE != MEMORIA RELEVANTE: el recuerdo
+/// NO entra al prompt por defecto. `clientContextBlockForTurn` decide
+/// determinista según el mensaje ACTUAL (referencia explícita, respuesta
+/// corta dependiente, producto explícito o nada). Evidencia física del
+/// fallo: "Hola" tras una consulta del Negro respondió con el Negro y su
+/// precio — el 1.5B no ignora contexto inyectado por orden textual; la
+/// corrección es que lo irrelevante nunca llegue al prompt.
 library;
 
 import 'dart:convert';
@@ -99,6 +103,70 @@ Consulta anterior de ESTE cliente: ${product.label} por ${product.priceLabel}
 pregunté", "ese teléfono", "la negra". Si el cliente pide algo distinto o el
 recuerdo no aplica, ignóralo por completo.
 </CONTEXTO DEL CLIENTE>''';
+}
+
+/// CONTEXT-GATE-01 — tokens de saludo puro. Si TODOS los tokens del mensaje
+/// caen aquí, es un saludo: el turno no reactiva contexto comercial.
+const Set<String> greetingTokens = {
+  'hola', 'holas', 'buenas', 'buenos', 'dias', 'tardes', 'noches',
+  'buen', 'dia', 'tarde', 'noche', 'hey', 'saludos', 'que', 'tal',
+  'mas', 'como', 'estas', 'esta', 'todo', 'bien', 'vos', 'tu', 'ola',
+};
+
+/// ¿Saludo/social puro? Determinista: cada token del mensaje pertenece a
+/// [greetingTokens]. "hola, ¿tienen el negro?" NO es puro ('tienen' fuera).
+bool isPureGreeting(String messageText) {
+  final tokens = tokenizeText(normalizeText(messageText));
+  if (tokens.isEmpty) return false;
+  return tokens.every(greetingTokens.contains);
+}
+
+/// CONTEXT-GATE-01 — tokens de respuesta corta dependiente del turno
+/// anterior ("sí", "dale", "cuánto"): solo estos re-activan el recuerdo
+/// sin referencia explícita ni producto mencionado.
+const Set<String> dependentReplyTokens = {
+  'si', 'no', 'dale', 'listo', 'ok', 'okay', 'perfecto', 'cuanto',
+  'cuantos', 'cuantas', 'cual', 'cuales', 'cuando', 'manana', 'hoy',
+  'vale',
+};
+
+/// CONTEXT-GATE-01 — tokens de referencia explícita a lo conversado antes
+/// ("ese", "el anterior", "el que te dije"). No matchean catálogo: son la
+/// señal de que el recuerdo SÍ aplica.
+const Set<String> referenceTokens = {
+  'ese', 'esa', 'esos', 'esas', 'aquel', 'aquella', 'aquellos',
+  'aquellas', 'anterior', 'mismo', 'misma', 'dije', 'pregunte',
+  'pregunto', 'dicho', 'contaste',
+};
+
+/// CONTEXT-GATE-01 — decisión determinista de si el recuerdo de producto
+/// entra al prompt para ESTE mensaje. Orden de prioridad:
+/// 1. Sin recuerdo → nada.
+/// 2. Referencia explícita → recuerdo (resuelve "ese"/"el anterior").
+/// 3. Respuesta corta dependiente ("sí", "cuánto") → recuerdo (depende del
+///    turno activo).
+/// 4. Producto explícito en el mensaje → nada: <DATOS DEL NEGOCIO> ya trae
+///    los hechos frescos del selector; duplicar el recuerdo incita eco.
+/// 5. Resto (saludo puro, tema nuevo, cierre social) → nada: el recuerdo
+///    viejo no reactiva temas que el cliente no trajo.
+String clientContextBlockForTurn({
+  required ClientContextEntry? entry,
+  required String messageText,
+  required BusinessFacts facts,
+}) {
+  if (entry?.product == null) return '';
+  final tokens = tokenizeText(normalizeText(messageText));
+  if (tokens.isEmpty) return '';
+  if (tokens.any(referenceTokens.contains)) {
+    return formatClientContextBlock(entry);
+  }
+  if (tokens.length <= 2 && tokens.every(dependentReplyTokens.contains)) {
+    return formatClientContextBlock(entry);
+  }
+  if (selectFactsForMessage(messageText, facts).products.isNotEmpty) {
+    return '';
+  }
+  return '';
 }
 
 /// Persistencia (sección `convstate` del AutomationStoreDb).

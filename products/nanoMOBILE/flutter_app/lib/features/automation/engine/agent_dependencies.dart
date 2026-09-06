@@ -13,7 +13,7 @@ import '../domain/automation_policy.dart';
 import 'business/business_facts_providers.dart';
 import 'business/fact_selector.dart';
 import 'messaging/conv_turn_state.dart'
-    show conversationStateNotifierProvider, formatClientContextBlock;
+    show clientContextBlockForTurn, conversationStateNotifierProvider;
 import 'messaging/tone_profile_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
@@ -494,9 +494,13 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     ).render(),
     // WA-NATURAL-01 — tono leído EN VIVO ('' si deshabilitado).
     toneBlock: () => ref.read(toneProfileNotifierProvider).renderBlock(),
-    // WA-STATE-01 — recuerdo de la consulta anterior de ESTA conversación.
-    clientContextFor: (conversationId) => formatClientContextBlock(
-      ref.read(conversationStateNotifierProvider)[conversationId],
+    // WA-STATE-01 + CONTEXT-GATE-01 — recuerdo de la consulta anterior de
+    // ESTA conversación, gated por el mensaje actual (determinista: sin
+    // referencia ni dependencia el recuerdo no entra al prompt).
+    clientContextFor: (conversationId, text) => clientContextBlockForTurn(
+      entry: ref.read(conversationStateNotifierProvider)[conversationId],
+      messageText: text,
+      facts: ref.read(businessFactsNotifierProvider),
     ),
     // PERSONA-COMPOSE-08 — dueño + relación + ejemplos FTS4 por mensaje.
     personaBlock: (text, sender) =>

@@ -51,7 +51,7 @@ final class FactSelection {
 
 /// Selecciona hechos relevantes para [message] contra [facts].
 FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
-  final tokens = _tokenize(_normalize(message));
+  final tokens = tokenizeText(normalizeText(message));
   if (tokens.isEmpty || facts.isEmpty) return const FactSelection();
 
   final wantsList = tokens.any(_listAskTokens.contains);
@@ -78,8 +78,8 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
 }
 
 bool _productMatches(Set<String> messageTokens, BusinessProduct product) {
-  final nameTokens = _tokenize(_normalize(product.name));
-  final detailTokens = _tokenize(_normalize(product.details));
+  final nameTokens = tokenizeText(normalizeText(product.name));
+  final detailTokens = tokenizeText(normalizeText(product.details));
   for (final token in messageTokens) {
     if (token.length < 3) continue; // "el", "de" nunca matchean solos
     if (nameTokens.contains(token) || detailTokens.contains(token)) {
@@ -89,7 +89,10 @@ bool _productMatches(Set<String> messageTokens, BusinessProduct product) {
   return false;
 }
 
-String _normalize(String raw) {
+/// Normaliza texto para matching determinista (minúsculas, sin tildes).
+/// Pública desde CONTEXT-GATE-01: el gating de relevancia del turno
+/// (conv_turn_state) reusa la MISMA normalización — una sola fuente.
+String normalizeText(String raw) {
   const withAccents = 'áéíóúñüÁÉÍÓÚÑÜ';
   const without = 'aeiounuAEIOUNU';
   final buffer = StringBuffer();
@@ -100,5 +103,5 @@ String _normalize(String raw) {
   return buffer.toString().toLowerCase();
 }
 
-Set<String> _tokenize(String normalized) =>
+Set<String> tokenizeText(String normalized) =>
     RegExp(r'[a-z0-9]+').allMatches(normalized).map((m) => m.group(0)!).toSet();

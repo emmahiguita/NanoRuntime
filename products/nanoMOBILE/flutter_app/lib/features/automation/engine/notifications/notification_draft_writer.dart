@@ -10,6 +10,7 @@ library;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/core/services/llm_engine_client.dart';
 
+import '../messaging/conv_turn_state.dart' show isPureGreeting;
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart' show ConversationMemoryStore;
 import '../model/cold_start_retry.dart';
@@ -59,7 +60,7 @@ final class RuntimeNotificationDraftWriter {
     required String Function() styleText,
     String Function(String messageText)? businessBlock,
     String Function()? toneBlock,
-    String Function(String conversationId)? clientContextFor,
+    String Function(String conversationId, String messageText)? clientContextFor,
     Future<String> Function(String messageText, String sender)? personaBlock,
     ConversationMemoryStore? memory,
   }) : _client = client,
@@ -94,9 +95,12 @@ final class RuntimeNotificationDraftWriter {
   /// perfil; '' si deshabilitado). Leído EN VIVO en cada borrador.
   final String Function()? _toneBlock;
 
-  /// WA-STATE-01 — recuerdo estructurado de la consulta anterior de ESTA
-  /// conversación (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar).
-  final String Function(String conversationId)? _clientContextFor;
+  /// WA-STATE-01 + CONTEXT-GATE-01 — recuerdo estructurado de la consulta
+  /// anterior de ESTA conversación, gated por el mensaje actual
+  /// (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar o el recuerdo
+  /// no aplica al turno).
+  final String Function(String conversationId, String messageText)?
+  _clientContextFor;
 
   /// PERSONA-COMPOSE-08 — bloque <DATOS DE LA PERSONA> (dueño, relación con
   /// el remitente y ejemplos FTS4). Async: el retriever consulta SQLite por
@@ -146,7 +150,14 @@ final class RuntimeNotificationDraftWriter {
         debugPrint('[draft] motor no quedó listo; sin borrador (honesto)');
         return null;
       }
-      final history = _memory?.memoryFor(conversationId)?.entries;
+      final historyEntries =
+          _memory?.memoryFor(conversationId)?.entries ?? const [];
+      // CONTEXT-GATE-01 — saludo puro: el historial comercial anterior NO
+      // entra (el 1.5B ecoea la respuesta vieja del Negro en un "Hola");
+      // referencias y respuestas cortas sí necesitan la conversación.
+      final history = isPureGreeting(notification.text)
+          ? '(sin historial previo)'
+          : formatConversationHistory(historyEntries);
       // PERSONA-COMPOSE-08 — bloque persona antes del prompt (FTS4 local,
       // no consume turno del motor). Sin perfil ni ejemplos: cadena vacía y
       // el prompt queda idéntico al de WA-CTX-01.
@@ -166,13 +177,16 @@ final class RuntimeNotificationDraftWriter {
       final raw = await generateWithColdRetry(
         _client,
         prompt: conversationAgentPromptFor(
-          history: formatConversationHistory(history ?? const []),
+          history: history,
           text: notification.text,
           style: _styleEnabled() ? _styleText() : null,
           business: _businessBlock?.call(notification.text),
           tone: _toneBlock?.call(),
           persona: persona,
-          clientContext: _clientContextFor?.call(conversationId),
+          clientContext: _clientContextFor?.call(
+            conversationId,
+            notification.text,
+          ),
         ),
         temperature: 0.3,
         maxTokens: 320,
