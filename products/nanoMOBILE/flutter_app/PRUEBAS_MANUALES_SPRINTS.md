@@ -348,3 +348,212 @@ MEMORIA RELEVANTE; el mensaje ACTUAL decide.
   (la regla de no repetir nombre ya existe; el gating quita el incitador).
 - **M10 — sin regresión**: órdenes escritas, ráfagas, @diag intactos;
   logcat `[decision] autoSend` para un saludo limpio.
+
+## Ronda 3 — Conversation Engine (pendingQuestion + topicStatus)
+
+Contexto: respuestas cortas ("sí", "M", "mañana") se resolvían contra el
+último producto por keyword; ahora se resuelven contra la PREGUNTA PENDIENTE
+que Nano dejó abierta (reply enviado terminado en '?'). Un agradecimiento
+cierra el tema: no reaparece con saludos. Trazas: `[ctx:gate]` y
+`[ctx:prompt]` en logcat (una línea por turno, se quitan tras validar).
+
+Misma conversación, en orden, WhatsApp cerrado:
+
+- **C01 — pregunta pendiente**: cliente "¿tienen el Negro?" → Nano responde
+  (con '?' final, p.ej. "¿quieres que revise disponibilidad?") → cliente
+  responde "sí" → Nano resuelve la disponibilidad. Sin repetir el catálogo.
+- **C02 — talla**: Nano pregunta "¿qué talla necesitas?" → cliente "M" →
+  Nano entiende M como respuesta a la talla (no consulta nueva).
+- **C03 — vale**: tras una pregunta pendiente → cliente "vale" → Nano lo
+  interpreta como confirmación de la pregunta. SIN consulta de precio
+  inventada.
+- **C04 — cuánto vale**: tras hablar del Negro → "¿cuánto vale?" → precio
+  del Negro (la señal 'cuanto' gana sobre la pregunta pendiente).
+- **C05 — cierre**: tras el tema del Negro → "listo gracias" → Nano se
+  despide. Después "Hola" → saludo limpio SIN Negro/$500.
+- **C06 — referencia tras cierre**: tras C05 → "¿y ese todavía está
+  disponible?" → recupera el Negro aunque el tema estaba cerrado
+  (referencia explícita siempre gana).
+- **C07 — tema nuevo**: tras hablar del Negro → "¿qué horario tienen
+  mañana?" → horario. Sin Negro.
+- **C08 — párrafo grande**: saludo + producto + precio + stock + domicilio
+  + fecha en UN mensaje → responde todas las que tengan dato real.
+- **C09 — ráfaga**: "oye" / "una cosa" / "¿el negro lo tienen?" seguidos →
+  un solo turno coherente.
+- **C10 — sin regresión**: traza `[ctx:gate]` muestra `clientContext=false`
+  para "Hola" tras producto; `[ctx:prompt]` con historyEntries correcto.
+
+## Ronda 5 — Autonomía conversacional (AUTO-01..AUTO-03 + consolidaciones)
+
+Contexto: sprint mínimo autónomo tras la auditoría de 4 frentes. Lo nuevo:
+(1) Router de rol determinista PURO (personal/sales/general — jamás LLM),
+(2) Modo de autonomía global (Desactivado/Sugerencias/Auto seguro/Autónomo)
+como tope del MISMO ConversationDecisionEngine (no hay segundo motor),
+(3) Fix del eco de plantilla del prompt JSON (placeholders vacíos, ejemplo
+fuera). Consolidaciones: umbral identidad 0.95 única fuente, memoria
+máxima real 60 entradas, timeout 60s del arranque del motor (sin colgar
+turnos). Trazas nuevas en logcat: `[agent]` (rol+modo por mensaje) y las
+razones de `[decision]` ya existentes. Default = Autónomo = comportamiento
+previo exacto.
+
+WhatsApp cerrado para toda la tanda. Contactos: A = desconocido, B =
+contacto con relación registrada (Ajustes → Agente personal).
+
+- **A01 — routing sales**: A: "¿tienen el negro?" (producto en catálogo) →
+  logcat `[agent] rol=sales` ("producto explícito"). Respuesta con datos.
+- **A02 — routing personal**: B: "hola bro qué haces" → `rol=personal`
+  ("saludo puro + relación registrada"). Saludo natural.
+- **A03 — routing general**: A: "hola" → `rol=general`. Saludo natural.
+- **A04 — relación sin señal comercial**: B: "gracias bro" → `rol=personal`
+  ("relación registrada sin señal comercial").
+- **A05 — referencia corta comercial**: tras hablar del Negro con A →
+  "¿y ese todavía está?" → `rol=sales` ("referencia sobre producto activo").
+- **A06 — modo Desactivado**: Ajustes → Autonomía de WhatsApp →
+  Desactivado → mensaje entrante → logcat `[decision]` retiene con
+  "autonomía desactivada"; NO se envía nada.
+- **A07 — modo Sugerencias**: mismo camino con Sugerencias → retiene con
+  "modo sugerencias"; no se envía (la cola de aprobación es sprint futuro;
+  hoy se descarta y se traza).
+- **A08 — modo Auto seguro**: saludo simple de A → `autoSend`. "¿tienen el
+  negro?" SIN stock en catálogo → retiene ("safeAuto: ... hechos
+  faltantes"). Con stock informado → autoSend con dato verificado.
+- **A09 — modo Autónomo**: vuelta al comportamiento completo (riesgo bajo
+  sale; alucinación se retiene). Mismo que antes de Ronda 5.
+- **A10 — persistencia del modo**: elegir Desactivado → force-stop Nano →
+  reabrir → Ajustes muestra Desactivado todavía (shared_prefs).
+- **A11 — sin eco de plantilla**: A: "Hola" → reply SIN `[Pregunta del
+  cliente]`, sin `"questions": [...]` copiado, sin parafraseo del ejemplo
+  viejo ("¿Tiene algún producto en stock?"). Traza `[draft]` si algo raro.
+- **A12 — memoria acotada real**: conversación larga (>60 mensajes) →
+  logcat `[ctx:prompt] historyEntries=` nunca pasa de 60.
+- **A13 — sin turno colgado**: motor frío (recién abierta) + mensaje
+  entrante → si el motor no arranca en 60s, traza "[draft] ensureReady
+  agotó 60s" y el turno CIERRA (antes podía colgarse minutos).
+- **A14 — identidad débil**: notificación sin evidencia estable de
+  plataforma (si la hay en tu Oppo) → retiene con "identidad débil"
+  (umbral 0.95, única fuente).
+- **A15 — ownership humano**: A conversando → "La atiendo yo" desde
+  Mensajes → siguiente mensaje se retiene SIEMPRE ("ownership: humano
+  controla la conversación").
+- **A16 — sin regresión**: órdenes escritas, ráfagas (3 mensajes seguidos
+  = 1 turno coherente), @diag ping/llm, reglas y ticker de hora intactos;
+  `flutter analyze` 0 errores.
+
+## WA-UNIV-01 — regla universal de conversación de WhatsApp (seed del sistema)
+
+Regla de sistema sembrada por el RuleRegistry al arrancar (id fijo
+`wa_universal_conversation`): APP=WhatsApp, FILTER=sin keyword obligatoria,
+ACTION=respuesta dinámica del Conversation Engine (LLM), AUTO REPLY.
+Sin ella el Personal Agent no recibe ni un "Hola" tras reinstalar.
+
+Cadena a verificar por traza (logcat, grep `flutter.*\[`):
+RECEIVED (`[notify-event]`) → RULE MATCH (`[rules] cargadas=5 matcheadas>=1`)
+→ TURN (`[turn]`) → DRAFT (`[draft:start/end]`, `[route] rol=…`) → DECISION
+(`[decision]`) → DISPATCH (`[dispatch]`).
+
+- **U01 — seed al arrancar**: instalar APK (force-stop previo) → abrir Nano
+  → logcat muestra `[rules] seed universal WhatsApp` UNA vez → tick de
+  reglas pasa a `cargadas=5` (4 viejas + universal).
+- **U02 — hola sin keyword**: WhatsApp CERRADO en el Oppo (abierto = solo
+  GROUP_SUMMARY, el pipeline no ve el mensaje — evidencia ColorOS) → desde
+  OTRO teléfono: "Hola Emma" → traza completa RECEIVED→DISPATCH y reply
+  llega al remitente.
+- **U03 — regla visible**: Ajustes → Reglas → aparece la card
+  "Responder · com.whatsapp" con toggle ON. Desactivar el toggle →
+  `[rules] cargadas=5` con la universal desactivada (matcheadas baja) →
+  reactivar.
+- **U04 — borrado + reaparición**: borrar la universal en Reglas → reiniciar
+  Nano (force-stop + abrir) → reaparece (regla de sistema, no borrable).
+  Editar la universal → reiniciar → la edición se conserva (el seed solo
+  mira la existencia del id).
+- **U05 — reglas específicas ganan**: con la universal activa, una regla
+  keyword ("cuando digan 'negro' responde '…'") sigue disparando primero
+  para ese texto (orden: específicas antes, universal al final).
+- **U06 — no WhatsApp = no dispara**: notificación de otra app (Gmail,
+  Telegram) → `[rules] cargadas=5 matcheadas=0` para ese evento (la
+  universal no toca otros paquetes).
+- **U07 — fail honesto sin remitente**: notificación de WhatsApp sin
+  remitente (poco común) → dispatcher falla honesto "sin remitente",
+  nada se envía.
+
+## WA-UNIV-02/03 — eco propio ignorado + historial mínimo anti-eco
+
+Dos bugs emergentes de la universal, vistos en vivo en Oppo (2026-09-06):
+
+- **Eco propio matcheaba la universal**: WhatsApp marca los mensajes PROPIOS
+  con sender "Tú" en la notificación. La universal (sin senderMatch) matcheaba
+  el eco de NUESTRO RemoteInput → turno sobre nuestro propio mensaje
+  (evidencia: `matcheadas=1 (com.whatsapp/Tú)` + `verdict=proceed`). Guard
+  determinista en el router ANTES del gate: sender "Tú" de com.whatsapp se
+  descarta con traza `[rules] eco propio WhatsApp (sender=Tú) ignorado`.
+  El bounceback por texto (WA-ECHO-01) quedaba corto: depende de ventana de
+  3 min y de que el outbound post-terminal sobreviva a un kill.
+- **Eco de historial en el reply**: el reply de "ESTA TU PAPA EN CASA" salió
+  como COPIA literal de la conversación previa (`[draft:end] reply="¡Hola!
+  ¿En qué puedo ser útil hoy? Emm: como estas Nano: …"`) y se DESPACHÓ.
+  Causa: ctx=256 del survival_fit evicta las reglas del system (sliding
+  window) y el modelo solo ve el diálogo del historial → lo continúa como
+  respuesta. Fix: historial mínimo en el prompt (3 entradas × 80 chars).
+
+- **V01 — eco propio no dispara**: con la universal activa, responder a un
+  mensaje real (el eco aparece a los segundos) → logcat muestra
+  `[rules] eco propio WhatsApp (sender=Tú) ignorado` y NINGÚN `[turn]` ni
+  `[draft]` para ese eco. Antes: `matcheadas=1 (com.whatsapp/Tú)`.
+- **V02 — reply sin copia de historial**: conversación con historial previo
+  (varios intercambios) → mensaje nuevo → `[draft:end]` reply responde al
+  mensaje nuevo sin repetir el diálogo anterior.
+- **V03 — referencia corta aún funciona**: tras varios intercambios,
+  "¿cuál era el precio?" → el reply resuelve contra las últimas 3 entradas
+  (historial mínimo basta para referencias).
+
+## P0-ROUTE-02 — corrección definitiva del motor conversacional (2026-09-06)
+
+Prompt arquitectónico del usuario: el agente debe dejar de decidir "cómo
+responder" antes de saber QUÉ AGENTE corresponde. Cambios:
+
+- **Router** (`conversation_agent_role.dart`): saludo puro → PERSONAL SIEMPRE
+  (fuera la rama "saludo puro sin relación registrada" → GENERAL, causa raíz
+  del call-center); social casual corto ("que haces", "jajaja", "bro") →
+  PERSONAL; familia del dueño + verbo de presencia ("¿está tu papá?") →
+  PERSONAL; `commercialIntent` ORTOGONAL al rol para turnos mixtos.
+- **Writer**: corrección meta-conversacional ("¿cuál negro de qué hablas?")
+  entra con historial LIMPIO (igual que saludo puro — el tema viejo no se
+  continúa); `<DATOS DEL NEGOCIO>` entra con rol sales O commercialIntent
+  (turno mixto = estilo personal + facts reales, UNA respuesta).
+- **Prompt**: sección P0-SOCIAL (mensaje social → responder como la persona
+  del dueño, prohibido lenguaje de operador); regla 5 solo con pregunta
+  explícita de identidad (un "hola" NO la es).
+
+Pruebas físicas (Oppo, WhatsApp cerrado antes de enviar):
+
+- **PERSONAL-01 — hola**: enviar "hola" → logcat `[route] rol=personal
+  commercial=false saludo puro (social)`; reply corto social, SIN "¿En qué
+  puedo ayudarte?" ni "Soy Nano".
+- **PERSONAL-02 — como estas**: "como estas" → rol personal, reply estilo
+  dueño (con MI ESTILO poblado) o coloquial corto.
+- **PERSONAL-03 — oe / estas ahi**: "oe" y luego "estas ahi" → rol personal
+  las dos; reply corto ("si que paso" si el estilo del dueño lo trae).
+- **PERSONAL-04 — que haces bro**: → rol personal (social casual).
+- **PERSONAL-05 — jajaja**: → rol personal, reply relajado.
+- **PERSONAL-06 — esta Emmanuel?**: → rol personal (identidad), reply NO
+  afirma disponibilidad: ofrece dejar el mensaje.
+- **PERSONAL-07 — esta tu papa? / ESTA TU PAPA EN CASA**: → rol personal
+  (familia + presencia), reply no afirma: ofrece dejar mensaje.
+- **SALES-01 — cuanto vale el Negro**: → `[route] rol=sales commercial=true
+  producto explícito + señal comercial`; reply con precio del catálogo.
+- **SALES-02 — tienen disponible el Negro**: → rol sales, reply con stock
+  real o pregunta honesta.
+- **NON-SALES-01 — los pongo a chupar la crema alpina**: → `[route]`
+  producto sin señal comercial, rol personal o general, NINGÚN
+  `<DATOS DEL NEGOCIO>` (`[ctx:prompt] businessChars=0`).
+- **NON-SALES-02 — negro hp**: → sin contexto comercial, reply social.
+- **CORRECTION-01 — cual negro de que hablas** (tras consulta del Negro):
+  → rol personal (corrección), historial limpio, reply responde al mensaje
+  actual SIN seguir hablando del Negro.
+- **TOPIC-01 — gracias → hola**: tras cerrar un tema con "gracias", un
+  "hola" posterior → rol personal SIN reactivar el producto
+  (`[ctx:gate] clientContext=false`).
+- **MULTI-01 — hola bro, esta Emmanuel y todavia tienen el Negro?**: →
+  `[route] rol=personal commercial=true` (identidad manda) y
+  `[ctx:prompt] businessChars>0`: UNA respuesta con estilo personal y los
+  facts del Negro, sin dos agentes.

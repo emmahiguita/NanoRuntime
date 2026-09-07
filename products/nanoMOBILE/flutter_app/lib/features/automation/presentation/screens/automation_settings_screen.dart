@@ -17,6 +17,7 @@ import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_repository.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/persona_example.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/persona_profile.dart';
 
@@ -60,7 +61,12 @@ class AutomationSettingsScreen extends ConsumerWidget {
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 // NAV-FLOAT-01 — la barra flota sin reservar layout: el
                 // scroll reserva su propio espacio.
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, kNanoBarScrollReserve),
+                padding: const EdgeInsets.fromLTRB(
+                  12,
+                  8,
+                  12,
+                  kNanoBarScrollReserve,
+                ),
                 children: [
                   Center(
                     child: ConstrainedBox(
@@ -135,6 +141,11 @@ class AutomationSettingsScreen extends ConsumerWidget {
                             'Automatización en segundo plano',
                           ),
                           const _BackgroundAutomationCard(),
+                          const SizedBox(height: 24), // UI-REV-02: gap Dev xl
+                          // AUTO-03 — tope global de autonomía del pipeline de
+                          // WhatsApp (el MISMO engine de decisión lo aplica).
+                          const AutomationSectionLabel('Autonomía de WhatsApp'),
+                          const _AutonomyModeCard(),
                           const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Datos del negocio'),
                           const _BusinessDataCard(),
@@ -637,6 +648,78 @@ class _BackgroundAutomationCardState
   }
 }
 
+/// AUTO-03 — modo de autonomía del pipeline de WhatsApp. El MISMO motor de
+/// decisión (ConversationDecisionEngine) aplica el modo como tope ANTES de su
+/// fórmula: no hay segundo motor ni reglas nuevas. Paridad: 'autonomous' es
+/// el comportamiento previo exacto (default y fallback de fromName).
+class _AutonomyModeCard extends ConsumerWidget {
+  const _AutonomyModeCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ConversationAutonomyModeName.fromName(
+      ref.watch(settingsProvider).waAutonomyMode,
+    );
+    return _SettingsCard(
+      children: [
+        _SettingsRow(
+          icon: Icons.auto_awesome_outlined,
+          title: 'Autonomía de respuestas',
+          subtitle: mode.description,
+          trailing: _ValueBadge(label: mode.label.toUpperCase()),
+          onTap: () => _pickAutonomyMode(context, ref),
+        ),
+      ],
+    );
+  }
+
+  static Future<void> _pickAutonomyMode(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final selected = ConversationAutonomyModeName.fromName(
+      ref.read(settingsProvider).waAutonomyMode,
+    );
+    final value = await showModalBottomSheet<ConversationAutonomyMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Autonomía de respuestas',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              for (final mode in ConversationAutonomyMode.values)
+                ListTile(
+                  leading: Icon(
+                    mode == selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: mode == selected
+                        ? AutomationVisual.of(context).accent
+                        : AutomationVisual.of(context).textMuted,
+                  ),
+                  title: Text(mode.label),
+                  subtitle: Text(mode.description),
+                  onTap: () => Navigator.of(context).pop(mode),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (value != null) {
+      ref.read(settingsProvider.notifier).setWaAutonomyMode(value.name);
+    }
+  }
+}
+
 /// WA-BUSINESS-01 — datos reales del negocio que el agente puede afirmar:
 /// productos (nombre, variante, precio, stock), horario y envío. Se guardan
 /// en el store durable y viajan al prompt como bloque <DATOS DEL NEGOCIO>.
@@ -693,11 +776,9 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 600), () {
       PersonaRepository.instance
-          .upsertPersona(
-            'owner',
-            _nameController.text.trim(),
-            {'notas': _notesController.text.trim()},
-          )
+          .upsertPersona('owner', _nameController.text.trim(), {
+            'notas': _notesController.text.trim(),
+          })
           .then((_) => _refreshSharedContext());
     });
   }
@@ -764,7 +845,9 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
   }
 
   Future<void> _deleteRelationship(RelationshipProfile profile) async {
-    await PersonaRepository.instance.deleteRelationship(profile.relationshipKey);
+    await PersonaRepository.instance.deleteRelationship(
+      profile.relationshipKey,
+    );
     _refreshSharedContext();
     await _load();
   }
@@ -784,7 +867,8 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
               maxLines: 4,
               decoration: const InputDecoration(
                 labelText: 'Así respondería yo…',
-                hintText: 'Ej. "¡Hola Juan! Sí, el negro está disponible. '
+                hintText:
+                    'Ej. "¡Hola Juan! Sí, el negro está disponible. '
                     '¿Te lo aparto para hoy?"',
               ),
             ),
@@ -849,7 +933,8 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Datos que Nano debe saber de ti',
-                  hintText: 'Ej. "Atiendo en horario de oficina; prefiero '
+                  hintText:
+                      'Ej. "Atiendo en horario de oficina; prefiero '
                       'respuestas cortas"',
                   border: OutlineInputBorder(),
                   isDense: true,

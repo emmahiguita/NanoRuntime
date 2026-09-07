@@ -6,6 +6,7 @@ import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/application/rule_creator.dart';
+import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
@@ -660,7 +661,12 @@ class _RuleCard extends StatefulWidget {
 
   static String _triggerLabel(Trigger trigger) {
     if (trigger is NotificationTrigger) {
-      final package = trigger.packageName ?? 'cualquier app';
+      // WA-UNIV-01 — nombre amable del paquete WhatsApp (punto único de
+      // la card y el detalle; el resto queda con el packageName crudo).
+      final rawPackage = trigger.packageName;
+      final package = rawPackage == MessagingPackage.whatsapp
+          ? 'WhatsApp'
+          : rawPackage ?? 'cualquier app';
       final sender = trigger.senderMatch;
       final textMatch = trigger.textMatch;
       final base = (sender == null || sender.isEmpty)
