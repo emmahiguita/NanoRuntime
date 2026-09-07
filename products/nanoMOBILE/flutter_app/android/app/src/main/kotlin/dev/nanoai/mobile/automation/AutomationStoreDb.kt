@@ -316,23 +316,24 @@ class AutomationStoreDb(context: Context) {
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // v1 -> v2: bitácora de eventos del pipeline (append-only).
             if (oldVersion < 2) db.execSQL(EVENTS_DDL)
-            // PERSONA-STORAGE-04 — v3: esquema del agente personal (perfiles,
-            // ejemplos con FTS4 y episodios conversacionales). Los consumidores
-            // Dart llegan en PERSONA-PROFILE-05..RETRIEVAL-07; la migración se
-            // aplica UNA vez aquí para no encadenar versiones por tabla.
-            if (oldVersion < 3) {
-                for (ddl in PERSONA_DDL_STATEMENTS) {
-                    try {
-                        db.execSQL(ddl)
-                    } catch (e: SQLiteException) {
-                        Log.w(TAG, "DDL falló (continuando): $ddl", e)
-                    }
+            // PERSONA-BUGFIX-02 (v5) — el DDL idempotente (CREATE TABLE IF
+            // NOT EXISTS) corre en CADA upgrade: la v3 defectuosa
+            // (multi-sentencia en un solo execSQL) dejó tablas base SIN
+            // crear en dispositivos que ya migraron a v3/v4 — evidencia en
+            // vivo: no such table: persona_examples con la FTS4 presente.
+            // El condicional oldVersion < 3 fallaba para esos devices (la
+            // migración 3->4 no recreaba las tablas base).
+            for (ddl in PERSONA_DDL_STATEMENTS) {
+                try {
+                    db.execSQL(ddl)
+                } catch (e: SQLiteException) {
+                    Log.w(TAG, "DDL falló (continuando): $ddl", e)
                 }
             }
-            // PERSONA-BUGFIX-01 — v4: repara dispositivos que migraron con la
-            // v3 defectuosa (FTS4 o triggers ausentes). Idempotente: crear lo
-            // que falte y repoblar el índice desde persona_examples.
-            if (oldVersion < 4) ensureFts(db)
+            // PERSONA-BUGFIX-01 — FTS4 presente y poblada en cada upgrade:
+            // repara la v3 defectuosa (FTS4 o triggers ausentes) y repuebla
+            // el índice desde persona_examples. Idempotente.
+            ensureFts(db)
         }
 
         /** PERSONA-BUGFIX-01 — FTS4 presente y poblada, pase lo que pase con
@@ -359,9 +360,9 @@ class AutomationStoreDb(context: Context) {
     companion object {
         private const val TAG = "AutomationStoreDb"
         private const val DB_NAME = "nano_automation_store.db"
-        // PERSONA-BUGFIX-01 — v4: repara la FTS4 que la v3 (multi-sentencia)
-        // dejó sin crear en dispositivos ya migrados.
-        private const val DB_VERSION = 4
+        // PERSONA-BUGFIX-02 — v5: DDL base idempotente en CADA upgrade (la
+        // v3 multi-sentencia dejó tablas base sin crear en devices ya en v4).
+        private const val DB_VERSION = 5
         private const val TABLE = "store_sections"
         private const val COL_KEY = "section_key"
         private const val COL_DATA = "data"

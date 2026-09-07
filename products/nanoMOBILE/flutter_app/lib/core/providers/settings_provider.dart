@@ -52,6 +52,7 @@ class SettingsRepository {
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
         waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
+        waAutonomyMode: m['waAutonomyMode'] as String? ?? 'autonomous',
       );
     } catch (_) {
       return const SettingsState();
@@ -77,6 +78,7 @@ class SettingsRepository {
         'waStyleEnabled': s.waStyleEnabled,
         'waStyleText': s.waStyleText,
         'waReplyDelaySeconds': s.waReplyDelaySeconds,
+        'waAutonomyMode': s.waAutonomyMode,
       }),
     );
   }
@@ -116,6 +118,13 @@ class SettingsState {
   /// mensaje nuevo durante la espera, el reply se descarta (nunca se envía).
   final int waReplyDelaySeconds;
 
+  /// AUTO-03 — modo de autonomía del pipeline de WhatsApp (nombre del enum
+  /// ConversationAutonomyMode: disabled/suggestions/safeAuto/autonomous).
+  /// String puro aquí (patrón themeMode): la conversión a enum la hace el
+  /// coordinator con fromName, que ante valor desconocido o ausente cae a
+  /// 'autonomous' = paridad exacta con el comportamiento previo.
+  final String waAutonomyMode;
+
   const SettingsState({
     this.themeMode = 'Oscuro',
     this.temperature = 0.7,
@@ -131,6 +140,7 @@ class SettingsState {
     this.waStyleEnabled = false,
     this.waStyleText = '',
     this.waReplyDelaySeconds = 0,
+    this.waAutonomyMode = 'autonomous',
   });
 
   SettingsState copyWith({
@@ -148,6 +158,7 @@ class SettingsState {
     bool? waStyleEnabled,
     String? waStyleText,
     int? waReplyDelaySeconds,
+    String? waAutonomyMode,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -163,6 +174,7 @@ class SettingsState {
     waStyleEnabled: waStyleEnabled ?? this.waStyleEnabled,
     waStyleText: waStyleText ?? this.waStyleText,
     waReplyDelaySeconds: waReplyDelaySeconds ?? this.waReplyDelaySeconds,
+    waAutonomyMode: waAutonomyMode ?? this.waAutonomyMode,
   );
 }
 
@@ -215,14 +227,19 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   /// WA-PERSONA-01 — toggle del estilo del agente WhatsApp. Persist inmediata
   /// (mismo patrón que el resto de setters); las closures de los writers leen
   /// el estado en vivo al redactar, sin watch.
-  void setWaStyleEnabled(bool v) =>
-      _persist(state.copyWith(waStyleEnabled: v));
+  void setWaStyleEnabled(bool v) => _persist(state.copyWith(waStyleEnabled: v));
 
   void setWaStyleText(String v) => _persist(state.copyWith(waStyleText: v));
 
   /// WA-DELAY-01 — pausa de reply en segundos (0..60, clampa la UI).
   void setWaReplyDelaySeconds(int v) =>
       _persist(state.copyWith(waReplyDelaySeconds: v.clamp(0, 60)));
+
+  /// AUTO-03 — modo de autonomía del pipeline de WhatsApp. String crudo
+  /// (patrón themeMode): el coordinator lo convierte con
+  /// ConversationAutonomyMode.fromName (valor desconocido cae a autonomous).
+  void setWaAutonomyMode(String v) =>
+      _persist(state.copyWith(waAutonomyMode: v));
 
   /// Gate global de salida TTS. El estado cambia antes de cualquier await para
   /// que ninguna nueva respuesta pueda empezar a hablar; al apagar también

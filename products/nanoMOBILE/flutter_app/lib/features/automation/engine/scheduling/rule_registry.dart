@@ -7,9 +7,12 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../messaging/messaging_package.dart';
 import 'scheduled_rule.dart';
+import 'trigger.dart';
 
 /// Persistencia de reglas (DIP). Producción = shared_prefs JSON; tests = memoria.
 abstract interface class RuleStore {
@@ -70,14 +73,52 @@ class RuleRegistry {
   final List<ScheduledRule> _rules = [];
   bool _loaded = false;
 
+  /// WA-UNIV-01 — id fijo de la regla universal de conversación de WhatsApp.
+  /// Regla de SISTEMA sembrada por petición explícita del dueño: APP=WhatsApp,
+  /// FILTER=sin keyword obligatoria (cualquier mensaje entrante),
+  /// ACTION=respuesta dinámica del Conversation Engine (LLM), AUTO REPLY.
+  /// Sin ella el Personal Agent no recibe ni un "Hola" tras una reinstalación.
+  static const universalWhatsAppRuleId = 'wa_universal_conversation';
+
   List<ScheduledRule> get rules => List.unmodifiable(_rules);
 
-  /// Carga las reglas persistidas (llamado una vez al arrancar el provider).
+  /// Carga las reglas persistidas (llamado una vez al arrancar el provider)
+  /// y siembra la regla universal si no existe (idempotente por id fijo).
   Future<void> load() async {
     _rules
       ..clear()
       ..addAll(await _store.load());
     _loaded = true;
+    _seedUniversalWhatsAppRule();
+  }
+
+  /// WA-UNIV-01 — garantiza la regla universal tras cada arranque del
+  /// registro. Solo mira la EXISTENCIA del id fijo: si el usuario la borró,
+  /// reaparece (regla de sistema, no borrable); si la desactivó o editó,
+  /// el seed no la toca (toggle y edición respetados). `createdByUser`
+  /// queda true: la autoridad standing de WA-AUTH-04 nace de la petición
+  /// explícita del dueño de tener conversación automática en WhatsApp, y
+  /// con false el dispatcher exigiría confirmación humana en cada mensaje
+  /// (fail-closed que anularía el auto-reply pedido).
+  void _seedUniversalWhatsAppRule() {
+    if (_rules.any((r) => r.id == universalWhatsAppRuleId)) return;
+    final rule = ScheduledRule(
+      id: universalWhatsAppRuleId,
+      trigger: const NotificationTrigger(
+        packageName: MessagingPackage.whatsapp,
+      ),
+      action: RuleAction.reply,
+      dynamicReply: true,
+      enabled: true,
+      createdAt: DateTime.now(),
+      createdByUser: true,
+    );
+    _rules.add(rule);
+    debugPrint(
+      '[rules] seed universal WhatsApp (wa_universal_conversation): '
+      'cualquier mensaje de com.whatsapp → reply dinámico LLM',
+    );
+    _persist();
   }
 
   void add(ScheduledRule rule) {

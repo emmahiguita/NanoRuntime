@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
+import '../messaging/messaging_package.dart';
 import '../notifications/notification_object.dart';
 import 'burst_turn_gate.dart';
 import 'rule_pipeline.dart';
@@ -44,6 +45,20 @@ class NotificationEventRouter {
       '[notify-event] ${notif.packageName} key=${notif.key} '
       'sender=${notif.sender} msg="${notif.interpretableText}"',
     );
+    // WA-UNIV-02 — el eco de NUESTRO propio RemoteInput reaparece como
+    // notificación de WhatsApp con sender "Tú" (marca propia de la app
+    // origen). La regla universal (WA-UNIV-01, sin senderMatch) matchearía
+    // ese eco y re-dispararía un turno sobre nuestro propio mensaje. El
+    // bounceback por texto (WA-ECHO-01) cubre el eco con outbound reciente
+    // persistido, pero depende de ventana y de que un kill no pierda el
+    // outbound registrado post-terminal: este guard es determinista y va
+    // ANTES del gate para que el eco ni siquiera polucione la memoria del
+    // turno (verificado en Oppo 2026-09-06: eco con sender=Tú → proceed).
+    if (notif.packageName == MessagingPackage.whatsapp && notif.sender == 'Tú') {
+      debugPrint('[rules] eco propio WhatsApp (sender=Tú) ignorado: '
+          'mensaje de nuestro RemoteInput, no del cliente');
+      return;
+    }
     final g = gate;
     if (g != null) {
       // WA-TURN-01: los mensajes de una ráfaga de la misma conversación se

@@ -13,7 +13,11 @@ import '../domain/automation_policy.dart';
 import 'business/business_facts_providers.dart';
 import 'business/fact_selector.dart';
 import 'messaging/conv_turn_state.dart'
-    show clientContextBlockForTurn, conversationStateNotifierProvider;
+    show
+        clientContextBlockForTurn,
+        contextSignalsFor,
+        conversationStateNotifierProvider,
+        isPureGreeting;
 import 'messaging/tone_profile_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
@@ -68,6 +72,8 @@ import 'model/automation_model.dart' show AutomationModelRole;
 import 'notifications/notification_draft_writer.dart';
 import '../personal_agent/application/persona_context.dart'
     show personaContextProvider;
+import '../personal_agent/domain/conversation_agent_role.dart'
+    show routeConversationAgent;
 import 'planning/candidates/notification_candidate_provider.dart';
 import 'planning/candidates/notification_data_candidate_provider.dart';
 import 'planning/candidates/candidate_ranker.dart';
@@ -497,14 +503,51 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     // WA-STATE-01 + CONTEXT-GATE-01 — recuerdo de la consulta anterior de
     // ESTA conversación, gated por el mensaje actual (determinista: sin
     // referencia ni dependencia el recuerdo no entra al prompt).
-    clientContextFor: (conversationId, text) => clientContextBlockForTurn(
-      entry: ref.read(conversationStateNotifierProvider)[conversationId],
-      messageText: text,
-      facts: ref.read(businessFactsNotifierProvider),
-    ),
+    clientContextFor: (conversationId, text) {
+      final facts = ref.read(businessFactsNotifierProvider);
+      final entry =
+          ref.read(conversationStateNotifierProvider)[conversationId];
+      final signals = contextSignalsFor(text, facts);
+      final block = clientContextBlockForTurn(
+        entry: entry,
+        messageText: text,
+        facts: facts,
+      );
+      // CONTEXT-GATE-01 — traza diagnóstica TEMPORAL (se quita tras la
+      // validación física M01-M10): una línea con las señales del gating.
+      debugPrint(
+        '[ctx:gate] conv=${_shortId(conversationId)} '
+        'current="${_oneLine(text)}" greeting=${isPureGreeting(text)} '
+        'reference=${signals.reference} dependent=${signals.dependent} '
+        'explicitProduct=${signals.explicitProduct} '
+        'clientContext=${block.isNotEmpty}',
+      );
+      return block;
+    },
     // PERSONA-COMPOSE-08 — dueño + relación + ejemplos FTS4 por mensaje.
     personaBlock: (text, sender) =>
         ref.read(personaContextProvider).personaBlockFor(text, sender),
+    // P0-ROUTE — rol del turno ANTES de armar el prompt: el MISMO router
+    // determinista del decisionContext (AUTO-02), con la misma evidencia
+    // (catálogo real, convstate, personaContext). El writer gatea bloques
+    // por el rol resultante: UNDERSTANDING → ROUTER → CONTEXT autoritativo.
+    routeFor: (conversationId, text, sender) {
+      final facts = ref.read(businessFactsNotifierProvider);
+      final entry =
+          ref.read(conversationStateNotifierProvider)[conversationId];
+      final hasActiveProduct =
+          entry != null &&
+          entry.product != null &&
+          entry.topicStatus == 'active';
+      final persona = ref.read(personaContextProvider);
+      return routeConversationAgent(
+        messageText: text,
+        facts: facts,
+        hasRelationship: persona.hasRelationshipFor(sender),
+        hasActiveProduct: hasActiveProduct,
+        ownerName: persona.ownerName,
+      );
+    },
     // WA-MEM-08: contexto factual de la conversación.
     memory: ref.watch(conversationMemoryStoreProvider),
   ).call;
@@ -585,3 +628,12 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
     koogShadow: ref.watch(koogShadowObserverProvider),
   );
 });
+
+/// CONTEXT-GATE-01 — helpers de traza diagnóstica (temporales).
+String _shortId(String id) =>
+    id.length <= 8 ? id : id.substring(0, 8);
+
+String _oneLine(String text) {
+  final single = text.replaceAll('\n', ' ').trim();
+  return single.length <= 40 ? single : single.substring(0, 40);
+}

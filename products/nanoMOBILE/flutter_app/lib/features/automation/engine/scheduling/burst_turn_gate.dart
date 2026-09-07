@@ -42,9 +42,15 @@ final class BurstTurnGate {
   final void Function(String conversationId)? onInbound;
 
   /// WA-STATE-01 — notifica el turno AGREGADO que terminó (conversación +
-  /// notificación unida): el wiring recuerda qué producto consultó el
-  /// cliente (selector determinista contra el catálogo).
-  final void Function(String conversationId, NotificationObject aggregated)?
+  /// notificación unida + reply real enviado): el wiring registra el turno
+  /// completo (producto consultado, pregunta pendiente, cierre de tema).
+  /// [dispatchedText] = texto REAL despachado por el turno ('' si no hubo
+  /// reply: regla fallida, decisión negativa o sin motor).
+  final void Function(
+    String conversationId,
+    NotificationObject aggregated, {
+    String dispatchedText,
+  })?
   onTurnComplete;
 
   /// Ventana de asentamiento tras el primer mensaje de la ráfaga.
@@ -66,7 +72,7 @@ final class BurstTurnGate {
   Future<List<RuleDispatchResult>> submit(
     NotificationObject event,
     Future<List<RuleDispatchResult>> Function(NotificationObject aggregated)
-        runTurn,
+    runTurn,
   ) async {
     return (await submitAll([event], runTurn)).single;
   }
@@ -77,7 +83,7 @@ final class BurstTurnGate {
   Future<List<List<RuleDispatchResult>>> submitAll(
     List<NotificationObject> events,
     Future<List<RuleDispatchResult>> Function(NotificationObject aggregated)
-        runTurn,
+    runTurn,
   ) async {
     final results = List<List<RuleDispatchResult>>.filled(
       events.length,
@@ -144,11 +150,15 @@ class _Bucket {
   final Duration settle;
   final Duration maxWait;
   final int maxBurst;
-  final Future<List<RuleDispatchResult>> Function(NotificationObject)
-      runTurn;
+  final Future<List<RuleDispatchResult>> Function(NotificationObject) runTurn;
 
-  /// WA-STATE-01 — turno agregado terminado (conversación + notificación).
-  final void Function(String conversationId, NotificationObject aggregated)?
+  /// WA-STATE-01 — turno agregado terminado (conversación + notificación
+  /// + reply real despachado, '' si no hubo).
+  final void Function(
+    String conversationId,
+    NotificationObject aggregated, {
+    String dispatchedText,
+  })?
   onTurnComplete;
 
   /// El bucket se retira SOLO cuando quedó vacío y sin turno en curso
@@ -196,7 +206,11 @@ class _Bucket {
       final results = await runTurn(aggregated);
       // Sin await entre la resolución y el chequeo de cola: nadie puede
       // intercalar un push a mitad (un solo hilo de eventos).
-      onTurnComplete?.call(key.startsWith('anon:') ? '' : key, aggregated);
+      onTurnComplete?.call(
+        key.startsWith('anon:') ? '' : key,
+        aggregated,
+        dispatchedText: _dispatchedReply(results),
+      );
       for (final m in members) {
         m.resolve(results);
       }
@@ -222,8 +236,7 @@ class _Bucket {
   NotificationObject _merge(List<_Member> members) {
     final anchor = members.last.event;
     final parts = [
-      for (final m in members)
-        _messageText(m.event).trim(),
+      for (final m in members) _messageText(m.event).trim(),
     ].where((t) => t.isNotEmpty);
     final joined = parts.join('\n');
     return NotificationObject(
@@ -254,6 +267,17 @@ class _Bucket {
 
   static String _messageText(NotificationObject event) =>
       event.messageText.isNotEmpty ? event.messageText : event.text;
+
+  /// Ronda 3 — reply REAL despachado por el turno (primer intento de reply
+  /// con texto), '' si ninguno. Fuente del registro de pregunta pendiente.
+  static String _dispatchedReply(List<RuleDispatchResult> results) {
+    for (final r in results) {
+      if (r.isReplyAttempt && r.dispatchedText.isNotEmpty) {
+        return r.dispatchedText;
+      }
+    }
+    return '';
+  }
 
   static String _sample(String raw) {
     final single = raw.replaceAll('\n', ' · ');

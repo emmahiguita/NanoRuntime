@@ -30,6 +30,8 @@ import 'package:nanoai/features/automation/engine/perception/search_result_resol
 import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_role.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
@@ -448,9 +450,8 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       supersedeGuard: ref.watch(turnSupersedeGuardProvider),
       // WA-DELAY-01 — pausa de reply leída EN VIVO al despachar (closure,
       // no watch: el dispatcher es estable y el delay cambia por llamada).
-      replyDelay: () => Duration(
-        seconds: ref.read(settingsProvider).waReplyDelaySeconds,
-      ),
+      replyDelay: () =>
+          Duration(seconds: ref.read(settingsProvider).waReplyDelaySeconds),
       // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
       // contextual que el candidato de notificación (un solo motor).
       draftSource: ref.watch(notificationDraftSourceProvider),
@@ -461,14 +462,50 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       // el control, el engine retiene el draft (jamás se pisa al dueño).
       // PERSONA-AUTONOMY-11 — la MISMA identidad resuelta alimenta la
       // política de autonomía: sin evidencia estable no hay envío.
+      // AUTO-02/03 — rol del turno (router determinista puro, jamás LLM) y
+      // modo de autonomía global (settings): el MISMO engine decide con más
+      // señal. No hay segundo motor de decisión.
       decisionContext: (notif) {
         final identity = resolveConversationIdentity(notif);
         final ownership = ref
             .read(conversationOwnershipStoreProvider)
             .ownershipFor(identity.key.id);
+        // AUTO-02 — tema activo + producto recordado en convstate (misma
+        // fuente que el gating de contexto): la referencia corta ("¿y ese?")
+        // es comercial cuando hay producto activo.
+        final entry = ref.read(
+          conversationStateNotifierProvider,
+        )[identity.key.id];
+        final hasActiveProduct =
+            entry != null &&
+            entry.product != null &&
+            entry.topicStatus == 'active';
+        final routing = routeConversationAgent(
+          messageText: notif.text,
+          facts: ref.read(businessFactsNotifierProvider),
+          hasRelationship: ref
+              .read(personaContextProvider)
+              .hasRelationshipFor(notif.sender),
+          hasActiveProduct: hasActiveProduct,
+          // P0-ROUTE — identidad: "¿está Emmanuel?" es PERSONAL aunque el
+          // remitente no tenga relación registrada.
+          ownerName: ref.read(personaContextProvider).ownerName,
+        );
+        final mode = ConversationAutonomyModeName.fromName(
+          ref.read(settingsProvider).waAutonomyMode,
+        );
+        debugPrint(
+          '[agent] rol=${routing.role.name} modo=${mode.name} '
+          '${routing.reasons.join(' | ')}',
+        );
         return ConversationDecisionContext(
           humanOwnsConversation: ownership?.humanOwns ?? false,
           identityConfidence: identity.confidence,
+          autonomyMode: mode,
+          agentRole: routing.role,
+          // P0-NO-CALLCENTER — el texto del mensaje viaja al engine para el
+          // guard determinista de saludo + identidad ("Soy Nano").
+          userText: notif.text,
         );
       },
       // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
@@ -495,8 +532,8 @@ final turnSupersedeGuardProvider = Provider<TurnSupersedeGuard>((ref) {
 /// la barrera global antes del primer evento del pipeline).
 final conversationOwnershipStoreProvider =
     Provider<SqliteConversationOwnershipStore>((ref) {
-  return SqliteConversationOwnershipStore();
-});
+      return SqliteConversationOwnershipStore();
+    });
 
 /// WA-TURN-01 — puerta de ráfagas por conversación (una por engine): agrupa
 /// mensajes de la misma conversación en un único turno y serializa los
@@ -507,19 +544,21 @@ final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
     // corre) incrementa la versión → supersede del draft en curso.
     onInbound: (conversationId) =>
         ref.read(turnSupersedeGuardProvider).bump(conversationId),
-    // WA-STATE-01: al terminar un turno agregado, recordar el producto que
-    // consultó el cliente (el store interno filtra si no hay match).
-    onTurnComplete: (conversationId, aggregated) async {
+    // WA-STATE-01 + Ronda 3: al terminar un turno agregado, registrar el
+    // turno completo: producto consultado, pregunta pendiente del reply y
+    // cierre de tema (recordTurn filtra determinista lo que no aplica).
+    onTurnComplete: (conversationId, aggregated, {dispatchedText = ''}) async {
       if (conversationId.isEmpty) return;
       final text = aggregated.messageText.isNotEmpty
           ? aggregated.messageText
           : aggregated.text;
       await ref
           .read(conversationStateNotifierProvider.notifier)
-          .rememberProductFrom(
-            conversationId,
-            text,
-            ref.read(businessFactsNotifierProvider),
+          .recordTurn(
+            conversationId: conversationId,
+            userText: text,
+            nanoReply: dispatchedText,
+            facts: ref.read(businessFactsNotifierProvider),
           );
     },
   );

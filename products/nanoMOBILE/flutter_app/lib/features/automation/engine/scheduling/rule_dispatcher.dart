@@ -251,11 +251,18 @@ class RuleDispatcher {
         // llega un mensaje nuevo mientras Nano redacta o antes de ejecutar,
         // el turno quedó superado y el draft viejo jamás se envía.
         final supersedeGuard = _supersedeGuard;
+        final conversationId = resolveConversationIdentity(notif).key.id;
         final conversationVersion = supersedeGuard == null
             ? 0
-            : supersedeGuard.versionOf(
-                resolveConversationIdentity(notif).key.id,
-              );
+            : supersedeGuard.versionOf(conversationId);
+        // P1-FIX — traza TEMPORAL del invariante 1 INPUT = 1 TURN: un input
+        // lógico abre UN turno con su event/key/versión; las trazas de draft,
+        // decision y dispatch cuelgan de este par input+version.
+        debugPrint(
+          '[turn] conv=${_shortId(conversationId)} '
+          'input="${_sample(notif.text)}" event=${notif.key} '
+          'version=$conversationVersion',
+        );
         // WA-AGENT-09 — reply dinámico: la regla no fija texto; el motor
         // local redacta con el historial factual de la conversación. Sin
         // motor/borrador → failed honesto, jamás respuesta genérica.
@@ -277,11 +284,17 @@ class RuleDispatcher {
               reason: 'regla dinámica: el motor local no produjo borrador',
             );
           }
-          if (supersedeGuard != null &&
-              supersedeGuard.versionOf(
-                    resolveConversationIdentity(notif).key.id,
-                  ) !=
-                  conversationVersion) {
+          final currentVersion = supersedeGuard == null
+              ? 0
+              : supersedeGuard.versionOf(conversationId);
+          if (supersedeGuard != null && currentVersion != conversationVersion) {
+            // P1-FIX — traza TEMPORAL del invariante: captured = versión al
+            // abrir el turno, current = versión al terminar el draft.
+            debugPrint(
+              '[supersede] conv=${_shortId(conversationId)} '
+              'captured=$conversationVersion current=$currentVersion '
+              'stage=postDraft input="${_sample(notif.text)}"',
+            );
             return RuleDispatchResult(
               ruleId: rule.id,
               outcome: RuleOutcome.failed,
@@ -338,16 +351,27 @@ class RuleDispatcher {
           }
         }
         if (supersedeGuard != null &&
-            supersedeGuard.versionOf(
-                  resolveConversationIdentity(notif).key.id,
-                ) !=
-                conversationVersion) {
+            supersedeGuard.versionOf(conversationId) != conversationVersion) {
+          // P1-FIX — traza TEMPORAL del invariante: el reply ya no vale.
+          debugPrint(
+            '[supersede] conv=${_shortId(conversationId)} '
+            'captured=$conversationVersion '
+            'current=${supersedeGuard.versionOf(conversationId)} '
+            'stage=preSend input="${_sample(notif.text)}"',
+          );
           return RuleDispatchResult(
             ruleId: rule.id,
             outcome: RuleOutcome.failed,
             reason: 'turno superado antes del envío',
           );
         }
+        // P1-FIX — traza TEMPORAL del invariante 1 INPUT = 1 DECISION:
+        // dispatch cierra el turno con el MISMO input que lo abrió.
+        debugPrint(
+          '[dispatch] conv=${_shortId(conversationId)} '
+          'input="${_sample(notif.text)}" reply="${_sample(text)}" '
+          'version=$conversationVersion',
+        );
         final AutomationResult result;
         try {
           // WA-AUTH-04: la regla fue creada explícitamente por el usuario →
@@ -408,9 +432,7 @@ class RuleDispatcher {
             ruleId: rule.id,
             // Honesto: WhatsApp abierto ≠ archivo enviado. El tap final es
             // del usuario.
-            outcome: launched
-                ? RuleOutcome.mediaLaunched
-                : RuleOutcome.failed,
+            outcome: launched ? RuleOutcome.mediaLaunched : RuleOutcome.failed,
             reason: launched ? '' : 'la app de destino no aceptó el archivo',
             dispatchedText: rule.message,
           );
@@ -447,4 +469,14 @@ class RuleDispatcher {
       dispatchedText: dispatchedText,
     );
   }
+
+  /// P1-FIX — muestra acotada del input/reply para trazas físicas (200
+  /// chars, una línea: el texto completo con saltos inundaba el logcat).
+  static String _sample(String raw) {
+    final single = raw.replaceAll('\n', ' ').trim();
+    return single.length <= 200 ? single : single.substring(0, 200);
+  }
+
+  /// P1-FIX — hash corto del id de conversación para la traza.
+  static String _shortId(String id) => id.length <= 8 ? id : id.substring(0, 8);
 }
