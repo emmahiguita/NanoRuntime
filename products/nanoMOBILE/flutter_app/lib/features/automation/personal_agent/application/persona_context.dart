@@ -52,6 +52,16 @@ final class PersonaContext {
   /// Recarga tras editar en la UI (misma vía que [load]).
   Future<void> refresh() => load();
 
+  /// AUTO-02 — ¿hay relación registrada para este remitente factual?
+  /// Señal determinista del router (jamás el LLM): con relación, el turno
+  /// de un contacto sin señales comerciales es PERSONAL.
+  bool hasRelationshipFor(String sender) =>
+      _relationships.containsKey(sender.trim().toLowerCase());
+
+  /// P0-ROUTE — nombre del dueño ('' si no hay perfil owner). El router lo
+  /// usa para detectar identidad ("¿está Emmanuel?") → PERSONAL siempre.
+  String get ownerName => _ownerName;
+
   /// Bloque <DATOS DE LA PERSONA> para el prompt ('' si no hay nada).
   ///
   /// [messageText] alimenta el retriever (ejemplos parecidos al contexto);

@@ -22,7 +22,11 @@
 /// Confianza: base 0.85 − penalización por señal. Umbral de envío: 0.6.
 library;
 
+import '../../engine/messaging/conv_turn_state.dart' show isPureGreeting;
+import '../../engine/messaging/conversation_key.dart' show ConversationIdentity;
 import '../../engine/notifications/conversation_understanding.dart';
+import '../domain/conversation_agent_role.dart' show ConversationAgentRole;
+import '../domain/conversation_autonomy_mode.dart';
 import '../domain/conversation_decision.dart';
 
 final class ConversationDecisionEngine {
@@ -30,8 +34,7 @@ final class ConversationDecisionEngine {
 
   ConversationDecision decide({
     required ConversationUnderstanding understanding,
-    ConversationDecisionContext context =
-        const ConversationDecisionContext(),
+    ConversationDecisionContext context = const ConversationDecisionContext(),
   }) {
     final reasons = <String>[];
 
@@ -46,14 +49,65 @@ final class ConversationDecisionEngine {
       );
     }
 
+    // AUTO-03 — modo de autonomía: tope global ANTES de la identidad.
+    // disabled/suggestions retienen todo el turno (el draft se descarta y
+    // se traza; la cola con aprobación en UI es el siguiente sprint).
+    switch (context.autonomyMode) {
+      case ConversationAutonomyMode.disabled:
+        reasons.add('autonomía desactivada: el pipeline no responde');
+        return ConversationDecision(
+          disposition: ConversationDisposition.holdForApproval,
+          risk: ConversationRisk.low,
+          confidence: 0.0,
+          reasons: reasons,
+        );
+      case ConversationAutonomyMode.suggestions:
+        reasons.add('modo sugerencias: solo aprobación humana suelta el draft');
+        return ConversationDecision(
+          disposition: ConversationDisposition.holdForApproval,
+          risk: ConversationRisk.low,
+          confidence: 0.0,
+          reasons: reasons,
+        );
+      case ConversationAutonomyMode.safeAuto:
+      case ConversationAutonomyMode.autonomous:
+        break; // la fórmula normal sigue intacta.
+    }
+
     // PERSONA-AUTONOMY-11 — política de autonomía por identidad: sin
     // evidencia estable de plataforma el bot retiene. El humano puede
-    // aprobar manualmente desde la pantalla Mensajes (TOOLS-10).
-    if (context.identityConfidence < 0.95) {
+    // aprobar manualmente desde la pantalla Mensajes (TOOLS-10). El umbral
+    // es la ÚNICA fuente ConversationIdentity.safeToWriteThreshold
+    // (AUTO-CONSOLIDATE-01: antes duplicado inline).
+    if (context.identityConfidence <
+        ConversationIdentity.safeToWriteThreshold) {
       reasons.add(
         'identidad débil (${context.identityConfidence.toStringAsFixed(2)} '
-        '< 0.95): sin evidencia estable de plataforma',
+        '< ${ConversationIdentity.safeToWriteThreshold}): sin evidencia '
+        'estable de plataforma',
       );
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
+        confidence: 0.0,
+        reasons: reasons,
+      );
+    }
+
+    // P0-NO-CALLCENTER (2026-09-06) — el 1.5B ignora P0-SOCIAL con ctx=256
+    // y DESPACHA muletillas de operador en turnos PERSONALES (evidencia en
+    // vivo: "hola" → "¡Hola! ¿Cómo puedo ayudarte hoy?", "como estas" →
+    // "Soy Nano, el asistente de este negocio. ¿En qué puedo ayudarte
+    // hoy?"). Invariante del usuario: el lenguaje de soporte NO existe en
+    // Personal. Guard determinista post-draft (la decisión es código, no
+    // LLM): la frase de operador se retiene SIEMPRE para aprobación del
+    // dueño; la identidad "Soy Nano" solo se permite si el mensaje NO fue
+    // un saludo (regla 5 del prompt: un saludo no pregunta el nombre).
+    if (context.agentRole == ConversationAgentRole.personal &&
+        (_isCallCenterPhrase(understanding.reply) ||
+            (isPureGreeting(context.userText) &&
+                _fold(understanding.reply).contains('soy nano')))) {
+      reasons.add('P0-NO-CALLCENTER: operador/identidad en turno personal');
       return ConversationDecision(
         disposition: ConversationDisposition.holdForApproval,
         risk: ConversationRisk.medium,
@@ -72,8 +126,7 @@ final class ConversationDecisionEngine {
     // (evidencia: "Hola" → needsHuman → nada se envía). Sin dato faltante
     // la afirmación "necesito un dato externo" no se sostiene: se degrada
     // a riesgo medio y el reply sigue su evaluación normal.
-    if (understanding.requiresAction &&
-        understanding.missingFacts.isNotEmpty) {
+    if (understanding.requiresAction && understanding.missingFacts.isNotEmpty) {
       reasons.add('requiresAction: el modelo pide acción fuera de su alcance');
       return ConversationDecision(
         disposition: ConversationDisposition.needsHuman,
@@ -92,7 +145,9 @@ final class ConversationDecisionEngine {
     if (understanding.missingFacts.isNotEmpty) {
       if (_isAsking(understanding.reply)) {
         // El reply pregunta por el dato que falta → envío honesto.
-        reasons.add('missingFacts + pregunta: el reply pide el dato al cliente');
+        reasons.add(
+          'missingFacts + pregunta: el reply pide el dato al cliente',
+        );
         confidence -= 0.15;
       } else {
         // Afirma sin el dato → probable alucinación.
@@ -107,7 +162,9 @@ final class ConversationDecisionEngine {
     }
 
     if (understanding.intent.isEmpty) {
-      reasons.add('intent ausente: salida recortada (reply posiblemente truncado)');
+      reasons.add(
+        'intent ausente: salida recortada (reply posiblemente truncado)',
+      );
       confidence -= 0.2;
     }
 
@@ -118,6 +175,23 @@ final class ConversationDecisionEngine {
         : ConversationRisk.high;
 
     if (confidence < 0.6) {
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: risk,
+        confidence: confidence,
+        reasons: reasons,
+      );
+    }
+
+    // AUTO-03 — safeAuto: solo riesgo LOW y sin hechos faltantes. Un
+    // saludo o un precio verificado salen; lo que pida datos ausentes se
+    // retiene (jamás inventar en modo seguro).
+    if (context.autonomyMode == ConversationAutonomyMode.safeAuto &&
+        (risk != ConversationRisk.low ||
+            understanding.missingFacts.isNotEmpty)) {
+      reasons.add(
+        'safeAuto: riesgo ${risk.name} o hechos faltantes — se retiene',
+      );
       return ConversationDecision(
         disposition: ConversationDisposition.holdForApproval,
         risk: risk,
@@ -139,4 +213,32 @@ final class ConversationDecisionEngine {
   /// pregunta (conservador: en la duda, el envío sale con riesgo medio, no
   /// se retiene un pedido de aclaración).
   static bool _isAsking(String reply) => reply.contains('?');
+
+  /// P0-NO-CALLCENTER — muletillas de operador prohibidas en PERSONAL.
+  /// "¿En qué más puedo ayudarte?" / "¿Algo más?" / "¿Qué necesitas?" son
+  /// el fallback genérico que el usuario exige estructuralmente imposible.
+  static const List<String> _callCenterPhrases = [
+    'puedo ayudarte',
+    'en que te ayudo',
+    'en que mas',
+    'algo mas',
+    'deseas algo',
+    'necesitas algo',
+    'ser util',
+    'que necesitas',
+  ];
+
+  static bool _isCallCenterPhrase(String reply) {
+    final r = _fold(reply);
+    return _callCenterPhrases.any(r.contains);
+  }
+
+  /// Minúsculas sin tildes: matching determinista del texto del modelo.
+  static String _fold(String s) => s
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u');
 }

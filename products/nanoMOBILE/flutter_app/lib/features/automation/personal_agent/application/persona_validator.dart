@@ -68,16 +68,24 @@ final class PersonaValidator {
 
     var name = _neutralize(ownerName).trim();
     var notes = _neutralize(ownerNotes);
-    var relName = relationshipName == null ? null : _neutralize(relationshipName).trim();
-    var relNotes = relationshipNotes == null ? null : _neutralize(relationshipNotes);
+    var relName = relationshipName == null
+        ? null
+        : _neutralize(relationshipName).trim();
+    var relNotes = relationshipNotes == null
+        ? null
+        : _neutralize(relationshipNotes);
     var cleanExamples = <PersonaExample>[];
 
     if (name.length > maxOwnerName) {
-      rejected.add('nombre del dueño recortado (${name.length} > $maxOwnerName)');
+      rejected.add(
+        'nombre del dueño recortado (${name.length} > $maxOwnerName)',
+      );
       name = name.substring(0, maxOwnerName);
     }
     if (notes.length > maxOwnerNotes) {
-      rejected.add('notas del dueño recortadas (${notes.length} > $maxOwnerNotes)');
+      rejected.add(
+        'notas del dueño recortadas (${notes.length} > $maxOwnerNotes)',
+      );
       notes = notes.substring(0, maxOwnerNotes);
     }
     if (relName != null && relName.isEmpty) relName = null;
@@ -113,20 +121,24 @@ final class PersonaValidator {
       if (capped.length != body.length) {
         rejected.add('ejemplo recortado (${body.length} > $maxExampleChars)');
       }
-      cleanExamples.add(PersonaExample(
-        id: example.id,
-        personaKey: example.personaKey,
-        body: capped,
-        tone: example.tone,
-        source: example.source,
-      ));
+      cleanExamples.add(
+        PersonaExample(
+          id: example.id,
+          personaKey: example.personaKey,
+          body: capped,
+          tone: example.tone,
+          source: example.source,
+        ),
+      );
     }
 
     // Presupuesto total: recorta por prioridad (notas del dueño → notas de
     // relación → ejemplos). El nombre del dueño y la estructura nunca caen.
     var total = _totalOf(name, notes, relNotes, cleanExamples);
     if (total > maxTotalChars) {
-      rejected.add('bloque persona excede $maxTotalChars chars; recorte por prioridad');
+      rejected.add(
+        'bloque persona excede $maxTotalChars chars; recorte por prioridad',
+      );
       var overflow = total - maxTotalChars;
       if (overflow > 0 && notes.isNotEmpty) {
         final keep = notes.length - overflow;

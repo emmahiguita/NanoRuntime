@@ -76,8 +76,7 @@ final class PersonaRepository {
 
   Future<List<RelationshipProfile>> listRelationships() async {
     try {
-      final rows = await _channel
-          .invokeListMethod<dynamic>('relationshipList');
+      final rows = await _channel.invokeListMethod<dynamic>('relationshipList');
       return [
         for (final row in rows ?? const [])
           if (row is Map)

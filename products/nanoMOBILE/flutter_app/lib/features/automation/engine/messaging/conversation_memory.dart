@@ -174,8 +174,11 @@ abstract class _MemoryCore implements ConversationMemoryStore {
 
   List<ConversationMemoryEntry> _listFor(String conversationId) {
     final list = _byConversation.putIfAbsent(conversationId, () => []);
-    if (list.length > maxEntriesPerConversation) {
-      list.removeRange(0, list.length - maxEntriesPerConversation);
+    // AUTO-CONSOLIDATE-02 — trim ANTES de insertar con margen de 1: con
+    // `> max` el máximo efectivo era 61 (el trim nunca veía la entrada que
+    // estaba por añadirse; evidencia en traza: historyEntries=61).
+    if (list.length >= maxEntriesPerConversation) {
+      list.removeRange(0, list.length - maxEntriesPerConversation + 1);
     }
     return list;
   }

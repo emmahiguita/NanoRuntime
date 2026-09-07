@@ -84,10 +84,13 @@ final class ConversationIdentity {
     required this.evidenceUsed,
   });
 
-  /// Umbral conservador por defecto para autorizar una ESCRITURA (reply).
-  /// Un título como única evidencia no lo alcanza: dos homónimos no pueden
-  /// distinguirse por título.
-  bool get safeToWrite => confidence >= 0.95;
+  /// AUTO-CONSOLIDATE-01 — umbral conservador para autorizar una ESCRITURA
+  /// (reply). ÚNICA fuente: la usa este getter Y el ConversationDecisionEngine
+  /// (antes el 0.95 estaba duplicado inline). Un título como única evidencia
+  /// no lo alcanza: dos homónimos no pueden distinguirse por título.
+  static const double safeToWriteThreshold = 0.95;
+
+  bool get safeToWrite => confidence >= safeToWriteThreshold;
 }
 
 /// Resuelve la identidad de una notificación siguiendo el orden de
@@ -175,10 +178,7 @@ ConversationIdentity conversationIdentityFor({
     return ConversationIdentity(
       key: key('title:$context'),
       confidence: cleanSender.isNotEmpty ? 0.6 : 0.35,
-      evidenceUsed: {
-        'conversationTitle',
-        if (cleanSender.isNotEmpty) 'sender',
-      },
+      evidenceUsed: {'conversationTitle', if (cleanSender.isNotEmpty) 'sender'},
     );
   }
 

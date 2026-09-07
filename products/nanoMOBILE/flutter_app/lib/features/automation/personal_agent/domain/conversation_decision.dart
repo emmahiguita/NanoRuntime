@@ -6,6 +6,9 @@
 /// se retiene para aprobación o pasa al humano.
 library;
 
+import 'conversation_agent_role.dart';
+import 'conversation_autonomy_mode.dart';
+
 /// Qué hacer con el draft.
 enum ConversationDisposition {
   /// Enviar directo (confianza suficiente, señales limpias).
@@ -25,7 +28,8 @@ enum ConversationRisk { low, medium, high }
 
 /// Contexto externo de la decisión. PERSONA-HANDOFF-03 lo alimenta con el
 /// ownership durable por conversación; PERSONA-AUTONOMY-11 añade la
-/// confianza de identidad (misma evidencia del pipeline).
+/// confianza de identidad (misma evidencia del pipeline); AUTO-03 añade el
+/// modo de autonomía y AUTO-02 el rol de especialización del turno.
 final class ConversationDecisionContext {
   /// true = el humano declaró control de ESTA conversación: el bot puede
   /// preparar drafts pero jamás envía sin que el dueño los suelte.
@@ -36,9 +40,24 @@ final class ConversationDecisionContext {
   /// la paridad; el pipeline real la alimenta con la evidencia de Android.
   final double identityConfidence;
 
+  /// AUTO-03 — tope global de autonomía del pipeline. Default `autonomous`
+  /// = la fórmula del engine queda EXACTAMENTE como antes (paridad).
+  final ConversationAutonomyMode autonomyMode;
+
+  /// AUTO-02 — especialización que atiende el turno. Default `general`:
+  /// sin señales, la fórmula no cambia.
+  final ConversationAgentRole agentRole;
+
+  /// P0-NO-CALLCENTER — texto del mensaje del cliente (para el guard de
+  /// saludo + identidad "Soy Nano"). '' = callers legacy sin texto.
+  final String userText;
+
   const ConversationDecisionContext({
     this.humanOwnsConversation = false,
     this.identityConfidence = 1.0,
+    this.autonomyMode = ConversationAutonomyMode.autonomous,
+    this.agentRole = ConversationAgentRole.general,
+    this.userText = '',
   });
 }
 
