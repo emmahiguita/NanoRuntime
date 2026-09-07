@@ -557,3 +557,117 @@ Pruebas físicas (Oppo, WhatsApp cerrado antes de enviar):
   `[route] rol=personal commercial=true` (identidad manda) y
   `[ctx:prompt] businessChars>0`: UNA respuesta con estilo personal y los
   facts del Negro, sin dos agentes.
+
+---
+
+# Ronda 4 — Inteligencia Conversacional (2026-09-07)
+
+Capa nueva de diálogo humano sobre el pipeline de Ronda 3/P0-ROUTE. Cambios
+(sin commit aún — validar antes):
+
+- **CONV-SEM-01/02/03** — `relation` en el JSON del draft (nueva/continua/
+  responde/cambia/corrige/rechaza/''), declarada por la MISMA inferencia
+  (jamás segunda pasada LLM); traza `[understanding]`; corrige/rechaza +
+  reply ASERTIVO → holdForApproval (contexto deshecho = no afirmar);
+  corrige/rechaza + reply PREGUNTA → riesgo medio y sigue (reparación
+  honesta).
+- **CONV-SOC-02** — `_socialWindow` exige inbound social ANTES de admitir
+  cada outbound (outbound huérfano fuera: no hay continuidad que mostrar).
+- **CONV-STATE-02** — rama nueva del router: respuesta a la pregunta
+  pendiente de Nano (≤3 tokens, sin señal comercial) → PERSONAL con
+  `pendingReply` (bloque `<PREGUNTA PENDIENTE>` entra en turnos
+  personales); con producto explícito ("la negra") → SALES.
+- **CONV-STATE-03** — `recordTurn(correction: true)`: el recuerdo de
+  producto y el tema activo se INVALIDAN en corrección/rechazo (un "sí"
+  posterior no reactiva producto deshecho). Señal: `isCorrectionMessage`
+  en `onTurnComplete`.
+- **CONV-PROMPT-02** — bloque `<DATOS DE LA PERSONA>` sin framing de
+  "asistente del negocio": "El dueño es X; responde como lo haría él"
+  (alineado con la regla 5 del prompt).
+- **H7-GUARD** — P0-NO-CALLCENTER ahora cubre PERSONAL **y** GENERAL
+  (muletillas de operador retenidas en ambos; SALES/SUPPORT intactos).
+
+## Matriz de validación física (Oppo, WhatsApp cerrado antes de enviar)
+
+Contexto previo (crear en la conversación de prueba):
+
+- **S1**: enviar "¿cuánto vale el Negro?" → Nano responde con precio → luego
+  enviar "¿cuál prefieres? negra o roja" no aplica (esa la pregunta NANO):
+  usar "¿tienen el Negro?" y que el reply de Nano pregunte algo
+  (ej. "¿de qué tamaño?" o confirmación con '?'), anotar la pregunta exacta.
+
+Pruebas:
+
+- **C01 — hola (frío)**: arranque → "hola" → `[understanding] relation=""` o
+  "nuevo", `[ctx:gate] clientContext=false`, reply social sin operador.
+- **C02 — hola tras consulta del Negro**: "hola" después de S1 → NO
+  menciona el Negro ni precio (`[ctx:prompt] clientContext=false`).
+- **C03 — ese teléfono**: tras S1, "¿y ese todavía está?" → rol sales,
+  `[ctx:gate] reference=true clientContext=true`, reply con precio real.
+- **C04 — bien**: tras S1, "bien" → saludo puro (greetingTokens), prompt
+  social, SIN recuerdo del Negro.
+- **C05 — si / dale / listo**: tras una pregunta de Nano terminada en '?',
+  responder "sí" → `[route]` "respuesta a la pregunta pendiente de Nano" o
+  dependent; reply continúa el diálogo, sin inventar.
+- **C06 — M (dato corto)**: tras pregunta de talla/elección de Nano,
+  responder "M" → `[route] rol=personal pendingReply=true`,
+  `[ctx:prompt] clientContext=true` (bloque pregunta pendiente) y reply
+  resuelve "M" contra la pregunta (no "M" suelto).
+- **C07 — la negra (elección)**: tras pregunta de elección de Nano
+  ("¿negra o roja?"), responder "la negra" → rol sales (producto
+  explícito), reply con los facts del Negro.
+- **C08 — cual negro de que hablas**: tras S1 → rol personal (corrección),
+  `[understanding] relation=corrige` (o reply pregunta), historial limpio,
+  y `[route]` confirma corrección; NINGUNA mención del Negro después.
+- **C09 — no es eso / no pregunte eso**: variante de C08 → mismo
+  comportamiento; verificar que tras la corrección un "sí" posterior NO
+  reactiva el Negro (`[ctx:gate] clientContext=false`).
+- **C10 — me alegra que estes bien**: reacción social larga → rol personal,
+  prompt social mínimo, reply corto sin ofrecer ayuda.
+- **C11 — esta tu papa?**: → rol personal (familia), reply ofrece dejar
+  mensaje, jamás afirma disponibilidad.
+- **C12 — gracias → hola**: cerrar tema con "gracias" → "hola" → SIN
+  producto reactivado (`[ctx:gate] clientContext=false`).
+- **C13 — multi-pregunta**: "¿tienen el Negro? ¿y cuánto vale?" → reply
+  responde TODAS (stock + precio), `[understanding] questions=2`.
+- **C14 — referencia ambigua**: "¿y el otro?" sin producto claro → reply
+  PREGUNTA de aclaración (no inventa), requiereAction true.
+- **C15 — broma casual**: "jajaja" → rol personal, reply relajado.
+- **C16 — corrección + afirmación**: tras S1, "no, te pregunté por la roja"
+  → `[understanding] relation=corrige` + reply asertivo → `[decision]`
+  holdForApproval (retiene; jamás afirma precio del Negro).
+- **C17 — corrección + pregunta**: "no, ¿cuánto vale la roja?" → relation
+  corrige + reply pregunta → envío con riesgo medio (no retiene).
+- **C18 — desconocido casual**: remitente SIN relación envía "que haces
+  bro" → rol personal (social puro, jamás general).
+- **C19 — desconocido saluda**: remitente sin relación, "hola" → rol
+  personal; reply sin "Soy Nano" ni "¿en qué puedo ayudarte?".
+- **C20 — desconocido general**: mensaje misceláneo sin señales ("mañana
+  llueve") → rol general; si el reply trae muletilla de operador →
+  holdForApproval (H7-GUARD), traza `[decision]` P0-NO-CALLCENTER.
+- **C21 — saludo + identidad**: "hola, ¿quién eres?" → saludo NO puro
+  (token fuera del set) → reply puede decir "Nano"; "hola" solo NO.
+- **C22 — historial social**: secuencia "hola" → reply → "¿cómo estás?" →
+  reply; en el tercer turno `[ctx:prompt] historyEntries>0` SOLO con
+  entradas sociales (sin producto), reply continúa la conversación social.
+- **C23 — outbound huérfano**: si en el historial Nano respondió social sin
+  inbound social previo, el prompt social no lo muestra (verificar
+  `[ctx:prompt] historyEntries` bajo).
+- **C24 — estado persistente**: tras C06, matar y reabrir la app → la
+  pregunta pendiente sobrevive (convstate SQLite): un nuevo "M" sigue
+  resolviendo contra ella.
+- **C25 — KV por turno**: dos turnos seguidos → `[draft]` con
+  `session=` DISTINTOS cada turno (fingerprint único); latencia estable
+  (prefix cache V1.1: prefill estático amortizado).
+- **C26 — ráfaga**: 3 mensajes rápidos seguidos → un solo turno agregado
+  (BurstTurnGate), reply cubre el último estado.
+- **C27 — supersede**: mensaje nuevo mientras el draft corre → el draft
+  viejo NO se envía (`[supersede]`), el nuevo sí.
+- **C28 — estilo del dueño**: con MI ESTILO poblado, "hola" responde con
+  la forma del dueño (frases/longitud), sin repetir el bloque de estilo.
+- **C29 — hechos reales**: "¿cuánto vale el Negro?" → precio exacto del
+  catálogo; "¿cuánto vale el Azul?" (inexistente) → reply pregunta/pide
+  dato, jamás inventa precio.
+- **C30 — trazas**: cada prueba deja `[route]`, `[ctx:gate]`,
+  `[understanding]`, `[draft:end]` y (si aplica) `[decision]`/`[dispatch]`
+  consistentes; ningún turno queda sin traza de entendimiento.

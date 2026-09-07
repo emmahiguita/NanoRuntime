@@ -480,6 +480,8 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
             entry != null &&
             entry.product != null &&
             entry.topicStatus == 'active';
+        final hasPendingQuestion =
+            entry != null && entry.pendingQuestion.isNotEmpty;
         final routing = routeConversationAgent(
           messageText: notif.text,
           facts: ref.read(businessFactsNotifierProvider),
@@ -490,6 +492,7 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
           // P0-ROUTE — identidad: "¿está Emmanuel?" es PERSONAL aunque el
           // remitente no tenga relación registrada.
           ownerName: ref.read(personaContextProvider).ownerName,
+          hasPendingQuestion: hasPendingQuestion,
         );
         final mode = ConversationAutonomyModeName.fromName(
           ref.read(settingsProvider).waAutonomyMode,
@@ -559,6 +562,9 @@ final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
             userText: text,
             nanoReply: dispatchedText,
             facts: ref.read(businessFactsNotifierProvider),
+            // CONV-STATE-03 — corrección/rechazo invalida el recuerdo de
+            // producto y el tema activo (misma señal determinista del router).
+            correction: isCorrectionMessage(text),
           );
     },
   );

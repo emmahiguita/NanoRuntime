@@ -103,11 +103,21 @@ final class ConversationDecisionEngine {
     // LLM): la frase de operador se retiene SIEMPRE para aprobación del
     // dueño; la identidad "Soy Nano" solo se permite si el mensaje NO fue
     // un saludo (regla 5 del prompt: un saludo no pregunta el nombre).
-    if (context.agentRole == ConversationAgentRole.personal &&
+    // H7-GUARD — GENERAL también retiene muletillas de operador: el rol
+    // general atiende desconocidos, pero el agente sigue siendo la persona
+    // del dueño, jamás un call-center (evidencia: "ESTA TU PAPA" cayó a
+    // GENERAL y recibió fallback genérico). SALES/SUPPORT quedan fuera:
+    // ahí el lenguaje de servicio es legítimo.
+    final callCenterTurn =
+        context.agentRole == ConversationAgentRole.personal ||
+        context.agentRole == ConversationAgentRole.general;
+    if (callCenterTurn &&
         (_isCallCenterPhrase(understanding.reply) ||
             (isPureGreeting(context.userText) &&
                 _fold(understanding.reply).contains('soy nano')))) {
-      reasons.add('P0-NO-CALLCENTER: operador/identidad en turno personal');
+      reasons.add(
+        'P0-NO-CALLCENTER: operador/identidad en turno personal/general',
+      );
       return ConversationDecision(
         disposition: ConversationDisposition.holdForApproval,
         risk: ConversationRisk.medium,
@@ -166,6 +176,36 @@ final class ConversationDecisionEngine {
         'intent ausente: salida recortada (reply posiblemente truncado)',
       );
       confidence -= 0.2;
+    }
+
+    // CONV-SEM-02 / CONV-AGENT-01 — relación semántica del mensaje con la
+    // conversación previa (declarada por la MISMA inferencia que escribió
+    // el reply; jamás una segunda pasada LLM). corrige/rechaza con reply
+    // ASERTIVO se retiene: el cliente acaba de deshacer o rechazar el turno
+    // anterior y afirmar sobre ese contexto muerto es alucinación probable
+    // (invariante UNKNOWN OUTCOME != SUCCESS). Con reply PREGUNTA degrada
+    // la confianza y sigue: pedir el dato correcto es la reparación
+    // honesta. La relación jamás eleva ni decide el envío por sí sola.
+    if (understanding.relation == 'corrige' ||
+        understanding.relation == 'rechaza') {
+      if (_isAsking(understanding.reply)) {
+        reasons.add(
+          'relation=${understanding.relation} + pregunta: reparación '
+          'honesta, riesgo medio',
+        );
+        confidence -= 0.15;
+      } else {
+        reasons.add(
+          'relation=${understanding.relation} + afirmación: contexto '
+          'deshecho por el cliente, se retiene',
+        );
+        return ConversationDecision(
+          disposition: ConversationDisposition.holdForApproval,
+          risk: ConversationRisk.medium,
+          confidence: confidence - 0.15,
+          reasons: reasons,
+        );
+      }
     }
 
     final risk = confidence >= 0.75

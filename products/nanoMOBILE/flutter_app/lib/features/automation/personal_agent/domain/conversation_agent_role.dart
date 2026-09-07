@@ -55,10 +55,17 @@ final class ConversationAgentRouting {
   final List<String> reasons;
   final bool commercialIntent;
 
+  /// CONV-STATE-02 — el mensaje responde la PREGUNTA PENDIENTE de Nano
+  /// (≤3 tokens, sin señal comercial). El writer lo usa para dejar entrar
+  /// el bloque <PREGUNTA PENDIENTE> en turnos personales: es diálogo del
+  /// propio dueño, jamás contexto de negocio.
+  final bool pendingReply;
+
   const ConversationAgentRouting({
     required this.role,
     required this.reasons,
     this.commercialIntent = false,
+    this.pendingReply = false,
   });
 }
 
@@ -260,15 +267,20 @@ const Set<String> presenceVerbs = {
 ///    "dale") → PERSONAL (P0-SOCIAL-2, sin límite de tokens).
 /// 10. Familia del dueño con verbo de presencia ("¿está tu papá?") →
 ///    PERSONAL (identidad doméstica).
-/// 11. Contacto con relación registrada, sin señal comercial → PERSONAL
+/// 11. Respuesta a la pregunta pendiente de Nano (≤3 tokens): el cliente
+///    devuelve el dato pedido ("M", "mañana", "la negra") → jamás GENERAL.
+///    Con producto explícito → SALES (la elección pide facts del producto
+///    activo); sin producto → PERSONAL con [ConversationAgentRouting.pendingReply].
+/// 12. Contacto con relación registrada, sin señal comercial → PERSONAL
 ///    (A02 "Hola bro qué haces", A04 "gracias bro").
-/// 12. Resto → GENERAL.
+/// 13. Resto → GENERAL.
 ConversationAgentRouting routeConversationAgent({
   required String messageText,
   required BusinessFacts facts,
   required bool hasRelationship,
   required bool hasActiveProduct,
   String ownerName = '',
+  bool hasPendingQuestion = false,
 }) {
   final reasons = <String>[];
   final normalized = normalizeText(messageText);
@@ -349,6 +361,32 @@ ConversationAgentRouting routeConversationAgent({
       role: ConversationAgentRole.sales,
       reasons: reasons,
       commercialIntent: commercialIntent,
+    );
+  }
+  // CONV-STATE-02 — respuesta a la pregunta pendiente de Nano: el dato
+  // pedido ("M", "mañana", "la negra") es la continuación del diálogo del
+  // propio dueño. Sin esta rama caía a GENERAL (evidencia: el cliente
+  // responde la talla y el 1.5B recibe el dato sin la pregunta → inventa).
+  // Producto explícito ("la negra") → SALES: la elección se resuelve con
+  // los facts del producto activo, no con el bloque de pregunta suelto.
+  if (hasPendingQuestion &&
+      tokens.isNotEmpty &&
+      tokens.length <= 3 &&
+      !commercialIntent) {
+    if (signals.explicitProduct) {
+      reasons.add('elección de producto respondiendo la pregunta pendiente');
+      return ConversationAgentRouting(
+        role: ConversationAgentRole.sales,
+        reasons: reasons,
+        commercialIntent: commercialIntent,
+      );
+    }
+    reasons.add('respuesta a la pregunta pendiente de Nano');
+    return ConversationAgentRouting(
+      role: ConversationAgentRole.personal,
+      reasons: reasons,
+      commercialIntent: commercialIntent,
+      pendingReply: true,
     );
   }
   // P0-SOCIAL — casual corto ("que haces", "jajaja", "bro"): todos los

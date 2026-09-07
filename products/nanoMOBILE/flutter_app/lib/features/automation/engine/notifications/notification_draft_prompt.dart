@@ -148,10 +148,14 @@ Naturalidad:
   necesario para responder, pídelo en una pregunta corta.
 
 Formato de salida EXACTO (JSON; nada fuera del objeto):
-{"intent":"","reply":"","questions":[],"missingFacts":[],"requiresAction":false}
+{"intent":"","relation":"","reply":"","questions":[],"missingFacts":[],"requiresAction":false}
 
 Campos (escríbelos EN ESTE ORDEN, empezando por reply):
 - intent: resumen de lo que quiere el cliente.
+- relation: relación del mensaje con la CONVERSACION PREVIA: "nuevo" (tema
+  nuevo), "continua" (mismo tema), "responde" (contesta lo que preguntaste),
+  "corrige" (el cliente te corrige o aclara), "rechaza" (rechaza tu
+  propuesta), "cambia" (cambia de tema) o "" si no hay conversación previa.
 - reply: si falta un dato o requiere acción, UNA pregunta corta y concreta;
   si no, la respuesta natural. Escapa las comillas internas así: \\"
 - questions: cada pregunta explícita del mensaje, en orden.
@@ -159,10 +163,11 @@ Campos (escríbelos EN ESTE ORDEN, empezando por reply):
   ausentes de la conversación y del mensaje.
 - requiresAction: true si responder con verdad exige consultar un dato
   externo (stock, precio, pedido); false si el contexto alcanza.
-WA-UNIV-04 — reply va JUSTO tras intent: con maxTokens 320 la salida se
-recorta y el reply (último campo antes) moría cortado o ausente (evidencia
-Oppo 2026-09-06: dos drafts de "hola" con reply vacío). El modelo completa
-en orden: reply temprano = reply siempre escrito antes del recorte.
+WA-UNIV-04 — reply va JUSTO tras intent y relation (campo 3 de 6): con
+maxTokens 320 la salida se recorta y el reply (antes último campo) moría
+cortado o ausente (evidencia Oppo 2026-09-06: dos drafts de "hola" con
+reply vacío). El modelo completa en orden: reply temprano = reply siempre
+escrito antes del recorte.
 
 <DATOS DEL NEGOCIO> (solo si aparece): hechos REALES autorizados. Responde
 con ellos cuando el cliente los pida; lo que no esté ahí ni en la
@@ -213,26 +218,40 @@ Reglas duras:
 /// "Respuesta:" usa el escalón legacy del parser (probado); el mensaje
 /// social no necesita intent/questions/missingFacts: la decisión la toman
 /// el guard P0-NO-CALLCENTER y la confianza del engine.
+///
+/// CONV-PROMPT-01 — framing "el dueño", jamás "del negocio": AUTO-ECO-01
+/// verificado — el 1.5B copia strings del prompt; el framing comercial
+/// empuja al modo operador en turnos personales.
+///
+/// CONV-SOC-01 — slot {history}: solo la ventana SOCIAL previa entra
+/// (filtrada por el writer), jamás el diálogo comercial (eco del Negro).
+/// Vacío = marcador explícito "(sin historial previo)": el modelo no
+/// continúa un tema que no existe.
 const String conversationSocialPrompt = '''
-Responde al mensaje como lo haría el dueño del negocio: corto, cotidiano y
+Responde al mensaje como lo haría el dueño: corto, cotidiano y
 natural. Es su WhatsApp personal: si es un saludo, devuélvelo; si es una
 broma o un "cómo estás", responde como lo haría él, sin ofrecer ayuda, sin
 presentarte y sin muletillas de servicio al cliente.
 Escribe SOLO: Respuesta: <tu respuesta>
 
+{history}
+
 Mensaje: {text}''';
 
 /// Prompt social con estilo + tono + persona (misma cadena MI ESTILO →
 /// TONO → PERSONA del prompt completo: forma del dueño, guía de tono,
-/// relación con el remitente). Sin estilo el dueño no definió forma y el
-/// prompt queda base.
+/// relación con el remitente) + ventana social relevante (CONV-SOC-01).
+/// Sin estilo el dueño no definió forma y el prompt queda base.
 String conversationSocialPromptFor({
   required String text,
   String? style,
   String? persona,
   String? tone,
+  String? history,
 }) {
-  final base = conversationSocialPrompt.replaceFirst('{text}', text);
+  final base = conversationSocialPrompt
+      .replaceFirst('{history}', history ?? '(sin historial previo)')
+      .replaceFirst('{text}', text);
   final s = _usableStyle(style);
   final p = persona?.trim() ?? '';
   final t = tone?.trim() ?? '';

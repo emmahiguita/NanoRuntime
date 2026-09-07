@@ -20,8 +20,17 @@ import 'dart:convert';
 
 /// Entendimiento tipado del mensaje (v1: diagnóstico + reply; los campos
 /// comerciales se consumen en WA-BUSINESS-01).
+///
+/// CONV-SEM-01 — [relation]: relación SEMÁNTICA del mensaje con la
+/// conversación previa, declarada por la MISMA inferencia que escribe el
+/// reply (vocabulario cerrado, jamás una segunda pasada LLM):
+/// 'nuevo' | 'continua' | 'responde' | 'cambia' | 'corrige' | 'rechaza' | ''.
+/// El router determinista NO la consume (invariante ROUTER != FULL NLU):
+/// alimenta la decisión del engine (CONV-SEM-02) y la traza. Con el escalón
+/// de JSON roto queda '' (honesto, jamás se inventa relación).
 final class ConversationUnderstanding {
   final String intent;
+  final String relation;
   final List<String> questions;
   final List<String> missingFacts;
   final bool requiresAction;
@@ -29,6 +38,7 @@ final class ConversationUnderstanding {
 
   const ConversationUnderstanding({
     this.intent = '',
+    this.relation = '',
     this.questions = const [],
     this.missingFacts = const [],
     this.requiresAction = false,
@@ -44,6 +54,7 @@ final class ConversationUnderstanding {
     ];
     return ConversationUnderstanding(
       intent: (json['intent'] as String?)?.trim() ?? '',
+      relation: (json['relation'] as String?)?.trim() ?? '',
       questions: strings(json['questions']),
       missingFacts: strings(json['missingFacts']),
       requiresAction: json['requiresAction'] == true,
@@ -143,7 +154,8 @@ int _findUnescapedQuote(String body) {
       escaped = false;
       continue;
     }
-    if (c == 0x5C) { // backslash
+    if (c == 0x5C) {
+      // backslash
       escaped = true;
       continue;
     }

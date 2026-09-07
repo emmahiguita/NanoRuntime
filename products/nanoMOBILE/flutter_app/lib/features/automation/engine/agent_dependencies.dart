@@ -505,8 +505,7 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     // referencia ni dependencia el recuerdo no entra al prompt).
     clientContextFor: (conversationId, text) {
       final facts = ref.read(businessFactsNotifierProvider);
-      final entry =
-          ref.read(conversationStateNotifierProvider)[conversationId];
+      final entry = ref.read(conversationStateNotifierProvider)[conversationId];
       final signals = contextSignalsFor(text, facts);
       final block = clientContextBlockForTurn(
         entry: entry,
@@ -533,12 +532,13 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     // por el rol resultante: UNDERSTANDING → ROUTER → CONTEXT autoritativo.
     routeFor: (conversationId, text, sender) {
       final facts = ref.read(businessFactsNotifierProvider);
-      final entry =
-          ref.read(conversationStateNotifierProvider)[conversationId];
+      final entry = ref.read(conversationStateNotifierProvider)[conversationId];
       final hasActiveProduct =
           entry != null &&
           entry.product != null &&
           entry.topicStatus == 'active';
+      final hasPendingQuestion =
+          entry != null && entry.pendingQuestion.isNotEmpty;
       final persona = ref.read(personaContextProvider);
       return routeConversationAgent(
         messageText: text,
@@ -546,6 +546,7 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
         hasRelationship: persona.hasRelationshipFor(sender),
         hasActiveProduct: hasActiveProduct,
         ownerName: persona.ownerName,
+        hasPendingQuestion: hasPendingQuestion,
       );
     },
     // WA-MEM-08: contexto factual de la conversación.
@@ -630,8 +631,7 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
 });
 
 /// CONTEXT-GATE-01 — helpers de traza diagnóstica (temporales).
-String _shortId(String id) =>
-    id.length <= 8 ? id : id.substring(0, 8);
+String _shortId(String id) => id.length <= 8 ? id : id.substring(0, 8);
 
 String _oneLine(String text) {
   final single = text.replaceAll('\n', ' ').trim();

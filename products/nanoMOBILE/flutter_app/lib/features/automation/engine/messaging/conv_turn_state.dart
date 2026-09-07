@@ -74,12 +74,19 @@ final class ClientContextEntry {
   /// reaparece con saludos ni respuestas dependientes sin pregunta.
   final String topicStatus;
 
+  /// CONV-STATE-01 — tipo SEMÁNTICO de la pregunta pendiente:
+  /// 'confirm' = espera sí/no/dale; 'value' = espera un dato corto
+  /// (talla, número, cantidad, fecha); '' = sin clasificación. Viaja al
+  /// prompt como hint: el 1.5B lee "M" mejor cuando sabe qué esperar.
+  final String pendingKind;
+
   final int atMs;
 
   const ClientContextEntry({
     this.product,
     this.pendingQuestion = '',
     this.topicStatus = '',
+    this.pendingKind = '',
     required this.atMs,
   });
 
@@ -92,6 +99,7 @@ final class ClientContextEntry {
               ),
         pendingQuestion: (json['pendingQuestion'] as String?) ?? '',
         topicStatus: (json['topicStatus'] as String?) ?? '',
+        pendingKind: (json['pendingKind'] as String?) ?? '',
         atMs: (json['atMs'] as num?)?.toInt() ?? 0,
       );
 
@@ -99,6 +107,7 @@ final class ClientContextEntry {
     if (product != null) 'product': product!.toJson(),
     'pendingQuestion': pendingQuestion,
     'topicStatus': topicStatus,
+    'pendingKind': pendingKind,
     'atMs': atMs,
   };
 }
@@ -237,15 +246,29 @@ const Set<String> referenceTokens = {
 /// Ronda 3 — bloque <PREGUNTA PENDIENTE>: Nano dejó una pregunta abierta y
 /// el mensaje corto actual probablemente la responde. Auto-instruido: si no
 /// encaja, se ignora (jamás desplaza al mensaje actual).
+///
+/// CONV-STATE-01 — el hint tipado por [ClientContextEntry.pendingKind]
+/// condiciona la lectura: confirm espera sí/no/dale; value espera un dato
+/// corto ("M", "2", "mañana"). El 1.5B sin la pista lee "M" como mensaje
+/// suelto y pierde la dependencia con la pregunta.
 String formatPendingQuestionBlock(ClientContextEntry entry) {
   final pending = entry.pendingQuestion.trim();
   if (pending.isEmpty) return '';
+  final kindHint = switch (entry.pendingKind) {
+    'confirm' =>
+      ' Es una pregunta de confirmación: espera un sí/no/dale corto, '
+          'no una frase completa.',
+    'value' =>
+      ' Es una pregunta de dato: espera una respuesta corta (talla, '
+          'número, cantidad, fecha), no una frase completa.',
+    _ => '',
+  };
   return '''
 <PREGUNTA PENDIENTE>
 Nano preguntó antes: "$pending". El mensaje actual del cliente probablemente
 la responde ("sí", "no", "M", "mañana" = respuesta a ESTA pregunta, no una
-consulta nueva). Responde a partir de ella. Si el mensaje no encaja con la
-pregunta, ignórala por completo.
+consulta nueva).$kindHint Responde a partir de ella. Si el mensaje no encaja
+con la pregunta, ignórala por completo.
 </PREGUNTA PENDIENTE>''';
 }
 
@@ -360,17 +383,27 @@ final class ConversationStateNotifier
   ///    ya fue respondida o abandonada).
   /// 3. Tema: match de producto → 'active'; agradecimiento del cliente
   ///    ("gracias"/"perfecto") → 'resolved'; si no, conserva el anterior.
+  ///
+  /// CONV-STATE-03 — [correction]: el cliente corrige o rechaza el turno
+  /// anterior ("¿de qué hablas?", "no es eso"). El recuerdo de producto y
+  /// el tema activo se INVALIDAN (contexto muerto): un "sí" posterior no
+  /// puede reactivar un producto que el cliente acaba de deshacer. La
+  /// pregunta pendiente sigue su regla normal (una corrección puede dejar
+  /// una pregunta nueva legítima).
   Future<void> recordTurn({
     required String conversationId,
     required String userText,
     required String nanoReply,
     required BusinessFacts facts,
+    bool correction = false,
   }) async {
     if (conversationId.isEmpty) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     final existing = state[conversationId];
     final selection = selectFactsForMessage(userText, facts);
-    final product = selection.products.isEmpty
+    final product = correction
+        ? null
+        : selection.products.isEmpty
         ? existing?.product
         : ClientProductContext(
             name: selection.products.first.name,
@@ -378,14 +411,18 @@ final class ConversationStateNotifier
             priceLabel: selection.products.first.priceLabel,
             atMs: now,
           );
+    final pendingQuestion = _pendingQuestionFrom(nanoReply);
     final entry = ClientContextEntry(
       product: product,
-      pendingQuestion: _pendingQuestionFrom(nanoReply),
-      topicStatus: _topicStatusFor(
-        userText,
-        hasProductMatch: selection.products.isNotEmpty,
-        previous: existing?.topicStatus ?? '',
-      ),
+      pendingQuestion: pendingQuestion,
+      pendingKind: _pendingKindFor(pendingQuestion),
+      topicStatus: correction
+          ? ''
+          : _topicStatusFor(
+              userText,
+              hasProductMatch: selection.products.isNotEmpty,
+              previous: existing?.topicStatus ?? '',
+            ),
       atMs: now,
     );
     state = {...state, conversationId: entry};
@@ -441,7 +478,66 @@ final class ConversationStateNotifier
     'te envio',
     'que dia',
     'te parece',
+    // CONV-STATE-01 — formas naturales antes ausentes: "¿Cuál prefieres?"
+    // no creaba pregunta pendiente (token ausente) y el "M" del cliente
+    // llegaba sin contexto. 'prefieres'/'medida'/'numero'/'direccion'/
+    // 'hora' cubren la pregunta de elección/dato típica de venta.
+    'prefieres',
+    'prefieren',
+    'medida',
+    'medidas',
+    'numero',
+    'numeros',
+    'direccion',
+    'hora',
+    'horario',
+    'entrega',
   ];
+
+  /// CONV-STATE-01 — clasificación SEMÁNTICA de la pregunta pendiente
+  /// (misma evidencia del texto ya validado; cero LLM extra).
+  /// 'confirm' = espera sí/no/dale; 'value' = espera un dato corto.
+  static const Set<String> _confirmExpectationTokens = {
+    'quieres',
+    'deseas',
+    'confirma',
+    'confirmo',
+    'te gustaria',
+    'reviso',
+    'te envio',
+    'te parece',
+  };
+
+  static const Set<String> _valueExpectationTokens = {
+    'cuantos',
+    'cuantas',
+    'talla',
+    'color',
+    'fecha',
+    'cantidad',
+    'cuando',
+    'donde',
+    'cuanto',
+    'que dia',
+    'prefieres',
+    'prefieren',
+    'medida',
+    'medidas',
+    'numero',
+    'numeros',
+    'direccion',
+    'hora',
+    'horario',
+    'entrega',
+  };
+
+  /// CONV-STATE-01 — tipo de la pregunta pendiente para el hint del prompt.
+  static String _pendingKindFor(String pendingQuestion) {
+    final q = normalizeText(pendingQuestion);
+    if (_confirmExpectationTokens.any(q.contains)) return 'confirm';
+    if (_valueExpectationTokens.any(q.contains)) return 'value';
+    return '';
+  }
 
   /// Cierre de tema: el cliente agradeció ("gracias"/"perfecto") → resolved.
   /// Match de producto nuevo → active. Sin señal → conserva el anterior.

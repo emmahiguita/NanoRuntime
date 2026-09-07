@@ -19,7 +19,11 @@ import '../../personal_agent/domain/conversation_agent_role.dart'
         productMentionedWithoutCommerce;
 import '../messaging/conv_turn_state.dart' show isPureGreeting;
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
-import '../messaging/conversation_memory.dart' show ConversationMemoryStore;
+import '../messaging/conversation_memory.dart'
+    show
+        ConversationMemoryEntry,
+        ConversationMemoryEntryKind,
+        ConversationMemoryStore;
 import '../model/cold_start_retry.dart';
 import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;
 import 'conversation_understanding.dart';
@@ -235,6 +239,12 @@ final class RuntimeNotificationDraftWriter {
               isCorrectionMessage(notification.text)
           ? '(sin historial previo)'
           : formatConversationHistory(historyEntries);
+      // CONV-SOC-01 — ventana social relevante para el prompt social mínimo:
+      // solo el intercambio SOCIAL previo (saludo/reacción), jamás el
+      // comercial. MEMORIA DISPONIBLE != MEMORIA RELEVANTE: un "¿y vos?"
+      // tras "todo bien" necesita el turno social anterior; un "Hola" tras
+      // una venta NO necesita el Negro (eco verificado en vivo).
+      final socialEntries = _socialWindow(historyEntries);
       // P0-ROUTE — UNDERSTANDING → ROUTER → CONTEXT: el rol decide QUÉ
       // contexto entra al prompt. Antes negocio y persona entraban por
       // match léxico independiente del routing: una broma con "crema
@@ -278,8 +288,23 @@ final class RuntimeNotificationDraftWriter {
       // V1.1 del motor restaura el system estático desde snapshot (solo se
       // prefilléa el turno dinámico — sin pagar los ~125s completos). El
       // retry frío conserva la MISMA sesión: mismo input = mismo turno.
+      // CONV-CTX-01 — firewall por rol: el recuerdo <CONTEXTO DEL CLIENTE>
+      // entra SOLO en turnos de venta (rol sales o intención comercial
+      // mixta), con el MISMO gate del bloque <DATOS DEL NEGOCIO>. Antes un
+      // turno GENERAL con respuesta corta ("sí") recibía el recuerdo del
+      // producto sin los facts del negocio: el modelo inventaba precios
+      // sobre un contexto a medias.
       final clientContext =
-          _clientContextFor?.call(conversationId, notification.text) ?? '';
+          (routing == null ||
+              role == ConversationAgentRole.sales ||
+              routing.commercialIntent ||
+              // CONV-STATE-02 — respuesta a la pregunta pendiente: el gate
+              // determinista devuelve el bloque <PREGUNTA PENDIENTE> (no el
+              // recuerdo de producto) para mensajes cortos; es diálogo del
+              // propio dueño, entra también en turnos personales.
+              routing.pendingReply)
+          ? _clientContextFor?.call(conversationId, notification.text) ?? ''
+          : '';
       // P0-ROUTE — hechos del negocio SOLO en turnos de venta. El selector
       // léxico (WA-BUSINESS-02) elige el subconjunto; el ROL decide si
       // entra. NO COMMERCIAL INTENT = NO SALES CONTEXT.
@@ -332,6 +357,7 @@ final class RuntimeNotificationDraftWriter {
                 style: _styleEnabled() ? _styleText() : null,
                 persona: persona,
                 tone: _toneBlock?.call(),
+                history: formatConversationHistory(socialEntries),
               )
             : conversationAgentPromptFor(
                 history: history,
@@ -351,6 +377,19 @@ final class RuntimeNotificationDraftWriter {
       // se descartaban aquí y la decisión quedaba ciega).
       final understanding = parseConversationUnderstanding(raw);
       final draft = understanding?.reply ?? '';
+      // CONV-SEM-03 — traza diagnóstica del entendimiento (temporal, como
+      // [ctx:gate]): sin ella la relación declarada por el modelo era
+      // invisible en logcat y los fallos de continuidad no se podían
+      // verificar en dispositivo. Una línea por turno.
+      if (understanding != null) {
+        debugPrint(
+          '[understanding] conv=${_shortId(conversationId)} '
+          'relation="${understanding.relation}" intent="${_sample(understanding.intent)}" '
+          'questions=${understanding.questions.length} '
+          'missingFacts=${understanding.missingFacts.length} '
+          'requiresAction=${understanding.requiresAction}',
+        );
+      }
       if (draft.isEmpty && raw.trim().isNotEmpty) {
         // WA-PHYS-11: sin reply recuperable la traza cruda (acotada) hace
         // el fallo diagnosticable en dispositivo.
@@ -373,6 +412,36 @@ final class RuntimeNotificationDraftWriter {
       debugPrint('[draft] falló: ${e.runtimeType}: $e');
       return null;
     }
+  }
+
+  /// CONV-SOC-01 — ventana social relevante para el prompt social mínimo.
+  /// Recorre de atrás hacia adelante: un inbound NO social corta la ventana
+  /// (la conversación giró a otro tema — el saludo actual no continúa una
+  /// venta); un outbound entra solo acompañado de su inbound social previo
+  /// (un outbound HUÉRFANO — Nano respondió social sin mensaje social del
+  /// cliente — se salta: no hay continuidad que mostrar). Tras un outbound
+  /// la bandera se reinicia: el siguiente outbound necesita OTRO inbound
+  /// social. Máx [maxEntries] para el presupuesto del prompt chico.
+  static List<ConversationMemoryEntry> _socialWindow(
+    List<ConversationMemoryEntry> entries, {
+    int maxEntries = 2,
+  }) {
+    final out = <ConversationMemoryEntry>[];
+    var socialInboundSeen = false;
+    for (final e in entries.reversed) {
+      if (e.kind == ConversationMemoryEntryKind.inbound) {
+        if (!(isPureGreeting(e.text) || isSocialReactionMessage(e.text))) {
+          break;
+        }
+        out.add(e);
+        socialInboundSeen = true;
+      } else if (socialInboundSeen) {
+        out.add(e);
+        socialInboundSeen = false;
+      }
+      if (out.length >= maxEntries) break;
+    }
+    return out.reversed.toList();
   }
 
   /// Muestra acotada de la salida cruda para trazas físicas (200 chars,

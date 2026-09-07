@@ -82,9 +82,15 @@ final class PersonaContext {
     );
     final parts = <String>[];
     if (valid.ownerName.isNotEmpty) {
+      // CONV-PROMPT-02 — framing alineado con la regla 5 del prompt: el
+      // dueño NO es un rol que presentar ni un "negocio"; hablar por él es
+      // la forma natural del turno. La versión anterior ("Preséntate como
+      // su asistente") contradecía la regla dura y empujaba al 1.5B al
+      // modo asistente en turnos personales.
       parts.add(
-        'El dueño del negocio es ${valid.ownerName}. Preséntate como su '
-        'asistente solo si el cliente lo pregunta.',
+        'El dueño es ${valid.ownerName}; responde como lo haría él. Jamás '
+        'te presentes como asistente ni menciones tu rol. Solo si preguntan '
+        'explícitamente quién eres, responde tu nombre: Nano.',
       );
     }
     if (valid.ownerNotes.isNotEmpty) {
