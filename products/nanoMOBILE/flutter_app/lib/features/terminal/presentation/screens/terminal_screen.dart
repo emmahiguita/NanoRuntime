@@ -156,7 +156,7 @@ class _S extends State<TerminalTabScreen> {
     final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
 
     return NanoInputScope(
-      scopeId: 'terminal_tab',
+      scopeId: 'terminal',
       hint: _sessions.isNotEmpty 
           ? 'Comando para ${_sessions[_active].name}...' 
           : 'Escribe un comando de terminal...',
@@ -363,7 +363,7 @@ class _S extends State<TerminalTabScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
