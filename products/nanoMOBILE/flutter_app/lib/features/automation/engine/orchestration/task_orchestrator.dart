@@ -313,7 +313,8 @@ class TaskOrchestrator {
         continue;
       }
       activeRun.enterStep(index);
-      if (priorDefinition.risk != SemanticActionRisk.readOnly) {
+      if (priorDefinition.risk != SemanticActionRisk.observation &&
+          priorDefinition.risk != SemanticActionRisk.navigation) {
         activeRun.markPhysicalEffectDispatched();
       }
       final rebuiltContext = await _captureDecisionContext(
@@ -472,7 +473,8 @@ class TaskOrchestrator {
         ),
         capturedAt: DateTime.now().toUtc(),
       );
-      if (definition.risk != SemanticActionRisk.readOnly) {
+      if (definition.risk != SemanticActionRisk.observation &&
+          definition.risk != SemanticActionRisk.navigation) {
         activeRun.markPhysicalEffectDispatched();
       }
       var result = await _runStep(

@@ -936,7 +936,7 @@ class AgentToolDispatcher {
         onPhysicalEffectDispatched: onPhysicalEffectDispatched,
       );
     }
-    if (tool.risk != SemanticActionRisk.readOnly) {
+    if (tool.risk != ToolRisk.none && tool.risk != ToolRisk.read) {
       onPhysicalEffectDispatched?.call();
     }
     final feedback = await _executeWithTimeout(call, tool, runBudget);
@@ -1630,7 +1630,7 @@ class AgentToolDispatcher {
       return await _executeTool(call).timeout(
         effectiveTimeout,
         onTimeout: () {
-          if (tool.risk == SemanticActionRisk.readOnly) {
+          if (tool.risk == ToolRisk.none || tool.risk == ToolRisk.read) {
             return '[timeout] "${tool.name}" excedió ${effectiveTimeout.inSeconds}s.';
           }
           return '[timeoutOutcomeUnknown] "${tool.name}" excedió '

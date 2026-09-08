@@ -306,13 +306,6 @@ class ProotManager {
     return [_prootPath!, ...prootArgs];
   }
 
-  /// Mata el proceso proot lanzado con [tag] vía exec().
-  /// Solo ShellExecutor soporta tracking; con otro ejecutor es no-op.
-  bool killByTag(String tag) {
-    final s = _shell;
-    return s is ShellExecutor ? s.killTracked(tag) : false;
-  }
-
   /// Ejecuta bash interactivo dentro del rootfs.
   /// Usa bash directamente si existe; fallback a /bin/sh.
   Future<int> shell({
