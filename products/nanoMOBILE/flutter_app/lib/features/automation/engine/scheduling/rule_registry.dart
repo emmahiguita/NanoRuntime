@@ -36,6 +36,7 @@ class MemoryRuleStore implements RuleStore {
 /// Persistencia de reglas en shared_preferences (JSON). Producción.
 class SharedPrefsRuleStore implements RuleStore {
   static const _key = 'automation.scheduled_rules.v1';
+  static const _eligiblePackagesKey = 'automation.eligible_packages';
 
   @override
   Future<List<ScheduledRule>> load() async {
@@ -62,6 +63,26 @@ class SharedPrefsRuleStore implements RuleStore {
       jsonEncode([for (final r in rules) r.toJson()]),
     );
     if (!saved) throw StateError('Rule persistence rejected');
+
+    // NATIVE-ADMISSION-01: Sincroniza paquetes elegibles para que Kotlin descarte
+    // ruido (<1ms) sin despertar FGS/FlutterEngine headless cuando la UI está cerrada.
+    final enabledNotificationRules = rules.where(
+      (r) => r.enabled && r.trigger is NotificationTrigger,
+    );
+    final hasCatchAll = enabledNotificationRules.any(
+      (r) => (r.trigger as NotificationTrigger).packageName == null,
+    );
+    String eligiblePackages;
+    if (hasCatchAll) {
+      eligiblePackages = '*';
+    } else {
+      final pkgs = enabledNotificationRules
+          .map((r) => (r.trigger as NotificationTrigger).packageName!)
+          .where((p) => p.isNotEmpty)
+          .toSet();
+      eligiblePackages = pkgs.join(',');
+    }
+    await prefs.setString(_eligiblePackagesKey, eligiblePackages);
   }
 }
 

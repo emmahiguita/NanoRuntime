@@ -178,8 +178,16 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
             }
 
             "claim" -> {
-                val limit = call.argument<Number>("limit")?.toInt() ?: CLAIM_LIMIT
-                result.success(claimInbox(limit))
+                if (NotificationAutomationBridge.service == null) {
+                    result.error("SOURCE_UNAVAILABLE", "NotificationListenerService is not connected", null)
+                    return
+                }
+                try {
+                    val limit = call.argument<Number>("limit")?.toInt() ?: CLAIM_LIMIT
+                    result.success(claimInbox(limit))
+                } catch (error: Exception) {
+                    result.error("DB_ERROR", error.message, null)
+                }
             }
 
             "complete" -> {

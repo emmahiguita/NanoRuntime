@@ -66,9 +66,22 @@ Future<void> runAutomationHeadless() async {
     // ACTIVAS; contenido jamás persistido) → BurstTurnGate (ráfagas por
     // conversación → UN turno agregado) → pipeline → complete. Dos pasadas
     // vacías con asentamiento = idle → finish (el service para y libera).
+    // Errores de canal o DB no se confunden con inbox vacío (reintenta hasta 3 veces).
     var emptyPasses = 0;
-    while (emptyPasses < 2) {
-      final rows = await _claimRows();
+    var consecutiveErrors = 0;
+    while (emptyPasses < 2 && consecutiveErrors < 3) {
+      final claim = await _claimRows();
+      if (claim is _ClaimFailure) {
+        consecutiveErrors++;
+        debugPrint(
+          '[headless] error en claim (${claim.code}) — '
+          'reintento $consecutiveErrors/3 con espera',
+        );
+        await Future<void>.delayed(const Duration(seconds: 3));
+        continue;
+      }
+      consecutiveErrors = 0;
+      final rows = (claim as _ClaimSuccess).rows;
       if (rows.isEmpty) {
         emptyPasses++;
         if (emptyPasses < 2) {
@@ -108,7 +121,11 @@ Future<void> runAutomationHeadless() async {
     }
     container.read(notificationEventRouterProvider).stop();
     await pipeline.drain(gate);
-    debugPrint('[headless] idle — pidiendo parada limpia');
+    debugPrint(
+      consecutiveErrors >= 3
+          ? '[headless] deteniendo por errores consecutivos en reclamo'
+          : '[headless] idle — pidiendo parada limpia',
+    );
   } on Object catch (error) {
     debugPrint('[headless] error fatal: $error');
   } finally {
@@ -122,17 +139,35 @@ Future<void> runAutomationHeadless() async {
   }
 }
 
-Future<List<Map<dynamic, dynamic>>> _claimRows() async {
+sealed class _ClaimResult {
+  const _ClaimResult();
+}
+
+class _ClaimSuccess extends _ClaimResult {
+  final List<Map<dynamic, dynamic>> rows;
+  const _ClaimSuccess(this.rows);
+}
+
+class _ClaimFailure extends _ClaimResult {
+  final String code;
+  final String? message;
+  const _ClaimFailure({required this.code, this.message});
+}
+
+Future<_ClaimResult> _claimRows() async {
   try {
     final raw = await _headlessChannel.invokeListMethod<dynamic>('claim', {
       'limit': 64,
     });
-    return [
+    return _ClaimSuccess([
       for (final r in raw ?? const [])
         if (r is Map) Map<dynamic, dynamic>.from(r),
-    ];
+    ]);
+  } on PlatformException catch (e) {
+    debugPrint('[headless] claim falló (${e.code}): ${e.message}');
+    return _ClaimFailure(code: e.code, message: e.message);
   } on Object catch (error) {
-    debugPrint('[headless] claim falló: $error');
-    return const [];
+    debugPrint('[headless] claim falló inesperado: $error');
+    return _ClaimFailure(code: 'UNKNOWN', message: error.toString());
   }
 }

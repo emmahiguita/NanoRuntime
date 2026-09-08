@@ -57,6 +57,14 @@ class NotificationAutomationService : NotificationListenerService() {
 
         val sink = NotificationAutomationBridge.notificationEventsSink
         if (sink == null && !AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
+
+        // NATIVE-ADMISSION-01: Si no hay sink UI vivo, verificar que el paquete tenga reglas
+        // activas antes de persistir en DurableInbox o despertar el runtime headless.
+        if (sink == null && !isPackageEligible(sbn.packageName)) {
+            android.util.Log.d("NanoNotifications", "Skipping background wake for non-automated package: ${sbn.packageName}")
+            return
+        }
+
         try {
             NanoApplication.from(this).durableInbox.insert(sbn.packageName, sbn.key, sbn.postTime)
         } catch (error: Exception) {
@@ -67,6 +75,23 @@ class NotificationAutomationService : NotificationListenerService() {
             sink.success(toMap(sbn))
         } else {
             AutomationRuntimeService.request(this)
+        }
+    }
+
+    private fun isPackageEligible(pkg: String): Boolean {
+        return try {
+            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val raw = prefs.getString("flutter.automation.eligible_packages", null)
+            if (raw == null) {
+                pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b"
+            } else if (raw == "*" || raw.contains("*")) {
+                true
+            } else {
+                val allowed = raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                pkg in allowed
+            }
+        } catch (e: Exception) {
+            pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b"
         }
     }
 

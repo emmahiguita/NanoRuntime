@@ -11,6 +11,8 @@
 /// `ActionPathRouter`/adapters — un solo cerebro de ejecución.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show
         AgentToolDispatcher,
@@ -594,6 +596,24 @@ class AutomationCoordinator {
         planRun.finish(status: 'cancelled', reason: feedback);
       }
       return outcome;
+    } on Object catch (e, st) {
+      if (!ownsRegistration) rethrow;
+      debugPrint('[coordinator.runPlan] excepción no manejada: $e\n$st');
+      final feedback = '[exception] Error inesperado en runPlan: $e';
+      final outcome = PlanOutcome(
+        completed: false,
+        steps: [ToolOutcome(verdict: PolicyVerdict.denied, feedback: feedback)],
+        summary: feedback,
+      );
+      _record(
+        executionId: planRun.executionId,
+        goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
+        status: AutomationResultStatus.failed,
+        summary: feedback,
+        startedAt: startedAt,
+      );
+      planRun.finish(status: 'failed', reason: feedback);
+      return outcome;
     } finally {
       if (ownsRegistration &&
           identical(_activeRuns[planRun.executionId], planRun)) {
@@ -689,6 +709,21 @@ class AutomationCoordinator {
         startedAt: startedAt,
       );
       run.finish(status: 'cancelled', reason: outcome.feedback);
+      return outcome;
+    } on Object catch (e, st) {
+      debugPrint('[coordinator.runTool] excepción no manejada: $e\n$st');
+      final outcome = ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback: '[exception] Error inesperado en runTool: $e',
+      );
+      _record(
+        executionId: run.executionId,
+        goal: call.tool,
+        status: AutomationResultStatus.failed,
+        summary: outcome.feedback,
+        startedAt: startedAt,
+      );
+      run.finish(status: 'failed', reason: outcome.feedback);
       return outcome;
     } finally {
       if (identical(_activeRuns[run.executionId], run)) {
@@ -1139,6 +1174,21 @@ class AutomationCoordinator {
           executionId: executionId,
           status: AutomationResultStatus.cancelled,
           reason: 'Ejecución cancelada por el usuario.',
+        ),
+      );
+    } on Object catch (e, st) {
+      debugPrint('[coordinator.execute] excepción no manejada: $e\n$st');
+      // Invariante del contrato: si la excepción ocurre antes de iniciar efectos,
+      // el status es failed. Si ya se habían ejecutado pasos o el efecto está en
+      // vuelo, el resultado es outcomeUnknown para evitar doble replay automático.
+      final hasStartedEffects = steps > 0 || taskStepsCount > 0;
+      return finish(
+        AutomationResult(
+          executionId: executionId,
+          status: hasStartedEffects
+              ? AutomationResultStatus.outcomeUnknown
+              : AutomationResultStatus.failed,
+          reason: '[coordinatorException] $e',
         ),
       );
     } finally {
