@@ -323,14 +323,19 @@ static int _spawn_internal(
         // libnanoroot's constructor can read NANO_ROOTFS from env.
         apply_env(envp);
 
-        // cwd: el hijo hereda el cwd del worker (normalmente "/") y
-        // SELinux deniega a untrusted_app listar "/" ("ls: can't open
-        // '.': Permission denied"). chdir(HOME) para que los applets
-        // corran en el home del usuario (igual que una shell login).
-        // El fallo se ignora: cwd heredado si HOME no existe.
+        // cwd post-fork: seguro en el proceso hijo sin afectar hilos concurrentes
+        // del worker. Soporta NANO_CWD explícito desde LinuxExecutionRequest, con
+        // fallback a HOME para que no herede "/" (SELinux EACCES).
         {
-            const char* home = getenv("HOME");
-            if (home && home[0]) chdir(home);
+            const char* cwd = getenv("NANO_CWD");
+            if (cwd && cwd[0]) {
+                if (chdir(cwd) != 0) {
+                    fprintf(stderr, "nanoshell: chdir(%s) fallo: %s\n", cwd, strerror(errno));
+                }
+            } else {
+                const char* home = getenv("HOME");
+                if (home && home[0]) chdir(home);
+            }
         }
 
         // Set LD_PRELOAD before execve so the kernel linker loads it.

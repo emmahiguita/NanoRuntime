@@ -84,6 +84,12 @@ class ToolCall {
   /// destination para open_system (A3). Solo `args.destination`.
   String? get destinationArg => args?['destination'] as String?;
 
+  /// path para herramientas Linux / FS. `args.path` o `textArg` / `selectorArg`.
+  String? get pathArg => (args?['path'] as String?) ?? textArg ?? selectorArg;
+
+  /// command para linux.run. `args.command` o `textArg`.
+  String? get commandArg => (args?['command'] as String?) ?? textArg;
+
   /// Lee un input declarado por la política sin depender de si el caller usa
   /// `args` canónico o los aliases legacy. Esta validación ocurre de nuevo en
   /// el dispatcher para que el origen del plan no pueda omitirla.
@@ -227,26 +233,73 @@ abstract final class AgentToolProtocol {
       final map = jsonDecodeTolerant(trimmed);
       final tool = map['tool'] as String?;
       if (tool == null || tool.isEmpty) return null;
+
+      final argsMap = <String, Object?>{};
+      if (map['args'] is Map) {
+        argsMap.addAll((map['args'] as Map).cast<String, Object?>());
+      } else if (map['args'] is List) {
+        final list = (map['args'] as List).map((e) => '$e').toList();
+        argsMap['arguments'] = list;
+        argsMap['args'] = list;
+      }
+
+      // Preserva claves top-level para no descartar path, command, content,
+      // cwd, timeout, etc. anunciadas en ToolDefinition (ToolRegistry).
+      for (final entry in map.entries) {
+        if (entry.key != 'tool' &&
+            entry.key != 'args' &&
+            entry.key != 'expect' &&
+            !argsMap.containsKey(entry.key)) {
+          argsMap[entry.key] = entry.value;
+        }
+      }
+
+      final selector = (map['selector'] as String?) ?? (map['path'] as String?);
+      final text = (map['text'] as String?) ??
+          (map['command'] as String?) ??
+          (map['path'] as String?);
+
+      final rawTool = tool.trim();
+      final canonicalTool = switch (rawTool.toLowerCase()) {
+        'linux.readfile' => 'linux.readFile',
+        'linux.writefile' => 'linux.writeFile',
+        final other => other,
+      };
+
       return ToolCall(
-        tool: tool.trim().toLowerCase(),
-        selector: map['selector'] as String?,
-        text: map['text'] as String?,
+        tool: canonicalTool,
+        selector: selector,
+        text: text,
         key: map['key'] as String?,
         expect: map['expect'] is Map
             ? (map['expect'] as Map).cast<String, dynamic>()
             : null,
-        args: map['args'] is Map
-            ? (map['args'] as Map).cast<String, Object?>()
-            : null,
+        args: argsMap.isNotEmpty ? argsMap : null,
       );
     } catch (_) {
-      final tool = _field(trimmed, 'tool');
-      if (tool == null) return null;
+      final rawTool = _field(trimmed, 'tool');
+      if (rawTool == null) return null;
+      final canonicalTool = switch (rawTool.trim().toLowerCase()) {
+        'linux.readfile' => 'linux.readFile',
+        'linux.writefile' => 'linux.writeFile',
+        final other => other,
+      };
+      final command = _field(trimmed, 'command');
+      final path = _field(trimmed, 'path');
+      final content = _field(trimmed, 'content');
+      final selector = _field(trimmed, 'selector') ?? path;
+      final text = _field(trimmed, 'text') ?? command ?? path;
+      final key = _field(trimmed, 'key');
+      final argsMap = <String, Object?>{};
+      if (command != null) argsMap['command'] = command;
+      if (path != null) argsMap['path'] = path;
+      if (content != null) argsMap['content'] = content;
       return ToolCall(
-        tool: tool.toLowerCase(),
-        selector: _field(trimmed, 'selector'),
-        text: _field(trimmed, 'text'),
-        key: _field(trimmed, 'key'),
+        tool: canonicalTool,
+        selector: selector,
+        text: text,
+        key: key,
+        args: argsMap.isNotEmpty ? argsMap : null,
       );
     }
   }
@@ -1543,16 +1596,23 @@ class AgentToolDispatcher {
     ToolExecutionBudget budget,
   ) async {
     budget.recordExecution();
+    final explicitTimeoutSeconds = call.args?['timeout'] is num
+        ? (call.args!['timeout'] as num).toInt()
+        : int.tryParse('${call.args?['timeout']}');
+    final effectiveTimeout =
+        (explicitTimeoutSeconds != null && explicitTimeoutSeconds > 0)
+            ? Duration(seconds: explicitTimeoutSeconds.clamp(1, 600))
+            : tool.timeout;
     debugPrint(
       '[agent-policy] tool=${tool.name} risk=${tool.risk.name} '
-      'steps=${budget.stepsUsed} timeout=${tool.timeout.inMilliseconds}ms',
+      'steps=${budget.stepsUsed} timeout=${effectiveTimeout.inMilliseconds}ms',
     );
     try {
       return await _executeTool(call).timeout(
-        tool.timeout,
+        effectiveTimeout,
         onTimeout: () =>
             '[timeoutOutcomeUnknown] "${tool.name}" excedió '
-            '${tool.timeout.inSeconds}s. El caller dejó de esperar, pero la '
+            '${effectiveTimeout.inSeconds}s. El caller dejó de esperar, pero la '
             'operación nativa puede seguir activa; resultado desconocido.',
       );
     } catch (e) {
@@ -1672,7 +1732,9 @@ class AgentToolDispatcher {
         );
       case 'linux.list':
       case 'linux.readFile':
+      case 'linux.readfile':
       case 'linux.writeFile':
+      case 'linux.writefile':
       case 'linux.run':
         return _linuxTool(call);
       default:
@@ -1688,18 +1750,28 @@ class AgentToolDispatcher {
       return '[linuxOff] Subsistema Linux no disponible: sin distribución '
           'registrada o sin adaptador configurado.';
     }
-    final arg = call.textArg ?? call.selectorArg ?? '';
+    final pathArg = (call.args?['path'] as String?)?.trim();
+    final commandArg = (call.args?['command'] as String?)?.trim();
+    final arg = (pathArg != null && pathArg.isNotEmpty)
+        ? pathArg
+        : (commandArg != null && commandArg.isNotEmpty)
+            ? commandArg
+            : (call.textArg ?? call.selectorArg ?? '').trim();
     if (arg.isEmpty) {
-      return '[tool] ${call.tool} requiere "text" o "selector" con el '
+      return '[tool] ${call.tool} requiere "path", "command", "text" o "selector" con el '
           'argumento.';
     }
-    // LINUX-EXEC-01: la ToolDefinition registrada fija el timeout por tool
-    // (linux.list/readFile 15s, writeFile 20s, run 30s) — ya no se usa el
-    // 20s fijo del adapter. cwd/environment opcionales viajan desde los args
-    // del ToolCall (el LLM puede pedir cwd explícito; environment se
-    // materializa solo si viene como map de strings).
+    // LINUX-EXEC-01: la ToolDefinition registrada fija el timeout base por tool,
+    // pero el caller puede especificar un timeout explícito en args['timeout']
+    // (hasta 600s para compilaciones o descargas largas).
     final def = registry.lookup(call.tool);
-    final timeout = def?.timeout;
+    final explicitTimeoutSeconds = call.args?['timeout'] is num
+        ? (call.args!['timeout'] as num).toInt()
+        : int.tryParse('${call.args?['timeout']}');
+    final timeout =
+        (explicitTimeoutSeconds != null && explicitTimeoutSeconds > 0)
+            ? Duration(seconds: explicitTimeoutSeconds.clamp(1, 600))
+            : def?.timeout;
     final rawCwd = (call.args?['cwd'] as String?)?.trim();
     final cwd = (rawCwd != null && rawCwd.isNotEmpty) ? rawCwd : null;
     final envRaw = call.args?['environment'];
@@ -1707,7 +1779,7 @@ class AgentToolDispatcher {
         ? envRaw.map((k, v) => MapEntry(k, '$v'))
         : null;
     final LinuxCommandResult result;
-    switch (call.tool) {
+    switch (call.tool.toLowerCase()) {
       case 'linux.list':
         result = await adapter.list(
           arg,
@@ -1715,15 +1787,15 @@ class AgentToolDispatcher {
           environment: environment,
           timeout: timeout,
         );
-      case 'linux.readFile':
+      case 'linux.readfile':
         result = await adapter.readFile(
           arg,
           cwd: cwd,
           environment: environment,
           timeout: timeout,
         );
-      case 'linux.writeFile':
-        // path viene de `arg` (textArg); content viene de args['content'] (A4
+      case 'linux.writefile':
+        // path viene de `arg` (path / textArg); content viene de args['content'] (A4
         // canónico) con fallback a `text`. No reusar arg como content.
         final content = (call.args?['content'] as String?) ?? call.text ?? '';
         result = await adapter.writeFile(
@@ -1734,8 +1806,19 @@ class AgentToolDispatcher {
           timeout: timeout,
         );
       default:
+        // Soporta argumentos adicionales pasados como lista en 'arguments' o 'args'
+        final extraArgs = call.args?['arguments'] ?? call.args?['args'];
+        final String effectiveCommand;
+        if (extraArgs is List && extraArgs.isNotEmpty) {
+          final quoted = extraArgs
+              .map((a) => "'${a.toString().replaceAll("'", r"'\''")}'")
+              .join(' ');
+          effectiveCommand = '$arg $quoted';
+        } else {
+          effectiveCommand = arg;
+        }
         result = await adapter.runCommand(
-          arg,
+          effectiveCommand,
           cwd: cwd,
           environment: environment,
           timeout: timeout,

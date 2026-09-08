@@ -119,6 +119,8 @@ class ToolRegistry {
       'recientes': 'recents',
       'sombra': 'open_notifications',
       'ajustes_rapidos': 'open_quick_settings',
+      'linux.readfile': 'linux.readFile',
+      'linux.writefile': 'linux.writeFile',
     },
   );
 
