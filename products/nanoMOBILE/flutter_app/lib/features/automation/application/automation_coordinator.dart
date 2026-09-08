@@ -1178,10 +1178,11 @@ class AutomationCoordinator {
       );
     } on Object catch (e, st) {
       debugPrint('[coordinator.execute] excepción no manejada: $e\n$st');
-      // Invariante del contrato: si la excepción ocurre antes de iniciar efectos,
-      // el status es failed. Si ya se habían ejecutado pasos o el efecto está en
-      // vuelo, el resultado es outcomeUnknown para evitar doble replay automático.
-      final hasStartedEffects = steps > 0 || taskStepsCount > 0;
+      // Invariante del contrato: si la excepción ocurre antes de iniciar efectos
+      // físicos reales, el status es failed (seguro para retry/sin huérfano).
+      // Si ya se despachó un efecto físico, el resultado es outcomeUnknown
+      // para evitar doble replay automático.
+      final hasStartedEffects = run.hasDispatchedPhysicalEffect;
       return finish(
         AutomationResult(
           executionId: executionId,

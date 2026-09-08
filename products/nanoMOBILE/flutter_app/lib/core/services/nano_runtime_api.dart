@@ -254,6 +254,17 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Termina una tarea específica [taskId] en el worker :nanoshell.
+  /// No afecta al worker ni a otras tareas concurrentes.
+  Future<bool> workerKillTask(String taskId) async {
+    try {
+      return await _exec.invokeMethod<bool>('workerKillTask', taskId) == true;
+    } catch (e) {
+      debugPrint('[runtime] workerKillTask error: $e');
+      return false;
+    }
+  }
+
   // ── packages / desktop ──
 
   Future<bool> installPackages(List<String> packages) async {

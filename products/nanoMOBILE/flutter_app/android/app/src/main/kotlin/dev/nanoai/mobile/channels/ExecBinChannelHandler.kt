@@ -47,6 +47,7 @@ class ExecBinChannelHandler(
             "probeExec" -> handleProbeExec(call, result)
             "workerSpawn" -> handleWorkerSpawn(call, result)
             "workerKill" -> handleWorkerKill(result)
+            "workerKillTask" -> handleWorkerKillTask(call, result)
             "installPackages" -> handleInstallPackages(call, result)
             "installGraphical" -> handleInstallGraphical(result)
             "startDesktop" -> handleStartDesktop(call, result)
@@ -209,6 +210,20 @@ class ExecBinChannelHandler(
     private fun handleWorkerKill(result: MethodChannel.Result) {
         if (nativeSupervisor.killWorker()) result.success(true)
         else result.error("worker_kill_failed", "worker no conectado", null)
+    }
+
+    private fun handleWorkerKillTask(call: MethodCall, result: MethodChannel.Result) {
+        val taskId = call.arguments as? String
+        if (taskId == null) {
+            result.error("bad_args", "taskId requerido", null)
+            return
+        }
+        ioScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                nativeSupervisor.killWorkerTask(taskId)
+            }
+            mainHandler.post { result.success(ok) }
+        }
     }
 
     private fun handleInstallPackages(call: MethodCall, result: MethodChannel.Result) {

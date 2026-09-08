@@ -1,4 +1,4 @@
-﻿package dev.nanoai.mobile
+package dev.nanoai.mobile
 
 import android.content.ComponentName
 import android.content.Context
@@ -328,6 +328,55 @@ class WorkerClient(private val ctx: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "killPid fallo: $e")
+            false
+        } finally {
+            try {
+                replyThread?.quitSafely()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
+     * Termina una tarea específica [taskId] en ejecución en el worker (ownership por tarea).
+     * Delega al worker para que mate el process group de la tarea y recolecte el proceso.
+     * Seguro ante concurrencia: no afecta a otras tareas ni al worker.
+     */
+    fun killTask(taskId: String): Boolean {
+        if (shuttingDown || taskId.isBlank()) return false
+        if (!awaitConnected(CONNECT_TIMEOUT_MS)) {
+            Log.e(TAG, "killTask abortado: worker no conectó a tiempo taskId=$taskId")
+            return false
+        }
+        val m = workerMessenger ?: return false
+        var replyThread: HandlerThread? = null
+        return try {
+            val killedRef = AtomicReference<Boolean?>(null)
+            val latch = CountDownLatch(1)
+            replyThread = HandlerThread("nano-kill-task").apply { start() }
+
+            val msg = Message.obtain(null, NanoshellWorkerService.MSG_KILL_TASK)
+            msg.data = Bundle().apply {
+                putString(NanoshellWorkerService.EXTRA_TASK_ID, taskId)
+            }
+            msg.replyTo = Messenger(object : Handler(replyThread.looper) {
+                override fun handleMessage(reply: Message) {
+                    if (reply.data.getString(NanoshellWorkerService.EXTRA_TASK_ID) == taskId) {
+                        killedRef.set(reply.data.getBoolean("killed", false))
+                        latch.countDown()
+                    }
+                }
+            })
+            m.send(msg)
+
+            if (!latch.await(3, TimeUnit.SECONDS)) {
+                Log.e(TAG, "killTask timeout taskId=$taskId")
+                false
+            } else {
+                killedRef.get() == true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "killTask fallo: $e")
             false
         } finally {
             try {

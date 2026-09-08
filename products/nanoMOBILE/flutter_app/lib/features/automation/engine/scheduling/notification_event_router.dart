@@ -24,6 +24,8 @@ class NotificationEventRouter {
   StreamSubscription<Map<dynamic, dynamic>>? _sub;
   int _generation = 0;
   int _pendingBatches = 0;
+  bool _hasDeferredBatches = false;
+  bool _isDrainingBacklog = false;
 
   void start() {
     if (_sub != null) return;
@@ -39,6 +41,7 @@ class NotificationEventRouter {
 
   Future<void> _routeBatch(Map<dynamic, dynamic> map) async {
     if (_pendingBatches >= 64) {
+      _hasDeferredBatches = true;
       debugPrint(
         '[notifications] router capacity reached; inbox retains event',
       );
@@ -62,6 +65,28 @@ class NotificationEventRouter {
       debugPrint('[notifications] ingress deferred: $error');
     } finally {
       _pendingBatches--;
+      if (_pendingBatches <= 16 && _hasDeferredBatches) {
+        _hasDeferredBatches = false;
+        unawaited(_drainBacklog(_generation));
+      }
+    }
+  }
+
+  Future<void> _drainBacklog(int generation) async {
+    if (_isDrainingBacklog) return;
+    _isDrainingBacklog = true;
+    try {
+      if (_sub == null || generation != _generation) return;
+      final active = await NanoRuntimeApi.instance.listNotifications();
+      if (_sub == null || generation != _generation) return;
+      for (final m in active) {
+        if (_sub == null || generation != _generation) break;
+        await _routeBatch(m);
+      }
+    } catch (e) {
+      debugPrint('[notifications] backlog drain error: $e');
+    } finally {
+      _isDrainingBacklog = false;
     }
   }
 

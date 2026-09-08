@@ -51,19 +51,26 @@ final class AutomationRun {
   AutomationRunPhase _phase = AutomationRunPhase.created;
   int _currentStep = -1;
   AutomationRunTerminal? _terminalResult;
+  bool _hasDispatchedPhysicalEffect = false;
 
   AutomationRunPhase get phase => _phase;
   int get currentStep => _currentStep;
   ActionConfirmation? get confirmation => _confirmation;
   AutomationRunTerminal? get terminalResult => _terminalResult;
+  bool get hasDispatchedPhysicalEffect => _hasDispatchedPhysicalEffect;
   Map<String, RequiredEvidence> get evidenceSnapshot =>
       Map.unmodifiable(_evidenceByStep);
+
+  void markPhysicalEffectDispatched() {
+    _hasDispatchedPhysicalEffect = true;
+  }
 
   void beginPlanning() => _transition(AutomationRunPhase.planning);
 
   void enterStep(int step) {
     if (step < 0) throw ArgumentError.value(step, 'step');
     _currentStep = step;
+    markPhysicalEffectDispatched();
     _transition(AutomationRunPhase.executing);
   }
 

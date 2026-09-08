@@ -38,11 +38,12 @@ void main() {
       final reg = RuleRegistry(store);
       await reg.load();
       reg.add(waRule());
+      await reg.flush();
 
       final reg2 = RuleRegistry(store);
       await reg2.load();
-      expect(reg2.rules, hasLength(1));
-      expect(reg2.rules.first.action, RuleAction.reply);
+      final r1 = reg2.rules.firstWhere((r) => r.id == 'r1');
+      expect(r1.action, RuleAction.reply);
     });
 
     test('setEnabled false persiste', () async {
@@ -51,10 +52,12 @@ void main() {
       await reg.load();
       reg.add(waRule());
       reg.setEnabled('r1', false);
+      await reg.flush();
 
       final reg2 = RuleRegistry(store);
       await reg2.load();
-      expect(reg2.rules.first.enabled, isFalse);
+      final r1 = reg2.rules.firstWhere((r) => r.id == 'r1');
+      expect(r1.enabled, isFalse);
     });
 
     test('markFired registra lastFiredAt', () async {
@@ -63,7 +66,8 @@ void main() {
       await reg.load();
       reg.add(waRule());
       reg.markFired('r1', DateTime(2026, 8, 27, 12));
-      expect(reg.rules.first.lastFiredAt, DateTime(2026, 8, 27, 12));
+      final r1 = reg.rules.firstWhere((r) => r.id == 'r1');
+      expect(r1.lastFiredAt, DateTime(2026, 8, 27, 12));
     });
 
     test('remove elimina la regla', () async {
@@ -72,7 +76,8 @@ void main() {
       await reg.load();
       reg.add(waRule());
       reg.remove('r1');
-      expect(reg.rules, isEmpty);
+      expect(reg.rules.any((r) => r.id == 'r1'), isFalse);
+      expect(reg.rules.any((r) => r.id == RuleRegistry.universalWhatsAppRuleId), isTrue);
     });
   });
 

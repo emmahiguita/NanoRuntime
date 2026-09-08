@@ -25,6 +25,10 @@ class NotificationAutomationService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAutomationBridge.service = this
+        if (NanoApplication.from(this).durableInbox.pendingCount() > 0 &&
+            AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) {
+            AutomationRuntimeService.request(this, "nls_reconnect")
+        }
     }
 
     override fun onListenerDisconnected() {

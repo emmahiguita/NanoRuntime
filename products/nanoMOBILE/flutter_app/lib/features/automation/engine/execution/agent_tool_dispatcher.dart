@@ -1761,17 +1761,24 @@ class AgentToolDispatcher {
       return '[tool] ${call.tool} requiere "path", "command", "text" o "selector" con el '
           'argumento.';
     }
-    // LINUX-EXEC-01: la ToolDefinition registrada fija el timeout base por tool,
-    // pero el caller puede especificar un timeout explícito en args['timeout']
-    // (hasta 600s para compilaciones o descargas largas).
+    // LINUX-EXEC-01: la ToolDefinition registrada fija el timeout base por tool.
+    // Solo linux.run admite extensión dinámica de timeout en args['timeout']
+    // (hasta 600s para compilaciones o descargas largas). Para operaciones
+    // de archivo (list, readFile, writeFile), el timeout se limita estrictamente
+    // al valor de su ToolDefinition para no inflar esperas de I/O a 10 minutos.
     final def = registry.lookup(call.tool);
-    final explicitTimeoutSeconds = call.args?['timeout'] is num
+    final rawTimeout = call.args?['timeout'] is num
         ? (call.args!['timeout'] as num).toInt()
         : int.tryParse('${call.args?['timeout']}');
-    final timeout =
-        (explicitTimeoutSeconds != null && explicitTimeoutSeconds > 0)
-            ? Duration(seconds: explicitTimeoutSeconds.clamp(1, 600))
-            : def?.timeout;
+    final Duration? timeout;
+    if (call.tool.toLowerCase() == 'linux.run' &&
+        rawTimeout != null &&
+        rawTimeout > 0) {
+      final seconds = rawTimeout > 1000 ? (rawTimeout / 1000).round() : rawTimeout;
+      timeout = Duration(seconds: seconds.clamp(1, 600));
+    } else {
+      timeout = def?.timeout;
+    }
     final rawCwd = (call.args?['cwd'] as String?)?.trim();
     final cwd = (rawCwd != null && rawCwd.isNotEmpty) ? rawCwd : null;
     final envRaw = call.args?['environment'];

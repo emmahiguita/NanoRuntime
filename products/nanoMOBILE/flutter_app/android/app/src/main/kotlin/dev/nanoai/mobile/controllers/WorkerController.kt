@@ -30,4 +30,6 @@ class WorkerController(
     }
 
     fun killWorker(): Boolean = workerClientProvider()?.killWorker() == true
+
+    fun killTask(taskId: String): Boolean = workerClientProvider()?.killTask(taskId) == true
 }

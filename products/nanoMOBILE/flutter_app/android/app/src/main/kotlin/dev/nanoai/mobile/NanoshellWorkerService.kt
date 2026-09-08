@@ -35,6 +35,7 @@ companion object {
         const val MSG_OPEN_FD = 5
         const val MSG_IS_PID_ALIVE = 6
         const val MSG_KILL_PID = 7
+        const val MSG_KILL_TASK = 8
         const val EXTRA_OUT = "nanoai.worker.out"
         const val EXTRA_ERR = "nanoai.worker.err"
         const val EXTRA_RC = "nanoai.worker.rc"
@@ -52,6 +53,7 @@ when (msg.what) {
                 MSG_OPEN_FD -> handleOpenFd(msg)
                 MSG_IS_PID_ALIVE -> handleIsPidAlive(msg)
                 MSG_KILL_PID -> handleKillPid(msg)
+                MSG_KILL_TASK -> handleKillTask(msg)
                 else -> android.util.Log.w("nanoshell-worker", "msg desconocido ${msg.what}")
             }
         }
@@ -208,6 +210,25 @@ when (msg.what) {
         reply.data = Bundle().apply {
             putString(EXTRA_TASK_ID, taskId)
             putBoolean("killed", rc == 0)
+        }
+        try { replyTo.send(reply) } catch (_: Exception) {}
+    }
+
+    /**
+     * Termina una tarea específica [taskId] en ejecución en el worker (ownership por tarea).
+     * Manda SIGTERM a su process group y luego SIGKILL si no muere en 200ms.
+     * No afecta al worker ni a otras tareas concurrentes.
+     */
+    private fun handleKillTask(msg: Message) {
+        val b = msg.data
+        val taskId = b.getString(EXTRA_TASK_ID) ?: return
+        val replyTo = msg.replyTo ?: return
+        val rc = NanoshellBridge.workerKillTask(taskId)
+        android.util.Log.w("nanoshell-worker", "killTask $taskId rc=$rc")
+        val reply = Message.obtain(null, MSG_RESULT)
+        reply.data = Bundle().apply {
+            putString(EXTRA_TASK_ID, taskId)
+            putBoolean("killed", rc > 0)
         }
         try { replyTo.send(reply) } catch (_: Exception) {}
     }

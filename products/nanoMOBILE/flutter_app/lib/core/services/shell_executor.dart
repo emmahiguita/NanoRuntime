@@ -511,11 +511,19 @@ class ShellExecutor implements IBinExecutor {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
       if (!rcF.existsSync()) {
-        // IMPORTANT: do NOT call workerKill() here.
-        // workerKill() → workerKillGroup() → kill(-pgid, SIGKILL) which
-        // terminates ALL tasks running in the worker, not just this one.
-        // On timeout, simply abandon this task's result files and fall back
-        // to in-process execution. The worker remains alive for other tasks.
+        // En timeout, matar específicamente este subproceso huérfano
+        // mediante workerKillTask (ownership por tarea) sin tumbar el worker
+        // ni afectar a otras tareas concurrentes.
+        await NanoRuntimeApi.instance.workerKillTask(taskId);
+        try {
+          if (outF.existsSync()) outF.deleteSync();
+        } catch (_) {}
+        try {
+          if (errF.existsSync()) errF.deleteSync();
+        } catch (_) {}
+        try {
+          if (rcF.existsSync()) rcF.deleteSync();
+        } catch (_) {}
         return null; // timeout → caer al in-process
       }
       final rc = int.tryParse(rcF.readAsStringSync().trim()) ?? -1;
@@ -666,11 +674,19 @@ class ShellExecutor implements IBinExecutor {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
       if (!rcF.existsSync()) {
-        // IMPORTANT: do NOT call workerKill() here.
-        // workerKill() → workerKillGroup() → kill(-pgid, SIGKILL), which
-        // kills ALL concurrent worker tasks, not only this timed-out one.
-        // Callers that need hard abort (e.g., destroy flow) call workerKill()
-        // explicitly at the supervisor level.
+        // En timeout, matar específicamente este subproceso huérfano
+        // mediante workerKillTask (ownership por tarea) sin tumbar el worker
+        // ni afectar a otras tareas concurrentes.
+        await NanoRuntimeApi.instance.workerKillTask(taskId);
+        try {
+          if (outF.existsSync()) outF.deleteSync();
+        } catch (_) {}
+        try {
+          if (errF.existsSync()) errF.deleteSync();
+        } catch (_) {}
+        try {
+          if (rcF.existsSync()) rcF.deleteSync();
+        } catch (_) {}
         return const ShellResult(
           stdout: '',
           stderr: 'worker timeout',

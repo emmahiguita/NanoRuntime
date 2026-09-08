@@ -115,4 +115,11 @@ object NanoshellBridge {
      * kill falló. BUG-2: única vía de matar hijos del worker desde el app.
      */
     @JvmStatic external fun workerKillPid(pid: Int): Int
+
+    /**
+     * Termina una tarea específica [taskId] en el worker (SIGTERM y luego SIGKILL).
+     * Retorna 1 si se terminó/reapeó el proceso, 0 si no existía o ya estaba muerto,
+     * -1 en caso de error.
+     */
+    @JvmStatic external fun workerKillTask(taskId: String): Int
 }

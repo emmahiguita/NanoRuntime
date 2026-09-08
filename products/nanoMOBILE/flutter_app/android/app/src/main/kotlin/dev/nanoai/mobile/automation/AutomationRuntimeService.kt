@@ -301,15 +301,16 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
          * el FGS desde background (sin exención de batería): la fila queda en
          * el inbox y el próximo wake la procesa (PENDING_WAKE documentado).
          */
-        fun request(context: Context) {
+        fun request(context: Context, reason: String = "notification_posted") {
             if (running) return
             try {
                 context.startForegroundService(
                     Intent(context, AutomationRuntimeService::class.java)
-                        .setAction(ACTION_START),
+                        .setAction(ACTION_START)
+                        .putExtra("reason", reason),
                 )
             } catch (e: RuntimeException) {
-                Log.w(TAG, "FGS start bloqueado desde background: ${e.message}")
+                Log.w(TAG, "FGS start bloqueado desde background (reason=$reason): ${e.message}")
             }
         }
 

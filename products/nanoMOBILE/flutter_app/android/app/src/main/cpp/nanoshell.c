@@ -29,6 +29,8 @@
 #include <errno.h>
 #include <limits.h>
 #include <poll.h>
+#include <pthread.h>
+#include <signal.h>
 
 #include "util.h"  // count_argv, apply_env (shared with pty.c)
 
@@ -256,6 +258,88 @@ static void _preload_rootfs_libs(const char* dir) {
     fprintf(stderr, "nanoshell: preload done for %s\n", dir);
 }
 
+// ── Worker task tracking (ownership per task) ────────────────────────
+#define MAX_ACTIVE_WORKER_TASKS 64
+
+typedef struct {
+    char task_id[128];
+    pid_t pid;
+    int in_use;
+} ActiveWorkerTask;
+
+static ActiveWorkerTask g_active_worker_tasks[MAX_ACTIVE_WORKER_TASKS];
+static pthread_mutex_t g_worker_tasks_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void _register_active_worker_task(const char* task_id, pid_t pid) {
+    if (!task_id || !task_id[0]) return;
+    pthread_mutex_lock(&g_worker_tasks_mutex);
+    for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
+        if (!g_active_worker_tasks[i].in_use) {
+            strncpy(g_active_worker_tasks[i].task_id, task_id, sizeof(g_active_worker_tasks[i].task_id) - 1);
+            g_active_worker_tasks[i].task_id[sizeof(g_active_worker_tasks[i].task_id) - 1] = '\0';
+            g_active_worker_tasks[i].pid = pid;
+            g_active_worker_tasks[i].in_use = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_worker_tasks_mutex);
+}
+
+static void _unregister_active_worker_task(const char* task_id) {
+    if (!task_id || !task_id[0]) return;
+    pthread_mutex_lock(&g_worker_tasks_mutex);
+    for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
+        if (g_active_worker_tasks[i].in_use && strcmp(g_active_worker_tasks[i].task_id, task_id) == 0) {
+            g_active_worker_tasks[i].in_use = 0;
+            g_active_worker_tasks[i].task_id[0] = '\0';
+            g_active_worker_tasks[i].pid = 0;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_worker_tasks_mutex);
+}
+
+int nanoshell_worker_kill_task(const char* task_id) {
+    if (!task_id || !task_id[0]) return -1;
+    pid_t target_pid = 0;
+    pthread_mutex_lock(&g_worker_tasks_mutex);
+    for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
+        if (g_active_worker_tasks[i].in_use && strcmp(g_active_worker_tasks[i].task_id, task_id) == 0) {
+            target_pid = g_active_worker_tasks[i].pid;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_worker_tasks_mutex);
+
+    if (target_pid <= 1) return 0; // Not found or already dead
+
+    // Send SIGTERM to process group and individual pid
+    kill(-target_pid, SIGTERM);
+    kill(target_pid, SIGTERM);
+
+    // Wait up to 200ms with WNOHANG
+    int reaped = 0;
+    for (int i = 0; i < 4; i++) {
+        usleep(50000); // 50ms
+        int status = 0;
+        pid_t r = waitpid(target_pid, &status, WNOHANG);
+        if (r == target_pid || (r < 0 && errno == ECHILD)) {
+            reaped = 1;
+            break;
+        }
+    }
+
+    if (!reaped) {
+        kill(-target_pid, SIGKILL);
+        kill(target_pid, SIGKILL);
+        int status = 0;
+        waitpid(target_pid, &status, 0); // reap zombie
+    }
+
+    _unregister_active_worker_task(task_id);
+    return 1;
+}
+
 // The actual fork+exec logic, shared by busybox and generic variants.
 // In child: dlopen the library, find main(), call it.
 // In parent: collect stdout/stderr, wait for child.
@@ -265,6 +349,7 @@ static int _spawn_internal(
     const char* const argv[],
     const char* const envp[],
     const char* ld_preload,
+    const char* task_id,
     char** out_stdout,
     char** out_stderr,
     size_t* out_stdout_len,
@@ -297,6 +382,10 @@ static int _spawn_internal(
 
     if (pid == 0) {
         // === CHILD ===
+        // Dar al proceso hijo su propio process group para que un kill(-pid)
+        // termine el subárbol completo de la tarea sin afectar al worker.
+        setpgid(0, 0);
+
         close(out_pipe[0]);
         close(err_pipe[0]);
         dup2(out_pipe[1], STDOUT_FILENO);
@@ -309,28 +398,30 @@ static int _spawn_internal(
             if (fd != STDOUT_FILENO && fd != STDERR_FILENO) close(fd);
         }
 
-        // NO aplicar RLIMIT_AS aquí (ni antes del execve ni antes del dlopen):
-        // el hijo hereda el VA del proceso app completo y el linker necesita
-        // mmap libre para cargar el binario y sus zonas (CFI shadow de PIE
-        // dlopen'eados). Con el cap puesto antes, el mmap falla y el linker
-        // aborta: linker_block_allocator create_new_page CHECK
-        // 'page != MAP_FAILED'. El cap va DESPUÉS del dlopen (abajo), justo
-        // antes de main() — protege contra crecimiento descontrolado del
-        // binario, no contra el estado heredado. El camino execve queda sin
-        // cap (el límite se heredaría al proceso nuevo y rompería su linker).
-
         // Apply environment variables BEFORE dlopen so that
         // libnanoroot's constructor can read NANO_ROOTFS from env.
         apply_env(envp);
 
         // cwd post-fork: seguro en el proceso hijo sin afectar hilos concurrentes
         // del worker. Soporta NANO_CWD explícito desde LinuxExecutionRequest, con
-        // fallback a HOME para que no herede "/" (SELinux EACCES).
+        // resolución de ruta lógica contra NANO_ROOTFS y fail-closed (_exit 127).
         {
             const char* cwd = getenv("NANO_CWD");
             if (cwd && cwd[0]) {
-                if (chdir(cwd) != 0) {
-                    fprintf(stderr, "nanoshell: chdir(%s) fallo: %s\n", cwd, strerror(errno));
+                const char* eff_cwd = cwd;
+                char resolved_cwd[PATH_MAX];
+                if (access(cwd, F_OK) != 0 && cwd[0] == '/') {
+                    const char* nano_rootfs = getenv("NANO_ROOTFS");
+                    if (nano_rootfs && nano_rootfs[0]) {
+                        snprintf(resolved_cwd, sizeof(resolved_cwd), "%s%s", nano_rootfs, cwd);
+                        if (access(resolved_cwd, F_OK) == 0) {
+                            eff_cwd = resolved_cwd;
+                        }
+                    }
+                }
+                if (chdir(eff_cwd) != 0) {
+                    fprintf(stderr, "nanoshell: chdir(%s) fallo: %s\n", eff_cwd, strerror(errno));
+                    _exit(127); // Fail-closed! Nunca ejecutar en directorio incorrecto
                 }
             } else {
                 const char* home = getenv("HOME");
@@ -572,6 +663,10 @@ static int _spawn_internal(
     }
 
     // === PARENT ===
+    if (task_id && task_id[0]) {
+        _register_active_worker_task(task_id, pid);
+    }
+
     close(out_pipe[1]);
     close(err_pipe[1]);
 
@@ -587,6 +682,7 @@ static int _spawn_internal(
         free(stdout_buf); free(stderr_buf);
         close(out_pipe[0]); close(err_pipe[0]);
         waitpid(pid, NULL, 0);
+        if (task_id && task_id[0]) _unregister_active_worker_task(task_id);
         *out_stdout = strdup("");
         *out_stderr = strdup("");
         return -1;
@@ -654,6 +750,10 @@ static int _spawn_internal(
     int status;
     waitpid(pid, &status, 0);
 
+    if (task_id && task_id[0]) {
+        _unregister_active_worker_task(task_id);
+    }
+
     *out_stdout = stdout_buf ? stdout_buf : strdup("");
     *out_stderr = stderr_buf ? stderr_buf : strdup("");
     if (out_stdout_len) *out_stdout_len = out_len;
@@ -664,7 +764,7 @@ static int _spawn_internal(
     return -1;
 }
 
-// â”€â”€ Public API â”€â”€
+// ── Public API ──
 
 int nanoshell_spawn_busybox(
     const char* const argv[],
@@ -677,6 +777,7 @@ int nanoshell_spawn_busybox(
         "busybox_main",    // main_symbol
         argv, envp,
         NULL,              // no LD_PRELOAD for standalone busybox
+        NULL,              // no task_id
         out_stdout, out_stderr,
         NULL, NULL         // no length tracking needed for text
     );
@@ -695,6 +796,7 @@ int nanoshell_spawn_generic(
         "main",
         argv, envp,
         ld_preload,
+        NULL,              // no task_id
         out_stdout, out_stderr,
         NULL, NULL
     );
@@ -708,7 +810,7 @@ const char* nanoshell_last_error(void) {
     return g_last_error;
 }
 
-// â”€â”€ Worker-process spawn (sin GPU) â”€â”€
+// ── Worker-process spawn (sin GPU) ──
 // Ejecuta el binario vía _spawn_internal y escribe stdout/stderr/rc a
 // archivos en filesDir (el proceso principal los lee; los punteros nativos
 // no cruzan procesos). Solo se invoca desde NanoshellWorkerService (proceso
@@ -756,6 +858,7 @@ int nanoshell_worker_spawn(
     char* err_s = NULL;
     size_t out_len = 0, err_len = 0;
     int rc = _spawn_internal(eff_binary, eff_symbol, eff_argv, envp, ld_preload,
+                             task_id,
                              &out_s, &err_s, &out_len, &err_len);
     free(busybox_argv);
 

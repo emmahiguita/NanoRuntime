@@ -124,6 +124,11 @@ class NativeRuntimeSupervisor(
         return killed
     }
 
+    fun killWorkerTask(taskId: String): Boolean {
+        ensureRunning()
+        return workerController.killTask(taskId)
+    }
+
     fun shutdown() {
         val clientToClose: WorkerClient?
         synchronized(lock) {

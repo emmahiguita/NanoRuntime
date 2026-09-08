@@ -28,6 +28,8 @@ extern int nanoshell_worker_spawn(
     const char* task_id,
     const char* files_dir);
 
+extern int nanoshell_worker_kill_task(const char* task_id);
+
 JNIEXPORT jint JNICALL
 Java_dev_nanoai_mobile_NanoshellBridge_workerSpawn(
     JNIEnv* env, jclass cls,
@@ -272,3 +274,19 @@ Java_dev_nanoai_mobile_NanoshellBridge_workerKillGroup(
         "workerKillGroup: SIGKILL a pgid=%d rc=%d", pgid, rc);
     return rc == 0 ? 0 : -1;
 }
+
+// Kill individual de una tarea activa en el worker (ownership por tarea).
+// Envía SIGTERM y luego SIGKILL si es necesario, sin afectar al worker
+// ni a otras tareas concurrentes.
+JNIEXPORT jint JNICALL
+Java_dev_nanoai_mobile_NanoshellBridge_workerKillTask(
+    JNIEnv* env, jclass cls, jstring taskId) {
+    if (!taskId) return -1;
+    const char* tid = (*env)->GetStringUTFChars(env, taskId, NULL);
+    int rc = nanoshell_worker_kill_task(tid);
+    __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
+        "workerKillTask: taskId=%s rc=%d", tid ? tid : "(null)", rc);
+    if (tid) (*env)->ReleaseStringUTFChars(env, taskId, tid);
+    return (jint)rc;
+}
+

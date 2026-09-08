@@ -189,30 +189,45 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   final SettingsRepository _repo;
   final Future<void> Function()? _stopVoiceOutput;
 
+  SettingsState _durableState = const SettingsState();
+  int _mutationRevision = 0;
+  int _durableRevision = 0;
+
   SettingsNotifier(this._repo, {Future<void> Function()? stopVoiceOutput})
     : _stopVoiceOutput = stopVoiceOutput,
       super(const SettingsState());
 
   Future<void> init() async {
     await _repo.init();
-    state = await _repo.load();
+    final loaded = await _repo.load();
+    _durableState = loaded;
+    _mutationRevision = 0;
+    _durableRevision = 0;
+    state = loaded;
     // themeModeProvider ahora es derivado y se sincroniza automáticamente
   }
 
   Future<void> _lastWrite = Future<void>.value();
 
   Future<void> _persist(SettingsState s) {
-    final previousState = state;
+    final rev = ++_mutationRevision;
     state = s;
     final write = _lastWrite.then((_) async {
       try {
         await _repo.save(s);
+        if (rev >= _durableRevision) {
+          _durableRevision = rev;
+          _durableState = s;
+        }
       } catch (e) {
         // FAIL-SAFE (PROD-01): si el disco rechaza la escritura o falla el IO,
         // revertimos RAM a la última verdad duradera para que la UI jamás
         // afirme un modo (ej. 'Disabled') que el disco no consolidó.
-        debugPrint('[settings] fallo al persistir en disco: $e — rollback');
-        state = previousState;
+        // Solo revertimos si no hay una mutación más reciente en vuelo.
+        debugPrint('[settings] fallo al persistir en disco (rev=$rev): $e — rollback');
+        if (rev == _mutationRevision) {
+          state = _durableState;
+        }
         rethrow;
       }
     });

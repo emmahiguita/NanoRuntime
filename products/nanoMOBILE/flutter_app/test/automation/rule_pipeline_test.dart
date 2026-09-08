@@ -26,6 +26,7 @@ NotificationObject notif({
   'messageText': 'hola',
   'remoteInputKey': 'ri1',
   'canReply': true,
+  'actionIndex': 0,
   'postTime': 1,
   'isGroup': false,
   'isSummary': false,

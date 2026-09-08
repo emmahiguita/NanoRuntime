@@ -45,13 +45,36 @@ class SharedPrefsRuleStore implements RuleStore {
     if (raw == null || raw.isEmpty) return const [];
     try {
       final list = jsonDecode(raw) as List;
-      return [
+      final rules = [
         for (final m in list)
           ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
       ];
+      final expectedMirror = computeEligiblePackages(rules);
+      if (prefs.getString(_eligiblePackagesKey) != expectedMirror) {
+        await prefs.setString(_eligiblePackagesKey, expectedMirror);
+      }
+      return rules;
     } on Object {
       // Never seed enabled defaults over unreadable user configuration.
       rethrow;
+    }
+  }
+
+  static String computeEligiblePackages(List<ScheduledRule> rules) {
+    final enabledNotificationRules = rules.where(
+      (r) => r.enabled && r.trigger is NotificationTrigger,
+    );
+    final hasCatchAll = enabledNotificationRules.any(
+      (r) => (r.trigger as NotificationTrigger).packageName == null,
+    );
+    if (hasCatchAll) {
+      return '*';
+    } else {
+      final pkgs = enabledNotificationRules
+          .map((r) => (r.trigger as NotificationTrigger).packageName!)
+          .where((p) => p.isNotEmpty)
+          .toSet();
+      return pkgs.join(',');
     }
   }
 
@@ -66,23 +89,14 @@ class SharedPrefsRuleStore implements RuleStore {
 
     // NATIVE-ADMISSION-01: Sincroniza paquetes elegibles para que Kotlin descarte
     // ruido (<1ms) sin despertar FGS/FlutterEngine headless cuando la UI está cerrada.
-    final enabledNotificationRules = rules.where(
-      (r) => r.enabled && r.trigger is NotificationTrigger,
+    final eligiblePackages = computeEligiblePackages(rules);
+    final mirrorSaved = await prefs.setString(
+      _eligiblePackagesKey,
+      eligiblePackages,
     );
-    final hasCatchAll = enabledNotificationRules.any(
-      (r) => (r.trigger as NotificationTrigger).packageName == null,
-    );
-    String eligiblePackages;
-    if (hasCatchAll) {
-      eligiblePackages = '*';
-    } else {
-      final pkgs = enabledNotificationRules
-          .map((r) => (r.trigger as NotificationTrigger).packageName!)
-          .where((p) => p.isNotEmpty)
-          .toSet();
-      eligiblePackages = pkgs.join(',');
+    if (!mirrorSaved) {
+      throw StateError('Rule admission mirror persistence rejected');
     }
-    await prefs.setString(_eligiblePackagesKey, eligiblePackages);
   }
 }
 
