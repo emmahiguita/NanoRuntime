@@ -54,6 +54,7 @@ enum DedupeVerdict {
 
 /// Estados del ledger de eventos entrantes (auditoría honesta por evento).
 enum DedupeEventState {
+  queued, // Durable admission without any irreversible execution.
   /// Reservado y despachado hacia reglas. Mientras existe, el evento no se
   /// reprocesa (duplicate).
   reserved,
@@ -107,6 +108,7 @@ abstract interface class EventDedupeStore {
     required String conversationId,
     required String text,
     required int atMs,
+    bool eventOnly = false,
   });
 
   /// Marca que un intento de respuesta de [conversationId] está EN VUELO.
@@ -239,9 +241,11 @@ abstract class _DedupeCore implements EventDedupeStore {
   Future<void>? _writeChain;
 
   void _queueWrite() {
-    final write = _write();
-    _writeChain = (_writeChain ?? Future.value()).then((_) => write);
-    unawaited(_writeChain);
+    _writeChain = (_writeChain ?? Future<void>.value())
+        .catchError((Object _) {})
+        .then((_) => _write());
+    // Attach a handler immediately; flush still observes the failure.
+    unawaited(_writeChain!.catchError((Object _) {}));
   }
 
   @override
@@ -283,16 +287,6 @@ abstract class _DedupeCore implements EventDedupeStore {
     if (changed) _markDirty();
   }
 
-  void _evictIfOversized(int nowMs) {
-    if (_events.length <= eventCap) return;
-    final ids = _events.keys.toList()
-      ..sort((a, b) => _events[a]!.atMs.compareTo(_events[b]!.atMs));
-    for (final id in ids.take(_events.length - eventCap)) {
-      _events.remove(id);
-    }
-    _markDirty();
-  }
-
   bool _isKnownOutbound(String conversationId, String normalizedText) =>
       _outbound[conversationId]?.any((e) => e.text == normalizedText) ?? false;
 
@@ -317,6 +311,7 @@ abstract class _DedupeCore implements EventDedupeStore {
     required String conversationId,
     required String text,
     required int atMs,
+    bool eventOnly = false,
   }) {
     _prune(atMs);
     final prior = _events[eventId];
@@ -324,8 +319,13 @@ abstract class _DedupeCore implements EventDedupeStore {
       return DedupeVerdict.duplicate;
     }
 
+    if (prior == null && _events.length >= eventCap) {
+      throw StateError(
+        'Dedupe capacity exhausted; retained idempotency evidence',
+      );
+    }
     final keyed = conversationId.isNotEmpty;
-    if (keyed) {
+    if (keyed && !eventOnly) {
       final normalized = normalizeDedupeText(text);
       if (normalized.isNotEmpty &&
           _isKnownOutbound(conversationId, normalized)) {
@@ -354,13 +354,12 @@ abstract class _DedupeCore implements EventDedupeStore {
     }
 
     _events[eventId] = _DedupeEntry(
-      state: DedupeEventState.reserved,
+      state: eventOnly ? DedupeEventState.queued : DedupeEventState.reserved,
       conversationId: conversationId,
       text: text,
       atMs: atMs,
     );
     _markDirty();
-    _evictIfOversized(atMs);
     return DedupeVerdict.proceed;
   }
 
@@ -428,6 +427,7 @@ class MemoryEventDedupeStore extends _DedupeCore {
 
   @override
   Future<void> load() async {
+    _events.removeWhere((_, entry) => entry.state == DedupeEventState.queued);
     _prune(DateTime.now().millisecondsSinceEpoch);
     _loaded = true;
   }
@@ -497,6 +497,7 @@ class SharedPrefsEventDedupeStore extends _DedupeCore {
       // fabricados). El historial empieza vacío; la puerta sigue cerrada para
       // eventos futuros.
     }
+    _events.removeWhere((_, entry) => entry.state == DedupeEventState.queued);
     _prune(DateTime.now().millisecondsSinceEpoch);
     _loaded = true;
   }
@@ -540,10 +541,15 @@ class SqliteEventDedupeStore extends _DedupeCore {
     super.outboundCap,
   });
 
+  Future<void>? _loading;
   @override
-  Future<void> load() async {
+  Future<void> load() => _loading ??= _load();
+
+  Future<void> _load() async {
     try {
-      var raw = await AutomationDbStoreClient.instance.section(_section);
+      var raw = await AutomationDbStoreClient.instance.requiredSection(
+        _section,
+      );
       raw ??= await _migrateLegacy();
       if (raw != null && raw.isNotEmpty) {
         final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
@@ -575,26 +581,23 @@ class SqliteEventDedupeStore extends _DedupeCore {
         }
       }
     } on Object {
-      // Sección corrupta o esquema viejo: arrancar limpio (fail-closed).
+      _events.clear();
+      _outbound.clear();
+      rethrow; // A corrupt ledger cannot authorize sending as a fresh install.
     }
+    _events.removeWhere((_, entry) => entry.state == DedupeEventState.queued);
     _prune(DateTime.now().millisecondsSinceEpoch);
     _loaded = true;
   }
 
   Future<String?> _migrateLegacy() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_legacyKey);
-      if (raw == null || raw.isEmpty) return null;
-      final ok = await AutomationDbStoreClient.instance.putSection(
-        _section,
-        raw,
-      );
-      if (ok) await prefs.remove(_legacyKey);
-      return ok ? raw : null;
-    } on Object {
-      return null;
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_legacyKey);
+    if (raw == null || raw.isEmpty) return null;
+    final ok = await AutomationDbStoreClient.instance.putSection(_section, raw);
+    if (!ok) throw StateError('Dedupe migration persistence rejected');
+    await prefs.remove(_legacyKey);
+    return raw;
   }
 
   @override
@@ -605,7 +608,7 @@ class SqliteEventDedupeStore extends _DedupeCore {
 
   @override
   Future<void> _write() async {
-    await AutomationDbStoreClient.instance.putSection(
+    final saved = await AutomationDbStoreClient.instance.putSection(
       _section,
       jsonEncode({
         'events': {for (final e in _events.entries) e.key: e.value.toJson()},
@@ -615,5 +618,6 @@ class SqliteEventDedupeStore extends _DedupeCore {
         },
       }),
     );
+    if (!saved) throw StateError('No se pudo persistir dedupe');
   }
 }

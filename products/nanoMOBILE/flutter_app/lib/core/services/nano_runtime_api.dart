@@ -18,6 +18,7 @@ abstract final class NanoRuntimeChannels {
   static const devicePermissions = 'com.nanoai/device_permissions';
   static const speech = 'com.nanoai/speech';
   static const system = 'com.nanoai/system';
+  static const languageAssist = 'com.nanoai/language_assist';
 }
 
 /// Resultado del handshake de runtime.
@@ -1120,14 +1121,24 @@ class NanoRuntimeApi {
   /// perdían porque el sink nativo era null. El router los re-emite desde
   /// aquí al arrancar; el dedupe persistente decide cuáles pasan.
   /// Vacío si el listener aún no está conectado (el router reintenta).
+  Future<void> completeNotificationEvent(Map<dynamic, dynamic> event) async {
+    final ok = await _notifications
+        .invokeMethod<bool>('completeEvent', {
+          'package': event['package'],
+          'key': event['key'],
+          'postTime': event['postTime'],
+        })
+        .timeout(const Duration(seconds: 10));
+    if (ok != true) throw StateError('Notification completion rejected');
+  }
+
   Future<List<Map<dynamic, dynamic>>> listNotifications({
     int limit = 30,
   }) async {
     try {
-      final raw = await _notifications.invokeMethod<List<dynamic>>(
-        'list',
-        {'limit': limit},
-      );
+      final raw = await _notifications.invokeMethod<List<dynamic>>('list', {
+        'limit': limit,
+      });
       if (raw == null) return const [];
       return raw
           .whereType<Map>()
@@ -1196,8 +1207,9 @@ class NanoRuntimeApi {
   /// mensajes pendientes en la cola durable.
   Future<Map<dynamic, dynamic>?> automationBackgroundStatus() async {
     try {
-      return await _automationBackground
-          .invokeMapMethod<dynamic, dynamic>('status');
+      return await _automationBackground.invokeMapMethod<dynamic, dynamic>(
+        'status',
+      );
     } catch (e) {
       debugPrint('[runtime] automationBackgroundStatus error: $e');
       return null;

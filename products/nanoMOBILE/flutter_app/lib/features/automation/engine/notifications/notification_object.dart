@@ -50,6 +50,7 @@ final class NotificationObject {
 
   /// true si es una notificación agregada (FLAG_GROUP_SUMMARY).
   final bool isSummary;
+  final bool isTruncated;
 
   final int postTime;
   final bool canReply;
@@ -78,6 +79,7 @@ final class NotificationObject {
     required this.accountHint,
     required this.isGroup,
     required this.isSummary,
+    this.isTruncated = false,
     required this.postTime,
     required this.canReply,
     required this.remoteInputKey,
@@ -85,6 +87,20 @@ final class NotificationObject {
     required this.actions,
     required this.ongoing,
   });
+
+  /// Expand Android's visible message history using each original event's
+  /// identity, rather than presenting only the last notification update.
+  static List<NotificationObject> eventsFromMap(Map<dynamic, dynamic> raw) {
+    final messages = raw['messages'];
+    if (messages is! List || messages.isEmpty) {
+      return [NotificationObject.fromMap(raw)];
+    }
+    return [
+      for (final message in messages)
+        if (message is Map && message['isSelf'] != true)
+          NotificationObject.fromMap({...raw, ...message}),
+    ];
+  }
 
   factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) {
     return NotificationObject(
@@ -106,6 +122,7 @@ final class NotificationObject {
       accountHint: '${raw['accountHint'] ?? ''}',
       isGroup: raw['isGroup'] == true,
       isSummary: raw['isSummary'] == true,
+      isTruncated: raw['isTruncated'] == true,
       postTime: raw['postTime'] is num ? (raw['postTime'] as num).toInt() : 0,
       canReply: raw['canReply'] == true,
       remoteInputKey: '${raw['remoteInputKey'] ?? ''}',

@@ -5,10 +5,7 @@
 /// mismo patrón de reemplazo atómico que dedupe/rate/memory).
 library;
 
-import 'dart:async' show unawaited;
 import 'dart:convert';
-
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../engine/storage/automation_db_store_client.dart';
 import '../domain/conversation_owner.dart';
@@ -20,53 +17,59 @@ abstract interface class ConversationOwnershipStore {
 
   /// Declara el control: humano toma la conversación o la devuelve al bot.
   /// Devuelve el estado resultante.
-  ConversationOwnership setOwner(
+  Future<ConversationOwnership> setOwner(
     String conversationId,
     ConversationOwner owner, {
     int? nowMs,
   });
 
   /// Devuelve el control al bot (atajo de [setOwner]).
-  ConversationOwnership release(String conversationId);
+  Future<ConversationOwnership> release(String conversationId);
 }
 
 /// PERSONA-STORAGE-04 — ownership durable: cache en memoria (consultas
 /// síncronas) + persistencia en la sección "ownership" de SQLite. La barrera
 /// global de hidratación llama [load] antes del primer evento del pipeline.
 ///
-/// La persistencia es fire-and-forget: si el proceso muere justo tras un
-/// [setOwner], el cambio puede perderse (ownership es de bajo riesgo, a
-/// diferencia del dedupe — un draft retenido perdido se redecide en el
-/// siguiente turno).
+/// El control humano se activa en memoria antes de esperar la escritura.
+/// Devolver el control al bot requiere que la escritura haya terminado.
 final class SqliteConversationOwnershipStore
     implements ConversationOwnershipStore {
   final Map<String, ConversationOwnership> _byConversation = {};
 
-  /// Hidratación: lee la sección y puebla la cache. Tolerante: datos
-  /// corruptos se descartan (fail-open hacia bot dueño por defecto).
-  Future<void> load() async {
-    final raw = await AutomationDbStoreClient.instance.section('ownership');
+  Future<void>? _loading;
+  Future<void> _writes = Future<void>.value();
+  final Map<String, int> _revisions = {};
+
+  Future<void> load() => _loading ??= _load();
+
+  Future<void> _load() async {
+    final raw = await AutomationDbStoreClient.instance.requiredSection(
+      'ownership',
+    );
     if (raw == null || raw.isEmpty) return;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return;
-      for (final entry in decoded.entries) {
-        final value = entry.value;
-        if (value is! Map || entry.key is! String) continue;
-        final ownerName = value['owner'];
-        final updatedAtMs = value['updatedAtMs'];
-        if (ownerName is! String || updatedAtMs is! int) continue;
-        final owner = _parseOwner(ownerName);
-        if (owner == null) continue;
-        _byConversation[entry.key as String] = ConversationOwnership(
-          conversationId: entry.key as String,
-          owner: owner,
-          updatedAtMs: updatedAtMs,
-        );
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) throw const FormatException('Invalid ownership store');
+    final loaded = <String, ConversationOwnership>{};
+    for (final entry in decoded.entries) {
+      final value = entry.value;
+      if (entry.key is! String ||
+          value is! Map ||
+          value['owner'] is! String ||
+          value['updatedAtMs'] is! int) {
+        throw const FormatException('Invalid ownership entry');
       }
-    } on Object catch (error) {
-      debugPrint('[ownership] hidratación falló: $error');
+      final owner = _parseOwner(value['owner'] as String);
+      if (owner == null) {
+        throw const FormatException('Unknown conversation owner');
+      }
+      loaded[entry.key as String] = ConversationOwnership(
+        conversationId: entry.key as String,
+        owner: owner,
+        updatedAtMs: value['updatedAtMs'] as int,
+      );
     }
+    _byConversation.addAll(loaded);
   }
 
   @override
@@ -74,7 +77,7 @@ final class SqliteConversationOwnershipStore
       _byConversation[conversationId];
 
   @override
-  ConversationOwnership setOwner(
+  Future<ConversationOwnership> setOwner(
     String conversationId,
     ConversationOwner owner, {
     int? nowMs,
@@ -84,29 +87,42 @@ final class SqliteConversationOwnershipStore
       owner: owner,
       updatedAtMs: nowMs ?? DateTime.now().millisecondsSinceEpoch,
     );
-    _byConversation[conversationId] = ownership;
-    unawaited(_persist());
-    return ownership;
+    if (conversationId.isEmpty) {
+      return Future.error(StateError('Conversation identity is unavailable'));
+    }
+    final revision = (_revisions[conversationId] ?? 0) + 1;
+    _revisions[conversationId] = revision;
+    // Stop automation immediately; a pending/failed release keeps human control.
+    _byConversation[conversationId] = ConversationOwnership(
+      conversationId: conversationId,
+      owner: ConversationOwner.human,
+      updatedAtMs: ownership.updatedAtMs,
+    );
+    final write = _writes.then((_) async {
+      final snapshot = Map<String, ConversationOwnership>.of(_byConversation);
+      snapshot[conversationId] = ownership;
+      final ok = await AutomationDbStoreClient.instance.putSection(
+        'ownership',
+        jsonEncode({
+          for (final entry in snapshot.entries)
+            entry.key: {
+              'owner': entry.value.owner.name,
+              'updatedAtMs': entry.value.updatedAtMs,
+            },
+        }),
+      );
+      if (!ok) throw StateError('Ownership persistence rejected');
+      if (_revisions[conversationId] == revision) {
+        _byConversation[conversationId] = ownership;
+      }
+    });
+    _writes = write.catchError((Object _) {});
+    return write.then((_) => ownership);
   }
 
   @override
-  ConversationOwnership release(String conversationId) =>
+  Future<ConversationOwnership> release(String conversationId) =>
       setOwner(conversationId, ConversationOwner.bot);
-
-  Future<void> _persist() async {
-    final json = jsonEncode({
-      for (final entry in _byConversation.entries)
-        entry.key: {
-          'owner': entry.value.owner.name,
-          'updatedAtMs': entry.value.updatedAtMs,
-        },
-    });
-    final ok = await AutomationDbStoreClient.instance.putSection(
-      'ownership',
-      json,
-    );
-    if (!ok) debugPrint('[ownership] persistencia rechazada por el store');
-  }
 
   static ConversationOwner? _parseOwner(String name) {
     for (final owner in ConversationOwner.values) {

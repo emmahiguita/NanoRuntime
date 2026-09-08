@@ -1,0 +1,6 @@
+
+Algorithm : SHA256
+Hash      : A2A4300F18B550BD0B9D3A1CEBE8BE0F84EAF945289AE4DFC49D50BB8757EA5E
+Path      : C:\Users\emman\Desktop\Proyectos\Nueva carpeta\Nanoai\products\nanoMOBILE\flutter_app\build\app\outputs\flutter-apk\app-release.apk
+
+

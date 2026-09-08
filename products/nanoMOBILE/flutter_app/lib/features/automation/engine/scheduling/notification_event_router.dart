@@ -9,7 +9,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
-import '../messaging/messaging_package.dart';
 import '../notifications/notification_object.dart';
 import 'burst_turn_gate.dart';
 import 'rule_pipeline.dart';
@@ -23,50 +22,47 @@ class NotificationEventRouter {
   /// legacy para pruebas).
   final BurstTurnGate? gate;
   StreamSubscription<Map<dynamic, dynamic>>? _sub;
+  int _generation = 0;
+  int _pendingBatches = 0;
 
   void start() {
     if (_sub != null) return;
     _sub = NanoRuntimeApi.instance.notificationEvents.listen(
-      (m) {
-        final notif = NotificationObject.fromMap(m);
-        _route(notif);
-      },
+      (m) => unawaited(_routeBatch(m)),
       onError: (Object e) {
         debugPrint('[notifications] event stream error: $e');
       },
     );
-    unawaited(_coldStartReplay());
+    final generation = ++_generation;
+    unawaited(_coldStartReplay(generation));
   }
 
-  void _route(NotificationObject notif) {
-    // WA-PHYS-11: traza de evento entrante (logcat tag flutter). Sin esta
-    // línea el pipeline es mudo y los fallos físicos son indiagnosticables.
-    debugPrint(
-      '[notify-event] ${notif.packageName} key=${notif.key} '
-      'sender=${notif.sender} msg="${notif.interpretableText}"',
-    );
-    // WA-UNIV-02 — el eco de NUESTRO propio RemoteInput reaparece como
-    // notificación de WhatsApp con sender "Tú" (marca propia de la app
-    // origen). La regla universal (WA-UNIV-01, sin senderMatch) matchearía
-    // ese eco y re-dispararía un turno sobre nuestro propio mensaje. El
-    // bounceback por texto (WA-ECHO-01) cubre el eco con outbound reciente
-    // persistido, pero depende de ventana y de que un kill no pierda el
-    // outbound registrado post-terminal: este guard es determinista y va
-    // ANTES del gate para que el eco ni siquiera polucione la memoria del
-    // turno (verificado en Oppo 2026-09-06: eco con sender=Tú → proceed).
-    if (notif.packageName == MessagingPackage.whatsapp && notif.sender == 'Tú') {
-      debugPrint('[rules] eco propio WhatsApp (sender=Tú) ignorado: '
-          'mensaje de nuestro RemoteInput, no del cliente');
+  Future<void> _routeBatch(Map<dynamic, dynamic> map) async {
+    if (_pendingBatches >= 64) {
+      debugPrint(
+        '[notifications] router capacity reached; inbox retains event',
+      );
       return;
     }
-    final g = gate;
-    if (g != null) {
-      // WA-TURN-01: los mensajes de una ráfaga de la misma conversación se
-      // agregan en un único turno del pipeline.
-      unawaited(g.submit(notif, (aggregated) => pipeline.onNotification(aggregated)));
-      return;
+    _pendingBatches++;
+    try {
+      final events = NotificationObject.eventsFromMap(map);
+      final g = gate;
+      if (g == null) {
+        for (final event in events) {
+          await pipeline.onNotification(event);
+        }
+      } else {
+        await pipeline.submitNotifications(events, g);
+        // A replay may contain only duplicates of an admitted, unfinished burst.
+        await g.drain();
+      }
+      await NanoRuntimeApi.instance.completeNotificationEvent(map);
+    } catch (error) {
+      debugPrint('[notifications] ingress deferred: $error');
+    } finally {
+      _pendingBatches--;
     }
-    unawaited(pipeline.onNotification(notif));
   }
 
   /// WA-GAPS-01 — retry de arranque en frío: con la app recién arrancada (o
@@ -77,21 +73,22 @@ class NotificationEventRouter {
   /// (eventId determinista con messageTimestamp) bloquea las ya procesadas
   /// y deja pasar solo las nuevas. Reintenta si el listener aún no está
   /// conectado (list vacío); si hay notificaciones activas, replay y fin.
-  Future<void> _coldStartReplay() async {
+  Future<void> _coldStartReplay(int generation) async {
     for (var attempt = 0; attempt < 3; attempt++) {
-      await Future<void>.delayed(
-        Duration(seconds: attempt == 0 ? 2 : 5),
-      );
+      await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
+      if (_sub == null || generation != _generation) return;
       final active = await NanoRuntimeApi.instance.listNotifications();
+      if (_sub == null || generation != _generation) return;
       if (active.isEmpty) continue;
       for (final m in active) {
-        _route(NotificationObject.fromMap(m));
+        unawaited(_routeBatch(m));
       }
       return;
     }
   }
 
   void stop() {
+    _generation++;
     _sub?.cancel();
     _sub = null;
   }

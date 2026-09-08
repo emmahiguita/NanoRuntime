@@ -58,11 +58,37 @@ final class ConversationUnderstanding {
       questions: strings(json['questions']),
       missingFacts: strings(json['missingFacts']),
       requiresAction: json['requiresAction'] == true,
-      reply: _cleanReply((json['reply'] as String?) ?? ''),
+      reply: _cleanReplyText((json['reply'] as String?) ?? ''),
     );
   }
+}
 
-  static String _cleanReply(String raw) => raw.trim();
+/// R5-05 — reply limpio: trim + etiquetas tipo <...> fuera CUANDO el
+/// contenido queda. El 1.5B emite etiquetas literales en turnos sociales
+/// (evidencia viva 16:28:03: reply "<Hola, me alegra verte.>" despachado
+/// CON los corchetes al cliente). Sin contenido tras el strip se conserva
+/// el original ("<3" no matchea: no tiene cierre de etiqueta).
+String _cleanReplyText(String raw) {
+  final trimmed = raw.trim();
+  // R5-CLEAN-01 — envoltura completa "<texto>": el regex de etiquetas
+  // `<[^>]*>` se traga TODO el contenido (es UNA sola etiqueta) y el guard
+  // de contenido vacío devolvía el original CON corchetes (evidencia viva
+  // 18:02:15: reply "<me alegra que estés bien>" despachado literal al
+  // cliente, y los corchetes rompían además el gate de eco del decision
+  // engine). El desempaquetado del par EXTERIOR va primero; las etiquetas
+  // internas se limpian después con el regex histórico.
+  var candidate = trimmed;
+  if (candidate.length > 2 &&
+      candidate.startsWith('<') &&
+      candidate.endsWith('>')) {
+    final inner = candidate.substring(1, candidate.length - 1);
+    if (!inner.contains('<') && !inner.contains('>')) {
+      candidate = inner.trim();
+    }
+  }
+  final stripped = candidate.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+  if (stripped.isEmpty) return trimmed;
+  return stripped;
 }
 
 /// PERSONA-CORE-01 — parsea la salida cruda y devuelve el entendimiento
@@ -143,7 +169,7 @@ String? _recoverReply(String trimmed) {
     if (body.endsWith(',')) body = body.substring(0, body.length - 1);
     body = body.trimRight();
   }
-  return _unescape(body.trim());
+  return _cleanReplyText(_unescape(body.trim()));
 }
 
 int _findUnescapedQuote(String body) {
@@ -181,5 +207,5 @@ String? _legacyMarkerReply(String trimmed) {
   final m = RegExp(r'Respuesta\s*:', caseSensitive: false).firstMatch(trimmed);
   if (m == null) return null;
   final tail = trimmed.substring(m.end).trim();
-  return tail.isEmpty ? null : tail;
+  return tail.isEmpty ? null : _cleanReplyText(tail);
 }

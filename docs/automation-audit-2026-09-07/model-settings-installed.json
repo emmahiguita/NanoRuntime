@@ -1,0 +1,14 @@
+[
+  {
+    "serial": "R58N21SVSPE",
+    "source": "installed APK preferences (read only)",
+    "returncode": 1,
+    "readError": "run-as: package not debuggable: dev.nanoai.mobile"
+  },
+  {
+    "serial": "VGL7MVFMDYQG8T55",
+    "source": "installed APK preferences (read only)",
+    "returncode": 1,
+    "readError": "run-as: package not debuggable: dev.nanoai.mobile"
+  }
+]

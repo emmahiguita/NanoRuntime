@@ -115,7 +115,9 @@ class RootfsManager {
     try {
       final usr = _usrDir;
       if (usr == null) return;
-      final marker = File('${usr.substring(0, usr.length - 4)}/rootfs-manifest.txt');
+      final marker = File(
+        '${usr.substring(0, usr.length - 4)}/rootfs-manifest.txt',
+      );
       if (!marker.existsSync()) {
         debugPrint(
           '[rootfs] instalado sin marker (pre-pin o instalación manual) — '

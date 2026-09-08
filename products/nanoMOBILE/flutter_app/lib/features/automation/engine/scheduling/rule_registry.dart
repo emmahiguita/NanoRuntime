@@ -49,20 +49,19 @@ class SharedPrefsRuleStore implements RuleStore {
           ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
       ];
     } on Object {
-      // WA-PHYS-11: store corrupto o esquema viejo → arrancar sin reglas
-      // (fail-closed), jamás tumbar el provider de arranque con una excepción
-      // no manejada (verificado en dispositivo físico con seed malformado).
-      return const [];
+      // Never seed enabled defaults over unreadable user configuration.
+      rethrow;
     }
   }
 
   @override
   Future<void> save(List<ScheduledRule> rules) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    final saved = await prefs.setString(
       _key,
       jsonEncode([for (final r in rules) r.toJson()]),
     );
+    if (!saved) throw StateError('Rule persistence rejected');
   }
 }
 
@@ -72,6 +71,11 @@ class RuleRegistry {
   final RuleStore _store;
   final List<ScheduledRule> _rules = [];
   bool _loaded = false;
+  Future<void>? _loading;
+  Future<void> _writes = Future<void>.value();
+  bool persistenceHealthy = true;
+
+  Future<void> flush() => _writes;
 
   /// WA-UNIV-01 — id fijo de la regla universal de conversación de WhatsApp.
   /// Regla de SISTEMA sembrada por petición explícita del dueño: APP=WhatsApp,
@@ -84,7 +88,9 @@ class RuleRegistry {
 
   /// Carga las reglas persistidas (llamado una vez al arrancar el provider)
   /// y siembra la regla universal si no existe (idempotente por id fijo).
-  Future<void> load() async {
+  Future<void> load() => _loading ??= _load();
+
+  Future<void> _load() async {
     _rules
       ..clear()
       ..addAll(await _store.load());
@@ -163,6 +169,17 @@ class RuleRegistry {
 
   void _persist() {
     // No persistir antes de cargar: evitaría pisar el store con una lista vacía.
-    if (_loaded) _store.save(List.of(_rules));
+    if (!_loaded) return;
+    final snapshot = List<ScheduledRule>.of(_rules);
+    _writes = _writes
+        .catchError((Object _) {})
+        .then((_) => _store.save(snapshot));
+    _writes.then<void>(
+      (_) => persistenceHealthy = true,
+      onError: (Object error) {
+        persistenceHealthy = false;
+        debugPrint('[rules] persistence failed; automation blocked: $error');
+      },
+    );
   }
 }

@@ -1,0 +1,62 @@
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/PRUEBAS_MANUALES_SPRINTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/conversation_understanding.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_validator.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_decision.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_example.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_settings_screen.dart', LF will be replaced by CRLF the next time Git touches it
+ graphify-out/.graphify_labels.json                 |     12 +
+ graphify-out/GRAPH_REPORT.md                       |    752 +-
+ graphify-out/graph.json                            | 187519 ++++++++++--------
+ graphify-out/manifest.json                         |   2245 +-
+ .../flutter_app/PRUEBAS_MANUALES_SPRINTS.md        |    193 +
+ .../main/kotlin/dev/nanoai/mobile/MainActivity.kt  |     23 +-
+ .../mobile/automation/AutomationRuntimeService.kt  |     31 +-
+ .../nanoai/mobile/automation/AutomationStoreDb.kt  |    121 +-
+ .../channels/AutomationStoreChannelHandler.kt      |     13 +-
+ .../dev/nanoai/mobile/channels/ChannelHandlers.kt  |      1 +
+ .../NotificationAutomationChannelHandler.kt        |     17 +
+ .../nanoai/mobile/channels/SpeechChannelHandler.kt |     12 +
+ .../services/NotificationAutomationService.kt      |     38 +-
+ .../lib/core/providers/settings_provider.dart      |     20 +-
+ .../lib/core/services/llm_engine_client.dart       |    135 +-
+ .../lib/core/services/nano_runtime_api.dart        |     24 +-
+ .../application/automation_coordinator.dart        |     28 +
+ .../automation_coordinator_provider.dart           |     24 +-
+ .../automation/domain/automation_goal.dart         |     15 +
+ .../engine/execution/agent_tool_dispatcher.dart    |     36 +-
+ .../engine/messaging/conversation_key.dart         |     17 +-
+ .../engine/messaging/incoming_message.dart         |    Bin 4707 -> 5274 bytes
+ .../notifications/conversation_understanding.dart  |     34 +-
+ .../notifications/notification_draft_prompt.dart   |     17 +-
+ .../notifications/notification_draft_writer.dart   |     97 +-
+ .../engine/notifications/notification_object.dart  |     17 +
+ .../engine/scheduling/burst_turn_gate.dart         |    145 +-
+ .../engine/scheduling/contact_rate_limiter.dart    |     24 +-
+ .../engine/scheduling/event_dedupe_store.dart      |     70 +-
+ .../scheduling/notification_event_router.dart      |     65 +-
+ .../engine/scheduling/rule_dispatcher.dart         |    211 +-
+ .../engine/scheduling/rule_pipeline.dart           |    261 +-
+ .../engine/scheduling/rule_registry.dart           |     31 +-
+ .../engine/scheduling/time_tick_scheduler.dart     |     17 +-
+ .../engine/scheduling/turn_supersede_guard.dart    |      7 +-
+ .../engine/storage/automation_db_store_client.dart |      4 +
+ .../engine/voice/execution_cancellation.dart       |      7 +-
+ .../executors/notification_executor.dart           |      3 +
+ .../headless/automation_headless_runner.dart       |     24 +-
+ .../application/conversation_decision_engine.dart  |    232 +-
+ .../application/conversation_ownership_store.dart  |    118 +-
+ .../application/persona_context.dart               |     67 +-
+ .../application/persona_repository.dart            |      6 +-
+ .../application/persona_validator.dart             |     20 +-
+ .../domain/conversation_agent_role.dart            |    102 +-
+ .../domain/conversation_autonomy_mode.dart         |     29 +-
+ .../domain/conversation_decision.dart              |     15 +-
+ .../personal_agent/domain/persona_example.dart     |     10 +
+ .../notification_automation_section.dart           |     61 +-
+ .../screens/automation_settings_screen.dart        |     38 +-
+ .../test/automation/rule_pipeline_test.dart        |     14 +-
+ 51 files changed, 103640 insertions(+), 89382 deletions(-)

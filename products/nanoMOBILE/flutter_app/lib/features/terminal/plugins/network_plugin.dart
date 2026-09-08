@@ -41,12 +41,10 @@ class NetworkPlugin {
           s.shell!.initialized &&
           s.rootfs?.isInstalled == true) {
         final binPath = '${s.rootfs!.usrDir}/bin/$cmd';
-        s.shell!
-            .execRootfs(binPath, [cmd, ...a], ldPreload: 'libnanoroot.so')
-            .then((wr) {
-              if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
-              if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
-            });
+        s.shell!.execRootfs(binPath, a, ldPreload: 'libnanoroot.so').then((wr) {
+          if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+          if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+        });
         return;
       }
       if (s.shell != null && s.shell!.initialized) {

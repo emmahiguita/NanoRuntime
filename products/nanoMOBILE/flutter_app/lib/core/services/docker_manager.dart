@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'nano_runtime_api.dart';
 import 'proot_manager.dart';
+import 'sha256_file.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
 /// Docker-compatible container runtime sin daemon.
@@ -198,6 +199,12 @@ class DockerManager {
       if (extractResult.exitCode != 0) {
         onErr?.call('Error extrayendo capa: ${extractResult.stderr}');
         log('Layer extract failed: ${extractResult.stderr}');
+        // Abort: a partial rootfs is unusable and would create a broken
+        // container. Clean up and return null.
+        try {
+          Directory(rootfs).deleteSync(recursive: true);
+        } catch (_) {}
+        return null;
       }
     }
 
@@ -436,6 +443,24 @@ class DockerManager {
       await output.flush();
       await output.close();
       onProgress(100);
+
+      // Verificar SHA256 del blob descargado contra el digest del manifiesto.
+      // Los digests Docker tienen formato 'sha256:<hex>'.
+      if (digest.startsWith('sha256:')) {
+        final expectedHash = digest.substring('sha256:'.length).toLowerCase();
+        final actualHash = await sha256File(destPath);
+        if (actualHash != expectedHash) {
+          log('Layer integridad SHA256 FALLIDA:');
+          log('  Digest esperado: $expectedHash');
+          log('  Digest actual:   $actualHash');
+          try {
+            dest.deleteSync();
+          } catch (_) {}
+          return null;
+        }
+        log('  Capa verificada: $safeDigest');
+      }
+
       return destPath;
     } catch (e) {
       log('Layer error: $e');

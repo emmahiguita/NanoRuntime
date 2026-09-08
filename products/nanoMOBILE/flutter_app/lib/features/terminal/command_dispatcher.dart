@@ -85,74 +85,145 @@ class CommandDispatcher {
     registerCommand('wifi', (a, c, o, af) {
       o('=== WiFi ===', Ln.header);
       _emitIp(o);
-      try {
-        final result = runProcessSync('dumpsys', ['wifi'], runInShell: true);
+      // Use async Process.run to avoid blocking the UI isolate while
+      // dumpsys responds (can take 200-800 ms on some devices).
+      Process.run('dumpsys', ['wifi'], runInShell: true).then((result) {
         if (result.exitCode == 0) {
           final text = result.stdout.toString();
           final ssid = RegExp(r'SSID: "(.+?)"').firstMatch(text);
           final rssi = RegExp(r'RSSI: (-?\d+)').firstMatch(text);
           if (ssid != null) o('  SSID: ${ssid.group(1)}', Ln.info);
-          if (rssi != null) o('  Senal: ${rssi.group(1)} dBm', Ln.info);
+          if (rssi != null) o('  Señal: ${rssi.group(1)} dBm', Ln.info);
         }
-      } catch (_) {}
+      }).ignore();
     });
 
     registerCommand('weather', (a, c, o, af) {
       final city = a.isNotEmpty ? a.join('+') : '';
-      try {
-        final result = runProcessSync('curl', [
-          '-s',
-          'wttr.in/$city?format=%l:+%c+%t+%w+%h',
-        ], runInShell: true);
+      o('Obteniendo clima...', Ln.info);
+      // Use async Process.run: curl is a network call that can block
+      // several seconds and must not run on the UI isolate.
+      Process.run('curl', [
+        '-s',
+        '--max-time',
+        '10',
+        'wttr.in/$city?format=%l:+%c+%t+%w+%h',
+      ], runInShell: true).then((result) {
         if (result.exitCode == 0 &&
             result.stdout.toString().trim().isNotEmpty) {
           o(result.stdout.toString().trim(), Ln.success);
-          return;
+        } else {
+          o('curl no disponible. pkg install curl', Ln.info);
         }
-      } catch (_) {}
-      o('curl no disponible. pkg install curl', Ln.info);
+      }).ignore();
     });
 
+    _registerCustomCommands();
+  }
+
+  bool _shareRunning = false;
+  int? _sharePort;
+  bool _sshdRunning = false;
+
+  void _registerCustomCommands() {
     registerCommand('share', (a, c, o, af) {
+      if (a.contains('stop')) {
+        if (_shareRunning) {
+          _shareRunning = false;
+          _sharePort = null;
+          shell?.killTracked('share_http');
+          o('Servidor HTTP detenido.', Ln.info);
+        } else {
+          o('No hay servidor HTTP en ejecución.', Ln.info);
+        }
+        return;
+      }
+      if (a.contains('status')) {
+        if (_shareRunning) {
+          o('Servidor HTTP activo en puerto $_sharePort.', Ln.success);
+        } else {
+          o('Servidor HTTP detenido.', Ln.info);
+        }
+        return;
+      }
       final usr = getUsrDir();
       final port = int.tryParse(a.firstOrNull ?? '') ?? 8080;
       final cwd = c.cwd.isNotEmpty ? c.cwd : getBaseDir();
       o('Iniciando HTTP server en puerto $port...', Ln.info);
       final env = rootfsEnv(ldPreload: 'libnanoroot.so');
-      shell?.execRootfsWorker(
-        '$usr/bin/python3',
-        ['-m', 'http.server', '$port', '--directory', cwd],
-        env: env,
-        ldPreload: 'libnanoroot.so',
-      );
+      _shareRunning = true;
+      _sharePort = port;
+      shell
+          ?.stream(
+            '$usr/bin/python3',
+            ['-m', 'http.server', '$port', '--directory', cwd],
+            env: env,
+            trackTag: 'share_http',
+            timeout: const Duration(days: 365),
+            onOut: (l) => o(l, Ln.stdout),
+            onErr: (l) => o(l, Ln.stderr),
+          )
+          .then((_) {
+            _shareRunning = false;
+            _sharePort = null;
+          });
       _getIp().then((ip) {
         if (ip != null) {
           o('  http://$ip:$port', Ln.success);
-          o('  Ctrl+C para detener.', Ln.info);
+          o('  Usa "share stop" para detener el servidor.', Ln.info);
         }
       });
     });
 
     registerCommand('sshd', (a, c, o, af) {
       final usr = getUsrDir();
+      if (a.contains('stop')) {
+        if (_sshdRunning) {
+          _sshdRunning = false;
+          shell?.killTracked('sshd_daemon');
+          o('Servidor SSH detenido.', Ln.info);
+        } else {
+          o('No hay servidor SSH en ejecución.', Ln.info);
+        }
+        return;
+      }
+      if (a.contains('status')) {
+        if (_sshdRunning) {
+          o('Servidor SSH activo en puerto 8022.', Ln.success);
+        } else {
+          o('Servidor SSH detenido.', Ln.info);
+        }
+        return;
+      }
       if (a.contains('start')) {
         o('Iniciando sshd en puerto 8022...', Ln.info);
-        shell?.execRootfsWorker(
-          '$usr/bin/sshd',
-          ['-D', '-p', '8022'],
-          env: rootfsEnv(ldPreload: 'libnanoroot.so'),
-          ldPreload: 'libnanoroot.so',
-        );
+        _sshdRunning = true;
+        shell
+            ?.stream(
+              '$usr/bin/sshd',
+              ['-D', '-p', '8022'],
+              env: rootfsEnv(ldPreload: 'libnanoroot.so'),
+              trackTag: 'sshd_daemon',
+              timeout: const Duration(days: 365),
+              onOut: (l) => o(l, Ln.stdout),
+              onErr: (l) => o(l, Ln.stderr),
+            )
+            .then((_) {
+              _sshdRunning = false;
+            });
         _getIp().then((ip) {
-          if (ip != null) o('  ssh root@$ip -p 8022', Ln.success);
+          if (ip != null) {
+            o('  ssh root@$ip -p 8022', Ln.success);
+            o('  Usa "sshd stop" para detener el servidor.', Ln.info);
+          }
         });
         return;
       }
       o('=== SSH Server ===', Ln.header);
-      o('  1. pkg install openssh', Ln.info);
-      o('  2. passwd', Ln.info);
-      o('  3. ssh-keygen -A', Ln.info);
-      o('  4. sshd start  (puerto 8022)', Ln.info);
+      o('  sshd start   (iniciar en puerto 8022)', Ln.info);
+      o('  sshd stop    (detener servidor)', Ln.info);
+      o('  sshd status  (consultar estado)', Ln.info);
+      o('  Setup previo: pkg install openssh && ssh-keygen -A', Ln.info);
     });
 
     registerCommand('code', (a, c, o, af) {

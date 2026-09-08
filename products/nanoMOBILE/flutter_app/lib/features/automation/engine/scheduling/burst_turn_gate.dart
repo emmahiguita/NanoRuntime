@@ -11,8 +11,8 @@
 /// Además serializa: mientras un turno de la conversación corre, los
 /// mensajes nuevos esperan en cola y forman el SIGUIENTE turno (nunca dos
 /// pipeline concurrentes para el mismo chat). El turno en curso jamás se
-/// cancela a mitad (supersede pre-send = WA-CONV-03, requiere partir el
-/// dispatcher); el mensaje nuevo nunca se pierde: se responde después.
+/// cancela a mitad; el dispatcher descarta su borrador si llegó un mensaje
+/// nuevo. Los mensajes pendientes forman el siguiente turno.
 ///
 /// Puro estado en memoria: un kill solo pierde la ventana de asentamiento
 /// actual; los eventos ya persistidos (inbox/dedupe) siguen su camino.
@@ -24,14 +24,15 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../notifications/notification_object.dart';
-import 'rule_dispatcher.dart' show RuleDispatchResult;
+import 'messaging_metrics.dart';
+import 'rule_dispatcher.dart' show RuleDispatchResult, RuleOutcome;
 
 /// Puerta de ráfagas por conversación. Instancia única por engine (provider).
 final class BurstTurnGate {
   BurstTurnGate({
     this.settle = const Duration(milliseconds: 800),
     this.maxWait = const Duration(milliseconds: 3000),
-    this.maxBurst = 6,
+    this.maxBurst = 64,
     this.onInbound,
     this.onTurnComplete,
   });
@@ -46,7 +47,7 @@ final class BurstTurnGate {
   /// completo (producto consultado, pregunta pendiente, cierre de tema).
   /// [dispatchedText] = texto REAL despachado por el turno ('' si no hubo
   /// reply: regla fallida, decisión negativa o sin motor).
-  final void Function(
+  final FutureOr<void> Function(
     String conversationId,
     NotificationObject aggregated, {
     String dispatchedText,
@@ -60,12 +61,51 @@ final class BurstTurnGate {
   /// infinita a una conversación real).
   final Duration maxWait;
 
-  /// Máximo de mensajes unidos en un turno; el resto espera al siguiente.
+  /// Maximum queued fragments per conversation; overflow is explicit.
   final int maxBurst;
 
   /// Pipeline del turno agregado. Reentrada segura por conversación
   /// (serialización aquí, nunca dos ejecuciones simultáneas del mismo chat).
   final Map<String, _Bucket> _byConversation = {};
+  final Set<Future<void>> _pending = {};
+  bool _disposed = false;
+
+  void ensureCapacity(List<NotificationObject> events) {
+    if (_disposed) throw StateError('Burst gate disposed');
+    final counts = <String, int>{};
+    for (final event in events) {
+      final key = _bucketKey(event);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    final keys = {..._byConversation.keys, ...counts.keys};
+    if (keys.length > 64 ||
+        events.length +
+                _byConversation.values.fold<int>(
+                  0,
+                  (n, b) => n + b._queue.length,
+                ) >
+            800 ||
+        counts.entries.any(
+          (e) =>
+              e.value + (_byConversation[e.key]?._queue.length ?? 0) > maxBurst,
+        )) {
+      throw StateError('Burst capacity exceeded; event remains retryable');
+    }
+  }
+
+  void dispose() {
+    _disposed = true;
+    for (final bucket in _byConversation.values.toList()) {
+      bucket.dispose();
+    }
+    _byConversation.clear();
+  }
+
+  Future<void> drain() async {
+    while (_pending.isNotEmpty) {
+      await Future.wait(_pending.toList());
+    }
+  }
 
   /// Envía un evento a su conversación y resuelve cuando el turno que lo
   /// contiene terminó (resultados compartidos por toda la ráfaga).
@@ -83,8 +123,11 @@ final class BurstTurnGate {
   Future<List<List<RuleDispatchResult>>> submitAll(
     List<NotificationObject> events,
     Future<List<RuleDispatchResult>> Function(NotificationObject aggregated)
-    runTurn,
-  ) async {
+    runTurn, {
+    Future<void> Function(List<NotificationObject>)? beforeTurn,
+  }) async {
+    if (events.isEmpty) return const [];
+    ensureCapacity(events);
     final results = List<List<RuleDispatchResult>>.filled(
       events.length,
       const [],
@@ -97,6 +140,7 @@ final class BurstTurnGate {
     // propia resolución: tandas distintas que comparten bucket no comparten
     // lista de resultados ni futuro.
     final batch = _Batch(events.length);
+    _pending.add(batch.done.future);
     // Anclar conversaciones ANTES de cualquier await: los eventos viven en
     // una lista estable durante la tanda.
     for (var i = 0; i < events.length; i++) {
@@ -110,6 +154,7 @@ final class BurstTurnGate {
           maxWait: maxWait,
           maxBurst: maxBurst,
           runTurn: runTurn,
+          beforeTurn: beforeTurn,
           onTurnComplete: onTurnComplete,
           onIdle: () => _byConversation.remove(key),
         ),
@@ -123,6 +168,7 @@ final class BurstTurnGate {
       );
     }
     await batch.done.future;
+    _pending.remove(batch.done.future);
     return results;
   }
 
@@ -142,6 +188,7 @@ class _Bucket {
     required this.maxWait,
     required this.maxBurst,
     required this.runTurn,
+    this.beforeTurn,
     required this.onIdle,
     required this.onTurnComplete,
   });
@@ -151,10 +198,11 @@ class _Bucket {
   final Duration maxWait;
   final int maxBurst;
   final Future<List<RuleDispatchResult>> Function(NotificationObject) runTurn;
+  final Future<void> Function(List<NotificationObject>)? beforeTurn;
 
   /// WA-STATE-01 — turno agregado terminado (conversación + notificación
   /// + reply real despachado, '' si no hubo).
-  final void Function(
+  final FutureOr<void> Function(
     String conversationId,
     NotificationObject aggregated, {
     String dispatchedText,
@@ -169,22 +217,31 @@ class _Bucket {
   Timer? _settleTimer;
   Timer? _deadlineTimer;
   bool _running = false;
+  bool _disposed = false;
 
-  void push(_Member member) {
-    if (_running) {
-      // Turno en curso: el mensaje espera y formará el próximo turno
-      // (serialización; nunca se pierde).
-      _queue.add(member);
-      return;
+  void dispose() {
+    _disposed = true;
+    _settleTimer?.cancel();
+    _deadlineTimer?.cancel();
+    for (final member in _queue) {
+      member.resolve(const [
+        RuleDispatchResult(
+          ruleId: '',
+          outcome: RuleOutcome.failed,
+          reason: 'Runtime disposed before dispatch',
+        ),
+      ]);
     }
+    _queue.clear();
+  }
+
+  // Count and text length must not close a human turn prematurely.
+  // The existing deadline bounds a continuously arriving burst.
+  void push(_Member member) {
     if (_queue.isEmpty) {
       _deadlineTimer = Timer(maxWait, _fire);
     }
     _queue.add(member);
-    if (_queue.length >= maxBurst) {
-      _fire(); // ráfaga completa: no esperar más
-      return;
-    }
     _settleTimer?.cancel();
     _settleTimer = Timer(settle, _fire);
   }
@@ -192,25 +249,35 @@ class _Bucket {
   Future<void> _fire() async {
     _settleTimer?.cancel();
     _deadlineTimer?.cancel();
-    if (_running || _queue.isEmpty) return;
+    if (_disposed || _running || _queue.isEmpty) return;
     _running = true;
     final members = List<_Member>.of(_queue);
     _queue.clear();
+    var executionStarted = false;
     try {
+      await beforeTurn?.call(members.map((m) => m.event).toList());
+      if (_disposed) throw StateError('Runtime disposed before dispatch');
       final aggregated = _merge(members);
+      MessagingMetrics.turn(members.length);
       debugPrint(
         '[turn] conv=${key.substring(0, key.length > 12 ? 12 : key.length)} '
         'agregados=${members.length} '
         'texto="${_sample(aggregated.messageText)}"',
       );
+      executionStarted = true;
       final results = await runTurn(aggregated);
-      // Sin await entre la resolución y el chequeo de cola: nadie puede
-      // intercalar un push a mitad (un solo hilo de eventos).
-      onTurnComplete?.call(
-        key.startsWith('anon:') ? '' : key,
-        aggregated,
-        dispatchedText: _dispatchedReply(results),
-      );
+      try {
+        if (!_disposed) {
+          await onTurnComplete?.call(
+            key.startsWith('anon:') ? '' : key,
+            aggregated,
+            dispatchedText: _dispatchedReply(results),
+          );
+        }
+      } on Object catch (error) {
+        // A memory write failure cannot erase an actual send outcome.
+        debugPrint('[turn] state persistence failed: $error');
+      }
       for (final m in members) {
         m.resolve(results);
       }
@@ -218,13 +285,21 @@ class _Bucket {
     } on Object catch (e) {
       debugPrint('[turn] ráfaga falló: $e');
       for (final m in members) {
-        m.resolve(const []);
+        m.resolve([
+          RuleDispatchResult(
+            ruleId: '',
+            outcome: executionStarted
+                ? RuleOutcome.outcomeUnknown
+                : RuleOutcome.failed,
+            reason: 'Turn failed: $e',
+          ),
+        ]);
       }
       if (_queue.isEmpty) onIdle();
     } finally {
       _running = false;
       // Lo que llegó durante el turno arranca su propia ventana.
-      if (_queue.isNotEmpty && !_deadlineTimer!.isActive) {
+      if (_queue.isNotEmpty && !(_deadlineTimer?.isActive ?? false)) {
         _deadlineTimer = Timer(maxWait, _fire);
         _settleTimer = Timer(settle, _fire);
       }
@@ -234,9 +309,16 @@ class _Bucket {
   /// El turno agregado: el ÚLTIMO evento es el ancla (identidad, capacidad
   /// de reply, timestamps); el texto une los mensajes en orden.
   NotificationObject _merge(List<_Member> members) {
-    final anchor = members.last.event;
+    final ordered = members.indexed.toList()
+      ..sort((a, b) {
+        int stamp(NotificationObject n) =>
+            n.messageTimestamp > 0 ? n.messageTimestamp : n.postTime;
+        final delta = stamp(a.$2.event).compareTo(stamp(b.$2.event));
+        return delta == 0 ? a.$1.compareTo(b.$1) : delta;
+      });
+    final anchor = ordered.last.$2.event;
     final parts = [
-      for (final m in members) _messageText(m.event).trim(),
+      for (final m in ordered) _messageText(m.$2.event).trim(),
     ].where((t) => t.isNotEmpty);
     final joined = parts.join('\n');
     return NotificationObject(
@@ -256,6 +338,7 @@ class _Bucket {
       accountHint: anchor.accountHint,
       isGroup: anchor.isGroup,
       isSummary: anchor.isSummary,
+      isTruncated: members.any((member) => member.event.isTruncated),
       postTime: anchor.postTime,
       canReply: anchor.canReply,
       remoteInputKey: anchor.remoteInputKey,

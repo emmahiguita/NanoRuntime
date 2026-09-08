@@ -7,9 +7,14 @@
 ///
 /// El modo NO es una política de agente: es un tope global que el
 /// ConversationDecisionEngine aplica ANTES de su fórmula (ownership,
-/// identidad, requiresAction, umbral 0.6 siguen intactos). Default
-/// `autonomous` = paridad exacta con el comportamiento actual (cero riesgo
-/// de regresión al persistir por primera vez).
+/// identidad, requiresAction, umbral 0.6 siguen intactos).
+///
+/// AUTONOMY FAIL-SAFE (PROD-02): el default dejó de ser `autonomous`. Todo
+/// lo que NO sea una elección explícita persistida cae cerrado: `null`
+/// (fresh install, settings legacy sin key, elección nunca hecha) →
+/// `safeAuto` (solo lo seguro sale); nombre inválido → `disabled` (cero
+/// envíos). FULL AUTONOMOUS solo existe si el dueño lo eligió en Ajustes
+/// y quedó persistido con el nombre exacto del enum.
 library;
 
 /// Cuánto puede decidir el pipeline por sí solo.
@@ -50,17 +55,25 @@ extension ConversationAutonomyModeName on ConversationAutonomyMode {
     ConversationAutonomyMode.disabled =>
       'Nano escucha pero no responde en WhatsApp.',
     ConversationAutonomyMode.suggestions =>
-      'Nano prepara la respuesta y espera tu aprobación.',
+      'Revisa y genera respuestas desde Mensajes; no hay envíos automáticos.',
     ConversationAutonomyMode.safeAuto =>
       'Solo responde lo seguro (saludos, datos verificados).',
     ConversationAutonomyMode.autonomous =>
       'Nano decide y responde según su motor de decisión.',
   };
 
+  /// AUTONOMY FAIL-SAFE (PROD-02) — conversión en 3 vías:
+  /// - nombre válido → ese modo (elección explícita persistida, intacta);
+  /// - `null` (nunca elegido / fresh install / settings legacy sin key) →
+  ///   `safeAuto`: lo seguro sale, jamás FULL AUTONOMOUS sin elección;
+  /// - nombre inválido (valor corrupto) → `disabled`: fail closed, cero
+  ///   envíos automáticos hasta que el dueño elija de nuevo en Ajustes.
   static ConversationAutonomyMode fromName(String? raw) {
-    return ConversationAutonomyMode.values.firstWhere(
-      (m) => m.name == raw,
-      orElse: () => ConversationAutonomyMode.autonomous,
-    );
+    for (final m in ConversationAutonomyMode.values) {
+      if (m.name == raw) return m;
+    }
+    return raw == null
+        ? ConversationAutonomyMode.safeAuto
+        : ConversationAutonomyMode.disabled;
   }
 }

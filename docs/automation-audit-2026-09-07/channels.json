@@ -1,0 +1,467 @@
+[
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 156,
+    "code": "static const _channel = MethodChannel(NanoRuntimeChannels.languageAssist);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 171,
+    "code": ".invokeMapMethod<Object?, Object?>('capabilities')"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 180,
+    "code": ".invokeMapMethod<Object?, Object?>('normalize', {'text': raw})"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 216,
+    "code": ".invokeMapMethod<Object?, Object?>('spellCheck', {'text': raw})"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 232,
+    "code": ".invokeMapMethod<Object?, Object?>('detectLanguage', {'text': raw})"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 248,
+    "code": ".invokeMethod<int>('thermalStatus')"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 261,
+    "code": ".invokeListMethod<Object?>('conversationActions', {'text': raw})"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_ocr_api.dart",
+    "line": 18,
+    "code": "static const _agent = MethodChannel(NanoRuntimeChannels.agent);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_ocr_api.dart",
+    "line": 22,
+    "code": "return await _agent.invokeListMethod<dynamic>('ocrRegion', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart",
+    "line": 21,
+    "code": "static const _system = MethodChannel(NanoRuntimeChannels.system);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart",
+    "line": 25,
+    "code": "return await _system.invokeMethod<Map<dynamic, dynamic>>("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart",
+    "line": 37,
+    "code": "return await _system.invokeListMethod<dynamic>('listLaunchableApps');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart",
+    "line": 46,
+    "code": "return await _system.invokeMethod<String>('getDefaultLauncher');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart",
+    "line": 56,
+    "code": "return await _system.invokeMethod<Map<dynamic, dynamic>>("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/whatsapp_media_share.dart",
+    "line": 19,
+    "code": "static const _channel = MethodChannel('com.nanoai/share');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/whatsapp_media_share.dart",
+    "line": 25,
+    "code": "return await _channel.invokeMethod<String>('copyToCatalog', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/whatsapp_media_share.dart",
+    "line": 43,
+    "code": "final ok = await _channel.invokeMethod<bool>('shareFile', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/storage/automation_db_store_client.dart",
+    "line": 17,
+    "code": "static const _channel = MethodChannel('com.nanoai/automation_store');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/storage/automation_db_store_client.dart",
+    "line": 22,
+    "code": "return (await _channel.invokeMapMethod<String, String>('loadAll') ??"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/storage/automation_db_store_client.dart",
+    "line": 34,
+    "code": "return await _channel.invokeMethod<String>('get', {'key': key});"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/storage/automation_db_store_client.dart",
+    "line": 44,
+    "code": "return await _channel.invokeMethod<bool>('put', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/storage/automation_db_store_client.dart",
+    "line": 63,
+    "code": "return await _channel.invokeMethod<bool>('appendEvent', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 24,
+    "code": "const _headlessChannel = MethodChannel('com.nanoai/headless');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 32,
+    "code": ".invokeMethod<bool>('isHeadless')"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 47,
+    "code": ".invokeMethod<void>('heartbeat')"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 97,
+    "code": "await _headlessChannel.invokeMethod<void>('complete', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 115,
+    "code": "await _headlessChannel.invokeMethod<void>('finish');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 125,
+    "code": "final raw = await _headlessChannel.invokeListMethod<dynamic>('claim', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 22,
+    "code": "static const _channel = MethodChannel('com.nanoai/automation_store');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 32,
+    "code": "final rowId = await _channel.invokeMethod<num>('personaUpsert', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 47,
+    "code": "final rows = await _channel.invokeListMethod<dynamic>('personaList');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 65,
+    "code": "final rowId = await _channel.invokeMethod<num>('relationshipUpsert', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 79,
+    "code": "final rows = await _channel.invokeListMethod<dynamic>('relationshipList');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 93,
+    "code": "return await _channel.invokeMethod<bool>('relationshipDelete', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 116,
+    "code": "final rowId = await _channel.invokeMethod<num>('exampleAdd', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 133,
+    "code": "final rows = await _channel.invokeListMethod<dynamic>('exampleList');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 146,
+    "code": "return await _channel.invokeMethod<bool>('exampleDelete', {'id': id}) ??"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 163,
+    "code": "final rows = await _channel.invokeListMethod<dynamic>('exampleSearch', {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/appfunctions/AppFunctionChannelHandler.kt",
+    "line": 37,
+    "code": "const val CHANNEL_NAME = \"appfunctions/probe\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 128,
+    "code": "MethodChannel(messenger, NotificationAutomationChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 130,
+    "code": "EventChannel(messenger, NotificationAutomationChannelHandler.CONFIRMATION_EVENTS_CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 132,
+    "code": "EventChannel(messenger, NOTIFICATION_EVENTS_CHANNEL).setStreamHandler("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 146,
+    "code": "MethodChannel(messenger, EngineChannelHandler.CHANNEL_NAME).also { channel ->"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 150,
+    "code": "MethodChannel(messenger, AgentChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 152,
+    "code": "MethodChannel(messenger, RuntimeChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 154,
+    "code": "MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 156,
+    "code": "MethodChannel(messenger, HEADLESS_CHANNEL).setMethodCallHandler(this)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 263,
+    "code": "const val HEADLESS_CHANNEL = \"com.nanoai/headless\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 264,
+    "code": "const val NOTIFICATION_EVENTS_CHANNEL = \"com.nanoai/notification_events\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 266,
+    "code": "private const val FGS_CHANNEL_ID = \"nano_automation_fgs\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 41,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/agent\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AutomationBackgroundChannelHandler.kt",
+    "line": 74,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/automation_background\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AutomationStoreChannelHandler.kt",
+    "line": 127,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/automation_store\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DeviceMetricsChannelHandler.kt",
+    "line": 17,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/device_metrics\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt",
+    "line": 36,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/device_permissions\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/EngineChannelHandler.kt",
+    "line": 25,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/engine\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/EngineChannelHandler.kt",
+    "line": 56,
+    "code": "channel?.invokeMethod(EVENT_STATE, stateToMap(state))"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+    "line": 40,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/exec_bin\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt",
+    "line": 50,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/language_assist\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "line": 44,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/model_storage\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NavigationChannelHandler.kt",
+    "line": 16,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/navigation\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt",
+    "line": 33,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/notifications\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt",
+    "line": 34,
+    "code": "private const val CONFIRMATION_CHANNEL_ID = \"nano_automation_confirmation\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt",
+    "line": 38,
+    "code": "private const val NOTICE_CHANNEL_ID = \"nano_rule_notices\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt",
+    "line": 40,
+    "code": "const val CONFIRMATION_EVENTS_CHANNEL_NAME ="
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/PtyChannelHandler.kt",
+    "line": 16,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/pty\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/RuntimeChannelHandler.kt",
+    "line": 16,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/runtime\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ShareChannelHandler.kt",
+    "line": 124,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/share\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+    "line": 40,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/speech\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+    "line": 41,
+    "code": "const val PARTIAL_CHANNEL_NAME = \"com.nanoai/speech_partial\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SystemInventoryChannelHandler.kt",
+    "line": 30,
+    "code": "const val CHANNEL_NAME = \"com.nanoai/system\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 115,
+    "code": "navigationChannel?.invokeMethod(\"openSettings\", null)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 233,
+    "code": "navigationChannel = MethodChannel(messenger, ChannelNames.NAVIGATION)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 235,
+    "code": "MethodChannel(messenger, ChannelNames.DEVICE_METRICS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 238,
+    "code": "MethodChannel(messenger, ChannelNames.EXEC_BIN)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 252,
+    "code": "MethodChannel(messenger, ChannelNames.PTY)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 255,
+    "code": "MethodChannel(messenger, ChannelNames.RUNTIME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 258,
+    "code": "MethodChannel(messenger, ChannelNames.AGENT)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 262,
+    "code": "MethodChannel(messenger, ChannelNames.NOTIFICATIONS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 267,
+    "code": "EventChannel(messenger, \"com.nanoai/notification_events\").setStreamHandler("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 277,
+    "code": "EventChannel("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 282,
+    "code": "MethodChannel(messenger, AutomationBackgroundChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 285,
+    "code": "MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 288,
+    "code": "MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 297,
+    "code": "MethodChannel(messenger, ChannelNames.SPEECH)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 299,
+    "code": "EventChannel(messenger, SpeechChannelHandler.PARTIAL_CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 302,
+    "code": "MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 310,
+    "code": "MethodChannel(messenger, ChannelNames.SHARE)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 313,
+    "code": "MethodChannel(messenger, ChannelNames.SYSTEM)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 316,
+    "code": "MethodChannel(messenger, ChannelNames.MODEL_STORAGE)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 330,
+    "code": "MethodChannel(messenger, AppFunctionChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 334,
+    "code": "MethodChannel(messenger, LanguageAssistChannelHandler.CHANNEL_NAME)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellWorkerService.kt",
+    "line": 43,
+    "code": "const val CHANNEL_WORKER = \"com.nanoai/worker\""
+  }
+]

@@ -71,10 +71,11 @@ class ShellExecutorLinuxBackend implements LinuxExecutionBackend {
         ? null
         : request.environment;
     final ShellResult r = _applets.contains(request.executable)
-        ? await _executor.toybox([
-            request.executable,
-            ...request.arguments,
-          ], extraEnv: env, timeout: request.timeout)
+        ? await _executor.toybox(
+            [request.executable, ...request.arguments],
+            extraEnv: env,
+            timeout: request.timeout,
+          )
         : await _executor.execRootfs(
             request.executable,
             request.arguments,

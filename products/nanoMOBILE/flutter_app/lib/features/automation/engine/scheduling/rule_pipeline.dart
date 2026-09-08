@@ -23,8 +23,11 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import '../messaging/conversation_key.dart';
 import '../messaging/conversation_memory.dart';
 import '../messaging/incoming_message.dart';
+import '../messaging/messaging_package.dart';
 import '../notifications/notification_object.dart';
 import 'contact_rate_limiter.dart';
+import 'burst_turn_gate.dart';
+import 'messaging_metrics.dart';
 import 'event_dedupe_store.dart';
 import 'notification_event_adapter.dart';
 import '../storage/automation_db_store_client.dart';
@@ -32,7 +35,7 @@ import 'rule_dispatcher.dart';
 import 'rule_engine.dart';
 import 'rule_registry.dart';
 import 'scheduled_rule.dart';
-import 'trigger.dart' show TickEvent;
+import 'trigger.dart' show NotificationTrigger, TickEvent;
 import 'turn_supersede_guard.dart';
 
 class RulePipeline {
@@ -75,13 +78,165 @@ class RulePipeline {
   Future<void> _waitReady() async {
     final ready = _readiness;
     if (ready != null) {
-      _readiness = null;
       await ready;
+      _readiness = null;
     }
   }
 
   /// RATE-01 — límite duro de respuestas por conversación (ventana).
   final ContactRateLimiter _rateLimiter;
+
+  /// P1-NOISE-01 — elegibilidad barata por paquete (sin IO, sin LLM): ¿esta
+  /// notificación puede convertirse en evento de automatización?
+  ///
+  /// Dos condiciones, ambas declarativas (jamás una lista dura de paquetes):
+  /// 1. El paquete es una app de mensajería conocida
+  ///    ([MessagingPackage.known], UNI-01). OBSERVABLE NOTIFICATION !=
+  ///    AUTOMATION EVENT: SystemUI, clima, batería o USB jamás generan un
+  ///    evento conversacional, tenga o no una regla wildcard habilitada. El
+  ///    wildcard del parser ("cuando Juan me escriba") significa "cualquier
+  ///    conversación de mensajería", no "cualquier notificación Android".
+  ///    Añadir una app nueva a [MessagingPackage.known] la hace elegible al
+  ///    instante, sin tocar este archivo.
+  /// 2. Existe al menos una regla HABILITADA con NotificationTrigger que
+  ///    matchea el paquete (packageName null = wildcard de mensajería, o
+  ///    igual). Sin regla, el engine devolvería matched=[] de todas formas:
+  ///    esto solo adelanta la muerte antes de ráfaga/turno/LLM.
+  bool isNotificationEligible(String packageName) {
+    if (!isKnownMessagingPackage(packageName)) return false;
+    for (final r in _registry.rules) {
+      if (!r.enabled) continue;
+      final t = r.trigger;
+      if (t is! NotificationTrigger) continue;
+      if (t.packageName == null || t.packageName == packageName) return true;
+    }
+    return false;
+  }
+
+  Future<void> _admissionTail = Future<void>.value();
+
+  Future<void> drain(BurstTurnGate gate) async {
+    await _admissionTail;
+    await gate.drain();
+    await _dedupe.flush();
+  }
+
+  /// Shared live/replay/inbox ingress. Reserve each original event before
+  /// aggregation, without treating new fragments as reply cooldown or echoes.
+  /// Only admission is serialized; waiting for a turn never blocks intake.
+  int _pendingAdmissions = 0;
+
+  Future<List<List<RuleDispatchResult>>> submitNotifications(
+    List<NotificationObject> events,
+    BurstTurnGate gate,
+  ) {
+    if (_pendingAdmissions >= 64) {
+      return Future.error(
+        StateError('Notification admission capacity exceeded'),
+      );
+    }
+    _pendingAdmissions++;
+    final done = Completer<List<List<RuleDispatchResult>>>();
+    _admissionTail = _admissionTail.then((_) async {
+      final accepted = <NotificationObject>[];
+      try {
+        await _waitReady();
+        await _registry.flush();
+        for (final event in events) {
+          MessagingMetrics.increment('notificationsObserved');
+          if (!isNotificationEligible(event.packageName) ||
+              event.isSummary ||
+              (event.packageName == MessagingPackage.whatsapp &&
+                  event.sender == 'Tú')) {
+            MessagingMetrics.increment('noiseDropped');
+            debugPrint('[noise] pkg=${event.packageName} pre-burst');
+            continue;
+          }
+          MessagingMetrics.increment('notificationsEligible');
+          final message = IncomingMessage.fromNotification(event);
+          final verdict = _dedupe.reserve(
+            message.eventId,
+            conversationId: message.conversation.key.id,
+            text: message.text,
+            eventOnly: true,
+            atMs: DateTime.now().millisecondsSinceEpoch,
+          );
+          if (verdict != DedupeVerdict.proceed) {
+            MessagingMetrics.increment('duplicatesDropped');
+            debugPrint('[dedupe] duplicate pre-burst evt=${message.eventId}');
+            continue;
+          }
+          _supersedeGuard?.bump(message.conversation.key.id);
+          accepted.add(event);
+        }
+        MessagingMetrics.emit();
+        await _dedupe.flush();
+        try {
+          gate.ensureCapacity(accepted);
+        } catch (_) {
+          for (final event in accepted) {
+            _dedupe.record(
+              IncomingMessage.fromNotification(event).eventId,
+              DedupeEventState.failed,
+              atMs: DateTime.now().millisecondsSinceEpoch,
+              reason: 'Burst capacity exceeded before dispatch',
+            );
+          }
+          await _dedupe.flush();
+          rethrow;
+        }
+        final turn = gate.submitAll(
+          accepted,
+          (event) => onNotification(event, preAdmitted: true),
+          beforeTurn: (members) async {
+            for (final event in members) {
+              _dedupe.record(
+                IncomingMessage.fromNotification(event).eventId,
+                DedupeEventState.reserved,
+                atMs: DateTime.now().millisecondsSinceEpoch,
+              );
+            }
+            await _dedupe.flush();
+          },
+        );
+        unawaited(() async {
+          try {
+            final results = await turn;
+            for (var i = 0; i < accepted.length; i++) {
+              _dedupe.record(
+                IncomingMessage.fromNotification(accepted[i]).eventId,
+                _terminalState(results[i]),
+                atMs: DateTime.now().millisecondsSinceEpoch,
+                reason: _terminalReason(results[i]),
+              );
+            }
+            await _dedupe.flush();
+            done.complete(results);
+          } on Object catch (error, stack) {
+            done.completeError(error, stack);
+          }
+        }());
+      } on Object catch (error, stack) {
+        for (final event in accepted) {
+          _dedupe.record(
+            IncomingMessage.fromNotification(event).eventId,
+            DedupeEventState.failed,
+            atMs: DateTime.now().millisecondsSinceEpoch,
+            reason: 'Admission failed before execution',
+          );
+        }
+        try {
+          await _dedupe.flush();
+        } catch (_) {
+          /* sending stays blocked */
+        }
+        done.completeError(error, stack);
+      } finally {
+        _pendingAdmissions--;
+      }
+    });
+    return done.future;
+  }
 
   /// WA-MEM-08 — memoria aislada por conversación (escritura honesta).
   final ConversationMemoryStore _memory;
@@ -91,9 +246,25 @@ class RulePipeline {
   /// matchea reglas habilitadas y ejecuta. Devuelve los resultados (vacío =
   /// sin regla que disparó o evento bloqueado por la puerta).
   Future<List<RuleDispatchResult>> onNotification(
-    NotificationObject notif,
-  ) async {
+    NotificationObject notif, {
+    bool preAdmitted = false,
+  }) async {
+    final admittedVersion = preAdmitted
+        ? _supersedeGuard?.versionOf(resolveConversationIdentity(notif).key.id)
+        : null;
     await _waitReady();
+    // P1-NOISE-01 — defensa en profundidad: el router filtra ANTES del gate
+    // (live + replay frío); aquí muere el camino directo (inbox durable por
+    // batch, rutas legacy sin gate). Paquete sin regla habilitada que pueda
+    // matchearlo = no es un evento de automatización: ni bitácora, ni dedupe,
+    // ni memoria, ni LLM.
+    if (!isNotificationEligible(notif.packageName)) {
+      debugPrint(
+        '[noise] pkg=${notif.packageName} descartado: '
+        'sin regla habilitada aplicable',
+      );
+      return const [];
+    }
     // WA-EVLOG-01 — bitácora local append-only (best-effort, jamás interrumpe).
     unawaited(
       AutomationDbStoreClient.instance.appendPipelineEvent(
@@ -119,12 +290,14 @@ class RulePipeline {
     final message = IncomingMessage.fromNotification(notif);
     final conversationId = message.conversation.key.id;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final verdict = _dedupe.reserve(
-      message.eventId,
-      conversationId: conversationId,
-      text: message.text,
-      atMs: nowMs,
-    );
+    final verdict = preAdmitted
+        ? DedupeVerdict.proceed
+        : _dedupe.reserve(
+            message.eventId,
+            conversationId: conversationId,
+            text: message.text,
+            atMs: nowMs,
+          );
     debugPrint(
       '[rules] verdict=${verdict.name} evt=${message.eventId.substring(4, 16)}',
     );
@@ -144,16 +317,13 @@ class RulePipeline {
           // memoryFor jamás devuelve lista vacía: entries.last es seguro
           // cuando la memoria existe.
           final memory = _memory.memoryFor(conversationId);
-          final candidate = memory == null
-              ? null
-              : memory.entries.lastWhere(
-                  (e) =>
-                      e.kind ==
-                          ConversationMemoryEntryKind.outboundDispatched ||
-                      e.kind == ConversationMemoryEntryKind.outboundVerified ||
-                      e.kind == ConversationMemoryEntryKind.effectUnknown,
-                  orElse: () => memory.entries.last,
-                );
+          final candidate = memory?.entries.lastWhere(
+            (e) =>
+                e.kind == ConversationMemoryEntryKind.outboundDispatched ||
+                e.kind == ConversationMemoryEntryKind.outboundVerified ||
+                e.kind == ConversationMemoryEntryKind.effectUnknown,
+            orElse: () => memory.entries.last,
+          );
           final isRecentEcho =
               candidate != null &&
               candidate.atMs > 0 &&
@@ -184,11 +354,12 @@ class RulePipeline {
       // Persistencia best-effort: si la escritura falló el dispatch sigue
       // (comportamiento histórico), pero el fallo queda traceable.
       debugPrint('[rules] flush dedupe falló: $e');
+      rethrow; // No irreversible dispatch without durable idempotency.
     }
     // WA-CONV-03 — este mensaje REAL incrementa la versión del turno (el
     // dispatcher captura DESPUÉS de este punto; el gate ya incrementó por
     // cada inbound en la ruta con ráfagas).
-    _supersedeGuard?.bump(conversationId);
+    if (!preAdmitted) _supersedeGuard?.bump(conversationId);
 
     final results = <RuleDispatchResult>[];
     var replyAttempted = false;
@@ -202,9 +373,18 @@ class RulePipeline {
         conversationId,
         nowMs,
         replyAttempted: replyAttempted,
+        conversationVersion: admittedVersion,
       );
       results.add(r);
-      replyAttempted = replyAttempted || r.isReplyAttempt;
+      // UN INPUT = UN DRAFT: el INTENTO cuenta aunque no aterrice. Un
+      // hold/fail del primer reply (motor frío, decisión retenida) también
+      // cierra la puerta: N reglas reply matcheadas jamás producen N
+      // borradores del mismo evento (evidencia física: "Hola" matcheó 3
+      // reglas reply y redactó 3 veces — [draft:start] x3, terminal
+      // failed,failed,failed). `isReplyAttempt` solo mide aterrizajes;
+      // la regla reply ejecutada es intento por sí misma.
+      replyAttempted =
+          replyAttempted || r.isReplyAttempt || rule.action == RuleAction.reply;
 
       if (r.isReplyAttempt) {
         // Texto del envío con posible aterrizaje: servirá para ignorar el eco
@@ -224,11 +404,7 @@ class RulePipeline {
       if (r.isReplyAttempt ||
           r.outcome == RuleOutcome.notified ||
           r.outcome == RuleOutcome.mediaLaunched) {
-        _registry.markFired(
-          rule.id,
-          DateTime.now(),
-          outcome: r.outcome.name,
-        );
+        _registry.markFired(rule.id, DateTime.now(), outcome: r.outcome.name);
       }
     }
 
@@ -328,6 +504,7 @@ class RulePipeline {
     String conversationId,
     int nowMs, {
     required bool replyAttempted,
+    int? conversationVersion,
   }) async {
     if (rule.action == RuleAction.reply) {
       if (replyAttempted) {
@@ -361,15 +538,35 @@ class RulePipeline {
       // ejecución cae en cooldown aunque el primero aún no haya terminado.
       _dedupe.markReplyPending(conversationId, nowMs);
     }
-    final r = await _dispatcher.dispatch(rule, notif);
+    final r = await _dispatcher.dispatch(
+      rule,
+      notif,
+      capturedConversationVersion: conversationVersion,
+      isStillAllowed: () =>
+          _registry.persistenceHealthy &&
+          _engine
+              .match(
+                _registry.rules,
+                const NotificationEventAdapter().fromNotification(notif),
+              )
+              .any(
+                (current) =>
+                    current.id == rule.id &&
+                    current.action == rule.action &&
+                    current.message == rule.message &&
+                    current.dynamicReply == rule.dynamicReply,
+              ),
+    );
     // WA-LIVE-01 — el intento se registra al ATERRIZAR: un borrador que
     // falló antes de tocar el canal ya no quema la ventana. Sin texto
     // despachado no hay consumo del canal (el costo nunca se pagó).
     if (r.isReplyAttempt && r.dispatchedText.isNotEmpty) {
-      await _rateLimiter.recordReply(
-        key,
-        at: DateTime.fromMillisecondsSinceEpoch(nowMs),
-      );
+      try {
+        await _rateLimiter.recordReply(key, at: DateTime.now());
+      } catch (error) {
+        // The send already happened: preserve its outcome and dedupe evidence.
+        debugPrint('[rules] post-send rate persistence failed: $error');
+      }
     }
     return r;
   }

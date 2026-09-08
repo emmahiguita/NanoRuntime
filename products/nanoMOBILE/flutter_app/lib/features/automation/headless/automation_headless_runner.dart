@@ -41,6 +41,13 @@ Future<bool> isHeadlessAutomationEngine() async {
 Future<void> runAutomationHeadless() async {
   WidgetsFlutterBinding.ensureInitialized();
   final container = ProviderContainer();
+  final heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
+    unawaited(
+      _headlessChannel
+          .invokeMethod<void>('heartbeat')
+          .catchError((Object _) {}),
+    );
+  });
   try {
     // WA-PROD-02 — barrera global: el MISMO futuro que espera el
     // RulePipeline antes de cada evento (una sola fuente de verdad).
@@ -73,22 +80,18 @@ Future<void> runAutomationHeadless() async {
       final notifications = [
         for (final row in rows)
           if (row['notification'] is Map)
-            NotificationObject.fromMap(row['notification'] as Map),
+            ...NotificationObject.eventsFromMap(row['notification'] as Map),
       ];
       if (notifications.isNotEmpty) {
         try {
-          // submitAll agrega los eventos de la misma conversación de la
-          // tanda y resuelve por evento cuando su turno terminó.
-          await gate.submitAll(
-            notifications,
-            (aggregated) => pipeline.onNotification(aggregated),
-          );
+          await pipeline.submitNotifications(notifications, gate);
         } on Object catch (error) {
-          // Un evento fallido jamás tumba el drenado; el pipeline ya
-          // registró el estado honesto del intento.
           debugPrint('[headless] tanda fallida: $error');
+          rethrow; // Do not acknowledge an inbox batch whose admission failed.
         }
       }
+      // A live sink may already own this batch's events; wait before ACK.
+      await pipeline.drain(gate);
       for (final row in rows) {
         final eventId = row['eventId'];
         if (eventId is String && eventId.isNotEmpty) {
@@ -103,10 +106,13 @@ Future<void> runAutomationHeadless() async {
         }
       }
     }
+    container.read(notificationEventRouterProvider).stop();
+    await pipeline.drain(gate);
     debugPrint('[headless] idle — pidiendo parada limpia');
   } on Object catch (error) {
     debugPrint('[headless] error fatal: $error');
   } finally {
+    heartbeat.cancel();
     try {
       await _headlessChannel.invokeMethod<void>('finish');
     } on Object {
@@ -119,7 +125,7 @@ Future<void> runAutomationHeadless() async {
 Future<List<Map<dynamic, dynamic>>> _claimRows() async {
   try {
     final raw = await _headlessChannel.invokeListMethod<dynamic>('claim', {
-      'limit': 10,
+      'limit': 64,
     });
     return [
       for (final r in raw ?? const [])

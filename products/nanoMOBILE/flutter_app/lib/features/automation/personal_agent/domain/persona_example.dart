@@ -13,6 +13,11 @@ final class PersonaExample {
   final String personaKey;
   final String body;
 
+  /// R5-03 — entrada del cliente a la que responde [body] (par condicionado,
+  /// invariante PAST INPUT → PAST OWNER OUTPUT). Vacío = ejemplo legacy de
+  /// estilo sin condicionar (jamás matchea el input entrante).
+  final String incomingText;
+
   /// Datos de tono opcionales del ejemplo (ej. {"warmth": "cercano"}).
   final Map<String, String> tone;
   final String source;
@@ -21,9 +26,19 @@ final class PersonaExample {
     required this.id,
     required this.personaKey,
     required this.body,
+    this.incomingText = '',
     this.tone = const {},
     this.source = '',
   });
+
+  bool get enabled => tone['enabled'] != 'false';
+  bool get isTemplate => tone['kind'] == 'template';
+  String get importBatch => tone['importBatch'] ?? '';
+  bool get ownerVerified =>
+      source == 'manual' || tone['ownerVerified'] == 'true';
+
+  /// R5-03 — ¿par condicionado (trae entrada de cliente)?
+  bool get isPaired => incomingText.trim().isNotEmpty;
 
   factory PersonaExample.fromRow(Map<dynamic, dynamic> row) {
     final tone = <String, String>{};
@@ -43,9 +58,10 @@ final class PersonaExample {
       }
     }
     return PersonaExample(
-      id: int.tryParse(row['id'] as String? ?? '') ?? -1,
+      id: int.tryParse('${row['id'] ?? ''}') ?? -1,
       personaKey: row['personaKey'] as String? ?? '',
       body: row['body'] as String? ?? '',
+      incomingText: row['incomingText'] as String? ?? '',
       tone: tone,
       source: row['source'] as String? ?? '',
     );

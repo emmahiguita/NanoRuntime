@@ -49,11 +49,19 @@ class _AllowAllRateLimiter implements ContactRateLimiter {
   ContactRatePolicy get policy => const ContactRatePolicy();
 
   @override
+  Future<int> replyCount(ConversationKey key, {required DateTime at}) async =>
+      0;
+
+  @override
+  Future<void> recordReply(ConversationKey key, {required DateTime at}) async {}
+
+  @override
   Future<bool> allowReply(ConversationKey key, {required DateTime at}) async =>
       true;
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   ScheduledRule rule({
     RuleAction action = RuleAction.reply,
     String message = 'ahora te escribo',
@@ -140,6 +148,7 @@ void main() {
     test('notificación de Juan → match → dispatch → markFired', () async {
       final registry = RuleRegistry(MemoryRuleStore());
       await registry.load();
+      registry.setEnabled(RuleRegistry.universalWhatsAppRuleId, false);
       registry.add(rule());
 
       final goals = <String>[];
@@ -162,7 +171,7 @@ void main() {
       final results = await pipeline.onNotification(notif(sender: 'Juan'));
       expect(results, hasLength(1));
       expect(results.first.outcome, RuleOutcome.replyVerified);
-      expect(registry.rules.first.lastFiredAt, isNotNull);
+      expect(registry.rules.singleWhere((r) => r.id == 'r1').lastFiredAt, isNotNull);
       expect(goals, ['responde a Juan que ahora te escribo']);
     });
 
@@ -171,6 +180,7 @@ void main() {
       () async {
         final registry = RuleRegistry(MemoryRuleStore());
         await registry.load();
+        registry.setEnabled(RuleRegistry.universalWhatsAppRuleId, false);
         registry.add(rule());
 
         final dispatcher = RuleDispatcher(
@@ -187,7 +197,7 @@ void main() {
 
         final results = await pipeline.onNotification(notif(sender: 'María'));
         expect(results, isEmpty);
-        expect(registry.rules.first.lastFiredAt, isNull);
+        expect(registry.rules.singleWhere((r) => r.id == 'r1').lastFiredAt, isNull);
       },
     );
   });

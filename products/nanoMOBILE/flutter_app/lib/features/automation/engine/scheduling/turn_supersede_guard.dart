@@ -18,6 +18,9 @@ library;
 /// inbound), el RulePipeline y el RuleDispatcher (captura/verificación).
 final class TurnSupersedeGuard {
   final Map<String, int> _versions = {};
+  int _sequence = 0;
+
+  void invalidateAll() => _versions.clear();
 
   /// Versión actual de la conversación (0 = nunca se vio un mensaje).
   int versionOf(String conversationId) {
@@ -28,8 +31,10 @@ final class TurnSupersedeGuard {
   /// Registra un mensaje REAL entrante. Devuelve la versión nueva.
   int bump(String conversationId) {
     if (conversationId.isEmpty) return 0;
-    final next = (_versions[conversationId] ?? 0) + 1;
+    final next = ++_sequence;
+    _versions.remove(conversationId);
     _versions[conversationId] = next;
+    if (_versions.length > 800) _versions.remove(_versions.keys.first);
     return next;
   }
 }

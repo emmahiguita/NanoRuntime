@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'i_bin_executor.dart';
 import 'real_fs_shell.dart';
@@ -24,6 +25,7 @@ class CmdExecCtx {
   PtySession? pty;
   bool ptyActive;
   final Future<void> Function() closePty;
+  final Future<void> Function(List<String> argv)? openPty;
 
   // ── Prompt & history ──
   String ps1;
@@ -76,6 +78,7 @@ class CmdExecCtx {
     required this.pty,
     required this.ptyActive,
     required this.closePty,
+    this.openPty,
     required this.ps1,
     required this.history,
     required this.historyIndex,
@@ -292,6 +295,44 @@ class CommandExecutor {
 
     // ── bash / toybox explícitos ──
     if (name == 'bash' && x.shell != null && x.shell!.initialized) {
+      // Use real bash if installed in the rootfs (e.g. after `pkg install bash`).
+      // Fallback to toybox ash only when bash binary is absent.
+      final usrDir = x.shell!.usrDir;
+      final hasBash =
+          usrDir != null &&
+          (File('$usrDir/bin/bash').existsSync() ||
+              File('${x.rootfs?.usrDir ?? usrDir}/bin/bash').existsSync());
+      final bashBin = (usrDir != null && File('$usrDir/bin/bash').existsSync())
+          ? '$usrDir/bin/bash'
+          : '${x.rootfs?.usrDir ?? usrDir}/bin/bash';
+
+      // Si no hay argumentos, el usuario solicita shell interactivo: abrir PTY real
+      if (args.isEmpty && x.openPty != null) {
+        final targetBin = hasBash
+            ? bashBin
+            : (usrDir != null && File('$usrDir/bin/sh').existsSync()
+                  ? '$usrDir/bin/sh'
+                  : 'bash');
+        await x.openPty!([targetBin]);
+        return;
+      }
+
+      if (hasBash) {
+        x.out('[bash] ${args.join(' ')}', Ln.system);
+        final r = await x.shell!.execRootfs(bashBin, args);
+        x.audit?.event(
+          'command.shell.result',
+          layer: 'shell',
+          traceId: traceId,
+          command: bashBin,
+          exitCode: r.exitCode,
+          duration: started.elapsed,
+          data: {'path': 'bash_real'},
+        );
+        x.shellOut(r);
+        return;
+      }
+      // Fallback: ash emulation via toybox
       final shellCmd = args.isNotEmpty ? args.join(' ') : '-i';
       x.out('[ash] $shellCmd', Ln.system);
       final r = await x.shell!.toybox(['ash', '-c', shellCmd]);
@@ -302,7 +343,7 @@ class CommandExecutor {
         command: shellCmd,
         exitCode: r.exitCode,
         duration: started.elapsed,
-        data: {'path': 'bash_cmd'},
+        data: {'path': 'bash_ash_fallback'},
       );
       x.shellOut(r);
       return;
@@ -409,15 +450,56 @@ class CommandExecutor {
         debugPrint('[terminal] Error en comando "$name": $e\n$st');
         x.out('$name: error interno — $e', Ln.stderr);
       }
-    } else {
-      x.audit?.event(
-        'command.not_found',
-        layer: 'terminal',
-        traceId: traceId,
-        command: name,
-        duration: started.elapsed,
-      );
-      x.out('$name: comando no encontrado. "help" para ver todos.', Ln.stderr);
+      return;
     }
+
+    // ── FASE 06: Shell real / resolución por PATH en rootfs ──
+    // Si no es un built-in de Nano ni un plugin registrado, buscar el binario en
+    // el rootfs ($usrDir/bin, $usrDir/bin/applets, $usrDir/sbin) en vez de requerir
+    // un `if` o registro manual para cada comando Linux instalado.
+    if (x.shell != null && x.shell!.initialized) {
+      final usrDir = x.shell!.usrDir ?? x.rootfs?.usrDir;
+      if (usrDir != null) {
+        final candidates = [
+          '$usrDir/bin/$name',
+          '$usrDir/bin/applets/$name',
+          '$usrDir/sbin/$name',
+        ];
+        String? resolvedBin;
+        for (final c in candidates) {
+          if (File(c).existsSync()) {
+            resolvedBin = c;
+            break;
+          }
+        }
+        if (resolvedBin != null) {
+          final r = await x.shell!.execRootfs(
+            resolvedBin,
+            args,
+            ldPreload: 'libnanoroot.so',
+          );
+          x.audit?.event(
+            'command.shell.result',
+            layer: 'shell',
+            traceId: traceId,
+            command: resolvedBin,
+            exitCode: r.exitCode,
+            duration: started.elapsed,
+            data: {'path': 'rootfs_path_resolution'},
+          );
+          x.shellOut(r);
+          return;
+        }
+      }
+    }
+
+    x.audit?.event(
+      'command.not_found',
+      layer: 'terminal',
+      traceId: traceId,
+      command: name,
+      duration: started.elapsed,
+    );
+    x.out('$name: comando no encontrado. "help" para ver todos.', Ln.stderr);
   }
 }

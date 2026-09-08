@@ -56,20 +56,18 @@ class NotificationAutomationService : NotificationListenerService() {
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         val sink = NotificationAutomationBridge.notificationEventsSink
-        if (sink != null) {
-            sink.success(toMap(sbn))
+        if (sink == null && !AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
+        try {
+            NanoApplication.from(this).durableInbox.insert(sbn.packageName, sbn.key, sbn.postTime)
+        } catch (error: Exception) {
+            android.util.Log.e("NanoNotifications", "Inbox persistence failed; delivery deferred", error)
             return
         }
-        // Sin consumidor Dart: persistir para el próximo wake. La puerta de
-        // usuario ("procesar en segundo plano") corta también la inserción:
-        // desactivada = comportamiento histórico (solo con la app abierta).
-        if (!AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
-        val inserted = NanoApplication.from(this).durableInbox.insert(
-            sbn.packageName,
-            sbn.key,
-            sbn.postTime,
-        )
-        if (inserted) AutomationRuntimeService.request(this)
+        if (sink != null) {
+            sink.success(toMap(sbn))
+        } else {
+            AutomationRuntimeService.request(this)
+        }
     }
 
     fun snapshot(limit: Int = 30): List<Map<String, Any?>> =
@@ -234,6 +232,24 @@ class NotificationAutomationService : NotificationListenerService() {
             "text" to text.take(MAX_FIELD_CHARS),
             "messageText" to messageText.take(MAX_FIELD_CHARS),
             "messageTimestamp" to messageTimestamp,
+            "isTruncated" to (messageText.length > MAX_FIELD_CHARS || text.length > MAX_FIELD_CHARS),
+            // Preserve the individual MessagingStyle events on live updates
+            // and cold replay. Dart deduplicates each original timestamp.
+            "messages" to messages.map { message ->
+                val person = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    message.senderPerson
+                } else null
+                mapOf(
+                    "messageText" to message.text?.toString().orEmpty().take(MAX_FIELD_CHARS),
+                    "text" to message.text?.toString().orEmpty().take(MAX_FIELD_CHARS),
+                    "messageTimestamp" to message.timestamp,
+                    "isTruncated" to ((message.text?.length ?: 0) > MAX_FIELD_CHARS),
+                    "sender" to message.sender?.toString().orEmpty().take(200),
+                    "senderKey" to person?.key.orEmpty().take(200),
+                    "senderUri" to person?.uri.orEmpty().take(500),
+                    "isSelf" to (message.sender == null),
+                )
+            },
             "sender" to sender.take(200),
             "senderKey" to senderKey.take(200),
             "senderUri" to senderUri.take(500),

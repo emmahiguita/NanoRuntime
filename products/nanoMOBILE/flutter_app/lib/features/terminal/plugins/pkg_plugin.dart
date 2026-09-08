@@ -1,3 +1,4 @@
+import 'dart:io';
 import '../terminal_types.dart';
 import '../terminalservices.dart';
 
@@ -17,12 +18,7 @@ class PkgPlugin {
         final binPath = '${s.rootfs!.usrDir}/bin/$cmd';
         final env = s.rootfsEnv(ldPreload: 'libnanoroot.so');
         s.shell!
-            .execRootfsWorker(
-              binPath,
-              [cmd, ...a],
-              env: env,
-              ldPreload: 'libnanoroot.so',
-            )
+            .execRootfsWorker(binPath, a, env: env, ldPreload: 'libnanoroot.so')
             .then((wr) {
               if (wr != null) {
                 if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
@@ -30,12 +26,7 @@ class PkgPlugin {
                 return;
               }
               s.shell!
-                  .execRootfs(
-                    binPath,
-                    [cmd, ...a],
-                    env: env,
-                    ldPreload: 'libnanoroot.so',
-                  )
+                  .execRootfs(binPath, a, env: env, ldPreload: 'libnanoroot.so')
                   .then((wr) {
                     if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
                     if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
@@ -54,12 +45,10 @@ class PkgPlugin {
           s.shell!.initialized &&
           s.rootfs?.isInstalled == true) {
         final binPath = '${s.rootfs!.usrDir}/bin/pip';
-        s.shell!
-            .execRootfs(binPath, ['pip', ...a], ldPreload: 'libnanoroot.so')
-            .then((wr) {
-              if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
-              if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
-            });
+        s.shell!.execRootfs(binPath, a, ldPreload: 'libnanoroot.so').then((wr) {
+          if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+          if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+        });
         return;
       }
       c.pkgs.pkg(['pip'] + a, (t, ty) => o(t, Ln.values[ty]), af);
@@ -70,27 +59,49 @@ class PkgPlugin {
           s.shell!.initialized &&
           s.rootfs?.isInstalled == true) {
         final binPath = '${s.rootfs!.usrDir}/bin/npm';
-        s.shell!
-            .execRootfs(binPath, ['npm', ...a], ldPreload: 'libnanoroot.so')
-            .then((wr) {
-              if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
-              if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
-            });
+        s.shell!.execRootfs(binPath, a, ldPreload: 'libnanoroot.so').then((wr) {
+          if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+          if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+        });
         return;
       }
       c.pkgs.pkg(['npm'] + a, (t, ty) => o(t, Ln.values[ty]), af);
     });
 
-    r(
-      'cargo',
-      (a, c, o, af) =>
-          c.pkgs.pkg(['cargo'] + a, (t, ty) => o(t, Ln.values[ty]), af),
-    );
+    r('cargo', (a, c, o, af) {
+      if (s.shell != null &&
+          s.shell!.initialized &&
+          s.rootfs?.isInstalled == true) {
+        final binPath = '${s.rootfs!.usrDir}/bin/cargo';
+        if (File(binPath).existsSync()) {
+          s.shell!.execRootfs(binPath, a, ldPreload: 'libnanoroot.so').then((
+            wr,
+          ) {
+            if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+            if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+          });
+          return;
+        }
+      }
+      c.pkgs.pkg(['cargo'] + a, (t, ty) => o(t, Ln.values[ty]), af);
+    });
 
-    r(
-      'gem',
-      (a, c, o, af) =>
-          c.pkgs.pkg(['gem'] + a, (t, ty) => o(t, Ln.values[ty]), af),
-    );
+    r('gem', (a, c, o, af) {
+      if (s.shell != null &&
+          s.shell!.initialized &&
+          s.rootfs?.isInstalled == true) {
+        final binPath = '${s.rootfs!.usrDir}/bin/gem';
+        if (File(binPath).existsSync()) {
+          s.shell!.execRootfs(binPath, a, ldPreload: 'libnanoroot.so').then((
+            wr,
+          ) {
+            if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+            if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+          });
+          return;
+        }
+      }
+      c.pkgs.pkg(['gem'] + a, (t, ty) => o(t, Ln.values[ty]), af);
+    });
   }
 }

@@ -42,8 +42,9 @@ final class ConversationKey {
   });
 
   /// Clave legible y única para logs/almacenamiento.
-  String get id =>
-      '$channel/$appPackage/${accountFingerprint.isEmpty ? '-' : accountFingerprint}/$conversationFingerprint';
+  String get id => conversationFingerprint.isEmpty
+      ? ''
+      : '$channel/$appPackage/${accountFingerprint.isEmpty ? '-' : accountFingerprint}/$conversationFingerprint';
 
   @override
   bool operator ==(Object other) =>
@@ -112,6 +113,8 @@ ConversationIdentity resolveConversationIdentity(NotificationObject n) =>
       conversationId: n.conversationId,
       conversationTitle: n.conversationTitle,
       sender: n.sender,
+      isGroup: n.isGroup,
+      notificationKey: n.key,
     );
 
 /// PERSONA-TOOLS-10 — identidad por CAMPOS (misma evidencia, mismo orden):
@@ -128,6 +131,8 @@ ConversationIdentity conversationIdentityFor({
   String conversationId = '',
   String conversationTitle = '',
   String sender = '',
+  bool isGroup = false,
+  String notificationKey = '',
 }) {
   final channel = channelForPackage(packageName);
   final account = accountHint.trim();
@@ -153,7 +158,7 @@ ConversationIdentity conversationIdentityFor({
       evidenceUsed: const {'shortcutId'},
     );
   }
-  if (senderKey.isNotEmpty) {
+  if (!isGroup && senderKey.isNotEmpty) {
     return ConversationIdentity(
       key: key('person:$senderKey'),
       confidence: 0.9,
@@ -174,7 +179,11 @@ ConversationIdentity conversationIdentityFor({
     // Contexto completo (título + remitente) distingue mejor dos contactos
     // con nombre visible idéntico dentro de la MISMA app... pero sigue sin
     // ser evidencia estable de plataforma.
-    final context = cleanSender.isNotEmpty ? '$title|$cleanSender' : title;
+    final context = [
+      title,
+      if (!isGroup && cleanSender.isNotEmpty) cleanSender,
+      if (notificationKey.isNotEmpty) notificationKey,
+    ].join('|');
     return ConversationIdentity(
       key: key('title:$context'),
       confidence: cleanSender.isNotEmpty ? 0.6 : 0.35,

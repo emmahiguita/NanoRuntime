@@ -31,6 +31,8 @@ class RuntimeScope(context: Context) {
     private val lock = Any()
     private val holders = mutableSetOf<Holder>()
 
+    fun hasHolder(holder: Holder): Boolean = synchronized(lock) { holder in holders }
+
     /** Registra al requestor. Devuelve true si es el PRIMERO (el llamador
      *  decide cuándo arrancar el worker: la UI lo difiere para no pelear el
      *  primer frame; automation arranca de inmediato). */

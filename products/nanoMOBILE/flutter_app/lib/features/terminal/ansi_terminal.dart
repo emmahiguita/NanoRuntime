@@ -200,10 +200,7 @@ class AnsiTerminal extends ChangeNotifier {
       // Byte no-ASCII: flush del run ASCII acumulado en una sola decode.
       if (i > runStart) {
         buf.write(
-          utf8.decode(
-            _pendingBytes.sublist(runStart, i),
-            allowMalformed: true,
-          ),
+          utf8.decode(_pendingBytes.sublist(runStart, i), allowMalformed: true),
         );
       }
       int len;

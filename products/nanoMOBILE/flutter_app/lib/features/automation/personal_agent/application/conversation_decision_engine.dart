@@ -22,10 +22,15 @@
 /// Confianza: base 0.85 − penalización por señal. Umbral de envío: 0.6.
 library;
 
-import '../../engine/messaging/conv_turn_state.dart' show isPureGreeting;
 import '../../engine/messaging/conversation_key.dart' show ConversationIdentity;
 import '../../engine/notifications/conversation_understanding.dart';
-import '../domain/conversation_agent_role.dart' show ConversationAgentRole;
+import '../domain/conversation_agent_role.dart'
+    show
+        ConversationAgentRole,
+        isGreetingLikeMessage,
+        isLiveStateQuestion,
+        isLooseLaughterMessage,
+        isSocialReactionMessage;
 import '../domain/conversation_autonomy_mode.dart';
 import '../domain/conversation_decision.dart';
 
@@ -113,7 +118,7 @@ final class ConversationDecisionEngine {
         context.agentRole == ConversationAgentRole.general;
     if (callCenterTurn &&
         (_isCallCenterPhrase(understanding.reply) ||
-            (isPureGreeting(context.userText) &&
+            (isGreetingLikeMessage(context.userText) &&
                 _fold(understanding.reply).contains('soy nano')))) {
       reasons.add(
         'P0-NO-CALLCENTER: operador/identidad en turno personal/general',
@@ -126,7 +131,82 @@ final class ConversationDecisionEngine {
       );
     }
 
+    // R6-FORMAT-LEAK-01 (2026-09-07) — prefijo de diálogo interno fugado al
+    // reply: el 1.5B copia el formato de la memoria factual ("Nano: <texto>")
+    // o los rótulos del protocolo como contenido de la respuesta (evidencia
+    // 18:19:37: "como essta" → reply "Nano: Hola Emm." despachado literal al
+    // cliente). Todo reply que arranque con un rótulo interno es formato,
+    // no conversación → hold. El "Respuesta:" legacy ya lo limpia el parser;
+    // aquí muere el resto de los prefijos.
+    if (RegExp(
+      r'^(nano|respuesta|intent|relation|questions|missingfacts|requiresaction)\s*[:=]',
+    ).hasMatch(_fold(understanding.reply.trim()))) {
+      reasons.add('formato interno fugado al reply (prefijo de diálogo)');
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
+        confidence: 0.4,
+        reasons: reasons,
+      );
+    }
+
+    // R6-WRONGTURN-01 (2026-09-07) — saludo fuera de turno: el reply abre
+    // con pregunta-saludo cuando el mensaje del cliente NO fue un saludo.
+    // Evidencia 18:23:41: "como es siempre?" → "Hola Emm, todo bien?"
+    // despachado en modo autonomous (wrong-turn + confusión de
+    // interlocutor: el modelo saluda al dueño en vez de responder al
+    // cliente). Un humano puede saludar a mitad de charla, pero el patrón
+    // de fallo del 1.5B es exactamente este: pregunta-saludo sin saludo
+    // previo = turno equivocado → hold.
+    final replyFold = _fold(understanding.reply.trim());
+    if (replyFold.startsWith('hola') &&
+        replyFold.contains('?') &&
+        !isGreetingLikeMessage(context.userText)) {
+      reasons.add('saludo fuera de turno (pregunta-saludo sin saludo previo)');
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
+        confidence: 0.35,
+        reasons: reasons,
+      );
+    }
+
+    // PROD-ECO-01 — reply que repite el mensaje del cliente: eco del modelo
+    // con contexto degradado (evidencia física 14:19:38: "BIEN Y TU COMO
+    // ESTAS?" → reply "Bien y tú, como estas?" despachado al cliente).
+    // Repetir al cliente es calidad cero: se retiene para el dueño. La
+    // comparación es por IGUALDAD normalizada (fold + puntuación fuera):
+    // un saludo legítimo ("hola" → "Hola, ¿cómo estás?") jamás matchea.
+    if (_normalizedEcho(understanding.reply).isNotEmpty &&
+        _normalizedEcho(understanding.reply) ==
+            _normalizedEcho(context.userText)) {
+      reasons.add('reply eco del cliente: el modelo repitió el mensaje');
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
+        confidence: 0.5,
+        reasons: reasons,
+      );
+    }
+
     var confidence = 0.85;
+
+    // A11 NAME-OVERUSE — nombre del contacto repetido sin función real
+    // ("Hola Diego... Bien Diego..."). El nombre solo se usa con función
+    // (llamar atención, énfasis); dos menciones en un reply corto son
+    // decoración artificial. Degrada, no retiene (no es daño irreversible).
+    if (context.senderName.trim().isNotEmpty) {
+      final name = _fold(context.senderName.trim());
+      if (name.length >= 3) {
+        final mentions = RegExp(
+          '\\b${RegExp.escape(name)}\\b',
+        ).allMatches(_fold(understanding.reply)).length;
+        if (mentions >= 2) {
+          reasons.add('nombre del contacto repetido sin función ($mentions×)');
+          confidence -= 0.15;
+        }
+      }
+    }
 
     // requiresAction: el modelo detectó que hay que hacer algo que el bot
     // no debe ejecutar solo. PERSONA-BUGFIX-02 — la señal SOLO es
@@ -171,11 +251,87 @@ final class ConversationDecisionEngine {
       }
     }
 
+    // R5-05 LIVE STATE FACT — el mensaje pregunta por la actividad/estado
+    // presente del dueño (isLiveStateQuestion, R5-04) y el sistema NO tiene
+    // fuente viva de ese estado. Regla 6 del prompt exige honestidad: "no
+    // sé" + pregunta. Todo lo demás es invento o espejo (QUESTION MIRROR
+    // 4/4 en vivo: el modelo devolvió la misma pregunta o inventó
+    // actividad). Gate determinista:
+    // - declara ignorancia ("no sé") → pasa con degradación leve;
+    // - responde con OTRA pregunta sin declarar ignorancia → espejo
+    //   probable (el cliente preguntó y le devuelven su pregunta) → hold;
+    // - afirma actividad/ubicación del dueño → invención → hold;
+    // - respuesta social sin afirmación ("Hola, bien.") → pasa degradada.
+    if (isLiveStateQuestion(context.userText)) {
+      final r = _fold(understanding.reply);
+      final admitsUnknown =
+          r.contains('no se') ||
+          r.contains('no lo se') ||
+          r.contains('no estoy seguro') ||
+          r.contains('no estoy segura');
+      if (!admitsUnknown) {
+        if (_isAsking(understanding.reply)) {
+          reasons.add(
+            'LIVE STATE: reply espeja la pregunta sobre el dueño '
+            '(QUESTION MIRROR)',
+          );
+          return ConversationDecision(
+            disposition: ConversationDisposition.holdForApproval,
+            risk: ConversationRisk.medium,
+            confidence: confidence - 0.3,
+            reasons: reasons,
+          );
+        }
+        if (_affirmsOwnerActivity(understanding.reply)) {
+          reasons.add(
+            'LIVE STATE: reply afirma actividad/estado del dueño sin '
+            'fuente viva',
+          );
+          return ConversationDecision(
+            disposition: ConversationDisposition.holdForApproval,
+            risk: ConversationRisk.medium,
+            confidence: confidence - 0.35,
+            reasons: reasons,
+          );
+        }
+      }
+      reasons.add('LIVE STATE: reply honesto o social, degradación leve');
+      confidence -= 0.1;
+    }
+
+    // R5-05 COVERAGE — el mensaje trae VARIAS preguntas y el 1.5B suele
+    // responder solo la última. Sin NLU la cobertura pregunta a pregunta
+    // no es verificable: degradación honesta, no hold (el reply puede
+    // responder ambas sin signos de interrogación).
+    if (understanding.questions.length >= 2) {
+      reasons.add('multi-pregunta: cobertura no verificable sin NLU, degrada');
+      confidence -= 0.1;
+    }
+
+    // PROD-SALUDO-01 — saludo puro con reply corto: el 1.5B no emite el
+    // JSON estructurado en saludos (evidencia física 3/3: "Hola" → reply
+    // "Emm, hola!" con intent="") y la penalización de recorte retenía el
+    // saludo SIEMPRE en safeAuto (conf 0.65 = medium), contradiciendo la
+    // promesa del modo ("saludos salen"). Un saludo social corto no tiene
+    // intent comercial que perder ni recorte dañino posible: se traza sin
+    // degradar. Saludo NO puro ("hola, ¿está Emmanuel?") conserva la
+    // penalización completa.
+    // PROD-SOCIAL-03 — mismo fenómeno en reacciones sociales ("bien y tu,
+    // como estas?" → reply eco "¿Cómo estás?" con intent=""): el turno
+    // social continuo tampoco tiene estructura comercial que perder.
     if (understanding.intent.isEmpty) {
-      reasons.add(
-        'intent ausente: salida recortada (reply posiblemente truncado)',
-      );
-      confidence -= 0.2;
+      if (isGreetingLikeMessage(context.userText) ||
+          isSocialReactionMessage(context.userText) ||
+          isLooseLaughterMessage(context.userText)) {
+        reasons.add(
+          'intent ausente en turno social corto: reply social, no degrada',
+        );
+      } else {
+        reasons.add(
+          'intent ausente: salida recortada (reply posiblemente truncado)',
+        );
+        confidence -= 0.2;
+      }
     }
 
     // CONV-SEM-02 / CONV-AGENT-01 — relación semántica del mensaje con la
@@ -254,6 +410,42 @@ final class ConversationDecisionEngine {
   /// se retiene un pedido de aclaración).
   static bool _isAsking(String reply) => reply.contains('?');
 
+  /// R5-05 LIVE STATE FACT — ¿el reply afirma actividad o ubicación del
+  /// dueño en presente/futuro? Heurística determinista sobre verbos y
+  /// marcas de estado en primera persona. Sin fuente viva del estado del
+  /// dueño, cualquiera de estas marcas en un turno de pregunta de estado
+  /// es invención ("estoy trabajando", "estoy por ahí", "hoy voy a
+  /// grabar"). Respuestas sin estas marcas ("Hola, bien.") no afirman
+  /// actividad y pasan degradadas.
+  static bool _affirmsOwnerActivity(String reply) {
+    final r = _fold(reply);
+    const marks = [
+      'estoy',
+      'estaba',
+      'ando',
+      'voy a',
+      'voy pa',
+      'hago',
+      'haciendo',
+      'trabajando',
+      'ocupado',
+      'ocupada',
+      'durmiendo',
+      'descansando',
+      'en casa',
+      'en el trabajo',
+      'en la calle',
+      'por ahi',
+      'por ahí',
+      'acabo de',
+      'llegando',
+      'grabando',
+      'cantando',
+      'jugando',
+    ];
+    return marks.any(r.contains);
+  }
+
   /// P0-NO-CALLCENTER — muletillas de operador prohibidas en PERSONAL.
   /// "¿En qué más puedo ayudarte?" / "¿Algo más?" / "¿Qué necesitas?" son
   /// el fallback genérico que el usuario exige estructuralmente imposible.
@@ -266,6 +458,19 @@ final class ConversationDecisionEngine {
     'necesitas algo',
     'ser util',
     'que necesitas',
+    // R6-CALLCENTER-01 (2026-09-07) — variantes de ofrecimiento que
+    // escaparon la lista y se despacharon en vivo (evidencia 18:19:03:
+    // "Hola, ¿qué puedo hacer por usted hoy?" REMOTE_INPUT_ACCEPTED ante
+    // una risa suelta "Jajajsjsjsja"). "puedo hacer por" cubre ti/usted;
+    // "puedo ayudarte en" cubre la forma extendida con contexto.
+    'puedo hacer por',
+    'hacer por ti',
+    'hacer por usted',
+    'puedo ayudarte en',
+    'como puedo ayudarte',
+    'como puedo ayudar',
+    'en que puedo ayudarte',
+    'en que puedo ayudar',
   ];
 
   static bool _isCallCenterPhrase(String reply) {
@@ -281,4 +486,17 @@ final class ConversationDecisionEngine {
       .replaceAll('í', 'i')
       .replaceAll('ó', 'o')
       .replaceAll('ú', 'u');
+
+  /// PROD-ECO-01 — normalización para detectar eco: fold + puntuación final
+  /// y espacios sobrantes fuera. "Bien y tú, como estas?" y "BIEN Y TU COMO
+  /// ESTAS?" colapsan al mismo texto; un reply que AÑADE contenido ("Hola,
+  /// ¿cómo estás?" ante "hola") jamás matchea por igualdad.
+  static String _normalizedEcho(String s) {
+    var t = _fold(s)
+        .replaceAll('?', ' ')
+        .replaceAll('!', ' ')
+        .replaceAll('.', ' ')
+        .replaceAll(',', ' ');
+    return t.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
 }

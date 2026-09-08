@@ -77,7 +77,8 @@ class _TerminalHubScreenState extends State<TerminalHubScreen>
           final width = constraints.maxWidth;
           final isDeviceLandscape =
               MediaQuery.orientationOf(context) == Orientation.landscape;
-          final compactLandscape = isDeviceLandscape &&
+          final compactLandscape =
+              isDeviceLandscape &&
               width > constraints.maxHeight &&
               constraints.maxHeight < 520;
           final columns = compactLandscape

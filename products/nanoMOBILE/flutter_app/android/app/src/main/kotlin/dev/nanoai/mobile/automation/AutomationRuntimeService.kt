@@ -56,12 +56,20 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var engine: FlutterEngine? = null
+    private val watchdog = Runnable { requestStop("watchdog_no_heartbeat") }
+
+    private var languageHandler: dev.nanoai.mobile.channels.LanguageAssistChannelHandler? = null
+
+    private fun refreshWatchdog() {
+        mainHandler.removeCallbacks(watchdog)
+        mainHandler.postDelayed(watchdog, WATCHDOG_MS)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        if (running) {
+        if (running || NanoApplication.from(this).runtimeScope.hasHolder(RuntimeScope.Holder.UI)) {
             stopSelf()
             return
         }
@@ -75,7 +83,7 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         app.runtimeScope.nativeSupervisor.start()
         Log.i(TAG, "onCreate: booting headless engine")
         mainHandler.post(this::bootEngine)
-        mainHandler.postDelayed({ requestStop("watchdog") }, WATCHDOG_MS)
+        refreshWatchdog()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -93,6 +101,8 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         if (instance === this) instance = null
         mainHandler.removeCallbacksAndMessages(null)
         ioScope.cancel()
+        languageHandler?.close()
+        languageHandler = null
         val e = engine
         engine = null
         e?.destroy()
@@ -145,8 +155,13 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
             .setMethodCallHandler(AgentChannelHandler())
         MethodChannel(messenger, RuntimeChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(RuntimeChannelHandler())
-        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME,
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue())
             .setMethodCallHandler(AutomationStoreChannelHandler(this))
+        val language = dev.nanoai.mobile.channels.LanguageAssistChannelHandler(this)
+        languageHandler = language
+        MethodChannel(messenger, dev.nanoai.mobile.channels.LanguageAssistChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(language)
         MethodChannel(messenger, HEADLESS_CHANNEL).setMethodCallHandler(this)
     }
 
@@ -157,6 +172,10 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "isHeadless" -> result.success(true)
+            "heartbeat" -> {
+                refreshWatchdog()
+                result.success(null)
+            }
 
             "claim" -> {
                 val limit = call.argument<Number>("limit")?.toInt() ?: CLAIM_LIMIT
@@ -239,6 +258,8 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         if (!running) return
         running = false
         Log.i(TAG, "requestStop: $reason")
+        languageHandler?.close()
+        languageHandler = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         val e = engine
         engine = null
@@ -289,7 +310,11 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
          *  lo retomará el próximo wake (filas RESERVED se re-reclaman viejas). */
         fun onUiEngineAttached() {
             val active = instance ?: return
-            active.mainHandler.post { active.requestStop("ui_attached") }
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+                active.requestStop("ui_attached")
+            } else {
+                active.mainHandler.post { active.requestStop("ui_attached") }
+            }
         }
     }
 }

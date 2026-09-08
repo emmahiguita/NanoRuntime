@@ -511,9 +511,11 @@ class ShellExecutor implements IBinExecutor {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
       if (!rcF.existsSync()) {
-        try {
-          await NanoRuntimeApi.instance.workerKill();
-        } catch (_) {}
+        // IMPORTANT: do NOT call workerKill() here.
+        // workerKill() → workerKillGroup() → kill(-pgid, SIGKILL) which
+        // terminates ALL tasks running in the worker, not just this one.
+        // On timeout, simply abandon this task's result files and fall back
+        // to in-process execution. The worker remains alive for other tasks.
         return null; // timeout → caer al in-process
       }
       final rc = int.tryParse(rcF.readAsStringSync().trim()) ?? -1;
@@ -569,7 +571,8 @@ class ShellExecutor implements IBinExecutor {
     if (wr != null) return wr;
     return const ShellResult(
       stdout: '',
-      stderr: 'WorkerUnavailable: el proceso :nanoshell no está disponible '
+      stderr:
+          'WorkerUnavailable: el proceso :nanoshell no está disponible '
           '(fork+dlopen in-process deshabilitado en Android 15)',
       exitCode: -1,
     );
@@ -612,7 +615,8 @@ class ShellExecutor implements IBinExecutor {
     if (wr != null) return wr;
     return const ShellResult(
       stdout: '',
-      stderr: 'WorkerUnavailable: el proceso :nanoshell no está disponible '
+      stderr:
+          'WorkerUnavailable: el proceso :nanoshell no está disponible '
           '(fork+dlopen in-process deshabilitado en Android 15)',
       exitCode: -1,
     );
@@ -662,9 +666,11 @@ class ShellExecutor implements IBinExecutor {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
       if (!rcF.existsSync()) {
-        try {
-          await NanoRuntimeApi.instance.workerKill();
-        } catch (_) {}
+        // IMPORTANT: do NOT call workerKill() here.
+        // workerKill() → workerKillGroup() → kill(-pgid, SIGKILL), which
+        // kills ALL concurrent worker tasks, not only this timed-out one.
+        // Callers that need hard abort (e.g., destroy flow) call workerKill()
+        // explicitly at the supervisor level.
         return const ShellResult(
           stdout: '',
           stderr: 'worker timeout',

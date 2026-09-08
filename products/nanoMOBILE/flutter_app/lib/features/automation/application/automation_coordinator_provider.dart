@@ -5,6 +5,8 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
+import 'package:nanoai/features/automation/engine/language/language_assist.dart';
+import 'package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
     show resolveConversationIdentity;
@@ -387,7 +389,6 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
 /// asíncrona (arranque); el pipeline consulta `rules` en memoria.
 final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
   final registry = RuleRegistry(SharedPrefsRuleStore());
-  registry.load();
   return registry;
 });
 
@@ -396,7 +397,6 @@ final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
 /// (shared_prefs JSON); la carga es asíncrona (arranque) igual que las reglas.
 final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
   final store = SqliteEventDedupeStore();
-  store.load();
   return store;
 });
 
@@ -404,7 +404,6 @@ final eventDedupeStoreProvider = Provider<EventDedupeStore>((ref) {
 /// Persistente (shared_prefs JSON), misma carga asíncrona que el dedupe.
 final contactRateLimiterProvider = Provider<ContactRateLimiter>((ref) {
   final limiter = SqliteContactRateLimiter();
-  limiter.load();
   return limiter;
 });
 
@@ -455,6 +454,13 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
       // contextual que el candidato de notificación (un solo motor).
       draftSource: ref.watch(notificationDraftSourceProvider),
+      // A07 — fast path pragmático determinista: saludo/agradecimiento puros
+      // se responden SIN inferencia (ANDROID FIRST / SMALL LLM LAST). El
+      // reply determinista pasa IGUAL por el decision engine.
+      fastPath: const PragmaticFastPath(),
+      // A12 — política térmica: el dispatcher consulta el estado EN VIVO
+      // antes de cada inferencia (SEVERE+ suprime el LLM, jamás la seguridad).
+      thermalStatus: () => LanguageAssistService().thermalStatus(),
       // PERSONA-DECISION-02 — decisión determinista antes de despachar el
       // draft dinámico (FACTS → DECISION → SEND).
       decisionEngine: const ConversationDecisionEngine(),
@@ -487,7 +493,10 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
           facts: ref.read(businessFactsNotifierProvider),
           hasRelationship: ref
               .read(personaContextProvider)
-              .hasRelationshipFor(notif.sender),
+              .hasRelationshipFor(
+                notif.sender,
+                conversationId: resolveConversationIdentity(notif).key.id,
+              ),
           hasActiveProduct: hasActiveProduct,
           // P0-ROUTE — identidad: "¿está Emmanuel?" es PERSONAL aunque el
           // remitente no tenga relación registrada.
@@ -509,6 +518,10 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
           // P0-NO-CALLCENTER — el texto del mensaje viaja al engine para el
           // guard determinista de saludo + identidad ("Soy Nano").
           userText: notif.text,
+          // A11 — nombre del remitente como señal (NAME OVERUSE GUARD):
+          // KNOWN NAME != MUST USE NAME; jamás usar el nombre en cada
+          // saludo ni como sustituto de hechos reales.
+          senderName: notif.sender,
         );
       },
       // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
@@ -527,7 +540,9 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
 /// BurstTurnGate la incrementa por cada inbound, el RulePipeline también en
 /// rutas sin gate y el RuleDispatcher captura/verifica antes del envío.
 final turnSupersedeGuardProvider = Provider<TurnSupersedeGuard>((ref) {
-  return TurnSupersedeGuard();
+  final guard = TurnSupersedeGuard();
+  ref.onDispose(guard.invalidateAll);
+  return guard;
 });
 
 /// PERSONA-HANDOFF-03 + PERSONA-STORAGE-04 — ownership por conversación
@@ -542,7 +557,7 @@ final conversationOwnershipStoreProvider =
 /// mensajes de la misma conversación en un único turno y serializa los
 /// turnos por chat. La usa el router de eventos vivos Y el drenado headless.
 final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
-  return BurstTurnGate(
+  final gate = BurstTurnGate(
     // WA-CONV-03: cada mensaje REAL (incluido el que llega mientras un turno
     // corre) incrementa la versión → supersede del draft en curso.
     onInbound: (conversationId) =>
@@ -568,6 +583,8 @@ final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
           );
     },
   );
+  ref.onDispose(gate.dispose);
+  return gate;
 });
 
 /// Router de eventos en vivo de notificación (T3.2): EventChannel nativo →

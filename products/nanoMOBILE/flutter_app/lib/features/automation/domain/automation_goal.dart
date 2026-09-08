@@ -15,6 +15,8 @@ import 'package:nanoai/features/automation/engine/governance/action_confirmation
     show ActionConfirmation;
 import 'package:nanoai/features/automation/engine/governance/rule_execution_authority.dart'
     show RuleExecutionAuthority;
+import '../engine/messaging/reply_capability.dart';
+
 import 'package:nanoai/features/automation/engine/navigation/navigation_goal.dart'
     show NavigationGoal;
 import 'package:nanoai/features/automation/engine/navigation/situation_diff.dart'
@@ -65,8 +67,21 @@ class AutomationOptions {
   /// null en flujos interactivos (siguen pidiendo confirmación normal).
   final RuleExecutionAuthority? authority;
 
+  /// Revalidated by cooperative execution immediately before side effects.
+  final bool Function()? isCurrent;
+
+  /// Exact observed target for notification-originated replies. Never resolve
+  /// this target again by a display name in the planner.
+  final ReplyCapabilityRef? replyCapability;
+  final String? replyText;
+  final String? incomingEventId;
+
   const AutomationOptions({
     this.executionId,
+    this.isCurrent,
+    this.replyCapability,
+    this.replyText,
+    this.incomingEventId,
     this.confirmed = false,
     this.confirmation,
     this.authority,

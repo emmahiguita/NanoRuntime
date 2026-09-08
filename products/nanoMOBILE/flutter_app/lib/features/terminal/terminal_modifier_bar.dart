@@ -45,14 +45,18 @@ class TerminalModifierBar extends StatelessWidget {
     final keyFg = dark ? _keyFg : _keyFgLight;
 
     Widget divider() => Container(
-          width: 1,
-          height: 16,
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.07),
-        );
+      width: 1,
+      height: 16,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.07),
+    );
 
-    Widget key(String label, VoidCallback onTap,
-        {String? longLabel, bool active = false}) {
+    Widget key(
+      String label,
+      VoidCallback onTap, {
+      String? longLabel,
+      bool active = false,
+    }) {
       return _AnimatedKey(
         label: longLabel ?? label,
         onTap: onTap,
@@ -72,8 +76,12 @@ class TerminalModifierBar extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           key('Esc', () => onWriteBytes([0x1b])),
-          key('Ctrl', onToggleCtrl,
-              longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl', active: ctrlActive),
+          key(
+            'Ctrl',
+            onToggleCtrl,
+            longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
+            active: ctrlActive,
+          ),
           key('Tab', () => onWriteBytes([0x09])),
           divider(),
           // TER-11: señales (0x03 por ISIG del kernel genera el SIGINT —

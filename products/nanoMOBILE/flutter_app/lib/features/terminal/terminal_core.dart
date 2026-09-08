@@ -97,6 +97,8 @@ class _TermState extends State<NanoTerminal> {
     kali: _kali,
     proot: _proot,
     ubuntu: _ubuntu,
+    openPty: (argv, {env, ldPreload}) =>
+        _ptyOpen(argv, env: env, ldPreload: ldPreload),
     deviceId: _devId,
     onClear: () {
       if (mounted) setState(() => _lines.clear());
@@ -276,9 +278,10 @@ class _TermState extends State<NanoTerminal> {
     _autoPtyDone = true;
     _after(
       const Duration(milliseconds: 500),
-      () => _ptyOpen(['bash'], env: {
-        'PROMPT_COMMAND': r'printf "\033]7;file://%s\033\\" "$PWD"',
-      }),
+      () => _ptyOpen(
+        ['bash'],
+        env: {'PROMPT_COMMAND': r'printf "\033]7;file://%s\033\\" "$PWD"'},
+      ),
     );
   }
 
@@ -421,12 +424,8 @@ class _TermState extends State<NanoTerminal> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => NoarPanel(
-        library: _noarLib,
-        fg: fg,
-        dark: dark,
-        onUse: _useCommand,
-      ),
+      builder: (_) =>
+          NoarPanel(library: _noarLib, fg: fg, dark: dark, onUse: _useCommand),
     ).whenComplete(() {
       if (mounted) {
         setState(() => _fabHidden = false);
@@ -838,8 +837,7 @@ class _TermState extends State<NanoTerminal> {
       argv,
       env: env,
       ldPreload:
-          ldPreload ??
-          (_rootfs?.isInstalled == true ? 'libnanoroot.so' : null),
+          ldPreload ?? (_rootfs?.isInstalled == true ? 'libnanoroot.so' : null),
     );
     if (!ok) {
       // Un Ãºnico camino de apertura. El fallback histÃ³rico abrÃ­a una segunda
@@ -890,7 +888,6 @@ class _TermState extends State<NanoTerminal> {
   final NoarPersistence _noar = NoarPersistence();
   List<Map<String, dynamic>> get _noarLib => _noar.entries;
 
-
   /// Construye el contexto de ejecuciÃ³n del CommandExecutor (T0.1B). Cada
   /// campo mutable se toma del state en el momento de la llamada; el executor
   /// es la Ãºnica implementaciÃ³n del pipeline, el state solo presta sus campos.
@@ -902,32 +899,33 @@ class _TermState extends State<NanoTerminal> {
       _hist.removeRange(0, _hist.length - 1000);
     }
     return CmdExecCtx(
-    out: _out,
-    after: _after,
-    pty: _pty,
-    ptyActive: _ptyActive,
-    closePty: () => _ptyClose(),
-    ps1: _ps1,
-    history: _hist,
-    historyIndex: _hIdx,
-    input: _in,
-    saveToNoar: (cmd, tag) => _noar.save(cmd, tag),
-    tagFor: (cmd) => CommandTagger.tag(cmd),
-    dispatcher: _dispatcher,
-    hasShellOps: _hasShellOps,
-    shell: _shell,
-    bashCwd: _bashCwd,
-    rootfs: _rootfs,
-    realFs: _realFs,
-    isAndroid: Platform.isAndroid,
-    rootfsEnv: _deps.rootfsEnv,
-    shellOut: _shellOut,
-    tokenize: _tok,
-    ctx: _ctx,
-    cmds: _cmds,
-    audit: null,
-    alive: _alive,
-  );
+      out: _out,
+      after: _after,
+      pty: _pty,
+      ptyActive: _ptyActive,
+      closePty: () => _ptyClose(),
+      openPty: (argv) => _ptyOpen(argv),
+      ps1: _ps1,
+      history: _hist,
+      historyIndex: _hIdx,
+      input: _in,
+      saveToNoar: (cmd, tag) => _noar.save(cmd, tag),
+      tagFor: (cmd) => CommandTagger.tag(cmd),
+      dispatcher: _dispatcher,
+      hasShellOps: _hasShellOps,
+      shell: _shell,
+      bashCwd: _bashCwd,
+      rootfs: _rootfs,
+      realFs: _realFs,
+      isAndroid: Platform.isAndroid,
+      rootfsEnv: _deps.rootfsEnv,
+      shellOut: _shellOut,
+      tokenize: _tok,
+      ctx: _ctx,
+      cmds: _cmds,
+      audit: null,
+      alive: _alive,
+    );
   }
 
   /// Vuelca la salida de un ShellResult en el buffer del terminal.
@@ -1078,13 +1076,13 @@ class _TermState extends State<NanoTerminal> {
     final headerLabel = _ptyActive
         ? 'PTY: bash (rootfs real)'
         : rootfsOk
-            ? 'bash + toybox (modo comando)'
-            : 'OFFLINE (rootfs no instalado)';
+        ? 'bash + toybox (modo comando)'
+        : 'OFFLINE (rootfs no instalado)';
     final headerColor = _ptyActive
         ? c.success
         : rootfsOk
-            ? fg.withValues(alpha: 0.6)
-            : c.warning;
+        ? fg.withValues(alpha: 0.6)
+        : c.warning;
     return Stack(
       children: [
         Column(
@@ -1099,14 +1097,8 @@ class _TermState extends State<NanoTerminal> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: dark
-                      ? [
-                          const Color(0xFF0E2238),
-                          const Color(0xFF07192B),
-                        ]
-                      : [
-                          c.terminalBg.withValues(alpha: 0.9),
-                          c.terminalBg,
-                        ],
+                      ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
+                      : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
                 ),
                 border: Border(
                   bottom: BorderSide(color: fg.withValues(alpha: 0.08)),
@@ -1283,14 +1275,8 @@ class _TermState extends State<NanoTerminal> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: dark
-                        ? [
-                            const Color(0xFF0E2238),
-                            const Color(0xFF07192B),
-                          ]
-                        : [
-                            c.terminalBg.withValues(alpha: 0.9),
-                            c.terminalBg,
-                          ],
+                        ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
+                        : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
                   ),
                   border: Border(
                     top: BorderSide(color: fg.withValues(alpha: 0.08)),
@@ -1323,14 +1309,8 @@ class _TermState extends State<NanoTerminal> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: dark
-                      ? [
-                          const Color(0xFF0E2238),
-                          const Color(0xFF07192B),
-                        ]
-                      : [
-                          c.terminalBg.withValues(alpha: 0.9),
-                          c.terminalBg,
-                        ],
+                      ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
+                      : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
                 ),
                 border: Border(
                   top: BorderSide(color: fg.withValues(alpha: 0.12)),
@@ -1512,8 +1492,7 @@ class _TermState extends State<NanoTerminal> {
                     duration: _fabPressed
                         ? const Duration(milliseconds: 110)
                         : const Duration(milliseconds: 420),
-                    curve:
-                        _fabPressed ? Curves.easeOut : Curves.easeOutBack,
+                    curve: _fabPressed ? Curves.easeOut : Curves.easeOutBack,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 260),
                       opacity: (_fabInit && !_fabHidden) ? 1.0 : 0.0,
@@ -1549,8 +1528,7 @@ class _TermState extends State<NanoTerminal> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      Colors.black.withValues(alpha: 0.25),
+                                  color: Colors.black.withValues(alpha: 0.25),
                                   blurRadius: 18,
                                   offset: const Offset(0, 6),
                                 ),
@@ -1587,9 +1565,9 @@ class _TermState extends State<NanoTerminal> {
                                       bottom: 0,
                                       child: AnimatedOpacity(
                                         duration: const Duration(
-                                            milliseconds: 180),
-                                        opacity:
-                                            _fabCollapsed ? 0.0 : 1.0,
+                                          milliseconds: 180,
+                                        ),
+                                        opacity: _fabCollapsed ? 0.0 : 1.0,
                                         child: const Align(
                                           alignment: Alignment.centerLeft,
                                           child: Text(
@@ -1712,9 +1690,7 @@ class _SuggestionChipState extends State<_SuggestionChip> {
               fontFamily: 'JetBrainsMono',
               fontSize: 11.5,
               fontWeight: _pressed ? FontWeight.w700 : FontWeight.w500,
-              color: _pressed
-                  ? widget.fg
-                  : widget.fg.withValues(alpha: 0.7),
+              color: _pressed ? widget.fg : widget.fg.withValues(alpha: 0.7),
             ),
           ),
         ),

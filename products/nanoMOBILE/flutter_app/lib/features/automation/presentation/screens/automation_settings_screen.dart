@@ -18,13 +18,12 @@ import 'package:nanoai/features/automation/engine/messaging/tone_profile_provide
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_repository.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/persona_example.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/persona_profile.dart';
 
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/capability_status_card.dart';
 import 'automation_rules_screen.dart';
+import '../../personal_agent/presentation/personalization_studio_screen.dart';
 
 /// Configuración del agente basada exclusivamente en estados persistidos y
 /// capacidades reales. No presenta toggles que el runtime no consuma.
@@ -157,6 +156,23 @@ class AutomationSettingsScreen extends ConsumerWidget {
                           // de relación (contactos). El retriever
                           // (RETRIEVAL-07) los lleva al prompt.
                           const AutomationSectionLabel('Agente personal'),
+                          _SettingsCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.psychology_outlined,
+                                title: 'Aprender de mis conversaciones',
+                                subtitle:
+                                    'Importar, revisar y personalizar por contacto',
+                                onTap: () => Navigator.of(context).push(
+                                  nanoGlassPageRoute<void>(
+                                    builder: (_) =>
+                                        const PersonalizationStudioScreen(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
                           const _PersonalAgentCard(),
                           const SizedBox(height: 24), // UI-REV-02: gap Dev xl
                           const AutomationSectionLabel('Reglas'),
@@ -650,22 +666,25 @@ class _BackgroundAutomationCardState
 
 /// AUTO-03 — modo de autonomía del pipeline de WhatsApp. El MISMO motor de
 /// decisión (ConversationDecisionEngine) aplica el modo como tope ANTES de su
-/// fórmula: no hay segundo motor ni reglas nuevas. Paridad: 'autonomous' es
-/// el comportamiento previo exacto (default y fallback de fromName).
+/// fórmula: no hay segundo motor ni reglas nuevas.
+/// AUTONOMY FAIL-SAFE (PROD-02): `waAutonomyMode == null` = el dueño aún no
+/// elige. La card lo dice honesto (sin pretender que hay selección) y el
+/// pipeline opera en safeAuto hasta que el dueño elija en este picker.
 class _AutonomyModeCard extends ConsumerWidget {
   const _AutonomyModeCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ConversationAutonomyModeName.fromName(
-      ref.watch(settingsProvider).waAutonomyMode,
-    );
+    final raw = ref.watch(settingsProvider).waAutonomyMode;
+    final mode = ConversationAutonomyModeName.fromName(raw);
     return _SettingsCard(
       children: [
         _SettingsRow(
           icon: Icons.auto_awesome_outlined,
           title: 'Autonomía de respuestas',
-          subtitle: mode.description,
+          subtitle: raw == null
+              ? 'No has elegido aún — Nano solo responde lo seguro.'
+              : mode.description,
           trailing: _ValueBadge(label: mode.label.toUpperCase()),
           onTap: () => _pickAutonomyMode(context, ref),
         ),
@@ -677,9 +696,12 @@ class _AutonomyModeCard extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final selected = ConversationAutonomyModeName.fromName(
-      ref.read(settingsProvider).waAutonomyMode,
-    );
+    // Sin elección persistida no se marca NINGÚN radio (el null jamás se
+    // convierte en una selección visual); elegir queda 100% explícito.
+    final rawSelected = ref.read(settingsProvider).waAutonomyMode;
+    final selected = rawSelected == null
+        ? null
+        : ConversationAutonomyModeName.fromName(rawSelected);
     final value = await showModalBottomSheet<ConversationAutonomyMode>(
       context: context,
       showDragHandle: true,
@@ -736,9 +758,9 @@ class _PersonalAgentCard extends ConsumerStatefulWidget {
 class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
   final _nameController = TextEditingController();
   final _notesController = TextEditingController();
-  List<RelationshipProfile> _relationships = const [];
-  List<PersonaExample> _examples = const [];
-  Timer? _saveDebounce;
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
 
   @override
   void initState() {
@@ -748,161 +770,74 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
     _nameController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    final repo = PersonaRepository.instance;
-    final personas = await repo.listPersonas();
-    PersonaProfile? owner;
-    for (final p in personas) {
-      if (p.personaKey == 'owner') owner = p;
+    try {
+      final personas = await PersonaRepository.instance.listPersonas();
+      final owner = personas.where((p) => p.personaKey == 'owner').firstOrNull;
+      if (!mounted) return;
+      setState(() {
+        _nameController.text = owner?.displayName ?? '';
+        _notesController.text = owner?.facts['notas'] ?? '';
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'No se pudo leer tu perfil. Reintenta antes de editarlo.';
+        });
+      }
     }
-    final relationships = await repo.listRelationships();
-    final examples = await repo.listExamples();
-    if (!mounted) return;
-    setState(() {
-      _nameController.text = owner?.displayName ?? '';
-      _notesController.text = owner?.facts['notas'] ?? '';
-      _relationships = relationships;
-      _examples = examples;
-    });
   }
 
-  void _scheduleOwnerSave() {
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 600), () {
-      PersonaRepository.instance
-          .upsertPersona('owner', _nameController.text.trim(), {
-            'notas': _notesController.text.trim(),
-          })
-          .then((_) => _refreshSharedContext());
-    });
-  }
-
-  /// PERSONA-COMPOSE-08 — el cache compartido del writer (PersonaContext)
-  /// se refresca tras cada mutación: el siguiente borrador ve el dato nuevo
-  /// sin reiniciar la app.
-  void _refreshSharedContext() {
-    unawaited(ref.read(personaContextProvider).refresh());
-  }
-
-  Future<void> _addRelationship() async {
-    final nameController = TextEditingController();
-    final notesController = TextEditingController();
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Nuevo contacto'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Nombre del contacto',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Notas (preferencias, trato, contexto)',
-              ),
-            ),
-          ],
+  Future<void> _save() async {
+    if (_saving || _loading || _error != null) return;
+    final name = _nameController.text.trim();
+    final notes = _notesController.text.trim();
+    if (name.length > 80 || notes.length > 500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Máximo 80 caracteres para el nombre y 500 para las notas.',
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final repo = PersonaRepository.instance;
+      final profiles = await repo.listPersonas();
+      final owner = profiles.where((p) => p.personaKey == 'owner').firstOrNull;
+      final saved = await repo.upsertPersona('owner', name, {
+        ...?owner?.facts,
+        'notas': notes,
+      });
+      if (!saved) throw StateError('No se pudo guardar el perfil.');
+      if (!mounted) return;
+      await ref.read(personaContextProvider).refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Perfil guardado.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo completar el guardado. Reintenta.'),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    nameController.dispose();
-    notesController.dispose();
-    if (saved != true) return;
-    final name = nameController.text.trim();
-    final notes = notesController.text.trim();
-    if (name.isEmpty) return;
-    await PersonaRepository.instance.upsertRelationship(
-      name.toLowerCase(),
-      name,
-      {'notas': notes},
-    );
-    _refreshSharedContext();
-    await _load();
-  }
-
-  Future<void> _deleteRelationship(RelationshipProfile profile) async {
-    await PersonaRepository.instance.deleteRelationship(
-      profile.relationshipKey,
-    );
-    _refreshSharedContext();
-    await _load();
-  }
-
-  Future<void> _addExample() async {
-    final bodyController = TextEditingController();
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Nuevo ejemplo de estilo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: bodyController,
-              autofocus: true,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Así respondería yo…',
-                hintText:
-                    'Ej. "¡Hola Juan! Sí, el negro está disponible. '
-                    '¿Te lo aparto para hoy?"',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    bodyController.dispose();
-    if (saved != true) return;
-    final body = bodyController.text.trim();
-    if (body.isEmpty) return;
-    await PersonaRepository.instance.addExample(
-      personaKey: 'owner',
-      body: body,
-      source: 'manual',
-    );
-    _refreshSharedContext();
-    await _load();
-  }
-
-  Future<void> _deleteExample(PersonaExample example) async {
-    await PersonaRepository.instance.deleteExample(example.id);
-    _refreshSharedContext();
-    await _load();
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -911,16 +846,21 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
     return _SettingsCard(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+          padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_loading) const LinearProgressIndicator(),
+              if (_error != null) ...[
+                Text(_error!, style: TextStyle(color: visual.textMuted)),
+                TextButton(onPressed: _load, child: const Text('Reintentar')),
+              ],
               TextField(
                 controller: _nameController,
-                onChanged: (_) => _scheduleOwnerSave(),
+                enabled: !_loading && !_saving && _error == null,
+                maxLength: 80,
                 decoration: const InputDecoration(
-                  labelText: 'Tu nombre (cómo te presenta el agente)',
-                  hintText: 'Ej. Emmanuel',
+                  labelText: 'Tu nombre',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -929,148 +869,29 @@ class _PersonalAgentCardState extends ConsumerState<_PersonalAgentCard> {
               const SizedBox(height: 12),
               TextField(
                 controller: _notesController,
-                onChanged: (_) => _scheduleOwnerSave(),
+                enabled: !_loading && !_saving && _error == null,
                 maxLines: 3,
+                maxLength: 500,
                 decoration: const InputDecoration(
-                  labelText: 'Datos que Nano debe saber de ti',
-                  hintText:
-                      'Ej. "Atiendo en horario de oficina; prefiero '
-                      'respuestas cortas"',
+                  labelText: 'Preferencias estables sobre ti',
+                  hintText: 'Ej. Prefiero respuestas cortas.',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
                 style: TextStyle(color: visual.text, fontSize: 14),
               ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Relaciones (${_relationships.length})',
-                  style: TextStyle(
-                    color: visual.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                  ),
-                ),
+              FilledButton(
+                onPressed: _loading || _saving || _error != null ? null : _save,
+                child: Text(_saving ? 'Guardando…' : 'Guardar perfil'),
               ),
-              TextButton.icon(
-                onPressed: _addRelationship,
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                label: const Text('Añadir contacto'),
+              const SizedBox(height: 8),
+              Text(
+                'Contactos, ejemplos y memorias se administran en «Aprender de mis conversaciones».',
+                style: TextStyle(color: visual.textMuted, fontSize: 12),
               ),
             ],
           ),
         ),
-        for (final profile in _relationships)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        profile.displayName,
-                        style: TextStyle(
-                          color: visual.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (profile.facts['notas']?.isNotEmpty ?? false)
-                        Text(
-                          profile.facts['notas']!,
-                          style: TextStyle(
-                            color: visual.textMuted,
-                            fontSize: 12,
-                            height: 1.3,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  tooltip: 'Borrar relación',
-                  onPressed: () => _deleteRelationship(profile),
-                ),
-              ],
-            ),
-          ),
-        if (_relationships.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-            child: Text(
-              'Sin contactos guardados. Añade uno para que Nano recuerde '
-              'cómo tratar a cada cliente.',
-              style: TextStyle(color: visual.textMuted, fontSize: 12),
-            ),
-          ),
-        const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Ejemplos de estilo (${_examples.length})',
-                  style: TextStyle(
-                    color: visual.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _addExample,
-                icon: const Icon(Icons.add_comment_outlined, size: 18),
-                label: const Text('Añadir ejemplo'),
-              ),
-            ],
-          ),
-        ),
-        for (final example in _examples)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    example.body,
-                    style: TextStyle(
-                      color: visual.text,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  tooltip: 'Borrar ejemplo',
-                  onPressed: () => _deleteExample(example),
-                ),
-              ],
-            ),
-          ),
-        if (_examples.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-            child: Text(
-              'Sin ejemplos. Guarda mensajes tal como tú los escribirías: '
-              'Nano los usará de guía de estilo para responder.',
-              style: TextStyle(color: visual.textMuted, fontSize: 12),
-            ),
-          ),
       ],
     );
   }

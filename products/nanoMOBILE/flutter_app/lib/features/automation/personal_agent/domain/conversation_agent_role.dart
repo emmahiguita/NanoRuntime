@@ -180,6 +180,11 @@ const Set<String> socialReactionTokens = {
   'alegras',
   'alegre',
   'alegran',
+  // PROD-SOCIAL-03 (2026-09-07) — respuesta al saludo de Nano: "bien y tu
+  // como estas?" cayó a GENERAL porque 'bien' faltaba (solo 'bueno'/'buena'
+  // estaban, evidencia previa de "me alegra que estes bien"). "bien" es LA
+  // respuesta al "¿cómo estás?" — reacción social pura por excelencia.
+  'bien',
   'bueno',
   'buena',
   'genial',
@@ -203,6 +208,27 @@ const Set<String> socialReactionTokens = {
   'ok',
   'okay',
   'entendido',
+  // PROD-SOCIAL-04 (2026-09-07) — tokens de risa y vocativos también como
+  // reacción (sin límite de longitud): "si creo mano jajajaja" (4 tokens)
+  // cayó a GENERAL porque 'jajajaja' solo estaba en el casual corto (≤3).
+  // Tercera evidencia del mismo bug estructural: un token social lo es con
+  // cualquier longitud. Los mensajes comerciales salieron antes por SALES.
+  'haces',
+  'haciendo',
+  'jajaja',
+  'jajaj',
+  'jaja',
+  'jeje',
+  'jajajaja',
+  'bro',
+  'parce',
+  'parcero',
+  'mano',
+  'amigo',
+  'amiga',
+  'socio',
+  'cuentame',
+  'contame',
 };
 
 /// P0-FAMILY (2026-09-06) — personas del entorno del dueño. "¿está tu
@@ -344,7 +370,7 @@ ConversationAgentRouting routeConversationAgent({
     // sociales (relación → PERSONAL; sin relación → GENERAL).
     reasons.add(productMentionedWithoutCommerce);
   }
-  if (isPureGreeting(messageText)) {
+  if (isGreetingLikeMessage(messageText)) {
     // P0 — social puro es PERSONAL SIEMPRE: el turno lo atiende la persona
     // del dueño (MI ESTILO), jamás el fallback general. La relación no
     // decide: un desconocido que saluda también es conversación social.
@@ -407,6 +433,19 @@ ConversationAgentRouting routeConversationAgent({
       commercialIntent: commercialIntent,
     );
   }
+  // PROD-SOCIAL-05 — risa desordenada ("Jajajsjsjsja"): el teclado real
+  // intercala ruido que ningún token exacto cubre (evidencia física
+  // 14:23:50: risa con typo cayó a GENERAL). Patrón determinista acotado
+  // (sílaba de risa repetida), no NLU: la risa es social puro → PERSONAL
+  // (P0-ROUTE-02).
+  if (isLooseLaughterMessage(messageText)) {
+    reasons.add('risa (patrón desordenado)');
+    return ConversationAgentRouting(
+      role: ConversationAgentRole.personal,
+      reasons: reasons,
+      commercialIntent: commercialIntent,
+    );
+  }
   // P0-SOCIAL-2 — reacción/continuación social ("me alegra que estes
   // bien", "gracias", "dale"): sin señales de negocio (ya salieron), un
   // token de reacción social marca conversación social pura.
@@ -454,6 +493,32 @@ ConversationAgentRouting routeConversationAgent({
 bool isCorrectionMessage(String messageText) =>
     correctionPhrases.any(normalizeText(messageText).contains);
 
+/// R5-GREETING-01 (2026-09-07) — saludo EXTENDIDO: el saludo puro exacto
+/// (isPureGreeting, todos los tokens en greetingTokens) no cubre el saludo
+/// real con nombre de contacto: "Hola como estas emma?" falla por 'emma'
+/// (evidencia física 16:17:20: cayó a GENERAL con prompt completo, JSON
+/// recortado e intent="" → turno retenido y el cliente sin saludo).
+///
+/// Regla estructural (no frase-keyword): el PRIMER token es de saludo, el
+/// mensaje es CORTO (≤4 tokens) y el resto no trae señales de contenido
+/// (comercial, queja o corrección). "hola, ¿cuánto vale el negro?" NO es
+/// saludo ('cuanto' es señal comercial); "hola como estas emma?" SÍ lo es
+/// (el nombre propio no es señal de dominio). Las ramas del router que
+/// cambian de dominio (identidad, corrección, soporte, comercial) corren
+/// ANTES de la rama de saludo, así que esta función solo afina el límite
+/// saludo-vs-general.
+bool isGreetingLikeMessage(String messageText) {
+  if (isPureGreeting(messageText)) return true;
+  final normalized = normalizeText(messageText);
+  final tokens = tokenizeText(normalized);
+  if (tokens.isEmpty || tokens.length > 4) return false;
+  if (!greetingTokens.contains(tokens.first)) return false;
+  if (tokens.any(commercialIntentTokens.contains)) return false;
+  if (supportPhrases.any(normalized.contains)) return false;
+  if (correctionPhrases.any(normalized.contains)) return false;
+  return true;
+}
+
 /// P0-SOCIAL-2 — helper para el writer: reacción/continuación social
 /// ("me alegra", "gracias", "dale"). Igual que el saludo puro usa el
 /// prompt social mínimo: el prompt completo (JSON + reglas) empuja al
@@ -462,3 +527,38 @@ bool isCorrectionMessage(String messageText) =>
 /// marcó social puro.
 bool isSocialReactionMessage(String messageText) =>
     tokenizeText(normalizeText(messageText)).any(socialReactionTokens.contains);
+
+/// R5-04 (2026-09-07) — LIVE STATE: ¿el mensaje pregunta por la actividad
+/// o ubicación PRESENTE/FUTURA del dueño? Patrones deterministas acotados
+/// (sin NLU): 'que' + verbo de hacer, 'hoy' + verbo, o ubicación ('donde'/
+/// 'ahi' + verbo de presencia).
+///
+/// Evidencia física QUESTION MIRROR 4/4: "y que vas hacer hoy?" → "¿Qué
+/// actividades tienes planeadas para hoy?", "que haras hoy" → "¿Qué te
+/// gustaría saber?", "hoy iras a rapear?" → "¿Qué día es hoy?". El sistema
+/// NO tiene fuente viva del estado del dueño (R5-04 LIVE OWNER STATE SOURCE
+/// = NOT FOUND): afirmar qué hace, dónde está o qué hará es inventar. Esta
+/// señal activa la regla de honestidad de los prompts y el gate de
+/// liveStateRequired en la decisión (R5-05).
+bool isLiveStateQuestion(String messageText) {
+  final tokens = tokenizeText(normalizeText(messageText));
+  if (tokens.isEmpty) return false;
+  const activityVerbs = {'haces', 'haciendo', 'haras', 'hacer', 'iras', 'vas'};
+  final hasActivityVerb = tokens.any(activityVerbs.contains);
+  if (tokens.contains('que') && hasActivityVerb) return true;
+  if (tokens.contains('hoy') && hasActivityVerb) return true;
+  if (tokens.any((t) => t == 'donde' || t == 'ahi') &&
+      tokens.any(presenceVerbs.contains)) {
+    return true;
+  }
+  return false;
+}
+
+/// PROD-SOCIAL-05 — risa desordenada ("Jajajsjsjsja"): sílaba de risa
+/// repetida (ja/je/ji/jo) con ruido intercalado. Misma señal que usa el
+/// router para la rama de risa; el writer la usa para la exención de
+/// intent en turnos sociales cortos (PROD-SOCIAL-03).
+final RegExp _looseLaughter = RegExp(r'(ja){2,}|(je){2,}|(ji){2,}|(jo){2,}');
+
+bool isLooseLaughterMessage(String messageText) =>
+    _looseLaughter.hasMatch(normalizeText(messageText));

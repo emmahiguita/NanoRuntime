@@ -65,8 +65,7 @@ class _S extends State<TerminalTabScreen> {
       restoredCounter = restored.length;
     }
     _nextId =
-        restored.map((s) => s.id).fold(0, (max, id) => id > max ? id : max) +
-        1;
+        restored.map((s) => s.id).fold(0, (max, id) => id > max ? id : max) + 1;
 
     if (!mounted) return;
     setState(() {

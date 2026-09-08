@@ -15,14 +15,17 @@ class ExecutionCancelled implements Exception {
 
 /// Token de cancelación cooperativo perteneciente a una sola ejecución.
 class ExecutionCancellationToken {
+  ExecutionCancellationToken({this.isCurrent});
+
+  final bool Function()? isCurrent;
   bool _cancelled = false;
 
-  bool get isCancelled => _cancelled;
+  bool get isCancelled => _cancelled || !(isCurrent?.call() ?? true);
 
   void cancel() => _cancelled = true;
 
   /// Lanza [ExecutionCancelled] si se solicitó cancelación.
   void throwIfCancelled() {
-    if (_cancelled) throw const ExecutionCancelled();
+    if (isCancelled) throw const ExecutionCancelled();
   }
 }

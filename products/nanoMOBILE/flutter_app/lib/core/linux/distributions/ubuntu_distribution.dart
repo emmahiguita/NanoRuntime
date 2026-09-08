@@ -54,6 +54,7 @@ class UbuntuDistribution implements LinuxDistribution {
   /// ExecBinChannelHandler.handleGetFilesDir) — no añadir /nano de nuevo.
   String get _distDir => '$_filesDir/distros';
   String get _ubuntuRoot => '$_distDir/ubuntu';
+  String get rootfsPath => _ubuntuRoot;
   String get _tmpRoot => '$_distDir/.ubuntu-tmp';
   String get _tarball => '$_distDir/ubuntu-base.tar.gz';
 
@@ -226,8 +227,21 @@ class UbuntuDistribution implements LinuxDistribution {
   @override
   Future<LinuxSession> start() async {
     await _init();
-    // Patrón del codebase: la ejecución real de comandos se hace vía
-    // ShellExecutor/ProotManager.exec cuando se necesita.
+    final installed = await isInstalled();
+    if (!installed) {
+      return LinuxSession(
+        id: 'ubuntu-${DateTime.now().millisecondsSinceEpoch}',
+        distributionId: id,
+        state: LinuxSessionState.failed,
+        startedAt: DateTime.now(),
+        pid: null,
+        rootfsPath: _ubuntuRoot,
+        command: '/bin/bash',
+      );
+    }
+    // Ubuntu runs per-command via proot (no persistent daemon process).
+    // pid=null is correct: each exec() spawns a new proot child.
+    // state=running means the rootfs is installed and ready to accept commands.
     return LinuxSession(
       id: 'ubuntu-${DateTime.now().millisecondsSinceEpoch}',
       distributionId: id,
@@ -241,9 +255,9 @@ class UbuntuDistribution implements LinuxDistribution {
 
   @override
   Future<void> stop() async {
-    // Para MVP, no-op — cuando se implemente LinuxSessionManager
-    // se encargará de terminar procesos
-    // TODO: Implementar terminación real de sesión
+    // Per-command proot model: no persistent session process to terminate.
+    // Each exec() call is self-contained. Nothing to stop here.
+    // If a proot command is in flight, callers must use ProotManager.killByTag().
   }
 
   /// Ejecuta un comando dentro del rootfs Ubuntu vía proot (streaming).

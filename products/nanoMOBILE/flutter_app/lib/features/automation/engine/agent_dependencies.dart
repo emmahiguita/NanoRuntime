@@ -524,8 +524,14 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
       return block;
     },
     // PERSONA-COMPOSE-08 — dueño + relación + ejemplos FTS4 por mensaje.
-    personaBlock: (text, sender) =>
-        ref.read(personaContextProvider).personaBlockFor(text, sender),
+    personaBlock: (conversationId, text, sender, role) => ref
+        .read(personaContextProvider)
+        .personaBlockFor(
+          text,
+          sender,
+          conversationId: conversationId,
+          role: role,
+        ),
     // P0-ROUTE — rol del turno ANTES de armar el prompt: el MISMO router
     // determinista del decisionContext (AUTO-02), con la misma evidencia
     // (catálogo real, convstate, personaContext). El writer gatea bloques
@@ -543,7 +549,10 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
       return routeConversationAgent(
         messageText: text,
         facts: facts,
-        hasRelationship: persona.hasRelationshipFor(sender),
+        hasRelationship: persona.hasRelationshipFor(
+          sender,
+          conversationId: conversationId,
+        ),
         hasActiveProduct: hasActiveProduct,
         ownerName: persona.ownerName,
         hasPendingQuestion: hasPendingQuestion,

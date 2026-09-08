@@ -52,16 +52,8 @@ const List<Map<String, dynamic>> noarBuiltinCommands = [
     'desc': 'Ver el PATH que usa el bash real.',
     'tag': 'shell',
   },
-  {
-    'cmd': 'date',
-    'desc': 'Fecha y hora del sistema.',
-    'tag': 'shell',
-  },
-  {
-    'cmd': 'clear',
-    'desc': 'Limpiar la pantalla del terminal.',
-    'tag': 'shell',
-  },
+  {'cmd': 'date', 'desc': 'Fecha y hora del sistema.', 'tag': 'shell'},
+  {'cmd': 'clear', 'desc': 'Limpiar la pantalla del terminal.', 'tag': 'shell'},
 
   // ── Pkgs (apt real del rootfs, requiere WiFi) ──
   {
@@ -147,7 +139,8 @@ const List<Map<String, dynamic>> noarBuiltinCommands = [
   },
   {
     'cmd': 'python3 -m http.server 8080',
-    'desc': 'Servir el directorio actual por HTTP (python real; Ctrl+C para salir).',
+    'desc':
+        'Servir el directorio actual por HTTP (python real; Ctrl+C para salir).',
     'tag': 'ai',
   },
 

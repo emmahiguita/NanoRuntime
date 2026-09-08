@@ -1,0 +1,732 @@
+[
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/action_verifier.dart",
+    "line": 281,
+    "code": "while (true) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/action_verifier.dart",
+    "line": 325,
+    "code": "await Future<void>.delayed(expectation.pollInterval);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_executor.dart",
+    "line": 53,
+    "code": "Duration get snapshotRetryDelay => const Duration(milliseconds: 250);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_executor.dart",
+    "line": 57,
+    "code": "/// Snapshot con retry de rebind. null = canal muerto (servicio off o error"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_executor.dart",
+    "line": 70,
+    "code": "await Future<void>.delayed(snapshotRetryDelay);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_executor.dart",
+    "line": 291,
+    "code": "await Future<void>.delayed(_stability.wait);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 497,
+    "code": "/// existentes — añade retry transitorio + verificación entre intentos a"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 1551,
+    "code": "return await _executeTool(call).timeout("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 2271,
+    "code": "await Future<void>.delayed(const Duration(milliseconds: 1200));"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/goal_verifier.dart",
+    "line": 110,
+    "code": "await Future<void>.delayed(packageSettleDelay);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/stability_gate.dart",
+    "line": 3,
+    "code": "/// Regla del plan maestro: NO `tap → Future.delayed(500)`. En su lugar:"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/stability_gate.dart",
+    "line": 55,
+    "code": "while (true) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/stability_gate.dart",
+    "line": 87,
+    "code": "await Future<void>.delayed(pollInterval);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 172,
+    "code": ".timeout(normalizeTimeout);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 181,
+    "code": ".timeout(normalizeTimeout);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 217,
+    "code": ".timeout(spellTimeout);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 233,
+    "code": ".timeout(languageTimeout);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 249,
+    "code": ".timeout(normalizeTimeout);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 262,
+    "code": ".timeout(actionsTimeout);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/experience_cache.dart",
+    "line": 133,
+    "code": "while (_byGoal.length > maxGoals && _lru.isNotEmpty) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/cold_start_retry.dart",
+    "line": 1,
+    "code": "/// Retry único honesto para arranque en frío del motor local."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/cold_start_retry.dart",
+    "line": 9,
+    "code": "/// WA-CONVERSATION-01): el retry conserva la sesión del borrador."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/cold_start_retry.dart",
+    "line": 17,
+    "code": "Future<String> generateWithColdRetry("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/draft_writer.dart",
+    "line": 11,
+    "code": "import 'cold_start_retry.dart';"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/draft_writer.dart",
+    "line": 87,
+    "code": "final result = await generateWithColdRetry("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "line": 31,
+    "code": "import '../model/cold_start_retry.dart';"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "line": 227,
+    "code": "final ready = await _ensureReady(_modelPath()).timeout("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "line": 315,
+    "code": "// retry frío conserva la MISMA sesión: mismo input = mismo turno."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "line": 394,
+    "code": "final raw = await generateWithColdRetry("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/commit_guard.dart",
+    "line": 218,
+    "code": "await Future<void>.delayed(delay);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 500,
+    "code": "while (!result.isCompleted &&"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 517,
+    "code": "final retryContext = await _captureDecisionContext("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 526,
+    "code": "retryContext,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 1865,
+    "code": "// salir de la app). El retry reintenta con la búsqueda disponible;"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 2048,
+    "code": "if (wait != Duration.zero) await Future<void>.delayed(wait);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 2202,
+    "code": "if (wait != Duration.zero) await Future<void>.delayed(wait);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "line": 2216,
+    "code": "await Future<void>.delayed(const Duration(seconds: 3));"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_plan.dart",
+    "line": 179,
+    "code": "while (remaining.isNotEmpty) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_snapshot.dart",
+    "line": 261,
+    "code": "while (parent != null && parent >= 0 && parent < nodes.length) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/semantic_normalizer.dart",
+    "line": 23,
+    "code": "while (stack.isNotEmpty && nodes[stack.last].depth >= node.depth) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 73,
+    "code": "while (_pending.isNotEmpty) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 187,
+    "code": "_deadlineTimer = Timer(maxWait, _fire);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 191,
+    "code": "_settleTimer = Timer(settle, _fire);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 234,
+    "code": "_deadlineTimer = Timer(maxWait, _fire);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 235,
+    "code": "_settleTimer = Timer(settle, _fire);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 23,
+    "code": "///   el envío pudo aterrizar; reintentar sería doble envío (no blind retry)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 25,
+    "code": "///   y solo tras [failedBackoffMs]."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 102,
+    "code": "/// - `duplicate` si ya existe dentro del TTL (o falló hace menos del backoff);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 181,
+    "code": "final int failedBackoffMs;"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 189,
+    "code": "this.failedBackoffMs = defaultFailedBackoffMs,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 219,
+    "code": "static const defaultFailedBackoffMs = 30000;"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 257,
+    "code": "/// Un fallo previo al envío es reintentable solo tras el backoff; cualquier"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 259,
+    "code": "bool _retryableAfterFailure(_DedupeEntry entry, int atMs) =>"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 261,
+    "code": "atMs - entry.atMs >= failedBackoffMs;"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 327,
+    "code": "if (prior != null && !_retryableAfterFailure(prior, atMs)) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 427,
+    "code": "super.failedBackoffMs,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 459,
+    "code": "super.failedBackoffMs,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 541,
+    "code": "super.failedBackoffMs,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/notification_event_router.dart",
+    "line": 64,
+    "code": "/// WA-GAPS-01 — retry de arranque en frío: con la app recién arrancada (o"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/notification_event_router.dart",
+    "line": 74,
+    "code": "await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_dispatcher.dart",
+    "line": 328,
+    "code": "// backoff del dedupe reintenta cuando el sistema se enfríe."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_dispatcher.dart",
+    "line": 430,
+    "code": "await Future<void>.delayed(delay);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/time_tick_scheduler.dart",
+    "line": 33,
+    "code": "_timer = Timer.periodic(const Duration(seconds: 30), (_) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_runtime.dart",
+    "line": 150,
+    "code": "transcript = await _recognition.listen().timeout("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_runtime.dart",
+    "line": 201,
+    "code": "_followUpTimer = Timer(followUpWindow, () {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_runtime.dart",
+    "line": 224,
+    "code": "while (silentSamples < 2) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_runtime.dart",
+    "line": 235,
+    "code": "await Future<void>.delayed(const Duration(milliseconds: 250));"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 33,
+    "code": ".timeout(const Duration(milliseconds: 1500)) =="
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 44,
+    "code": "final heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 70,
+    "code": "while (emptyPasses < 2) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "line": 75,
+    "code": "await Future<void>.delayed(const Duration(seconds: 4));"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/ledger/action_ledger.dart",
+    "line": 28,
+    "code": "while (_entries.length > maxEntries) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_validator.dart",
+    "line": 170,
+    "code": "while (overflow > 0 && cleanExamples.isNotEmpty) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_settings_screen.dart",
+    "line": 576,
+    "code": "await Future<void>.delayed(const Duration(milliseconds: 1200));"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_settings_screen.dart",
+    "line": 783,
+    "code": "_saveDebounce = Timer(const Duration(milliseconds: 600), () {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/automation_dashboard.dart",
+    "line": 217,
+    "code": "while (mounted && _conversationActive) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "line": 63,
+    "code": "mainHandler.postDelayed(watchdog, WATCHDOG_MS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "line": 43,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "line": 140,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "line": 177,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "line": 241,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "line": 299,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "line": 317,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/DurableInbox.kt",
+    "line": 74,
+    "code": "while (c.moveToNext()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 59,
+    "code": "private const val REBIND_RETRY_DELAY_MS = 250L"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 280,
+    "code": "* pointer fantasma. El retry de rebind usa postDelayed, que vuelve al"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 295,
+    "code": "retryOnMain(result, 0, block)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 303,
+    "code": "while (current == null && attempt < REBIND_RETRIES) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 304,
+    "code": "Thread.sleep(REBIND_RETRY_DELAY_MS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 339,
+    "code": "* [mainHandler].postDelayed si el service aún está en rebind. No bloquea:"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 342,
+    "code": "private fun <T> retryOnMain("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 350,
+    "code": "mainHandler.postDelayed("
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 351,
+    "code": "{ retryOnMain(result, attempt + 1, block) },"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 352,
+    "code": "REBIND_RETRY_DELAY_MS,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+    "line": 152,
+    "code": "while (true) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+    "line": 263,
+    "code": "mainHandler.postDelayed(timeoutRunnable, 60_000)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+    "line": 427,
+    "code": "while (entries.hasMoreElements()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+    "line": 440,
+    "code": "while (input.read(buffer).also { len = it } > 0) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt",
+    "line": 141,
+    "code": "while (end != BreakIterator.DONE) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt",
+    "line": 152,
+    "code": "while (e != BreakIterator.DONE) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt",
+    "line": 209,
+    "code": "mainHandler.postDelayed({"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "line": 203,
+    "code": "while (queue.isNotEmpty() && visited < MAX_ENTRIES &&"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "line": 322,
+    "code": "while (queue.isNotEmpty() && visited < MAX_ENTRIES &&"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "line": 334,
+    "code": "while (children.moveToNext() && visited < MAX_ENTRIES) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "line": 396,
+    "code": "while (offset < header.size) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+    "line": 194,
+    "code": "while (start < normalized.length) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+    "line": 212,
+    "code": "while (start < normalized.length && normalized[start].isWhitespace()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 170,
+    "code": "while (input.read(buf).also { n = it } > 0) md.update(buf, 0, n)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 224,
+    "code": "while (queue.isNotEmpty()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 388,
+    "code": "while (input.read(buf).also { n = it } > 0) out.write(buf, 0, n)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 424,
+    "code": "while (i + 60 <= bytes.size) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 749,
+    "code": "while (!rcFile.exists() && waited < 60_000) { Thread.sleep(500); waited += 500 }"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 769,
+    "code": "while (true) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 771,
+    "code": "while (read < 512) { val n = stream.read(header, read, 512 - read); if (n < 0) return null; read += n }"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 783,
+    "code": "while (read < sz) { val n = stream.read(buf, read, sz - read); if (n < 0) break; read += n }"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 789,
+    "code": "while (remaining > 0) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 562,
+    "code": "while (off < magic.size) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 700,
+    "code": "while (running && !stopRequested) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "line": 29,
+    "code": "*  3. Health poll HTTP a 127.0.0.1:<port>/health con backoff limitado"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "line": 96,
+    "code": "while (input.read(buffer).also { len = it } > 0) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "line": 348,
+    "code": "// Health poll con backoff limitado. Si el proceso muere antes,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "line": 543,
+    "code": "while (end < body.length && (body[end].isDigit() || body[end] == '-')) end++"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "line": 604,
+    "code": "while (waited < TERM_GRACE_MS) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 76,
+    "code": "// headless→UI. Antes el acquire iba dentro del postDelayed de warmup:"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 94,
+    "code": "mainHandler.postDelayed({"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 334,
+    "code": "while (stack.isNotEmpty() && hits.size < maxResults) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 386,
+    "code": "while (stack.isNotEmpty()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 493,
+    "code": "while (stack.isNotEmpty()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 622,
+    "code": "while (stack.isNotEmpty() && found == null) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 646,
+    "code": "while (stack.isNotEmpty() && found == null) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DownloadService.kt",
+    "line": 48,
+    "code": "while (input.read(buffer).also { bytesRead = it } != -1) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/XServerBackend.kt",
+    "line": 238,
+    "code": "while (System.currentTimeMillis() - start < maxTimeoutMs) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/XServerBackend.kt",
+    "line": 282,
+    "code": "while (System.currentTimeMillis() < deadline && isAlive()) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 45,
+    "code": "while (true) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 48,
+    "code": "while (read < 512) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 140,
+    "code": "while (remaining > 0) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 174,
+    "code": "while (off < len) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 183,
+    "code": "while (remaining > 0) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 203,
+    "code": "while (pos + 512 <= tarData.size) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 322,
+    "code": "while (count > 0) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 344,
+    "code": "while (i < end && b[i] != 0.toByte()) i++"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+    "line": 57,
+    "code": "// conectado\". Reintentamos el bind con backoff hasta reconectar."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+    "line": 64,
+    "code": "mainHandler.postDelayed(this, REBIND_INTERVAL_MS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+    "line": 83,
+    "code": "mainHandler.postDelayed(rebindRunnable, REBIND_INITIAL_DELAY_MS)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+    "line": 113,
+    "code": "while (System.currentTimeMillis() < deadline) {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/XzDecoder.kt",
+    "line": 25,
+    "code": "while (true) {"
+  }
+]

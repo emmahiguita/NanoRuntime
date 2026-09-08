@@ -174,21 +174,27 @@ class ToolRegistry {
       name: 'linux.list',
       timeout: Duration(seconds: 15),
       description: 'Listar archivos en el subsistema Linux',
+      promptSyntax: '{"tool":"linux.list","path":"<ruta_absoluta>"}',
     ),
     ToolDefinition(
       name: 'linux.readFile',
       timeout: Duration(seconds: 15),
       description: 'Leer un archivo del subsistema Linux',
+      promptSyntax: '{"tool":"linux.readFile","path":"<ruta_absoluta>"}',
     ),
     ToolDefinition(
       name: 'linux.writeFile',
       timeout: Duration(seconds: 20),
       description: 'Escribir un archivo en el subsistema Linux',
+      promptSyntax:
+          '{"tool":"linux.writeFile","path":"<ruta_absoluta>","content":"<texto>"}',
     ),
     ToolDefinition(
       name: 'linux.run',
       timeout: Duration(seconds: 30),
       description: 'Ejecutar un comando en el subsistema Linux',
+      promptSyntax:
+          '{"tool":"linux.run","command":"<cmd>","args":["<arg1>","<arg2>"]}',
     ),
     // ── Device Actions V1 (A1) ─────────────────────────────────────────────
     // Capacidades nativas YA existentes en AgentAccessibilityService, elevadas

@@ -177,104 +177,51 @@ class LLMEngineClient {
       // prefill entero (~125s en Oppo).
       if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
     });
-    // Aumentado a 3 intentos para mejor tolerancia a fallos transitorios
-    const maxAttempts = 3;
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        debugPrint('[llm] generate attempt ${attempt + 1}/$maxAttempts');
-        final r = await _client
-            .post(
-              Uri.parse('$baseUrl/completion'),
-              headers: {'Content-Type': 'application/json'},
-              body: body,
-            )
-            .timeout(timeout);
-
-        if (r.statusCode != 200) {
-          debugPrint('[llm] generate HTTP ${r.statusCode}: ${r.body}');
-          throw LLMEngineException('HTTP ${r.statusCode}: ${r.body}');
-        }
-
-        final map = jsonDecode(r.body) as Map<String, dynamic>;
-        final text = (map['content'] as String? ?? '').trim();
-
-        // WA-LIVE-01 — warm-up del modelo: la primera llamada tras terminar
-        // la carga devuelve vacío en milisegundos (evidencia WA-PHYS-EMM).
-        // Sin este retry el borrador moría con "0 chars" justo cuando el
-        // modelo quedaba listo, y el retry frío externo no aplica (solo
-        // reintenta salidas vacías RÁPIDAS del PRIMER intento).
-        if (text.isEmpty) {
-          debugPrint(
-            '[llm] generate warm-up vacío attempt ${attempt + 1}/$maxAttempts',
-          );
-          if (attempt == maxAttempts - 1) {
-            throw LLMEngineException(
-              'El motor respondió vacío tras $maxAttempts intentos',
-            );
-          }
-          await Future<void>.delayed(const Duration(seconds: 2));
-          continue;
-        }
-
-        double? tps;
-        final timings = map['timings'];
-        if (timings is Map<String, dynamic>) {
-          // llama.cpp reporta predicted_per_second (tokens/s) y
-          // predicted_per_token_ms. Preferimos el valor directo en t/s.
-          final perSecond = timings['predicted_per_second'];
-          if (perSecond is num && perSecond > 0) {
-            tps = perSecond.toDouble();
-          } else {
-            final perTokenMs = timings['predicted_per_token_ms'];
-            if (perTokenMs is num && perTokenMs > 0) {
-              tps = 1000.0 / perTokenMs.toDouble();
-            }
-          }
-        }
-
-        debugPrint('[llm] generate success: ${text.length} chars, tps=$tps');
-        return LLMResult(text: text, tps: tps);
-      } on TimeoutException {
-        debugPrint(
-          '[llm] generate timeout attempt ${attempt + 1}/$maxAttempts',
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$baseUrl/completion'),
+            headers: {'Content-Type': 'application/json'},
+            body: body,
+          )
+          .timeout(timeout);
+      if (response.statusCode != 200) {
+        throw LLMEngineException(
+          'HTTP ${response.statusCode}: ${response.body}',
         );
-        if (attempt == maxAttempts - 1) {
-          throw LLMEngineException(
-            'Timeout al generar la respuesta tras $maxAttempts intentos',
-          );
-        }
-        // WA-LIVE-02 — cortar el socket NO basta: el worker del motor seguía
-        // creyendo que la generación seguía en curso y quedaba corrupto
-        // ("streaming in progress" permanente, active_requests=0). El /cancel
-        // explícito libera el worker antes del retry.
-        await cancelRequest(requestId);
-        // WA-LIVE-01 — el timeout casi siempre es el modelo aún cargando
-        // (carga de ~4 min en Oppo): esperas largas, no 1s/2s. Con 240s de
-        // timeout por intento, 20s/40s de espera cubren la carga en curso.
-        await Future<void>.delayed(
-          Duration(seconds: attempt == 0 ? 20 : 40),
-        );
-      } on http.ClientException catch (e) {
-        debugPrint(
-          '[llm] generate connection error attempt ${attempt + 1}/$maxAttempts: ${e.message}',
-        );
-        if (attempt == maxAttempts - 1) {
-          throw LLMEngineException(
-            'No se pudo contactar al motor tras $maxAttempts intentos: $e.message',
-          );
-        }
-        await Future<void>.delayed(
-          Duration(seconds: attempt == 0 ? 20 : 40),
-        );
-      } on FormatException catch (e) {
-        debugPrint('[llm] generate JSON decode error: $e');
-        throw LLMEngineException('Respuesta inválida del motor: ${e.message}');
       }
-      // LLMEngineException (HTTP error) se propaga sin retry.
+      final map = jsonDecode(response.body) as Map<String, dynamic>;
+      if (map['stopped_limit'] == true ||
+          map['stop_type'] == 'limit' ||
+          map['finish_reason'] == 'length') {
+        throw LLMEngineException('La generación alcanzó el límite de tokens');
+      }
+      final text = (map['content'] as String? ?? '').trim();
+      double? tps;
+      final timings = map['timings'];
+      if (timings is Map<String, dynamic>) {
+        final perSecond = timings['predicted_per_second'];
+        final perTokenMs = timings['predicted_per_token_ms'];
+        if (perSecond is num && perSecond > 0) {
+          tps = perSecond.toDouble();
+        } else if (perTokenMs is num && perTokenMs > 0) {
+          tps = 1000.0 / perTokenMs.toDouble();
+        }
+      }
+      return LLMResult(text: text, tps: tps);
+    } on TimeoutException {
+      await cancelRequest(requestId);
+      throw LLMEngineException('Timeout al generar la respuesta');
+    } on http.ClientException catch (error) {
+      await cancelRequest(requestId);
+      throw LLMEngineException(
+        'No se pudo contactar al motor: ${error.message}',
+      );
+    } on FormatException catch (error) {
+      throw LLMEngineException(
+        'Respuesta inválida del motor: ${error.message}',
+      );
     }
-    throw LLMEngineException(
-      'No se pudo generar la respuesta tras $maxAttempts intentos',
-    );
   }
 
   /// Genera respuesta streaming contra /completion (modo SSE token-por-token).

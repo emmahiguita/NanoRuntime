@@ -73,6 +73,23 @@ class NotificationAutomationChannelHandler(
                 ),
             )
 
+            "completeEvent" -> {
+                val pkg = call.argument<String>("package").orEmpty()
+                val key = call.argument<String>("key").orEmpty()
+                val time = call.argument<Number>("postTime")?.toLong()
+                if (pkg.isEmpty() || key.isEmpty() || time == null) {
+                    result.error("BAD_ARG", "Event identity required", null)
+                    return
+                }
+                try {
+                    dev.nanoai.mobile.NanoApplication.from(context).durableInbox.complete(
+                        dev.nanoai.mobile.automation.DurableInbox.eventId(pkg, key, time))
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("INBOX_WRITE_FAILED", error.message, null)
+                }
+            }
+
             "requestAccess" -> {
                 val opened = openSystemSettings(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                     || openSystemSettings(Settings.ACTION_SETTINGS)

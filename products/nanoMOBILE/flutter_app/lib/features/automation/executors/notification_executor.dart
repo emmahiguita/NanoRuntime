@@ -11,6 +11,7 @@ class DeviceNotification {
   final DateTime postedAt;
   final bool canReply;
   final bool ongoing;
+  final bool isGroup;
 
   /// PERSONA-TOOLS-10 — campos de identidad de conversación (el canal
   /// nativo ya los envía; antes se descartaban). Vacíos = la app origen no
@@ -33,6 +34,7 @@ class DeviceNotification {
     required this.postedAt,
     required this.canReply,
     required this.ongoing,
+    this.isGroup = false,
     this.sender = '',
     this.senderKey = '',
     this.conversationTitle = '',
@@ -52,6 +54,7 @@ class DeviceNotification {
       postedAt: DateTime.fromMillisecondsSinceEpoch(epoch),
       canReply: map['canReply'] as bool? ?? false,
       ongoing: map['ongoing'] as bool? ?? false,
+      isGroup: map['isGroup'] as bool? ?? false,
       sender: map['sender'] as String? ?? '',
       senderKey: map['senderKey'] as String? ?? '',
       conversationTitle: map['conversationTitle'] as String? ?? '',

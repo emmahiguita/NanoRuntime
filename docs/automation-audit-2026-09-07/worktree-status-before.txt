@@ -1,0 +1,52 @@
+ M graphify-out/.graphify_labels.json
+ M graphify-out/GRAPH_REPORT.md
+ M graphify-out/graph.json
+ M graphify-out/manifest.json
+ M products/nanoMOBILE/flutter_app/PRUEBAS_MANUALES_SPRINTS.md
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AutomationStoreChannelHandler.kt
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ChannelHandlers.kt
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt
+ M products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/NotificationAutomationService.kt
+ M products/nanoMOBILE/flutter_app/lib/core/providers/settings_provider.dart
+ M products/nanoMOBILE/flutter_app/lib/core/services/llm_engine_client.dart
+ M products/nanoMOBILE/flutter_app/lib/core/services/nano_runtime_api.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator_provider.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_goal.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/incoming_message.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/conversation_understanding.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_prompt.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_object.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/notification_event_router.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_dispatcher.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_pipeline.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/execution_cancellation.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_context.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_validator.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_autonomy_mode.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_decision.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_example.dart
+ M products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_settings_screen.dart
+ M products/nanoMOBILE/flutter_app/test/automation/rule_pipeline_test.dart
+?? dock_bar.png
+?? dock_crop.jpg
+?? dock_crop.png
+?? dock_zone.png
+?? docs/automation-audit-2026-09-07/
+?? products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt
+?? products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/
+?? products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/messaging_metrics.dart
+?? products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/relationship_register.dart
+?? products/nanoMOBILE/flutter_app/test/automation/messaging_burst_regression_test.dart
+?? products/nanoMOBILE/flutter_app/test/automation/messaging_delivery_regression_test.dart

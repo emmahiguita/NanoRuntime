@@ -53,6 +53,14 @@ class TerminalServices {
 
   final bool mounted;
 
+  /// Abre una sesión interactiva PTY con los argumentos dados.
+  final Future<void> Function(
+    List<String> argv, {
+    Map<String, String>? env,
+    String? ldPreload,
+  })?
+  openPty;
+
   TerminalServices({
     required this.ctx,
     required this.out,
@@ -67,6 +75,7 @@ class TerminalServices {
     this.kali,
     this.proot,
     this.ubuntu,
+    this.openPty,
     void Function()? onClear,
     void Function(String)? onNavigate,
     this.mounted = true,

@@ -1,0 +1,5 @@
+List of devices attached
+R58N21SVSPE            device product:a30sub model:SM_A307G device:a30s transport_id:83
+VGL7MVFMDYQG8T55       device product:CPH2557 model:CPH2557 device:OP573DL1 transport_id:81
+192.168.0.11:5555      device product:a30sub model:SM_A307G device:a30s transport_id:2
+

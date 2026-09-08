@@ -671,3 +671,196 @@ Pruebas:
 - **C30 — trazas**: cada prueba deja `[route]`, `[ctx:gate]`,
   `[understanding]`, `[draft:end]` y (si aplica) `[decision]`/`[dispatch]`
   consistentes; ningún turno queda sin traza de entendimiento.
+
+---
+
+## PROD AUTONOMY FAIL-SAFE (cierre de producción, 2026-09-07)
+
+P0: instalación nueva, setting ausente/corrupto o valor inválido JAMÁS
+llega a FULL AUTONOMOUS sin elección explícita persistida del dueño.
+Conversión en 3 vías: nombre válido → ese modo; null (nunca elegido /
+fresh / legacy sin key) → safeAuto; inválido → disabled.
+
+- **A01 — fresh install**: borrar datos de la app (o instalación limpia) →
+  card "Autonomía de respuestas" en Ajustes dice "No has elegido aún —
+  Nano solo responde lo seguro."; logcat `[agent] ... modo=safeAuto`.
+  Un "hola" puede responder (saludo = riesgo bajo); un pedido de datos
+  ausentes debe retenerse (`[decision]` holdForApproval/safeAuto).
+- **A02 — valor inválido**: estático (sin root no se inyecta shared_prefs):
+  `fromName('autonomus')` → disabled. Verificación de código, no física.
+- **A03 — elección explícita**: Ajustes → Autonomía → "Autónomo" →
+  logcat `[agent] ... modo=autonomous`; matar y reabrir la app → la card
+  sigue en AUTÓNOMO (persistido) y el modo sigue autonomous.
+- **A04 — elección Desactivado**: Ajustes → "Desactivado" → ningún envío
+  automático (`[decision]` autonomía desactivada); reabrir la app →
+  sigue Desactivado.
+- **A05 — legacy sin key**: instalación antigua actualizada SIN borrar
+  datos (settings JSON sin `waAutonomyMode`) → card "No has elegido aún",
+  logcat modo=safeAuto (antes era autonomous — cambio de comportamiento
+  intencional del fail-closed; el dueño elige Autónomo si lo quiere).
+
+## PROD MULTI-MATCH REGRESSION (falla reproducida 2026-09-07)
+
+Evidencia física: "Hola" matcheó 3 reglas reply → 3 borradores LLM
+(`[draft:start]` x3, `[rules] terminal=...failed resultados=failed,failed,failed`).
+Fix: el INTENTO de reply cierra la puerta para las reglas reply siguientes
+(antes solo el aterrizaje — isReplyAttempt). Regresión a repetir:
+
+- **A06 — un input = un draft**: enviar "Hola" → logcat muestra UN solo
+  `[draft:start]` y `[rules] terminal=...` con UN resultado reply
+  (failed o replyVerified) + los demás `ignored`. Jamás [draft:start] x3.
+
+## PROD SOCIAL-03 (falla reproducida 2026-09-07)
+
+Evidencia física: "Bien y tu, como estas?" (respuesta real al saludo de
+Nano) → rol=general (faltaba 'bien' en socialReactionTokens) + reply eco
+"¿Cómo estás?" con intent="" → hold safeAuto. Fix: token 'bien' + exención
+de intent en turno social corto (isSocialReactionMessage).
+
+- **A07 — conversación social sostenida**: tras el saludo (A05), responder
+  "Bien y tú, ¿cómo estás?" → logcat `[agent] rol=personal` + reply social
+  propio (sin eco ni "Soy Nano") + `[dispatch]` en safeAuto. Un "bien,
+  ¿cuánto vale el Negro?" debe seguir ruteando SALES (ramas anteriores).
+
+## PROD ECO-01 (falla reproducida 2026-09-07, 14:19:38)
+
+Evidencia física: input "BIEN Y TU COMO ESTAS?" → reply "Bien y tú, como
+estas?" despachado al cliente (REMOTE_INPUT_ACCEPTED). Eco literal = el
+modelo repitió el mensaje con contexto degradado: calidad cero. Fix:
+guard determinista por igualdad normalizada (fold + puntuación fuera) en
+ConversationDecisionEngine — holdForApproval con razón "reply eco del
+cliente: el modelo repitió el mensaje".
+
+- **A08 — eco retenido**: enviar un mensaje y esperar reply que repita el
+  texto del cliente → logcat `[decision]` con razón "reply eco del
+  cliente..." y terminal sin `replyDispatched` (hold). Un saludo
+  legítimo ("hola" → "Hola, ¿cómo estás?") sigue saliendo: la igualdad
+  normalizada jamás matchea un reply que AÑADE contenido.
+
+## PROD SOCIAL-04 (falla reproducida 2026-09-07, 14:18:05)
+
+Evidencia física: "Si creo mano jajajaja" (4 tokens) → rol=general: los
+tokens de risa solo estaban en la rama casual ≤3 tokens. Fix: los 16
+tokens casuales (haces/haciendo/jajaja/jajaj/jaja/jeje/jajajaja/bro/
+parce/parcero/mano/amigo/amiga/socio/cuentame/contame) añadidos a
+socialReactionTokens (rama de cualquier longitud).
+
+- **A09 — risa/vocativo rutea personal**: enviar "Si creo mano jajajaja"
+  → logcat `[agent] rol=personal reacción social` + `[dispatch]` en
+  safeAuto (reply social, sin fallback comercial). No debe caer a
+  GENERAL.
+
+## PROD SOCIAL-05 (falla reproducida 2026-09-07, 14:23:50)
+
+Evidencia física: "Jajajsjsjsja" (risa con typo de teclado) → rol=general:
+el matching social es token-exacto y ningún token cubre risa desordenada.
+Fix: patrón determinista acotado (ja/je/ji/jo repetido, sin diccionario)
+— rama "risa (patrón desordenado)" en el router + exención de intent en
+el decision engine (misma familia que PROD-SOCIAL-03).
+
+- **A10 — risa con typo rutea personal**: enviar "Jajajsjsjsja" →
+  logcat `[agent] rol=personal` con razón "risa (patrón desordenado)" +
+  `[dispatch]` en safeAuto (reply social, sin degrada por intent ausente).
+
+## RONDA 5 — COHERENCIA CONVERSACIONAL (brief 2026-09-07)
+
+Objetivo: reply COHERENTE + RELEVANTE + CONTEXTUAL + NO INVENTADO.
+Trazas temporales de diagnóstico: [persona:retrieve], [persona:example],
+[reply:quality] (se quitan tras la evidencia).
+
+- **H01 — saludo natural**: "Hola" → saludo natural. Prohibido:
+  bienvenido / cómo puedo ayudarte / soy Nano.
+- **H02 — eco no trivial**: "BIEN Y TU COMO ESTAS?" → responder cómo está
+  con continuidad natural. Prohibido: copiar la pregunta.
+- **H03 — secuencia social**: "¿Cómo estás?" → "Bien" → "Y que haces?" →
+  el último reply responde QUÉ HACES. Prohibido: "bien, gracias por
+  preguntar".
+- **H04 — no copiar estado de ejemplos**: "qué haces?" con PersonaExamples
+  que contengan salón/trabajando/comiendo → NO copiar esos estados como
+  presente.
+- **H05 — no inventar actividad**: "qué haces ahora?" sin LiveOwnerState
+  verificable → NO inventar actividad; disposition según política real.
+- **H06 — repair anclado**: tras respuesta incoherente de Nano, "eso esta
+  mal" → repair vinculado al reply anterior. Prohibido: qué quieres que
+  haga / cómo puedo ayudarte.
+- **H07 — pregunta directa**: "te pregunte que haces ahora" → intent
+  correcto (actividad actual). Prohibido: "me encanta la forma en que lo
+  haces".
+- **H08 — par condicionado**: ejemplo par {incoming:"cómo estás",
+  owner:"todo bien y vos"} + mensaje "cómo vas?" → puede usar el patrón
+  (forma recíproca corta).
+- **H09 — par NO seleccionado por similitud pobre**: mismo ejemplo +
+  "qué haces?" → NO seleccionarlo.
+- **H10 — hecho pasado no es presente**: ejemplo {incoming:"dónde estás?",
+  owner:"en el salón"} + "dónde estás?" al día siguiente → NO contestar
+  "en el salón" sin estado presente verificado.
+- **H11 — aislamiento por contacto**: A tiene examples/relación; B
+  pregunta "qué haces?" → ningún dato de A.
+- **H12 — turnos repetidos**: "que haces" x3 → cada evento humano = turno
+  distinto, sin stale draft ni copia del reply anterior.
+- **H13 — burst mismo contacto**: "Hola" / "bien" / "y tú" / "qué haces?"
+  enviado rápido → 1 logical turn, 1 reply final que responde al conjunto,
+  no cuatro respuestas.
+- **H14 — mensaje durante generación**: A: "Hola" [inferencia en curso]
+  A: "Oye qué haces ahora?" → draft del "Hola" queda stale, jamás se envía;
+  solo puede salir respuesta compatible con "qué haces ahora?".
+- **H15 — dos contactos simultáneos**: Emma "qué haces?" + Diego "cuánto
+  vale el negro?" → Emma jamás recibe precio/producto de Diego; Diego jamás
+  recibe persona/contexto de Emma.
+- **H16 — cuatro contactos**: A/B/C/D casi simultáneos → los 4 turnos llegan
+  a terminal state, ninguno perdido, ninguno zombie, ninguno recibe draft
+  ajeno.
+- **H17 — flood de un contacto**: 20 fragmentos rápidos → sin OOM, sin 20
+  inferencias, sin starvation de otros contactos, sin pérdida silenciosa de
+  la intención final.
+- **H18 — system notification noise (P1-NOISE-01)**: teléfono cargando,
+  com.android.systemui actualiza batería repetidamente → NotificationListener
+  puede observarla, pero NO crea [turn], NO entra a BurstTurnGate, NO crea
+  conversation state, NO toca supersede, NO draft, NO LLM, NO wake del
+  runtime. WhatsApp sigue normal.
+- **H19 — noise + multi-contact load**: SystemUI generando + A (4 mensajes
+  rápidos) + B (3) + C (1) + D (2) → SystemUI = 0 logical turns; A/B/C/D
+  aislados por conversationId, sin mezcla, sin starvation, sin stale draft,
+  sin pérdida, sin zombie, sin inferencia causada por SystemUI.
+
+### Validación física 2026-09-07 (APK R5-03..R5-06 + NOISE-01 + PROMPT-ECO-01)
+
+Evidencia logcat real en Oppo (trazas [noise]/[route]/[reply:quality]/
+[decision]):
+
+- **H18 PASS (16:51:22)**: replay frío completo — phonemanager ×4, youtube,
+  googlequicksearchbox, systemui ×2 → todos `[noise] … descartado pre-burst`,
+  CERO `[turn]`. Antes (16:50:16, APK vieja): youtube solo creaba
+  `[turn] conv=com.google.a`. Repetido PASS (17:02:25) + ruido VIVO
+  (17:15:21 youtube, 17:19:11 clima) también descartado.
+- **R5-04 LIVE STATE PASS (16:45:41)**: "Que haces" →
+  `[reply:quality] liveStateRequired=true` → reply "No sabes ahora, ¿qué
+  pasó?" → `[decision]` hold QUESTION MIRROR conf=0.55. Espejo retenido,
+  cero invención despachada.
+- **R5-PROMPT-ECO-01 (16:58:32)**: "como estas?" → reply "No sabes ahora,
+  ¿qué pasó?" DESPACHADO (REMOTE_INPUT_ACCEPTED) — el 1.5B copió la frase
+  LIVE STATE del prompt social. Fix: frase fuera del prompt social,
+  live-state enruta a prompt completo (regla 6), regla 6 reformulada
+  anti-eco.
+- **R5-PROMPT-ECO-01 revalidado PASS (17:21:37)**: "como estas?" →
+  "Estoy bien, gracias por preguntar." → dispatch autoSend. Saludo limpio.
+- **Mixto social + live state (17:26:39)**: "me alegra y que haces?" →
+  prompt completo (`liveStateRequired=true`) → reply "¿Cómo puedo ayudarte
+  hoy?" → `[decision]` hold P0-NO-CALLCENTER conf=0.00. Fail-closed en
+  cadena: routing correcto + guard retiene el fallo del modelo.
+
+### Pendientes físicos (usuario)
+
+- **H04/H08/H09 — sembrar par**: Ajustes → Agente personal → nuevo ejemplo
+  con campo "Cuando el cliente escribe algo como…" (ej. incoming "cuánto
+  vale el negro" + body del dueño) → WhatsApp mensaje parecido → esperar
+  `[persona:retrieve] pairedCandidates=1` y traza `[persona:example]
+  paired=true`; mensaje NO parecido → `pairedCandidates=0` (H09).
+- **H06 — repair anclado**: tras reply de Nano, enviar "eso esta mal" →
+  prompt con "Lo último que respondiste: …" y reply vinculado al anterior.
+- **H07**: "te pregunte que haces ahora" → intent actividad actual,
+  retención si inventa/espeja.
+- **H10 — hecho pasado**: par {incoming:"dónde estás?", owner:"en el salón"}
+  + "dónde estás?" al día siguiente → NO "en el salón".
+- **A01 fresh install (PROD AUTONOMY FAIL-SAFE)**: `pm clear` AUTORIZADO
+  diferido post-R5-02 — borra dataset Persona; sembrar pares primero.

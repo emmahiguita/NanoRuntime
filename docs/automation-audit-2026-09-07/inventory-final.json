@@ -1,0 +1,4695 @@
+[
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator.dart",
+    "lines": 1401,
+    "symbols": [
+      "AutomationCoordinator"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart",
+      "package:nanoai/features/automation/engine/planning/automation_planner.dart",
+      "package:nanoai/features/automation/engine/memory/experience_cache.dart",
+      "package:nanoai/features/automation/engine/memory/object_memory.dart",
+      "package:nanoai/features/automation/engine/perception/perception_mux.dart",
+      "package:nanoai/features/automation/engine/planning/deterministic_catalog.dart",
+      "package:nanoai/features/automation/engine/trust/instruction_trust.dart",
+      "package:nanoai/features/automation/engine/execution/goal_verifier.dart",
+      "package:nanoai/features/automation/engine/execution/nano_flow.dart",
+      "package:nanoai/features/automation/engine/system/app_launch_resolver.dart",
+      "package:nanoai/features/automation/engine/governance/action_governance_pipeline.dart",
+      "package:nanoai/features/automation/engine/governance/intent_spec.dart",
+      "package:nanoai/features/automation/engine/planning/candidate_first_planner.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_decomposer.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_plan.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_planner.dart",
+      "package:nanoai/features/automation/engine/orchestration/automation_run.dart",
+      "package:nanoai/features/automation/engine/voice/execution_cancellation.dart",
+      "../domain/automation_goal.dart",
+      "../domain/automation_policy.dart",
+      "../domain/automation_result.dart",
+      "../benchmark/c14_metrics.dart",
+      "../engine/capabilities/reply_intent_vocabulary.dart",
+      "../engine/execution/tool_registry.dart",
+      "../engine/governance/action_confirmation.dart",
+      "../engine/governance/rule_execution_authority.dart",
+      "../ledger/action_ledger.dart",
+      "../ledger/automation_trace.dart"
+    ],
+    "sha256": "3a8386c8ae8afba544d0b1adc783bec41c8f6fb7153a30dd720f6ea30d86105b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator_provider.dart",
+    "lines": 610,
+    "symbols": [],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "package:nanoai/features/automation/engine/agent_dependencies.dart",
+      "package:nanoai/features/automation/engine/business/business_facts_providers.dart",
+      "package:nanoai/features/automation/engine/language/language_assist.dart",
+      "package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart",
+      "package:nanoai/features/automation/engine/messaging/conv_turn_state.dart",
+      "package:nanoai/features/automation/engine/messaging/conversation_key.dart",
+      "package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart",
+      "package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart",
+      "package:nanoai/features/automation/engine/memory/object_memory.dart",
+      "package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_decomposer.dart",
+      "package:nanoai/features/automation/engine/orchestration/commit_guard.dart",
+      "package:nanoai/features/automation/engine/orchestration/execution_journal.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_orchestrator.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_plan.dart",
+      "package:nanoai/features/automation/engine/orchestration/task_planner.dart",
+      "package:nanoai/features/automation/engine/planning/deterministic_catalog.dart",
+      "package:nanoai/features/automation/engine/perception/mux/perception_contracts.dart",
+      "package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart",
+      "package:nanoai/features/automation/engine/perception/surface_resolvers.dart",
+      "package:nanoai/features/automation/engine/perception/search_result_resolver.dart",
+      "package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart",
+      "package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart",
+      "package:nanoai/features/automation/personal_agent/application/persona_context.dart",
+      "package:nanoai/features/automation/personal_agent/domain/conversation_agent_role.dart",
+      "package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart",
+      "package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart",
+      "package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart",
+      "package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart",
+      "package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart",
+      "package:nanoai/features/automation/engine/scheduling/notification_event_router.dart",
+      "package:nanoai/features/automation/engine/scheduling/turn_supersede_guard.dart",
+      "package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart",
+      "package:nanoai/features/automation/engine/scheduling/rule_engine.dart",
+      "package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart",
+      "package:nanoai/features/automation/engine/scheduling/rule_registry.dart",
+      "package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart",
+      "package:nanoai/features/automation/engine/system/installed_app_catalog.dart",
+      "../domain/automation_goal.dart",
+      "../ledger/action_ledger_provider.dart",
+      "automation_coordinator.dart",
+      "automation_planner_provider.dart"
+    ],
+    "sha256": "61b5d729d11d5659e681560ebd9a4b4c2441010a3d4af7e9f616047c2b3a4d59"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_diagnostics.dart",
+    "lines": 144,
+    "symbols": [
+      "AutomationDiagnostics"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "package:nanoai/features/automation/application/automation_coordinator_provider.dart",
+      "package:nanoai/features/automation/application/automation_engine_provider.dart",
+      "package:nanoai/features/automation/domain/automation_result.dart"
+    ],
+    "sha256": "0ceb34cd332e4feeb7b91cb16ec41094cbe67081f07c5f7463ddada7fde31003"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_engine.dart",
+    "lines": 51,
+    "symbols": [
+      "AutomationEngine"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/domain/automation_goal.dart",
+      "package:nanoai/features/automation/domain/automation_result.dart",
+      "package:nanoai/features/automation/ledger/action_ledger.dart",
+      "package:nanoai/features/automation/ledger/automation_trace.dart",
+      "automation_coordinator.dart"
+    ],
+    "sha256": "adba81e3b4ec53c7122661ffc48a2a4eeeb3fc7654d3f0995d1e367ff4bda172"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_engine_provider.dart",
+    "lines": 15,
+    "symbols": [],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "../ledger/action_ledger_provider.dart",
+      "automation_coordinator_provider.dart",
+      "automation_engine.dart"
+    ],
+    "sha256": "b6c9762040698a6dc7e0b2278052adbbae48755698c245b7e9e911ebf49da27e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_feedback_presenter.dart",
+    "lines": 106,
+    "symbols": [
+      "_SpokenNotification"
+    ],
+    "imports": [],
+    "sha256": "0f79f8c44de922df283784cc8602073bc540a0a15db0b521266748680a097acf"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_planner_provider.dart",
+    "lines": 20,
+    "symbols": [],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "../engine/agent_dependencies.dart",
+      "../engine/planning/automation_planner.dart"
+    ],
+    "sha256": "c9042510f2188a59bbc23855011b181b79361e269f40b128b9301f28e4b23099"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/rule_creator.dart",
+    "lines": 42,
+    "symbols": [
+      "RuleCreator"
+    ],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "../engine/scheduling/rule_registry.dart",
+      "../engine/scheduling/scheduled_rule.dart",
+      "../engine/scheduling/trigger.dart",
+      "automation_coordinator_provider.dart"
+    ],
+    "sha256": "3e414a149cbae4ddf5b424cc9102285a3c020431bb6c5ca1a2a06754b4725fc1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_benchmark.dart",
+    "lines": 124,
+    "symbols": [
+      "C14Task",
+      "C14Suite",
+      "C14Benchmark"
+    ],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "../application/automation_coordinator.dart",
+      "../application/automation_coordinator_provider.dart",
+      "../domain/automation_goal.dart",
+      "../engine/execution/goal_verifier.dart",
+      "c14_metrics.dart"
+    ],
+    "sha256": "3b8144cc220e37b71ff90ac6618fedceaeaa433eee74e20e6ccb0ea63700d92c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_context.dart",
+    "lines": 97,
+    "symbols": [
+      "BenchmarkContext"
+    ],
+    "imports": [
+      "package:nanoai/core/config/app_boot_profile.dart",
+      "package:nanoai/core/config/app_build_info.dart"
+    ],
+    "sha256": "14db4ad05c108312ecb6bf302b43d376957545ec93bb51d33cbc8719707e365f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_metrics.dart",
+    "lines": 200,
+    "symbols": [
+      "C14Execution",
+      "C14BenchmarkReport",
+      "C14GateResult",
+      "C14Gates"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/domain/automation_result.dart"
+    ],
+    "sha256": "317f4bf8411021c2fb3460483870f205f502e926f18add3b13218cdb6b41c371"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_preflight.dart",
+    "lines": 120,
+    "symbols": [
+      "PreflightCode",
+      "PreflightCheck",
+      "C14PreflightResult",
+      "C14Preflight"
+    ],
+    "imports": [],
+    "sha256": "9aef9bae6698be8f735b7be48cae87b27f28e877093d55cc360b604a3c3278a6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_runner.dart",
+    "lines": 174,
+    "symbols": [
+      "C14RunResult"
+    ],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "package:nanoai/core/services/nano_runtime_api_provider.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "../application/automation_coordinator_provider.dart",
+      "c14_benchmark.dart",
+      "c14_context.dart",
+      "c14_metrics.dart",
+      "c14_preflight.dart"
+    ],
+    "sha256": "25df12268f842099f8b83c190141b303f09f0d5352d29154b1ad0b4f4f84a083"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_goal.dart",
+    "lines": 89,
+    "symbols": [
+      "AutomationGoal",
+      "AutomationOptions"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/engine/execution/goal_verifier.dart",
+      "package:nanoai/features/automation/engine/governance/action_confirmation.dart",
+      "package:nanoai/features/automation/engine/governance/rule_execution_authority.dart",
+      "../engine/messaging/reply_capability.dart",
+      "package:nanoai/features/automation/engine/navigation/navigation_goal.dart",
+      "package:nanoai/features/automation/engine/navigation/situation_diff.dart",
+      "package:nanoai/features/automation/engine/perception/current_situation.dart"
+    ],
+    "sha256": "25920d5a099f979ddd27783dedd6b8cfeb43e841984d3d253394a7b6f48fccea"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_policy.dart",
+    "lines": 72,
+    "symbols": [
+      "AgentAutomationMode",
+      "AutomationPolicy"
+    ],
+    "imports": [
+      "../engine/governance/semantic_policy.dart"
+    ],
+    "sha256": "4a7b69f850919f3cbd51b642d0159ba13f36b38291cefcb492748e3961a608e5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_result.dart",
+    "lines": 70,
+    "symbols": [
+      "AutomationResultStatus",
+      "AutomationResult"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/engine/governance/action_confirmation.dart"
+    ],
+    "sha256": "c34d98d79ea8ada0527d1fac4690bdf5b228dae973b5336c232bc69d9696ae1b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agent_dependencies.dart",
+    "lines": 639,
+    "symbols": [
+      "_ExecutorScreenObserver",
+      "ObjectMemoryNotifier"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "../../../core/linux/linux_distribution_registry.dart",
+      "../../../core/services/nano_runtime_api.dart",
+      "../../../core/services/runtime_engine.dart",
+      "../../../core/services/rootfs_manager.dart",
+      "../../../core/services/shell_executor.dart",
+      "../../../core/services/shell_executor_linux_backend.dart",
+      "../../../core/providers/settings_provider.dart",
+      "../../../core/providers/chat_provider.dart",
+      "../domain/automation_policy.dart",
+      "business/business_facts_providers.dart",
+      "business/fact_selector.dart",
+      "messaging/conv_turn_state.dart",
+      "messaging/tone_profile_providers.dart",
+      "messaging/conversation_memory.dart",
+      "model/automation_model_resolver.dart",
+      "model/draft_writer.dart",
+      "platform/linux_tool_adapter.dart",
+      "execution/action_path_router.dart",
+      "execution/action_verifier.dart",
+      "execution/platform_verification_router.dart",
+      "execution/agent_executor.dart",
+      "execution/agent_tool_dispatcher.dart",
+      "memory/experience_cache.dart",
+      "memory/object_memory.dart",
+      "memory/verified_transition_memory.dart",
+      "execution/goal_verifier.dart",
+      "execution/nano_flow.dart",
+      "execution/stability_gate.dart",
+      "execution/tool_registry.dart",
+      "orchestration/execution_journal.dart",
+      "platform/nano_system_api.dart",
+      "system/app_launch_resolver.dart",
+      "system/capability_probes.dart",
+      "system/installed_app_catalog.dart",
+      "system/system_graph.dart",
+      "system/system_intent_launcher.dart",
+      "system/system_inventory.dart",
+      "perception/mux/accessibility_perception_source.dart",
+      "perception/mux/object_memory_perception_source.dart",
+      "perception/mux/ocr_perception_source.dart",
+      "perception/mux/mlkit_vision_backend.dart",
+      "perception/mux/vision_perception_source.dart",
+      "perception/mux/perception_source.dart",
+      "perception/mux/visual_resource_policy.dart",
+      "perception/nano_snapshot.dart",
+      "perception/perception_mux.dart",
+      "perception/current_situation.dart",
+      "perception/semantic/screen_graph.dart",
+      "perception/surface_classifier.dart",
+      "platform/nano_ocr_api.dart",
+      "governance/action_governance_pipeline.dart",
+      "privilege/shizuku_availability.dart",
+      "privilege/shizuku_native_provider.dart",
+      "governance/intent_firewall.dart",
+      "governance/pre_action_critic.dart",
+      "governance/privilege_broker.dart",
+      "planning/candidate_first_planner.dart",
+      "planning/koog_shadow.dart",
+      "planning/koog_supervisor.dart",
+      "planning/candidates/candidate_generator.dart",
+      "planning/candidates/candidate_providers.dart",
+      "model/automation_model.dart",
+      "notifications/notification_draft_writer.dart",
+      "../personal_agent/application/persona_context.dart",
+      "../personal_agent/domain/conversation_agent_role.dart",
+      "planning/candidates/notification_candidate_provider.dart",
+      "planning/candidates/notification_data_candidate_provider.dart",
+      "planning/candidates/candidate_ranker.dart",
+      "planning/candidates/candidate_selection_engine.dart",
+      "planning/candidates/candidate_selector.dart",
+      "planning/candidates/candidate_tool_call_adapter.dart",
+      "planning/candidates/koog_candidate_selector.dart",
+      "planning/candidates/screen_graph_candidate_provider.dart",
+      "planning/deterministic_catalog.dart",
+      "skills/approved_skill_candidate_provider.dart",
+      "skills/nano_skill.dart",
+      "skills/nano_skills.dart",
+      "skills/skill_extractor.dart",
+      "skills/skill_store.dart",
+      "system/system_intent_catalog.dart"
+    ],
+    "sha256": "e6fe06ec2cd63717863e050566be71f4e20455ab73789ebe5472b5a065f0933b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agents/agent_role.dart",
+    "lines": 8,
+    "symbols": [
+      "AgentRole"
+    ],
+    "imports": [],
+    "sha256": "f51b0d118aec1aa5d6720470accbfdc03ed3fef13cf273fd02cd1654bc1dc3c4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agents/agent_types.dart",
+    "lines": 33,
+    "symbols": [
+      "AgentContext",
+      "AgentMessage",
+      "AgentResult"
+    ],
+    "imports": [
+      "../governance/intent_spec.dart",
+      "agent_role.dart"
+    ],
+    "sha256": "19c2b6d3949b7d4fc736e938ae99bac27353fe597b5b33abb70c0c4c9ecf4e56"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agents/nano_agent_orchestrator.dart",
+    "lines": 69,
+    "symbols": [
+      "NanoAgentOrchestrator"
+    ],
+    "imports": [
+      "../governance/action_governance_pipeline.dart",
+      "../governance/intent_spec_compiler.dart",
+      "../planning/candidates/candidate_generator.dart",
+      "../planning/candidates/candidate_provider.dart",
+      "../planning/candidates/candidate_selection.dart",
+      "../planning/candidates/candidate_selection_engine.dart",
+      "../planning/candidates/candidate_selector.dart",
+      "agent_role.dart",
+      "agent_types.dart"
+    ],
+    "sha256": "cc01fcc8cad9c239cfffe1547e60c4f290d66f80667c591c79b20972f6ea3fd5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/business_facts.dart",
+    "lines": 166,
+    "symbols": [
+      "BusinessProduct",
+      "BusinessFacts",
+      "BusinessFactsStore"
+    ],
+    "imports": [
+      "dart:convert",
+      "../storage/automation_db_store_client.dart"
+    ],
+    "sha256": "90b53b23c9f2fa03e73abcbb4112792edcc73e8666b9aa66c8dcff079abe523e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/business_facts_providers.dart",
+    "lines": 97,
+    "symbols": [
+      "BusinessFactsNotifier"
+    ],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "business_facts.dart"
+    ],
+    "sha256": "c5ffdd15951ed29adf027d1cc0997007ae1640677636a4a482cb65ca23d1557e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/fact_selector.dart",
+    "lines": 107,
+    "symbols": [
+      "FactSelection"
+    ],
+    "imports": [
+      "business_facts.dart"
+    ],
+    "sha256": "45265eff568e3d611ea7ee445c3ba8f1d563014019022673ef2fb015692082cf"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/capabilities/reply_intent_vocabulary.dart",
+    "lines": 75,
+    "symbols": [
+      "ReplyIntentVocabulary"
+    ],
+    "imports": [],
+    "sha256": "209648dfe860e45f823d372355743d068c2730d83ed184ca96e29e7842ee3b2c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/action_path_router.dart",
+    "lines": 151,
+    "symbols": [
+      "ExecutionPath",
+      "PathDecision",
+      "ActionPathRouter"
+    ],
+    "imports": [
+      "agent_tool_dispatcher.dart"
+    ],
+    "sha256": "912d979e07e773ef248d259a75492cdaac5180abccb8c522e003d234744da8ec"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/action_verifier.dart",
+    "lines": 485,
+    "symbols": [
+      "ExpectedTextMatch",
+      "ActionExpectation",
+      "VerificationStatus",
+      "VerificationOutcome",
+      "AgentVerifier",
+      "ActionVerifier"
+    ],
+    "imports": [
+      "../perception/nano_selector.dart",
+      "../perception/nano_snapshot.dart",
+      "../perception/selector_engine.dart",
+      "platform_verification.dart"
+    ],
+    "sha256": "e75ea25bbf1b2e1661946cc26a15121b1f2ef6ea23883680a6626e112c6b37ca"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_executor.dart",
+    "lines": 323,
+    "symbols": [
+      "AgentExecutor",
+      "NanoAgentExecutor"
+    ],
+    "imports": [
+      "../../../../core/services/nano_runtime_api.dart",
+      "../perception/actionability_engine.dart",
+      "agent_result.dart",
+      "../perception/nano_selector.dart",
+      "../perception/nano_snapshot.dart",
+      "../perception/selector_engine.dart"
+    ],
+    "sha256": "a8cfbc0d1d88050f50746557dff3a3b49376f2154ab33e67c67914f67f229d64"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_loop.dart",
+    "lines": 203,
+    "symbols": [
+      "AgentAction",
+      "AgentStep",
+      "AgentStepResult",
+      "AgentLoopResult",
+      "AgentLoop"
+    ],
+    "imports": [
+      "action_verifier.dart",
+      "agent_executor.dart",
+      "agent_result.dart",
+      "../perception/nano_selector.dart"
+    ],
+    "sha256": "c0aad008526f07b486ff3255d2df745d96d72a4356b15dddf86fe299acf2e8a0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_result.dart",
+    "lines": 105,
+    "symbols": [
+      "ResolveStatus",
+      "ScoreEntry",
+      "ResolveOutcome",
+      "AgentErrorCode",
+      "AgentExecutionResult"
+    ],
+    "imports": [
+      "../perception/actionability_engine.dart",
+      "../perception/nano_snapshot.dart"
+    ],
+    "sha256": "7813d7406d6a423534bbf8beff4e0ec3f79ca736fd3ab0348af0509c425897a5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "lines": 2522,
+    "symbols": [
+      "ToolCall",
+      "AgentToolProtocol",
+      "ToolExecutionStatus",
+      "ToolOutcome",
+      "ToolExecutionBudget",
+      "PlanOutcome",
+      "AgentToolDispatcher",
+      "ToolLoopDetector"
+    ],
+    "imports": [
+      "dart:async",
+      "dart:convert",
+      "package:flutter/foundation.dart",
+      "../../../../core/services/nano_runtime_api.dart",
+      "action_path_router.dart",
+      "action_verifier.dart",
+      "agent_executor.dart",
+      "agent_loop.dart",
+      "../platform/linux_tool_adapter.dart",
+      "../perception/nano_selector.dart",
+      "../perception/nano_snapshot.dart",
+      "../system/capabilities_report.dart",
+      "platform_verification.dart",
+      "../system/system_destination.dart",
+      "../system/system_graph.dart",
+      "../system/system_intent_launcher.dart",
+      "../governance/action_confirmation.dart",
+      "../governance/rule_execution_authority.dart",
+      "../governance/semantic_policy.dart",
+      "../messaging/reply_capability.dart",
+      "../notifications/notification_object.dart",
+      "../orchestration/execution_journal.dart",
+      "../perception/current_situation.dart",
+      "../voice/execution_cancellation.dart",
+      "tool_registry.dart"
+    ],
+    "sha256": "bac1193422a9d72ef7487297f72a2f62554d28fa2e78da8d15276341f722dd77"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_prompt.dart",
+    "lines": 21,
+    "symbols": [
+      "AgentToolPrompt"
+    ],
+    "imports": [
+      "tool_registry.dart"
+    ],
+    "sha256": "c9618667fb28d501137db1eada8eb26cfb04a5deab50e592ecf6b9ad0f7580d0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/goal_verifier.dart",
+    "lines": 202,
+    "symbols": [
+      "GoalStatus",
+      "GoalVerification",
+      "GoalExpectation",
+      "GoalVerifier"
+    ],
+    "imports": [
+      "agent_executor.dart",
+      "../perception/nano_selector.dart",
+      "../perception/selector_engine.dart",
+      "platform_verification.dart"
+    ],
+    "sha256": "2f43c289bbe92b1f9e109a31a0915d66e1ddd270ee99b18385dd360a196fc04a"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/nano_flow.dart",
+    "lines": 108,
+    "symbols": [
+      "NanoFlow",
+      "FlowExecutionResult",
+      "NanoFlowExecutor"
+    ],
+    "imports": [
+      "agent_tool_dispatcher.dart",
+      "goal_verifier.dart",
+      "../governance/action_confirmation.dart",
+      "../voice/execution_cancellation.dart"
+    ],
+    "sha256": "791daea78005b1e2cf03f206d6f05c3cd471f9a440b48645771b995cebf23788"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/platform_verification.dart",
+    "lines": 169,
+    "symbols": [
+      "PlatformPredicate",
+      "ForegroundPackageEquals",
+      "PackageNotForeground",
+      "PackageProcessAbsent",
+      "ProcessExitCodeEquals",
+      "FileExists",
+      "FileContentContains",
+      "NotificationReplyAccepted",
+      "MediaPlaybackStateEquals",
+      "SystemToggle",
+      "ToggleStateEquals",
+      "TextFieldContains",
+      "ConversationOpenEquals",
+      "PlatformPredicateResult",
+      "PlatformPredicateSatisfied",
+      "PlatformPredicateUnsatisfied",
+      "PlatformPredicateUnavailable",
+      "PlatformStateReader"
+    ],
+    "imports": [],
+    "sha256": "47ce5168fc07ae2cc975f6c311942ef7c1f441ada6fd706f8093206f0be82de3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/platform_verification_router.dart",
+    "lines": 219,
+    "symbols": [
+      "PlatformVerificationRouter"
+    ],
+    "imports": [
+      "../perception/nano_snapshot.dart",
+      "../platform/linux_tool_adapter.dart",
+      "platform_verification.dart"
+    ],
+    "sha256": "e6b5e9a361cb78b5735f810f511b7536cb92e4114a0b5c98141aa48289230dcd"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/stability_gate.dart",
+    "lines": 112,
+    "symbols": [
+      "StabilityResult",
+      "StabilityGate"
+    ],
+    "imports": [
+      "../perception/nano_snapshot.dart"
+    ],
+    "sha256": "6bd8fd5fb49cb343bcae27783d240b5bf6b133458a583ecd52491cc08bc91d2b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/tool_registry.dart",
+    "lines": 397,
+    "symbols": [
+      "ToolRisk",
+      "ToolDefinition",
+      "ToolRegistry",
+      "PolicyVerdict",
+      "PolicyDecision",
+      "PolicyEngine"
+    ],
+    "imports": [
+      "../governance/semantic_policy.dart"
+    ],
+    "sha256": "606e68c2ab2e4e432e48aefbffd41980b78239e7e15c8876436ea87ba04ab3ad"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/action_confirmation.dart",
+    "lines": 117,
+    "symbols": [
+      "ActionConfirmation"
+    ],
+    "imports": [
+      "dart:convert",
+      "dart:math",
+      "package:crypto/crypto.dart"
+    ],
+    "sha256": "c270e713b93b07068743bfaf81d1127366abd8386e92de663c1722c059aaf6a8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/action_governance_pipeline.dart",
+    "lines": 88,
+    "symbols": [
+      "GovernanceOutcome",
+      "GovernanceApproved",
+      "GovernanceDenied",
+      "GovernanceConfirmation",
+      "GovernanceMoreEvidence",
+      "GovernanceClarification",
+      "ActionGovernancePipeline"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../privilege/shizuku_availability.dart",
+      "../system/system_graph.dart",
+      "intent_firewall.dart",
+      "intent_spec.dart",
+      "pre_action_critic.dart",
+      "privilege_broker.dart"
+    ],
+    "sha256": "23c3ad2453267ce2acd4a708908580c0db1c919f0623d51c7ac1f9fc12a1fe00"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/intent_firewall.dart",
+    "lines": 84,
+    "symbols": [
+      "FirewallDecision",
+      "FirewallAllowed",
+      "FirewallDenied",
+      "FirewallClarification",
+      "IntentFirewall"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "intent_spec.dart"
+    ],
+    "sha256": "81632435c7d06ceecc0a3589d1b5d951f0c7d6508e94e78796011076cf6b62c0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/intent_spec.dart",
+    "lines": 60,
+    "symbols": [
+      "ActionEffect",
+      "GovernanceReason",
+      "IntentSpec"
+    ],
+    "imports": [],
+    "sha256": "81187f740956d29ad120ba5c584bdcd6d4a656ccee930abfc011c00bc8f4328d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/intent_spec_compiler.dart",
+    "lines": 122,
+    "symbols": [
+      "IntentSpecCompiler"
+    ],
+    "imports": [
+      "intent_spec.dart"
+    ],
+    "sha256": "24489adfaa1739f584d564fb525082aaf5a1986d3a6e822b726b9675c025f57b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/pre_action_critic.dart",
+    "lines": 107,
+    "symbols": [
+      "PreActionDecision",
+      "ApprovedAction",
+      "RejectedAction",
+      "ConfirmationRequiredAction",
+      "MoreEvidenceRequiredAction",
+      "PreActionCritic"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../system/capability_availability.dart",
+      "../system/system_graph.dart",
+      "intent_firewall.dart",
+      "intent_spec.dart"
+    ],
+    "sha256": "7180594a6bd692c2bb1e3f38f1e7cccc57cccbce39840f3a1a14f3fc9d1c534c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/privilege_broker.dart",
+    "lines": 124,
+    "symbols": [
+      "PrivilegeTier",
+      "PrivilegeDecision",
+      "PrivilegeBroker"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../privilege/shizuku_availability.dart",
+      "../system/system_capability.dart",
+      "../system/system_graph.dart"
+    ],
+    "sha256": "0ea303f8eead38513fe5323c1051692b90f301a096620aaa058150f033ad3e61"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/rule_execution_authority.dart",
+    "lines": 156,
+    "symbols": [
+      "RuleExecutionAuthority"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:crypto/crypto.dart",
+      "../scheduling/scheduled_rule.dart",
+      "../scheduling/trigger.dart"
+    ],
+    "sha256": "b14b62defebc6e1b872243c6eea577951814c66c52c5f7f6a49ce8e15b58685f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/semantic_policy.dart",
+    "lines": 248,
+    "symbols": [
+      "SemanticActionRisk",
+      "SemanticReplayPolicy",
+      "RequiredEvidence",
+      "SemanticActionDefinition"
+    ],
+    "imports": [],
+    "sha256": "4c593363c36e6487686ae785a1c0162dafda69171cd787f80e397917b80186b6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "lines": 289,
+    "symbols": [
+      "LanguageAssistCapabilities",
+      "LanguageHint",
+      "SpellFlag",
+      "ConversationActionHint",
+      "LanguageAssistInput",
+      "LanguageAssistService"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/services.dart",
+      "../../../../core/services/nano_runtime_api.dart"
+    ],
+    "sha256": "dfe3967c3a024c495fd05a0ba5c160492e51b5a942ce185d01678cd7cd359827"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path.dart",
+    "lines": 88,
+    "symbols": [
+      "FastPathCandidate",
+      "PragmaticFastPath"
+    ],
+    "imports": [
+      "../../personal_agent/domain/conversation_agent_role.dart",
+      "../business/fact_selector.dart",
+      "../notifications/conversation_understanding.dart",
+      "../messaging/conv_turn_state.dart"
+    ],
+    "sha256": "8fa3f7038e31afa7eb312b1740e80f6521964e7506b613b05375e5c39e38f517"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mcp_candidate_provider.dart",
+    "lines": 44,
+    "symbols": [
+      "McpCandidateProvider"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../planning/candidates/candidate_provider.dart",
+      "mcp_tool.dart",
+      "mcp_tool_adapter.dart",
+      "mcp_tool_registry.dart"
+    ],
+    "sha256": "68c7a5a9b3b600417925f41c036c165eeec15b1fbb3e7ecadf0adf26b4fb8ce2"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mcp_tool.dart",
+    "lines": 17,
+    "symbols": [
+      "McpToolCategory",
+      "McpTool"
+    ],
+    "imports": [],
+    "sha256": "c5b24667760c0bac73f3e6b3793fd9dad46997eb10e08484432c3d6afd3527f8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mcp_tool_adapter.dart",
+    "lines": 52,
+    "symbols": [
+      "McpToolAdapter"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../execution/tool_registry.dart",
+      "../system/system_capability.dart",
+      "mcp_tool.dart"
+    ],
+    "sha256": "8102fe4e7cff0ad6ffcb7e6ac5906f04e11c43b9e488aedfa03f2ff3a4679f56"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mcp_tool_registry.dart",
+    "lines": 22,
+    "symbols": [
+      "McpToolRegistry"
+    ],
+    "imports": [
+      "mcp_tool.dart"
+    ],
+    "sha256": "2759e3733e5c94fede93bc71a87e0a48249cdba861512b9b140d8a4a65bf0df6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/experience_cache.dart",
+    "lines": 137,
+    "symbols": [
+      "VerifiedFlow",
+      "ExperienceCache"
+    ],
+    "imports": [
+      "../execution/agent_tool_dispatcher.dart"
+    ],
+    "sha256": "7f1d949fa2bc8e2e327621207a0ddfdbf910f0a6b54968b68aa7a7fea31c0c45"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/nano_recorder.dart",
+    "lines": 71,
+    "symbols": [
+      "RecordedRun",
+      "NanoRecorderSink",
+      "InMemoryRecorderSink",
+      "NanoRecorder"
+    ],
+    "imports": [
+      "../memory/object_memory.dart"
+    ],
+    "sha256": "129066888424fc137eaab9146081b7c0120b04b65a83e19213720c4ff63ad8bf"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/object_memory.dart",
+    "lines": 327,
+    "symbols": [
+      "UiSelectorEvidence",
+      "UiObjectKey",
+      "UiObjectEntry",
+      "NanoObjectMemory"
+    ],
+    "imports": [],
+    "sha256": "a7a0e934f622a5ffb4f90ca88abfe172201b50eeb4c06f511533f7e0384fd291"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/verified_transition_memory.dart",
+    "lines": 89,
+    "symbols": [
+      "VerifiedTransition",
+      "VerifiedTransitionMemory"
+    ],
+    "imports": [
+      "../navigation/navigation_decision.dart",
+      "../perception/current_situation.dart"
+    ],
+    "sha256": "6dd2ebb35bea1b834cb0f61209e16e15451b332a04da5d19261907ce728291fb"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conv_turn_state.dart",
+    "lines": 572,
+    "symbols": [
+      "ClientProductContext",
+      "ClientContextEntry",
+      "ConversationStateStore",
+      "ConversationStateNotifier"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "../business/business_facts.dart",
+      "../business/fact_selector.dart",
+      "../storage/automation_db_store_client.dart"
+    ],
+    "sha256": "2c50bbbf1b4ff1138f172c50145d89947dedebbcb0d372cc7afea97a33164d31"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conversation_key.dart",
+    "lines": 211,
+    "symbols": [
+      "ConversationKey",
+      "ConversationIdentity"
+    ],
+    "imports": [
+      "../notifications/notification_object.dart",
+      "messaging_package.dart"
+    ],
+    "sha256": "0540b9431c8a64b1c302fc412e415db022546bfb11004dbb47f14f6e9a827af3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conversation_memory.dart",
+    "lines": 395,
+    "symbols": [
+      "ConversationMemoryEntryKind",
+      "ConversationMemoryEntry",
+      "ConversationMemory",
+      "ConversationMemoryStore",
+      "_MemoryCore",
+      "MemoryConversationMemoryStore",
+      "SharedPrefsConversationMemoryStore",
+      "SqliteConversationMemoryStore"
+    ],
+    "imports": [
+      "dart:async",
+      "dart:convert",
+      "package:flutter/foundation.dart",
+      "package:shared_preferences/shared_preferences.dart",
+      "../storage/automation_db_store_client.dart",
+      "incoming_message.dart"
+    ],
+    "sha256": "0bab104fa669fbab4bc050521c07c861540f0700100ad13cc93e3a6a1a88cbfd"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/incoming_message.dart",
+    "lines": 146,
+    "symbols": [
+      "IncomingMessage"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:crypto/crypto.dart",
+      "../notifications/notification_object.dart",
+      "conversation_key.dart",
+      "reply_capability.dart"
+    ],
+    "sha256": "37c42fb1c731b8c2c036e23e03329a7f82ece609b825d61960fe63b310c41993"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/messaging_package.dart",
+    "lines": 41,
+    "symbols": [
+      "MessagingPackage"
+    ],
+    "imports": [],
+    "sha256": "fb2a61e1b2ba24b0469d5f10a91260656a9b61ba29a9983b959b059402410ff8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/reply_capability.dart",
+    "lines": 97,
+    "symbols": [
+      "ReplyCapabilityRef"
+    ],
+    "imports": [
+      "../notifications/notification_object.dart"
+    ],
+    "sha256": "e00a1f9df9dda136aefe41963efbcce74098e10205cf7ec926ec4cf7c6d9ddb6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/reply_transport.dart",
+    "lines": 107,
+    "symbols": [
+      "ReplyDispatchRequest",
+      "ReplyTransport",
+      "NotificationReplyTransport"
+    ],
+    "imports": [
+      "../../../../core/services/nano_runtime_api.dart",
+      "../orchestration/commit_guard.dart",
+      "reply_capability.dart"
+    ],
+    "sha256": "d663ed908fbbba044b5c4bc025c8bd15a5e6d75a25989b0ee6fe3c3657c100df"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/tone_profile.dart",
+    "lines": 127,
+    "symbols": [
+      "ToneWarmth",
+      "ToneVerbosity",
+      "ToneSales",
+      "ToneProfile",
+      "ToneProfileStore"
+    ],
+    "imports": [
+      "dart:convert",
+      "../storage/automation_db_store_client.dart"
+    ],
+    "sha256": "5afc766970abadaa9ddacdecba9d166aebcb1a2984b71e1942b4a80894c456e1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/tone_profile_providers.dart",
+    "lines": 43,
+    "symbols": [
+      "ToneProfileNotifier"
+    ],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "tone_profile.dart"
+    ],
+    "sha256": "911ddbca0ead16cf0ae9880a52ede20cc063bebd9991ddebeb2950d6b4e4cf3c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/automation_model.dart",
+    "lines": 71,
+    "symbols": [
+      "AutomationModelMode",
+      "AutomationModelRole",
+      "AutomationModelProfile"
+    ],
+    "imports": [],
+    "sha256": "7395dc0939b52960461fac96f35329b31bf99a29a8a61a37393b00e4155f9c33"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/automation_model_resolver.dart",
+    "lines": 94,
+    "symbols": [
+      "AutomationModelResolution",
+      "AutomationModelResolver",
+      "ModelGatedCandidateSelector"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_selection.dart",
+      "../planning/candidates/candidate_selector.dart",
+      "automation_model.dart"
+    ],
+    "sha256": "f07de5533209f053a7265108e8fd0e6c543bf6e425aa7e6c0d385a35a07fd8d7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/cold_start_retry.dart",
+    "lines": 44,
+    "symbols": [],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "../../../../core/services/llm_engine_client.dart"
+    ],
+    "sha256": "e384848acda2981c6d6e785261738e408e362c5e8a1faba589f0e9d5b915c297"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/draft_writer.dart",
+    "lines": 114,
+    "symbols": [
+      "DraftRequest",
+      "DraftResult",
+      "DraftGenerated",
+      "DraftUnavailable",
+      "DraftRejected",
+      "AutomationDraftWriter",
+      "RuntimeAutomationDraftWriter"
+    ],
+    "imports": [
+      "../../../../core/services/llm_engine_client.dart",
+      "automation_model.dart",
+      "automation_model_resolver.dart",
+      "cold_start_retry.dart"
+    ],
+    "sha256": "40dc318658c2d2a5184eee0cb5581e5d86b886ab76cedb2113bd57e0e842da6d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/navigation/goal_directed_navigator.dart",
+    "lines": 551,
+    "symbols": [
+      "GoalDirectedNavigator"
+    ],
+    "imports": [
+      "../memory/verified_transition_memory.dart",
+      "../perception/current_situation.dart",
+      "../perception/nano_snapshot.dart",
+      "../perception/semantic/nano_ui_object.dart",
+      "../perception/semantic/screen_graph.dart",
+      "../perception/semantic/semantic_role.dart",
+      "../perception/surface_resolvers.dart",
+      "navigation_decision.dart",
+      "navigation_goal.dart",
+      "situation_diff.dart"
+    ],
+    "sha256": "46eff38eb25b7b2bb6f54ef00c06d26afe7dba8d9a2b24c0a9377ee74b4cc7a4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/navigation/navigation_decision.dart",
+    "lines": 131,
+    "symbols": [
+      "NavigationDecisionStatus",
+      "NavigationActionKind",
+      "ScrollDirection",
+      "NavigationAction",
+      "NavigationDecision"
+    ],
+    "imports": [
+      "situation_diff.dart"
+    ],
+    "sha256": "a66f508f290f25140fcba219383fef832e923cecf2a02d9c37e0f9a567b80adb"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/navigation/navigation_goal.dart",
+    "lines": 41,
+    "symbols": [
+      "NavigationGoal"
+    ],
+    "imports": [
+      "../perception/current_situation.dart"
+    ],
+    "sha256": "68a621b5cc179e633ea338eb2dd2655c6d82ce0d59d8141f88ff95a829f0755b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/navigation/navigation_history.dart",
+    "lines": 217,
+    "symbols": [
+      "NavigationBudget",
+      "NavigationProgressStatus",
+      "NavigationProgress",
+      "NavigationHistoryEntry",
+      "NavigationHistory"
+    ],
+    "imports": [
+      "dart:convert",
+      "../perception/current_situation.dart",
+      "navigation_decision.dart",
+      "navigation_goal.dart"
+    ],
+    "sha256": "329cf586eeae75b0343e3ef5eb82df2a88c997a277a9386c6daaacb2f147f149"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/navigation/navigation_transition_verifier.dart",
+    "lines": 84,
+    "symbols": [
+      "NavigationTransitionStatus",
+      "NavigationTransition",
+      "NavigationTransitionVerifier"
+    ],
+    "imports": [
+      "../perception/current_situation.dart",
+      "navigation_decision.dart",
+      "navigation_goal.dart",
+      "navigation_history.dart"
+    ],
+    "sha256": "f9e0b193dce8eef3081c42fe1a7970361f6d260fe4c5d2b7b949d5d3d3fc7ded"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/navigation/situation_diff.dart",
+    "lines": 115,
+    "symbols": [
+      "SituationDimension",
+      "SituationComparison",
+      "SituationDifference",
+      "SituationDiff"
+    ],
+    "imports": [
+      "../perception/current_situation.dart",
+      "navigation_goal.dart"
+    ],
+    "sha256": "9a59ca2c57d050351a67530f3eadd9bedba9478a88810a51d2131b6474dadef3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/conversation_understanding.dart",
+    "lines": 211,
+    "symbols": [
+      "ConversationUnderstanding"
+    ],
+    "imports": [
+      "dart:convert"
+    ],
+    "sha256": "625991a7669810e9ac1663308611eec1754b640e15cc24416a0d37bc7c09e643"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_prompt.dart",
+    "lines": 364,
+    "symbols": [],
+    "imports": [
+      "../messaging/conversation_memory.dart"
+    ],
+    "sha256": "3cfde7d4d3b3e84de72a2415bb6f17a77c3f7da1d6068d04a95e6d9659caf8d7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "lines": 531,
+    "symbols": [
+      "NotificationDraftResult",
+      "RuntimeNotificationDraftWriter"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/foundation.dart",
+      "package:nanoai/core/services/llm_engine_client.dart",
+      "../../personal_agent/domain/conversation_agent_role.dart",
+      "../messaging/conv_turn_state.dart",
+      "../messaging/conversation_key.dart",
+      "../messaging/conversation_memory.dart",
+      "../model/cold_start_retry.dart",
+      "../scheduling/messaging_metrics.dart",
+      "../messaging/incoming_message.dart",
+      "../scheduling/event_dedupe_store.dart",
+      "conversation_understanding.dart",
+      "notification_draft_prompt.dart",
+      "notification_object.dart"
+    ],
+    "sha256": "1709d6ab088344ec14bdb105d3d08659dfa1fbb1bf41b02af1e8a0c22e425af8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_object.dart",
+    "lines": 164,
+    "symbols": [
+      "NotificationObject"
+    ],
+    "imports": [],
+    "sha256": "ea47938c0e5293985518a47cf8e161c62294479997d3e718094a230be53127ce"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/observed_data_extractor.dart",
+    "lines": 49,
+    "symbols": [
+      "ObservedData",
+      "ObservedDataExtractor"
+    ],
+    "imports": [],
+    "sha256": "9d1ac828ee16f844444d4ec10557642b86f5407b639bcd9c27d6621b6c74f137"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/automation_context.dart",
+    "lines": 221,
+    "symbols": [
+      "AutomationPerceptionStatus",
+      "AutomationPerceptionSnapshot",
+      "AutomationExecutionSnapshot",
+      "AutomationWorldSnapshot",
+      "AutomationConversationSnapshot",
+      "RelevantAutomationMemory",
+      "AutomationContext"
+    ],
+    "imports": [
+      "../memory/object_memory.dart",
+      "../notifications/notification_object.dart",
+      "../perception/current_situation.dart",
+      "automation_run.dart",
+      "execution_journal.dart",
+      "task_plan.dart"
+    ],
+    "sha256": "f6c6ab3bbb0228f384c4a46e38bbe8ee39d1e1b87f7b98be0efb82a61316ccd7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/automation_run.dart",
+    "lines": 101,
+    "symbols": [
+      "AutomationRunPhase",
+      "AutomationRunTerminal",
+      "AutomationRun"
+    ],
+    "imports": [
+      "../governance/action_confirmation.dart",
+      "../navigation/navigation_history.dart",
+      "../voice/execution_cancellation.dart",
+      "task_plan.dart"
+    ],
+    "sha256": "4f13b8ded75fd050404db50e857a914ce1dfea996ab9292e818b9a33eb1eac1f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/commit_guard.dart",
+    "lines": 399,
+    "symbols": [
+      "ActionContext",
+      "ContextGuardStatus",
+      "ContextGuardOutcome",
+      "SendEvidenceStatus",
+      "SendEvidence",
+      "CommitGuard"
+    ],
+    "imports": [
+      "../governance/action_confirmation.dart",
+      "../perception/semantic/nano_ui_object.dart",
+      "../perception/semantic/screen_graph.dart",
+      "../perception/surface_resolvers.dart"
+    ],
+    "sha256": "eb1bd663a59e775187ae2ae8c55985c4c1adee896e7b5330c3fc76be0d3ff557"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/execution_journal.dart",
+    "lines": 610,
+    "symbols": [
+      "ExecutionJournalStatus",
+      "ExecutionJournalEntry",
+      "ExecutionJournal",
+      "SharedPreferencesExecutionJournal",
+      "InMemoryExecutionJournal"
+    ],
+    "imports": [
+      "dart:async",
+      "dart:convert",
+      "package:shared_preferences/shared_preferences.dart",
+      "../governance/action_confirmation.dart",
+      "task_plan.dart"
+    ],
+    "sha256": "303779f7cb0ccc8f8c073f819ae33333cc9f7e0b74382062e0dd24f64d7a1e2e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_decomposer.dart",
+    "lines": 120,
+    "symbols": [
+      "LlmTaskDecomposer"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:nanoai/core/services/llm_engine_client.dart",
+      "../model/automation_model.dart",
+      "../model/automation_model_resolver.dart",
+      "task_planner.dart",
+      "task_plan.dart",
+      "task_step_vocabulary.dart"
+    ],
+    "sha256": "d41364f35c5a6ee21936cc066df73fd9a720bd8056c665b8a83038de4c9a253c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_orchestrator.dart",
+    "lines": 2362,
+    "symbols": [
+      "TaskOrchestrator"
+    ],
+    "imports": [
+      "../memory/verified_transition_memory.dart",
+      "../notifications/notification_object.dart",
+      "../notifications/observed_data_extractor.dart",
+      "../navigation/goal_directed_navigator.dart",
+      "../navigation/navigation_decision.dart",
+      "../navigation/navigation_goal.dart",
+      "../navigation/navigation_history.dart",
+      "../navigation/navigation_transition_verifier.dart",
+      "../perception/current_situation.dart",
+      "../perception/mux/perception_result.dart",
+      "../perception/search_result_resolver.dart",
+      "../perception/semantic/nano_ui_object.dart",
+      "../perception/semantic/screen_graph.dart",
+      "../perception/surface_resolvers.dart",
+      "../planning/generic_ui_intent_parser.dart",
+      "../planning/message_intent_parser.dart",
+      "../governance/action_confirmation.dart",
+      "../voice/execution_cancellation.dart",
+      "automation_context.dart",
+      "automation_run.dart",
+      "commit_guard.dart",
+      "execution_journal.dart",
+      "task_plan.dart",
+      "task_step_vocabulary.dart"
+    ],
+    "sha256": "3a0ee70d725f9888bf0fa9a8c136378073051a185325f56613ec78cc5bfc6ee0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_plan.dart",
+    "lines": 298,
+    "symbols": [
+      "TaskValueId",
+      "TaskValue",
+      "TextValue",
+      "UrlValue",
+      "FilePathValue",
+      "PackageValue",
+      "NotificationValue",
+      "TaskInputBinding",
+      "TaskStep",
+      "TaskPlan",
+      "TaskActionStatus",
+      "TaskActionResult",
+      "TaskStepStatus",
+      "TaskFailureKind",
+      "TaskStepResult"
+    ],
+    "imports": [
+      "../governance/action_confirmation.dart",
+      "task_step_vocabulary.dart",
+      "../governance/semantic_policy.dart"
+    ],
+    "sha256": "ee4c747cf8d723f52f744055854a01f3bde5b4f693c1d83c33a9a7869ba342c4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_planner.dart",
+    "lines": 402,
+    "symbols": [
+      "SemanticStepSpec",
+      "TaskPlanner"
+    ],
+    "imports": [
+      "../planning/message_intent_parser.dart",
+      "../planning/generic_ui_intent_parser.dart",
+      "task_plan.dart",
+      "task_step_vocabulary.dart"
+    ],
+    "sha256": "0d74b8b4b9b3040bc5bd6371dd57bc457c6f0ba1442005012ede305d013ba673"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_step_vocabulary.dart",
+    "lines": 47,
+    "symbols": [],
+    "imports": [
+      "../governance/semantic_policy.dart",
+      "../governance/semantic_policy.dart"
+    ],
+    "sha256": "646291713549c664df9db9b4f22c6a3f5299bf75da596a4e111fdaefcba302cf"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/actionability_engine.dart",
+    "lines": 153,
+    "symbols": [
+      "ActionKind",
+      "ActionabilityState",
+      "StabilityChecker"
+    ],
+    "imports": [
+      "nano_snapshot.dart"
+    ],
+    "sha256": "cc4f5f92a0448fede842f36813b8ab906c9291267303fb9e93db75c5f974182d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/current_situation.dart",
+    "lines": 230,
+    "symbols": [
+      "CurrentSurfaceKind",
+      "SituationEvidence",
+      "CurrentSituation"
+    ],
+    "imports": [
+      "dart:convert",
+      "nano_snapshot.dart",
+      "semantic/screen_graph.dart",
+      "semantic/semantic_role.dart"
+    ],
+    "sha256": "317d2b002be7929dfa0ae841a06fde22a08dc18150671e17a998ea441da618e3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/entity_identity_resolver.dart",
+    "lines": 198,
+    "symbols": [
+      "EntityIdentity",
+      "EntityIdentityResolver"
+    ],
+    "imports": [
+      "current_situation.dart",
+      "semantic/nano_ui_object.dart",
+      "semantic/screen_graph.dart",
+      "semantic/semantic_role.dart"
+    ],
+    "sha256": "da5779d687f99e2d66c94fde142bd55ba99af7747fd3a2eba08eee47f5686b71"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/accessibility_perception_source.dart",
+    "lines": 89,
+    "symbols": [
+      "AccessibilityPerceptionSource"
+    ],
+    "imports": [
+      "../semantic/screen_graph.dart",
+      "perception_contracts.dart",
+      "perception_result.dart",
+      "perception_source.dart",
+      "screen_graph_query.dart"
+    ],
+    "sha256": "0fd65fa78054b0d83874767f04cbe2f7675e683f15ec38659d6caa12f4dc3b83"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/mlkit_vision_backend.dart",
+    "lines": 50,
+    "symbols": [
+      "MlKitVisionBackend"
+    ],
+    "imports": [
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "../nano_snapshot.dart",
+      "../semantic/semantic_role.dart",
+      "vision_contracts.dart"
+    ],
+    "sha256": "ed997604632893706d8f8149e136e0b3139ceaa3f3e0b91a525c7d815c45c7d6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/object_memory_perception_source.dart",
+    "lines": 57,
+    "symbols": [
+      "ObjectMemoryPerceptionSource"
+    ],
+    "imports": [
+      "../../memory/object_memory.dart",
+      "perception_contracts.dart",
+      "perception_result.dart",
+      "perception_source.dart"
+    ],
+    "sha256": "22cdaaf25f4eaba47733eae6c522ca4b24a01000d29ad1928cc3cc55f85321f5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/ocr_contracts.dart",
+    "lines": 71,
+    "symbols": [
+      "ScreenImage",
+      "ScreenImageResult",
+      "ScreenImageProvider",
+      "OcrRequest",
+      "OcrObservation",
+      "OcrResult",
+      "OcrBackend"
+    ],
+    "imports": [
+      "dart:typed_data",
+      "../nano_snapshot.dart"
+    ],
+    "sha256": "e04b991bbedcd183e11b5ed0c8fa78e3069190f5d56054cbd57a217a53c3eb50"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/ocr_perception_source.dart",
+    "lines": 122,
+    "symbols": [
+      "OcrPerceptionSource"
+    ],
+    "imports": [
+      "../semantic/nano_ui_object.dart",
+      "../semantic/semantic_role.dart",
+      "ocr_contracts.dart",
+      "perception_contracts.dart",
+      "perception_result.dart",
+      "perception_source.dart",
+      "vision_contracts.dart"
+    ],
+    "sha256": "e86401104d70ce501c9911987d919300a2f2090dbf8d8574f75755f39fcaffb7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/perception_contracts.dart",
+    "lines": 95,
+    "symbols": [
+      "PerceptionRequest",
+      "ObservationPolicy",
+      "PerceptionBudget",
+      "PerceptionEvidenceSource",
+      "PerceptionEvidence"
+    ],
+    "imports": [
+      "../nano_snapshot.dart",
+      "../semantic/semantic_role.dart"
+    ],
+    "sha256": "75d0c8a0543f9fa7b4c1622cb2f41a919d567a45ce4445047bfbad8a077a736c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/perception_fusion.dart",
+    "lines": 80,
+    "symbols": [
+      "PerceptionFusionEngine"
+    ],
+    "imports": [
+      "../semantic/nano_ui_object.dart",
+      "ocr_contracts.dart",
+      "perception_contracts.dart",
+      "perception_result.dart",
+      "vision_contracts.dart"
+    ],
+    "sha256": "21b06c856462898d10335018076cfbf95f74523e26a0541a383984695d4ee55f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/perception_result.dart",
+    "lines": 76,
+    "symbols": [
+      "PerceptionResult",
+      "PerceptionMemoryHint",
+      "PerceptionResolved",
+      "PerceptionAmbiguous",
+      "PerceptionInsufficient",
+      "PerceptionUnavailable"
+    ],
+    "imports": [
+      "../../memory/object_memory.dart",
+      "../semantic/nano_ui_object.dart",
+      "perception_contracts.dart"
+    ],
+    "sha256": "ee874ced4f84348ee93ade511f549d77c4f1359ab3050e4f8d4523e5be378e73"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/perception_source.dart",
+    "lines": 21,
+    "symbols": [
+      "PerceptionSource",
+      "ScreenObserver"
+    ],
+    "imports": [
+      "../nano_snapshot.dart",
+      "perception_contracts.dart",
+      "perception_result.dart"
+    ],
+    "sha256": "a2649e7bd21234bc5943a36b7e2da92861e229b2cb20861619b9c561ba191e11"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/screen_graph_query.dart",
+    "lines": 81,
+    "symbols": [
+      "ScreenGraphMatch",
+      "ScreenGraphQuery"
+    ],
+    "imports": [
+      "../semantic/nano_ui_object.dart",
+      "../semantic/screen_graph.dart",
+      "../semantic/screen_relation.dart",
+      "../semantic/semantic_role.dart",
+      "perception_contracts.dart"
+    ],
+    "sha256": "d33099170a2e5ab3e89db1a7f089f9e6aaba593ed588831d8e9b93aa12d4d5d1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/vision_contracts.dart",
+    "lines": 71,
+    "symbols": [
+      "CoordinateSpace",
+      "VisionMode",
+      "VisionObject",
+      "VisionResult",
+      "VisionRequest",
+      "VisionBackend"
+    ],
+    "imports": [
+      "../semantic/semantic_role.dart",
+      "../nano_snapshot.dart",
+      "ocr_contracts.dart"
+    ],
+    "sha256": "6cfa4a47e9144f0dee43af26422fe4d2c7df4ef0dfa00e31630a6468c2777056"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/vision_perception_source.dart",
+    "lines": 143,
+    "symbols": [
+      "VisionPerceptionSource"
+    ],
+    "imports": [
+      "../semantic/nano_ui_object.dart",
+      "../semantic/semantic_role.dart",
+      "ocr_contracts.dart",
+      "perception_contracts.dart",
+      "perception_result.dart",
+      "perception_source.dart",
+      "vision_contracts.dart"
+    ],
+    "sha256": "034c50d3ef5d6d897ccf9a214ffbe6465e28aa10807550c8effd624fac552fef"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/visual_resource_policy.dart",
+    "lines": 112,
+    "symbols": [
+      "VisualModelState",
+      "VisualResourcePolicy",
+      "MobileVisualResourcePolicy"
+    ],
+    "imports": [],
+    "sha256": "3bcdd253313e05c3e45e45b48e0e47053722d46b453ff540166ae6878f9f578e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_selector.dart",
+    "lines": 255,
+    "symbols": [
+      "TextMatcher",
+      "Role",
+      "RoleDerivation",
+      "NanoSelector",
+      "SelectorFormatException"
+    ],
+    "imports": [],
+    "sha256": "4784bb9aace64a8e67d1d603d9ff86feb14838df9b9d2ffc9f76f2fe532b96b8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_snapshot.dart",
+    "lines": 312,
+    "symbols": [
+      "NanoBounds",
+      "NanoNode",
+      "NanoWindow",
+      "NanoSnapshot"
+    ],
+    "imports": [],
+    "sha256": "869a5c7493efdff93d225d83c9385d394b1e24e6882562ba5f9750f08fa55e13"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/perception_mux.dart",
+    "lines": 339,
+    "symbols": [
+      "PerceptionMux"
+    ],
+    "imports": [
+      "../memory/object_memory.dart",
+      "nano_snapshot.dart",
+      "semantic/nano_ui_object.dart",
+      "mux/accessibility_perception_source.dart",
+      "mux/object_memory_perception_source.dart",
+      "mux/ocr_perception_source.dart",
+      "mux/perception_contracts.dart",
+      "mux/perception_fusion.dart",
+      "mux/perception_result.dart",
+      "mux/vision_perception_source.dart",
+      "mux/visual_resource_policy.dart"
+    ],
+    "sha256": "2fe4a3204f73e2c6bcb63b3f4d73d25dfce6652e2fd88d7748330dc3bbfeb6e7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/search_result_resolver.dart",
+    "lines": 219,
+    "symbols": [
+      "SearchResultSource",
+      "SearchResultCandidate",
+      "ResultTarget",
+      "ResultOrdinal",
+      "ResultText",
+      "ResultResolution",
+      "ResultResolved",
+      "ResultAmbiguous",
+      "ResultNotFound",
+      "ResultIncompleteEvidence",
+      "SearchResultResolver"
+    ],
+    "imports": [
+      "nano_snapshot.dart",
+      "semantic/nano_ui_object.dart",
+      "semantic/screen_graph.dart",
+      "semantic/semantic_role.dart"
+    ],
+    "sha256": "6d04eb66ffb12cae0779d7c015859f5eec9b6c165fd09062ce09a688d3b9ac85"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/selector_engine.dart",
+    "lines": 441,
+    "symbols": [
+      "ScoringConstants",
+      "_SnapshotFeatures",
+      "NanoSelectorEngine"
+    ],
+    "imports": [
+      "../execution/agent_result.dart",
+      "nano_selector.dart",
+      "nano_snapshot.dart"
+    ],
+    "sha256": "08322a3ad5d6042d1ba3f42e728ab03139e159ce8d29bcd6450b66f2258a6e9e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/nano_ui_object.dart",
+    "lines": 113,
+    "symbols": [
+      "NanoUiObject"
+    ],
+    "imports": [
+      "../nano_snapshot.dart",
+      "semantic_role.dart"
+    ],
+    "sha256": "4576be63b266fcb72b3a2276432fc62faad0da54ebb19d55533a2e7755358e5b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/relationship_engine.dart",
+    "lines": 162,
+    "symbols": [
+      "RelationshipEngine"
+    ],
+    "imports": [
+      "nano_ui_object.dart",
+      "screen_relation.dart",
+      "semantic_role.dart"
+    ],
+    "sha256": "b384a2ef870135a41c034ee14385ab9acc1137cbdb55a4d4b5e2f976494b9650"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/screen_graph.dart",
+    "lines": 89,
+    "symbols": [
+      "ScreenGraph"
+    ],
+    "imports": [
+      "../nano_snapshot.dart",
+      "nano_ui_object.dart",
+      "relationship_engine.dart",
+      "screen_relation.dart",
+      "semantic_normalizer.dart",
+      "semantic_role.dart"
+    ],
+    "sha256": "6e697e46473fa7cff7f12ff348750789f5ea301e96f0478d034d7bfb6575d522"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/screen_relation.dart",
+    "lines": 34,
+    "symbols": [
+      "ScreenRelationType",
+      "ScreenRelation"
+    ],
+    "imports": [],
+    "sha256": "e97903a4fd124fa0bfa97544e8910ece223595d124b0dec565a4af2457e5e614"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/semantic_normalizer.dart",
+    "lines": 250,
+    "symbols": [
+      "SemanticNormalizer"
+    ],
+    "imports": [
+      "../nano_snapshot.dart",
+      "nano_ui_object.dart",
+      "semantic_role.dart"
+    ],
+    "sha256": "c3137350bfd02eeed1c1e0fd0fbc56638bc09ec94e40ee7f204a535fb7dc9f62"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/semantic_role.dart",
+    "lines": 50,
+    "symbols": [
+      "SemanticRole",
+      "SemanticEvidenceSource"
+    ],
+    "imports": [],
+    "sha256": "dbfcff6eadda634aff7fb024e3abeb668b1bb1f38d9a090ec7669d2acb9a62b7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_classifier.dart",
+    "lines": 140,
+    "symbols": [
+      "SurfaceClassifier"
+    ],
+    "imports": [
+      "current_situation.dart",
+      "entity_identity_resolver.dart",
+      "semantic/nano_ui_object.dart",
+      "semantic/screen_graph.dart",
+      "semantic/semantic_role.dart"
+    ],
+    "sha256": "0017d00c65476c2f8ae6caa928da90df5ae991479678ac2f232a5b2c302c0eaa"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_profiles.dart",
+    "lines": 436,
+    "symbols": [
+      "SurfaceElementKind",
+      "SurfaceElementProfile",
+      "SurfaceProfile",
+      "GenericSurfaceProfile",
+      "ConversationSurfaceProfile",
+      "ResolvedSurfaceProfile",
+      "SurfaceProfileSource",
+      "SurfaceProfileRegistry"
+    ],
+    "imports": [
+      "semantic/semantic_role.dart",
+      "../messaging/messaging_package.dart"
+    ],
+    "sha256": "6225ce6b8c80c9e2370e2794920cc1a578d1840e0eb6e7d01174de553a13ff17"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_resolvers.dart",
+    "lines": 665,
+    "symbols": [
+      "ResolvedSurface",
+      "InputSurfaceKind",
+      "InputSurfaceResolver",
+      "EntityActionSurfaceResolver",
+      "EntityInputSurfaceResolver",
+      "ActionSurfaceResolver"
+    ],
+    "imports": [
+      "semantic/nano_ui_object.dart",
+      "semantic/screen_graph.dart",
+      "surface_profiles.dart"
+    ],
+    "sha256": "ccc7e086bcc20b6632504aca452d9be748624bf37929d908238dd50c3714f596"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/performance/memory_budget.dart",
+    "lines": 32,
+    "symbols": [
+      "ModelComponent",
+      "ResidencyState",
+      "MemoryBudget"
+    ],
+    "imports": [],
+    "sha256": "0f09231bee3252d92c8b78d939cea285cdff1732e0265ca72263594a49cdf2e8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/automation_planner.dart",
+    "lines": 200,
+    "symbols": [
+      "AutomationPlanner",
+      "PlannedPlan",
+      "LlmAutomationPlanner"
+    ],
+    "imports": [
+      "package:nanoai/core/services/llm_engine_client.dart",
+      "../execution/agent_tool_dispatcher.dart",
+      "../execution/tool_registry.dart",
+      "../model/automation_model.dart",
+      "../model/automation_model_resolver.dart"
+    ],
+    "sha256": "6bbb10671f0507ebc9ccbd9341c108cb654c7b1f34f5132585b331246cba6086"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidate_first_planner.dart",
+    "lines": 247,
+    "symbols": [
+      "CandidatePlanResult",
+      "SelectionMode",
+      "CandidatePlanResolved",
+      "CandidatePlanNoCandidate",
+      "CandidatePlanGoverned",
+      "CandidateFirstPlanner"
+    ],
+    "imports": [
+      "dart:async",
+      "../execution/agent_tool_dispatcher.dart",
+      "../execution/goal_verifier.dart",
+      "../governance/action_governance_pipeline.dart",
+      "../governance/rule_execution_authority.dart",
+      "../governance/intent_spec_compiler.dart",
+      "../privilege/shizuku_availability.dart",
+      "../system/system_graph.dart",
+      "candidates/candidate_action.dart",
+      "candidates/candidate_generator.dart",
+      "candidates/candidate_provider.dart",
+      "candidates/candidate_selection.dart",
+      "candidates/candidate_selection_engine.dart",
+      "candidates/candidate_selector.dart",
+      "candidates/candidate_tool_call_adapter.dart",
+      "koog_shadow.dart",
+      "koog_supervisor.dart"
+    ],
+    "sha256": "2d7c7687768ba6ae635690b855c8c5524a3110a66b659f512710e53f33136997"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_action.dart",
+    "lines": 212,
+    "symbols": [
+      "CandidateId",
+      "ActionChannel",
+      "ActionEvidenceSource",
+      "ActionEvidence",
+      "CandidateAction"
+    ],
+    "imports": [
+      "../../execution/action_verifier.dart",
+      "../../execution/tool_registry.dart",
+      "../../system/system_capability.dart"
+    ],
+    "sha256": "38aa76a3396a87a5b676a6c17ac5491c3bdd58b8b3440012e11a1727011d3bc3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_generator.dart",
+    "lines": 84,
+    "symbols": [
+      "CandidateConflict",
+      "CandidateProviderFailure",
+      "CandidateGenerationResult",
+      "CandidateActionGenerator"
+    ],
+    "imports": [
+      "candidate_action.dart",
+      "candidate_provider.dart",
+      "candidate_set.dart"
+    ],
+    "sha256": "b2053e6137897880b2ecfcc3f9aed60953c1badea6f3c1877c3cc1c9322d54eb"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_provider.dart",
+    "lines": 36,
+    "symbols": [
+      "CandidateRequest",
+      "CandidateProvider"
+    ],
+    "imports": [
+      "candidate_action.dart"
+    ],
+    "sha256": "4eeba889b687581096c1106608e4579e4c136e835fc00e131662bbecbcdd5d1a"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_providers.dart",
+    "lines": 293,
+    "symbols": [
+      "DeterministicCandidateProvider",
+      "InstalledAppCandidateProvider",
+      "SystemIntentCandidateProvider",
+      "NanoFlowCandidateProvider"
+    ],
+    "imports": [
+      "../../execution/action_verifier.dart",
+      "../../execution/agent_tool_dispatcher.dart",
+      "../../execution/tool_registry.dart",
+      "../../system/installed_app_catalog.dart",
+      "../../system/system_capability.dart",
+      "../../system/system_destination.dart",
+      "../../system/system_graph.dart",
+      "../../system/system_intent_catalog.dart",
+      "../../system/system_models.dart",
+      "../deterministic_catalog.dart",
+      "../../memory/experience_cache.dart",
+      "candidate_action.dart",
+      "candidate_provider.dart"
+    ],
+    "sha256": "b4584ad8c4fee4cfb8724ae6a87eaca863ea9738f00ee8178defd3ebbb57a9a0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_ranker.dart",
+    "lines": 129,
+    "symbols": [
+      "CandidateScore",
+      "CandidateRanker"
+    ],
+    "imports": [
+      "../../execution/action_verifier.dart",
+      "../../execution/tool_registry.dart",
+      "candidate_action.dart",
+      "candidate_selection.dart",
+      "candidate_set.dart"
+    ],
+    "sha256": "8e41aaa99aa647b2f6ec041e5fea18a8b2f9246fa9a569c5fa6dbce9779d6be1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_selection.dart",
+    "lines": 40,
+    "symbols": [
+      "CandidateSelection",
+      "SelectedCandidate",
+      "AmbiguousCandidates",
+      "NoCandidate",
+      "InvalidCandidateSelection"
+    ],
+    "imports": [
+      "candidate_action.dart"
+    ],
+    "sha256": "6523f0c1e3bee8c15a48865f3646ee7b086a66f0729ee91e442ef607229088a2"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_selection_engine.dart",
+    "lines": 42,
+    "symbols": [
+      "CandidateSelectionEngine"
+    ],
+    "imports": [
+      "candidate_ranker.dart",
+      "candidate_selection.dart",
+      "candidate_selector.dart",
+      "candidate_set.dart"
+    ],
+    "sha256": "8aaa14bbf2964bd93401b6b1e39d1de819538056e20befc12697654f6b47cbbf"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_selector.dart",
+    "lines": 25,
+    "symbols": [
+      "CandidateSelectionRequest",
+      "CandidateSelector"
+    ],
+    "imports": [
+      "candidate_selection.dart",
+      "candidate_set.dart"
+    ],
+    "sha256": "3ac68b06f9fabd3cc368705c534efa5229830767bf05b0676fe732ac4983b7f1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_set.dart",
+    "lines": 34,
+    "symbols": [
+      "CandidateSet"
+    ],
+    "imports": [
+      "candidate_action.dart"
+    ],
+    "sha256": "53ff7667d97685081aab0f3850ec7e3bc8472bdb1ac2176e9df70cda477a3d85"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_tool_call_adapter.dart",
+    "lines": 49,
+    "symbols": [
+      "CandidateToolUnknown",
+      "CandidateToolCallAdapter"
+    ],
+    "imports": [
+      "../../execution/action_verifier.dart",
+      "../../execution/agent_tool_dispatcher.dart",
+      "../../execution/tool_registry.dart",
+      "candidate_action.dart"
+    ],
+    "sha256": "4b556666f4944da8d037bb1661869561db96c15400f6c422cd5f9b1627cbd38e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/koog_candidate_selector.dart",
+    "lines": 112,
+    "symbols": [
+      "KoogCandidateSelector"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:nanoai/core/services/llm_engine_client.dart",
+      "candidate_action.dart",
+      "candidate_selection.dart",
+      "candidate_selector.dart"
+    ],
+    "sha256": "c4375b7dbebdc5af79764c0a992bb19ce030ab785bdbb3b31351f4c047ff36b8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/notification_candidate_provider.dart",
+    "lines": 204,
+    "symbols": [
+      "NotificationCandidateProvider"
+    ],
+    "imports": [
+      "../../messaging/reply_capability.dart",
+      "../../notifications/notification_draft_writer.dart",
+      "../../notifications/notification_object.dart",
+      "../../system/system_capability.dart",
+      "../../execution/tool_registry.dart",
+      "../../execution/action_verifier.dart",
+      "../../execution/platform_verification.dart",
+      "../message_intent_parser.dart",
+      "candidate_action.dart",
+      "candidate_provider.dart"
+    ],
+    "sha256": "898aa3bf0ed23fd627d6e26ab5a533cfc3998a3cd5d0b588e04caf4f2c52f8fa"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/notification_data_candidate_provider.dart",
+    "lines": 135,
+    "symbols": [
+      "NotificationDataCandidateProvider"
+    ],
+    "imports": [
+      "../../execution/action_verifier.dart",
+      "../../execution/platform_verification.dart",
+      "../../execution/tool_registry.dart",
+      "../../system/system_capability.dart",
+      "../../notifications/notification_object.dart",
+      "../../notifications/observed_data_extractor.dart",
+      "candidate_action.dart",
+      "candidate_provider.dart"
+    ],
+    "sha256": "19c142cbba2829c5200b93148417054cf1d166a129bb93871868c7c8fa60f648"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/screen_graph_candidate_provider.dart",
+    "lines": 287,
+    "symbols": [
+      "ScreenGraphCandidateProvider"
+    ],
+    "imports": [
+      "../../perception/mux/perception_contracts.dart",
+      "../../perception/mux/perception_source.dart",
+      "../../perception/mux/screen_graph_query.dart",
+      "../../perception/semantic/nano_ui_object.dart",
+      "../../perception/semantic/screen_graph.dart",
+      "../../perception/semantic/semantic_role.dart",
+      "../../execution/action_verifier.dart",
+      "../../execution/platform_verification.dart",
+      "../../execution/tool_registry.dart",
+      "../../system/system_capability.dart",
+      "candidate_action.dart",
+      "candidate_provider.dart"
+    ],
+    "sha256": "0c416b213f27a4c898943376ca6adc729655d59d9872658cbac2b3423b463826"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/deterministic_catalog.dart",
+    "lines": 208,
+    "symbols": [
+      "DeterministicFlow",
+      "DeterministicFlowCatalog"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart",
+      "package:nanoai/features/automation/engine/execution/goal_verifier.dart"
+    ],
+    "sha256": "e1685aff1816456f48bcb513cfef5354163b715ef8538d8e36a38efa4068ff90"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/generic_ui_intent_parser.dart",
+    "lines": 237,
+    "symbols": [
+      "GenericUiIntent",
+      "GenericUiFillIntent",
+      "GenericUiComposeIntent",
+      "GenericSearchIntent",
+      "GenericUiIntentParser"
+    ],
+    "imports": [],
+    "sha256": "d847d5c5f57988e120f8b951906af4ad79ca0fe1a91b52ee557b202f493c00bd"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/koog.dart",
+    "lines": 132,
+    "symbols": [
+      "KoogStep",
+      "PlanGenerator",
+      "KoogRunResult",
+      "Koog"
+    ],
+    "imports": [
+      "../execution/action_verifier.dart",
+      "../execution/agent_loop.dart",
+      "../perception/nano_selector.dart",
+      "../execution/tool_registry.dart"
+    ],
+    "sha256": "dade10177e4cd7173a662ac77006bab8eb0bb27828d7ba8c7a088f35909e5357"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/koog_shadow.dart",
+    "lines": 98,
+    "symbols": [
+      "AuthoritativeOutcome",
+      "KoogShadowDisagreement",
+      "KoogShadowObserver"
+    ],
+    "imports": [
+      "koog_supervisor.dart"
+    ],
+    "sha256": "b06160cc3657304d4de9d7259430025c7287663dfcadb25c0289db9fa04d1b7d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/koog_supervisor.dart",
+    "lines": 274,
+    "symbols": [
+      "KoogSupervisionDecision",
+      "KoogAct",
+      "KoogNeedObservation",
+      "KoogNeedConfirmation",
+      "KoogCompleted",
+      "KoogFailed",
+      "KoogAbstain",
+      "KoogCandidateView",
+      "KoogSupervisionContext",
+      "KoogSupervisor",
+      "LlmKoogSupervisor"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:nanoai/core/services/llm_engine_client.dart",
+      "package:nanoai/features/automation/engine/planning/candidates/candidate_action.dart"
+    ],
+    "sha256": "fbddedbc8a33cf5c0cdc1a96876be1f3449d298d2cadea01e7bb25e750be0e26"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/linux_voice_command_parser.dart",
+    "lines": 148,
+    "symbols": [
+      "ParsedLinuxCommand",
+      "LinuxVoiceCommandParser"
+    ],
+    "imports": [
+      "package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart",
+      "package:nanoai/features/automation/engine/execution/goal_verifier.dart",
+      "package:nanoai/features/automation/engine/execution/platform_verification.dart"
+    ],
+    "sha256": "22833d317481a69bc3ab3f23bbe5d2f357762efdf3353b878883467bd179f230"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/message_intent_parser.dart",
+    "lines": 339,
+    "symbols": [
+      "MessageIntent",
+      "MessageIntentParser"
+    ],
+    "imports": [],
+    "sha256": "55c70a9542a4cfeffc07b355ea258bfec32bfb1b13195031378907298b846d66"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/linux_tool_adapter.dart",
+    "lines": 154,
+    "symbols": [
+      "LinuxCommandResult",
+      "LinuxToolAdapter"
+    ],
+    "imports": [
+      "../../../../core/services/linux_execution_backend.dart"
+    ],
+    "sha256": "3c47de70f1c7dc2c513502c9e40573da17216e8f157e954bdb6e7cb710fe1c6e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_ocr_api.dart",
+    "lines": 85,
+    "symbols": [
+      "NanoOcrApi",
+      "AccessibilityScreenImageProvider",
+      "MlKitOcrBackend"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter/services.dart",
+      "../../../../core/services/nano_runtime_api.dart",
+      "../perception/mux/ocr_contracts.dart",
+      "../perception/nano_snapshot.dart"
+    ],
+    "sha256": "24151868a957065d4c0cce363fd13271d6bf254ebd10163082bf36621c8c80c9"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart",
+    "lines": 125,
+    "symbols": [
+      "NanoSystemApi",
+      "MethodChannelSystemInventory",
+      "MethodChannelSystemIntentLauncher"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter/services.dart",
+      "../../../../core/services/nano_runtime_api.dart",
+      "../system/system_destination.dart",
+      "../system/system_intent_launcher.dart",
+      "../system/system_inventory.dart",
+      "../system/system_models.dart"
+    ],
+    "sha256": "2a30d4a1b9fe5bcbe053113f1621cae12ed1661a5fd60ca72387ffb00fc5e2b6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/whatsapp_media_share.dart",
+    "lines": 55,
+    "symbols": [
+      "WhatsAppMediaShare"
+    ],
+    "imports": [
+      "package:flutter/services.dart"
+    ],
+    "sha256": "c91dc09e24ef364c875233189f0de5790c3118a2e009bce384e1a0a03be175fe"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/privilege/shizuku_availability.dart",
+    "lines": 44,
+    "symbols": [
+      "ShizukuStatus",
+      "ShizukuAvailability",
+      "ShizukuAvailabilityProvider",
+      "UnsupportedShizukuAvailabilityProvider"
+    ],
+    "imports": [],
+    "sha256": "65a01db357a3187f0989d8b257f1462dd98aa3083fe2ff52a8b57a970302d84e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/privilege/shizuku_capability.dart",
+    "lines": 54,
+    "symbols": [
+      "ShizukuCapability",
+      "ShizukuCapabilityProvider"
+    ],
+    "imports": [
+      "../execution/tool_registry.dart",
+      "../planning/candidates/candidate_action.dart",
+      "../system/system_capability.dart"
+    ],
+    "sha256": "15462ae885a7ba8bc7890a9d2ed3c4f6e06935866c017a104c3bdbcb21cdd582"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/privilege/shizuku_native_provider.dart",
+    "lines": 61,
+    "symbols": [
+      "MethodChannelShizukuAvailabilityProvider"
+    ],
+    "imports": [
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "shizuku_availability.dart"
+    ],
+    "sha256": "f0dd39ae3399b4262312393a8aaed479261cec3a2d6d3f06446962565a0d9d6d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "lines": 404,
+    "symbols": [
+      "BurstTurnGate",
+      "_Bucket",
+      "_Member",
+      "_Batch"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/foundation.dart",
+      "../messaging/conversation_key.dart",
+      "../notifications/notification_object.dart",
+      "messaging_metrics.dart",
+      "rule_dispatcher.dart"
+    ],
+    "sha256": "3ccc2bde89c5dab6f6e8874542f6b35323e3f3db3597522bfa4a5cecc80455c0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/contact_rate_limiter.dart",
+    "lines": 283,
+    "symbols": [
+      "ContactRatePolicy",
+      "ContactRateLimiter",
+      "SharedPreferencesContactRateLimiter",
+      "SqliteContactRateLimiter"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:shared_preferences/shared_preferences.dart",
+      "../messaging/conversation_key.dart",
+      "../storage/automation_db_store_client.dart"
+    ],
+    "sha256": "4892947b805cf51e267a28d1972d113bc92e2856d9ac04cf1d3f6ea4dbd25700"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "lines": 623,
+    "symbols": [
+      "DedupeVerdict",
+      "DedupeEventState",
+      "EventDedupeStore",
+      "_DedupeEntry",
+      "_OutboundEcho",
+      "_DedupeCore",
+      "MemoryEventDedupeStore",
+      "SharedPrefsEventDedupeStore",
+      "SqliteEventDedupeStore"
+    ],
+    "imports": [
+      "dart:async",
+      "dart:convert",
+      "package:shared_preferences/shared_preferences.dart",
+      "../storage/automation_db_store_client.dart"
+    ],
+    "sha256": "73b8ce31573235bfd7337af792d971aa255e629e4ba18357a3dde5f2969dfd4c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/messaging_metrics.dart",
+    "lines": 43,
+    "symbols": [
+      "MessagingMetrics"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart"
+    ],
+    "sha256": "8ee5755bc06dadddb7a45894e1890ef54d4b0665345b1b71a33d5a807a505d2a"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/notification_event_adapter.dart",
+    "lines": 24,
+    "symbols": [
+      "NotificationEventAdapter"
+    ],
+    "imports": [
+      "../notifications/notification_object.dart",
+      "trigger.dart"
+    ],
+    "sha256": "0ce51cb9cf6adc910423f4ea1e7cd5b23ee84b8bab6493c4e0d27a290b2673da"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/notification_event_router.dart",
+    "lines": 95,
+    "symbols": [
+      "NotificationEventRouter"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/foundation.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "../notifications/notification_object.dart",
+      "burst_turn_gate.dart",
+      "rule_pipeline.dart"
+    ],
+    "sha256": "2fb0a7f2a3f16a8bcaa79a5c2db4b4dbd1a011e0e7214f81f81c55b2779e69eb"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_dispatcher.dart",
+    "lines": 627,
+    "symbols": [
+      "RuleOutcome",
+      "RuleDispatchResult",
+      "RuleDispatcher"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "../../domain/automation_goal.dart",
+      "../../domain/automation_result.dart",
+      "../../personal_agent/application/conversation_decision_engine.dart",
+      "../../personal_agent/domain/conversation_decision.dart",
+      "../governance/rule_execution_authority.dart",
+      "../language/language_assist.dart",
+      "../language/pragmatic_fast_path.dart",
+      "../messaging/conversation_key.dart",
+      "../notifications/conversation_understanding.dart",
+      "../notifications/notification_draft_writer.dart",
+      "../notifications/notification_object.dart",
+      "scheduled_rule.dart",
+      "../messaging/reply_capability.dart",
+      "../messaging/incoming_message.dart",
+      "../../personal_agent/domain/conversation_autonomy_mode.dart",
+      "messaging_metrics.dart",
+      "turn_supersede_guard.dart"
+    ],
+    "sha256": "5a151c802967478a2a533cc1c4c254129e3123ca529a73d3bbdc4f9b07571983"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_engine.dart",
+    "lines": 20,
+    "symbols": [
+      "RuleEngine"
+    ],
+    "imports": [
+      "scheduled_rule.dart",
+      "trigger.dart"
+    ],
+    "sha256": "3be5ce1a550e4830393c05a8443c62ee4d5ee7fe540af15add1f52e2c5be8514"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_pipeline.dart",
+    "lines": 606,
+    "symbols": [
+      "RulePipeline"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/foundation.dart",
+      "../messaging/conversation_key.dart",
+      "../messaging/conversation_memory.dart",
+      "../messaging/incoming_message.dart",
+      "../messaging/messaging_package.dart",
+      "../notifications/notification_object.dart",
+      "contact_rate_limiter.dart",
+      "burst_turn_gate.dart",
+      "messaging_metrics.dart",
+      "event_dedupe_store.dart",
+      "notification_event_adapter.dart",
+      "../storage/automation_db_store_client.dart",
+      "rule_dispatcher.dart",
+      "rule_engine.dart",
+      "rule_registry.dart",
+      "scheduled_rule.dart",
+      "trigger.dart",
+      "turn_supersede_guard.dart"
+    ],
+    "sha256": "b3f23626d0b5c4c6d1000efbcfb45741f2635e868955d8b6089dd47e93a9c764"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_registry.dart",
+    "lines": 185,
+    "symbols": [
+      "RuleStore",
+      "MemoryRuleStore",
+      "SharedPrefsRuleStore",
+      "RuleRegistry"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:flutter/foundation.dart",
+      "package:shared_preferences/shared_preferences.dart",
+      "../messaging/messaging_package.dart",
+      "scheduled_rule.dart",
+      "trigger.dart"
+    ],
+    "sha256": "672105320b4e568efaf644f0c00d756e54fecb8ae545e1dcd3b6fe3f62a0bdf6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/scheduled_rule.dart",
+    "lines": 152,
+    "symbols": [
+      "RuleAction",
+      "RuleActionLabel",
+      "ScheduledRule"
+    ],
+    "imports": [
+      "trigger.dart"
+    ],
+    "sha256": "117b2e0adc6f71f4c53407abbe7890f9ce30875298bc2022129acb530f72266f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/time_tick_scheduler.dart",
+    "lines": 55,
+    "symbols": [
+      "TimeTickScheduler"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/foundation.dart",
+      "trigger.dart"
+    ],
+    "sha256": "198ed9d9dea8941a7cfc7aee1a9252cfa62d4f39dcc86e4c9dc265dd11193cc8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger.dart",
+    "lines": 178,
+    "symbols": [
+      "Trigger",
+      "TimeTrigger",
+      "NotificationTrigger",
+      "ConnectivityTrigger",
+      "BatteryTrigger",
+      "TriggerEvent",
+      "TickEvent",
+      "NotificationEvent",
+      "ConnectivityEvent",
+      "BatteryEvent"
+    ],
+    "imports": [],
+    "sha256": "99da1f7162cc6773b38b477d7e910f68892726e3b68bb10857b7d3108ef91671"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger_parser.dart",
+    "lines": 132,
+    "symbols": [
+      "ParsedSchedule",
+      "TriggerParser"
+    ],
+    "imports": [
+      "trigger.dart"
+    ],
+    "sha256": "fc08295efd4f4267d918df77d085200007087d4f02ad05254224c543e586dc7c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/turn_supersede_guard.dart",
+    "lines": 40,
+    "symbols": [
+      "TurnSupersedeGuard"
+    ],
+    "imports": [],
+    "sha256": "e1a897fb6f6e8fe9a9c03011459f30077c93012953428da5801e2e9d238520a4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/approved_skill_candidate_provider.dart",
+    "lines": 84,
+    "symbols": [
+      "ApprovedSkillCandidateProvider"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "../planning/candidates/candidate_action.dart",
+      "../planning/candidates/candidate_provider.dart",
+      "nano_skill.dart",
+      "skill.dart",
+      "skill_store.dart"
+    ],
+    "sha256": "8e4bcaa1d38547c30896b830d186adafd6c74f2328aea1cf7d45a283a4249cff"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/nano_skill.dart",
+    "lines": 24,
+    "symbols": [
+      "SkillContext",
+      "NanoSkill"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart"
+    ],
+    "sha256": "71eee57858e908e3862871779b8f118a562adf292ab98c29cbb098ecd9965a5c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/nano_skills.dart",
+    "lines": 92,
+    "symbols": [
+      "OpenAppSkill",
+      "SystemNavigationSkill",
+      "ReadNotificationsSkill"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../planning/candidates/candidate_provider.dart",
+      "../planning/candidates/candidate_providers.dart",
+      "../planning/deterministic_catalog.dart",
+      "../system/installed_app_catalog.dart",
+      "../system/system_graph.dart",
+      "../system/system_intent_catalog.dart",
+      "nano_skill.dart"
+    ],
+    "sha256": "0e7d0fac07352f5d7381732cbdee77de53245e0fa6af1c152d8347a5f27222bd"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/skill.dart",
+    "lines": 125,
+    "symbols": [
+      "SkillConditionKind",
+      "SkillCondition",
+      "SemanticSkillStep",
+      "Skill"
+    ],
+    "imports": [],
+    "sha256": "6db01739afefe9c968fd534d70a0883c257f3d14ce81e8cbe880beb0a8de635d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/skill_extractor.dart",
+    "lines": 112,
+    "symbols": [
+      "SkillExtractor",
+      "PolicySkillExtractor",
+      "SkillCollector"
+    ],
+    "imports": [
+      "../governance/semantic_policy.dart",
+      "../orchestration/execution_journal.dart",
+      "../orchestration/task_step_vocabulary.dart",
+      "skill.dart",
+      "skill_store.dart"
+    ],
+    "sha256": "a331978da428594c37cf19d415922136dedd7a4455bc8c86a82298d2809b86b6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/skill_store.dart",
+    "lines": 183,
+    "symbols": [
+      "SkillStore",
+      "_SkillCore",
+      "MemorySkillStore",
+      "SharedPrefsSkillStore"
+    ],
+    "imports": [
+      "dart:async",
+      "dart:convert",
+      "package:shared_preferences/shared_preferences.dart",
+      "skill.dart",
+      "verified_skill.dart"
+    ],
+    "sha256": "5c2c3b27328170e3d60163e414c52bfc415715123a9f435ddc2778306febf42e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/verified_skill.dart",
+    "lines": 27,
+    "symbols": [
+      "VerifiedSkill"
+    ],
+    "imports": [
+      "skill.dart"
+    ],
+    "sha256": "128f5b841a72d02886acbbeee23c5b3ae738b3c215343e1b2ee516b53f778e12"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/storage/automation_db_store_client.dart",
+    "lines": 78,
+    "symbols": [
+      "AutomationDbStoreClient"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter/services.dart"
+    ],
+    "sha256": "2a3757bc4779c9b983fc5c6d4477263d98bfa6de8ce5275c68303ad8e9b25401"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/app_graph.dart",
+    "lines": 52,
+    "symbols": [
+      "AppCapability",
+      "AppCapabilityEvidence",
+      "AppGraphNode"
+    ],
+    "imports": [
+      "system_models.dart"
+    ],
+    "sha256": "7b35c79c2ac988d78363c0761ae81669d923efde9978720a4e815587b1562aad"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/app_launch_resolver.dart",
+    "lines": 75,
+    "symbols": [
+      "AppLaunchPlan",
+      "AppLaunchResolver"
+    ],
+    "imports": [
+      "../execution/agent_tool_dispatcher.dart",
+      "../execution/goal_verifier.dart",
+      "installed_app_catalog.dart",
+      "system_models.dart"
+    ],
+    "sha256": "4f0d30e7b02b3e5d90c38d711702962aaaceaee49a143a56efa47a241d53ff7e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/capabilities_report.dart",
+    "lines": 182,
+    "symbols": [],
+    "imports": [
+      "capability_availability.dart",
+      "system_capability.dart",
+      "system_graph.dart"
+    ],
+    "sha256": "b6ab69160f6150ead9f4e4a6bc6cc940202dc1e78ae6106d705d7a74168b7210"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/capability_availability.dart",
+    "lines": 43,
+    "symbols": [
+      "CapabilityAvailabilityKind",
+      "CapabilityAvailability"
+    ],
+    "imports": [
+      "system_capability.dart"
+    ],
+    "sha256": "aea4ab26ac7e6e27f41fd6db7a4ae56d62fa3d764b52d0d7a14bd9a9c4cf1725"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/capability_probes.dart",
+    "lines": 229,
+    "symbols": [
+      "CapabilityProbe",
+      "StaticSystemCapabilityProbe",
+      "AccessibilityCapabilityProbe",
+      "NotificationCapabilityProbe",
+      "LinuxCapabilityProbe",
+      "SystemIntentCapabilityProbe",
+      "ShizukuCapabilityProbe"
+    ],
+    "imports": [
+      "capability_availability.dart",
+      "system_capability.dart",
+      "../privilege/shizuku_availability.dart"
+    ],
+    "sha256": "8f845100ddfa0b9b4f2c0d98143a5e8ea6164ba261fa6b04a913c00ef573bb88"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/device_permission_requester.dart",
+    "lines": 40,
+    "symbols": [
+      "DevicePermissionRequester"
+    ],
+    "imports": [
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "capability_availability.dart",
+      "system_capability.dart",
+      "system_graph.dart"
+    ],
+    "sha256": "0589d2e480dbd7db85986469b4545f48d88d24bb5ef1c953d2133de2cea69a60"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/installed_app_catalog.dart",
+    "lines": 142,
+    "symbols": [
+      "AppMatchKind",
+      "AppMatchResult",
+      "AppMatchResolved",
+      "AppMatchAmbiguous",
+      "AppMatchNotFound",
+      "InstalledAppCatalog"
+    ],
+    "imports": [
+      "system_inventory.dart",
+      "system_models.dart"
+    ],
+    "sha256": "c013423795580a6299d24e7471608567e49be4061a4ef22e8b52d49ff965278f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_capability.dart",
+    "lines": 70,
+    "symbols": [
+      "SystemCapability",
+      "SystemEvidenceSource",
+      "SystemEvidence"
+    ],
+    "imports": [],
+    "sha256": "0ffb0faabef351eec926fee82fe0038034bb794d6f903d3ef96b0e523afb4e6b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_destination.dart",
+    "lines": 37,
+    "symbols": [
+      "SystemIntentKind",
+      "SystemDestination"
+    ],
+    "imports": [],
+    "sha256": "af164546a3d4661a5f3e64a456195ce98c2704ee4804b6999bd34ce96ef23419"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_graph.dart",
+    "lines": 112,
+    "symbols": [
+      "SystemGraph",
+      "SystemGraphBuilder"
+    ],
+    "imports": [
+      "capability_availability.dart",
+      "capability_probes.dart",
+      "installed_app_catalog.dart",
+      "system_capability.dart",
+      "system_inventory.dart",
+      "system_models.dart",
+      "system_role.dart"
+    ],
+    "sha256": "9ae41860765e9ceb15e5f6a1b9cccc4fcd94c529dbaa92d619f5e1494613477e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_intent_catalog.dart",
+    "lines": 56,
+    "symbols": [
+      "SystemDestinationMeta",
+      "SystemIntentCatalog"
+    ],
+    "imports": [
+      "system_destination.dart"
+    ],
+    "sha256": "2ff55af788470d7fe12bf812749b331fb77b865c7de89b0c82d2af8ed26ed61b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_intent_launcher.dart",
+    "lines": 27,
+    "symbols": [
+      "SystemIntentError",
+      "SystemIntentResult",
+      "SystemIntentLauncher"
+    ],
+    "imports": [
+      "system_destination.dart"
+    ],
+    "sha256": "63af909b9b321e15d155190a10fba21f690d7c972d60f65831ab5f44ae6e62d9"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_inventory.dart",
+    "lines": 30,
+    "symbols": [
+      "SystemInventoryUnavailable",
+      "SystemInventory"
+    ],
+    "imports": [
+      "system_models.dart"
+    ],
+    "sha256": "c4b4290272e56a0ba2e035c2cbbe4adce324e8b875a81b169c3a724d02761f17"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_models.dart",
+    "lines": 70,
+    "symbols": [
+      "DeviceProfile",
+      "InstalledApp"
+    ],
+    "imports": [],
+    "sha256": "59c83ecc5946a9e801334c1022aab68c391990e1c598b9eb2c19490403b38520"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_role.dart",
+    "lines": 32,
+    "symbols": [
+      "SystemRole",
+      "SystemRoleBinding"
+    ],
+    "imports": [
+      "system_capability.dart",
+      "system_models.dart"
+    ],
+    "sha256": "c327dac863ad6ac3e4f924a4cde69d79bfac75421759b730e520f065cc8d6ee3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/trust/instruction_trust.dart",
+    "lines": 79,
+    "symbols": [
+      "ContentProvenance",
+      "InstructionTrust"
+    ],
+    "imports": [],
+    "sha256": "d249aeb4413cbe9f2bd152b8c5416755aacb48571865cf4c495cdd56faf7d15a"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/conversation/conversational_world_state.dart",
+    "lines": 85,
+    "symbols": [
+      "ReferenceSource",
+      "ResolvedReference",
+      "ConversationalWorldState"
+    ],
+    "imports": [],
+    "sha256": "5bde48ebf115a332365aa43e8e289a66edf5e6e034b0e31a6667d5928d6d12c6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/conversation/grounding_resolver.dart",
+    "lines": 138,
+    "symbols": [
+      "GroundingResolver",
+      "TranscriptResolver"
+    ],
+    "imports": [
+      "conversational_world_state.dart"
+    ],
+    "sha256": "b4337a41b6822bb1b7bb3c5bbfdf079a3aab4ed52e3609223667ec27e8603bd3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/execution_cancellation.dart",
+    "lines": 31,
+    "symbols": [
+      "ExecutionCancelled",
+      "ExecutionCancellationToken"
+    ],
+    "imports": [],
+    "sha256": "e8121b33d2f014cbd003b428bf0af45584e631864d06f4389e03c7809e6339a1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_backends.dart",
+    "lines": 40,
+    "symbols": [
+      "AndroidSpeechRecognitionBackend",
+      "AndroidSpeechSynthesisBackend"
+    ],
+    "imports": [
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "voice_runtime.dart"
+    ],
+    "sha256": "1c6dc5ed8d5865662c28e9fa877ed460f84d65c0da113d19c95cfa3db9b64e4a"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_runtime.dart",
+    "lines": 327,
+    "symbols": [
+      "VoiceSessionState",
+      "SpeechRecognitionBackend",
+      "SpeechSynthesisBackend",
+      "WakeWordDetector",
+      "VoiceConversationContext",
+      "VoiceTurn",
+      "VoiceSessionManager"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/foundation.dart",
+      "conversation/conversational_world_state.dart",
+      "conversation/grounding_resolver.dart",
+      "execution_cancellation.dart"
+    ],
+    "sha256": "2a4cf97e8a891f5bf4d7590d3d7b45e3d1a3c0a2c78ad98253fc4f6a2d678884"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/executors/notification_executor.dart",
+    "lines": 206,
+    "symbols": [
+      "DeviceNotification",
+      "NotificationAccessStatus",
+      "NotificationExecutor"
+    ],
+    "imports": [
+      "package:nanoai/core/services/llm_engine_client.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "../engine/notifications/notification_draft_prompt.dart"
+    ],
+    "sha256": "4b03387813845eeba5683a84e6f6f49597a6ad82c60526eea78b6a600865bc3d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/executors/notification_executor_provider.dart",
+    "lines": 27,
+    "symbols": [],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/chat_provider.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/services/nano_runtime_api_provider.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "notification_executor.dart"
+    ],
+    "sha256": "956109be4cc2e972ecb7f2d37f1fcf7b5fa288b690d830e13255f1bc02a04600"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/headless/automation_headless_runner.dart",
+    "lines": 136,
+    "symbols": [],
+    "imports": [
+      "dart:async",
+      "package:flutter/services.dart",
+      "package:flutter/widgets.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/features/automation/application/automation_coordinator_provider.dart",
+      "package:nanoai/features/automation/engine/notifications/notification_object.dart"
+    ],
+    "sha256": "8f0da32f4eb9ab88c6f550bd52f1aebc873013bc4bdb2678be9542f66e5187d5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/ledger/action_ledger.dart",
+    "lines": 34,
+    "symbols": [
+      "ActionLedger"
+    ],
+    "imports": [
+      "automation_trace.dart"
+    ],
+    "sha256": "c1e9a4151fab4ec09227fc97775100740cefe66db37ca78a205a578811244831"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/ledger/action_ledger_provider.dart",
+    "lines": 9,
+    "symbols": [],
+    "imports": [
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "action_ledger.dart"
+    ],
+    "sha256": "2d1b9165bd86d46fca99b27b7644539b5ed52bfcf33f6e97fef84efd400b9c13"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/ledger/automation_trace.dart",
+    "lines": 47,
+    "symbols": [
+      "AutomationTrace"
+    ],
+    "imports": [
+      "../domain/automation_result.dart"
+    ],
+    "sha256": "a8b15782a493ca66f5e2d336cee5e091273ca9a58377d152a02b32a521cf66e3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart",
+    "lines": 502,
+    "symbols": [
+      "ConversationDecisionEngine"
+    ],
+    "imports": [
+      "../../engine/messaging/conversation_key.dart",
+      "../../engine/notifications/conversation_understanding.dart",
+      "../domain/conversation_agent_role.dart",
+      "../domain/conversation_autonomy_mode.dart",
+      "../domain/conversation_decision.dart"
+    ],
+    "sha256": "82459400e24871d3913a28314a67252e1b4eb5c92d4209c5f07a80bfd5888bf7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_ownership_store.dart",
+    "lines": 133,
+    "symbols": [
+      "ConversationOwnershipStore",
+      "SqliteConversationOwnershipStore"
+    ],
+    "imports": [
+      "dart:convert",
+      "../../engine/storage/automation_db_store_client.dart",
+      "../domain/conversation_owner.dart"
+    ],
+    "sha256": "a23c945493646634e02030efd7e104fd9019996209b017076cf6f096f07d12ea"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_context.dart",
+    "lines": 179,
+    "symbols": [
+      "PersonaContext"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "../domain/persona_example.dart",
+      "../domain/conversation_agent_role.dart",
+      "../domain/persona_profile.dart",
+      "../domain/relationship_register.dart",
+      "persona_repository.dart",
+      "persona_retriever.dart",
+      "persona_validator.dart"
+    ],
+    "sha256": "e04f9e0959b44a159fdb884732c9f516a2820fed20d0f3b170e40cdba03102a7"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "lines": 176,
+    "symbols": [
+      "PersonaRepository"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:flutter/foundation.dart",
+      "package:flutter/services.dart",
+      "../domain/persona_example.dart",
+      "../domain/persona_profile.dart"
+    ],
+    "sha256": "d242e745bb18e6880469fa77afe477fb80b79f15f9a1f070d42f040d01c4f1d1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_retriever.dart",
+    "lines": 24,
+    "symbols": [
+      "PersonaRetriever"
+    ],
+    "imports": [
+      "../domain/persona_example.dart",
+      "persona_repository.dart"
+    ],
+    "sha256": "407802de0698e39c692e96216405b98fc7a8a01e0c4d1248c625a2ab7ccde924"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_validator.dart",
+    "lines": 205,
+    "symbols": [
+      "ValidatedPersonaContext",
+      "PersonaValidator"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "../domain/persona_example.dart"
+    ],
+    "sha256": "02930a0c2e4beb6757d00515a1fd768102fd3702a61eef0c07d250a6e8477960"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart",
+    "lines": 564,
+    "symbols": [
+      "ConversationAgentRole",
+      "ConversationAgentRouting"
+    ],
+    "imports": [
+      "../../engine/business/business_facts.dart",
+      "../../engine/business/fact_selector.dart",
+      "../../engine/messaging/conv_turn_state.dart"
+    ],
+    "sha256": "07e24ca768ede67e16fe604a460b20878393fe5d714e27a26ed7bc85a24e007e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_autonomy_mode.dart",
+    "lines": 79,
+    "symbols": [
+      "ConversationAutonomyMode",
+      "ConversationAutonomyModeName"
+    ],
+    "imports": [],
+    "sha256": "782588dc77cdc8f76969491e2498e17b840fc750b9b899607c79d3dcddc667cc"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_decision.dart",
+    "lines": 92,
+    "symbols": [
+      "ConversationDisposition",
+      "ConversationRisk",
+      "ConversationDecisionContext",
+      "ConversationDecision"
+    ],
+    "imports": [
+      "conversation_agent_role.dart",
+      "conversation_autonomy_mode.dart"
+    ],
+    "sha256": "250914bbec7eedfeb5e6b5b4d8926cec697ef294eeb538f30cbcba10aa228b24"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_owner.dart",
+    "lines": 34,
+    "symbols": [
+      "ConversationOwner",
+      "ConversationOwnership"
+    ],
+    "imports": [],
+    "sha256": "9960bd986fbb625a3d20637649f1a7b46d8a345e4d17784d6a1a1d8c4e8c4c25"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_example.dart",
+    "lines": 63,
+    "symbols": [
+      "PersonaExample"
+    ],
+    "imports": [
+      "dart:convert"
+    ],
+    "sha256": "c80c8103f6b66ef747f4bbf0d8860bdf088421696c3662ead1cd6e8013d786cc"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_profile.dart",
+    "lines": 88,
+    "symbols": [
+      "PersonaProfile",
+      "RelationshipProfile"
+    ],
+    "imports": [
+      "dart:convert"
+    ],
+    "sha256": "d26498e10dcfb2fa8fb5fe8ac214d5cd3dfd1556f92947d6be83050e007b9476"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/relationship_register.dart",
+    "lines": 127,
+    "symbols": [
+      "RelationshipLevel",
+      "RelationshipRegister"
+    ],
+    "imports": [
+      "../../engine/business/fact_selector.dart",
+      "conversation_agent_role.dart",
+      "persona_profile.dart"
+    ],
+    "sha256": "90049d969031b172eb9461e262d15c91a8b298a5bc46ab8208c601e25f084dc4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/agent_console_section.dart",
+    "lines": 451,
+    "symbols": [
+      "AgentConsoleSection",
+      "_AgentConsoleSectionState",
+      "_GroupLabel",
+      "_GestureButton"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/widgets/nano_optical_surface.dart",
+      "package:nanoai/features/automation/engine/execution/agent_executor.dart",
+      "package:nanoai/core/services/nano_runtime_api_provider.dart",
+      "package:nanoai/features/automation/engine/agent_dependencies.dart",
+      "package:nanoai/features/automation/engine/perception/nano_selector.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/nano_section.dart"
+    ],
+    "sha256": "46a2f1424b27533c9cf11730f8c9bf4cdc8c5e2e7bede4d90e46eed525bd7138"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/automation_layout.dart",
+    "lines": 12,
+    "symbols": [
+      "AutomationLayout"
+    ],
+    "imports": [
+      "package:flutter/widgets.dart"
+    ],
+    "sha256": "d4da9489aefd2fddbae70010477f595837e8e9a40dca750e6351c468f409cb73"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/automation_visual_theme.dart",
+    "lines": 488,
+    "symbols": [
+      "AutomationVisualMode",
+      "AutomationVisual",
+      "is",
+      "is",
+      "AutomationVisualPalette",
+      "AutomationVisualTheme",
+      "AutomationSurfaceCard",
+      "AutomationSectionLabel",
+      "AutomationBrand",
+      "AutomationBackHeader",
+      "AutomationBackdrop"
+    ],
+    "imports": [
+      "dart:ui",
+      "package:flutter/material.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/widgets/liquid_fluid_background.dart"
+    ],
+    "sha256": "a0530815dcb0c8844b7b85aef24d15327e3ab99ba1af373daa4c1476cf2cb32e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/notification_automation_section.dart",
+    "lines": 807,
+    "symbols": [
+      "NotificationAutomationSection",
+      "_NotificationAutomationSectionState",
+      "_OwnershipControl",
+      "_ListLabel",
+      "_NotificationTile",
+      "_ReadOnlyNotifications",
+      "_CapabilityNotice"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/widgets/interactive_glass_card.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_motion.dart",
+      "package:nanoai/core/theme/nano_transitions.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/nano_section.dart",
+      "package:nanoai/features/automation/application/automation_coordinator_provider.dart",
+      "package:nanoai/features/automation/engine/messaging/conversation_key.dart",
+      "package:nanoai/features/automation/executors/notification_executor.dart",
+      "package:nanoai/features/automation/executors/notification_executor_provider.dart",
+      "package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart"
+    ],
+    "sha256": "52fe45a00513286a4a9ae3fc595fe4d8ca332fe49665896a7028a9214011ee0d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_dev_screen.dart",
+    "lines": 108,
+    "symbols": [
+      "AutomationDevScreen",
+      "_AutomationDevBody"
+    ],
+    "imports": [
+      "package:flutter/foundation.dart",
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/nano_screen_shell.dart",
+      "package:nanoai/core/widgets/navigation/nano_navigation_panel.dart",
+      "package:nanoai/features/edge/edge_dev_section.dart",
+      "../agent_console_section.dart",
+      "../automation_layout.dart",
+      "../automation_visual_theme.dart",
+      "../skill_dev_section.dart",
+      "../widgets/c14_debug_benchmark_section.dart",
+      "../widgets/engine_status_card.dart"
+    ],
+    "sha256": "09e90fef42c2797198d7e102dccd0dd66b0ba36ac875047d84c4dcc4608bd361"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_messages_screen.dart",
+    "lines": 88,
+    "symbols": [
+      "AutomationMessagesScreen",
+      "_AutomationMessagesBody"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:go_router/go_router.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/widgets/nano_screen_shell.dart",
+      "package:nanoai/core/widgets/navigation/nano_navigation_panel.dart",
+      "../automation_layout.dart",
+      "../automation_visual_theme.dart",
+      "../notification_automation_section.dart"
+    ],
+    "sha256": "c79b246e23a83412302180c50e6c44e4fbb64ad92f1ad70b8c0f1b92bf9a9361"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_rules_screen.dart",
+    "lines": 1234,
+    "symbols": [
+      "AutomationRulesScreen",
+      "_AutomationRulesScreenState",
+      "_RuleCreatorCard",
+      "_RuleCard",
+      "_RuleCardState",
+      "_DetailRow",
+      "_SectionHeader",
+      "_StyleCard",
+      "_ContactLabel",
+      "_EmptyState"
+    ],
+    "imports": [
+      "package:file_picker/file_picker.dart",
+      "package:flutter/material.dart",
+      "package:flutter/services.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/features/automation/application/automation_coordinator_provider.dart",
+      "package:nanoai/features/automation/application/rule_creator.dart",
+      "package:nanoai/features/automation/engine/messaging/messaging_package.dart",
+      "package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart",
+      "package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart",
+      "package:nanoai/features/automation/engine/scheduling/trigger.dart",
+      "package:nanoai/features/automation/engine/scheduling/trigger_parser.dart",
+      "package:nanoai/core/widgets/navigation/nano_navigation_panel.dart",
+      "package:nanoai/core/widgets/navigation/nano_universal_input.dart",
+      "../automation_layout.dart",
+      "../automation_visual_theme.dart",
+      "../widgets/rule_edit_sheet.dart"
+    ],
+    "sha256": "674538f20cc191c8eba73ba6e46120350931ccfbe02cf16dc3755774906d4f82"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_screen.dart",
+    "lines": 91,
+    "symbols": [
+      "AutomationScreen"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:go_router/go_router.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/theme/nano_transitions.dart",
+      "package:nanoai/core/widgets/navigation/nano_navigation_panel.dart",
+      "../automation_visual_theme.dart",
+      "../widgets/automation_dashboard.dart",
+      "automation_dev_screen.dart",
+      "automation_rules_screen.dart",
+      "automation_settings_screen.dart"
+    ],
+    "sha256": "99591772e0fccbd39cd03a5a4851fa42b7594df792fdf7a293e8a02b781cc6fe"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_settings_screen.dart",
+    "lines": 1541,
+    "symbols": [
+      "AutomationSettingsScreen",
+      "_SettingsCard",
+      "_SettingsRow",
+      "_ValueBadge",
+      "_ReadonlyStatus",
+      "_BackgroundAutomationCard",
+      "_BackgroundAutomationCardState",
+      "_AutonomyModeCard",
+      "_PersonalAgentCard",
+      "_PersonalAgentCardState",
+      "_BusinessDataCard",
+      "_ToneCard",
+      "_ProductDialog",
+      "_ProductDialogState",
+      "_TextEditDialog",
+      "_TextEditDialogState"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:go_router/go_router.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_transitions.dart",
+      "package:nanoai/features/automation/domain/automation_policy.dart",
+      "package:nanoai/features/automation/engine/model/automation_model.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "package:nanoai/core/widgets/navigation/nano_navigation_panel.dart",
+      "package:nanoai/features/automation/engine/business/business_facts.dart",
+      "package:nanoai/features/automation/engine/business/business_facts_providers.dart",
+      "package:nanoai/features/automation/engine/messaging/tone_profile.dart",
+      "package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart",
+      "package:nanoai/features/automation/personal_agent/application/persona_context.dart",
+      "package:nanoai/features/automation/personal_agent/application/persona_repository.dart",
+      "package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart",
+      "package:nanoai/features/automation/personal_agent/domain/persona_example.dart",
+      "package:nanoai/features/automation/personal_agent/domain/persona_profile.dart",
+      "../automation_layout.dart",
+      "../automation_visual_theme.dart",
+      "../widgets/capability_status_card.dart",
+      "automation_rules_screen.dart"
+    ],
+    "sha256": "942a9439ae40ced46fa838784c3e2870f74850eb489b834da7185214043264f8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/skill_dev_section.dart",
+    "lines": 193,
+    "symbols": [
+      "SkillDevSection",
+      "_SkillDevSectionState"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/nano_section_card.dart",
+      "../engine/agent_dependencies.dart",
+      "../engine/skills/skill.dart",
+      "../engine/skills/verified_skill.dart"
+    ],
+    "sha256": "88d566a20711cddeec8e3dd701442b61f9cdfbff1658f7f68b4bcddbb3d83337"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/automation_dashboard.dart",
+    "lines": 1223,
+    "symbols": [
+      "AutomationDashboard",
+      "_AutomationDashboardState",
+      "_AgentHeader",
+      "_ActiveExecutionCard",
+      "_ActiveExecutionCardState",
+      "QuickAutomationActions",
+      "_QuickActionTile",
+      "_DashboardEntryTile"
+    ],
+    "imports": [
+      "dart:async",
+      "package:flutter/material.dart",
+      "package:nanoai/features/automation/engine/governance/action_confirmation.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/chat_provider.dart",
+      "package:nanoai/core/providers/settings_provider.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_motion.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/nano_choice_group.dart",
+      "package:nanoai/core/widgets/navigation/nano_navigation_panel.dart",
+      "package:nanoai/core/widgets/navigation/nano_universal_input.dart",
+      "../../application/automation_diagnostics.dart",
+      "../../application/automation_engine_provider.dart",
+      "../../application/automation_feedback_presenter.dart",
+      "../../application/rule_creator.dart",
+      "../../domain/automation_goal.dart",
+      "../../domain/automation_policy.dart",
+      "../../domain/automation_result.dart",
+      "../../engine/agent_dependencies.dart",
+      "../../engine/perception/current_situation.dart",
+      "../../engine/scheduling/scheduled_rule.dart",
+      "../../engine/scheduling/trigger.dart",
+      "../../engine/voice/voice_runtime.dart",
+      "../automation_visual_theme.dart",
+      "engine_status_card.dart"
+    ],
+    "sha256": "fd55acdae77bb4330c95f97a22455a93bbc6907529c7f77e71872db0f8bdd97f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/c14_debug_benchmark_section.dart",
+    "lines": 256,
+    "symbols": [
+      "C14DebugBenchmarkSection",
+      "_C14DebugBenchmarkSectionState"
+    ],
+    "imports": [
+      "dart:convert",
+      "package:flutter/material.dart",
+      "package:flutter/services.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/interactive_glass_card.dart",
+      "package:nanoai/core/widgets/nano_section.dart",
+      "../../benchmark/c14_runner.dart",
+      "../../benchmark/c14_metrics.dart"
+    ],
+    "sha256": "e955b8b3730b8d579793deda23e9c579bf2aa6827bdba4634b114743f294d83d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/capability_status_card.dart",
+    "lines": 360,
+    "symbols": [
+      "CapabilityStatusCard",
+      "_SummaryBanner",
+      "_CapRow"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/services/nano_runtime_api.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "../../engine/agent_dependencies.dart",
+      "../../engine/system/capability_availability.dart",
+      "../../engine/system/device_permission_requester.dart",
+      "../../engine/system/system_capability.dart",
+      "../automation_visual_theme.dart"
+    ],
+    "sha256": "4da4e84deaf16f3e44c4aec4ed1df45a0dba7a8c61c76e1a376d424dc94fb674"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/engine_status_card.dart",
+    "lines": 364,
+    "symbols": [
+      "EngineStatusCard",
+      "_CleanCapabilityRow",
+      "_SystemReadyMark",
+      "_CapabilityRow"
+    ],
+    "imports": [
+      "package:flutter/material.dart",
+      "package:flutter_riverpod/flutter_riverpod.dart",
+      "package:nanoai/core/providers/rootfs_provider.dart",
+      "package:nanoai/core/services/runtime_engine.dart",
+      "package:nanoai/core/theme/design_tokens.dart",
+      "package:nanoai/core/theme/nano_type.dart",
+      "package:nanoai/core/widgets/nano_optical_surface.dart",
+      "package:nanoai/core/widgets/nano_section.dart",
+      "../automation_visual_theme.dart",
+      "automation_dashboard.dart"
+    ],
+    "sha256": "097ddf9ecef946238149bf087d60ae27122a28c1e12138c582e3c63711676d28"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/rule_edit_sheet.dart",
+    "lines": 465,
+    "symbols": [
+      "RuleEditSheet",
+      "_RuleEditSheetState",
+      "_FieldLabel",
+      "_EditorField"
+    ],
+    "imports": [
+      "package:file_picker/file_picker.dart",
+      "package:flutter/material.dart",
+      "../../../../core/theme/design_tokens.dart",
+      "../../engine/platform/whatsapp_media_share.dart",
+      "../../engine/scheduling/scheduled_rule.dart",
+      "../../engine/scheduling/trigger.dart",
+      "../automation_visual_theme.dart"
+    ],
+    "sha256": "222af9aa085b44c0c1a0633bafe354ec120668dd7fea51e00e054367f6ecf588"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/appfunctions/AppFunctionChannelHandler.kt",
+    "lines": 39,
+    "symbols": [
+      "AppFunctionChannelHandler"
+    ],
+    "imports": [
+      "android.content.Context",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "012212eff2269a9257559744de66c4d783d8acb2a74b1d82e416f95f14295949"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/appfunctions/AppFunctionProbe.kt",
+    "lines": 73,
+    "symbols": [
+      "AppFunctionProbe",
+      "AppFunctionAvailability"
+    ],
+    "imports": [
+      "android.app.AppOpsManager",
+      "android.content.Context",
+      "android.content.pm.PackageManager",
+      "android.os.Build",
+      "android.os.Process"
+    ],
+    "sha256": "df59a1446cfed45ab78d883468afdc02dc66c88562ac8757fa47293887e739a3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationRuntimeService.kt",
+    "lines": 320,
+    "symbols": [
+      "AutomationRuntimeService"
+    ],
+    "imports": [
+      "android.app.NotificationChannel",
+      "android.app.NotificationManager",
+      "android.app.PendingIntent",
+      "android.app.Service",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.content.pm.ServiceInfo",
+      "android.os.Build",
+      "android.os.Handler",
+      "android.os.IBinder",
+      "android.os.Looper",
+      "android.util.Log",
+      "androidx.core.app.NotificationCompat",
+      "dev.nanoai.mobile.MainActivity",
+      "dev.nanoai.mobile.NanoApplication",
+      "dev.nanoai.mobile.R",
+      "dev.nanoai.mobile.RuntimeScope",
+      "dev.nanoai.mobile.channels.AgentChannelHandler",
+      "dev.nanoai.mobile.channels.AutomationStoreChannelHandler",
+      "dev.nanoai.mobile.channels.EngineChannelHandler",
+      "dev.nanoai.mobile.channels.NotificationAutomationChannelHandler",
+      "dev.nanoai.mobile.channels.RuntimeChannelHandler",
+      "dev.nanoai.mobile.services.NotificationAutomationBridge",
+      "io.flutter.embedding.engine.FlutterEngine",
+      "io.flutter.embedding.engine.dart.DartExecutor",
+      "io.flutter.plugin.common.EventChannel",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.Dispatchers",
+      "kotlinx.coroutines.SupervisorJob",
+      "kotlinx.coroutines.cancel"
+    ],
+    "sha256": "63044c213513d2b76351853dfd73b53fa73b8140479f74119cac0aa0c8cf9951"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+    "lines": 533,
+    "symbols": [
+      "AutomationStoreDb",
+      "StoreDb"
+    ],
+    "imports": [
+      "android.content.Context",
+      "android.database.sqlite.SQLiteDatabase",
+      "android.database.sqlite.SQLiteException",
+      "android.database.sqlite.SQLiteOpenHelper",
+      "android.util.Log"
+    ],
+    "sha256": "cb64b00fce3296f2067591f55ada53c22f9dc18b38ecf7a4be3289b31d980625"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/automation/DurableInbox.kt",
+    "lines": 173,
+    "symbols": [
+      "DurableInbox",
+      "InboxEvent",
+      "InboxDb"
+    ],
+    "imports": [
+      "android.content.ContentValues",
+      "android.content.Context",
+      "android.database.sqlite.SQLiteDatabase",
+      "android.database.sqlite.SQLiteOpenHelper",
+      "java.security.MessageDigest"
+    ],
+    "sha256": "4a16fc27349d9ac49695f14f3b507dd815d4a44c938205290293ad9563040701"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "lines": 374,
+    "symbols": [
+      "AgentChannelHandler"
+    ],
+    "imports": [
+      "android.graphics.Bitmap",
+      "android.graphics.BitmapFactory",
+      "android.os.Handler",
+      "android.os.Looper",
+      "dev.nanoai.mobile.services.AgentAccessibilityBridge",
+      "dev.nanoai.mobile.services.OcrService",
+      "dev.nanoai.mobile.services.VisionService",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "java.util.concurrent.CountDownLatch",
+      "java.util.concurrent.Executors",
+      "java.util.concurrent.TimeUnit"
+    ],
+    "sha256": "f195f91f879b4d2e8bdeffadcf1e2e48aa189fb60d72bffc0bcd076d7d84a4d8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AutomationBackgroundChannelHandler.kt",
+    "lines": 84,
+    "symbols": [
+      "AutomationBackgroundChannelHandler"
+    ],
+    "imports": [
+      "android.app.Activity",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.net.Uri",
+      "android.os.PowerManager",
+      "android.provider.Settings",
+      "androidx.core.app.NotificationManagerCompat",
+      "dev.nanoai.mobile.NanoApplication",
+      "dev.nanoai.mobile.automation.AutomationRuntimeService",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "58461403b3fa21dd9e74fa9864c73def6b06ac4b256852daef50578d19f39dd9"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AutomationStoreChannelHandler.kt",
+    "lines": 137,
+    "symbols": [
+      "AutomationStoreChannelHandler"
+    ],
+    "imports": [
+      "android.content.Context",
+      "dev.nanoai.mobile.NanoApplication",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "b3dd04db80f72175f702784837ae274ccb1f8b4a3b9d553de2c9e153b60a7f93"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ChannelHandlers.kt",
+    "lines": 21,
+    "symbols": [
+      "ChannelNames"
+    ],
+    "imports": [],
+    "sha256": "a016f1ad6e0b805c1f49bbd870aef9863ee9403a18c198fce65f1994541507b0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DeviceMetricsChannelHandler.kt",
+    "lines": 31,
+    "symbols": [
+      "DeviceMetricsChannelHandler"
+    ],
+    "imports": [
+      "dev.nanoai.mobile.DeviceMetricsProvider",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "0b226861d6af418aa9ddfe4519fe888105b3f1ebf10d27f825d2c478153ed150"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt",
+    "lines": 414,
+    "symbols": [
+      "DevicePermissionsChannelHandler"
+    ],
+    "imports": [
+      "android.Manifest",
+      "android.app.Activity",
+      "android.content.ComponentName",
+      "android.content.Intent",
+      "android.content.pm.PackageManager",
+      "android.net.Uri",
+      "android.os.Build",
+      "android.os.Bundle",
+      "android.os.Environment",
+      "android.os.Handler",
+      "android.os.IBinder",
+      "android.os.Looper",
+      "android.content.ServiceConnection",
+      "android.content.Context",
+      "android.media.AudioManager",
+      "android.bluetooth.BluetoothAdapter",
+      "android.net.wifi.WifiManager",
+      "android.provider.Settings",
+      "androidx.core.app.NotificationManagerCompat",
+      "dev.nanoai.mobile.services.AgentAccessibilityService",
+      "dev.nanoai.mobile.shizuku.IPackageAction",
+      "dev.nanoai.mobile.shizuku.PackageActionService",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "rikka.shizuku.Shizuku"
+    ],
+    "sha256": "dcc6f58f71ebb4ca4406671630f72caaea12dbe5fc5cd7e8803daf1647d1c339"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/EngineChannelHandler.kt",
+    "lines": 163,
+    "symbols": [
+      "EngineChannelHandler"
+    ],
+    "imports": [
+      "android.util.Log",
+      "dev.nanoai.mobile.EngineSupervisor",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.launch"
+    ],
+    "sha256": "42924deddf92019eda173343f53172e11cda7dcd6f3de67810413c7a7bedde56"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+    "lines": 503,
+    "symbols": [
+      "ExecBinChannelHandler"
+    ],
+    "imports": [
+      "android.util.Log",
+      "dev.nanoai.mobile.DownloadService",
+      "dev.nanoai.mobile.NativeRuntimeSupervisor",
+      "dev.nanoai.mobile.SecurePathPolicy",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.Dispatchers",
+      "kotlinx.coroutines.async",
+      "kotlinx.coroutines.launch",
+      "kotlinx.coroutines.withContext",
+      "java.io.File",
+      "java.io.FileOutputStream",
+      "java.util.concurrent.TimeUnit",
+      "java.util.zip.ZipFile"
+    ],
+    "sha256": "a26e73bf17a8ed594363eeaa5d49b80e8a5cece136abecd98c41fbf431143123"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt",
+    "lines": 425,
+    "symbols": [
+      "LanguageAssistChannelHandler"
+    ],
+    "imports": [
+      "android.content.Context",
+      "android.icu.text.BreakIterator",
+      "android.icu.text.Normalizer2",
+      "android.icu.util.ULocale",
+      "android.os.Build",
+      "android.os.Handler",
+      "android.os.Looper",
+      "android.util.Log",
+      "android.view.textclassifier.ConversationAction",
+      "android.view.textclassifier.ConversationActions",
+      "android.view.textclassifier.TextClassificationManager",
+      "android.view.textclassifier.TextClassifier",
+      "android.view.textclassifier.TextLanguage",
+      "android.view.textservice.SentenceSuggestionsInfo",
+      "android.view.textservice.SpellCheckerSession",
+      "android.view.textservice.TextInfo",
+      "android.view.textservice.TextServicesManager",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "java.util.concurrent.ThreadPoolExecutor",
+      "java.util.concurrent.ArrayBlockingQueue",
+      "java.util.concurrent.FutureTask",
+      "java.util.concurrent.RejectedExecutionException",
+      "java.util.concurrent.TimeUnit"
+    ],
+    "sha256": "7d1a3c3cdc05747802d284db7712de27306b02474d41ccbab295a3996b437f3f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "lines": 448,
+    "symbols": [
+      "ModelStorageChannelHandler"
+    ],
+    "imports": [
+      "android.app.Activity",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.net.Uri",
+      "android.os.Build",
+      "android.os.Environment",
+      "android.os.Handler",
+      "android.os.ParcelFileDescriptor",
+      "android.provider.DocumentsContract",
+      "android.provider.Settings",
+      "android.util.Log",
+      "dev.nanoai.mobile.MainActivity",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.launch",
+      "java.io.File"
+    ],
+    "sha256": "517a5760578dec88d2b4d5c593d7e11c80806486aa3e1c8bb3cfe94b462cbae4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NavigationChannelHandler.kt",
+    "lines": 42,
+    "symbols": [
+      "NavigationChannelHandler"
+    ],
+    "imports": [
+      "android.content.Intent",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "e516258f5dc6c7eeb38a533eb2dcba36069c0b309ae66e9b702caab2eb650ea0"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt",
+    "lines": 316,
+    "symbols": [
+      "NotificationAutomationChannelHandler",
+      "AutomationConfirmationActionReceiver"
+    ],
+    "imports": [
+      "android.app.Activity",
+      "android.app.KeyguardManager",
+      "android.app.NotificationChannel",
+      "android.app.NotificationManager",
+      "android.app.PendingIntent",
+      "android.content.BroadcastReceiver",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.os.Build",
+      "android.provider.Settings",
+      "androidx.core.app.NotificationCompat",
+      "androidx.core.app.NotificationManagerCompat",
+      "dev.nanoai.mobile.MainActivity",
+      "dev.nanoai.mobile.R",
+      "dev.nanoai.mobile.services.NotificationAutomationBridge",
+      "io.flutter.plugin.common.EventChannel",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "1482bb46fac27fbacc51673e678d0205aabe411ec40f766762134136d2416080"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/PtyChannelHandler.kt",
+    "lines": 98,
+    "symbols": [
+      "PtyChannelHandler"
+    ],
+    "imports": [
+      "android.util.Log",
+      "dev.nanoai.mobile.NanoshellBridge",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "e9c9b4227eed1ac43efb9a798925e43227b9cef7cab6c92ab8d30e61da3f4f18"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/RuntimeChannelHandler.kt",
+    "lines": 48,
+    "symbols": [
+      "RuntimeChannelHandler"
+    ],
+    "imports": [
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel"
+    ],
+    "sha256": "3ce586154d033cba6c38ca1a54ad80d367643b547d02065089c1f2a09b3f3b2f"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ShareChannelHandler.kt",
+    "lines": 126,
+    "symbols": [
+      "ShareChannelHandler"
+    ],
+    "imports": [
+      "android.app.Activity",
+      "android.content.ActivityNotFoundException",
+      "android.content.Intent",
+      "android.net.Uri",
+      "androidx.core.content.FileProvider",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "java.io.File"
+    ],
+    "sha256": "82726a2a38bf9371c5b40afa7d7ecd261620327ae6882ceee3e150c558751735"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+    "lines": 377,
+    "symbols": [
+      "SpeechChannelHandler"
+    ],
+    "imports": [
+      "android.Manifest",
+      "android.content.ComponentName",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.content.pm.PackageManager",
+      "android.speech.RecognitionService",
+      "android.os.Bundle",
+      "android.os.Handler",
+      "android.os.Looper",
+      "android.speech.RecognitionListener",
+      "android.speech.RecognizerIntent",
+      "android.speech.SpeechRecognizer",
+      "android.speech.tts.TextToSpeech",
+      "android.util.Log",
+      "io.flutter.plugin.common.EventChannel",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "java.util.Locale"
+    ],
+    "sha256": "3cf00299f4bfe03a2c73f9d3f2d31abe724428843791ecfad5d77be03c3a6918"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SystemInventoryChannelHandler.kt",
+    "lines": 97,
+    "symbols": [
+      "SystemInventoryChannelHandler"
+    ],
+    "imports": [
+      "android.content.Context",
+      "android.os.Handler",
+      "android.os.Looper",
+      "dev.nanoai.mobile.services.AndroidSystemIntentExecutor",
+      "dev.nanoai.mobile.services.SystemInventoryService",
+      "io.flutter.plugin.common.MethodCall",
+      "io.flutter.plugin.common.MethodChannel",
+      "java.util.concurrent.Executors"
+    ],
+    "sha256": "1b96b6d78b08b27f1332dfb699df2b4254871671435ce772b73235a58489d35c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/DesktopController.kt",
+    "lines": 224,
+    "symbols": [
+      "DesktopController"
+    ],
+    "imports": [
+      "dev.nanoai.mobile.DesktopSessionManager",
+      "dev.nanoai.mobile.RuntimeHeartbeat",
+      "dev.nanoai.mobile.WorkerClient",
+      "java.io.File",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.launch"
+    ],
+    "sha256": "8be7924ab5bc0aaf520ff1f9bf5599c6eb0471c9f1d5d4740f1406eac42d0436"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/PackageInstallController.kt",
+    "lines": 38,
+    "symbols": [
+      "PackageInstallController"
+    ],
+    "imports": [
+      "java.io.File"
+    ],
+    "sha256": "5a8e9d3f06505c4436543801b8d62e31a2f4be2221100b95c11b304031c6b520"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/WorkerController.kt",
+    "lines": 33,
+    "symbols": [
+      "WorkerController"
+    ],
+    "imports": [
+      "java.io.File"
+    ],
+    "sha256": "4e24dc712a79682ee03134485873ba3872982bc7975bf230d09e768413f5e4bd"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "lines": 808,
+    "symbols": [
+      "DebInstaller",
+      "Repo",
+      "PkgInfo"
+    ],
+    "imports": [
+      "android.util.Log",
+      "java.io.File",
+      "java.util.concurrent.TimeUnit",
+      "java.net.HttpURLConnection",
+      "java.net.URL",
+      "java.security.MessageDigest"
+    ],
+    "sha256": "39d56ddd92914e5af1018a0069933624c39ef74c14c2a14cb2e4ed78eea9b854"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "lines": 1236,
+    "symbols": [
+      "DesktopSessionManager",
+      "TerminalLaunch",
+      "Nebula"
+    ],
+    "imports": [
+      "android.graphics.Bitmap",
+      "android.util.Log",
+      "dev.nanoai.mobile.services.XServerBackend",
+      "dev.nanoai.mobile.services.InternalXvncBackend",
+      "java.io.File",
+      "java.nio.file.Files",
+      "java.nio.file.Paths",
+      "kotlin.concurrent.thread",
+      "kotlinx.coroutines.runBlocking"
+    ],
+    "sha256": "0fa04612e83a4363f7117dcdd397eda527f89f28eea5c73df862d97fcc9ae94e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "lines": 719,
+    "symbols": [
+      "EngineSupervisor",
+      "EngineState",
+      "Idle",
+      "Starting",
+      "Ready",
+      "Failed",
+      "EngineHandle"
+    ],
+    "imports": [
+      "android.util.Log",
+      "java.io.File",
+      "java.io.FileOutputStream",
+      "java.net.HttpURLConnection",
+      "java.net.URL",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.Dispatchers",
+      "kotlinx.coroutines.SupervisorJob",
+      "kotlinx.coroutines.cancel",
+      "kotlinx.coroutines.delay",
+      "kotlinx.coroutines.isActive",
+      "kotlinx.coroutines.launch",
+      "kotlinx.coroutines.withContext"
+    ],
+    "sha256": "e22954fe306e91783a6291ed9c8b928ddade421ad954b526e93d065a754c157e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "lines": 362,
+    "symbols": [
+      "MainActivity"
+    ],
+    "imports": [
+      "android.Manifest",
+      "android.content.Intent",
+      "android.content.pm.PackageManager",
+      "android.graphics.Color",
+      "android.os.Build",
+      "android.os.Bundle",
+      "android.os.Handler",
+      "android.os.Looper",
+      "androidx.core.view.WindowCompat",
+      "androidx.core.view.WindowInsetsControllerCompat",
+      "dev.nanoai.mobile.appfunctions.AppFunctionChannelHandler",
+      "dev.nanoai.mobile.channels.AgentChannelHandler",
+      "dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler",
+      "dev.nanoai.mobile.channels.AutomationStoreChannelHandler",
+      "dev.nanoai.mobile.channels.ChannelNames",
+      "dev.nanoai.mobile.channels.DeviceMetricsChannelHandler",
+      "dev.nanoai.mobile.channels.DevicePermissionsChannelHandler",
+      "dev.nanoai.mobile.channels.EngineChannelHandler",
+      "dev.nanoai.mobile.channels.ExecBinChannelHandler",
+      "dev.nanoai.mobile.channels.LanguageAssistChannelHandler",
+      "dev.nanoai.mobile.channels.ModelStorageChannelHandler",
+      "dev.nanoai.mobile.channels.NotificationAutomationChannelHandler",
+      "dev.nanoai.mobile.services.NotificationAutomationBridge",
+      "dev.nanoai.mobile.channels.PtyChannelHandler",
+      "dev.nanoai.mobile.channels.RuntimeChannelHandler",
+      "dev.nanoai.mobile.channels.ShareChannelHandler",
+      "dev.nanoai.mobile.channels.SpeechChannelHandler",
+      "dev.nanoai.mobile.channels.SystemInventoryChannelHandler",
+      "io.flutter.embedding.android.FlutterActivity",
+      "io.flutter.embedding.engine.FlutterEngine",
+      "io.flutter.plugin.common.EventChannel",
+      "io.flutter.plugin.common.MethodChannel",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.Dispatchers",
+      "kotlinx.coroutines.SupervisorJob",
+      "kotlinx.coroutines.cancel"
+    ],
+    "sha256": "b565ac883589c05646ba3f2bc28067b9f5250a2676a3b795c3c672de9cd94563"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoApplication.kt",
+    "lines": 24,
+    "symbols": [
+      "NanoApplication"
+    ],
+    "imports": [
+      "android.app.Application",
+      "android.content.Context",
+      "dev.nanoai.mobile.automation.AutomationStoreDb",
+      "dev.nanoai.mobile.automation.DurableInbox"
+    ],
+    "sha256": "da92026b3e2852733fd45f11bd938fc142b836f7ed7641f2a4613b0a113b652b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellBridge.kt",
+    "lines": 118,
+    "symbols": [
+      "NanoshellBridge"
+    ],
+    "imports": [
+      "android.util.Log"
+    ],
+    "sha256": "c26dd8985737f77733d5e79fb3652012b17b1e9380729a31298539b384dec173"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellWorkerService.kt",
+    "lines": 361,
+    "symbols": [
+      "NanoshellWorkerService"
+    ],
+    "imports": [
+      "android.app.Service",
+      "android.content.Intent",
+      "android.os.Bundle",
+      "android.os.Handler",
+      "android.os.IBinder",
+      "android.os.Looper",
+      "android.os.Message",
+      "android.os.Messenger",
+      "android.os.ParcelFileDescriptor",
+      "android.system.Os"
+    ],
+    "sha256": "728f1ddb4ff325299145e8b564cecd6692de3c6f9239968014590a97bbb49699"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NativeRuntimeSupervisor.kt",
+    "lines": 151,
+    "symbols": [
+      "NativeRuntimeSupervisor"
+    ],
+    "imports": [
+      "android.content.Context",
+      "android.util.Log",
+      "java.io.File",
+      "kotlinx.coroutines.CoroutineScope",
+      "kotlinx.coroutines.Dispatchers",
+      "kotlinx.coroutines.SupervisorJob",
+      "kotlinx.coroutines.cancel",
+      "kotlinx.coroutines.isActive"
+    ],
+    "sha256": "dac3e679402b3f838f373be02a9e1bbf568e7dbe2fdb7db3db468b8a23e9a7bc"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/RuntimeHeartbeat.kt",
+    "lines": 89,
+    "symbols": [
+      "RuntimeHeartbeat"
+    ],
+    "imports": [
+      "android.util.Log",
+      "java.io.File"
+    ],
+    "sha256": "c4b93d28eed3402caca229720ac4a4a51e046388f6d3601dbe625cb3bc8934c4"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/RuntimeScope.kt",
+    "lines": 55,
+    "symbols": [
+      "RuntimeScope",
+      "Holder"
+    ],
+    "imports": [
+      "android.content.Context",
+      "java.io.File"
+    ],
+    "sha256": "c8b3f21f5ecb1f2b5f97fcb331baf7a12c0431db641a8c2393eec7ad1502b7e2"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/SecurePathPolicy.kt",
+    "lines": 33,
+    "symbols": [
+      "SecurePathPolicy"
+    ],
+    "imports": [
+      "java.io.File",
+      "java.net.URL"
+    ],
+    "sha256": "3b9269de75e3d468595ae7a3ef77c0be2f6a22d0bb1ec54fba72022629cd64b6"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "lines": 698,
+    "symbols": [
+      "AgentAccessibilityService",
+      "TraversalState",
+      "AgentAccessibilityBridge"
+    ],
+    "imports": [
+      "android.accessibilityservice.AccessibilityService",
+      "android.accessibilityservice.GestureDescription",
+      "android.content.Intent",
+      "android.graphics.Bitmap",
+      "android.graphics.Path",
+      "android.graphics.Rect",
+      "android.os.Build",
+      "android.os.Bundle",
+      "android.util.Log",
+      "android.view.Display",
+      "android.view.accessibility.AccessibilityEvent",
+      "android.view.accessibility.AccessibilityNodeInfo",
+      "android.view.accessibility.AccessibilityWindowInfo",
+      "dev.nanoai.mobile.MainActivity",
+      "dev.nanoai.mobile.RuntimeHeartbeat",
+      "java.io.File",
+      "java.util.concurrent.Executors"
+    ],
+    "sha256": "b50cad5f6f9233e4869cfb07e370aad8c84618021728f3585063a79d855bb49e"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AndroidSystemIntentExecutor.kt",
+    "lines": 37,
+    "symbols": [
+      "AndroidSystemIntentExecutor",
+      "IntentResult"
+    ],
+    "imports": [
+      "android.content.Context",
+      "android.content.Intent",
+      "android.provider.Settings"
+    ],
+    "sha256": "9a70f940e068f197d7c7ba0341988de659f6a2b9acf3dc9616c69a211a2b4664"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DeviceMetricsProvider.kt",
+    "lines": 172,
+    "symbols": [
+      "DeviceMetricsProvider"
+    ],
+    "imports": [
+      "android.app.ActivityManager",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.content.IntentFilter",
+      "android.os.BatteryManager",
+      "android.os.Environment",
+      "android.os.StatFs",
+      "java.io.File"
+    ],
+    "sha256": "77263c7642d913bacfd3c87e3af65ac6826bfdd18510d2abd4fc6f82cb1295af"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DownloadService.kt",
+    "lines": 86,
+    "symbols": [
+      "DownloadService"
+    ],
+    "imports": [
+      "java.io.BufferedInputStream",
+      "java.io.File",
+      "java.io.FileOutputStream",
+      "java.net.HttpURLConnection",
+      "java.net.URL"
+    ],
+    "sha256": "d08733cfac359856b1b70a289173a9b551ca720a5c3453faceb2f5eb5f462bd3"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/NotificationAutomationService.kt",
+    "lines": 377,
+    "symbols": [
+      "NotificationAutomationService",
+      "ReplyResult",
+      "NotificationAutomationBridge"
+    ],
+    "imports": [
+      "android.app.Notification",
+      "android.app.Notification.MessagingStyle",
+      "android.app.RemoteInput",
+      "android.content.Intent",
+      "android.content.ComponentName",
+      "android.os.Build",
+      "android.os.Bundle",
+      "android.service.notification.NotificationListenerService",
+      "android.service.notification.StatusBarNotification",
+      "dev.nanoai.mobile.NanoApplication",
+      "dev.nanoai.mobile.automation.AutomationRuntimeService",
+      "dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler"
+    ],
+    "sha256": "12d1a07fe49ccad754c804bd357f20c18dd3ce35c3215008daa5414416c986cd"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/OcrService.kt",
+    "lines": 54,
+    "symbols": [
+      "OcrService",
+      "OcrLine"
+    ],
+    "imports": [
+      "android.graphics.Bitmap",
+      "com.google.mlkit.vision.common.InputImage",
+      "com.google.mlkit.vision.text.TextRecognition",
+      "com.google.mlkit.vision.text.latin.TextRecognizerOptions",
+      "java.util.concurrent.CountDownLatch",
+      "java.util.concurrent.TimeUnit"
+    ],
+    "sha256": "d700a6c89d01dd6261bf601db1e2fa4ec792b7f215fd31bfe589f20318ed14b2"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/SystemInventoryService.kt",
+    "lines": 131,
+    "symbols": [
+      "SystemInventoryService",
+      "NativeInstalledApp",
+      "NativeDeviceProfile"
+    ],
+    "imports": [
+      "android.content.Context",
+      "android.content.Intent",
+      "android.content.pm.ApplicationInfo",
+      "android.content.pm.PackageInfo",
+      "android.content.pm.PackageManager",
+      "android.os.Build"
+    ],
+    "sha256": "44b811d375cc0ed421dac22e03d507d34a84e79af938b2bae37db315d6e6a34c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/TargetMatchPolicy.kt",
+    "lines": 47,
+    "symbols": [
+      "TargetIdentity",
+      "TargetMatchPolicy"
+    ],
+    "imports": [],
+    "sha256": "87ffbe25c4591d6ad40483d711e3b4f3e03696e5640fa7da17347f3255e7775b"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/VisionService.kt",
+    "lines": 61,
+    "symbols": [
+      "VisionService",
+      "VisionLabel"
+    ],
+    "imports": [
+      "android.graphics.Bitmap",
+      "com.google.mlkit.vision.common.InputImage",
+      "com.google.mlkit.vision.label.ImageLabeling",
+      "com.google.mlkit.vision.label.defaults.ImageLabelerOptions",
+      "java.util.concurrent.CountDownLatch",
+      "java.util.concurrent.TimeUnit"
+    ],
+    "sha256": "04603cefa5fd4045a0fec32ada0f5e256b852cc1a77c8acd8131b419f22be3fc"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/XServerBackend.kt",
+    "lines": 330,
+    "symbols": [
+      "XTransport",
+      "XDisplayEndpoint",
+      "XServerBackend",
+      "InternalXvncBackend"
+    ],
+    "imports": [
+      "kotlinx.coroutines.delay"
+    ],
+    "sha256": "9645cac8472bd99b9645cf57e0efc417915af3c5e810d19ce08dd5a58b5687d2"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/shizuku/PackageActionService.kt",
+    "lines": 118,
+    "symbols": [
+      "PackageActionService"
+    ],
+    "imports": [
+      "android.app.ActivityManager",
+      "android.app.PendingIntent",
+      "android.app.Service",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.content.pm.PackageInstaller",
+      "android.os.IBinder",
+      "java.io.File"
+    ],
+    "sha256": "7c8833c3c4f41cab5bd60d4c8cee6f6f251a0f19b301a71017b8dca6ae0bb9e1"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "lines": 366,
+    "symbols": [
+      "TarExtractor",
+      "TarException"
+    ],
+    "imports": [
+      "java.io.File",
+      "java.io.FileInputStream",
+      "java.io.BufferedInputStream"
+    ],
+    "sha256": "d64f0a949b58614c753c786ce8db6d031b3f46d4f9e82a177085454907b8b70d"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+    "lines": 418,
+    "symbols": [
+      "WorkerClient"
+    ],
+    "imports": [
+      "android.content.ComponentName",
+      "android.content.Context",
+      "android.content.Intent",
+      "android.content.ServiceConnection",
+      "android.os.Bundle",
+      "android.os.Handler",
+      "android.os.HandlerThread",
+      "android.os.IBinder",
+      "android.os.Message",
+      "android.os.Messenger",
+      "android.os.ParcelFileDescriptor",
+      "android.util.Log",
+      "java.util.concurrent.CountDownLatch",
+      "java.util.concurrent.TimeUnit",
+      "java.util.concurrent.atomic.AtomicInteger",
+      "java.util.concurrent.atomic.AtomicReference"
+    ],
+    "sha256": "3c251d97842e487027fe5f487afcbdd2ea5a037e38501f28574c7aa1816d849c"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/XzDecoder.kt",
+    "lines": 51,
+    "symbols": [
+      "XzDecoder",
+      "XzException"
+    ],
+    "imports": [
+      "org.tukaani.xz.XZInputStream",
+      "java.io.BufferedInputStream",
+      "java.io.ByteArrayInputStream",
+      "java.io.OutputStream"
+    ],
+    "sha256": "91ea65605bdca4ad2e44a5168eb058151b7ed9576b98652d019b4aac6ded37fe"
+  }
+]

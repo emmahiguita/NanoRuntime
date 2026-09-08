@@ -70,6 +70,18 @@ class SpeechChannelHandler(
         partialSink = null
     }
 
+    /** A13 — libera recursos de voz (idempotente): recognizer destruido y
+     *  TTS apagado. Se llama desde onDestroy de MainActivity — sin esto el
+     *  recognizer puede quedar escuchando como zombie tras destruir la UI. */
+    fun close() {
+        Log.d(TAG, "close — recognizer y TTS liberados")
+        recognizer?.destroy()
+        recognizer = null
+        tts?.shutdown()
+        tts = null
+        partialSink = null
+    }
+
     // ── MethodChannel ────────────────────────────────────────────────────────
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {

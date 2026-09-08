@@ -7,6 +7,10 @@ class CronJob {
   final int intervalMin;
   final String command;
   Timer timer;
+
+  /// Guard de ejecución serial: impide que el mismo job se ejecute
+  /// concurrentemente si la ejecución anterior todavía no terminó.
+  bool running = false;
   CronJob({
     required this.intervalMin,
     required this.command,
@@ -59,12 +63,18 @@ class CronScheduler {
           out('crontab: comando requerido', Ln.stderr);
           return;
         }
-        final job = CronJob(
+        late final CronJob job;
+        job = CronJob(
           intervalMin: interval,
           command: command,
           timer: Timer.periodic(Duration(minutes: interval), (_) {
             if (!isAlive()) return;
-            execCmd(command);
+            // SERIAL guard: skip this tick if the previous run is still
+            // executing. Prevents N concurrent instances of the same job
+            // when commands run longer than the interval.
+            if (job.running) return;
+            job.running = true;
+            execCmd(command).whenComplete(() => job.running = false);
           }),
         );
         _cronJobs.add(job);
@@ -101,9 +111,13 @@ class CronScheduler {
       final command = a.sublist(1).join(' ');
       out('watch: ejecutando "$command" cada ${sec}s.', Ln.info);
       execCmd(command);
+      var watchRunning = false;
       final timer = Timer.periodic(Duration(seconds: sec), (_) {
         if (!isAlive()) return;
-        execCmd(command);
+        // SERIAL guard: skip tick if previous watch execution still in flight.
+        if (watchRunning) return;
+        watchRunning = true;
+        execCmd(command).whenComplete(() => watchRunning = false);
       });
       _timers.add(timer);
     });

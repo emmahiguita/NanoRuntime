@@ -104,10 +104,7 @@ final class SharedPreferencesContactRateLimiter implements ContactRateLimiter {
   }
 
   @override
-  Future<bool> allowReply(
-    ConversationKey key, {
-    required DateTime at,
-  }) async {
+  Future<bool> allowReply(ConversationKey key, {required DateTime at}) async {
     final allowed =
         (await replyCount(key, at: at)) < policy.maxRepliesPerWindow;
     if (allowed) await recordReply(key, at: at);
@@ -198,7 +195,9 @@ final class SqliteContactRateLimiter implements ContactRateLimiter {
 
   Future<void> _doLoad() async {
     try {
-      var raw = await AutomationDbStoreClient.instance.section(_section);
+      var raw = await AutomationDbStoreClient.instance.requiredSection(
+        _section,
+      );
       raw ??= await _migrateLegacy();
       if (raw != null && raw.isNotEmpty) {
         _attempts
@@ -206,8 +205,8 @@ final class SqliteContactRateLimiter implements ContactRateLimiter {
           ..addAll(SharedPreferencesContactRateLimiter._decodeAttempts(raw));
       }
     } catch (e) {
-      // Sección corrupta: empezar limpio y honesto (el límite se rearma).
       _attempts.clear();
+      rethrow;
     }
     _loaded = true;
   }
@@ -222,17 +221,15 @@ final class SqliteContactRateLimiter implements ContactRateLimiter {
         raw,
       );
       if (ok) await prefs.remove(_legacyKey);
-      return ok ? raw : null;
+      if (!ok) throw StateError('Rate migration persistence rejected');
+      return raw;
     } on Object {
-      return null;
+      rethrow;
     }
   }
 
   @override
-  Future<bool> allowReply(
-    ConversationKey key, {
-    required DateTime at,
-  }) async {
+  Future<bool> allowReply(ConversationKey key, {required DateTime at}) async {
     final allowed =
         (await replyCount(key, at: at)) < policy.maxRepliesPerWindow;
     if (allowed) await recordReply(key, at: at);
@@ -277,9 +274,10 @@ final class SqliteContactRateLimiter implements ContactRateLimiter {
     _attempts
       ..clear()
       ..addAll(pruned);
-    await AutomationDbStoreClient.instance.putSection(
+    final saved = await AutomationDbStoreClient.instance.putSection(
       _section,
       SharedPreferencesContactRateLimiter._encodeAttempts(_attempts),
     );
+    if (!saved) throw StateError('Rate limit persistence rejected');
   }
 }

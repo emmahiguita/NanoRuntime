@@ -1,0 +1,434 @@
+11
+30
+Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        d45565f dev.nanoai.mobile/.MainActivity filter 350e8ac
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+      android.intent.action.APPLICATION_PREFERENCES:
+        d45565f dev.nanoai.mobile/.MainActivity filter 15fa975
+          Action: "android.intent.action.APPLICATION_PREFERENCES"
+          Category: "android.intent.category.DEFAULT"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        e39e398 dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter a4db257
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      EXTRA_CHOSEN_COMPONENT:
+        dafd0a dev.nanoai.mobile/dev.fluttercommunity.plus.share.SharePlusPendingIntent filter 612f97b
+          Action: "EXTRA_CHOSEN_COMPONENT"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        e39e398 dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 18e67f1
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        e39e398 dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 2b3dfd6
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        e39e398 dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 5b5a144
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Service Resolver Table:
+  Non-Data Actions:
+      android.service.notification.NotificationListenerService:
+        1111cf3 dev.nanoai.mobile/.services.NotificationAutomationService filter 20d8db0 permission android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+          Action: "android.service.notification.NotificationListenerService"
+      android.accessibilityservice.AccessibilityService:
+        410922d dev.nanoai.mobile/.services.AgentAccessibilityService filter 3662362 permission android.permission.BIND_ACCESSIBILITY_SERVICE
+          Action: "android.accessibilityservice.AccessibilityService"
+      rikka.shizuku.intent.action.USER_SERVICE:
+        7112429 dev.nanoai.mobile/.shizuku.PackageActionService filter c0713ae permission android.permission.INTERACT_ACROSS_USERS_FULL
+          Action: "rikka.shizuku.intent.action.USER_SERVICE"
+
+Permissions:
+  Permission [dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (1984ab1):
+    sourcePackage=dev.nanoai.mobile
+    uid=10257 gids=null type=0 prot=signature
+    perm=Permission{2c4ab1f dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+
+Registered ContentProviders:
+  dev.nanoai.mobile/net.nfet.flutter.printing.PrintFileProvider:
+    Provider{2da7e6c dev.nanoai.mobile/net.nfet.flutter.printing.PrintFileProvider}
+  dev.nanoai.mobile/androidx.core.content.FileProvider:
+    Provider{d14ec35 dev.nanoai.mobile/androidx.core.content.FileProvider}
+  dev.nanoai.mobile/com.google.mlkit.common.internal.MlKitInitProvider:
+    Provider{7dee8ca dev.nanoai.mobile/com.google.mlkit.common.internal.MlKitInitProvider}
+  dev.nanoai.mobile/rikka.shizuku.ShizukuProvider:
+    Provider{b12da3b dev.nanoai.mobile/rikka.shizuku.ShizukuProvider}
+  dev.nanoai.mobile/androidx.startup.InitializationProvider:
+    Provider{a271558 dev.nanoai.mobile/androidx.startup.InitializationProvider}
+  dev.nanoai.mobile/dev.fluttercommunity.plus.share.ShareFileProvider:
+    Provider{53516b1 dev.nanoai.mobile/dev.fluttercommunity.plus.share.ShareFileProvider}
+
+ContentProvider Authorities:
+  [dev.nanoai.mobile.flutter.printing]:
+    Provider{2da7e6c dev.nanoai.mobile/net.nfet.flutter.printing.PrintFileProvider}
+      applicationInfo=ApplicationInfo{73f06a5 dev.nanoai.mobile}
+  [dev.nanoai.mobile.shizuku]:
+    Provider{b12da3b dev.nanoai.mobile/rikka.shizuku.ShizukuProvider}
+      applicationInfo=ApplicationInfo{27a4a7a dev.nanoai.mobile}
+  [dev.nanoai.mobile.androidx-startup]:
+    Provider{a271558 dev.nanoai.mobile/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{51f122b dev.nanoai.mobile}
+  [dev.nanoai.mobile.mlkitinitprovider]:
+    Provider{7dee8ca dev.nanoai.mobile/com.google.mlkit.common.internal.MlKitInitProvider}
+      applicationInfo=ApplicationInfo{e060688 dev.nanoai.mobile}
+  [dev.nanoai.mobile.flutter.share_provider]:
+    Provider{53516b1 dev.nanoai.mobile/dev.fluttercommunity.plus.share.ShareFileProvider}
+      applicationInfo=ApplicationInfo{3be6821 dev.nanoai.mobile}
+  [dev.nanoai.mobile.fileprovider]:
+    Provider{d14ec35 dev.nanoai.mobile/androidx.core.content.FileProvider}
+      applicationInfo=ApplicationInfo{6529446 dev.nanoai.mobile}
+
+Key Set Manager:
+  [dev.nanoai.mobile]
+      Signing KeySets: 47
+
+Packages:
+  Package [dev.nanoai.mobile] (7e4bbba):
+    userId=10257
+    pkg=Package{cb73770 dev.nanoai.mobile}
+    codePath=/data/app/~~x6V7YySpY-AkVt6IHOSuDw==/dev.nanoai.mobile-rymY4vB1cX7nRSHlQ-g7kA==
+    resourcePath=/data/app/~~x6V7YySpY-AkVt6IHOSuDw==/dev.nanoai.mobile-rymY4vB1cX7nRSHlQ-g7kA==
+    legacyNativeLibraryDir=/data/app/~~x6V7YySpY-AkVt6IHOSuDw==/dev.nanoai.mobile-rymY4vB1cX7nRSHlQ-g7kA==/lib
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    versionCode=1 minSdk=26 targetSdk=36
+    versionName=1.0.0
+    splits=[base]
+    apkSigningVersion=2
+    applicationInfo=ApplicationInfo{cb73770 dev.nanoai.mobile}
+    flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    queriesPackages=[]
+    queriesIntents=[Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] }, Intent { act=android.intent.action.MAIN cat=[android.intent.category.HOME] }, Intent { act=android.intent.action.GET_CONTENT dat=content://*/* typ=*/* }, Intent { act=android.intent.action.PROCESS_TEXT dat=content://*/* typ=text/plain }]
+    dataDir=/data/user/0/dev.nanoai.mobile
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalLibraries:
+      androidx.window.extensions
+      androidx.window.sidecar
+    timeStamp=2026-09-06 16:33:17
+    firstInstallTime=2026-09-04 14:12:52
+    lastUpdateTime=2026-09-06 16:33:23
+    signatures=PackageSignatures{d86eae9 version:2, signatures:[2b976abd], past signatures:[]}
+    installPermissionsFixed=true
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    declared permissions:
+      dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature, INSTALLED
+    requested permissions:
+      android.permission.INTERNET
+      android.permission.POST_NOTIFICATIONS
+      android.permission.QUERY_ALL_PACKAGES
+      moe.shizuku.manager.permission.API_V23
+      android.permission.READ_MEDIA_IMAGES
+      android.permission.READ_MEDIA_VIDEO
+      android.permission.READ_MEDIA_AUDIO
+      android.permission.READ_EXTERNAL_STORAGE: restricted=true
+      android.permission.RECORD_AUDIO
+      android.permission.MANAGE_EXTERNAL_STORAGE
+      android.permission.FOREGROUND_SERVICE
+      android.permission.FOREGROUND_SERVICE_DATA_SYNC
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+      android.permission.EXECUTE_APP_FUNCTIONS
+      android.permission.ACCESS_NETWORK_STATE
+      dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+    install permissions:
+      android.permission.FOREGROUND_SERVICE: granted=true
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS: granted=true
+      dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.INTERNET: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      android.permission.QUERY_ALL_PACKAGES: granted=true
+    User 0: ceDataInode=1313904 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false
+    overlay paths:
+      /vendor/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      gids=[3003]
+      runtime permissions:
+        android.permission.READ_EXTERNAL_STORAGE: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT]
+        android.permission.RECORD_AUDIO: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+
+SkippingApks:
+  name : QRAgent.apk
+  name : (eBay)_idapk-1.0.0.26-2-DE-CS.apk
+  name : 3385_SFRJeux-6.0.1-logoff-obson-release_2016-07-08_11-49-17.apk
+  name : 5.4.2_MIVODAFONE.apk
+  name : Adalyst_ZTA.apk
+  name : AirtelStub.apk
+  name : AliveService.apk
+  name : AlticeMusic_2.3.apk
+  name : AmazonMDIP-Android-1.0.51.0-release-signed-Sh-DE.apk
+  name : AmazonMDIP-release-signed-sdk-30-SamsungME.apk
+  name : AmazonShopping-32bit.apk
+  name : AmazonVideo_SWA.apk
+  name : Amazon_Shopping.apk
+  name : AppCloud_hutch_V3.12.4.0.apk
+  name : AppLock.apk
+  name : Attribution.apk
+  name : CLiP.apk
+  name : Chili-companion-release.apk
+  name : ClaroContenedor_Full.apk
+  name : ClaroJuegos_FULL.apk
+  name : ClaroJuegos_FULL_MX.apk
+  name : CnnPanel.apk
+  name : Dailyhunt.apk
+  name : Ebay_Carrier_ID_AT_TR.apk
+  name : Ebay_Carrier_ID_DE_CS.apk
+  name : EntelPlay_5.0.apk
+  name : EweMBMSServer_TEL.apk
+  name : Fast.apk
+  name : HPSClient.apk
+  name : Ignite-Globe.apk
+  name : Ignite-Singtel.apk
+  name : Ignite-samsungSamsungAgent_7.4.303-5628_release.apk
+  name : Ignite-telefonica.apk
+  name : KT114Provider2.apk
+  name : KTCustomerService.apk
+  name : KTHiddenMenu.apk
+  name : KTOneStore.apk
+  name : KTPushNotiService.apk
+  name : KTServiceAgent.apk
+  name : KTServiceMenu.apk
+  name : KeyguardMGSUpdator.apk
+  name : LGUGPSnWPS.apk
+  name : LGUHiddenMenu.apk
+  name : LGUMiniCustomerCenter.apk
+  name : LGUOZStore.apk
+  name : LGUplusTsmProxy.apk
+  name : LogWriter.apk
+  name : MDIP.apk
+  name : MaftPreloadManagerAndroidApp-MovistarMX.apk
+  name : MaftPreloadManagerAndroidApp-TEF_LATAM.apk
+  name : MaftPreloadManagerAndroidApp-release-signed-tagged.apk
+  name : MeinVodafone-7.2-signed.apk
+  name : MemorySaver_O_Refresh.apk
+  name : MeuTIM.apk
+  name : MinhaOi.apk
+  name : Moj_Vip_1.11.0.apk
+  name : Multi_SKU_MDIP-mshop-android-optus-all-all-all-pre.apk
+  name : Musica_VIVA_v1.1.apk
+  name : MyApps-1.6.1-logoff-obson-prodMyAppsRelease.apk
+  name : MyGalaxy.apk
+  name : MyGalaxyWidget.apk
+  name : MyGalaxyWidget_NEBANGS.apk
+  name : MyGalaxy_NEBANGS.apk
+  name : MySingtel.apk
+  name : MyVodafone-production-unsigned-R6.8B45.apk
+  name : MyVodafoneIE_releasenotes_mCareAnd_4.12.apk
+  name : MyVodafone_11.3.0_preprodStore_store.apk
+  name : MyVodafone_3.7.2.apk
+  name : NaverV_N.apk
+  name : ONEstoreSetupwizard.apk
+  name : OPENMarketHiddenMenu.apk
+  name : OiApps.apk
+  name : OiAppsClube.apk
+  name : OiRecarga.apk
+  name : OiWiFi.apk
+  name : Omc.apk
+  name : OnStart_Notification_V30.apk
+  name : OneStoreService.apk
+  name : PrivacyManager.apk
+  name : ProductSearch.apk
+  name : RRO_AMX_stk1.apk
+  name : RRO_AMX_stk2.apk
+  name : SKTHiddenMenu.apk
+  name : SKTMemberShip.apk
+  name : SKTOneStore.apk
+  name : SYSdll.apk
+  name : SYSdll_COM.apk
+  name : SafetyCleaner.apk
+  name : SamsungConcierge_stub.apk
+  name : SamsungMax.apk
+  name : SamsungPayStub.apk
+  name : SelfCareMobile-6.0.3-prod-signed.apk
+  name : SetupIndiaServicesTnC.apk
+  name : SktUsimService.apk
+  name : SmartPush.apk
+  name : Snapchat.apk
+  name : TPhoneOnePackage.apk
+  name : TPhoneSetup.apk
+  name : TelcelContenedor_Full.apk
+  name : UltraDataSaving_O.apk
+  name : Upday.apk
+  name : VivoAppsClube.apk
+  name : VivoMaisApps.apk
+  name : appcloud_oobe.apk
+  name : appcloud_oobe_samsungGlobal-release_V4.0.0.5.apk
+  name : apt_Vodafone_StartOne_Katniss_v10.1.4_PROD_signed.apk
+  name : che_notification_6.apk
+  name : com.zentity.vodafone-2.14.3(20171023).apk
+  name : eBayAttribution-1.0.0.7-77.apk
+  name : entel_peru_7-6-1.apk
+  name : idapk-1.0.0.2-1.apk
+  name : instagram-stub.apk
+  name : instagram-stub_45-1-22.apk
+  name : kolbi_5.0.19.apk
+  name : mein-a1-v4.16.2-b51-PROD.aligned.apk
+  name : messenger-stub.apk
+  name : messenger-stub_45-1-22.apk
+  name : miTelcel_Stub.apk
+  name : mobileTworld.apk
+  name : moj.a1-5.4.5.apk
+  name : mtel-selfcare-app-Last.apk
+  name : myflow_cww_6-9-0-174.apk
+  name : myvodafone_1_0_1.apk
+  name : newMcare_PROD_AUTH_v3.1.0.apk
+  name : nfcagent-prodRelease-1.2.7.apk
+  name : rro_psn_stk1.apk
+  name : rro_uwt_srk1.apk
+  name : rro_uwt_stk2.apk
+  name : samsung_rewards.apk
+  name : samsungclub_py.apk
+  name : samsungclub_uy.apk
+  name : signatureClub.apk
+  name : tickantel_1-8-1.apk
+  name : tuapp_4-0-2-4.apk
+  name : ubank_samsung.apk
+  name : veramas_1-17-5.apk
+  name : veratv_2-4-0.apk
+  name : vfal-myvf-android_3.1.6.5_LiveRelease.apk
+  name : vfgr-myvf-4.0.114-2161AL-370f404-REL.apk
+  name : wapp-290419_1604-release-release.apk
+  name : yandex.search.apk
+  name : SearchSelector.apk
+
+Queries:
+  updateEntireShouldFilterCacheAsync finished: true
+  update time for EntireShouldFilterCache: 959
+  user count at EntireShouldFilterCache: 1
+  settings size at EntireShouldFilterCache: 396
+  system apps queryable: false
+  queries via package name:
+  queries via intent:
+    com.facebook.katana:
+      dev.nanoai.mobile
+    dev.nanoai.mobile:
+      com.google.android.projection.gearhead
+      com.google.android.documentsui
+      com.google.android.apps.restore
+      com.sec.android.app.samsungapps
+      com.microsoft.skydrive
+      com.sec.android.app.billing
+      com.samsung.android.app.contacts
+      com.samsung.android.themestore
+      com.microsoft.appmanager
+      com.google.android.googlequicksearchbox
+      com.netflix.mediaclient
+      com.facebook.katana
+      com.android.chrome
+      com.google.android.youtube
+      com.diotek.sec.lookup.dictionary
+      com.google.android.apps.maps
+      com.google.android.apps.tachyon
+      com.google.android.gm
+      com.dti.samsung
+      com.sec.android.usermanual
+      com.google.android.setupwizard
+      com.sec.android.app.sbrowser
+      com.google.android.apps.docs
+      com.google.android.videos
+      com.google.android.apps.photos
+      com.limelight.smartdisplay.debug
+      com.limelight.root.debug
+      com.devemm.commerce
+  queryable via interaction:
+    User 0:
+      [com.samsung.sec.android.teegris.tui_service,com.sec.android.app.servicemodeapp,com.samsung.android.MtpApplication,com.samsung.android.brightnessbackupservice,com.sec.android.app.wlantest,com.sec.imsservice,com.samsung.android.mcfds,com.sec.bcservice,com.samsung.android.svcagent,com.samsung.knox.keychain,com.android.dynsystem,com.samsung.android.smartfitting,com.sec.android.app.factorykeystring,com.sec.factory,com.samsung.android.shortcutbackupservice,com.android.server.telecom,com.samsung.android.smartface,com.samsung.android.aircommandmanager,com.samsung.android.knox.attestation,com.samsung.android.knox.pushmanager,com.samsung.android.themecenter,com.android.providers.settings,com.samsung.android.bio.face.service,com.android.wallpaperbackup,com.sec.android.diagmonagent,com.android.keychain,com.sec.android.preloadinstaller,com.sec.mhs.smarttethering,com.samsung.android.bluelightfilter,com.sec.android.app.personalization,com.sec.factory.camera,com.android.location.fused,com.samsung.android.app.dressroom,com.sec.epdg,com.sec.android.app.parser,com.samsung.android.dqagent,com.android.inputdevices,com.sec.usbsettings,com.sec.android.sdhms,com.sec.android.app.quicktool,com.sec.enterprise.mdm.services.simpin,com.samsung.android.app.settings.bixby,com.android.networkstack.tethering.inprocess,com.samsung.rcs,com.samsung.android.app.omcagent,com.samsung.android.bbc.bbcagent,com.samsung.android.hdmapp,com.samsung.accessibility,com.samsung.android.biometrics.app.setting,android,com.samsung.android.server.wifi.mobilewips,com.samsung.android.forest,com.samsung.SMT,com.sec.android.app.SecSetupWizard,com.android.localtransport,com.sec.android.emergencymode.service,com.samsung.android.da.daagent,com.sec.android.emergencylauncher,com.sec.automation,com.sec.android.soagent,com.sec.app.RilErrorNotifier,com.sec.android.app.hwmoduletest,com.samsung.android.fmm,com.samsung.android.stickercenter,com.samsung.android.mdecservice,com.samsung.android.smartswitchassistant,com.samsung.android.provider.filterprovider,com.samsung.android.localeoverlaymanager,com.samsung.android.lool,com.samsung.clipboardsaveservice,com.samsung.gpuwatchapp,com.wssyncmldm,com.sec.android.app.bluetoothtest,com.sec.modem.settings,com.sec.imslogger,com.skms.android.agent,com.samsung.android.cmfa.framework,com.samsung.android.tadownloader,com.samsung.android.providers.carrier,com.samsung.android.mcfserver,com.sec.sve,com.android.settings,com.samsung.android.securitylogagent]:
+        dev.nanoai.mobile
+      [com.google.android.gsf,com.google.android.gms]:
+        dev.nanoai.mobile
+      [com.samsung.android.honeyboard,com.samsung.android.icecone]:
+        dev.nanoai.mobile
+      dev.nanoai.mobile:
+        [com.samsung.sec.android.teegris.tui_service,com.sec.android.app.servicemodeapp,com.samsung.android.MtpApplication,com.samsung.android.brightnessbackupservice,com.sec.android.app.wlantest,com.sec.imsservice,com.samsung.android.mcfds,com.sec.bcservice,com.samsung.android.svcagent,com.samsung.knox.keychain,com.android.dynsystem,com.samsung.android.smartfitting,com.sec.android.app.factorykeystring,com.sec.factory,com.samsung.android.shortcutbackupservice,com.android.server.telecom,com.samsung.android.smartface,com.samsung.android.aircommandmanager,com.samsung.android.knox.attestation,com.samsung.android.knox.pushmanager,com.samsung.android.themecenter,com.android.providers.settings,com.samsung.android.bio.face.service,com.android.wallpaperbackup,com.sec.android.diagmonagent,com.android.keychain,com.sec.android.preloadinstaller,com.sec.mhs.smarttethering,com.samsung.android.bluelightfilter,com.sec.android.app.personalization,com.sec.factory.camera,com.android.location.fused,com.samsung.android.app.dressroom,com.sec.epdg,com.sec.android.app.parser,com.samsung.android.dqagent,com.android.inputdevices,com.sec.usbsettings,com.sec.android.sdhms,com.sec.android.app.quicktool,com.sec.enterprise.mdm.services.simpin,com.samsung.android.app.settings.bixby,com.android.networkstack.tethering.inprocess,com.samsung.rcs,com.samsung.android.app.omcagent,com.samsung.android.bbc.bbcagent,com.samsung.android.hdmapp,com.samsung.accessibility,com.samsung.android.biometrics.app.setting,android,com.samsung.android.server.wifi.mobilewips,com.samsung.android.forest,com.samsung.SMT,com.sec.android.app.SecSetupWizard,com.android.localtransport,com.sec.android.emergencymode.service,com.samsung.android.da.daagent,com.sec.android.emergencylauncher,com.sec.automation,com.sec.android.soagent,com.sec.app.RilErrorNotifier,com.sec.android.app.hwmoduletest,com.samsung.android.fmm,com.samsung.android.stickercenter,com.samsung.android.mdecservice,com.samsung.android.smartswitchassistant,com.samsung.android.provider.filterprovider,com.samsung.android.localeoverlaymanager,com.samsung.android.lool,com.samsung.clipboardsaveservice,com.samsung.gpuwatchapp,com.wssyncmldm,com.sec.android.app.bluetoothtest,com.sec.modem.settings,com.sec.imslogger,com.skms.android.agent,com.samsung.android.cmfa.framework,com.samsung.android.tadownloader,com.samsung.android.providers.carrier,com.samsung.android.mcfserver,com.sec.sve,com.android.settings,com.samsung.android.securitylogagent]
+
+Package Changes:
+  Sequence number=451
+  User 0:
+    seq=0, package=com.google.android.apps.docs
+    seq=18, package=com.osp.app.signin
+    seq=22, package=com.samsung.knox.securefolder
+    seq=50, package=com.google.android.gms
+    seq=84, package=com.google.android.apps.restore
+    seq=87, package=com.google.android.gm
+    seq=124, package=com.google.android.apps.maps
+    seq=199, package=dev.nanoai.mobile
+    seq=217, package=com.android.vending
+    seq=247, package=com.samsung.android.forest
+    seq=249, package=com.samsung.android.app.simplesharing
+    seq=357, package=com.sec.unifiedwfc
+    seq=395, package=com.samsung.android.messaging
+    seq=397, package=com.microsoft.skydrive
+    seq=418, package=com.android.chrome
+    seq=450, package=com.facebook.appmanager
+
+
+Dexopt state:
+  [dev.nanoai.mobile]
+    path: /data/app/~~x6V7YySpY-AkVt6IHOSuDw==/dev.nanoai.mobile-rymY4vB1cX7nRSHlQ-g7kA==/base.apk
+      arm64: [status=speed-profile] [reason=install]
+
+
+HeimdAllFS state:
+  HeimdAllFS does not supported.
+
+
+Compiler stats:
+  [dev.nanoai.mobile]
+     base.apk - 1637
+
+Historical install Logging info(9/10):
+  [com.microsoft.skydrive]
+    1788704264372: "Ver":"2027620202", "Session":"0", "Write":"2517", "Write":"878", "Commit":"120650", "Stage":"504", "
+    Init":"32", "Verified(Unknown)":"218", "Verified(Unknown)":"34", "Copy":"178", "Sign":"4", "DexOpt":"55", 
+  [dev.nanoai.mobile]
+    1788730389523: "Ver":"1", "Session":"0", "Write":"29", "Commit":"8446", "Stage":"515", "Init":"31", "Verified(Unknow
+    n)":"3835", "Verified(Unknown)":"385", "Copy":"124", "Sign":"26", "DexOpt":"78", 
+  [com.google.android.gm]
+    1788704389221: "Ver":"65972134", "Session":"0", "Write":"3950", "Write":"166", "Write":"4093", "Write":"175", "Write
+    ":"3064", "Commit":"83955", "Stage":"37", "Init":"413", "Verified(Unknown)":"626", "Verified(Unknown)":"144", "Copy"
+    :"185", "Sign":"5", "DexOpt":"14", 
+  [com.android.chrome]
+    1788704346855: "Ver":"797708204", "Session":"0", "Write":"5278", "Write":"483", "Write":"9047", "Write":"1398", "Wri
+    te":"188", "Write":"597", "Write":"232", "Commit":"102621", "Stage":"18", "Init":"56", "Verified(Unknown)":"151", "V
+    erified(Unknown)":"16", "Copy":"153", "Sign":"5", "DexOpt":"9", 
+  [com.google.android.apps.restore]
+    1788704237258: "Ver":"1131223", "Session":"0", "Write":"4890", "Write":"426", "Write":"29", "Commit":"103136", "Stag
+    e":"7", "Init":"21", "Verified(Unknown)":"248", "Verified(Unknown)":"32", "Copy":"115", "Sign":"16", "DexOpt":"1", 
+package:/data/app/~~x6V7YySpY-AkVt6IHOSuDw==/dev.nanoai.mobile-rymY4vB1cX7nRSHlQ-g7kA==/base.apk
+shell          5388  22550 2131780   1544 hrtimer_nanosleep 7266722178 S process-tracker
+shell          7118  22550 2131780   1544 hrtimer_nanosleep 7850db7178 S process-tracker
+u0_a257       22507   3877 5289552  76784 0                   0 S dev.nanoai.mobile
+ACTIVITY MANAGER SERVICES (dumpsys activity services)
+  User 0 active services:
+  * ServiceRecord{b1f4523 u0 dev.nanoai.mobile/.services.NotificationAutomationService}
+    intent={act=android.service.notification.NotificationListenerService cmp=dev.nanoai.mobile/.services.NotificationAutomationService}
+    packageName=dev.nanoai.mobile
+    processName=dev.nanoai.mobile
+    permission=android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+    baseDir=/data/app/~~x6V7YySpY-AkVt6IHOSuDw==/dev.nanoai.mobile-rymY4vB1cX7nRSHlQ-g7kA==/base.apk
+    dataDir=/data/user/0/dev.nanoai.mobile
+    app=ProcessRecord{de26554 22507:dev.nanoai.mobile/u0a257}
+    whitelistManager=true
+    allowWhileInUsePermissionInFgs=true
+    startForegroundCount=0
+    recentCallingPackage=android
+    createTime=-3h46m24s528ms startingBgTimeout=--
+    lastActivity=-15m59s30ms restartTime=-15m59s30ms createdFromFg=false
+    restartCount=1 restartDelay=-1d10h43m40s851ms nextRestartTime=-15m59s146ms crashCount=0
+    Bindings:
+    * IntentBindRecord{b119ba3 CREATE}:
+      intent={act=android.service.notification.NotificationListenerService cmp=dev.nanoai.mobile/.services.NotificationAutomationService}
+      binder=android.os.BinderProxy@6fd1ea0
+      requested=true received=true hasBound=true doRebind=false
+      * Client AppBindRecord{8dafa59 ProcessRecord{5abcf40 4321:system/1000}}
+        Per-process Connections:
+          ConnectionRecord{8570bab u0 CR FGS !PRCP dev.nanoai.mobile/.services.NotificationAutomationService:@71839fa}
+    All Connections:
+      ConnectionRecord{8570bab u0 CR FGS !PRCP dev.nanoai.mobile/.services.NotificationAutomationService:@71839fa}
+
+  Connection bindings to services:
+  * ConnectionRecord{8570bab u0 CR FGS !PRCP dev.nanoai.mobile/.services.NotificationAutomationService:@71839fa}
+    binding=AppBindRecord{8dafa59 dev.nanoai.mobile/.services.NotificationAutomationService:system}
+    conn=android.app.LoadedApk$ServiceDispatcher$InnerConnection@71839fa flags=0x5000101

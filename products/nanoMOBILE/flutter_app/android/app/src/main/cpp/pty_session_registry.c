@@ -72,24 +72,37 @@ int pty_registry_close(jlong id) {
         child = rec->pty.child_pid;
         rec->pty.master_fd = -1;
         rec->pty.child_pid = -1;
-        rec->in_use = 0;
+        // NOTE: in_use stays 1 until the child is reaped below.
+        // Clearing it here would allow a concurrent pty_open() to reuse
+        // this slot while the old child process is still alive.
     }
     pthread_mutex_unlock(&g_lock);
-    // Cerrar sin matar dejaba el hijo huérfano (si seguía vivo) o zombie
-    // (el waitpid WNOHANG de pty_is_alive ya no lo alcanza con el slot
-    // libre). El hijo del PTY está en su propio grupo (setsid en _login_tty):
-    // kill(-pid) cubre su sesión completa. waitpid acotado lo reapea aquí;
-    // si el PID ya fue reapeado (ECHILD), no hay nada que hacer.
+
     if (child > 0) {
+        // Step 1: graceful SIGHUP to the entire process group.
         kill(-child, SIGHUP);
-        kill(-child, SIGKILL);
+        // Wait up to ~300ms for voluntary exit.
         int status = 0;
-        for (int i = 0; i < 40; i++) {  // hasta ~200 ms
+        int graceful_rounds = 60; // 60 * 5ms = 300ms
+        for (int i = 0; i < graceful_rounds; i++) {
             pid_t r = waitpid(child, &status, WNOHANG);
-            if (r == child || r < 0) break;
+            if (r == child || r < 0) goto reaped;
             usleep(5000);
         }
+        // Step 2: force SIGKILL if child is still alive.
+        kill(-child, SIGKILL);
+        // Reap with blocking waitpid (child can't ignore SIGKILL).
+        waitpid(child, &status, 0);
     }
+reaped:
+    // Now that the child slot is fully released, mark it free.
+    pthread_mutex_lock(&g_lock);
+    {
+        PtySessionRecord* rec2 = find_session_locked(id);
+        if (rec2) rec2->in_use = 0;
+    }
+    pthread_mutex_unlock(&g_lock);
+
     if (fd >= 0) pty_close(fd);
     return fd >= 0 ? 0 : -1;
 }

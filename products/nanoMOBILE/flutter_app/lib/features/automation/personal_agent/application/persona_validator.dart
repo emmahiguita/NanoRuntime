@@ -54,6 +54,10 @@ final class PersonaValidator {
   static const int maxOwnerNotes = 500;
   static const int maxRelationshipNotes = 300;
   static const int maxExampleChars = 500;
+
+  /// R5-03 — la entrada del cliente del par va acotada más corta que la
+  /// respuesta: es el disparador del ejemplo, no su contenido.
+  static const int maxExampleIncomingChars = 200;
   static const int maxExamples = 2;
   static const int maxTotalChars = 1500;
 
@@ -84,17 +88,17 @@ final class PersonaValidator {
     }
     if (notes.length > maxOwnerNotes) {
       rejected.add(
-        'notas del dueño recortadas (${notes.length} > $maxOwnerNotes)',
+        'notas del dueño omitidas (${notes.length} > $maxOwnerNotes)',
       );
-      notes = notes.substring(0, maxOwnerNotes);
+      notes = '';
     }
     if (relName != null && relName.isEmpty) relName = null;
     if (relNotes != null) {
       if (relNotes.length > maxRelationshipNotes) {
         rejected.add(
-          'notas de relación recortadas (${relNotes.length} > $maxRelationshipNotes)',
+          'notas de relación omitidas (${relNotes.length} > $maxRelationshipNotes)',
         );
-        relNotes = relNotes.substring(0, maxRelationshipNotes);
+        relNotes = '';
       }
       if (relNotes.trim().isEmpty) relNotes = null;
     }
@@ -115,17 +119,28 @@ final class PersonaValidator {
         break;
       }
       seen.add(body);
-      final capped = body.length <= maxExampleChars
-          ? body
-          : body.substring(0, maxExampleChars);
-      if (capped.length != body.length) {
-        rejected.add('ejemplo recortado (${body.length} > $maxExampleChars)');
+      if (body.length > maxExampleChars) {
+        rejected.add(
+          'ejemplo largo omitido (${body.length} > $maxExampleChars)',
+        );
+        continue;
+      }
+      // R5-03 — la entrada del par se neutraliza y acota igual que el body;
+      // si se pierde aquí el par se degrada a estilo legacy en el prompt.
+      final incoming = _neutralize(example.incomingText).trim();
+      if (incoming.length > maxExampleIncomingChars) {
+        rejected.add(
+          'entrada larga del ejemplo omitida '
+          '(${incoming.length} > $maxExampleIncomingChars)',
+        );
+        continue;
       }
       cleanExamples.add(
         PersonaExample(
           id: example.id,
           personaKey: example.personaKey,
-          body: capped,
+          body: body,
+          incomingText: incoming,
           tone: example.tone,
           source: example.source,
         ),
@@ -141,19 +156,18 @@ final class PersonaValidator {
       );
       var overflow = total - maxTotalChars;
       if (overflow > 0 && notes.isNotEmpty) {
-        final keep = notes.length - overflow;
-        notes = keep > 0 ? notes.substring(0, keep) : '';
+        notes = '';
         total = _totalOf(name, notes, relNotes, cleanExamples);
         overflow = total - maxTotalChars;
       }
       if (overflow > 0 && relNotes != null && relNotes.isNotEmpty) {
-        final keep = relNotes.length - overflow;
-        relNotes = keep > 0 ? relNotes.substring(0, keep) : null;
+        relNotes = null;
         total = _totalOf(name, notes, relNotes, cleanExamples);
         overflow = total - maxTotalChars;
       }
       while (overflow > 0 && cleanExamples.isNotEmpty) {
-        overflow -= cleanExamples.removeLast().body.length;
+        final removed = cleanExamples.removeLast();
+        overflow -= removed.body.length + removed.incomingText.length;
       }
     }
 
@@ -185,5 +199,5 @@ final class PersonaValidator {
       name.length +
       notes.length +
       (relNotes?.length ?? 0) +
-      examples.fold(0, (sum, e) => sum + e.body.length);
+      examples.fold(0, (sum, e) => sum + e.body.length + e.incomingText.length);
 }

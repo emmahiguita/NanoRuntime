@@ -275,7 +275,7 @@ class PtySession {
 
   /// Synchronous cleanup of Dart-side controllers. Used when _startPolling()
   /// fails — the native PTY session was already created (we have the id) but
-  /// polling never started. No async MethodChannel call needed.
+  /// polling never started. Calls ptyClose so the native registry slot is freed.
   void _closeSync() {
     if (_closed) return;
     _closed = true;
@@ -285,6 +285,10 @@ class PtySession {
       _done.add(null);
       _done.close();
     }
+    // Free the native PTY registry slot that was allocated before polling
+    // started. Without this the slot stays in_use=1 forever, leaking one
+    // of the fixed-size slots in pty_session_registry.c.
+    _runtime.ptyClose(_id).ignore();
   }
 
   /// Cierra la sesión PTY y libera el fd master.

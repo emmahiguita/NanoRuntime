@@ -1,0 +1,402 @@
+15
+35
+Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        9b7e7f8 dev.nanoai.mobile/.MainActivity filter dcb84d1
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+      android.intent.action.APPLICATION_PREFERENCES:
+        9b7e7f8 dev.nanoai.mobile/.MainActivity filter cc56b36
+          Action: "android.intent.action.APPLICATION_PREFERENCES"
+          Category: "android.intent.category.DEFAULT"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        2b29d0d dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 9fbbe10
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      EXTRA_CHOSEN_COMPONENT:
+        87d4a37 dev.nanoai.mobile/dev.fluttercommunity.plus.share.SharePlusPendingIntent filter 77f8ba4
+          Action: "EXTRA_CHOSEN_COMPONENT"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        2b29d0d dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 6f504c2
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        2b29d0d dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter dd252d3
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        2b29d0d dev.nanoai.mobile/androidx.profileinstaller.ProfileInstallReceiver filter 478fd09
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Service Resolver Table:
+  Non-Data Actions:
+      android.service.notification.NotificationListenerService:
+        7c6ab3c dev.nanoai.mobile/.services.NotificationAutomationService filter 42b60c5 permission android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+          Action: "android.service.notification.NotificationListenerService"
+      android.accessibilityservice.AccessibilityService:
+        292ab0e dev.nanoai.mobile/.services.AgentAccessibilityService filter 365492f permission android.permission.BIND_ACCESSIBILITY_SERVICE
+          Action: "android.accessibilityservice.AccessibilityService"
+      rikka.shizuku.intent.action.USER_SERVICE:
+        b526a1a dev.nanoai.mobile/.shizuku.PackageActionService filter 887494b permission android.permission.INTERACT_ACROSS_USERS_FULL
+          Action: "rikka.shizuku.intent.action.USER_SERVICE"
+
+Domain verification status:
+
+Permissions:
+  Permission [dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (a9f192b):
+    sourcePackage=dev.nanoai.mobile
+    uid=10397 gids=[] type=0 prot=signature
+    perm=PermissionInfo{1ab0188 dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  dev.nanoai.mobile/net.nfet.flutter.printing.PrintFileProvider:
+    Provider{7774721 dev.nanoai.mobile/net.nfet.flutter.printing.PrintFileProvider}
+  dev.nanoai.mobile/androidx.core.content.FileProvider:
+    Provider{9fb8746 dev.nanoai.mobile/androidx.core.content.FileProvider}
+  dev.nanoai.mobile/com.google.mlkit.common.internal.MlKitInitProvider:
+    Provider{9741d07 dev.nanoai.mobile/com.google.mlkit.common.internal.MlKitInitProvider}
+  dev.nanoai.mobile/rikka.shizuku.ShizukuProvider:
+    Provider{1b2ae34 dev.nanoai.mobile/rikka.shizuku.ShizukuProvider}
+  dev.nanoai.mobile/androidx.startup.InitializationProvider:
+    Provider{a60345d dev.nanoai.mobile/androidx.startup.InitializationProvider}
+  dev.nanoai.mobile/dev.fluttercommunity.plus.share.ShareFileProvider:
+    Provider{7d8d1d2 dev.nanoai.mobile/dev.fluttercommunity.plus.share.ShareFileProvider}
+
+ContentProvider Authorities:
+  [dev.nanoai.mobile.flutter.printing]:
+    Provider{7774721 dev.nanoai.mobile/net.nfet.flutter.printing.PrintFileProvider}
+      applicationInfo=ApplicationInfo{1ab82a3 dev.nanoai.mobile}
+  [dev.nanoai.mobile.shizuku]:
+    Provider{1b2ae34 dev.nanoai.mobile/rikka.shizuku.ShizukuProvider}
+      applicationInfo=ApplicationInfo{4e679a0 dev.nanoai.mobile}
+  [dev.nanoai.mobile.androidx-startup]:
+    Provider{a60345d dev.nanoai.mobile/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{f0b959 dev.nanoai.mobile}
+  [dev.nanoai.mobile.mlkitinitprovider]:
+    Provider{9741d07 dev.nanoai.mobile/com.google.mlkit.common.internal.MlKitInitProvider}
+      applicationInfo=ApplicationInfo{2ce391e dev.nanoai.mobile}
+  [dev.nanoai.mobile.flutter.share_provider]:
+    Provider{7d8d1d2 dev.nanoai.mobile/dev.fluttercommunity.plus.share.ShareFileProvider}
+      applicationInfo=ApplicationInfo{269a5ff dev.nanoai.mobile}
+  [dev.nanoai.mobile.fileprovider]:
+    Provider{9fb8746 dev.nanoai.mobile/androidx.core.content.FileProvider}
+      applicationInfo=ApplicationInfo{9c98fcc dev.nanoai.mobile}
+
+Key Set Manager:
+  [dev.nanoai.mobile]
+      Signing KeySets: 129
+
+Packages:
+  Package [dev.nanoai.mobile] (dd17c02):
+    appId=10397
+    pkg=Package{86a9215 dev.nanoai.mobile}
+    codePath=/data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==
+    resourcePath=/data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==
+    legacyNativeLibraryDir=/data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==/lib
+    extractNativeLibs=true
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=1 minSdk=26 targetSdk=36
+    minExtensionVersions=[]
+    versionName=1.0.0
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    queriesIntents=[Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] }, Intent { act=android.intent.action.MAIN cat=[android.intent.category.HOME] }, Intent { act=android.intent.action.GET_CONTENT dat=content://*/... typ=*/* }, Intent { act=android.intent.action.PROCESS_TEXT dat=content://*/... typ=text/plain }]
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalLibraries:
+      androidx.window.extensions
+      androidx.window.sidecar
+    usesLibraryFiles:
+      /system_ext/framework/androidx.window.extensions.jar
+      /system_ext/framework/androidx.window.sidecar.jar
+    timeStamp=2026-09-07 19:07:06
+    lastUpdateTime=2026-09-07 19:07:08
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{c0d48f6 version:2, signatures:[2b976abd], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.POST_NOTIFICATIONS
+      android.permission.MANAGE_EXTERNAL_STORAGE
+      android.permission.FOREGROUND_SERVICE
+      android.permission.READ_MEDIA_VISUAL_USER_SELECTED
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+      dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.INTERNET
+      android.permission.READ_MEDIA_IMAGES
+      android.permission.FOREGROUND_SERVICE_DATA_SYNC
+      android.permission.ACCESS_NETWORK_STATE
+      android.permission.READ_MEDIA_AUDIO
+      android.permission.READ_MEDIA_VIDEO
+      moe.shizuku.manager.permission.API_V23
+      android.permission.EXECUTE_APP_FUNCTIONS
+      android.permission.QUERY_ALL_PACKAGES
+      android.permission.RECORD_AUDIO
+    install permissions:
+      android.permission.FOREGROUND_SERVICE: granted=true
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS: granted=true
+      dev.nanoai.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.INTERNET: granted=true
+      android.permission.FOREGROUND_SERVICE_DATA_SYNC: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      android.permission.QUERY_ALL_PACKAGES: granted=true
+    User 0: ceDataInode=228534 deDataInode=228555 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 ofs=0 pdm=false instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/dev.nanoai.mobile
+      firstInstallTime=2026-08-28 02:37:03
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk
+        /data/resource-cache/com.android.systemui-neutral-pjs6.frro
+        /data/resource-cache/com.android.systemui-accent-q3UW.frro
+        /data/resource-cache/com.android.systemui-dynamic-p4NT.frro
+      legacy overlay paths:
+        /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk
+      gids=[3003]
+      runtime permissions:
+        android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_MEDIA_VISUAL_USER_SELECTED: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_MEDIA_IMAGES: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_MEDIA_AUDIO: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_MEDIA_VIDEO: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        moe.shizuku.manager.permission.API_V23: granted=true
+        android.permission.RECORD_AUDIO: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.oppo.quicksearchbox:
+      dev.nanoai.mobile
+    com.oplus.themestore:
+      dev.nanoai.mobile
+    com.oplus.doublewake.settings:
+      dev.nanoai.mobile
+    com.oplus.pay:
+      dev.nanoai.mobile
+    com.heytap.htms:
+      dev.nanoai.mobile
+    com.android.settings.intelligence:
+      dev.nanoai.mobile
+    com.android.systemui:
+      dev.nanoai.mobile
+    com.google.android.as.oss:
+      dev.nanoai.mobile
+    com.whatsapp:
+      dev.nanoai.mobile
+    com.zzkko:
+      dev.nanoai.mobile
+    com.alibaba.intl.android.apps.poseidon:
+      dev.nanoai.mobile
+    com.mercadolibre:
+      dev.nanoai.mobile
+    com.amazon.mShop.android.shopping:
+      dev.nanoai.mobile
+    dev.nanoai.mobile:
+      com.n8n.mobile
+      com.google.android.documentsui
+      com.google.android.projection.gearhead
+      com.android.fmradio
+      com.google.android.apps.restore
+      com.google.android.apps.nbu.files
+      com.google.android.googlequicksearchbox
+      com.oplus.games
+      com.heytap.market
+      com.oplus.themestore
+      com.coloros.bootreg
+      com.coloros.video
+      com.google.android.calendar
+      com.android.chrome
+      com.google.android.apps.maps
+      com.google.android.gm
+      com.google.android.youtube
+      com.coloros.calculator
+      com.coloros.childrenspace
+      com.heytap.browser
+      com.coloros.alarmclock
+      com.coloros.filemanager
+      com.coloros.soundrecorder
+      com.heytap.music
+      com.coloros.compass2
+      com.coloros.weather2
+      com.oplus.upgradeguide
+      com.google.android.setupwizard
+      com.google.ambient.streaming
+      com.google.android.dialer
+      com.google.android.apps.messaging
+      com.google.android.apps.googleassistant
+      com.google.android.apps.walletnfcrel
+      com.google.android.keep
+      com.google.android.contacts
+      com.google.android.inputmethod.latin
+      com.google.android.apps.photos
+      com.google.android.cellbroadcastreceiver
+      com.whatsapp
+      com.google.android.photopicker
+      com.google.android.apps.adm
+      com.google.android.apps.subscriptions.red
+      com.google.android.apps.docs
+      com.limelight.root.debug
+      com.tailscale.ipn
+      com.google.android.apps.tachyon
+      com.openai.chatgpt
+      x.org.server
+      io.smartattendance.attendance
+      com.example.eememeai
+      moe.shizuku.privileged.api
+      com.zzkko
+      com.alibaba.intl.android.apps.poseidon
+      com.mercadolibre
+      com.amazon.mShop.android.shopping
+      com.alibaba.aliexpresshd
+      com.devemm.commerce
+      org.telegram.messenger
+  queryable via interaction:
+    User 0:
+      [com.oplus.engineernetwork,com.android.settings,com.oplus.athena,com.android.providers.settings,com.oplus.powermonitor,oplus,com.oplus.appbooster,com.oplus.healthservice,com.oplus.appplatform,com.android.server.telecom,com.oplus.postmanservice,com.oplus.subsys,com.oplus.engineermode,com.oplus.owkservice,com.oplus.customize.coreapp,com.wapi.wapicertmanager,com.android.keychain,com.android.DeviceAsWebcam,com.oplus.exsystemservice,com.android.inputdevices,com.oplus.audio.effectcenter,com.oplus.crashbox,com.oplus.securitypermission,com.oplus.onetrace,com.oplus.safecenter,com.android.dynsystem,com.oplus.olc,com.oplus.trafficmonitor,com.oplus.mediaturbo,com.heytap.mcs,com.oplus.sauhelper,com.oplus.wirelesssettings,com.mediatek,com.oplus.lfeh,com.oplus.stdid,com.oplus.obrain,com.oplus.logkit,com.oplus.sau,com.mediatek.location.lppe.main,com.oplus.wifibackuprestore,com.oplus.battery,com.android.location.fused,com.oplus.atlas,com.oplus.nas,com.android.localtransport,android,com.mediatek.atci.service,com.oplus.qualityprotect,com.oplus.notificationmanager]:
+        dev.nanoai.mobile
+      [com.google.android.gsf,com.google.android.gms]:
+        dev.nanoai.mobile
+      com.google.android.inputmethod.latin:
+        dev.nanoai.mobile
+      dev.nanoai.mobile:
+        [com.oplus.engineernetwork,com.android.settings,com.oplus.athena,com.android.providers.settings,com.oplus.powermonitor,oplus,com.oplus.appbooster,com.oplus.healthservice,com.oplus.appplatform,com.android.server.telecom,com.oplus.postmanservice,com.oplus.subsys,com.oplus.engineermode,com.oplus.owkservice,com.oplus.customize.coreapp,com.wapi.wapicertmanager,com.android.keychain,com.android.DeviceAsWebcam,com.oplus.exsystemservice,com.android.inputdevices,com.oplus.audio.effectcenter,com.oplus.crashbox,com.oplus.securitypermission,com.oplus.onetrace,com.oplus.safecenter,com.android.dynsystem,com.oplus.olc,com.oplus.trafficmonitor,com.oplus.mediaturbo,com.heytap.mcs,com.oplus.sauhelper,com.oplus.wirelesssettings,com.mediatek,com.oplus.lfeh,com.oplus.stdid,com.oplus.obrain,com.oplus.logkit,com.oplus.sau,com.mediatek.location.lppe.main,com.oplus.wifibackuprestore,com.oplus.battery,com.android.location.fused,com.oplus.atlas,com.oplus.nas,com.android.localtransport,android,com.mediatek.atci.service,com.oplus.qualityprotect,com.oplus.notificationmanager]
+        [com.android.providers.contacts,com.android.calllogbackup,com.android.providers.userdictionary,com.android.providers.contactkeys,com.android.providers.blockednumber]
+        com.google.android.googlequicksearchbox
+        com.whatsapp
+      dev.nanoai.mobile:
+        com.android.externalstorage
+  queryable via uses-library:
+
+Dexopt state:
+  [dev.nanoai.mobile]
+    path: /data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==/base.apk
+      arm64: [status=verify] [reason=install] [primary-abi]
+        [location is /data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==/oat/arm64/base.odex]
+
+Compiler stats:
+  [dev.nanoai.mobile]
+     base.apk - 455
+package:/data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==/base.apk
+shell        23253 23191    2204608   3540 __arm64_sys_nanosleep 0 S process-tracker
+u0_a397      30970   917   14021196 266784 0                   0 S dev.nanoai.mobile
+u0_a397      31085   917    9001136  98528 0                   0 S dev.nanoai.mobile:nanoshell
+---- TIME 7/09/26 7:50:57 p. m. ----
+ACTIVITY MANAGER SERVICES (dumpsys activity services)
+  User 0 active services:
+  * ServiceRecord{18510d3 u0 dev.nanoai.mobile/.services.NotificationAutomationService c:android}
+    intent={act=android.service.notification.NotificationListenerService cmp=dev.nanoai.mobile/.services.NotificationAutomationService mCallingUid=1000}
+    packageName=dev.nanoai.mobile
+    processName=dev.nanoai.mobile
+    targetSdkVersion=36
+    permission=android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+    baseDir=/data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==/base.apk
+    dataDir=/data/user/0/dev.nanoai.mobile
+    app=ProcessRecord{c2932e6 30970:dev.nanoai.mobile/u0a397}
+    allowlistManager=true
+    useNewWiuLogic_forCapabilities()=true
+    useNewWiuLogic_forStart()=true
+    useNewBfslLogic()=true
+    mAllowWiu_noBinding=DENIED
+    mAllowWiu_inBindService=PROC_STATE_PERSISTENT
+    mAllowWiu_byBindings=DENIED
+    getFgsAllowWiu_legacy=PROC_STATE_PERSISTENT
+    getFgsAllowWiu_new=DENIED
+    getFgsAllowWiu_forStart=DENIED
+    getFgsAllowWiu_forCapabilities=DENIED
+    allowUiJobScheduling=false
+    recentCallingPackage=android
+    recentCallingUid=1000
+    mAllowStart_noBinding=DENIED
+    mAllowStart_inBindService=PROC_STATE_PERSISTENT
+    mAllowStart_byBindings=DENIED
+    getFgsAllowStart_legacy=PROC_STATE_PERSISTENT
+    getFgsAllowStart_new=DENIED
+    getFgsAllowStart=DENIED
+    startForegroundCount=0
+    infoAllowStartForeground=[callingPackage: android; callingUid: 1000; uidState: PER ; uidBFSL: [BFSL]; intent: Intent { act=android.service.notification.NotificationListenerService cmp=dev.nanoai.mobile/.services.NotificationAutomationService mCallingUid=1000 }; code:PROC_STATE_PERSISTENT; tempAllowListReason:<,reasonCode:SYSTEM_ALLOW_LISTED,duration:9223372036854775807,callingUid:-1>; targetSdkVersion:36; callerTargetSdkVersion:35; startForegroundCount:0; bindFromPackage:null: isBindService:true]
+    createTime=-43m47s348ms startingBgTimeout=--
+    lastActivity=-43m38s300ms restartTime=-43m38s300ms createdFromFg=false
+    restartCount=1 restartDelay=-3d23h57m47s498ms nextRestartTime=-43m38s360ms crashCount=0
+    Bindings:
+    * IntentBindRecord{e5a4df6 CREATE}:
+      intent={act=android.service.notification.NotificationListenerService cmp=dev.nanoai.mobile/.services.NotificationAutomationService mCallingUid=1000}
+      binder=android.os.BinderProxy@27855f7
+      requested=true received=true hasBound=true doRebind=false
+      * Client AppBindRecord{b780c64 ProcessRecord{a8fbb1b 1838:system/1000}}
+        Per-process Connections:
+          ConnectionRecord{ee3fac2 u0 CR FGS !PRCP dev.nanoai.mobile/.services.NotificationAutomationService:@5cbab0d flags=0x5000101}
+    All Connections:
+      ConnectionRecord{ee3fac2 u0 CR FGS !PRCP dev.nanoai.mobile/.services.NotificationAutomationService:@5cbab0d flags=0x5000101}
+    restartReschedulingCount=0, RestartSceneMask=0
+
+  * ServiceRecord{9412cc4 u0 dev.nanoai.mobile/.NanoshellWorkerService c:dev.nanoai.mobile}
+    intent={cmp=dev.nanoai.mobile/.NanoshellWorkerService mCallingUid=10397}
+    packageName=dev.nanoai.mobile
+    processName=dev.nanoai.mobile:nanoshell
+    targetSdkVersion=36
+    baseDir=/data/app/~~tsyiNOmYyBLEOi5B5J9OAQ==/dev.nanoai.mobile-_3NJlFCULDMUMBQHva1Eag==/base.apk
+    dataDir=/data/user/0/dev.nanoai.mobile
+    app=ProcessRecord{ffbf7ad 31085:dev.nanoai.mobile:nanoshell/u0a397}
+    useNewWiuLogic_forCapabilities()=true
+    useNewWiuLogic_forStart()=true
+    useNewBfslLogic()=true
+    mAllowWiu_noBinding=DENIED
+    mAllowWiu_inBindService=PROC_STATE_TOP
+    mAllowWiu_byBindings=DENIED
+    getFgsAllowWiu_legacy=PROC_STATE_TOP
+    getFgsAllowWiu_new=DENIED
+    getFgsAllowWiu_forStart=DENIED
+    getFgsAllowWiu_forCapabilities=DENIED
+    allowUiJobScheduling=false
+    recentCallingPackage=dev.nanoai.mobile
+    recentCallingUid=10397
+    mAllowStart_noBinding=DENIED
+    mAllowStart_inBindService=PROC_STATE_TOP
+    mAllowStart_byBindings=DENIED
+    getFgsAllowStart_legacy=PROC_STATE_TOP
+    getFgsAllowStart_new=DENIED
+    getFgsAllowStart=DENIED
+    startForegroundCount=0
+    infoAllowStartForeground=[callingPackage: dev.nanoai.mobile; callingUid: 10397; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { cmp=dev.nanoai.mobile/.NanoshellWorkerService mCallingUid=10397 }; code:PROC_STATE_TOP; tempAllowListReason:<,reasonCode:SYSTEM_ALLOW_LISTED,duration:9223372036854775807,callingUid:-1>; targetSdkVersion:36; callerTargetSdkVersion:36; startForegroundCount:0; bindFromPackage:null: isBindService:true]
+    createTime=-43m26s44ms startingBgTimeout=--
+    lastActivity=-43m25s956ms restartTime=-43m25s956ms createdFromFg=true
+    Bindings:
+    * IntentBindRecord{f3beecd CREATE}:
+      intent={cmp=dev.nanoai.mobile/.NanoshellWorkerService mCallingUid=10397}
+      binder=android.os.BinderProxy@ed55382
+      requested=true received=true hasBound=true doRebind=false
+      * Client AppBindRecord{8d25a93 ProcessRecord{c2932e6 30970:dev.nanoai.mobile/u0a397}}
+        Per-process Connections:
+          ConnectionRecord{8ea3bd7 u0 CR dev.nanoai.mobile/.NanoshellWorkerService:@62e9f56 flags=0x1}
+    All Connections:
+      ConnectionRecord{8ea3bd7 u0 CR dev.nanoai.mobile/.NanoshellWorkerService:@62e9f56 flags=0x1}
+    restartReschedulingCount=0, RestartSceneMask=0
+
+  Connection bindings to services:
+  * ConnectionRecord{ee3fac2 u0 CR FGS !PRCP dev.nanoai.mobile/.services.NotificationAutomationService:@5cbab0d flags=0x5000101}
+    binding=AppBindRecord{b780c64 dev.nanoai.mobile/.services.NotificationAutomationService:system}
+    conn=android.app.LoadedApk$ServiceDispatcher$InnerConnection@5cbab0d flags=0x5000101
+  * ConnectionRecord{8ea3bd7 u0 CR dev.nanoai.mobile/.NanoshellWorkerService:@62e9f56 flags=0x1}
+    binding=AppBindRecord{8d25a93 dev.nanoai.mobile/.NanoshellWorkerService:dev.nanoai.mobile}
+    conn=android.os.BinderProxy@62e9f56 flags=0x1

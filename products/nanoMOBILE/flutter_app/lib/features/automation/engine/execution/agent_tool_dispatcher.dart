@@ -874,6 +874,7 @@ class AgentToolDispatcher {
         executionId: executionId,
         executionIntent: executionIntent,
         allowPreviouslyUncertain: confirmed && executionIntent != null,
+        cancellation: cancellation,
       );
     }
     final feedback = await _executeWithTimeout(call, tool, runBudget);
@@ -891,6 +892,7 @@ class AgentToolDispatcher {
     String? executionId,
     ExecutionJournalEntry? executionIntent,
     bool allowPreviouslyUncertain = false,
+    ExecutionCancellationToken? cancellation,
   }) async {
     final journal = _executionJournal;
     if (journal == null) {
@@ -1007,6 +1009,22 @@ class AgentToolDispatcher {
       );
     }
 
+    if (cancellation?.isCancelled ?? false) {
+      // The journal may have awaited IO after the previous version check.
+      // No native send has started: close honestly as failed, never unknown.
+      await journal.save(
+        executingEntry.copyWith(
+          status: ExecutionJournalStatus.failed,
+          verificationState: 'turno superado o cancelado antes del efecto',
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
+      return const ToolOutcome(
+        verdict: PolicyVerdict.denied,
+        feedback: '[superseded] turno superado o cancelado antes del envío',
+        executionStatus: ToolExecutionStatus.notExecuted,
+      );
+    }
     final feedback = await _executeWithTimeout(call, tool, budget);
     final executionStatus = _executionStatusFor(feedback);
     final executedEntry = executingEntry.copyWith(
@@ -1499,16 +1517,14 @@ class AgentToolDispatcher {
   static ExecutionJournalStatus _journalStatusFor(
     ToolExecutionStatus s, {
     required ExecutionJournalStatus notExecutedAs,
-  }) =>
-      switch (s) {
-        ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
-        ToolExecutionStatus.completedUnverified =>
-          ExecutionJournalStatus.completedUnverified,
-        ToolExecutionStatus.outcomeUnknown =>
-          ExecutionJournalStatus.outcomeUnknown,
-        ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
-        ToolExecutionStatus.notExecuted => notExecutedAs,
-      };
+  }) => switch (s) {
+    ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
+    ToolExecutionStatus.completedUnverified =>
+      ExecutionJournalStatus.completedUnverified,
+    ToolExecutionStatus.outcomeUnknown => ExecutionJournalStatus.outcomeUnknown,
+    ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
+    ToolExecutionStatus.notExecuted => notExecutedAs,
+  };
 
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
   /// confirmación a texto (llamadores que no manejan el diálogo).

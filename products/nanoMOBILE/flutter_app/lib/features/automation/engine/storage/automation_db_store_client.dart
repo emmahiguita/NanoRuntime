@@ -38,6 +38,10 @@ class AutomationDbStoreClient {
     }
   }
 
+  Future<String?> requiredSection(String key) => _channel
+      .invokeMethod<String>('get', {'key': key})
+      .timeout(const Duration(seconds: 10));
+
   /// Reemplazo atómico de la sección. false = rechazada (whitelist/tamaño).
   Future<bool> putSection(String key, String json) async {
     try {

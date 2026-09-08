@@ -69,13 +69,27 @@ class KaliManager {
   }) : _proot = proot,
        _shell = shell;
 
-  /// Verifica si Kali ya está instalado (comprueba /bin/bash dentro del rootfs).
+  /// Verifica si Kali está instalado comprobando múltiples archivos críticos.
+  /// Solo verificar /bin/bash es insuficiente: una extracción parcial puede
+  /// dejar ese archivo presente mientras el resto del rootfs está incompleto.
   Future<bool> checkInstalled() async {
     if (_kaliRoot == null) await _resolveDirs();
     if (_kaliRoot == null) return false;
-    final bash = File('$_kaliRoot/bin/bash');
-    _installed = bash.existsSync();
-    return _installed;
+    // Check a set of critical paths that are present in a healthy rootfs.
+    const criticalPaths = [
+      'bin/bash',
+      'bin/sh',
+      'usr/bin/apt-get',
+      'etc/os-release',
+    ];
+    for (final rel in criticalPaths) {
+      if (!File('$_kaliRoot/$rel').existsSync()) {
+        _installed = false;
+        return false;
+      }
+    }
+    _installed = true;
+    return true;
   }
 
   /// Descarga y extrae el rootfs de Kali Linux.
@@ -139,24 +153,54 @@ class KaliManager {
       log('Rootfs integrity verified (SHA256).');
       onProgress('verify', 100);
 
-      // 2. Extraer tarball con proot + tar (más rápido que ZipInputStream)
+      // 2. Extraer tarball con staging atómico para evitar rootfs corrupto
+      //    si la extracción falla a mitad.
       onProgress('extract', 0);
-      Directory(_kaliRoot!).createSync(recursive: true);
+
+      final stagingDir = '${_distDir!}/.kali-staging';
+      // Limpiar staging previo si existe (extracción interrumpida anterior).
+      try {
+        Directory(stagingDir).deleteSync(recursive: true);
+      } catch (_) {}
+      Directory(stagingDir).createSync(recursive: true);
 
       log('Extrayendo Kali rootfs (~200 MB, puede tardar ~2-3 min)...');
 
       // toybox no interpreta pipes — usar bash directamente para la extracción.
       // xz -dc descomprime el stream, tar -x extrae los archivos.
       final bashResult = await _shell.bash(
-        'cd "$_kaliRoot" && xz -dc "$tarball" | tar -x',
+        'cd "$stagingDir" && xz -dc "$tarball" | tar -x',
         timeout: const Duration(minutes: 5),
       );
       if (bashResult.exitCode != 0) {
         log(
           'Extracción fallida (exit=${bashResult.exitCode}): ${bashResult.stderr}',
         );
+        // Clean up partial staging dir on failure.
+        try {
+          Directory(stagingDir).deleteSync(recursive: true);
+        } catch (_) {}
         return false;
       }
+
+      // Verificar que archivos críticos existen en staging antes de promover.
+      const criticalPaths = ['bin/bash', 'bin/sh', 'usr/bin/apt-get'];
+      for (final rel in criticalPaths) {
+        if (!File('$stagingDir/$rel').existsSync()) {
+          log('Staging incompleto: falta $rel. Abortando.');
+          try {
+            Directory(stagingDir).deleteSync(recursive: true);
+          } catch (_) {}
+          return false;
+        }
+      }
+
+      // Promoción atómica: renombrar staging → destino final.
+      // Si el destino anterior existe (instalación previa), eliminarlo primero.
+      try {
+        Directory(_kaliRoot!).deleteSync(recursive: true);
+      } catch (_) {}
+      Directory(stagingDir).renameSync(_kaliRoot!);
 
       onProgress('extract', 100);
 

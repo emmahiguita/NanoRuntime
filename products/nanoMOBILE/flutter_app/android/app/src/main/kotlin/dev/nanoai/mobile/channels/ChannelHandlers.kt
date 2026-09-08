@@ -17,4 +17,5 @@ object ChannelNames {
     const val DEVICE_PERMISSIONS = DevicePermissionsChannelHandler.CHANNEL_NAME
     const val SPEECH = SpeechChannelHandler.CHANNEL_NAME
     const val SYSTEM = SystemInventoryChannelHandler.CHANNEL_NAME
+    const val LANGUAGE_ASSIST = LanguageAssistChannelHandler.CHANNEL_NAME
 }

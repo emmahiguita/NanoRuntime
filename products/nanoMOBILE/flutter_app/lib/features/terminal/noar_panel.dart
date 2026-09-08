@@ -223,8 +223,9 @@ class _NoarPanelState extends State<NoarPanel> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.2,
-                                    color: dark ? _ink : const Color(
-                                        0xFF1A2438),
+                                    color: dark
+                                        ? _ink
+                                        : const Color(0xFF1A2438),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -236,8 +237,9 @@ class _NoarPanelState extends State<NoarPanel> {
                                     letterSpacing: 0.3,
                                     color: dark
                                         ? _steel.withValues(alpha: 0.85)
-                                        : const Color(0xFF46536B)
-                                            .withValues(alpha: 0.85),
+                                        : const Color(
+                                            0xFF46536B,
+                                          ).withValues(alpha: 0.85),
                                   ),
                                 ),
                               ],
@@ -371,7 +373,8 @@ class _NoarPanelState extends State<NoarPanel> {
                                       ? [
                                           BoxShadow(
                                             color: _accent.withValues(
-                                                alpha: 0.15),
+                                              alpha: 0.15,
+                                            ),
                                             blurRadius: 8,
                                           ),
                                         ]
@@ -386,9 +389,10 @@ class _NoarPanelState extends State<NoarPanel> {
                                     color: active
                                         ? _accent
                                         : dark
-                                            ? _steel.withValues(alpha: 0.75)
-                                            : const Color(0xFF46536B)
-                                                .withValues(alpha: 0.75),
+                                        ? _steel.withValues(alpha: 0.75)
+                                        : const Color(
+                                            0xFF46536B,
+                                          ).withValues(alpha: 0.75),
                                     fontWeight: active
                                         ? FontWeight.w700
                                         : FontWeight.w500,
@@ -424,16 +428,17 @@ class _NoarPanelState extends State<NoarPanel> {
                                 final cmd = items[i];
                                 return _CommandCard(
                                   cmd: cmd,
-                                  tagLabel: _tags[cmd['tag']] ??
+                                  tagLabel:
+                                      _tags[cmd['tag']] ??
                                       (cmd['tag'] as String? ?? 'general'),
                                   isHistory: cmd.containsKey('ts'),
                                   fg: widget.fg,
                                   dark: dark,
                                   surface: surface,
-                                  onCopy: () => _copy(
-                                    cmd['cmd'] as String? ?? '',
-                                  ),
-                                  onUse: () => _use(cmd['cmd'] as String? ?? ''),
+                                  onCopy: () =>
+                                      _copy(cmd['cmd'] as String? ?? ''),
+                                  onUse: () =>
+                                      _use(cmd['cmd'] as String? ?? ''),
                                 );
                               },
                             ),
@@ -487,9 +492,7 @@ class _CommandCardState extends State<_CommandCard> {
     final desc = widget.cmd['desc'] as String? ?? '';
     final dark = widget.dark;
     final neutral = dark ? Colors.white : Colors.black;
-    final steel = dark
-        ? const Color(0xFF9FB3C8)
-        : const Color(0xFF46536B);
+    final steel = dark ? const Color(0xFF9FB3C8) : const Color(0xFF46536B);
     final codeBg = dark ? const Color(0xFF06101E) : const Color(0xFF101D33);
 
     return GestureDetector(
@@ -619,9 +622,7 @@ class _CommandCardState extends State<_CommandCard> {
                   decoration: BoxDecoration(
                     color: codeBg,
                     borderRadius: BorderRadius.circular(9),
-                    border: Border.all(
-                      color: neutral.withValues(alpha: 0.05),
-                    ),
+                    border: Border.all(color: neutral.withValues(alpha: 0.05)),
                   ),
                   child: Text(
                     cmd,

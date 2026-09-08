@@ -19,6 +19,7 @@ import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
 import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
 import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
+import dev.nanoai.mobile.channels.LanguageAssistChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
 import dev.nanoai.mobile.services.NotificationAutomationBridge
@@ -56,6 +57,12 @@ class MainActivity : FlutterActivity() {
 
     /** Resultado pendiente del lote micrófono + medios del centro de permisos. */
     private var pendingRuntimePermissionsResult: MethodChannel.Result? = null
+
+    /** A03-A06 — coprocesador lingüístico (cerrado en onDestroy, A13). */
+    private var languageAssistHandler: LanguageAssistChannelHandler? = null
+
+    /** Voz (cerrado en onDestroy, A13): recognizer zombie + TTS vivo. */
+    private var speechChannelHandler: SpeechChannelHandler? = null
 
     private val pathPolicy: SecurePathPolicy by lazy { SecurePathPolicy(filesDir) }
     private val downloadService: DownloadService by lazy { DownloadService(pathPolicy) }
@@ -110,6 +117,10 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        languageAssistHandler?.close()
+        languageAssistHandler = null
+        speechChannelHandler?.close()
+        speechChannelHandler = null
         ioScope.cancel()
         // Si el diálogo de permisos quedó abierto al destruirse la Activity,
         // resolver el Result pendiente — un Future Dart colgado para siempre.
@@ -216,6 +227,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        runtimeScope.acquire(RuntimeScope.Holder.UI)
+        dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
@@ -271,7 +284,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, AutomationBackgroundChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(AutomationBackgroundChannelHandler(this))
         // WA-PROD-02: estado durable del pipeline (dedupe/rate/memoria).
-        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME,
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue())
             .setMethodCallHandler(AutomationStoreChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
@@ -282,6 +296,7 @@ class MainActivity : FlutterActivity() {
             )
 
         val speechHandler = SpeechChannelHandler(this)
+        speechChannelHandler = speechHandler
         MethodChannel(messenger, ChannelNames.SPEECH)
             .setMethodCallHandler(speechHandler)
         EventChannel(messenger, SpeechChannelHandler.PARTIAL_CHANNEL_NAME)
@@ -317,6 +332,12 @@ class MainActivity : FlutterActivity() {
         // disponibilidad; el canal no expone ejecución en v1.
         MethodChannel(messenger, AppFunctionChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(AppFunctionChannelHandler(this))
+
+        // A03-A06: ICU + spell + language + conversation actions.
+        MethodChannel(messenger, LanguageAssistChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(LanguageAssistChannelHandler(this).also {
+                languageAssistHandler = it
+            })
 
     }
 

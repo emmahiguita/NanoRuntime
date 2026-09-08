@@ -7,6 +7,8 @@
 /// contenido de la notificación es dato no confiable; el prompt lo aísla.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/core/services/llm_engine_client.dart';
 
@@ -15,6 +17,8 @@ import '../../personal_agent/domain/conversation_agent_role.dart'
         ConversationAgentRole,
         ConversationAgentRouting,
         isCorrectionMessage,
+        isGreetingLikeMessage,
+        isLiveStateQuestion,
         isSocialReactionMessage,
         productMentionedWithoutCommerce;
 import '../messaging/conv_turn_state.dart' show isPureGreeting;
@@ -25,6 +29,8 @@ import '../messaging/conversation_memory.dart'
         ConversationMemoryEntryKind,
         ConversationMemoryStore;
 import '../model/cold_start_retry.dart';
+import '../scheduling/messaging_metrics.dart';
+import '../messaging/incoming_message.dart';
 import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;
 import 'conversation_understanding.dart';
 import 'notification_draft_prompt.dart';
@@ -74,7 +80,13 @@ final class RuntimeNotificationDraftWriter {
     String Function()? toneBlock,
     String Function(String conversationId, String messageText)?
     clientContextFor,
-    Future<String> Function(String messageText, String sender)? personaBlock,
+    Future<String> Function(
+      String conversationId,
+      String messageText,
+      String sender,
+      String role,
+    )?
+    personaBlock,
     // P0-ROUTE — rol del turno por dominio (router determinista AUTO-02,
     // jamás LLM). null = rutas legacy: negocio y persona entran por match
     // léxico como antes. Con routing, el ROL manda sobre el contexto:
@@ -130,7 +142,12 @@ final class RuntimeNotificationDraftWriter {
   /// PERSONA-COMPOSE-08 — bloque <DATOS DE LA PERSONA> (dueño, relación con
   /// el remitente y ejemplos FTS4). Async: el retriever consulta SQLite por
   /// mensaje; '' si no hay perfil ni ejemplos. Remitente factual, jamás LLM.
-  final Future<String> Function(String messageText, String sender)?
+  final Future<String> Function(
+    String conversationId,
+    String messageText,
+    String sender,
+    String role,
+  )?
   _personaBlock;
 
   /// P0-ROUTE — router de dominio por turno. null = comportamiento legacy.
@@ -161,13 +178,16 @@ final class RuntimeNotificationDraftWriter {
   /// DRAFT. La clave es conversationId + fingerprint del input (la MISMA
   /// evidencia del dedupe: notification.key, timestamp y texto).
   static final Map<String, Future<NotificationDraftResult?>> _inFlight = {};
+  static Future<void> _draftTail = Future<void>.value();
+  static int _queueDepth = 0;
+  static const _maxQueueDepth = 64;
 
   /// P1-FIX — fingerprint del input lógico. Reutiliza la evidencia real
   /// del evento (no se inventa identidad): la misma notification.key con
   /// el mismo timestamp y texto ES el mismo evento; cualquier diferencia
   /// es un mensaje distinto.
   static String _flightFingerprint(NotificationObject n) =>
-      '${n.key}|${n.messageTimestamp}|${normalizeDedupeText(n.text)}';
+      IncomingMessage.fromNotification(n).eventId;
 
   Future<NotificationDraftResult?> call(NotificationObject notification) async {
     if (!_llmAllowed()) return null;
@@ -185,11 +205,21 @@ final class RuntimeNotificationDraftWriter {
       '[draft:flight] MISS conv=${_shortId(conversationId)} '
       'input="${_sample(notification.text)}"',
     );
-    final future = _draft(notification, conversationId);
+    if (_queueDepth >= _maxQueueDepth) {
+      debugPrint('[draft:queue] full; no generation admitted');
+      return null;
+    }
+    _queueDepth++;
+    MessagingMetrics.queueDepth(_queueDepth);
+    debugPrint('[draft:queue] depth=$_queueDepth');
+    final future = _draftTail.then((_) => _draft(notification, conversationId));
+    _draftTail = future.then<void>((_) {}, onError: (Object _) {});
+
     _inFlight[flightKey] = future;
     try {
       return await future;
     } finally {
+      _queueDepth--;
       if (identical(_inFlight[flightKey], future)) {
         _inFlight.remove(flightKey);
       }
@@ -231,13 +261,19 @@ final class RuntimeNotificationDraftWriter {
       // CONTEXT-GATE-01 — saludo puro: el historial comercial anterior NO
       // entra (el 1.5B ecoea la respuesta vieja del Negro en un "Hola");
       // referencias y respuestas cortas sí necesitan la conversación.
+      // R5-GREETING-01 — el saludo extendido ("hola como estas emma?")
+      // limpia el historial igual que el puro: es saludo real, no
+      // referencia a lo conversado.
       // P0-CORRECTION — corrección ("¿cuál negro de qué hablas?"): el
       // cliente está deshaciendo el turno anterior; el historial del tema
-      // viejo solo incita eco. Mismo tratamiento que el saludo puro.
-      final history =
-          isPureGreeting(notification.text) ||
-              isCorrectionMessage(notification.text)
+      // viejo solo incita eco. R5-06 — pero anclada al ÚLTIMO reply de
+      // Nano: sin ancla el modelo no sabe qué corrigieron y responde
+      // "¿qué quieres que haga?" (evidencia física). El saludo sigue con
+      // historial limpio total.
+      final history = isGreetingLikeMessage(notification.text)
           ? '(sin historial previo)'
+          : isCorrectionMessage(notification.text)
+          ? _correctionAnchor(historyEntries)
           : formatConversationHistory(historyEntries);
       // CONV-SOC-01 — ventana social relevante para el prompt social mínimo:
       // solo el intercambio SOCIAL previo (saludo/reacción), jamás el
@@ -267,10 +303,13 @@ final class RuntimeNotificationDraftWriter {
       // no consume turno del motor). Sin perfil ni ejemplos: cadena vacía y
       // el prompt queda idéntico al de WA-CTX-01.
       final persona =
-          (routing == null || role == ConversationAgentRole.personal)
-          ? await _personaBlock?.call(notification.text, notification.sender) ??
-                ''
-          : '';
+          await _personaBlock?.call(
+            conversationId,
+            notification.text,
+            notification.sender,
+            role.name,
+          ) ??
+          '';
       // WA-CONV-01 — salida JSON estructurada: el razonamiento textual ya no
       // se pide (quemaba tokens antes de "Respuesta:" y el extractor podía
       // devolver el análisis como mensaje con salidas recortadas). El parser
@@ -325,7 +364,7 @@ final class RuntimeNotificationDraftWriter {
       debugPrint(
         '[ctx:prompt] conv=${_shortId(conversationId)} '
         'current="${_sample(notification.text)}" '
-        'greeting=${isPureGreeting(notification.text)} '
+        'greeting=${isGreetingLikeMessage(notification.text)} '
         'clientContext=${clientContext.isNotEmpty} '
         'historyEntries=${historyEntries.length} '
         'businessChars=${business.length} '
@@ -343,15 +382,32 @@ final class RuntimeNotificationDraftWriter {
       // "¿Cómo puedo ayudarte hoy?" retenido por el guard). Excepción:
       // turno mixto con producto mencionado conserva el prompt completo
       // para responder al producto.
+      // R5-GREETING-01 — saludo extendido ("hola como estas emma?") usa el
+      // social mínimo igual que el puro: con 60 entradas de historial el
+      // prompt completo revienta ctx=256 y el JSON sale recortado
+      // (evidencia 16:17:20, intent="" → hold → cliente sin saludo).
+      // CONV-STATE-02 — la respuesta a la pregunta pendiente JAMÁS usa el
+      // social mínimo aunque empiece con saludo ("hola si"): el bloque
+      // <PREGUNTA PENDIENTE> es el contexto del turno.
       final social =
-          isPureGreeting(notification.text) ||
+          isGreetingLikeMessage(notification.text) ||
           (role == ConversationAgentRole.personal &&
               isSocialReactionMessage(notification.text) &&
               !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
                   false));
+      // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño
+      // JAMÁS usa el social mínimo: su regla de honestidad vive en la regla
+      // 6 del prompt completo (evidencia 16:58:17: "como estas?" recibió el
+      // social con la frase LIVE STATE copiable y el 1.5B la devolvió como
+      // reply "No sabes ahora, ¿qué pasó?" — despachado al cliente).
+      final socialOrPendingReply =
+          social &&
+          !(routing?.pendingReply ?? false) &&
+          !isLiveStateQuestion(notification.text);
+      MessagingMetrics.increment('semanticLlmCalls');
       final raw = await generateWithColdRetry(
         _client,
-        prompt: social
+        prompt: socialOrPendingReply
             ? conversationSocialPromptFor(
                 text: notification.text,
                 style: _styleEnabled() ? _styleText() : null,
@@ -369,7 +425,7 @@ final class RuntimeNotificationDraftWriter {
                 clientContext: clientContext,
               ),
         temperature: 0.3,
-        maxTokens: social ? 128 : 320,
+        maxTokens: socialOrPendingReply ? 128 : 320,
         sessionId: turnSession,
       );
       // PERSONA-CORE-01 — el entendimiento COMPLETO viaja con el reply:
@@ -389,6 +445,19 @@ final class RuntimeNotificationDraftWriter {
           'missingFacts=${understanding.missingFacts.length} '
           'requiresAction=${understanding.requiresAction}',
         );
+        // R5-02 — traza TEMPORAL de calidad del reply (brief R5 §27; se
+        // quita tras la evidencia física). echo usa la MISMA normalización
+        // del dedupe (jamás una nueva); la decisión final llega después en
+        // [decision] del dispatcher, aquí aún no existe.
+        debugPrint(
+          '[reply:quality] conv=${_shortId(conversationId)} '
+          'echo=${normalizeDedupeText(draft) == normalizeDedupeText(notification.text)} '
+          'questions=${understanding.questions.length} '
+          'relation="${understanding.relation}" '
+          'missingFacts=${understanding.missingFacts.length} '
+          'liveStateRequired=${isLiveStateQuestion(notification.text)} '
+          'decision=?',
+        );
       }
       if (draft.isEmpty && raw.trim().isNotEmpty) {
         // WA-PHYS-11: sin reply recuperable la traza cruda (acotada) hace
@@ -396,7 +465,11 @@ final class RuntimeNotificationDraftWriter {
         debugPrint('[draft] sin reply parseable; raw=${_sample(raw)}');
       }
       if (draft.isEmpty || understanding == null) return null;
-      final reply = draft.length <= 2000 ? draft : draft.substring(0, 2000);
+      if (draft.length > 2000) {
+        debugPrint('[draft] output rejected: exceeds reply length limit');
+        return null;
+      }
+      final reply = draft;
       debugPrint(
         '[draft:end] conv=${_shortId(conversationId)} '
         'input="${_sample(notification.text)}" reply="${_sample(reply)}"',
@@ -453,4 +526,20 @@ final class RuntimeNotificationDraftWriter {
 
   /// CONTEXT-GATE-01 — hash corto del id de conversación para la traza.
   static String _shortId(String id) => id.length <= 8 ? id : id.substring(0, 8);
+
+  /// R5-06 — CORRECTION REPAIR: ancla de reparación para turnos de
+  /// corrección. El cliente corrige QUÉ DIJO Nano; sin ese ancla el modelo
+  /// responde "¿qué quieres que haga?" (no sabe qué corrigieron). Solo el
+  /// ÚLTIMO reply de Nano entra (160 chars máx): el resto del diálogo es
+  /// tema muerto que incita eco. Sin reply previo de Nano no hay nada que
+  /// reparar: historial limpio.
+  static String _correctionAnchor(List<ConversationMemoryEntry> entries) {
+    for (final e in entries.reversed) {
+      if (e.kind != ConversationMemoryEntryKind.inbound) {
+        final t = e.text.length <= 160 ? e.text : e.text.substring(0, 160);
+        return 'Lo último que respondiste: $t';
+      }
+    }
+    return '(sin historial previo)';
+  }
 }

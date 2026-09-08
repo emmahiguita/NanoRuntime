@@ -1,3 +1,4 @@
+import 'dart:io';
 import '../terminal_types.dart';
 import '../terminalservices.dart';
 import '../../../core/services/kali_manager.dart';
@@ -158,6 +159,25 @@ class DevOpsPlugin {
             o('kali: no instalado. Ejecuta "kali install" primero.', Ln.stderr);
             return;
           }
+          final kp = s.proot;
+          final kaliRoot = k.kaliRoot;
+          if (s.openPty != null && kp != null && kaliRoot != null) {
+            final prootArgv = kp.buildProotArgs(
+              rootfs: kaliRoot,
+              command: File('$kaliRoot/bin/bash').existsSync()
+                  ? '/bin/bash'
+                  : '/bin/sh',
+              args: const [],
+            );
+            if (prootArgv != null) {
+              o(
+                '[kali] Abriendo shell interactiva en PTY (Kali ARM64 via PRoot)...',
+                Ln.header,
+              );
+              s.openPty!(prootArgv);
+              return;
+            }
+          }
           o('[kali] Shell interactiva (Kali ARM64 via proot)', Ln.header);
           k.shell(onOut: (l) => o(l, Ln.stdout), onErr: (l) => o(l, Ln.stderr));
           break;
@@ -245,8 +265,33 @@ class DevOpsPlugin {
               o('ubuntu: no instalado. Instálalo desde Nano Linux.', Ln.stderr);
               return;
             }
-            o('[ubuntu] Shell interactiva (Ubuntu 24.04 ARM64 via proot)', Ln.header);
-            u.shell(onOut: (l) => o(l, Ln.stdout), onErr: (l) => o(l, Ln.stderr));
+            final up = s.proot;
+            final uRoot = u.rootfsPath;
+            if (s.openPty != null && up != null) {
+              final prootArgv = up.buildProotArgs(
+                rootfs: uRoot,
+                command: File('$uRoot/bin/bash').existsSync()
+                    ? '/bin/bash'
+                    : '/bin/sh',
+                args: const [],
+              );
+              if (prootArgv != null) {
+                o(
+                  '[ubuntu] Abriendo shell interactiva en PTY (Ubuntu 24.04 ARM64 via PRoot)...',
+                  Ln.header,
+                );
+                s.openPty!(prootArgv);
+                return;
+              }
+            }
+            o(
+              '[ubuntu] Shell interactiva (Ubuntu 24.04 ARM64 via proot)',
+              Ln.header,
+            );
+            u.shell(
+              onOut: (l) => o(l, Ln.stdout),
+              onErr: (l) => o(l, Ln.stderr),
+            );
           });
           break;
         case 'run':
@@ -308,6 +353,24 @@ class DevOpsPlugin {
         final usr = s.rootfs?.usrDir;
         if (usr == null) {
           o('$inter: rootfs no instalado', Ln.stderr);
+          return;
+        }
+        // python/python3 con argumentos: ejecutar en modo batch si no es REPL interactivo
+        if ((inter == 'python' || inter == 'python3') &&
+            a.isNotEmpty &&
+            s.shell != null &&
+            s.shell!.initialized) {
+          final bin = '$usr/bin/$inter';
+          if (File(bin).existsSync()) {
+            s.shell!.execRootfs(bin, a, ldPreload: 'libnanoroot.so').then((wr) {
+              if (wr.stdout.isNotEmpty) o(wr.stdout, Ln.stdout);
+              if (wr.stderr.isNotEmpty) o(wr.stderr, Ln.stderr);
+            });
+            return;
+          }
+        }
+        if (s.openPty != null) {
+          s.openPty!([inter, ...a]);
           return;
         }
         o('$inter: requiere PTY activo. Usa "pty $inter"', Ln.info);

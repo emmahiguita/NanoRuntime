@@ -22,11 +22,19 @@ import '../../domain/automation_result.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
 import '../governance/rule_execution_authority.dart';
-import '../messaging/conversation_key.dart' show resolveConversationIdentity;
+import '../language/language_assist.dart' show LanguageAssistService;
+import '../language/pragmatic_fast_path.dart' show PragmaticFastPath;
+import '../messaging/conversation_key.dart'
+    show resolveConversationIdentity, ConversationIdentity;
+import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart'
     show NotificationDraftSource;
 import '../notifications/notification_object.dart';
 import 'scheduled_rule.dart';
+import '../messaging/reply_capability.dart';
+import '../messaging/incoming_message.dart';
+import '../../personal_agent/domain/conversation_autonomy_mode.dart';
+import 'messaging_metrics.dart';
 import 'turn_supersede_guard.dart';
 
 enum RuleOutcome {
@@ -104,13 +112,22 @@ class RuleDispatcher {
     // Contexto de la decisión por notificación (PERSONA-HANDOFF-03 lo
     // alimentará con el ownership durable). null = contexto por defecto.
     ConversationDecisionContext Function(NotificationObject)? decisionContext,
+    // A07/A09 — fast path pragmático: speech acts triviales sin LLM. null =
+    // rutas legacy/tests: siempre LLM (paridad histórica).
+    PragmaticFastPath? fastPath,
+    // A12 — política térmica: estado PowerManager leído justo antes de la
+    // inferencia; severe+ suprime el LLM (jamás la seguridad). null = rutas
+    // legacy/tests sin gate térmico.
+    Future<int> Function()? thermalStatus,
   }) : _draftSource = draftSource,
        _notifyLocal = notifyLocal,
        _shareMedia = shareMedia,
        _supersedeGuard = supersedeGuard,
        _replyDelay = replyDelay,
        _decisionEngine = decisionEngine,
-       _decisionContext = decisionContext;
+       _decisionContext = decisionContext,
+       _fastPath = fastPath,
+       _thermalStatus = thermalStatus;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -154,6 +171,16 @@ class RuleDispatcher {
   /// durable). null = contexto por defecto.
   final ConversationDecisionContext Function(NotificationObject)?
   _decisionContext;
+
+  /// A07 — fast path pragmático (saludo/agradecimiento puros sin LLM).
+  final PragmaticFastPath? _fastPath;
+
+  /// A12 — estado térmico del sistema; severe+ suprime la inferencia.
+  final Future<int> Function()? _thermalStatus;
+
+  /// Constante Android THERMAL_STATUS_SEVERE: de aquí para arriba el LLM
+  /// queda suprimido (THERMAL PRESSURE MAY REDUCE COMPUTE).
+  static const _thermalSevere = 3;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -208,8 +235,41 @@ class RuleDispatcher {
 
   Future<RuleDispatchResult> dispatch(
     ScheduledRule rule,
-    NotificationObject notif,
-  ) async {
+    NotificationObject notif, {
+    int? capturedConversationVersion,
+    bool Function()? isStillAllowed,
+  }) async {
+    bool permitsSideEffect() {
+      if (notif.isTruncated) return false;
+      if (!(isStillAllowed?.call() ?? true)) return false;
+      final context = _decisionContext?.call(notif);
+      if (context == null) return true; // Standalone callers retain governance.
+      return !context.humanOwnsConversation &&
+          context.autonomyMode != ConversationAutonomyMode.disabled &&
+          context.autonomyMode != ConversationAutonomyMode.suggestions &&
+          context.identityConfidence >=
+              ConversationIdentity.safeToWriteThreshold;
+    }
+
+    if ((rule.action == RuleAction.reply ||
+            rule.action == RuleAction.sendMedia) &&
+        !permitsSideEffect()) {
+      return RuleDispatchResult(
+        ruleId: rule.id,
+        outcome: RuleOutcome.ignored,
+        reason: 'regla, autonomía, identidad u ownership no permite envío',
+      );
+    }
+    if (capturedConversationVersion != null &&
+        _supersedeGuard != null &&
+        _supersedeGuard.versionOf(resolveConversationIdentity(notif).key.id) !=
+            capturedConversationVersion) {
+      return RuleDispatchResult(
+        ruleId: rule.id,
+        outcome: RuleOutcome.ignored,
+        reason: 'turno superado antes de ejecutar la regla',
+      );
+    }
     switch (rule.action) {
       case RuleAction.notify:
         final notifyLocal = _notifyLocal;
@@ -252,9 +312,10 @@ class RuleDispatcher {
         // el turno quedó superado y el draft viejo jamás se envía.
         final supersedeGuard = _supersedeGuard;
         final conversationId = resolveConversationIdentity(notif).key.id;
-        final conversationVersion = supersedeGuard == null
-            ? 0
-            : supersedeGuard.versionOf(conversationId);
+        final conversationVersion =
+            capturedConversationVersion ??
+            supersedeGuard?.versionOf(conversationId) ??
+            0;
         // P1-FIX — traza TEMPORAL del invariante 1 INPUT = 1 TURN: un input
         // lógico abre UN turno con su event/key/versión; las trazas de draft,
         // decision y dispatch cuelgan de este par input+version.
@@ -269,25 +330,73 @@ class RuleDispatcher {
         var text = rule.message;
         if (text.trim().isEmpty && rule.dynamicReply) {
           final draftSource = _draftSource;
-          if (draftSource == null) {
-            return RuleDispatchResult(
-              ruleId: rule.id,
-              outcome: RuleOutcome.failed,
-              reason: 'regla dinámica sin motor de redacción disponible',
+          final decisionEngine = _decisionEngine;
+          final ConversationUnderstanding understanding;
+
+          // A07/A09 — fast path determinista ANTES del LLM: speech act
+          // trivial de alta confianza sin referente (saludo/agradecimiento
+          // puros). El reply determinista pasa IGUAL por la decisión
+          // (eco, call-center, wrong-turn...): no es autoridad propia.
+          final fast = _fastPath?.resolve(
+            text: notif.text,
+            conversationId: conversationId,
+          );
+          if (fast != null) {
+            text = fast.reply;
+            understanding = fast.understanding;
+            debugPrint(
+              '[fastpath] conv=${_shortId(conversationId)} act=${fast.act} '
+              'input="${_sample(notif.text)}"',
             );
+          } else {
+            // A12 — thermal SEVERE+: suprimir la inferencia opcional. El
+            // turno muere honesto (failed, jamás reply inventado); el
+            // backoff del dedupe reintenta cuando el sistema se enfríe.
+            final thermal = await _thermalStatus?.call();
+            if (thermal != null && thermal >= _thermalSevere) {
+              return RuleDispatchResult(
+                ruleId: rule.id,
+                outcome: RuleOutcome.failed,
+                reason:
+                    'thermal $thermal (severe+): inferencia LLM suprimida '
+                    'sin fast path aplicable',
+              );
+            }
+            if (draftSource == null) {
+              return RuleDispatchResult(
+                ruleId: rule.id,
+                outcome: RuleOutcome.failed,
+                reason: 'regla dinámica sin motor de redacción disponible',
+              );
+            }
+            final draft = await draftSource(notif);
+            if (draft == null || !draft.hasReply) {
+              return RuleDispatchResult(
+                ruleId: rule.id,
+                outcome: RuleOutcome.failed,
+                reason: 'regla dinámica: el motor local no produjo borrador',
+              );
+            }
+            // A10 — output language pass: correcciones seguras y
+            // deterministas (puntuación duplicada, espacios accidentales).
+            // STYLE != ERROR: jamás se tocan acentos ni vocabulario.
+            final cleaned = LanguageAssistService.safeCleanOutput(draft.reply);
+            if (cleaned.trim().isEmpty) {
+              return RuleDispatchResult(
+                ruleId: rule.id,
+                outcome: RuleOutcome.failed,
+                reason: 'borrador sin contenido tras limpieza de salida',
+              );
+            }
+            text = cleaned.trim();
+            understanding = draft.understanding;
           }
-          final draft = await draftSource(notif);
-          if (draft == null || !draft.hasReply) {
-            return RuleDispatchResult(
-              ruleId: rule.id,
-              outcome: RuleOutcome.failed,
-              reason: 'regla dinámica: el motor local no produjo borrador',
-            );
-          }
+
           final currentVersion = supersedeGuard == null
               ? 0
               : supersedeGuard.versionOf(conversationId);
           if (supersedeGuard != null && currentVersion != conversationVersion) {
+            MessagingMetrics.superseded();
             // P1-FIX — traza TEMPORAL del invariante: captured = versión al
             // abrir el turno, current = versión al terminar el draft.
             debugPrint(
@@ -297,19 +406,19 @@ class RuleDispatcher {
             );
             return RuleDispatchResult(
               ruleId: rule.id,
-              outcome: RuleOutcome.failed,
+              outcome: RuleOutcome.ignored,
               reason:
                   'turno superado: llegó un mensaje nuevo durante el borrador',
             );
           }
           // PERSONA-DECISION-02 — FACTS → DECISION → SEND: antes de
           // construir el goal, el engine determinista decide con las señales
-          // verificables del entendimiento. No-autoSend = nada sale (la
-          // aprobación humana llega en PERSONA-HANDOFF/TOOLS).
-          final decisionEngine = _decisionEngine;
+          // verificables del entendimiento (del LLM O del fast path).
+          // No-autoSend = nada sale (la aprobación humana llega en
+          // PERSONA-HANDOFF/TOOLS).
           if (decisionEngine != null) {
             final decision = decisionEngine.decide(
-              understanding: draft.understanding,
+              understanding: understanding,
               context:
                   _decisionContext?.call(notif) ??
                   const ConversationDecisionContext(),
@@ -329,14 +438,19 @@ class RuleDispatcher {
               );
             }
           }
-          // PERSONA-CORE-01 — el entendimiento acompaña al texto: el
-          // DecisionEngine lo consume justo antes de construir el goal.
-          text = draft.reply.trim();
         } else if (text.trim().isEmpty) {
           return RuleDispatchResult(
             ruleId: rule.id,
             outcome: RuleOutcome.failed,
             reason: 'regla sin mensaje de respuesta',
+          );
+        }
+        final capability = ReplyCapabilityRef.fromNotification(notif);
+        if (capability == null || !capability.isUsable) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'notificación sin capacidad RemoteInput observada válida',
           );
         }
         // WA-DELAY-01 — pausa "humana" opcional. El borrador ya está listo;
@@ -352,6 +466,7 @@ class RuleDispatcher {
         }
         if (supersedeGuard != null &&
             supersedeGuard.versionOf(conversationId) != conversationVersion) {
+          MessagingMetrics.superseded();
           // P1-FIX — traza TEMPORAL del invariante: el reply ya no vale.
           debugPrint(
             '[supersede] conv=${_shortId(conversationId)} '
@@ -361,8 +476,15 @@ class RuleDispatcher {
           );
           return RuleDispatchResult(
             ruleId: rule.id,
-            outcome: RuleOutcome.failed,
+            outcome: RuleOutcome.ignored,
             reason: 'turno superado antes del envío',
+          );
+        }
+        if (!permitsSideEffect()) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.ignored,
+            reason: 'control humano o política cambió durante el borrador',
           );
         }
         // P1-FIX — traza TEMPORAL del invariante 1 INPUT = 1 DECISION:
@@ -382,9 +504,17 @@ class RuleDispatcher {
           final authority = RuleExecutionAuthority.fromRule(rule);
           result = await _execute(
             AutomationGoal(text: 'responde a ${notif.sender} que $text'),
-            options: authority == null
-                ? null
-                : AutomationOptions(authority: authority),
+            options: AutomationOptions(
+              authority: authority,
+              replyCapability: capability,
+              replyText: text,
+              incomingEventId: IncomingMessage.fromNotification(notif).eventId,
+              isCurrent: () =>
+                  permitsSideEffect() &&
+                  (supersedeGuard == null ||
+                      supersedeGuard.versionOf(conversationId) ==
+                          conversationVersion),
+            ),
           );
         } catch (e) {
           return RuleDispatchResult(
@@ -393,7 +523,22 @@ class RuleDispatcher {
             reason: 'excepción en ejecución: $e',
           );
         }
-        return _replyOutcome(rule.id, result, dispatchedText: text);
+        final outcome = _replyOutcome(rule.id, result, dispatchedText: text);
+        if (!outcome.isReplyAttempt &&
+            supersedeGuard != null &&
+            supersedeGuard.versionOf(conversationId) != conversationVersion) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.ignored,
+            reason: 'turno superado durante la preparación del envío',
+          );
+        }
+        if (outcome.outcome == RuleOutcome.replyVerified ||
+            outcome.outcome == RuleOutcome.replyDispatchedUnverified) {
+          MessagingMetrics.increment('draftsSent');
+          MessagingMetrics.emit();
+        }
+        return outcome;
 
       case RuleAction.sendMedia:
         // WA-MEDIA-01 — Camino A: abre WhatsApp con el archivo del catálogo,

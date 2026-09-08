@@ -593,14 +593,13 @@ static int _spawn_internal(
     fds[1].fd = err_pipe[0]; fds[1].events = POLLIN;
 
     while (!out_eof || !err_eof) {
-        int ret = poll(fds, 2, 30000); // 30s timeout — child hung
+        // -1 = indefinite: poll until data arrives or pipes close.
+        // The 30s wall-clock kill was aborting long-running silent commands
+        // (apt upgrade, cargo build, make) that had no output for 30 s.
+        // Task-level timeouts are enforced by shell_executor.dart / the caller.
+        int ret = poll(fds, 2, -1);
         if (ret < 0) {
             if (errno == EINTR) continue;
-            break;
-        }
-        if (ret == 0) {
-            fprintf(stderr, "nanoshell: poll timeout — killing child\n");
-            kill(pid, SIGKILL);
             break;
         }
 

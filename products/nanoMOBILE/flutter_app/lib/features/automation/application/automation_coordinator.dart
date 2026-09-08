@@ -769,6 +769,7 @@ class AutomationCoordinator {
       executionId: executionId,
       goal: goal.text,
       confirmation: confirmation,
+      cancellation: ExecutionCancellationToken(isCurrent: options?.isCurrent),
     );
     _activeRuns[executionId] = run;
 
@@ -843,6 +844,33 @@ class AutomationCoordinator {
           reason: 'Sin instrucción autorizada del usuario.',
         );
         return finish(r);
+      }
+
+      final replyCapability = options?.replyCapability;
+      if (replyCapability != null) {
+        if (!replyCapability.isUsable ||
+            (options?.replyText?.trim().isEmpty ?? true)) {
+          return finish(
+            AutomationResult(
+              executionId: executionId,
+              status: AutomationResultStatus.failed,
+              reason: 'capacidad de respuesta observada inválida',
+            ),
+          );
+        }
+        plan = [
+          ToolCall(
+            tool: 'reply_notification',
+            args: {
+              'key': replyCapability.notificationKey,
+              'text': options!.replyText!,
+              'actionIndex': replyCapability.actionIndex,
+              'remoteInputKey': replyCapability.remoteInputResultKey,
+              'contextFingerprint': replyCapability.contextFingerprint,
+              'incomingEventId': options.incomingEventId,
+            },
+          ),
+        ];
       }
 
       // WA-UI-07 — transporte primero: para intenciones de respuesta, el

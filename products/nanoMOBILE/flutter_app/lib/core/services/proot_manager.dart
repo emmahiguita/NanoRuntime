@@ -162,8 +162,96 @@ class ProotManager {
       }
     }
 
+    final full = buildProotArgs(
+      rootfs: rootfs,
+      command: command,
+      args: args,
+      env: env,
+      bindMounts: bindMounts,
+      workDir: workDir,
+    );
+    if (full == null) {
+      onErr?.call('proot no disponible o bind mount no permitido');
+      return 127;
+    }
+
+    return _shell.stream(
+      full.first,
+      full.sublist(1),
+      env: {},
+      onOut: onOut,
+      onErr: onErr,
+      timeout: timeout,
+      trackTag: tag,
+    );
+  }
+
+  /// Construye la lista completa de argumentos [prootPath, ...args] para
+  /// ejecutar un comando dentro de [rootfs]. Devuelve null si proot no está
+  /// disponible o si un bind mount viola la seguridad allowlist.
+  /// Usado tanto por exec() como para lanzar shells PRoot interactivos dentro de un PTY real.
+  List<String>? buildProotArgs({
+    required String rootfs,
+    required String command,
+    List<String> args = const [],
+    Map<String, String>? env,
+    List<String>? bindMounts,
+    String workDir = '/root',
+  }) {
+    if (!_ready || _prootPath == null) return null;
+
+    final defaultBinds = <String>['/dev', '/proc', '/sys'];
+    for (final opt in ['/dev/pts', '/dev/shm']) {
+      if (Directory(opt).existsSync()) defaultBinds.add(opt);
+    }
+    if (_shell.usrDir != null) {
+      defaultBinds.add('${_shell.usrDir}:/usr/termux');
+    }
+
+    final allBinds = <String>[...defaultBinds, ...?bindMounts];
+
+    // Validar bind mounts contra allowlist
+    final allowedPaths = ['/dev', '/proc', '/sys', '/data/data/'];
+    for (final bind in allBinds) {
+      final src = bind.split(':').first;
+      var isAllowed = false;
+      for (final allowed in allowedPaths) {
+        if (src.startsWith(allowed)) {
+          isAllowed = true;
+          break;
+        }
+      }
+
+      // También permitir paths específicos de la app
+      if (_shell.usrDir != null && src.startsWith(_shell.usrDir!)) {
+        isAllowed = true;
+      }
+      if (_shell.baseDir != null && src == _shell.baseDir) {
+        isAllowed = true;
+      }
+
+      if (!isAllowed) return null;
+
+      // Validar que el path exista (excepto para /dev, /proc, /sys que son virtuales)
+      if (!src.startsWith('/dev') &&
+          !src.startsWith('/proc') &&
+          !src.startsWith('/sys')) {
+        if (!Directory(src).existsSync() && !File(src).existsSync()) {
+          return null;
+        }
+      }
+    }
+
     // Construir argumentos de proot
+    // -0 : fake-root (emula uid 0 dentro del jail sin permisos reales)
+    // -r : path del rootfs
+    // -w : directorio de trabajo inicial
+    // -b : bind mounts
+    // NOTA: proot -i es --change-id=uid:gid, NO una variable de entorno.
+    // Las variables de entorno se pasan a través de /usr/bin/env -i KEY=VALUE
+    // como argumento al proceso hijo (env clean-env, no hereda del padre).
     final prootArgs = <String>[];
+    prootArgs.add('-0'); // fake root
     prootArgs.add('-r');
     prootArgs.add(rootfs);
     prootArgs.add('-w');
@@ -175,7 +263,8 @@ class ProotManager {
       prootArgs.add(bind);
     }
 
-    // Añadir variables de entorno
+    // Variables de entorno: pasadas como argumentos a /usr/bin/env -i
+    // (limpia el entorno del padre antes de setear los propios).
     final effectiveEnv = <String, String>{
       'HOME': '/root',
       'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
@@ -183,24 +272,17 @@ class ProotManager {
       'LANG': 'en_US.UTF-8',
       ...?env,
     };
+
+    // Secuencia final: ... /usr/bin/env -i KEY=VALUE ... <command> <args>
+    prootArgs.add('/usr/bin/env');
+    prootArgs.add('-i');
     for (final entry in effectiveEnv.entries) {
-      prootArgs.add('-i');
       prootArgs.add('${entry.key}=${entry.value}');
     }
-
-    // Comando a ejecutar dentro del rootfs
     prootArgs.add(command);
     prootArgs.addAll(args);
 
-    return _shell.stream(
-      _prootPath!,
-      prootArgs,
-      env: {},
-      onOut: onOut,
-      onErr: onErr,
-      timeout: timeout,
-      trackTag: tag,
-    );
+    return [_prootPath!, ...prootArgs];
   }
 
   /// Mata el proceso proot lanzado con [tag] vía exec().
@@ -211,6 +293,7 @@ class ProotManager {
   }
 
   /// Ejecuta bash interactivo dentro del rootfs.
+  /// Usa bash directamente si existe; fallback a /bin/sh.
   Future<int> shell({
     required String rootfs,
     Map<String, String>? env,
@@ -218,10 +301,15 @@ class ProotManager {
     void Function(String line)? onOut,
     void Function(String line)? onErr,
   }) {
+    // Detectar shell disponible: bash preferido, sh como fallback.
+    final hasBash =
+        File('$rootfs/bin/bash').existsSync() ||
+        File('$rootfs/usr/bin/bash').existsSync();
+    final shellBin = hasBash ? '/bin/bash' : '/bin/sh';
     return exec(
       rootfs: rootfs,
-      command: '/bin/bash',
-      args: const ['-c', 'bash --norc'],
+      command: shellBin,
+      args: const [],
       env: env,
       bindMounts: bindMounts,
       onOut: onOut,

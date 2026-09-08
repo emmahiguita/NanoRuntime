@@ -1,0 +1,121 @@
+[
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agents/nano_agent_orchestrator.dart",
+    "lines": 69,
+    "symbols": [
+      "NanoAgentOrchestrator"
+    ],
+    "imports": [
+      "../governance/action_governance_pipeline.dart",
+      "../governance/intent_spec_compiler.dart",
+      "../planning/candidates/candidate_generator.dart",
+      "../planning/candidates/candidate_provider.dart",
+      "../planning/candidates/candidate_selection.dart",
+      "../planning/candidates/candidate_selection_engine.dart",
+      "../planning/candidates/candidate_selector.dart",
+      "agent_role.dart",
+      "agent_types.dart"
+    ],
+    "sha256": "cc01fcc8cad9c239cfffe1547e60c4f290d66f80667c591c79b20972f6ea3fd5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mcp_candidate_provider.dart",
+    "lines": 44,
+    "symbols": [
+      "McpCandidateProvider"
+    ],
+    "imports": [
+      "../planning/candidates/candidate_action.dart",
+      "../planning/candidates/candidate_provider.dart",
+      "mcp_tool.dart",
+      "mcp_tool_adapter.dart",
+      "mcp_tool_registry.dart"
+    ],
+    "sha256": "68c7a5a9b3b600417925f41c036c165eeec15b1fbb3e7ecadf0adf26b4fb8ce2"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/nano_recorder.dart",
+    "lines": 71,
+    "symbols": [
+      "RecordedRun",
+      "class",
+      "InMemoryRecorderSink",
+      "NanoRecorder"
+    ],
+    "imports": [
+      "../memory/object_memory.dart"
+    ],
+    "sha256": "129066888424fc137eaab9146081b7c0120b04b65a83e19213720c4ff63ad8bf"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/reply_transport.dart",
+    "lines": 107,
+    "symbols": [
+      "ReplyDispatchRequest",
+      "class",
+      "NotificationReplyTransport"
+    ],
+    "imports": [
+      "../../../../core/services/nano_runtime_api.dart",
+      "../orchestration/commit_guard.dart",
+      "reply_capability.dart"
+    ],
+    "sha256": "d663ed908fbbba044b5c4bc025c8bd15a5e6d75a25989b0ee6fe3c3657c100df"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/performance/memory_budget.dart",
+    "lines": 32,
+    "symbols": [
+      "ModelComponent",
+      "ResidencyState",
+      "MemoryBudget"
+    ],
+    "imports": [],
+    "sha256": "0f09231bee3252d92c8b78d939cea285cdff1732e0265ca72263594a49cdf2e8"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/koog.dart",
+    "lines": 132,
+    "symbols": [
+      "ÔÇö",
+      "KoogStep",
+      "class",
+      "KoogRunResult",
+      "Koog"
+    ],
+    "imports": [
+      "../execution/action_verifier.dart",
+      "../execution/agent_loop.dart",
+      "../perception/nano_selector.dart",
+      "../execution/tool_registry.dart"
+    ],
+    "sha256": "dade10177e4cd7173a662ac77006bab8eb0bb27828d7ba8c7a088f35909e5357"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/privilege/shizuku_capability.dart",
+    "lines": 54,
+    "symbols": [
+      "ShizukuCapability",
+      "ShizukuCapabilityProvider"
+    ],
+    "imports": [
+      "../execution/tool_registry.dart",
+      "../planning/candidates/candidate_action.dart",
+      "../system/system_capability.dart"
+    ],
+    "sha256": "15462ae885a7ba8bc7890a9d2ed3c4f6e06935866c017a104c3bdbcb21cdd582"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/app_graph.dart",
+    "lines": 52,
+    "symbols": [
+      "AppCapability",
+      "AppCapabilityEvidence",
+      "AppGraphNode"
+    ],
+    "imports": [
+      "system_models.dart"
+    ],
+    "sha256": "7b35c79c2ac988d78363c0761ae81669d923efde9978720a4e815587b1562aad"
+  }
+]

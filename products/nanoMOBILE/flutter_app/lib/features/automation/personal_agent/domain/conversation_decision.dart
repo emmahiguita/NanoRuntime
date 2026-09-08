@@ -40,8 +40,11 @@ final class ConversationDecisionContext {
   /// la paridad; el pipeline real la alimenta con la evidencia de Android.
   final double identityConfidence;
 
-  /// AUTO-03 — tope global de autonomía del pipeline. Default `autonomous`
-  /// = la fórmula del engine queda EXACTAMENTE como antes (paridad).
+  /// AUTO-03 — tope global de autonomía del pipeline.
+  /// AUTONOMY FAIL-SAFE (PROD-02): default `safeAuto` — un caller sin modo
+  /// explícito (fallback del dispatcher sin closure de context) jamás
+  /// opera en FULL AUTONOMOUS. El coordinator SIEMPRE pasa el modo
+  /// resuelto desde settings.
   final ConversationAutonomyMode autonomyMode;
 
   /// AUTO-02 — especialización que atiende el turno. Default `general`:
@@ -52,12 +55,18 @@ final class ConversationDecisionContext {
   /// saludo + identidad "Soy Nano"). '' = callers legacy sin texto.
   final String userText;
 
+  /// A11 NAME-OVERUSE — remitente factual de la notificación (jamás lo
+  /// decide el LLM): el gate de nombre repetido solo corre cuando existe.
+  /// '' = callers legacy sin remitente.
+  final String senderName;
+
   const ConversationDecisionContext({
     this.humanOwnsConversation = false,
     this.identityConfidence = 1.0,
-    this.autonomyMode = ConversationAutonomyMode.autonomous,
+    this.autonomyMode = ConversationAutonomyMode.safeAuto,
     this.agentRole = ConversationAgentRole.general,
     this.userText = '',
+    this.senderName = '',
   });
 }
 

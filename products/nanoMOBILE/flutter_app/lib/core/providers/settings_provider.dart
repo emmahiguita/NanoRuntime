@@ -52,7 +52,10 @@ class SettingsRepository {
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
         waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
-        waAutonomyMode: m['waAutonomyMode'] as String? ?? 'autonomous',
+        // AUTONOMY FAIL-SAFE (PROD-02): key ausente/legacy → null (jamás
+        // 'autonomous' por defecto). La conversión segura la hace
+        // ConversationAutonomyModeName.fromName (null → safeAuto).
+        waAutonomyMode: m['waAutonomyMode'] as String?,
       );
     } catch (_) {
       return const SettingsState();
@@ -120,10 +123,11 @@ class SettingsState {
 
   /// AUTO-03 — modo de autonomía del pipeline de WhatsApp (nombre del enum
   /// ConversationAutonomyMode: disabled/suggestions/safeAuto/autonomous).
-  /// String puro aquí (patrón themeMode): la conversión a enum la hace el
-  /// coordinator con fromName, que ante valor desconocido o ausente cae a
-  /// 'autonomous' = paridad exacta con el comportamiento previo.
-  final String waAutonomyMode;
+  /// AUTONOMY FAIL-SAFE (PROD-02): `null` = el dueño NUNCA eligió un modo
+  /// (fresh install, settings legacy sin key, JSON corrupto). La conversión
+  /// la hace el coordinator con fromName: null → safeAuto, inválido →
+  /// disabled. FULL AUTONOMOUS solo con 'autonomous' persistido explícito.
+  final String? waAutonomyMode;
 
   const SettingsState({
     this.themeMode = 'Oscuro',
@@ -140,7 +144,7 @@ class SettingsState {
     this.waStyleEnabled = false,
     this.waStyleText = '',
     this.waReplyDelaySeconds = 0,
-    this.waAutonomyMode = 'autonomous',
+    this.waAutonomyMode,
   });
 
   SettingsState copyWith({
@@ -237,7 +241,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   /// AUTO-03 — modo de autonomía del pipeline de WhatsApp. String crudo
   /// (patrón themeMode): el coordinator lo convierte con
-  /// ConversationAutonomyMode.fromName (valor desconocido cae a autonomous).
+  /// ConversationAutonomyMode.fromName. AUTONOMY FAIL-SAFE (PROD-02):
+  /// solo la UI escribe aquí, SIEMPRE con un nombre válido del enum
+  /// (elección explícita del dueño); null = jamás elegido.
   void setWaAutonomyMode(String v) =>
       _persist(state.copyWith(waAutonomyMode: v));
 

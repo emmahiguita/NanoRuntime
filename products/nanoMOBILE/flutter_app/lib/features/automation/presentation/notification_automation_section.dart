@@ -198,17 +198,24 @@ class _NotificationAutomationSectionState
       _busy = true;
       _message = 'Enviando mediante Android…';
     });
-    final sent = await _service.confirmAndReply(selected, text);
-    if (!mounted) return;
-    if (sent) {
-      // PERSONA-TOOLS-10 — patrón Chatwoot: respondió el humano → esa
-      // conversación es suya; el agente deja de auto-responderla
-      // (DecisionEngine: ownership humana → holdForApproval).
-      ref.read(conversationOwnershipStoreProvider).setOwner(
-        _conversationIdOf(selected),
-        ConversationOwner.human,
-      );
+    bool sent;
+    try {
+      await ref.read(conversationOwnershipStoreProvider).load();
+      await ref
+          .read(conversationOwnershipStoreProvider)
+          .setOwner(_conversationIdOf(selected), ConversationOwner.human);
+      if (!mounted) return;
+      sent = await _service.confirmAndReply(selected, text);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _message = 'No se pudo confirmar la respuesta: $error';
+        });
+      }
+      return;
     }
+    if (!mounted) return;
     setState(() {
       _busy = false;
       _message = sent
@@ -235,6 +242,8 @@ class _NotificationAutomationSectionState
         conversationId: notification.conversationId,
         conversationTitle: notification.conversationTitle,
         sender: notification.sender,
+        isGroup: notification.isGroup,
+        notificationKey: notification.key,
       ).key.id;
 
   /// PERSONA-TOOLS-10 — ¿la conversación seleccionada es del humano?
@@ -248,16 +257,24 @@ class _NotificationAutomationSectionState
     return ownership?.humanOwns ?? false;
   }
 
-  void _setOwnership(bool humanOwns) {
+  Future<void> _setOwnership(bool humanOwns) async {
     final selected = _selected;
-    if (selected == null) return;
+    if (selected == null || _busy) return;
     final store = ref.read(conversationOwnershipStoreProvider);
-    if (humanOwns) {
-      store.setOwner(_conversationIdOf(selected), ConversationOwner.human);
-    } else {
-      store.release(_conversationIdOf(selected));
+    setState(() => _busy = true);
+    try {
+      await store.load();
+      await store.setOwner(
+        _conversationIdOf(selected),
+        humanOwns ? ConversationOwner.human : ConversationOwner.bot,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _message = 'No se pudo guardar el control: $error');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    setState(() {});
   }
 
   @override
@@ -555,12 +572,14 @@ class _OwnershipControl extends StatelessWidget {
         vertical: NanoSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: (humanOwns ? colors.warning : colors.primary)
-            .withValues(alpha: 0.08),
+        color: (humanOwns ? colors.warning : colors.primary).withValues(
+          alpha: 0.08,
+        ),
         borderRadius: NanoShapes.small,
         border: Border.all(
-          color: (humanOwns ? colors.warning : colors.primary)
-              .withValues(alpha: 0.3),
+          color: (humanOwns ? colors.warning : colors.primary).withValues(
+            alpha: 0.3,
+          ),
         ),
       ),
       child: Row(

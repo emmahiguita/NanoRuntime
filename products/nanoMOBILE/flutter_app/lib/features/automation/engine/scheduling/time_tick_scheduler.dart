@@ -19,9 +19,10 @@ class TimeTickScheduler {
   TimeTickScheduler({required this.onMinute});
 
   /// Se invoca UNA vez por minuto (no por cada pulsación del timer).
-  final void Function(TickEvent event) onMinute;
+  final FutureOr<void> Function(TickEvent event) onMinute;
 
   Timer? _timer;
+  bool _running = false;
 
   /// Marca hhmm del último minuto emitido — dedupe de ticks dentro del
   /// mismo minuto (el timer pulsa cada 30s, el tick sale cada 60s).
@@ -30,12 +31,20 @@ class TimeTickScheduler {
   void start() {
     if (_timer != null) return;
     debugPrint('[rules] ticker arrancado (pulso 30s)');
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (_running) return;
       final now = DateTime.now();
-      final key = (now.hour * 100) + now.minute;
+      final key = now.millisecondsSinceEpoch ~/ 60000;
       if (key == _lastMinuteKey) return;
       _lastMinuteKey = key;
-      onMinute(TickEvent(now));
+      _running = true;
+      try {
+        await onMinute(TickEvent(now));
+      } catch (error) {
+        debugPrint('[rules] tick failed: $error');
+      } finally {
+        _running = false;
+      }
     });
   }
 

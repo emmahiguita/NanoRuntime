@@ -390,9 +390,7 @@ exit $RC
     final homeDir = Directory('${File(usr).parent.path}/home');
     if (!homeDir.existsSync()) return;
 
-    for (final entry in const [
-      ('assets/exe/hud.py', '.hud.py'),
-    ]) {
+    for (final entry in const [('assets/exe/hud.py', '.hud.py')]) {
       try {
         final data = await rootBundle.load(entry.$1);
         final bytes = data.buffer.asUint8List();

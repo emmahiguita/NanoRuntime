@@ -16,6 +16,14 @@ class AutomationStoreChannelHandler(
     private val db = NanoApplication.from(context).automationStoreDb
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            handle(call, result)
+        } catch (error: Exception) {
+            result.error("AUTOMATION_STORE_FAILED", error.message, null)
+        }
+    }
+
+    private fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "loadAll" -> result.success(db.loadAll())
 
@@ -95,14 +103,17 @@ class AutomationStoreChannelHandler(
                 val body = call.argument<String>("body").orEmpty()
                 val toneJson = call.argument<String>("toneJson").orEmpty()
                 val source = call.argument<String>("source").orEmpty()
+                // R5-03 — par condicionado: entrada de cliente parecida
+                // (opcional; vacío = ejemplo legacy de estilo).
+                val incomingText = call.argument<String>("incomingText").orEmpty()
                 if (body.isEmpty()) {
                     result.error("BAD_ARG", "body requerido", null)
                     return
                 }
-                result.success(db.addExample(personaKey, body, toneJson, source))
+                result.success(db.addExample(personaKey, body, toneJson, source, incomingText))
             }
 
-            "exampleList" -> result.success(db.listExamples())
+            "exampleList" -> result.success(db.listExamples(call.argument<Number>("limit")?.toInt() ?: 200, call.argument<Number>("offset")?.toInt() ?: 0, call.argument<String>("scopeKey")))
 
             "exampleDelete" -> {
                 val id = call.argument<Number>("id")?.toLong() ?: -1L
@@ -113,8 +124,20 @@ class AutomationStoreChannelHandler(
             "exampleSearch" -> {
                 val query = call.argument<String>("query").orEmpty()
                 val limit = call.argument<Number>("limit")?.toInt() ?: 4
-                result.success(db.searchExamples(query, limit))
+                result.success(db.searchExamples(query, limit, call.argument<String>("scopeKey") ?: "owner", call.argument<String>("roleKey") ?: "role:personal"))
             }
+
+            "relationshipBindScope" -> result.success(db.bindRelationshipScope(call.argument<String>("oldKey").orEmpty(), call.argument<String>("newKey").orEmpty(), call.argument<String>("conversationId").orEmpty()))
+            "personalizationImport" -> result.success(db.importPersonalization(call.argument<String>("json").orEmpty()))
+            "personalizationSummary" -> result.success(db.personalizationSummary())
+            "personalizationDeleteBatch" -> result.success(db.deleteImportBatch(call.argument<String>("batchId").orEmpty()))
+            "personalizationHistory" -> result.success(db.importHistory(call.argument<Number>("id")?.toLong() ?: -1))
+            "personalMemorySave" -> result.success(db.savePersonalMemory(org.json.JSONObject(call.argument<String>("json").orEmpty())))
+            "personalMemoryDelete" -> result.success(db.deletePersonalMemory(call.argument<Number>("id")?.toLong() ?: -1))
+            "personalMemoryList" -> result.success(db.listPersonalMemories(call.argument<String>("scopeKey"),
+                call.argument<Number>("limit")?.toInt() ?: 100, call.argument<Number>("offset")?.toInt() ?: 0))
+            "exampleUpdate" -> result.success(db.updateExample(call.argument<Number>("id")?.toLong() ?: -1,
+                call.argument<String>("body").orEmpty(), call.argument<String>("incomingText").orEmpty(), call.argument<String>("toneJson") ?: "{}", call.argument<String>("scopeKey")))
 
             else -> result.notImplemented()
         }

@@ -1,0 +1,657 @@
+[
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator.dart",
+    "line": 747,
+    "code": "/// Nunca lanza por fallos de negocio: todo término es un [AutomationResult]."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_metrics.dart",
+    "line": 143,
+    "code": ": toolsRejected / toolsGenerated.toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_metrics.dart",
+    "line": 167,
+    "code": "value: falseSuccess.toDouble(),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_metrics.dart",
+    "line": 199,
+    "code": "total == 0 ? 0.0 : n / total.toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_goal.dart",
+    "line": 8,
+    "code": "/// debería acoplarse al motor; todos producen un [AutomationGoal] y el módulo"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_result.dart",
+    "line": 4,
+    "code": "/// la UI). Nunca inventa éxito; todo estado es un veredicto real."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/business_facts.dart",
+    "line": 104,
+    "code": "/// Bloque autorizado para el prompt (todo el catálogo). Vacío → ''."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/action_verifier.dart",
+    "line": 329,
+    "code": "/// Evalúa todas las condiciones contra [snap]. null = todo pendiente o"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_loop.dart",
+    "line": 113,
+    "code": "/// [AgentLoopResult.failedStep]. No lanza: todo fallo es un resultado"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 12,
+    "code": "/// Invariante: todo fallo degrada a texto legible en español — jamás lanza."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 178,
+    "code": "/// [extractToolCall] (este método devuelve esa misma llamada como lista)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 338,
+    "code": "/// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 554,
+    "code": "// A16 — extrae TODO el texto visible (observación de contenido, no solo"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 694,
+    "code": "'archivos': 'Todos los archivos',"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 1087,
+    "code": "/// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "line": 1794,
+    "code": "/// A16 — extrae todo el texto visible de la pantalla (label/text/description),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/platform_verification.dart",
+    "line": 158,
+    "code": "/// Composición mínima: TODOS los predicados deben cumplirse. Si cualquiera es"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/stability_gate.dart",
+    "line": 48,
+    "code": "/// Sondea hasta asentarse o vencer [maxWait]. No lanza: todo resultado es"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 69,
+    "code": "confidence: (map?['confidence'] as num?)?.toDouble() ?? 0,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart",
+    "line": 112,
+    "code": "confidence: (map['confidence'] as num?)?.toDouble() ?? 0,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path.dart",
+    "line": 48,
+    "code": "static const _greetingReplies = ['Hola, ¿cómo estás?', 'Hola, ¿todo bien?'];"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/verified_transition_memory.dart",
+    "line": 33,
+    "code": "double get confidence => observations.toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conv_turn_state.dart",
+    "line": 138,
+    "code": "/// CONTEXT-GATE-01 — tokens de saludo puro. Si TODOS los tokens del mensaje"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conv_turn_state.dart",
+    "line": 160,
+    "code": "'todo',"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conv_turn_state.dart",
+    "line": 166,
+    "code": "// (\"estas ahi\" = todo el mensaje en el set → saludo puro → PERSONAL)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conversation_memory.dart",
+    "line": 121,
+    "code": "/// Almacén de memoria por conversación. Métodos de escritura síncronos sobre"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/incoming_message.dart",
+    "line": 125,
+    "code": "/// durante todo el TTL de 24 h y el segundo moriría como duplicate."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/messaging_package.dart",
+    "line": 28,
+    "code": "/// Todos los paquetes de mensajería conocidos."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/reply_capability.dart",
+    "line": 7,
+    "code": "/// que TODOS estos campos siguen siendo ciertos para la notificación activa;"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/model/automation_model.dart",
+    "line": 69,
+    "code": "temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/conversation_understanding.dart",
+    "line": 74,
+    "code": "// `<[^>]*>` se traga TODO el contenido (es UNA sola etiqueta) y el guard"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/conversation_understanding.dart",
+    "line": 102,
+    "code": "/// 1. JSON completo → todos los campos tipados."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "line": 270,
+    "code": "// tras \"todo bien\" necesita el turno social anterior; un \"Hola\" tras"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/notifications/notification_draft_writer.dart",
+    "line": 349,
+    "code": "// todo lo que entra al prompt."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_decomposer.dart",
+    "line": 6,
+    "code": "/// cualquier paso fuera del vocabulario rechaza todo el plan (null)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_plan.dart",
+    "line": 289,
+    "code": "/// Fallo REAL (detiene la tarea): todo lo que no es completed ni"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_planner.dart",
+    "line": 109,
+    "code": "// parser y, sobre todo, impide degradar el comando a solo abrir el chat."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_planner.dart",
+    "line": 308,
+    "code": "/// construye un TaskPlan solo si TODOS pasan la validación:"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/actionability_engine.dart",
+    "line": 35,
+    "code": "/// Primer motivo de fallo, en español (null si todo ok)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/actionability_engine.dart",
+    "line": 49,
+    "code": "/// AND de todo: solo true cuando la acción es segura."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/mlkit_vision_backend.dart",
+    "line": 41,
+    "code": "confidence: (raw['confidence'] as num?)?.toDouble() ?? 0.0,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_selector.dart",
+    "line": 25,
+    "code": "/// comunes de android.widget / android.view; todo lo demás cae en [Role.other]"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_selector.dart",
+    "line": 45,
+    "code": "/// Selector compuesto. Todos los campos opcionales, pero al menos un criterio"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_snapshot.dart",
+    "line": 4,
+    "code": "/// (método `dumpSnapshot` en Kotlin) y aquí se convierten a tipos seguros para"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/nano_snapshot.dart",
+    "line": 44,
+    "code": "/// Patrón label→campo: el TextView y el EditText comparten casi todo el"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/perception_mux.dart",
+    "line": 59,
+    "code": ".toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/search_result_resolver.dart",
+    "line": 186,
+    "code": "final b = o.bounds.bottom.toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/selector_engine.dart",
+    "line": 54,
+    "code": "/// casi todo el ancho de la fila)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/selector_engine.dart",
+    "line": 143,
+    "code": "// Score base de todos los candidatos válidos (sin filtro aún)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/selector_engine.dart",
+    "line": 286,
+    "code": "/// contenedor raíz que envuelve todo el árbol no ancla a sus hijos."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/selector_engine.dart",
+    "line": 330,
+    "code": "/// principal da gap -1 → descartado (el root que envuelve todo no ancla)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/semantic/relationship_engine.dart",
+    "line": 82,
+    "code": "final xTolerance = (viewport.$1 * 0.12).clamp(20, 200).toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_classifier.dart",
+    "line": 119,
+    "code": "if (area > largestArea) largestArea = area.toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_resolvers.dart",
+    "line": 235,
+    "code": "/// Devuelve todos los destinos grounded para que el caller exija unicidad."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_resolvers.dart",
+    "line": 238,
+    "code": "/// del placeholder por el valor escrito."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_resolvers.dart",
+    "line": 332,
+    "code": "// `editable=true` sigue apuntando al único campo aunque el placeholder"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_resolvers.dart",
+    "line": 447,
+    "code": "final d = b.bounds.distanceTo(input.object.bounds).toDouble();"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/automation_planner.dart",
+    "line": 9,
+    "code": "/// Seguridad todo-lógica (no depende del prompt): la salida del modelo es"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidate_first_planner.dart",
+    "line": 150,
+    "code": "// evalúa ANTES del govern. Sin esto, todo reply irreversible volvía"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/candidates/candidate_provider.dart",
+    "line": 6,
+    "code": "/// placeholders vacíos de cada provider futuro (no \"architecture theatre\")."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/koog.dart",
+    "line": 86,
+    "code": "/// Genera el plan y lo ejecuta bajo gobernanza. No lanza: todo fallo es un"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/koog_supervisor.dart",
+    "line": 95,
+    "code": "/// acciones previas verificadas + resumen de memoria. Todo lo que el modelo"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/message_intent_parser.dart",
+    "line": 158,
+    "code": "// TODO lo que sigue al verbo pertenece al payload. Volver a partirlo por"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/message_intent_parser.dart",
+    "line": 300,
+    "code": "// Sin separador: todo es el recipient (el llamador verá que no hay texto)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_ocr_api.dart",
+    "line": 14,
+    "code": "/// Transporte MethodChannel del OCR (canal `com.nanoai/agent`, método"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 9,
+    "code": "///   UN solo turno del pipeline con el texto agregado → todos resueltos."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 101,
+    "code": "// WA-REG-01 — resolución por TANDA: cada submitAll espera que TODOS sus"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+    "line": 312,
+    "code": "/// WA-REG-01 — una tanda de submitAll: se completa cuando TODOS sus eventos"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+    "line": 89,
+    "code": "/// Métodos de decisión síncronos sobre estado en memoria (un solo isolate);"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger.dart",
+    "line": 14,
+    "code": "/// Disparo por hora: \"todos los días a las 8\" / \"a las 8:30 los lunes\"."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger.dart",
+    "line": 22,
+    "code": "/// 1=lun .. 7=dom. Vacío = todos los días."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger_parser.dart",
+    "line": 4,
+    "code": "///   \"todos los días a las 8 abre Chrome\"      → TimeTrigger(8:00) + \"abre Chrome\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger_parser.dart",
+    "line": 30,
+    "code": "/// Calificadores de frecuencia que NO son el goal (\"todos los días\", \"cada día\")."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger_parser.dart",
+    "line": 32,
+    "code": "r'^(todos los días|todos los dias|cada día|cada dia|diario|diariamente)\\s+',"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/trigger_parser.dart",
+    "line": 117,
+    "code": "/// coma (sin coma → todo) y el goal tras la coma. Comillas → contenido"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/skill_store.dart",
+    "line": 30,
+    "code": "/// Todos los drafts pendientes de aprobación."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/capabilities_report.dart",
+    "line": 75,
+    "code": "b.writeln('• Todos los archivos: ${_onOff(permissions['allFiles'])}');"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/capabilities_report.dart",
+    "line": 110,
+    "code": "'• Acceso a todos los archivos NO concedido → scanner de modelos '"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/ledger/action_ledger_provider.dart",
+    "line": 6,
+    "code": "/// ejecuciones reales para todo el módulo (no por instancia de coordinator),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart",
+    "line": 58,
+    "code": "// disabled/suggestions retienen todo el turno (el draft se descarta y"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart",
+    "line": 59,
+    "code": "// se traza; la cola con aprobación en UI es el siguiente sprint)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart",
+    "line": 138,
+    "code": "// cliente). Todo reply que arranque con un rótulo interno es formato,"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart",
+    "line": 155,
+    "code": "// Evidencia 18:23:41: \"como es siempre?\" → \"Hola Emm, todo bien?\""
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_decision_engine.dart",
+    "line": 257,
+    "code": "// sé\" + pregunta. Todo lo demás es invento o espejo (QUESTION MIRROR"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_context.dart",
+    "line": 104,
+    "code": "// PERSONA-VALIDATE-09 — todo lo que entra al prompt pasa por el"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 4,
+    "code": "/// `relationship_profiles` (SQLite v3). Los métodos viajan por el canal"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 44,
+    "code": "/// Todos los perfiles de persona (hoy: el del dueño)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_repository.dart",
+    "line": 130,
+    "code": "/// Todos los ejemplos (más recientes primero)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart",
+    "line": 146,
+    "code": "/// \"bro\". Señal social = mensaje CORTO (≤3 tokens) y TODOS sus tokens en"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart",
+    "line": 286,
+    "code": "///    (P0: \"hola\"/\"como estas\"/\"oe\"/\"estas ahi\"/\"todo bien?\" son social"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart",
+    "line": 418,
+    "code": "// P0-SOCIAL — casual corto (\"que haces\", \"jajaja\", \"bro\"): todos los"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_agent_role.dart",
+    "line": 497,
+    "code": "/// (isPureGreeting, todos los tokens en greetingTokens) no cubre el saludo"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_autonomy_mode.dart",
+    "line": 12,
+    "code": "/// AUTONOMY FAIL-SAFE (PROD-02): el default dejó de ser `autonomous`. Todo"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/conversation_autonomy_mode.dart",
+    "line": 27,
+    "code": "/// cola de borradores con aprobación en UI es el siguiente sprint — sin"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_rules_screen.dart",
+    "line": 1153,
+    "code": "value: replyDelaySeconds.toDouble(),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/skill_dev_section.dart",
+    "line": 100,
+    "code": "'CommitGuard que todo lo demás.',"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/automation_dashboard.dart",
+    "line": 1157,
+    "code": "/// Un solo widget para todos los accesos: icono + título + subtítulo."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/capability_status_card.dart",
+    "line": 19,
+    "code": "/// cuando todo está disponible, las filas factuales bastan y no se duplica el"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/capability_status_card.dart",
+    "line": 155,
+    "code": "label: const Text('Solicitar todos los permisos'),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/rule_edit_sheet.dart",
+    "line": 237,
+    "code": "const _FieldLabel('Días (vacío = todos los días)'),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/appfunctions/AppFunctionChannelHandler.kt",
+    "line": 10,
+    "code": "* puntuar el camino. Cualquier otro método (p. ej. un intento de ejecución)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/appfunctions/AppFunctionProbe.kt",
+    "line": 14,
+    "code": "*   expone ningún método de ejecución."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 19,
+    "code": "* Contrato de métodos (v1):"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+    "line": 258,
+    "code": "\"confidence\" to it.confidence.toDouble(),"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt",
+    "line": 261,
+    "code": "* Helper: vincula el UserService Shizuku, ejecuta [block] sobre el Stub y"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt",
+    "line": 271,
+    "code": "val stub = IPackageAction.Stub.asInterface(service)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt",
+    "line": 273,
+    "code": "block(stub)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+    "line": 84,
+    "code": "// ── Escaneo de todo el storage compartido (MANAGE_EXTERNAL_STORAGE) ──"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/RuntimeChannelHandler.kt",
+    "line": 20,
+    "code": "* rompan compatibilidad de métodos/argumentos en los canales"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+    "line": 291,
+    "code": "/// siguiente de la lista. Solo se reporta error al agotar todos."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 25,
+    "code": "*   8. postinst SÍ se ejecuta — de forma DIFERIDA: tras extraer todo el"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 175,
+    "code": "/** Descarga y mergea índices de todos los repos. Retorna mapa unificado. */"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 197,
+    "code": "/** Instala [targets] y sus deps desde todos los repos. */"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 303,
+    "code": "// F1: verificación final — todos los objetivos deben quedar instalados."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+    "line": 341,
+    "code": "// Reglas XKB inválidas (stub o ausentes) → forzar reinstall de"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 29,
+    "code": "// (Nombre *_Delegate: hay un método privado killPid(pid) en esta clase.)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 69,
+    "code": "// pueda reiniciar todo limpiamente."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 297,
+    "code": "// wmEnv para que TODOS los hijos (openbox/feh/aterm/pcmanfm)"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 300,
+    "code": "// pero NADIE lo lanzaba (grep en todo el repo, solo 2 menciones)."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 517,
+    "code": "// está dentro de una función, no en un método completo."
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 608,
+    "code": "// BUG-2 FIX: todos los daemons del desktop (openbox/terminal/feh/"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+    "line": 1143,
+    "code": "val minDim = minOf(w, h).toDouble()"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+    "line": 208,
+    "code": "* todos modos). `modelPath` null = server model-free (--no-model); en B5"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/RuntimeHeartbeat.kt",
+    "line": 11,
+    "code": "* apagada) y con ella todo el runtime (Xvnc/openbox/lxterminal, mismo"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DeviceMetricsProvider.kt",
+    "line": 126,
+    "code": "val up = File(\"/proc/uptime\").readText().split(\" \").firstOrNull()?.toDoubleOrNull()"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/DeviceMetricsProvider.kt",
+    "line": 163,
+    "code": "val raw = File(path).readText().trim().toDoubleOrNull()"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/XServerBackend.kt",
+    "line": 122,
+    "code": "val k = cap.toDouble() / maxDim"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/shizuku/PackageActionService.kt",
+    "line": 21,
+    "code": "private val binder = object : IPackageAction.Stub() {"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 109,
+    "code": "// Si el destino es un DIRECTORIO (p.ej. el stub xkb de"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+    "line": 255,
+    "code": "// Si el destino es un DIRECTORIO (p.ej. el stub xkb de"
+  },
+  {
+    "file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+    "line": 56,
+    "code": "// reiniciar la app — todo spawn posterior fallaba con \"worker no"
+  }
+]

@@ -1,0 +1,9 @@
+09-07 19:44:49.256  1838  2029 D ActivityManager: Freezer deadlock watchdog
+09-07 19:44:51.579 30970 30970 I flutter : [engine] ensureReady fase=ready model=/data/user/0/dev.nanoai.mobile/files/nano/models/qwen2.5-1.5b-instruct-q8_0-v2.gguf
+09-07 19:44:57.557  1838  2029 D ActivityManager: Freezer deadlock watchdog
+09-07 19:45:38.496 30970 30970 I flutter : [engine] ensureReady fase=ready model=/data/user/0/dev.nanoai.mobile/files/nano/models/qwen2.5-1.5b-instruct-q8_0-v2.gguf
+09-07 19:47:09.841  1838  2029 D ActivityManager: Freezer deadlock watchdog
+09-07 19:47:44.409  1838  2029 D ActivityManager: Freezer deadlock watchdog
+09-07 19:47:44.520   682  4199 I keystore2: system/security/keystore2/watchdog/src/lib.rs:319 - Watchdog thread idle -> terminating. Have a great day.
+09-07 19:47:54.378  1838  2029 D ActivityManager: Freezer deadlock watchdog
+09-07 19:48:30.886 30970 30970 I flutter : [engine] ensureReady fase=ready model=/data/user/0/dev.nanoai.mobile/files/nano/models/qwen2.5-1.5b-instruct-q8_0-v2.gguf
