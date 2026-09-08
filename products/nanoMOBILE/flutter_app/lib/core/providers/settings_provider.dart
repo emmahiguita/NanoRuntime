@@ -64,7 +64,7 @@ class SettingsRepository {
 
   Future<void> save(SettingsState s) async {
     if (!_ready) await init();
-    await _prefs.setString(
+    final ok = await _prefs.setString(
       _k,
       jsonEncode({
         'themeMode': s.themeMode,
@@ -84,6 +84,9 @@ class SettingsRepository {
         'waAutonomyMode': s.waAutonomyMode,
       }),
     );
+    if (!ok) {
+      throw StateError('Fallo al persistir SettingsState en SharedPreferences');
+    }
   }
 }
 
@@ -199,13 +202,21 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   Future<void> _lastWrite = Future<void>.value();
 
   Future<void> _persist(SettingsState s) {
+    final previousState = state;
     state = s;
     final write = _lastWrite.then((_) async {
       try {
         await _repo.save(s);
-      } catch (_) {}
+      } catch (e) {
+        // FAIL-SAFE (PROD-01): si el disco rechaza la escritura o falla el IO,
+        // revertimos RAM a la última verdad duradera para que la UI jamás
+        // afirme un modo (ej. 'Disabled') que el disco no consolidó.
+        debugPrint('[settings] fallo al persistir en disco: $e — rollback');
+        state = previousState;
+        rethrow;
+      }
     });
-    _lastWrite = write;
+    _lastWrite = write.catchError((Object _) {});
     return write;
   }
 

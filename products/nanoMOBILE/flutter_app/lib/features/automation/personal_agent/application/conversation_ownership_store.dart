@@ -99,6 +99,12 @@ final class SqliteConversationOwnershipStore
       updatedAtMs: ownership.updatedAtMs,
     );
     final write = _writes.then((_) async {
+      // CRASH-CONSISTENCY (OWNER-01): Si una revisión más reciente ya tomó el
+      // control para esta conversación, descartamos esta escritura obsoleta
+      // antes de tocar el disco para que un BOT stale jamás sobreescriba un HUMAN takeover.
+      if (_revisions[conversationId] != revision) {
+        return;
+      }
       final snapshot = Map<String, ConversationOwnership>.of(_byConversation);
       snapshot[conversationId] = ownership;
       final ok = await AutomationDbStoreClient.instance.putSection(
@@ -117,7 +123,7 @@ final class SqliteConversationOwnershipStore
       }
     });
     _writes = write.catchError((Object _) {});
-    return write.then((_) => ownership);
+    return write.then((_) => _byConversation[conversationId] ?? ownership);
   }
 
   @override

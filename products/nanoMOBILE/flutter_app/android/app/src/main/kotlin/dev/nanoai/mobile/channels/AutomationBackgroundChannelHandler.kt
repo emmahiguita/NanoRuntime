@@ -79,6 +79,6 @@ class AutomationBackgroundChannelHandler(
          *  explícito; desactivado = comportamiento histórico (solo UI abierta). */
         fun isBackgroundEnabled(context: Context): Boolean =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getBoolean(KEY_ENABLED, true)
+                .getBoolean(KEY_ENABLED, false)
     }
 }
