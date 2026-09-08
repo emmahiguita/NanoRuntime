@@ -249,7 +249,7 @@ class WorkerClient(private val ctx: Context) {
         return try {
             val aliveRef = AtomicReference<Boolean?>(null)
             val latch = CountDownLatch(1)
-            val taskId = "alive${System.currentTimeMillis()}"
+            val taskId = "alive${java.util.UUID.randomUUID()}"
             replyThread = HandlerThread("nano-alive").apply { start() }
 
             val msg = Message.obtain(null, MSG_IS_PID_ALIVE)
@@ -302,7 +302,7 @@ class WorkerClient(private val ctx: Context) {
         return try {
             val killedRef = AtomicReference<Boolean?>(null)
             val latch = CountDownLatch(1)
-            val taskId = "kill${System.currentTimeMillis()}"
+            val taskId = "kill${java.util.UUID.randomUUID()}"
             replyThread = HandlerThread("nano-kill").apply { start() }
 
             val msg = Message.obtain(null, MSG_KILL_PID)
@@ -403,7 +403,7 @@ class WorkerClient(private val ctx: Context) {
         return try {
             val pathRef = AtomicReference<String?>()
             val latch = CountDownLatch(1)
-            val taskId = "fd${System.currentTimeMillis()}"
+            val taskId = "fd${java.util.UUID.randomUUID()}"
             replyThread = HandlerThread("nano-openfd").apply { start() }
 
             val msg = Message.obtain(null, MSG_OPEN_FD)

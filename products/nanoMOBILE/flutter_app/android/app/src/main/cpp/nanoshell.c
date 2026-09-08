@@ -263,22 +263,47 @@ static void _preload_rootfs_libs(const char* dir) {
 
 typedef struct {
     char task_id[128];
-    pid_t pid;
+    pid_t pid; // 0 while reserved or publishing terminal files
     int in_use;
+    int cancel_requested;
 } ActiveWorkerTask;
 
 static ActiveWorkerTask g_active_worker_tasks[MAX_ACTIVE_WORKER_TASKS];
 static pthread_mutex_t g_worker_tasks_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Reserve BEFORE fork. A full registry must never create an unowned child.
+static int _reserve_worker_task(const char* task_id) {
+    if (!task_id || !task_id[0] || strlen(task_id) >= 128) return -1;
+    pthread_mutex_lock(&g_worker_tasks_mutex);
+    int free_slot = -1;
+    for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
+        if (g_active_worker_tasks[i].in_use && strcmp(g_active_worker_tasks[i].task_id, task_id) == 0) {
+            pthread_mutex_unlock(&g_worker_tasks_mutex);
+            return -1;
+        }
+        if (!g_active_worker_tasks[i].in_use && free_slot < 0) free_slot = i;
+    }
+    if (free_slot >= 0) {
+        ActiveWorkerTask* task = &g_active_worker_tasks[free_slot];
+        memset(task, 0, sizeof(*task));
+        strcpy(task->task_id, task_id);
+        task->in_use = 1;
+    }
+    pthread_mutex_unlock(&g_worker_tasks_mutex);
+    return free_slot >= 0 ? 1 : 0;
+}
+
 static void _register_active_worker_task(const char* task_id, pid_t pid) {
     if (!task_id || !task_id[0]) return;
     pthread_mutex_lock(&g_worker_tasks_mutex);
     for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
-        if (!g_active_worker_tasks[i].in_use) {
-            strncpy(g_active_worker_tasks[i].task_id, task_id, sizeof(g_active_worker_tasks[i].task_id) - 1);
-            g_active_worker_tasks[i].task_id[sizeof(g_active_worker_tasks[i].task_id) - 1] = '\0';
-            g_active_worker_tasks[i].pid = pid;
-            g_active_worker_tasks[i].in_use = 1;
+        ActiveWorkerTask* task = &g_active_worker_tasks[i];
+        if (task->in_use && strcmp(task->task_id, task_id) == 0) {
+            task->pid = pid;
+            if (task->cancel_requested) {
+                kill(-pid, SIGKILL);
+                kill(pid, SIGKILL);
+            }
             break;
         }
     }
@@ -290,54 +315,63 @@ static void _unregister_active_worker_task(const char* task_id) {
     pthread_mutex_lock(&g_worker_tasks_mutex);
     for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
         if (g_active_worker_tasks[i].in_use && strcmp(g_active_worker_tasks[i].task_id, task_id) == 0) {
-            g_active_worker_tasks[i].in_use = 0;
-            g_active_worker_tasks[i].task_id[0] = '\0';
-            g_active_worker_tasks[i].pid = 0;
+            memset(&g_active_worker_tasks[i], 0, sizeof(ActiveWorkerTask));
             break;
         }
     }
     pthread_mutex_unlock(&g_worker_tasks_mutex);
 }
 
+// Only the spawn-owner calls waitpid. Reaping and clearing the signal target
+// share the mutex: cancellation cannot signal a PID that has been recycled.
+static pid_t _reap_owned_child(pid_t pid, const char* task_id, int* status) {
+    if (!task_id || !task_id[0]) {
+        pid_t result;
+        do { result = waitpid(pid, status, 0); } while (result < 0 && errno == EINTR);
+        return result;
+    }
+    for (;;) {
+        pthread_mutex_lock(&g_worker_tasks_mutex);
+        pid_t result = waitpid(pid, status, WNOHANG);
+        int saved_errno = errno;
+        if (result == pid || (result < 0 && saved_errno != EINTR)) {
+            for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
+                if (g_active_worker_tasks[i].in_use && strcmp(g_active_worker_tasks[i].task_id, task_id) == 0) {
+                    g_active_worker_tasks[i].pid = 0;
+                    break;
+                }
+            }
+        }
+        pthread_mutex_unlock(&g_worker_tasks_mutex);
+        if (result == pid || (result < 0 && saved_errno != EINTR)) return result;
+        usleep(10000);
+    }
+}
+
 int nanoshell_worker_kill_task(const char* task_id) {
     if (!task_id || !task_id[0]) return -1;
-    pid_t target_pid = 0;
-    pthread_mutex_lock(&g_worker_tasks_mutex);
-    for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
-        if (g_active_worker_tasks[i].in_use && strcmp(g_active_worker_tasks[i].task_id, task_id) == 0) {
-            target_pid = g_active_worker_tasks[i].pid;
+    int observed = 0;
+    for (int attempt = 0; attempt < 220; attempt++) {
+        int found = 0;
+        pthread_mutex_lock(&g_worker_tasks_mutex);
+        for (int i = 0; i < MAX_ACTIVE_WORKER_TASKS; i++) {
+            ActiveWorkerTask* task = &g_active_worker_tasks[i];
+            if (!task->in_use || strcmp(task->task_id, task_id) != 0) continue;
+            found = observed = 1;
+            task->cancel_requested = 1;
+            if (task->pid > 1) {
+                int signal_number = attempt >= 20 ? SIGKILL : SIGTERM;
+                kill(-task->pid, signal_number);
+                kill(task->pid, signal_number);
+            }
             break;
         }
+        pthread_mutex_unlock(&g_worker_tasks_mutex);
+        if (!found) return observed ? 1 : 0;
+        usleep(10000);
     }
-    pthread_mutex_unlock(&g_worker_tasks_mutex);
-
-    if (target_pid <= 1) return 0; // Not found or already dead
-
-    // Send SIGTERM to process group and individual pid
-    kill(-target_pid, SIGTERM);
-    kill(target_pid, SIGTERM);
-
-    // Wait up to 200ms with WNOHANG
-    int reaped = 0;
-    for (int i = 0; i < 4; i++) {
-        usleep(50000); // 50ms
-        int status = 0;
-        pid_t r = waitpid(target_pid, &status, WNOHANG);
-        if (r == target_pid || (r < 0 && errno == ECHILD)) {
-            reaped = 1;
-            break;
-        }
-    }
-
-    if (!reaped) {
-        kill(-target_pid, SIGKILL);
-        kill(target_pid, SIGKILL);
-        int status = 0;
-        waitpid(target_pid, &status, 0); // reap zombie
-    }
-
-    _unregister_active_worker_task(task_id);
-    return 1;
+    // No false acknowledgement: the owner has not finished reaping/publishing.
+    return 0;
 }
 
 // The actual fork+exec logic, shared by busybox and generic variants.
@@ -663,6 +697,7 @@ static int _spawn_internal(
     }
 
     // === PARENT ===
+    setpgid(pid, pid); // Close the race before the child establishes its group.
     if (task_id && task_id[0]) {
         _register_active_worker_task(task_id, pid);
     }
@@ -681,8 +716,10 @@ static int _spawn_internal(
     if (!stdout_buf || !stderr_buf) {
         free(stdout_buf); free(stderr_buf);
         close(out_pipe[0]); close(err_pipe[0]);
-        waitpid(pid, NULL, 0);
-        if (task_id && task_id[0]) _unregister_active_worker_task(task_id);
+        kill(-pid, SIGKILL);
+        kill(pid, SIGKILL);
+        int allocation_status = 0;
+        _reap_owned_child(pid, task_id, &allocation_status);
         *out_stdout = strdup("");
         *out_stderr = strdup("");
         return -1;
@@ -747,18 +784,15 @@ static int _spawn_internal(
     close(err_pipe[0]);
 
     // Now wait for child to finish (pipes already drained concurrently)
-    int status;
-    waitpid(pid, &status, 0);
-
-    if (task_id && task_id[0]) {
-        _unregister_active_worker_task(task_id);
-    }
+    int status = 0;
+    const pid_t reaped = _reap_owned_child(pid, task_id, &status);
 
     *out_stdout = stdout_buf ? stdout_buf : strdup("");
     *out_stderr = stderr_buf ? stderr_buf : strdup("");
     if (out_stdout_len) *out_stdout_len = out_len;
     if (out_stderr_len) *out_stderr_len = err_len;
 
+    if (reaped != pid) return -1; // Never interpret an absent wait status.
     if (WIFEXITED(status)) return WEXITSTATUS(status);
     if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
     return -1;
@@ -857,9 +891,18 @@ int nanoshell_worker_spawn(
     char* out_s = NULL;
     char* err_s = NULL;
     size_t out_len = 0, err_len = 0;
-    int rc = _spawn_internal(eff_binary, eff_symbol, eff_argv, envp, ld_preload,
+    const int reserved = _reserve_worker_task(task_id);
+    if (reserved < 0) { free(busybox_argv); return -1; }
+    int rc;
+    if (reserved == 0) {
+        rc = 75; // Temporary capacity rejection; no fork took place.
+        err_s = strdup("Worker capacity reached; execution was not started");
+        err_len = err_s ? strlen(err_s) : 0;
+    } else {
+        rc = _spawn_internal(eff_binary, eff_symbol, eff_argv, envp, ld_preload,
                              task_id,
                              &out_s, &err_s, &out_len, &err_len);
+    }
     free(busybox_argv);
 
     char out_path[512], err_path[512], rc_path[512];
@@ -884,6 +927,8 @@ int nanoshell_worker_spawn(
 
     free(out_s);
     free(err_s);
+    // Cancellation acknowledgement includes terminal result publication.
+    if (reserved > 0) _unregister_active_worker_task(task_id);
     return rc;
 }
 

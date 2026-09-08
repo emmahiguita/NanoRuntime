@@ -10,6 +10,11 @@ import android.os.Message
 import android.os.Messenger
 import android.os.ParcelFileDescriptor
 import android.system.Os
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 
 /**
  * Proceso worker `:nanoshell` para ejecución nativa segura.
@@ -66,6 +71,22 @@ when (msg.what) {
      * Reabrir el mismo uri cierra el fd previo: no hay fuga por re-selección.
      */
     private val modelFds = mutableMapOf<String, Int>()
+    private class ActiveTask {
+        @Volatile var cancelled = false
+        val finished = CountDownLatch(1)
+    }
+    private val taskSlots = Semaphore(64)
+    private val activeTasks = ConcurrentHashMap<String, ActiveTask>()
+
+    private fun publishTaskFailure(directory: String, taskId: String, code: Int, reason: String) {
+        // rc is the publication barrier. Never let Dart observe a partial file.
+        for ((prefix, content) in listOf("worker_out_" to "", "worker_err_" to reason, "worker_rc_" to "$code")) {
+            val target = java.io.File(directory, "$prefix$taskId")
+            val temporary = java.io.File(directory, "$prefix$taskId.tmp")
+            temporary.writeText(content)
+            check(temporary.renameTo(target)) { "Could not publish task result" }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -86,12 +107,20 @@ when (msg.what) {
         val argv = b.getStringArrayList("argv") ?: arrayListOf()
         val envPairs = b.getStringArrayList("envp") ?: arrayListOf()
         val ldPreload = b.getString("ldPreload")
-        val taskId = b.getString(EXTRA_TASK_ID) ?: "t${System.currentTimeMillis()}"
+        val taskId = b.getString(EXTRA_TASK_ID) ?: "t${UUID.randomUUID()}"
         val filesDir = b.getString("filesDir") ?: filesDir.absolutePath
 
         val envp = envPairs.toTypedArray()
-
-        Thread({
+        if (!taskId.matches(Regex("[A-Za-z0-9_-]{1,120}"))) return
+        val task = ActiveTask()
+        if (activeTasks.putIfAbsent(taskId, task) != null) return
+        if (!taskSlots.tryAcquire()) {
+            activeTasks.remove(taskId, task)
+            try { publishTaskFailure(filesDir, taskId, 75, "Worker capacity reached; execution was not started") }
+            catch (e: Exception) { android.util.Log.e("nanoshell-worker", "admission result failed", e) }
+            return
+        }
+        try { Thread({
             try {
                 // Preload de libs versionadas del rootfs SOLO para binarios con
                 // libnanoroot (ldPreload). toybox (standalone, sin ldPreload) NO
@@ -102,6 +131,10 @@ when (msg.what) {
                 if (!ldPreload.isNullOrEmpty()) {
                     preloadRootfsLibs(filesDir)
                 }
+                if (task.cancelled) {
+                    publishTaskFailure(filesDir, taskId, 130, "Task cancelled before execution")
+                    return@Thread
+                }
                 val rc = NanoshellBridge.workerSpawn(
                     binaryPath, argv.toTypedArray(), envp, ldPreload,
                     taskId, filesDir
@@ -109,8 +142,19 @@ when (msg.what) {
                 android.util.Log.i("nanoshell-worker", "task $taskId rc=$rc")
             } catch (e: Throwable) {
                 android.util.Log.e("nanoshell-worker", "spawn $taskId falló: $e")
+                try { publishTaskFailure(filesDir, taskId, -1, "Worker execution could not be confirmed") }
+                catch (_: Exception) {}
+            } finally {
+                task.finished.countDown()
+                activeTasks.remove(taskId, task)
+                taskSlots.release()
             }
-        }, "worker-task-$taskId").start()
+        }, "worker-task-$taskId").start() } catch (e: Throwable) {
+            activeTasks.remove(taskId, task)
+            taskSlots.release()
+            task.finished.countDown()
+            publishTaskFailure(filesDir, taskId, 75, "Worker thread could not start")
+        }
     }
 
     /** Spawn sin esperar — para daemons (Xvnc, openbox). Retorna PID al
@@ -120,7 +164,7 @@ when (msg.what) {
         val binaryPath = b.getString("binaryPath") ?: return
         val argv = b.getStringArrayList("argv") ?: arrayListOf()
         val envPairs = b.getStringArrayList("envp") ?: arrayListOf()
-        val taskId = b.getString(EXTRA_TASK_ID) ?: "d${System.currentTimeMillis()}"
+        val taskId = b.getString(EXTRA_TASK_ID) ?: "d${UUID.randomUUID()}"
         val filesDir = b.getString("filesDir") ?: filesDir.absolutePath
         // Extraer el Messenger ANTES del Thread: msg lo recicla el Looper al
         // salir de handleMessage; acceder a msg.replyTo desde otro hilo tras
@@ -220,17 +264,31 @@ when (msg.what) {
      * No afecta al worker ni a otras tareas concurrentes.
      */
     private fun handleKillTask(msg: Message) {
-        val b = msg.data
-        val taskId = b.getString(EXTRA_TASK_ID) ?: return
+        val taskId = msg.data.getString(EXTRA_TASK_ID) ?: return
         val replyTo = msg.replyTo ?: return
-        val rc = NanoshellBridge.workerKillTask(taskId)
-        android.util.Log.w("nanoshell-worker", "killTask $taskId rc=$rc")
-        val reply = Message.obtain(null, MSG_RESULT)
-        reply.data = Bundle().apply {
-            putString(EXTRA_TASK_ID, taskId)
-            putBoolean("killed", rc > 0)
-        }
-        try { replyTo.send(reply) } catch (_: Exception) {}
+        val task = activeTasks[taskId]
+        task?.cancelled = true
+        // Waiting for reaping/file publication must not block the Binder looper.
+        Thread({
+            var confirmed = false
+            try {
+                val deadline = android.os.SystemClock.elapsedRealtime() + 2400
+                do {
+                    if (task?.finished?.count == 0L) { confirmed = true; break }
+                    val rc = NanoshellBridge.workerKillTask(taskId)
+                    if (task == null) { confirmed = rc > 0; break }
+                    if (task.finished.await(30, TimeUnit.MILLISECONDS)) { confirmed = true; break }
+                } while (android.os.SystemClock.elapsedRealtime() < deadline)
+            } catch (e: Throwable) {
+                android.util.Log.w("nanoshell-worker", "killTask acknowledgement failed", e)
+            }
+            val reply = Message.obtain(null, MSG_RESULT)
+            reply.data = Bundle().apply {
+                putString(EXTRA_TASK_ID, taskId)
+                putBoolean("killed", confirmed)
+            }
+            try { replyTo.send(reply) } catch (_: Exception) {}
+        }, "worker-cancel-$taskId").start()
     }
 
     /**
@@ -241,7 +299,7 @@ when (msg.what) {
     private fun handleOpenFd(msg: Message) {
         val b = msg.data
         val uri = b.getString("uri") ?: return
-        val taskId = b.getString(EXTRA_TASK_ID) ?: "f${System.currentTimeMillis()}"
+        val taskId = b.getString(EXTRA_TASK_ID) ?: "f${UUID.randomUUID()}"
         val pfd = b.getParcelable<ParcelFileDescriptor>("fd") ?: run {
             android.util.Log.w("nanoshell-worker", "openFd sin PFD para $uri")
             return

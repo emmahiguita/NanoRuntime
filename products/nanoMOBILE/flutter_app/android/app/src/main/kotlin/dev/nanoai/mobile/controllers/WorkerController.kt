@@ -1,6 +1,7 @@
 package dev.nanoai.mobile
 
 import java.io.File
+import java.util.UUID
 
 class WorkerController(
     private val appFilesDir: File,
@@ -17,7 +18,7 @@ class WorkerController(
         val baseDir = pathPolicy.requireInsideNanoFiles(File(appFilesDir, "nano"), "baseDir")
         if (!baseDir.exists()) baseDir.mkdirs()
 
-        val taskId = "t${System.currentTimeMillis()}"
+        val taskId = "t${UUID.randomUUID()}"
         val ok = workerClientProvider()?.spawn(
             executable.absolutePath,
             argv,
