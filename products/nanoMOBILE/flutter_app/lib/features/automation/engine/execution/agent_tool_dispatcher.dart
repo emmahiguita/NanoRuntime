@@ -17,6 +17,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/services/device_metrics.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import 'action_path_router.dart';
 import 'action_verifier.dart';
@@ -634,6 +635,11 @@ class AgentToolDispatcher {
       case 'notificaciones':
       case 'notifications':
         call = const ToolCall(tool: 'notifications');
+      case 'bateria':
+      case 'battery':
+      case 'dispositivo':
+      case 'device_state':
+        return _deviceState();
       case 'home':
       case 'inicio':
         call = const ToolCall(tool: 'home');
@@ -1708,6 +1714,8 @@ class AgentToolDispatcher {
         );
       case 'notifications':
         return _notifications();
+      case 'device_state':
+        return _deviceState();
       case 'shizuku_query_package':
         final pkgArg = (call.textArg ?? call.selectorArg ?? '').trim();
         if (pkgArg.isEmpty) {
@@ -2416,6 +2424,25 @@ class AgentToolDispatcher {
       return null;
     } on Object {
       return null; // Sin evidencia: completedUnverified (no se inventa).
+    }
+  }
+
+  /// Consulta de estado físico bajo demanda (Nivel 2/3).
+  Future<String> _deviceState() async {
+    try {
+      final metrics = await DeviceMetrics.fetch();
+      final system = await NanoRuntimeApi.instance.systemState();
+      final battery = metrics.batteryPct >= 0
+          ? '${metrics.batteryPct.round()}%'
+          : 'desconocida';
+      final charging = metrics.isCharging ? 'sí' : 'no';
+      final wifi =
+          system['wifiEnabled'] == true ? 'conectado' : 'desconectado';
+      final media =
+          system['mediaPlaying'] == true ? 'reproduciendo' : 'inactivo';
+      return '[device_state] Batería: $battery, Cargando: $charging, WiFi: $wifi, Audio: $media.';
+    } catch (e) {
+      return '[device_state] Error al consultar hardware: $e';
     }
   }
 

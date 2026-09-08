@@ -23,6 +23,8 @@
 /// - Seguridad: si detecta intención comercial, queja de soporte, corrección o comandos, retorna null para que actúe el catálogo o el motor de negocio.
 library;
 
+import '../../../../core/services/device_metrics.dart'
+    show DeviceMetrics, DeviceMetricsData;
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show
         correctionPhrases,
@@ -46,10 +48,12 @@ enum ConversationIntent {
   askTraining,
   askPresence,
   askHelpOrQuestion,
+  askDeviceBattery,
   thanks,
   farewell,
   laughter,
   affirmation,
+  negation,
 }
 
 final class FastPathCandidate {
@@ -68,18 +72,41 @@ final class PragmaticFastPath {
   final ConversationMemory? Function(String conversationId)? memoryFor;
   final ClientContextEntry? Function(String conversationId)? contextEntryFor;
   final String? Function()? ownerName;
+  final Future<DeviceMetricsData> Function()? metricsSource;
 
   const PragmaticFastPath({
     this.memoryFor,
     this.contextEntryFor,
     this.ownerName,
+    this.metricsSource,
   });
 
+  static DeviceMetricsData? _cachedMetrics;
+  static DateTime? _lastMetricsFetch;
+  static const _metricsTtl = Duration(seconds: 10);
+
+  Future<DeviceMetricsData?> _getMetrics() async {
+    final now = DateTime.now();
+    if (_cachedMetrics != null &&
+        _lastMetricsFetch != null &&
+        now.difference(_lastMetricsFetch!) < _metricsTtl) {
+      return _cachedMetrics;
+    }
+    try {
+      final m = await (metricsSource?.call() ?? DeviceMetrics.fetch());
+      _cachedMetrics = m;
+      _lastMetricsFetch = now;
+      return m;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Resuelve el turno conversacional o devuelve null para escalar al LLM / catálogo.
-  FastPathCandidate? resolve({
+  Future<FastPathCandidate?> resolve({
     required String text,
     required String conversationId,
-  }) {
+  }) async {
     final raw = text.trim();
     if (raw.isEmpty) return null;
 
@@ -96,7 +123,13 @@ final class PragmaticFastPath {
     final intents = _extractIntents(normalized, tokens);
     if (intents.isEmpty) return null;
 
-    // 3. Inspeccionar historial de conversación reciente para anti-repetición
+    // 3. Consultar hechos de hardware bajo demanda (Nivel 2) SOLO si la intención lo pide
+    DeviceMetricsData? metrics;
+    if (intents.contains(ConversationIntent.askDeviceBattery)) {
+      metrics = await _getMetrics();
+    }
+
+    // 4. Inspeccionar historial de conversación reciente para anti-repetición
     final memory = memoryFor?.call(conversationId);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
 
@@ -124,7 +157,7 @@ final class PragmaticFastPath {
       }
     }
 
-    // 4. Componer la respuesta unificada y natural
+    // 5. Componer la respuesta unificada y natural
     final reply = _composeUnifiedReply(
       intents: intents,
       normalized: normalized,
@@ -132,6 +165,7 @@ final class PragmaticFastPath {
       conversationId: conversationId,
       recentlyGreeted: recentlyGreeted,
       lastOutboundText: lastOutboundText,
+      metrics: metrics,
     );
 
     if (reply == null || reply.trim().isEmpty) return null;
@@ -139,21 +173,33 @@ final class PragmaticFastPath {
     final actLabel = intents.map((i) => i.name).join('+');
     return FastPathCandidate(
       act: actLabel,
-      reply: reply.trim(),
+      reply: reply,
       understanding: ConversationUnderstanding(
-        intent: 'personal',
-        relation: 'continua',
-        requiresAction: false,
-        missingFacts: const [],
+        reply: reply,
+        intent: actLabel,
+        relation: intents.contains(ConversationIntent.reciprocalQuestion) ||
+                intents.contains(ConversationIntent.userWellbeing) ||
+                intents.contains(ConversationIntent.negation)
+            ? 'responde'
+            : 'nuevo',
         questions: const [],
-        reply: reply.trim(),
+        missingFacts: const [],
+        requiresAction: false,
       ),
     );
   }
 
   /// Verifica si el mensaje contiene intenciones de catálogo, compra, reclamo o comando.
   bool _hasCommercialOrCommandSignal(String normalized, Set<String> tokens) {
-    if (tokens.any(commercialIntentTokens.contains)) return true;
+    // Las consultas de hardware (batería/dispositivo) usan palabras como "cuánta", "tienes",
+    // pero son hechos de dispositivo, no compras ni catálogo comercial.
+    final isHardwareInquiry = normalized.contains('bateria') ||
+        normalized.contains('cuanta carga') ||
+        normalized.contains('nivel de carga');
+
+    if (!isHardwareInquiry && tokens.any(commercialIntentTokens.contains)) {
+      return true;
+    }
     if (supportPhrases.any(normalized.contains)) return true;
     if (correctionPhrases.any(normalized.contains)) return true;
 
@@ -311,6 +357,27 @@ final class PragmaticFastPath {
       intents.add(ConversationIntent.affirmation);
     }
 
+    // Negación
+    if (tokens.contains('no') ||
+        normalized.contains('para nada') ||
+        normalized.contains('no gracias') ||
+        normalized.contains('por ahora no')) {
+      intents.add(ConversationIntent.negation);
+    }
+
+    // Pregunta sobre batería / carga del celular (Nivel 2: Fast Path + Android)
+    if (normalized.contains('bateria') ||
+        normalized.contains('cuanta carga') ||
+        normalized.contains('cuanta bateria') ||
+        normalized.contains('nivel de carga') ||
+        normalized.contains('porcentaje de bateria') ||
+        (normalized.contains('carga') &&
+            (normalized.contains('tiene') ||
+                normalized.contains('tienes') ||
+                normalized.contains('queda')))) {
+      intents.add(ConversationIntent.askDeviceBattery);
+    }
+
     // Si es saludo puro según el tokenizer pero no activó flag específico
     if (intents.isEmpty && isPureGreeting(normalized)) {
       intents.add(ConversationIntent.greeting);
@@ -327,6 +394,7 @@ final class PragmaticFastPath {
     required String conversationId,
     required bool recentlyGreeted,
     required String? lastOutboundText,
+    DeviceMetricsData? metrics,
   }) {
     // Caso 1: Pregunta recíproca ("bien y tú", "bien y vos", "todo bien y tú?")
     if (intents.contains(ConversationIntent.reciprocalQuestion) ||
@@ -515,6 +583,39 @@ final class PragmaticFastPath {
         '¡Hágale pues!',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 13: Negación ("no", "no gracias", "para nada", "por ahora no")
+    if (intents.contains(ConversationIntent.negation)) {
+      const candidates = [
+        '¡Listo, dale! Cualquier cosa me avisas.',
+        'De una, fresco. Cualquier cosa me dices.',
+        'Listo, de una.',
+        'Dale, todo bien.',
+      ];
+      return _selectCandidate(candidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 14: Hecho de hardware bajo demanda: Batería (Nivel 2: Fast Path + Android)
+    if (intents.contains(ConversationIntent.askDeviceBattery)) {
+      final pct = metrics?.batteryPct.round() ?? -1;
+      final charging = metrics?.isCharging ?? false;
+      if (pct >= 0) {
+        final withGreeting =
+            intents.contains(ConversationIntent.greeting) && !recentlyGreeted;
+        if (charging) {
+          return withGreeting
+              ? '¡Hola! Tengo el $pct% y está cargando.'
+              : 'Tengo el $pct% y está cargando.';
+        } else {
+          return withGreeting
+              ? '¡Hola! Tengo el $pct% de batería por ahora.'
+              : 'Tengo el $pct% de batería por ahora.';
+        }
+      } else {
+        // Hardware no reportó datos válidos: null para no inventar
+        return null;
+      }
     }
 
     return null;

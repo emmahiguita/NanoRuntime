@@ -55,6 +55,9 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
   'notifications': SemanticActionDefinition(
     risk: SemanticActionRisk.observation,
   ),
+  'device_state': SemanticActionDefinition(
+    risk: SemanticActionRisk.observation,
+  ),
   'linux.list': SemanticActionDefinition(
     requiredInputs: ['path'],
     risk: SemanticActionRisk.observation,

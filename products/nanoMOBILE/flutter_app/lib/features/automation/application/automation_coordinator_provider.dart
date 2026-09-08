@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/services/device_metrics.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
@@ -462,6 +463,7 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
         contextEntryFor: (id) =>
             ref.read(conversationStateNotifierProvider)[id],
         ownerName: () => ref.read(personaContextProvider).ownerName,
+        metricsSource: DeviceMetrics.fetch,
       ),
       // antes de cada inferencia (SEVERE+ suprime el LLM, jamás la seguridad).
       thermalStatus: () => LanguageAssistService().thermalStatus(),

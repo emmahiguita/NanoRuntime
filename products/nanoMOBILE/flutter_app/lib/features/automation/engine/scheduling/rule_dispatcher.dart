@@ -337,7 +337,7 @@ class RuleDispatcher {
           // trivial de alta confianza sin referente (saludo/agradecimiento
           // puros). El reply determinista pasa IGUAL por la decisión
           // (eco, call-center, wrong-turn...): no es autoridad propia.
-          final fast = _fastPath?.resolve(
+          final fast = await _fastPath?.resolve(
             text: notif.text,
             conversationId: conversationId,
           );

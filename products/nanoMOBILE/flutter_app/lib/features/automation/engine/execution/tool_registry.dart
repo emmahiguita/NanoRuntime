@@ -121,6 +121,7 @@ class ToolRegistry {
       'ajustes_rapidos': 'open_quick_settings',
       'linux.readfile': 'linux.readFile',
       'linux.writefile': 'linux.writeFile',
+      'estado_dispositivo': 'device_state',
     },
   );
 
@@ -162,6 +163,13 @@ class ToolRegistry {
       name: 'notifications',
       description: 'Leer las notificaciones activas del dispositivo',
       promptSyntax: '{"tool":"notifications"}',
+    ),
+    ToolDefinition(
+      name: 'device_state',
+      timeout: Duration(seconds: 5),
+      description:
+          'Consultar estado del dispositivo (batería, carga, memoria, conectividad)',
+      promptSyntax: '{"tool":"device_state"}',
     ),
     ToolDefinition(
       name: 'reply_notification',
