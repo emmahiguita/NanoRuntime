@@ -68,10 +68,10 @@ class NanoTerminal extends StatefulWidget {
     this.initialCommand,
   });
   @override
-  State<NanoTerminal> createState() => _TermState();
+  State<NanoTerminal> createState() => NanoTerminalState();
 }
 
-class _TermState extends State<NanoTerminal> {
+class NanoTerminalState extends State<NanoTerminal> {
   TerminalDependencies get _deps =>
       widget.deps ?? TerminalDependencies.instance;
   IBinExecutor? get _shell => _deps.shell;
@@ -772,6 +772,12 @@ class _TermState extends State<NanoTerminal> {
       _exec(cmd);
     }
   }
+  
+  /// Expone la ejecución de comandos para que la Barra Cósmica global
+  /// pueda inyectar comandos directamente en la sesión activa.
+  void executeCommand(String cmd) {
+    _useCommand(cmd);
+  }
 
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
 
@@ -1282,23 +1288,27 @@ class _TermState extends State<NanoTerminal> {
                     top: BorderSide(color: fg.withValues(alpha: 0.08)),
                   ),
                 ),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: sug
-                      .map(
-                        (s) => _SuggestionChip(
-                          label: s,
-                          fg: fg,
-                          onTap: () {
-                            _in.text = s;
-                            _in.selection = TextSelection.collapsed(
-                              offset: s.length,
-                            );
-                          },
-                        ),
-                      )
-                      .toList(),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: sug
+                        .map(
+                          (s) => Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: _SuggestionChip(
+                              label: s,
+                              fg: fg,
+                              onTap: () {
+                                _in.text = s;
+                                _in.selection = TextSelection.collapsed(
+                                  offset: s.length,
+                                );
+                              },
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ),
               ),
             // TER-15: barra de input glass — gradiente pizarra translúcido,

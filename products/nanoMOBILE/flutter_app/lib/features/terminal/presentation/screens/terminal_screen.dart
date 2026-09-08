@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/terminal/terminal_core.dart';
+import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
 class TerminalTabScreen extends StatefulWidget {
   /// Comando que se ejecuta una sola vez en la sesión inicial cuando el
@@ -42,7 +43,13 @@ class _S extends State<TerminalTabScreen> {
         for (final s in list) {
           final m = s as Map<String, dynamic>;
           restored.add(
-            _Sess(id: m['id'], name: m['name'], cwd: m['cwd'], type: m['type']),
+            _Sess(
+              id: m['id'], 
+              name: m['name'], 
+              cwd: m['cwd'], 
+              type: m['type'],
+              key: GlobalKey<NanoTerminalState>(debugLabel: 't${m['id']}'),
+            ),
           );
         }
         restoredCounter = restored.length;
@@ -51,7 +58,13 @@ class _S extends State<TerminalTabScreen> {
 
     if (restored.isEmpty) {
       restored.add(
-        _Sess(id: 0, name: 'bash', cwd: '/home/nanoai', type: 'bash'),
+        _Sess(
+          id: 0, 
+          name: 'bash', 
+          cwd: '/home/nanoai', 
+          type: 'bash',
+          key: GlobalKey<NanoTerminalState>(debugLabel: 't0'),
+        ),
       );
       restored.add(
         _Sess(
@@ -60,6 +73,7 @@ class _S extends State<TerminalTabScreen> {
           cwd: '/home/nanoai/logs',
           type: 'logs',
           color: const Color(0xFFFFB74D),
+          key: GlobalKey<NanoTerminalState>(debugLabel: 't1'),
         ),
       );
       restoredCounter = restored.length;
@@ -104,13 +118,15 @@ class _S extends State<TerminalTabScreen> {
     ][_counter++ % 6];
     _sessions.add(
       _Sess(
-        id: _nextId++,
+        id: _nextId,
         name: t,
         cwd: '/home/nanoai',
         type: t,
         color: _clr(t),
+        key: GlobalKey<NanoTerminalState>(debugLabel: 't$_nextId'),
       ),
     );
+    _nextId++;
     setState(() => _active = _sessions.length - 1);
   }
 
@@ -139,9 +155,19 @@ class _S extends State<TerminalTabScreen> {
     final chrome = dark ? const Color(0xFF07192B) : c.surfaceVariant;
     final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
 
-    return Container(
-      color: bg,
-      child: SafeArea(
+    return NanoInputScope(
+      scopeId: 'terminal_tab',
+      hint: _sessions.isNotEmpty 
+          ? 'Comando para ${_sessions[_active].name}...' 
+          : 'Escribe un comando de terminal...',
+      onSubmit: (text) {
+        if (_sessions.isNotEmpty && _active >= 0 && _active < _sessions.length) {
+          _sessions[_active].key.currentState?.executeCommand(text);
+        }
+      },
+      child: Container(
+        color: bg,
+        child: SafeArea(
         bottom: false,
         child: Column(
           children: [
@@ -320,7 +346,7 @@ class _S extends State<TerminalTabScreen> {
                 children: [
                   for (final (i, s) in _sessions.indexed)
                     NanoTerminal(
-                      key: ValueKey('t${s.id}'),
+                      key: s.key,
                       sessionId: s.id,
                       initialCwd: s.cwd,
                       engine: _engine,
@@ -346,11 +372,13 @@ class _Sess {
   String name;
   final String cwd, type;
   final Color? color;
+  final GlobalKey<NanoTerminalState> key;
   _Sess({
     required this.id,
     required this.name,
     required this.cwd,
     required this.type,
     this.color,
+    required this.key,
   });
 }
