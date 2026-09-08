@@ -511,12 +511,23 @@ bool isGreetingLikeMessage(String messageText) {
   if (isPureGreeting(messageText)) return true;
   final normalized = normalizeText(messageText);
   final tokens = tokenizeText(normalized);
-  if (tokens.isEmpty || tokens.length > 4) return false;
-  if (!greetingTokens.contains(tokens.first)) return false;
+  if (tokens.isEmpty) return false;
   if (tokens.any(commercialIntentTokens.contains)) return false;
   if (supportPhrases.any(normalized.contains)) return false;
   if (correctionPhrases.any(normalized.contains)) return false;
-  return true;
+  const explicitGreetingWords = {
+    'hola',
+    'holas',
+    'buenas',
+    'buenos',
+    'hey',
+    'oe',
+    'saludos',
+    'ola',
+  };
+  if (tokens.take(3).any(explicitGreetingWords.contains)) return true;
+  if (tokens.length <= 4 && greetingTokens.contains(tokens.first)) return true;
+  return false;
 }
 
 /// P0-SOCIAL-2 — helper para el writer: reacción/continuación social

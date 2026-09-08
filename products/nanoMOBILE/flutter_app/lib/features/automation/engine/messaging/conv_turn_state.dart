@@ -166,6 +166,12 @@ const Set<String> greetingTokens = {
   // ("estas ahi" = todo el mensaje en el set → saludo puro → PERSONAL).
   'oe',
   'ahi',
+  'y',
+  'ti',
+  'usted',
+  'parce',
+  'emma',
+  'emm',
 };
 
 /// ¿Saludo/social puro? Determinista: cada token del mensaje pertenece a

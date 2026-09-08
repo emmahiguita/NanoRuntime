@@ -456,9 +456,13 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       draftSource: ref.watch(notificationDraftSourceProvider),
       // A07 — fast path pragmático determinista: saludo/agradecimiento puros
       // se responden SIN inferencia (ANDROID FIRST / SMALL LLM LAST). El
-      // reply determinista pasa IGUAL por el decision engine.
-      fastPath: const PragmaticFastPath(),
-      // A12 — política térmica: el dispatcher consulta el estado EN VIVO
+      fastPath: PragmaticFastPath(
+        memoryFor: (id) =>
+            ref.read(conversationMemoryStoreProvider).memoryFor(id),
+        contextEntryFor: (id) =>
+            ref.read(conversationStateNotifierProvider)[id],
+        ownerName: () => ref.read(personaContextProvider).ownerName,
+      ),
       // antes de cada inferencia (SEVERE+ suprime el LLM, jamás la seguridad).
       thermalStatus: () => LanguageAssistService().thermalStatus(),
       // PERSONA-DECISION-02 — decisión determinista antes de despachar el
