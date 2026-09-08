@@ -70,7 +70,6 @@ final class AutomationRun {
   void enterStep(int step) {
     if (step < 0) throw ArgumentError.value(step, 'step');
     _currentStep = step;
-    markPhysicalEffectDispatched();
     _transition(AutomationRunPhase.executing);
   }
 

@@ -74,6 +74,16 @@ class NotificationAutomationChannelHandler(
             )
 
             "completeEvent" -> {
+                val eventId = call.argument<String>("eventId")
+                if (!eventId.isNullOrEmpty()) {
+                    try {
+                        dev.nanoai.mobile.NanoApplication.from(context).durableInbox.complete(eventId)
+                        result.success(true)
+                    } catch (error: Exception) {
+                        result.error("INBOX_WRITE_FAILED", error.message, null)
+                    }
+                    return
+                }
                 val pkg = call.argument<String>("package").orEmpty()
                 val key = call.argument<String>("key").orEmpty()
                 val time = call.argument<Number>("postTime")?.toLong()
@@ -87,6 +97,39 @@ class NotificationAutomationChannelHandler(
                     result.success(true)
                 } catch (error: Exception) {
                     result.error("INBOX_WRITE_FAILED", error.message, null)
+                }
+            }
+
+            "claimInbox" -> {
+                val limit = call.argument<Number>("limit")?.toInt() ?: 30
+                val staleClaimMs = call.argument<Number>("staleClaimMs")?.toLong() ?: 30_000L
+                try {
+                    val inbox = dev.nanoai.mobile.NanoApplication.from(context).durableInbox
+                    val claimed = inbox.claim(limit, staleClaimMs)
+                    val service = NotificationAutomationBridge.service
+                    val rehydrated = mutableListOf<Map<String, Any?>>()
+                    for (e in claimed) {
+                        val payload = service?.byKey(e.notificationKey)
+                        if (payload != null) {
+                            rehydrated.add(payload + mapOf("inboxEventId" to e.eventId))
+                        } else {
+                            inbox.complete(e.eventId)
+                        }
+                    }
+                    result.success(rehydrated)
+                } catch (error: Exception) {
+                    result.error("INBOX_CLAIM_FAILED", error.message, null)
+                }
+            }
+
+            "cleanupInbox" -> {
+                val maxAgeMs = call.argument<Number>("maxAgeMs")?.toLong() ?: 86_400_000L
+                try {
+                    val inbox = dev.nanoai.mobile.NanoApplication.from(context).durableInbox
+                    val deleted = inbox.cleanup(maxAgeMs)
+                    result.success(deleted)
+                } catch (error: Exception) {
+                    result.error("INBOX_CLEANUP_FAILED", error.message, null)
                 }
             }
 

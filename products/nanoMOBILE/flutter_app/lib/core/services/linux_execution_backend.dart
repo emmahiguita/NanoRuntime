@@ -45,5 +45,8 @@ class LinuxExecutionResult {
 /// Backend de ejecución Linux no-interactivo. Implementaciones:
 /// ShellExecutorLinuxBackend (Nanoshell FFI / rootfs / toybox).
 abstract interface class LinuxExecutionBackend {
+  /// Indica si el backend tiene disponibilidad real en el sistema.
+  bool get isAvailable;
+
   Future<LinuxExecutionResult> execute(LinuxExecutionRequest request);
 }

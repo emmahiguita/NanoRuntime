@@ -111,9 +111,18 @@ class KaliDistribution implements LinuxDistribution {
         'KaliManager no inicializado. Inyectar KaliManager antes de usar.',
       );
     }
-    // Para MVP, retornar una sesión placeholder
-    // La ejecución real de comandos se hace vía KaliManager.run()
-    // cuando se necesita
+    final installed = await isInstalled();
+    if (!installed) {
+      return LinuxSession(
+        id: 'kali-${DateTime.now().millisecondsSinceEpoch}',
+        distributionId: id,
+        state: LinuxSessionState.failed,
+        startedAt: DateTime.now(),
+        pid: null,
+        rootfsPath: _kaliManager.kaliRoot ?? '',
+        command: '/bin/bash',
+      );
+    }
     return LinuxSession(
       id: 'kali-${DateTime.now().millisecondsSinceEpoch}',
       distributionId: id,
@@ -127,9 +136,7 @@ class KaliDistribution implements LinuxDistribution {
 
   @override
   Future<void> stop() async {
-    // Para MVP, no-op — cuando se implemente LinuxSessionManager
-    // se encargará de terminar procesos
-    // TODO: Implementar terminación real de sesión
+    _kaliManager?.stop();
   }
 
   @override

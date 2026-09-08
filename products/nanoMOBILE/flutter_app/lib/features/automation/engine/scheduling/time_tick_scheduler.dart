@@ -12,10 +12,13 @@ library;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'trigger.dart';
 
 class TimeTickScheduler {
+  static const _prefKey = 'automation.last_tick_minute';
+
   TimeTickScheduler({required this.onMinute});
 
   /// Se invoca UNA vez por minuto (no por cada pulsación del timer).
@@ -31,12 +34,14 @@ class TimeTickScheduler {
   void start() {
     if (_timer != null) return;
     debugPrint('[rules] ticker arrancado (pulso 30s)');
+    _restoreLastKey();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) async {
       if (_running) return;
       final now = DateTime.now();
       final key = now.millisecondsSinceEpoch ~/ 60000;
-      if (key == _lastMinuteKey) return;
+      if (key <= _lastMinuteKey) return;
       _lastMinuteKey = key;
+      _persistLastKey(key);
       _running = true;
       try {
         await onMinute(TickEvent(now));
@@ -46,6 +51,23 @@ class TimeTickScheduler {
         _running = false;
       }
     });
+  }
+
+  Future<void> _restoreLastKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getInt(_prefKey);
+      if (saved != null && saved > _lastMinuteKey) {
+        _lastMinuteKey = saved;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persistLastKey(int key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_prefKey, key);
+    } catch (_) {}
   }
 
   void stop() {

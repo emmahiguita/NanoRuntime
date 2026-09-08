@@ -313,10 +313,13 @@ final systemGraphBuilderProvider = Provider<SystemGraphBuilder>((ref) {
         final s = await NanoRuntimeApi.instance.devicePermissionStatus();
         return s['notificationAccess'] == true;
       }),
-      LinuxCapabilityProbe(
-        () =>
-            LinuxDistributionRegistry.instance.getAllDistributions().isNotEmpty,
-      ),
+      LinuxCapabilityProbe(() async {
+        final installed = await LinuxDistributionRegistry.instance
+            .getInstalledDistributions();
+        if (installed.isNotEmpty) return true;
+        final adapter = ref.watch(linuxToolAdapterProvider);
+        return adapter.isAvailable;
+      }),
       // A14.3: estado FACTUAL de Shizuku (binder + autorización) vía el canal
       // nativo pasivo. Solo disponibilidad — la ejecución es A14.4 tipada.
       ShizukuCapabilityProbe(ref.watch(shizukuAvailabilityProvider)),

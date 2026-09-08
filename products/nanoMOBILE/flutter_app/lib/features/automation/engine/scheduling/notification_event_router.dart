@@ -77,6 +77,12 @@ class NotificationEventRouter {
     _isDrainingBacklog = true;
     try {
       if (_sub == null || generation != _generation) return;
+      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 32);
+      if (_sub == null || generation != _generation) return;
+      for (final m in inboxEvents) {
+        if (_sub == null || generation != _generation) break;
+        await _routeBatch(m);
+      }
       final active = await NanoRuntimeApi.instance.listNotifications();
       if (_sub == null || generation != _generation) return;
       for (final m in active) {
@@ -90,21 +96,25 @@ class NotificationEventRouter {
     }
   }
 
-  /// WA-GAPS-01 — retry de arranque en frío: con la app recién arrancada (o
-  /// tras un reinstall), el EventChannel solo entrega eventos EN VIVO; los
-  /// mensajes que llegaron con el proceso muerto se perdían en silencio
-  /// (sink nativo null → "NO PASA NADA" en dispositivo). El snapshot del
-  /// listener re-emite las notificaciones ACTIVAS; el dedupe persistente
-  /// (eventId determinista con messageTimestamp) bloquea las ya procesadas
-  /// y deja pasar solo las nuevas. Reintenta si el listener aún no está
-  /// conectado (list vacío); si hay notificaciones activas, replay y fin.
+  /// WA-GAPS-01 / WA-PROD-01 — retry de arranque en frío y recuperación de cola durable:
+  /// Con la app recién arrancada (o tras un reboot/kill de ColorOS), recupera primero
+  /// los eventos pendientes de la cola durable SQLite (DurableInbox) y luego re-emite
+  /// las notificaciones ACTIVAS. El dedupe persistente bloquea las ya procesadas.
   Future<void> _coldStartReplay(int generation) async {
+    unawaited(NanoRuntimeApi.instance.cleanupInbox());
     for (var attempt = 0; attempt < 3; attempt++) {
       await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
       if (_sub == null || generation != _generation) return;
+      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 64);
+      if (_sub == null || generation != _generation) return;
+      if (inboxEvents.isNotEmpty) {
+        for (final m in inboxEvents) {
+          unawaited(_routeBatch(m));
+        }
+      }
       final active = await NanoRuntimeApi.instance.listNotifications();
       if (_sub == null || generation != _generation) return;
-      if (active.isEmpty) continue;
+      if (inboxEvents.isEmpty && active.isEmpty) continue;
       for (final m in active) {
         unawaited(_routeBatch(m));
       }

@@ -21,6 +21,7 @@ abstract class IBinExecutor {
   // ── Ciclo de vida ──
   Future<void> init();
   void killAll();
+  bool killTag(String tag);
 
   // ── Ejecución ──
 

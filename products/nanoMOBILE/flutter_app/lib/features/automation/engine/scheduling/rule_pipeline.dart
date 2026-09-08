@@ -475,6 +475,17 @@ class RulePipeline {
     );
     final results = <RuleDispatchResult>[];
     for (final rule in matched) {
+      if (rule.lastFiredAt != null &&
+          rule.lastFiredAt!.year == event.now.year &&
+          rule.lastFiredAt!.month == event.now.month &&
+          rule.lastFiredAt!.day == event.now.day &&
+          rule.lastFiredAt!.hour == event.now.hour &&
+          rule.lastFiredAt!.minute == event.now.minute) {
+        debugPrint(
+          '[rules] regla ${rule.id} ya disparada en este minuto ($hhmm); omitida para evitar duplicados.',
+        );
+        continue;
+      }
       final r = await _dispatcher.dispatchScheduled(rule);
       results.add(r);
       // Registrar el disparo para cooldown de regla: solo efectos reales

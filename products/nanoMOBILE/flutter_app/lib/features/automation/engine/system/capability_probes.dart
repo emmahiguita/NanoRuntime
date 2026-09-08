@@ -5,6 +5,8 @@
 /// [SystemGraph] ni [SystemGraphBuilder].
 library;
 
+import 'dart:async';
+
 import 'capability_availability.dart';
 import 'system_capability.dart';
 import '../privilege/shizuku_availability.dart';
@@ -141,15 +143,15 @@ class NotificationCapabilityProbe implements CapabilityProbe {
 }
 
 /// Capability de ejecución Linux, basada en señal real de readiness (distros
-/// registradas en el subsistema).
+/// registradas e instaladas en el subsistema o backend ejecutable disponible).
 class LinuxCapabilityProbe implements CapabilityProbe {
   LinuxCapabilityProbe(this._availableFn);
 
-  final bool Function() _availableFn;
+  final FutureOr<bool> Function() _availableFn;
 
   @override
   Future<Map<SystemCapability, CapabilityAvailability>> probe() async {
-    final available = _availableFn();
+    final available = await _availableFn();
     return {
       SystemCapability.linuxExecution: CapabilityAvailability(
         capability: SystemCapability.linuxExecution,
@@ -158,7 +160,7 @@ class LinuxCapabilityProbe implements CapabilityProbe {
             : CapabilityAvailabilityKind.unavailable,
         reason: available
             ? 'Subsistema Linux disponible.'
-            : 'Sin subsistema Linux registrado.',
+            : 'Sin subsistema Linux registrado ni instalado.',
         evidence: const [
           SystemEvidence(SystemEvidenceSource.linuxRuntime, 'distributions'),
         ],

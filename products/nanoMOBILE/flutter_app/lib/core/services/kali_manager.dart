@@ -60,6 +60,9 @@ class KaliManager {
   bool get isDownloading => _downloading;
   String? get kaliRoot => _kaliRoot;
 
+  /// Termina cualquier proceso de PRoot activo en este entorno.
+  void stop() => _proot.killAll();
+
   final void Function(String msg)? onLog;
 
   KaliManager({

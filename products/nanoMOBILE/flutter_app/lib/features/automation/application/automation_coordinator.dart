@@ -318,6 +318,7 @@ class AutomationCoordinator {
       executionId: flowRun.executionId,
       cancellation: flowRun.cancellation,
       onStep: flowRun.enterStep,
+      onPhysicalEffectDispatched: flowRun.markPhysicalEffectDispatched,
     );
     if (result.plan.confirmation != null) {
       flowRun.waitForConfirmation(result.plan.confirmation!);
@@ -552,6 +553,7 @@ class AutomationCoordinator {
         cancellation: planRun.cancellation,
         onStep: planRun.enterStep,
         authority: authority,
+        onPhysicalEffectDispatched: planRun.markPhysicalEffectDispatched,
       );
       if (outcome.confirmation != null) {
         planRun.waitForConfirmation(outcome.confirmation!);
@@ -579,21 +581,38 @@ class AutomationCoordinator {
       return outcome;
     } on ExecutionCancelled {
       if (!ownsRegistration) rethrow;
-      const feedback = '[cancelled] Ejecución cancelada por el usuario.';
-      const outcome = PlanOutcome(
+      final feedback = planRun.hasDispatchedPhysicalEffect
+          ? '[timeoutOutcomeUnknown] Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
+          : '[cancelled] Ejecución cancelada por el usuario.';
+      final outcome = PlanOutcome(
         completed: false,
-        steps: [ToolOutcome(verdict: PolicyVerdict.denied, feedback: feedback)],
+        steps: [
+          ToolOutcome(
+            verdict: PolicyVerdict.denied,
+            feedback: feedback,
+            executionStatus: planRun.hasDispatchedPhysicalEffect
+                ? ToolExecutionStatus.outcomeUnknown
+                : ToolExecutionStatus.notExecuted,
+          ),
+        ],
         summary: feedback,
       );
       _record(
         executionId: planRun.executionId,
         goal: recordGoal ?? (plan.isNotEmpty ? plan.first.tool : ''),
-        status: AutomationResultStatus.cancelled,
+        status: planRun.hasDispatchedPhysicalEffect
+            ? AutomationResultStatus.outcomeUnknown
+            : AutomationResultStatus.cancelled,
         summary: feedback,
         startedAt: startedAt,
       );
       if (ownsRegistration) {
-        planRun.finish(status: 'cancelled', reason: feedback);
+        planRun.finish(
+          status: planRun.hasDispatchedPhysicalEffect
+              ? 'outcomeUnknown'
+              : 'cancelled',
+          reason: feedback,
+        );
       }
       return outcome;
     } on Object catch (e, st) {
@@ -682,6 +701,7 @@ class AutomationCoordinator {
               call,
               executionId: run.executionId,
               cancellation: run.cancellation,
+              onPhysicalEffectDispatched: run.markPhysicalEffectDispatched,
             );
       if (!outcome.needsConfirmation) run.beginVerification();
       _record(
@@ -697,18 +717,29 @@ class AutomationCoordinator {
       );
       return outcome;
     } on ExecutionCancelled {
-      const outcome = ToolOutcome(
+      final feedback = run.hasDispatchedPhysicalEffect
+          ? '[timeoutOutcomeUnknown] Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
+          : '[cancelled] Ejecución cancelada por el usuario.';
+      final outcome = ToolOutcome(
         verdict: PolicyVerdict.denied,
-        feedback: '[cancelled] Ejecución cancelada por el usuario.',
+        feedback: feedback,
+        executionStatus: run.hasDispatchedPhysicalEffect
+            ? ToolExecutionStatus.outcomeUnknown
+            : ToolExecutionStatus.notExecuted,
       );
       _record(
         executionId: run.executionId,
         goal: call.tool,
-        status: AutomationResultStatus.cancelled,
+        status: run.hasDispatchedPhysicalEffect
+            ? AutomationResultStatus.outcomeUnknown
+            : AutomationResultStatus.cancelled,
         summary: outcome.feedback,
         startedAt: startedAt,
       );
-      run.finish(status: 'cancelled', reason: outcome.feedback);
+      run.finish(
+        status: run.hasDispatchedPhysicalEffect ? 'outcomeUnknown' : 'cancelled',
+        reason: outcome.feedback,
+      );
       return outcome;
     } on Object catch (e, st) {
       debugPrint('[coordinator.runTool] excepción no manejada: $e\n$st');
@@ -745,16 +776,26 @@ class AutomationCoordinator {
         cancellation: run.cancellation,
       );
       if (run.cancellation.isCancelled) {
-        const cancelled = '[cancelled] Ejecución cancelada por el usuario.';
-        run.finish(status: 'cancelled', reason: cancelled);
+        final cancelled = run.hasDispatchedPhysicalEffect
+            ? '[timeoutOutcomeUnknown] Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
+            : '[cancelled] Ejecución cancelada por el usuario.';
+        run.finish(
+          status: run.hasDispatchedPhysicalEffect ? 'outcomeUnknown' : 'cancelled',
+          reason: cancelled,
+        );
         return cancelled;
       }
       run.beginVerification();
       run.finish(status: 'returned', reason: feedback);
       return feedback;
     } on ExecutionCancelled {
-      const cancelled = '[cancelled] Ejecución cancelada por el usuario.';
-      run.finish(status: 'cancelled', reason: cancelled);
+      final cancelled = run.hasDispatchedPhysicalEffect
+          ? '[timeoutOutcomeUnknown] Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
+          : '[cancelled] Ejecución cancelada por el usuario.';
+      run.finish(
+        status: run.hasDispatchedPhysicalEffect ? 'outcomeUnknown' : 'cancelled',
+        reason: cancelled,
+      );
       return cancelled;
     } finally {
       if (identical(_activeRuns[run.executionId], run)) {
@@ -1172,8 +1213,12 @@ class AutomationCoordinator {
       return finish(
         AutomationResult(
           executionId: executionId,
-          status: AutomationResultStatus.cancelled,
-          reason: 'Ejecución cancelada por el usuario.',
+          status: run.hasDispatchedPhysicalEffect
+              ? AutomationResultStatus.outcomeUnknown
+              : AutomationResultStatus.cancelled,
+          reason: run.hasDispatchedPhysicalEffect
+              ? 'Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
+              : 'Ejecución cancelada por el usuario.',
         ),
       );
     } on Object catch (e, st) {

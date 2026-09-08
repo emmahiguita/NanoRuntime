@@ -789,6 +789,7 @@ class AgentToolDispatcher {
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
     RuleExecutionAuthority? authority,
+    void Function()? onPhysicalEffectDispatched,
   }) => _runToolGuarded(
     call,
     humanInitiated: humanInitiated,
@@ -798,6 +799,7 @@ class AgentToolDispatcher {
     budget: budget,
     cancellation: cancellation,
     authority: authority,
+    onPhysicalEffectDispatched: onPhysicalEffectDispatched,
   );
 
   /// Variante para TaskPlan: añade la identidad semántica sin cambiar el
@@ -811,6 +813,7 @@ class AgentToolDispatcher {
     ExecutionJournalEntry? executionIntent,
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
+    void Function()? onPhysicalEffectDispatched,
   }) => _runToolGuarded(
     call,
     confirmed: confirmed,
@@ -819,6 +822,7 @@ class AgentToolDispatcher {
     executionIntent: executionIntent,
     budget: budget,
     cancellation: cancellation,
+    onPhysicalEffectDispatched: onPhysicalEffectDispatched,
   );
 
   Future<ToolOutcome> _runToolGuarded(
@@ -831,6 +835,7 @@ class AgentToolDispatcher {
     ToolExecutionBudget? budget,
     ExecutionCancellationToken? cancellation,
     RuleExecutionAuthority? authority,
+    void Function()? onPhysicalEffectDispatched,
   }) async {
     cancellation?.throwIfCancelled();
     final runBudget = budget ?? ToolExecutionBudget();
@@ -928,7 +933,11 @@ class AgentToolDispatcher {
         executionIntent: executionIntent,
         allowPreviouslyUncertain: confirmed && executionIntent != null,
         cancellation: cancellation,
+        onPhysicalEffectDispatched: onPhysicalEffectDispatched,
       );
+    }
+    if (tool.risk != SemanticActionRisk.readOnly) {
+      onPhysicalEffectDispatched?.call();
     }
     final feedback = await _executeWithTimeout(call, tool, runBudget);
     return ToolOutcome(
@@ -946,6 +955,7 @@ class AgentToolDispatcher {
     ExecutionJournalEntry? executionIntent,
     bool allowPreviouslyUncertain = false,
     ExecutionCancellationToken? cancellation,
+    void Function()? onPhysicalEffectDispatched,
   }) async {
     final journal = _executionJournal;
     if (journal == null) {
@@ -1078,6 +1088,7 @@ class AgentToolDispatcher {
         executionStatus: ToolExecutionStatus.notExecuted,
       );
     }
+    onPhysicalEffectDispatched?.call();
     final feedback = await _executeWithTimeout(call, tool, budget);
     final executionStatus = _executionStatusFor(feedback);
     final executedEntry = executingEntry.copyWith(
@@ -1151,6 +1162,7 @@ class AgentToolDispatcher {
     ExecutionCancellationToken? cancellation,
     void Function(int stepIndex)? onStep,
     RuleExecutionAuthority? authority,
+    void Function()? onPhysicalEffectDispatched,
   }) async {
     if (requiresGoalDirectedExecution(plan)) {
       const denied = ToolOutcome(
@@ -1268,6 +1280,7 @@ class AgentToolDispatcher {
         cancellation: cancellation,
         executionIntent: executionIntent,
         authority: authority,
+        onPhysicalEffectDispatched: onPhysicalEffectDispatched,
       );
       outcomes.add(outcome);
 
@@ -1599,10 +1612,16 @@ class AgentToolDispatcher {
     final explicitTimeoutSeconds = call.args?['timeout'] is num
         ? (call.args!['timeout'] as num).toInt()
         : int.tryParse('${call.args?['timeout']}');
-    final effectiveTimeout =
-        (explicitTimeoutSeconds != null && explicitTimeoutSeconds > 0)
-            ? Duration(seconds: explicitTimeoutSeconds.clamp(1, 600))
-            : tool.timeout;
+    // Solo linux.run admite extensión dinámica en args['timeout'].
+    // Todas las demás herramientas respetan estrictamente su tool.timeout.
+    final Duration effectiveTimeout;
+    if (call.tool.toLowerCase() == 'linux.run' &&
+        explicitTimeoutSeconds != null &&
+        explicitTimeoutSeconds > 0) {
+      effectiveTimeout = Duration(seconds: explicitTimeoutSeconds.clamp(1, 600));
+    } else {
+      effectiveTimeout = tool.timeout;
+    }
     debugPrint(
       '[agent-policy] tool=${tool.name} risk=${tool.risk.name} '
       'steps=${budget.stepsUsed} timeout=${effectiveTimeout.inMilliseconds}ms',
@@ -1610,10 +1629,14 @@ class AgentToolDispatcher {
     try {
       return await _executeTool(call).timeout(
         effectiveTimeout,
-        onTimeout: () =>
-            '[timeoutOutcomeUnknown] "${tool.name}" excedió '
-            '${effectiveTimeout.inSeconds}s. El caller dejó de esperar, pero la '
-            'operación nativa puede seguir activa; resultado desconocido.',
+        onTimeout: () {
+          if (tool.risk == SemanticActionRisk.readOnly) {
+            return '[timeout] "${tool.name}" excedió ${effectiveTimeout.inSeconds}s.';
+          }
+          return '[timeoutOutcomeUnknown] "${tool.name}" excedió '
+              '${effectiveTimeout.inSeconds}s. El caller dejó de esperar, pero la '
+              'operación nativa puede seguir activa; resultado desconocido.';
+        },
       );
     } catch (e) {
       return '[error] "${tool.name}" falló: $e';
@@ -1832,6 +1855,13 @@ class AgentToolDispatcher {
         );
     }
     if (!result.ok) {
+      final err = (result.infrastructureError ?? result.stderr).trim();
+      if (call.tool.toLowerCase() == 'linux.run' &&
+          (err.contains('cancellation unconfirmed') ||
+              (result.exitCode == -1 && err.contains('worker timeout')))) {
+        return '[timeoutOutcomeUnknown] linux.run excedió el tiempo límite y su cancelación '
+            'no pudo confirmarse de inmediato; resultado desconocido: $err';
+      }
       return '[linux] ${result.infrastructureError}';
     }
     // T1.5: exitCode != 0 = el comando falló (no es infraestructura). Se
@@ -1839,6 +1869,12 @@ class AgentToolDispatcher {
     // (vía legacy sin código determinable) se tolera como "se ejecutó".
     if (result.exitCode != null && result.exitCode != 0) {
       final err = result.stderr.trim();
+      if (call.tool.toLowerCase() == 'linux.run' &&
+          (err.contains('cancellation unconfirmed') ||
+              (result.exitCode == -1 && err.contains('worker timeout')))) {
+        return '[timeoutOutcomeUnknown] linux.run excedió el tiempo límite y su cancelación '
+            'no pudo confirmarse de inmediato; resultado desconocido: $err';
+      }
       return '[linux] comando terminó con exitCode=${result.exitCode}'
           '${err.isNotEmpty ? ': $err' : ''}';
     }

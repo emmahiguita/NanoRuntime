@@ -15,6 +15,10 @@ class ShellExecutorLinuxBackend implements LinuxExecutionBackend {
 
   final ShellExecutor _executor;
 
+  @override
+  bool get isAvailable =>
+      _executor.rootfsInstalled || _executor.busyboxRealAvailable;
+
   /// Applets BusyBox conocidos → se ejecutan vía toybox (más rápido, sin
   /// resolver binario). El resto → execRootfs (binario real del rootfs).
   static const _applets = {

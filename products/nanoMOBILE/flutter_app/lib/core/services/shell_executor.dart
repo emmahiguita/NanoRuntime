@@ -495,10 +495,13 @@ class ShellExecutor implements IBinExecutor {
     Duration timeout = const Duration(seconds: 60),
   }) async {
     try {
+      final baseEnv = _rootfs.isInstalled ? _linuxEnv() : _defaultEnv;
+      final effectiveEnv = Map<String, String>.from(baseEnv);
+      if (env != null) effectiveEnv.addAll(env);
       final taskId = await NanoRuntimeApi.instance.workerSpawn(
         binaryPath: binaryPath,
         argv: argv,
-        envp: env,
+        envp: effectiveEnv,
       );
       if (taskId == null) return null;
       final base = _baseDir ?? _fallbackBaseDir;
@@ -514,7 +517,7 @@ class ShellExecutor implements IBinExecutor {
         // En timeout, matar específicamente este subproceso huérfano
         // mediante workerKillTask (ownership por tarea) sin tumbar el worker
         // ni afectar a otras tareas concurrentes.
-        await NanoRuntimeApi.instance.workerKillTask(taskId);
+        final killed = await NanoRuntimeApi.instance.workerKillTask(taskId);
         try {
           if (outF.existsSync()) outF.deleteSync();
         } catch (_) {}
@@ -524,7 +527,13 @@ class ShellExecutor implements IBinExecutor {
         try {
           if (rcF.existsSync()) rcF.deleteSync();
         } catch (_) {}
-        return null; // timeout → caer al in-process
+        return ShellResult(
+          stdout: '',
+          stderr: killed
+              ? 'worker timeout'
+              : 'worker timeout (cancellation unconfirmed)',
+          exitCode: -1,
+        );
       }
       final rc = int.tryParse(rcF.readAsStringSync().trim()) ?? -1;
       final out = outF.existsSync() ? outF.readAsStringSync() : '';
@@ -599,6 +608,9 @@ class ShellExecutor implements IBinExecutor {
     }
   }
 
+  /// Indica si el rootfs está instalado en el dispositivo.
+  bool get rootfsInstalled => _rootfs.isInstalled;
+
   /// Ejecuta un binario del rootfs en el worker (:nanoshell, sin GPU).
   /// Útil para git, curl, python, dpkg y cualquier PIE del rootfs Termux.
   ///
@@ -646,7 +658,9 @@ class ShellExecutor implements IBinExecutor {
     Duration timeout = const Duration(seconds: 120),
   }) async {
     try {
-      final effectiveEnv = Map<String, String>.from(env ?? _defaultEnv);
+      final baseEnv = _rootfs.isInstalled ? _linuxEnv() : _defaultEnv;
+      final effectiveEnv = Map<String, String>.from(baseEnv);
+      if (env != null) effectiveEnv.addAll(env);
       if (ldPreload != null && ldPreload.isNotEmpty) {
         effectiveEnv['LD_PRELOAD'] = ldPreload;
         if (_rootfs.isInstalled && _rootfs.usrDir != null) {
@@ -677,7 +691,7 @@ class ShellExecutor implements IBinExecutor {
         // En timeout, matar específicamente este subproceso huérfano
         // mediante workerKillTask (ownership por tarea) sin tumbar el worker
         // ni afectar a otras tareas concurrentes.
-        await NanoRuntimeApi.instance.workerKillTask(taskId);
+        final killed = await NanoRuntimeApi.instance.workerKillTask(taskId);
         try {
           if (outF.existsSync()) outF.deleteSync();
         } catch (_) {}
@@ -687,9 +701,11 @@ class ShellExecutor implements IBinExecutor {
         try {
           if (rcF.existsSync()) rcF.deleteSync();
         } catch (_) {}
-        return const ShellResult(
+        return ShellResult(
           stdout: '',
-          stderr: 'worker timeout',
+          stderr: killed
+              ? 'worker timeout'
+              : 'worker timeout (cancellation unconfirmed)',
           exitCode: -1,
         );
       }
@@ -734,10 +750,28 @@ class ShellExecutor implements IBinExecutor {
     }
   }
 
-  // â”€â”€ Entorno Linux completo (compatible con Termux) â”€â”€
+  /// Termina un proceso en vuelo rastreado por tag (p.ej. subproceso de PRoot).
+  @override
+  bool killTag(String tag) {
+    final p = _tracked.remove(tag);
+    if (p != null) {
+      try {
+        p.kill(ProcessSignal.sigterm);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  // ── Entorno Linux completo (compatible con Termux) ──
 
   /// Variables de entorno que emulan el entorno Termux estándar.
   /// Los paquetes .deb de Termux esperan estas variables para funcionar.
-  Map<String, String> _linuxEnv() =>
-      RootfsEnv.build(usr: _rootfs.usrDir!, base: _baseDir!, appPid: pid);
+  Map<String, String> _linuxEnv() {
+    final base = _baseDir ?? _fallbackBaseDir;
+    final usr = _rootfs.usrDir ?? '$base/usr';
+    return RootfsEnv.build(usr: usr, base: base, appPid: pid);
+  }
 }

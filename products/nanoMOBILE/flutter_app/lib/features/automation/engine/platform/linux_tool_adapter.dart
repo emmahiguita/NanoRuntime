@@ -50,6 +50,9 @@ class LinuxToolAdapter {
 
   final LinuxExecutionBackend _backend;
 
+  /// Indica si el subsistema Linux subyacente está disponible.
+  bool get isAvailable => _backend.isAvailable;
+
   Future<LinuxCommandResult> list(
     String path, {
     String? cwd,
@@ -99,11 +102,10 @@ class LinuxToolAdapter {
           executable: executable,
           arguments: args,
           // LINUX-EXEC-01: el contrato core tipa cwd/environment/timeout; el
-          // adapter los PROPAGA en vez de ignorarlos (antes: 20s fijo para
-          // toda tool y ejecución siempre en el cwd del backend).
+          // adapter los PROPAGA en vez de ignorarlos.
           cwd: cwd,
           environment: environment ?? const {},
-          timeout: timeout ?? const Duration(seconds: 20),
+          timeout: timeout ?? const Duration(seconds: 30),
         ),
       );
       return LinuxCommandResult(
@@ -133,7 +135,7 @@ class LinuxToolAdapter {
           arguments: ['-c', script],
           cwd: cwd,
           environment: environment ?? const {},
-          timeout: timeout ?? const Duration(seconds: 20),
+          timeout: timeout ?? const Duration(seconds: 30),
         ),
       );
       return LinuxCommandResult(

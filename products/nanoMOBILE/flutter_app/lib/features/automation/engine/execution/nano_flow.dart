@@ -70,6 +70,7 @@ class NanoFlowExecutor {
     String? executionId,
     ExecutionCancellationToken? cancellation,
     void Function(int stepIndex)? onStep,
+    void Function()? onPhysicalEffectDispatched,
   }) async {
     final plan = await _dispatcher.runPlanGuarded(
       flow.steps,
@@ -78,6 +79,7 @@ class NanoFlowExecutor {
       executionId: executionId,
       cancellation: cancellation,
       onStep: onStep,
+      onPhysicalEffectDispatched: onPhysicalEffectDispatched,
     );
     if (plan.pauseIndex != null) {
       // Pausa: sin plan completo no hay verificación de objetivo todavía.

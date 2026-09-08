@@ -1133,14 +1133,51 @@ class NanoRuntimeApi {
   /// aquí al arrancar; el dedupe persistente decide cuáles pasan.
   /// Vacío si el listener aún no está conectado (el router reintenta).
   Future<void> completeNotificationEvent(Map<dynamic, dynamic> event) async {
+    final eventId = event['inboxEventId'] ?? event['eventId'];
     final ok = await _notifications
         .invokeMethod<bool>('completeEvent', {
+          if (eventId != null) 'eventId': eventId,
           'package': event['package'],
           'key': event['key'],
           'postTime': event['postTime'],
         })
         .timeout(const Duration(seconds: 10));
     if (ok != true) throw StateError('Notification completion rejected');
+  }
+
+  /// WA-PROD-01: Reclama eventos pendientes del DurableInbox (SQLite)
+  /// y los rehidrata contra notificaciones activas.
+  Future<List<Map<dynamic, dynamic>>> claimInbox({
+    int limit = 30,
+    int staleClaimMs = 30000,
+  }) async {
+    try {
+      final raw = await _notifications.invokeMethod<List<dynamic>>('claimInbox', {
+        'limit': limit,
+        'staleClaimMs': staleClaimMs,
+      });
+      if (raw == null) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<dynamic, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      debugPrint('[runtime] claimInbox error: $e');
+      return const [];
+    }
+  }
+
+  /// Limpia eventos viejos u obsoletos del DurableInbox en SQLite.
+  Future<int> cleanupInbox({int maxAgeMs = 86400000}) async {
+    try {
+      final deleted = await _notifications.invokeMethod<int>('cleanupInbox', {
+        'maxAgeMs': maxAgeMs,
+      });
+      return deleted ?? 0;
+    } catch (e) {
+      debugPrint('[runtime] cleanupInbox error: $e');
+      return 0;
+    }
   }
 
   Future<List<Map<dynamic, dynamic>>> listNotifications({

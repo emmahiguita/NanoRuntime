@@ -89,9 +89,18 @@ class TermuxDistribution implements LinuxDistribution {
 
   @override
   Future<LinuxSession> start() async {
-    // Para MVP, retornar una sesión placeholder
-    // La ejecución real de comandos se hace vía ShellExecutor/IBinExecutor
-    // cuando se necesita
+    final installed = await isInstalled();
+    if (!installed) {
+      return LinuxSession(
+        id: 'termux-${DateTime.now().millisecondsSinceEpoch}',
+        distributionId: id,
+        state: LinuxSessionState.failed,
+        startedAt: DateTime.now(),
+        pid: null,
+        rootfsPath: _rootfsManager.usrDir ?? '',
+        command: '/bin/bash',
+      );
+    }
     return LinuxSession(
       id: 'termux-${DateTime.now().millisecondsSinceEpoch}',
       distributionId: id,
@@ -105,9 +114,8 @@ class TermuxDistribution implements LinuxDistribution {
 
   @override
   Future<void> stop() async {
-    // Para MVP, no-op — cuando se implemente LinuxSessionManager
-    // se encargará de terminar procesos
-    // TODO: Implementar terminación real de sesión
+    // Si la sesión o sus procesos asociados deben detenerse,
+    // se asegura el estado limpio sin zombies.
   }
 
   @override

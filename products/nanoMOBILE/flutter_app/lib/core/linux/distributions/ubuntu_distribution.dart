@@ -255,9 +255,7 @@ class UbuntuDistribution implements LinuxDistribution {
 
   @override
   Future<void> stop() async {
-    // Per-command proot model: no persistent session process to terminate.
-    // Each exec() call is self-contained. Nothing to stop here.
-    // If a proot command is in flight, callers must use ProotManager.killByTag().
+    _prootMgr.killAll();
   }
 
   /// Ejecuta un comando dentro del rootfs Ubuntu vía proot (streaming).

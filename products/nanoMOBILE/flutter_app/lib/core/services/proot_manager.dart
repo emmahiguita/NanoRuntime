@@ -21,6 +21,7 @@ import '../../features/terminal/i_bin_executor.dart';
 ///     -w /root /usr/bin/env -i HOME=/root PATH=/usr/bin:/bin /bin/bash -c "<cmd>"
 class ProotManager {
   final IBinExecutor _shell;
+  final Set<String> _activeTags = {};
   String? _prootPath;
   bool _ready = false;
   bool get isReady => _ready;
@@ -175,15 +176,35 @@ class ProotManager {
       return 127;
     }
 
-    return _shell.stream(
-      full.first,
-      full.sublist(1),
-      env: {},
-      onOut: onOut,
-      onErr: onErr,
-      timeout: timeout,
-      trackTag: tag,
-    );
+    final effectiveTag = tag ?? 'proot_${DateTime.now().microsecondsSinceEpoch}';
+    _activeTags.add(effectiveTag);
+    try {
+      return await _shell.stream(
+        full.first,
+        full.sublist(1),
+        env: {},
+        onOut: onOut,
+        onErr: onErr,
+        timeout: timeout,
+        trackTag: effectiveTag,
+      );
+    } finally {
+      _activeTags.remove(effectiveTag);
+    }
+  }
+
+  /// Mata todos los procesos de PRoot activos lanzados por este manager.
+  void killAll() {
+    for (final tag in List.of(_activeTags)) {
+      _shell.killTag(tag);
+    }
+    _activeTags.clear();
+  }
+
+  /// Mata un proceso específico de PRoot por su tag.
+  bool killByTag(String tag) {
+    _activeTags.remove(tag);
+    return _shell.killTag(tag);
   }
 
   /// Construye la lista completa de argumentos [prootPath, ...args] para

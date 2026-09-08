@@ -112,6 +112,13 @@ class DurableInbox(context: Context) {
         helper.writableDatabase.delete(TABLE, "$COL_EVENT_ID = ?", arrayOf(eventId))
     }
 
+    /** Limpia filas procesadas u obsoletas que superen [maxAgeMs] (por defecto 24 horas). */
+    @Synchronized
+    fun cleanup(maxAgeMs: Long = 86_400_000L): Int {
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        return helper.writableDatabase.delete(TABLE, "$COL_RECEIVED_AT < ?", arrayOf(cutoff.toString()))
+    }
+
     @Synchronized
     fun pendingCount(): Int = helper.readableDatabase.query(
         TABLE,

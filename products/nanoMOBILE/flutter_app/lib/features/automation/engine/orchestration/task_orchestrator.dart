@@ -313,6 +313,9 @@ class TaskOrchestrator {
         continue;
       }
       activeRun.enterStep(index);
+      if (priorDefinition.risk != SemanticActionRisk.readOnly) {
+        activeRun.markPhysicalEffectDispatched();
+      }
       final rebuiltContext = await _captureDecisionContext(
         run: activeRun,
         step: prior,
@@ -342,9 +345,13 @@ class TaskOrchestrator {
         activeRun.cancellation.throwIfCancelled();
       } on ExecutionCancelled {
         results.add(
-          const TaskStepResult(
-            status: TaskStepStatus.failed,
-            reason: 'cancelado por el usuario',
+          TaskStepResult(
+            status: activeRun.hasDispatchedPhysicalEffect
+                ? TaskStepStatus.needsMoreEvidence
+                : TaskStepStatus.failed,
+            reason: activeRun.hasDispatchedPhysicalEffect
+                ? 'cancelado tras iniciar efectos físicos; resultado incierto'
+                : 'cancelado por el usuario',
             failureKind: TaskFailureKind.terminal,
           ),
         );
@@ -465,6 +472,9 @@ class TaskOrchestrator {
         ),
         capturedAt: DateTime.now().toUtc(),
       );
+      if (definition.risk != SemanticActionRisk.readOnly) {
+        activeRun.markPhysicalEffectDispatched();
+      }
       var result = await _runStep(
         step,
         decisionContext,
