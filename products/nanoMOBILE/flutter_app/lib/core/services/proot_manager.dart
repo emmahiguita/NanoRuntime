@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'nano_runtime_api.dart';
-import 'shell_executor.dart';
 import '../../features/terminal/i_bin_executor.dart';
 
 /// Ejecuta comandos dentro de un rootfs aislado usando proot (chroot sin root).

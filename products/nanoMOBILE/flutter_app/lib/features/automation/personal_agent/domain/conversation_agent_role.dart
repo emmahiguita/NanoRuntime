@@ -525,9 +525,25 @@ bool isGreetingLikeMessage(String messageText) {
     'saludos',
     'ola',
   };
-  if (tokens.take(3).any(explicitGreetingWords.contains)) return true;
-  if (tokens.length <= 4 && greetingTokens.contains(tokens.first)) return true;
-  return false;
+  final hasGreeting = tokens.take(3).any(explicitGreetingWords.contains) ||
+      greetingTokens.contains(tokens.first);
+  if (!hasGreeting) return false;
+
+  // Saludo corto (hasta 4 tokens, ej. "hola emma como estas")
+  if (tokens.length <= 4) return true;
+
+  // Si contiene palabras sustantivas/narrativas, NO es solo un saludo;
+  // es un turno conversacional que requiere memoria factual completa.
+  const substantiveTokens = {
+    'programando', 'programa', 'programar', 'codigo', 'app', 'aplicacion',
+    'agente', 'agentes', 'trabajando', 'trabajo', 'camellando', 'cansado',
+    'cansada', 'cansao', 'cansaod', 'agotado', 'muerto', 'gimnasio', 'gym',
+    'entrenando', 'entreno', 'pecho', 'espalda', 'pierna', 'casa', 'calle',
+    'estoy', 'ando', 'sali', 'fui', 'tarea', 'ayuda', 'duda', 'pregunta',
+  };
+  if (tokens.any(substantiveTokens.contains)) return false;
+
+  return true;
 }
 
 /// P0-SOCIAL-2 — helper para el writer: reacción/continuación social

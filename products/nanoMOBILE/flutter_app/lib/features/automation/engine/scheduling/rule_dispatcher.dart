@@ -178,9 +178,9 @@ class RuleDispatcher {
   /// A12 — estado térmico del sistema; severe+ suprime la inferencia.
   final Future<int> Function()? _thermalStatus;
 
-  /// Constante Android THERMAL_STATUS_SEVERE: de aquí para arriba el LLM
-  /// queda suprimido (THERMAL PRESSURE MAY REDUCE COMPUTE).
-  static const _thermalSevere = 3;
+  /// Constante Android THERMAL_STATUS_CRITICAL: de aquí para arriba el LLM
+  /// queda suprimido para proteger el dispositivo (4 = CRITICAL, 5 = EMERGENCY).
+  static const _thermalSevere = 4;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -349,7 +349,7 @@ class RuleDispatcher {
               'input="${_sample(notif.text)}"',
             );
           } else {
-            // A12 — thermal SEVERE+: suprimir la inferencia opcional. El
+            // A12 — thermal CRITICAL+: suprimir la inferencia opcional. El
             // turno muere honesto (failed, jamás reply inventado); el
             // backoff del dedupe reintenta cuando el sistema se enfríe.
             final thermal = await _thermalStatus?.call();
@@ -358,7 +358,7 @@ class RuleDispatcher {
                 ruleId: rule.id,
                 outcome: RuleOutcome.failed,
                 reason:
-                    'thermal $thermal (severe+): inferencia LLM suprimida '
+                    'thermal $thermal (critical+): inferencia LLM suprimida '
                     'sin fast path aplicable',
               );
             }

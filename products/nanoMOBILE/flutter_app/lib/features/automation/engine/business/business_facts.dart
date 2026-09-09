@@ -55,7 +55,9 @@ final class BusinessProduct {
   String promptLine() {
     final variant = details.trim();
     final label = variant.isEmpty ? name : '$name ($variant)';
-    final stockLabel = stock == null ? 'stock no confirmado' : 'stock $stock';
+    final stockLabel = stock == null
+        ? 'stock no confirmado (se debe verificar disponibilidad)'
+        : (stock == 0 ? 'agotado (sin stock disponible)' : 'stock $stock disponible');
     return '- $label: $priceLabel ($stockLabel)';
   }
 

@@ -119,11 +119,19 @@ final class PragmaticFastPath {
       return null;
     }
 
-    // 2. Extraer el conjunto de intenciones comunicativas
+    // 2. Escape de contenido narrativo / sustantivo / estado personal:
+    // Si el usuario está contando qué hace, cómo está, qué hizo (programando, gym, cansado, etc.)
+    // Fast Path NO debe secuestrar el turno con una plantilla estática.
+    // Escapa al LLM para componer con memoria contextual y multi-intent.
+    if (hasSubstantiveNarrative(normalized, tokens)) {
+      return null;
+    }
+
+    // 3. Extraer el conjunto de intenciones comunicativas
     final intents = _extractIntents(normalized, tokens);
     if (intents.isEmpty) return null;
 
-    // 3. Consultar hechos de hardware bajo demanda (Nivel 2) SOLO si la intención lo pide
+    // 4. Consultar hechos de hardware bajo demanda (Nivel 2) SOLO si la intención lo pide
     DeviceMetricsData? metrics;
     if (intents.contains(ConversationIntent.askDeviceBattery)) {
       metrics = await _getMetrics();
@@ -386,6 +394,91 @@ final class PragmaticFastPath {
     return intents;
   }
 
+  /// Detecta si el mensaje contiene contenido narrativo, estado personal,
+  /// actividades cotidianas o cláusulas compuestas que requieren memoria y composición LLM,
+  /// evitando que Fast Path secuestre el turno con una plantilla genérica.
+  static bool hasSubstantiveNarrative(String normalized, Set<String> tokens) {
+    // Palabras clave de actividades, estados físicos, tecnología, deporte, lugares
+    const narrativeTokens = {
+      // Desarrollo / estudio / trabajo
+      'programando', 'programar', 'programa', 'codigo', 'app', 'aplicacion',
+      'agente', 'agentes', 'desarrollando', 'desarrollo', 'trabajando', 'trabajo',
+      'camellando', 'camello', 'estudiando', 'estudio', 'universidad', 'colegio',
+      'proyecto', 'reunion',
+      // Estado físico / salud / cansancio
+      'cansado', 'cansada', 'cansao', 'cansaod', 'cansadote', 'agotado', 'muerto', 'sueno',
+      'dolor', 'enfermo', 'enferma', 'recuperando', 'pereza',
+      // Ejercicio / gym
+      'gimnasio', 'gym', 'entrenando', 'entrene', 'entreno', 'pecho', 'espalda',
+      'pierna', 'brazo', 'pesas', 'trotando', 'corriendo', 'bici', 'futbol',
+      // Ubicación / actividades cotidianas
+      'casa', 'cuarto', 'cama', 'calle', 'oficina', 'comiendo', 'almorzando',
+      'cenando', 'cocinando', 'manejando', 'viajando', 'paseando',
+      // Verbos de acción narrativa
+      'terminando', 'empezando', 'sali', 'llegue', 'acabe',
+    };
+
+    if (tokens.any(narrativeTokens.contains)) return true;
+
+    // Frases que indican estado o relato del usuario
+    if (normalized.contains('en casa') ||
+        normalized.contains('en el gym') ||
+        normalized.contains('al gym') ||
+        normalized.contains('al gimnasio') ||
+        normalized.contains('del gym') ||
+        normalized.contains('del trabajo') ||
+        normalized.contains('estoy muerto') ||
+        normalized.contains('algo cansado') ||
+        normalized.contains('algo cansaod') ||
+        normalized.contains('muy cansado') ||
+        normalized.contains('bastante cansado') ||
+        normalized.contains('mi dia va') ||
+        normalized.contains('el mio va') ||
+        normalized.contains('ando en') ||
+        normalized.contains('ando haciendo') ||
+        normalized.contains('estoy en')) {
+      return true;
+    }
+
+    // Si el mensaje es una interacción cotidiana o check-in social (saludo, estado básico, pregunta de actividad),
+    // NO es una narrativa sustantiva aunque use "estoy" o "ando".
+    final nonSocial = normalized
+        .replaceAll('estoy bien', '')
+        .replaceAll('estoy muy bien', '')
+        .replaceAll('estoy super bien', '')
+        .replaceAll('ando bien', '')
+        .replaceAll('estoy tranquilo', '')
+        .replaceAll('ando tranquilo', '')
+        .replaceAll('que haces', '')
+        .replaceAll('que haciendo', '')
+        .replaceAll('que cuentas', '')
+        .replaceAll('como estas', '')
+        .replaceAll('como te va', '')
+        .replaceAll('como vas', '')
+        .replaceAll('hola', '')
+        .replaceAll('buenas', '')
+        .replaceAll('oe', '')
+        .replaceAll('emma', '')
+        .replaceAll('parce', '')
+        .replaceAll(RegExp(r'[·,;?!]'), ' ')
+        .trim();
+
+    final remainingTokens = tokenizeText(nonSocial);
+    if (remainingTokens.length > 3 &&
+        (remainingTokens.contains('estoy') ||
+            remainingTokens.contains('ando') ||
+            remainingTokens.contains('sali') ||
+            remainingTokens.contains('fui') ||
+            remainingTokens.contains('hice') ||
+            remainingTokens.contains('hago') ||
+            remainingTokens.contains('voy') ||
+            remainingTokens.contains('tengo'))) {
+      return true;
+    }
+
+    return false;
+  }
+
   /// Compone una única respuesta fluida, auténtica y armónica.
   String? _composeUnifiedReply({
     required Set<ConversationIntent> intents,
@@ -396,16 +489,29 @@ final class PragmaticFastPath {
     required String? lastOutboundText,
     DeviceMetricsData? metrics,
   }) {
-    // Caso 1: Pregunta recíproca ("bien y tú", "bien y vos", "todo bien y tú?")
+    // Caso 1: Pregunta recíproca pura de bienestar ("bien y tú", "bien y vos", "todo bien y tú?")
+    // NO agrega preguntas automáticas (Regla de oro: responde sin interrogar al interlocutor).
     if (intents.contains(ConversationIntent.reciprocalQuestion) ||
         (intents.contains(ConversationIntent.userWellbeing) &&
             (normalized.contains('y tu') || normalized.contains('y vos')))) {
       const candidates = [
-        '¡Bien también, gracias por preguntar! ¿Qué cuentas?',
-        'Todo bien por acá también. ¿Qué tal va tu día?',
-        '¡Bien, todo tranquilo por acá! ¿En qué andas hoy?',
-        'Por acá todo en orden también. ¿Qué hay de nuevo?',
-        '¡Excelente también, parce! ¿Qué estás haciendo?',
+        'Bien también.',
+        'Bien también, todo tranquilo.',
+        'Todo bien por acá.',
+        'Por acá todo bien también.',
+        'Bien también por acá.',
+      ];
+      return _selectCandidate(candidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 1B: Bienestar del usuario + pregunta de actividad ("estoy bien y qué haces", "todo bien por acá y qué haces?", "bien por acá, en qué andas?")
+    if (intents.contains(ConversationIntent.userWellbeing) &&
+        intents.contains(ConversationIntent.askActivity)) {
+      const candidates = [
+        'Qué bueno. Aquí haciendo unas cosas.',
+        'Qué bueno. Por acá en lo mío, hablando contigo.',
+        'Qué bien. Por acá tranquilo haciendo unas cosas.',
+        'Me alegra. Por acá en lo mío por ahora.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
@@ -417,26 +523,26 @@ final class PragmaticFastPath {
           intents.contains(ConversationIntent.askWellbeing)) {
         if (!recentlyGreeted) {
           const candidates = [
-            '¡Hola! Todo bien por acá y el día va tranquilo. Aún no sé seguro si entreno hoy, más tarde confirmo. ¿Y vos qué tal?',
-            '¡Hola! Todo en orden por acá. Todavía no sé seguro lo del entreno de hoy, más tarde miro. ¿Vas a ir tú?',
-            '¡Buenas! Por acá todo bien marchando tranquilo. Aún no sé si voy al gym hoy, luego te aviso. ¿Cómo vas tú?',
+            '¡Hola! Todo bien por acá y el día va tranquilo. Aún no sé seguro si entreno hoy.',
+            '¡Hola! Todo en orden por acá. Todavía no sé seguro lo del entreno de hoy.',
+            '¡Buenas! Por acá todo bien marchando tranquilo.',
           ];
           return _selectCandidate(candidates, conversationId, lastOutboundText);
         } else {
           const candidates = [
-            'Todo bien por acá y el día va tranquilo. Aún no sé seguro si entreno hoy, más tarde confirmo. ¿Y vos qué tal?',
-            'Todo en orden por acá. Todavía no sé seguro lo del entreno de hoy, más tarde miro. ¿Vas a ir tú?',
-            'Por acá todo bien marchando. Aún no sé seguro si entreno hoy, luego confirmo. ¿Y tú cómo vas?',
+            'Todo bien por acá y el día va tranquilo.',
+            'Todo en orden por acá.',
+            'Por acá todo bien marchando.',
           ];
           return _selectCandidate(candidates, conversationId, lastOutboundText);
         }
       } else {
         // Pregunta de entrenamiento sola ("vas a entrenar hoy?", "entrenas hoy?")
         const candidates = [
-          'Aún no sé seguro si voy a entrenar hoy, más tarde confirmo. ¿Y tú vas?',
-          'Por ahora no estoy seguro del entreno de hoy, luego te aviso. ¿Vas a ir tú?',
-          'Aún no sé si entreno hoy, más tarde miro. ¿Tú qué planes tienes?',
-          'Aún no lo sé seguro, más tarde confirmo. ¿Y vos qué tal?',
+          'Aún no sé seguro si voy a entrenar hoy, más tarde confirmo.',
+          'Por ahora no estoy seguro del entreno de hoy.',
+          'Aún no sé si entreno hoy, más tarde miro.',
+          'Aún no lo sé seguro, más tarde confirmo.',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       }
@@ -446,37 +552,51 @@ final class PragmaticFastPath {
     if (intents.contains(ConversationIntent.askDay)) {
       if (intents.contains(ConversationIntent.greeting) && !recentlyGreeted) {
         const candidates = [
-          '¡Hola! El día va marchando bien y tranquilo por acá. ¿Y el tuyo qué tal?',
-          '¡Hola! Todo bien por acá, el día va bastante bien. ¿Cómo va el tuyo?',
-          '¡Buenas! Por acá el día va muy bien, gracias por preguntar. ¿Y el tuyo cómo pinta?',
+          '¡Hola! El día va marchando bien y tranquilo por acá.',
+          '¡Hola! Todo bien por acá, el día va bastante bien.',
+          '¡Buenas! Por acá el día va muy bien.',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       } else {
         const candidates = [
-          'El día va bien y tranquilo por acá, gracias. ¿Y el tuyo qué tal?',
-          'Todo bien por acá, el día va marchando bien. ¿Cómo va el tuyo?',
-          'Va bastante bien por acá, gracias por preguntar. ¿Y el tuyo cómo pinta?',
+          'El día va bien y tranquilo por acá.',
+          'Todo bien por acá, el día va marchando bien.',
+          'Va bastante bien por acá.',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       }
     }
 
-    // Caso 4: Pregunta sobre actividad ("qué haces", "en qué andas")
+    // Caso 4: Pregunta sobre actividad ("qué haces", "en qué andas", "hola emma cómo estás qué haces hoy")
+    // Responde naturalmente como presencia sin interrogar automáticamente de vuelta.
     if (intents.contains(ConversationIntent.askActivity)) {
+      final withWellbeing = intents.contains(ConversationIntent.askWellbeing);
       if (intents.contains(ConversationIntent.greeting) && !recentlyGreeted) {
-        const candidates = [
-          '¡Hola! Por acá tranquilo por ahora, aún no sé qué haré más tarde. ¿Y tú qué haces?',
-          '¡Hola! Todo bien por acá, aún no estoy seguro de qué haré hoy. ¿Y vos en qué andas?',
-          '¡Buenas! Por acá relajado en lo mío, aún no sé qué salga. ¿Qué cuentas de bueno?',
-        ];
+        final candidates = withWellbeing
+            ? [
+                '¡Hola! Bien por acá, aquí haciendo unas cosas.',
+                '¡Hola! Todo bien por acá, aquí en lo mío.',
+                '¡Hola! Bien, por acá hablando contigo jaja.',
+              ]
+            : [
+                '¡Hola! Aquí hablando contigo jaja.',
+                '¡Hola! Por acá tranquilo por ahora.',
+                '¡Buenas! Aquí en lo mío por ahora.',
+              ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       } else {
-        const candidates = [
-          'Por acá tranquilo por ahora, aún no sé qué haré más tarde. ¿Y tú qué haces?',
-          'Todo bien por acá, no estoy seguro de qué haré más tarde. ¿Y vos en qué andas?',
-          'Por acá tranquilo en lo mío, aún no sé qué salga hoy. ¿Qué estás haciendo tú?',
-          'Aquí todo en orden por ahora, aún no sé qué haré más rato. ¿Qué cuentas de bueno?',
-        ];
+        final candidates = withWellbeing
+            ? [
+                'Bien por acá, aquí haciendo unas cosas.',
+                'Todo bien por acá, aquí en lo mío.',
+                'Bien por acá, hablando contigo jaja.',
+              ]
+            : [
+                'Aquí hablando contigo jaja.',
+                'Por acá tranquilo por ahora.',
+                'Aquí en lo mío por ahora.',
+                'Todo bien por acá, hablando contigo.',
+              ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       }
     }
@@ -484,21 +604,29 @@ final class PragmaticFastPath {
     // Caso 5: Pregunta de presencia ("estás ahí?", "sigues ahí?")
     if (intents.contains(ConversationIntent.askPresence)) {
       const candidates = [
-        '¡Sí, por acá estoy! Dime qué pasó.',
-        'Sí, aquí estoy. Cuéntame qué tienes en mente.',
-        'Por acá ando, claro. Dime qué necesitas, parce.',
-        '¡Sí, aquí ando! Cuéntame.',
+        'Dime.',
+        'Sí, aquí estoy.',
+        'Por acá ando, cuéntame.',
+        'Sí, dime.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
 
-    // Caso 6: Solicitud de ayuda / tarea ("parce lo necesito para una tarea", "una pregunta")
+    // Caso 6: Solicitud de ayuda / tarea ("parce lo necesito para una tarea", "parce necesito ayuda", "una pregunta")
     if (intents.contains(ConversationIntent.askHelpOrQuestion)) {
+      if (normalized.contains('tarea')) {
+        const candidates = [
+          'De una, cuéntame.',
+          'Dale, ¿de qué es la tarea?',
+          'De una, dime de qué se trata.',
+        ];
+        return _selectCandidate(candidates, conversationId, lastOutboundText);
+      }
       const candidates = [
-        '¡De una, parce! Cuéntame de qué se trata la tarea.',
-        'Claro, de una. Dime qué necesitas y miramos.',
-        '¡Hágale! Cuéntame qué tienes en mente y te colaboro.',
-        'Claro que sí, dime cuál es la duda.',
+        'Dime.',
+        'De una, dime.',
+        'Cuéntame.',
+        'Claro, dime.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
@@ -507,17 +635,18 @@ final class PragmaticFastPath {
     if (intents.contains(ConversationIntent.askWellbeing)) {
       if (recentlyGreeted) {
         const candidates = [
-          '¡Bien, todo en orden por acá! ¿Y tú cómo vas?',
-          'Todo bien por acá, tranquilo. ¿Qué tal tu día?',
-          'Bien, todo marchando bien. ¿Qué cuentas de nuevo?',
+          'Bien, todo en orden por acá.',
+          'Todo bien por acá, tranquilo.',
+          'Bien, todo marchando bien.',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       } else {
         const candidates = [
-          '¡Hola! Bien, todo tranquilo por acá. ¿Y tú qué tal?',
-          '¡Todo bien por acá, gracias a Dios! ¿Cómo vas tú?',
-          '¡Por acá todo bien! ¿Qué tal va tu día?',
-          '¡Todo en orden por acá! ¿Y vos cómo estás?',
+          'Bien, todo tranquilo. ¿Y tú?',
+          '¡Hola! Bien, todo tranquilo por acá.',
+          '¡Todo bien por acá, gracias a Dios!',
+          '¡Por acá todo bien!',
+          '¡Todo en orden por acá!',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       }
@@ -527,17 +656,16 @@ final class PragmaticFastPath {
     if (intents.contains(ConversationIntent.greeting)) {
       if (recentlyGreeted) {
         const candidates = [
-          '¡Hola de nuevo! ¿Qué cuentas?',
-          '¿Qué más, parce? ¿En qué andas?',
-          'Por acá sigo. ¿Qué tal todo?',
+          '¡Hola! Aquí pendiente.',
+          'Por acá sigo.',
+          'Dime.',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       } else {
         const candidates = [
-          '¡Hola! ¿Cómo estás? ¿Qué tal todo?',
-          '¡Hola! ¿Qué más, todo bien?',
-          '¡Hola! ¿Cómo te va?',
-          '¡Buenas! ¿Todo bien por allá?',
+          '¡Hola! ¿Cómo vas?',
+          'Hola, ¿todo bien?',
+          '¡Buenas! ¿Cómo te va?',
         ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       }
@@ -546,10 +674,10 @@ final class PragmaticFastPath {
     // Caso 9: Agradecimiento ("gracias", "muchas gracias")
     if (intents.contains(ConversationIntent.thanks)) {
       const candidates = [
-        '¡Con mucho gusto! Aquí a la orden.',
-        '¡De nada, parce! Cualquier cosa me dices.',
-        '¡Con todo gusto! Todo bien.',
-        '¡De nada! Por acá a la orden.',
+        'De una, fresco.',
+        'Con gusto.',
+        'Por acá a la orden.',
+        'De una.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
@@ -557,30 +685,34 @@ final class PragmaticFastPath {
     // Caso 10: Despedida ("chao", "nos vemos")
     if (intents.contains(ConversationIntent.farewell)) {
       const candidates = [
-        '¡Listo, nos vemos! Que te vaya bien.',
-        '¡Hablamos pues, cuídate!',
-        '¡De una, que estés muy bien!',
-        '¡Dale, nos estamos hablando!',
+        'Hablamos pues, cuídate.',
+        'De una, nos vemos.',
+        'Dale, que estés bien.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
 
-    // Caso 11: Risa casual ("jajaja")
+    // Caso 11: Risa ("jajaja", "jeje", "jaja literal")
     if (intents.contains(ConversationIntent.laughter)) {
       const candidates = [
-        '¡Jajaja todo bien!',
-        'Jajaja qué tal eso.',
-        '¡Jajaja total!',
+        '😂',
+        'Literal jaja',
+        'Jaja tal cual',
+        'Jajaja sí',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
 
-    // Caso 12: Afirmación ("dale", "listo", "ok")
-    if (intents.contains(ConversationIntent.affirmation)) {
+    // Caso 12: Afirmación ("dale", "listo", "ok", "exacto")
+    if (intents.contains(ConversationIntent.affirmation) ||
+        normalized == 'exacto' ||
+        normalized == 'tal cual' ||
+        normalized == 'literal') {
       const candidates = [
-        '¡Listo, de una!',
-        '¡Dale, perfecto!',
-        '¡Hágale pues!',
+        'De una.',
+        'Total.',
+        'Exacto.',
+        'Listo pues.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }

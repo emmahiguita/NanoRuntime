@@ -1020,7 +1020,7 @@ class _BusinessDataCard extends ConsumerWidget {
                           ),
                           subtitle: Text(
                             '${p.priceLabel}'
-                            '${p.stock == null ? ' · stock no informado' : ' · stock ${p.stock}'}',
+                            '${p.stock == null ? ' · stock no informado' : (p.stock == 0 ? ' · agotado' : ' · stock ${p.stock}')}',
                             style: TextStyle(
                               color: AutomationVisual.of(context).textMuted,
                             ),

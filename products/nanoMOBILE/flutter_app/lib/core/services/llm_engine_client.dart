@@ -66,7 +66,6 @@ class LLMEngineClient {
         if (r.statusCode == 200) {
           final body = r.body;
           if (body.contains('"status":"ok"')) {
-            debugPrint('[llm] health check OK: $body');
             return true;
           } else {
             debugPrint('[llm] health check response inválido: $body');

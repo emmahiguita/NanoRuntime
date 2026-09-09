@@ -22,6 +22,7 @@
 /// Confianza: base 0.85 − penalización por señal. Umbral de envío: 0.6.
 library;
 
+import '../../engine/business/fact_selector.dart' show tokenizeText;
 import '../../engine/messaging/conversation_key.dart' show ConversationIdentity;
 import '../../engine/notifications/conversation_understanding.dart';
 import '../domain/conversation_agent_role.dart'
@@ -419,12 +420,11 @@ final class ConversationDecisionEngine {
   /// actividad y pasan degradadas.
   static bool _affirmsOwnerActivity(String reply) {
     final r = _fold(reply);
-    const marks = [
+    final tokens = tokenizeText(r);
+    const wordMarks = {
       'estoy',
       'estaba',
       'ando',
-      'voy a',
-      'voy pa',
       'hago',
       'haciendo',
       'trabajando',
@@ -432,18 +432,24 @@ final class ConversationDecisionEngine {
       'ocupada',
       'durmiendo',
       'descansando',
+      'llegando',
+      'grabando',
+      'cantando',
+      'jugando',
+    };
+    if (tokens.any(wordMarks.contains)) return true;
+
+    const phraseMarks = [
+      'voy a',
+      'voy pa',
       'en casa',
       'en el trabajo',
       'en la calle',
       'por ahi',
       'por ahí',
       'acabo de',
-      'llegando',
-      'grabando',
-      'cantando',
-      'jugando',
     ];
-    return marks.any(r.contains);
+    return phraseMarks.any(r.contains);
   }
 
   /// P0-NO-CALLCENTER — muletillas de operador prohibidas en PERSONAL.
