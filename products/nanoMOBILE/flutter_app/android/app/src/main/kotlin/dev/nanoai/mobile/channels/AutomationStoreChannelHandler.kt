@@ -139,6 +139,41 @@ class AutomationStoreChannelHandler(
             "exampleUpdate" -> result.success(db.updateExample(call.argument<Number>("id")?.toLong() ?: -1,
                 call.argument<String>("body").orEmpty(), call.argument<String>("incomingText").orEmpty(), call.argument<String>("toneJson") ?: "{}", call.argument<String>("scopeKey")))
 
+            // Phase 6 - Durable Scheduling
+            "occurrenceUpsert" -> {
+                val ruleId = call.argument<String>("ruleId")
+                val occurrenceId = call.argument<String>("occurrenceId")
+                val scheduledAtMs = call.argument<Number>("scheduledAtMs")?.toLong()
+                if (ruleId == null || occurrenceId == null || scheduledAtMs == null) {
+                    result.error("BAD_ARG", "ruleId, occurrenceId, y scheduledAtMs requeridos", null)
+                    return
+                }
+                result.success(db.upsertOccurrence(ruleId, occurrenceId, scheduledAtMs))
+            }
+
+            "occurrenceClaim" -> {
+                val occurrenceId = call.argument<String>("occurrenceId")
+                if (occurrenceId == null) {
+                    result.error("BAD_ARG", "occurrenceId requerido", null)
+                    return
+                }
+                result.success(db.claimOccurrence(occurrenceId))
+            }
+
+            "occurrenceUpdateStatus" -> {
+                val occurrenceId = call.argument<String>("occurrenceId")
+                val status = call.argument<String>("status")
+                if (occurrenceId == null || status == null) {
+                    result.error("BAD_ARG", "occurrenceId y status requeridos", null)
+                    return
+                }
+                result.success(db.updateOccurrenceStatus(occurrenceId, status, call.argument<String>("reason")))
+            }
+
+            "occurrenceRecover" -> {
+                result.success(db.recoverOccurrences())
+            }
+
             else -> result.notImplemented()
         }
     }

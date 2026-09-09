@@ -127,23 +127,29 @@ static void _daemon_mark_reaped(pid_t pid) {
 // para evitar zombies. Se lanza en background inmediatamente despues
 // del spawn; bloquea en waitpid hasta que el hijo termina.
 
-static void* _reap_detached(void* arg) {
-    int pid = *(int*)arg;
-    free(arg);
-    int status;
-    waitpid(pid, &status, 0);
-    _daemon_mark_reaped(pid);
-    // H3: un segfault (139) reportaba 0 porque WEXITSTATUS sin chequear
-    // WIFSIGNALED enmascara la señal. Reportar señal real cuando muere
-    // por señal (evidencia device 2026-08-13: tint2 segfault en librsvg
-    // aparecía como "status=0" en el log del worker).
-    if (WIFSIGNALED(status)) {
-        __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
-            "reaped detached pid=%d signal=%d%s", pid, WTERMSIG(status),
-            WCOREDUMP(status) ? " (core)" : "");
-    } else {
-        __android_log_print(ANDROID_LOG_DEBUG, "nanoshell-worker",
-            "reaped detached pid=%d status=%d", pid, WEXITSTATUS(status));
+static void* _single_reaper_loop(void* arg) {
+    while (1) {
+        pthread_mutex_lock(&g_daemons_lock);
+        for (int i = 0; i < MAX_TRACKED_DAEMONS; i++) {
+            pid_t pid = g_daemons[i].pid;
+            if (pid > 0) {
+                int status;
+                pid_t result = waitpid(pid, &status, WNOHANG);
+                if (result == pid) {
+                    g_daemons[i].pid = 0; // _daemon_mark_reaped inline
+                    if (WIFSIGNALED(status)) {
+                        __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
+                            "reaped detached pid=%d signal=%d%s", pid, WTERMSIG(status),
+                            WCOREDUMP(status) ? " (core)" : "");
+                    } else {
+                        __android_log_print(ANDROID_LOG_DEBUG, "nanoshell-worker",
+                            "reaped detached pid=%d status=%d", pid, WEXITSTATUS(status));
+                    }
+                }
+            }
+        }
+        pthread_mutex_unlock(&g_daemons_lock);
+        usleep(250000); // 250ms polling interval
     }
     return NULL;
 }
@@ -181,18 +187,22 @@ Java_dev_nanoai_mobile_NanoshellBridge_workerSpawnDetached(
         _swap_daemon_pid(base, pid);
     }
 
-    // Lanzar reaper thread para evitar zombie cuando el proceso detached muera
-    if (pid > 0) {
-        pthread_t reaper;
-        int* pid_copy = malloc(sizeof(int));
-        if (pid_copy) {
-            *pid_copy = pid;
-            if (pthread_create(&reaper, NULL, _reap_detached, pid_copy) == 0) {
+    // Lanzar single reaper thread una vez para recolectar zombies de todos los daemons
+    static pthread_mutex_t reaper_lock = PTHREAD_MUTEX_INITIALIZER;
+    static int reaper_started = 0;
+    
+    if (pid > 0 && !reaper_started) {
+        pthread_mutex_lock(&reaper_lock);
+        if (!reaper_started) {
+            pthread_t reaper;
+            if (pthread_create(&reaper, NULL, _single_reaper_loop, NULL) == 0) {
                 pthread_detach(reaper);
-            } else {
-                free(pid_copy);
+                reaper_started = 1;
+                __android_log_print(ANDROID_LOG_INFO, "nanoshell-worker",
+                    "Single native reaper thread started for detached daemons");
             }
         }
+        pthread_mutex_unlock(&reaper_lock);
     }
 
     jni_cstr_array_free(cargv, nargv);

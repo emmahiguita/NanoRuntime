@@ -75,4 +75,56 @@ class AutomationDbStoreClient {
       return false;
     }
   }
+
+  // Phase 6 - Durable Scheduling
+
+  Future<bool> upsertOccurrence(String ruleId, String occurrenceId, int scheduledAtMs) async {
+    try {
+      return await _channel.invokeMethod<bool>('occurrenceUpsert', {
+            'ruleId': ruleId,
+            'occurrenceId': occurrenceId,
+            'scheduledAtMs': scheduledAtMs,
+          }) ??
+          false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] occurrenceUpsert falló: $error');
+      return false;
+    }
+  }
+
+  Future<bool> claimOccurrence(String occurrenceId) async {
+    try {
+      return await _channel.invokeMethod<bool>('occurrenceClaim', {
+            'occurrenceId': occurrenceId,
+          }) ??
+          false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] occurrenceClaim falló: $error');
+      return false;
+    }
+  }
+
+  Future<bool> updateOccurrenceStatus(String occurrenceId, String status, {String? reason}) async {
+    try {
+      final args = <String, dynamic>{
+        'occurrenceId': occurrenceId,
+        'status': status,
+      };
+      if (reason != null) args['reason'] = reason;
+      return await _channel.invokeMethod<bool>('occurrenceUpdateStatus', args) ?? false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] occurrenceUpdateStatus falló: $error');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> recoverOccurrences() async {
+    try {
+      final result = await _channel.invokeListMethod<Map<Object?, Object?>>('occurrenceRecover');
+      return result?.map((e) => e.cast<String, dynamic>()).toList() ?? [];
+    } on Object catch (error) {
+      debugPrint('[automation-store] occurrenceRecover falló: $error');
+      return [];
+    }
+  }
 }

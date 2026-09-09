@@ -5,6 +5,18 @@ import 'package:flutter/foundation.dart';
 
 import 'vnc_des.dart';
 
+/// Two framebuffer pixels per logical pixel keep the X11 font/DPI policy
+/// readable. The existing 1920-pixel cap bounds Raw RFB and bitmap copies;
+/// devicePixelRatio is intentionally unrelated to this desktop policy.
+ui.Size desktopFramebufferSize(ui.Size viewport) {
+  final longest = viewport.longestSide * 2;
+  final factor = longest > 1920 ? 1920 / longest : 1.0;
+  return ui.Size(
+    (viewport.width * 2 * factor).round().clamp(1, 1920).toDouble(),
+    (viewport.height * 2 * factor).round().clamp(1, 1920).toDouble(),
+  );
+}
+
 /// Cliente RFB/VNC súper optimizado en Dart puro.
 ///
 /// Protocolo implementado: RFB 3.8, Security Type None (1) y VNC Auth (2),
@@ -39,6 +51,16 @@ class VncClient {
   StreamSubscription<Uint8List>? _sub;
   bool _running = false;
   bool _initialized = false;
+  int _connectionToken = 0;
+  int _frameGeneration = 0;
+  bool _supportsResize = false;
+  int _screenCount = 0;
+  int _screenId = 0;
+  int _screenFlags = 0;
+  Completer<bool>? _resizeResult;
+  Timer? _resizeTimer;
+  DateTime? _probeSentAt;
+  bool _updateHasPixels = false;
 
   // Framebuffer
   int _fbWidth = 0;
@@ -83,6 +105,7 @@ class VncClient {
   final ValueChanged<ui.Image?>? onFrame;
   final ValueChanged<String>? onStatus;
   final VoidCallback? onDisconnected;
+  final VoidCallback? onDesktopSizeChanged;
 
   // ── Heartbeat / Keepalive ──
   Timer? _heartbeatTimer;
@@ -99,6 +122,7 @@ class VncClient {
     this.onFrame,
     this.onStatus,
     this.onDisconnected,
+    this.onDesktopSizeChanged,
   });
 
   bool get isRunning => _running;
@@ -106,29 +130,37 @@ class VncClient {
   int get fbWidth => _fbWidth;
   int get fbHeight => _fbHeight;
   String get desktopName => _desktopName;
+  bool get supportsDesktopResize => _supportsResize && _screenCount == 1;
 
   Future<bool> connect() async {
     if (_running) return true;
+    final token = ++_connectionToken;
     try {
       _status('Conectando a $host:$port...');
-      _socket = await Socket.connect(
+      final socket = await Socket.connect(
         host,
         port,
         timeout: const Duration(seconds: 8),
       );
+      if (token != _connectionToken) {
+        socket.destroy();
+        return false;
+      }
+      _socket = socket;
       _socket?.setOption(SocketOption.tcpNoDelay, true);
       // TCP keepalive no existe en dart:io SocketOption. El heartbeat RFB
       // (FramebufferUpdateRequest cada 30s + frame timeout 60s) ya detecta
       // caídas silenciosas mejor que el keepalive de SO.
       _running = true;
       _sub = _socket!.listen(
-        _onData,
-        onError: _onError,
-        onDone: _onDone,
+        (data) { if (token == _connectionToken) _onData(data); },
+        onError: (Object error) { if (token == _connectionToken) _onError(error); },
+        onDone: () { if (token == _connectionToken) _onDone(); },
         cancelOnError: false,
       );
       return true;
     } catch (e) {
+      if (token != _connectionToken) return false;
       _status('Error conexión: $e');
       _running = false;
       _sub?.cancel();
@@ -140,6 +172,8 @@ class VncClient {
   }
 
   void disconnect() {
+    _connectionToken++;
+    _frameGeneration++;
     _running = false;
     _initialized = false;
     _stopHeartbeat();
@@ -164,6 +198,11 @@ class VncClient {
     _updatePending = false;
     _presentTimer?.cancel();
     _presentTimer = null;
+    _supportsResize = false;
+    _screenCount = 0;
+    _probeSentAt = null;
+    _updateHasPixels = false;
+    _finishResize(false);
   }
 
   // ── Heartbeat / Keepalive ──
@@ -173,18 +212,22 @@ class VncClient {
     _lastFrameTime = DateTime.now();
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
       if (!_running || !_initialized) return;
-      // Enviar FramebufferUpdateRequest incremental (no dispara re-render
-      // completo, solo prueba que el socket sigue vivo). Respeta la
-      // backpressure: si ya hay un request en vuelo, este tick se salta.
-      _requestUpdate(0, 0, _fbWidth, _fbHeight, true);
-      // Verificar frame timeout: si no hemos recibido frames en 60s,
-      // la conexión está muerta (Xvnc crasheó, WiFi cayó, etc.)
-      if (DateTime.now().difference(_lastFrameTime) > _frameTimeout) {
+      final now = DateTime.now();
+      // An incremental request may legitimately wait forever on a quiet
+      // desktop. Only a non-incremental liveness probe has a deadline.
+      if (_probeSentAt != null &&
+          now.difference(_probeSentAt!) >= _frameTimeout) {
         _status(
           'Heartbeat timeout — sin frames en ${_frameTimeout.inSeconds}s',
         );
         disconnect();
         onDisconnected?.call();
+      } else if (_probeSentAt == null &&
+          now.difference(_lastFrameTime) >= _heartbeatInterval) {
+        _probeSentAt = now;
+        _requestUpdate(0, 0, _fbWidth, _fbHeight, false, force: true);
+      } else {
+        _requestUpdate(0, 0, _fbWidth, _fbHeight, true);
       }
     });
   }
@@ -211,9 +254,45 @@ class VncClient {
     final buf = ByteData(6);
     buf.setUint8(0, 5); // pointer event
     buf.setUint8(1, buttonMask);
-    buf.setUint16(2, x);
-    buf.setUint16(4, y);
+    buf.setUint16(2, x.clamp(0, _fbWidth - 1));
+    buf.setUint16(4, y.clamp(0, _fbHeight - 1));
     _socket!.add(buf.buffer.asUint8List());
+  }
+
+  /// SetDesktopSize is legal only after the server advertises -308. Keep
+  /// the local display's id/flags and never alter a multi-monitor layout.
+  Future<bool> resizeDesktop(int width, int height) async {
+    if (!_initialized || !_running || !supportsDesktopResize ||
+        _resizeResult != null || width < 1 || height < 1 ||
+        width > 4096 || height > 4096) return false;
+    if (width == _fbWidth && height == _fbHeight) return true;
+    final result = Completer<bool>();
+    _resizeResult = result;
+    final message = ByteData(24);
+    message.setUint8(0, 251);
+    message.setUint16(2, width);
+    message.setUint16(4, height);
+    message.setUint8(6, 1);
+    message.setUint32(8, _screenId);
+    message.setUint16(16, width);
+    message.setUint16(18, height);
+    message.setUint32(20, _screenFlags);
+    _resizeTimer = Timer(const Duration(seconds: 4), () {
+      // Do not send another request after a timeout: a late reply has no id.
+      _supportsResize = false;
+      _status('Sin respuesta al cambio de tamaño; se conserva el ajuste visual.');
+      _finishResize(false);
+    });
+    _socket!.add(message.buffer.asUint8List());
+    return result.future;
+  }
+
+  void _finishResize(bool success) {
+    _resizeTimer?.cancel();
+    _resizeTimer = null;
+    final result = _resizeResult;
+    _resizeResult = null;
+    if (result != null && !result.isCompleted) result.complete(success);
   }
 
   /// Envía una tecla.
@@ -348,6 +427,7 @@ class VncClient {
       final secType = b.getUint32(0);
       _readPos += 4;
       if (secType == 1) {
+        _socket?.add([1]); // ClientInit precedes ServerInit also in RFB 3.3.
         _state = 4; // ServerInit directo (sin SecurityResult en 3.3)
         _process();
         return;
@@ -458,17 +538,17 @@ class VncClient {
     const maxFbDimension = 4096;
     const minFbDimension = 1;
 
-    final clampedW = w.clamp(minFbDimension, maxFbDimension);
-    final clampedH = h.clamp(minFbDimension, maxFbDimension);
-
-    if (w != clampedW || h != clampedH) {
-      _status(
-        'Framebuffer ajustado: $w x $h -> $clampedW x $clampedH (cap de seguridad)',
-      );
+    if (w < minFbDimension || h < minFbDimension ||
+        w > maxFbDimension || h > maxFbDimension) {
+      _status('Framebuffer fuera del límite admitido: ${w}x$h');
+      disconnect();
+      onDisconnected?.call();
+      return;
     }
 
-    _fbWidth = clampedW;
-    _fbHeight = clampedH;
+    _fbWidth = w;
+    _fbHeight = h;
+    _frameGeneration++;
     _desktopName = String.fromCharCodes(
       _rawBuf.sublist(_readPos + 24, _readPos + 24 + nameLen),
     );
@@ -480,10 +560,6 @@ class VncClient {
     );
     _initialized = true;
     _state = 5;
-
-    // ClientInit (shared flag = 1): en 3.8 lo manda _handleSecurityResult,
-    // pero el flujo 3.3 no tiene SecurityResult — se manda aquí.
-    if (_legacy33) _socket?.add([1]);
 
     _startHeartbeat();
     _sendSetPixelFormat();
@@ -586,6 +662,7 @@ class VncClient {
       _rectsTotal = bb.getUint16(1);
       _rectsProcessed = 0;
       _rectActive = false;
+      _updateHasPixels = false;
       _readPos += 3;
       _msgBytesNeeded = 0;
     }
@@ -615,6 +692,12 @@ class VncClient {
           case 1: // CopyRect
             _rectDataNeeded = 4;
             break;
+          case -223: // DesktopSize: header dimensions, no payload.
+            _rectDataNeeded = 0;
+            break;
+          case -308: // ExtendedDesktopSize: screen count then screen records.
+            _rectDataNeeded = 4;
+            break;
           default:
             // Ídem P0: ruido de protocolo → logcat; avisa al UI para
             // reconectar en vez de dejar la sesión zombie.
@@ -629,6 +712,14 @@ class VncClient {
         }
       }
 
+      if (_rectEncoding == -308) {
+        if (_end - offset < 4) {
+          _readPos = offset;
+          _msgBytesNeeded = 4;
+          return;
+        }
+        _rectDataNeeded = 4 + _rawBuf[offset] * 16;
+      }
       // Payload del rect: esperar a tenerlo completo sin consumir parcial.
       if (_end - offset < _rectDataNeeded) {
         _readPos = offset;
@@ -637,14 +728,43 @@ class VncClient {
       }
 
       if (_rectEncoding == 0) {
+        if (!_validRect(_rectX, _rectY, _rectW, _rectH)) return;
         _applyRawRect(_rectX, _rectY, _rectW, _rectH, _rawBuf, offset);
+        _updateHasPixels = true;
         offset += _rectDataNeeded;
-      } else {
+      } else if (_rectEncoding == 1) {
         final rectData = ByteData.sublistView(_rawBuf, offset, offset + 4);
         final srcX = rectData.getUint16(0);
         final srcY = rectData.getUint16(2);
+        if (!_validRect(_rectX, _rectY, _rectW, _rectH) ||
+            !_validRect(srcX, srcY, _rectW, _rectH)) return;
         _applyCopyRect(_rectX, _rectY, _rectW, _rectH, srcX, srcY);
+        _updateHasPixels = true;
         offset += 4;
+      } else if (_rectEncoding == -223) {
+        if (!_resizeFramebuffer(_rectW, _rectH)) return;
+        onDesktopSizeChanged?.call();
+      } else {
+        // A rejected client request has undefined dimensions/screen data.
+        final rejected = _rectX == 1 && _rectY != 0;
+        if (!rejected) {
+          _screenCount = _rawBuf[offset];
+          if (_screenCount == 1) {
+            final screen = ByteData.sublistView(_rawBuf, offset + 4, offset + 20);
+            _screenId = screen.getUint32(0);
+            _screenFlags = screen.getUint32(12);
+          }
+          _supportsResize = true;
+          if (!_resizeFramebuffer(_rectW, _rectH)) return;
+        }
+        offset += _rectDataNeeded;
+        if (_rectX == 1) {
+          if (rejected) {
+            _status('El servidor rechazó el tamaño (código $_rectY); ajuste visual activo.');
+          }
+          _finishResize(!rejected);
+        }
+        onDesktopSizeChanged?.call();
       }
 
       _rectsProcessed++;
@@ -657,6 +777,7 @@ class VncClient {
     _updatePending = false; // FBU recibido completo: request respondido.
 
     _lastFrameTime = DateTime.now(); // heartbeat: reset frame timeout
+    _probeSentAt = null;
 
     // P0 — ANR "Input dispatching timed out" (evidencia anr_20300, 15 ANRs
     // en device 2026-08-12): el servidor responde CADA FramebufferUpdateRequest
@@ -676,11 +797,41 @@ class VncClient {
     // cambio o heartbeat), y el input siempre encuentra el event loop libre.
     if (_rectsProcessed == 0) return;
 
-    _schedulePresent();
+    if (_updateHasPixels) _schedulePresent();
     // Incremental=true tras cada frame. Antes pedía NO incremental, y Xvnc
     // reenviaba el framebuffer COMPLETO (3.6 MB por frame) — causa directa
     // del lag en el visor.
     _requestUpdate(0, 0, _fbWidth, _fbHeight, true);
+  }
+
+  bool _validRect(int x, int y, int width, int height) {
+    if (x + width <= _fbWidth && y + height <= _fbHeight) return true;
+    _status('Rectángulo RFB fuera del framebuffer vigente.');
+    disconnect();
+    onDisconnected?.call();
+    return false;
+  }
+
+  bool _resizeFramebuffer(int width, int height) {
+    if (width < 1 || height < 1 || width > 4096 || height > 4096) {
+      _status('Tamaño RFB no admitido: ${width}x$height');
+      disconnect();
+      onDisconnected?.call();
+      return false;
+    }
+    if (width == _fbWidth && height == _fbHeight) return true;
+    final next = Uint8List(width * height * 4);
+    final copyWidth = width < _fbWidth ? width : _fbWidth;
+    final copyHeight = height < _fbHeight ? height : _fbHeight;
+    for (var row = 0; row < copyHeight; row++) {
+      next.setRange(row * width * 4, (row * width + copyWidth) * 4,
+          _pixels, row * _fbWidth * 4);
+    }
+    _pixels = next;
+    _fbWidth = width;
+    _fbHeight = height;
+    _frameGeneration++;
+    return true;
   }
 
   void _applyRawRect(int x, int y, int w, int h, Uint8List src, int srcOffset) {
@@ -749,18 +900,21 @@ class VncClient {
 
   void _sendSetEncodings() {
     if (_socket == null || !_running) return;
-    final buf = ByteData(4 + 2 * 4);
+    final buf = ByteData(4 + 4 * 4);
     buf.setUint8(0, 2); // msg type = SetEncodings
-    buf.setUint16(2, 2); // 2 encodings
+    buf.setUint16(2, 4);
     buf.setInt32(4, 0, Endian.big); // Raw
     buf.setInt32(8, 1, Endian.big); // CopyRect
+    buf.setInt32(12, -223, Endian.big); // DesktopSize
+    buf.setInt32(16, -308, Endian.big); // ExtendedDesktopSize
     _socket!.add(buf.buffer.asUint8List());
   }
 
-  void _requestUpdate(int x, int y, int w, int h, bool incremental) {
+  void _requestUpdate(int x, int y, int w, int h, bool incremental,
+      {bool force = false}) {
     if (_socket == null || !_running) return;
     // Backpressure: nunca más de 1 request sin responder.
-    if (_updatePending) return;
+    if (_updatePending && !force) return;
     _updatePending = true;
     final buf = ByteData(10);
     buf.setUint8(0, 3); // FramebufferUpdateRequest
@@ -779,6 +933,10 @@ class VncClient {
       return;
     }
     _decodingFrame = true;
+    final token = _connectionToken;
+    final generation = _frameGeneration;
+    final width = _fbWidth;
+    final height = _fbHeight;
     try {
       // Copia defensiva: decodeImageFromPixels es async y el hilo de red
       // puede mutar _pixels durante la decodificación (frames rasgados,
@@ -795,8 +953,8 @@ class VncClient {
       var timedOut = false;
       ui.decodeImageFromPixels(
         snapshot,
-        _fbWidth,
-        _fbHeight,
+        width,
+        height,
         ui.PixelFormat.rgba8888,
         (image) {
           if (timedOut) {
@@ -805,9 +963,9 @@ class VncClient {
             completer.complete(image);
           }
         },
-        rowBytes: _fbWidth * 4,
-        targetWidth: _fbWidth,
-        targetHeight: _fbHeight,
+        rowBytes: width * 4,
+        targetWidth: width,
+        targetHeight: height,
         allowUpscaling: false,
       );
       final img = await completer.future.timeout(
@@ -817,7 +975,7 @@ class VncClient {
           throw TimeoutException('decodeImageFromPixels hung');
         },
       );
-      if (_running) {
+      if (_running && token == _connectionToken && generation == _frameGeneration) {
         onFrame?.call(img);
       } else {
         // Sesión ya muerta: liberar el bitmap nativo (3.7 MB) de inmediato —
@@ -827,10 +985,12 @@ class VncClient {
     } catch (e) {
       _status('Error decodificando frame: $e');
     } finally {
-      _decodingFrame = false;
-      if (_framePending && _running) {
-        _framePending = false;
-        _schedulePresent();
+      if (token == _connectionToken) {
+        _decodingFrame = false;
+        if (_framePending && _running) {
+          _framePending = false;
+          _schedulePresent();
+        }
       }
     }
   }

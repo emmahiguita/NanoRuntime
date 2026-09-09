@@ -486,8 +486,32 @@ class RulePipeline {
         );
         continue;
       }
+
+      // Phase 6 - Durable Scheduling
+      // 1. Calculate occurrenceId based on the top of the minute
+      final scheduledAtMs = (event.now.millisecondsSinceEpoch ~/ 60000) * 60000;
+      final occurrenceId = '${rule.id}@$scheduledAtMs';
+      
+      // 2. Upsert (PENDING)
+      await AutomationDbStoreClient.instance.upsertOccurrence(rule.id, occurrenceId, scheduledAtMs);
+      
+      // 3. Claim
+      final claimed = await AutomationDbStoreClient.instance.claimOccurrence(occurrenceId);
+      if (!claimed) {
+        debugPrint('[rules] occurrence $occurrenceId ya fue reclamada; omitida.');
+        continue;
+      }
+      
+      // 4. Executing
+      await AutomationDbStoreClient.instance.updateOccurrenceStatus(occurrenceId, 'EXECUTING');
+
       final r = await _dispatcher.dispatchScheduled(rule);
       results.add(r);
+
+      // 5. Terminal status
+      final status = (r.outcome == RuleOutcome.notified || r.outcome == RuleOutcome.drafted) ? 'SUCCEEDED' : 'FAILED';
+      await AutomationDbStoreClient.instance.updateOccurrenceStatus(occurrenceId, status, reason: r.reason);
+
       // Registrar el disparo para cooldown de regla: solo efectos reales
       // (aviso publicado o borrador); el reply fallado no cuenta.
       // WA-RULES-UI-02 — outcome real para el estado de la pantalla Reglas.

@@ -218,7 +218,8 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         return inbox.claim(limit).mapNotNull { row ->
             val payload = service.byKey(row.notificationKey)
             if (payload == null) {
-                inbox.complete(row.eventId)
+                // If it's not active right now, we do not delete it here.
+                // onNotificationRemoved handles explicit deletion when truly gone.
                 null
             } else {
                 mapOf("eventId" to row.eventId, "notification" to payload)

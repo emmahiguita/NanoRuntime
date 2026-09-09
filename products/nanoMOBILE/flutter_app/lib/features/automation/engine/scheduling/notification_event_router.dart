@@ -101,7 +101,6 @@ class NotificationEventRouter {
   /// los eventos pendientes de la cola durable SQLite (DurableInbox) y luego re-emite
   /// las notificaciones ACTIVAS. El dedupe persistente bloquea las ya procesadas.
   Future<void> _coldStartReplay(int generation) async {
-    unawaited(NanoRuntimeApi.instance.cleanupInbox());
     for (var attempt = 0; attempt < 3; attempt++) {
       await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
       if (_sub == null || generation != _generation) return;

@@ -105,18 +105,22 @@ class DurableInbox(context: Context) {
         }
     }
 
-    /** Estado terminal del evento: la fila se borra (sin payload no hay
-     *  auditoría que conservar; el journal de Dart guarda el resultado). */
+    /** Estado terminal del evento: la fila se marca como completada.
+     *  El cleanup posterior se encarga de borrarla por estado. */
     @Synchronized
     fun complete(eventId: String) {
-        helper.writableDatabase.delete(TABLE, "$COL_EVENT_ID = ?", arrayOf(eventId))
+        val cv = ContentValues().apply {
+            put(COL_STATE, STATE_COMPLETED)
+            put(COL_UPDATED_AT, System.currentTimeMillis())
+        }
+        helper.writableDatabase.update(TABLE, cv, "$COL_EVENT_ID = ?", arrayOf(eventId))
     }
 
-    /** Limpia filas procesadas u obsoletas que superen [maxAgeMs] (por defecto 24 horas). */
+    /** Limpia filas completadas o caducadas que superen [maxAgeMs]. */
     @Synchronized
     fun cleanup(maxAgeMs: Long = 86_400_000L): Int {
         val cutoff = System.currentTimeMillis() - maxAgeMs
-        return helper.writableDatabase.delete(TABLE, "$COL_RECEIVED_AT < ?", arrayOf(cutoff.toString()))
+        return helper.writableDatabase.delete(TABLE, "$COL_STATE = ? OR $COL_RECEIVED_AT < ?", arrayOf(STATE_COMPLETED, cutoff.toString()))
     }
 
     @Synchronized
@@ -166,6 +170,7 @@ class DurableInbox(context: Context) {
         private const val COL_UPDATED_AT = "updated_at"
         private const val STATE_RECEIVED = "RECEIVED"
         private const val STATE_RESERVED = "RESERVED"
+        private const val STATE_COMPLETED = "COMPLETED"
         private const val STALE_CLAIM_MS = 30_000L
 
         /** Identidad del evento; estable dentro de la sesión de la notificación

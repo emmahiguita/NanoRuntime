@@ -232,10 +232,7 @@ final stabilityGateProvider = Provider<StabilityGate>((ref) {
 /// Router de ruta de ejecución (C6): comparte el estado real de Linux.
 final actionPathRouterProvider = Provider<ActionPathRouter>((ref) {
   return ActionPathRouter(
-    // Linux disponible cuando hay distribuciones registradas en el
-    // subsistema (termux/kali/ubuntu instalados).
-    linuxAvailable: () =>
-        LinuxDistributionRegistry.instance.getAllDistributions().isNotEmpty,
+    linuxAvailable: () => ref.read(linuxToolAdapterProvider).isAvailable,
   );
 });
 

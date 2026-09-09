@@ -892,9 +892,12 @@ int nanoshell_worker_spawn(
     char* err_s = NULL;
     size_t out_len = 0, err_len = 0;
     const int reserved = _reserve_worker_task(task_id);
-    if (reserved < 0) { free(busybox_argv); return -1; }
     int rc;
-    if (reserved == 0) {
+    if (reserved < 0) {
+        rc = -1; // Unique task identity violation
+        err_s = strdup("Worker task uniqueness violation; execution was not started");
+        err_len = err_s ? strlen(err_s) : 0;
+    } else if (reserved == 0) {
         rc = 75; // Temporary capacity rejection; no fork took place.
         err_s = strdup("Worker capacity reached; execution was not started");
         err_len = err_s ? strlen(err_s) : 0;

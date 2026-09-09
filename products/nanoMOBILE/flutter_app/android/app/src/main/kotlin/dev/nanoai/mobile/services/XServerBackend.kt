@@ -123,8 +123,8 @@ class InternalXvncBackend(
             width = (width * k).toInt().coerceAtLeast(8)
             height = (height * k).toInt().coerceAtLeast(8)
         }
-        width = (width / 8) * 8
-        height = (height / 8) * 8
+        width = (width / 2) * 2
+        height = (height / 2) * 2
         return width to height
     }
 

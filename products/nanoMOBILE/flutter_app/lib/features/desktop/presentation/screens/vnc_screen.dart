@@ -172,7 +172,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final areaAspect = area.width / area.height;
     if (areaAspect <= 0) return false;
     final ratio = fbAspect / areaAspect;
-    return ratio < 0.88 || ratio > 1.12;
+    return ratio < 0.98 || ratio > 1.02;
   }
 
   // Re-arranca el escritorio con la geometría del área visible actual.

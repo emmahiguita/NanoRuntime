@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'trigger.dart';
+import '../storage/automation_db_store_client.dart';
 
 class TimeTickScheduler {
   static const _prefKey = 'automation.last_tick_minute';
@@ -35,6 +36,7 @@ class TimeTickScheduler {
     if (_timer != null) return;
     debugPrint('[rules] ticker arrancado (pulso 30s)');
     _restoreLastKey();
+    _recoverOccurrences();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) async {
       if (_running) return;
       final now = DateTime.now();
@@ -51,6 +53,27 @@ class TimeTickScheduler {
         _running = false;
       }
     });
+  }
+
+  Future<void> _recoverOccurrences() async {
+    try {
+      // Phase 6 - Cold start recovery
+      final occurrences = await AutomationDbStoreClient.instance.recoverOccurrences();
+      var recovered = 0;
+      for (final occ in occurrences) {
+        final id = occ['occurrenceId'] as String?;
+        final status = occ['status'] as String?;
+        if (id != null && (status == 'CLAIMED' || status == 'EXECUTING')) {
+          await AutomationDbStoreClient.instance.updateOccurrenceStatus(id, 'OUTCOME_UNKNOWN', reason: 'Cold start recovery');
+          recovered++;
+        }
+      }
+      if (recovered > 0) {
+        debugPrint('[rules] recuperadas $recovered ocurrencias estancadas a OUTCOME_UNKNOWN');
+      }
+    } catch (e) {
+      debugPrint('[rules] error recuperando ocurrencias: $e');
+    }
   }
 
   Future<void> _restoreLastKey() async {

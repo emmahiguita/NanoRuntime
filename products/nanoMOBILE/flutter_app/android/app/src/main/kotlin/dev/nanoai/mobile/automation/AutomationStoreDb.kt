@@ -523,6 +523,80 @@ class AutomationStoreDb(context: Context) {
     fun importHistory(id: Long): String? = helper.readableDatabase.rawQuery(
         "SELECT body FROM conversation_episodes WHERE id = ? AND intent = 'importHistory'", arrayOf(id.toString())).use { if (it.moveToFirst()) it.getString(0) else null }
 
+    @Synchronized
+    fun upsertOccurrence(ruleId: String, occurrenceId: String, scheduledAtMs: Long): Boolean {
+        val db = helper.writableDatabase
+        val values = android.content.ContentValues().apply {
+            put("rule_id", ruleId)
+            put("occurrence_id", occurrenceId)
+            put("scheduled_at_ms", scheduledAtMs)
+            put("status", "PENDING")
+        }
+        val id = db.insertWithOnConflict(
+            "scheduled_occurrences",
+            null,
+            values,
+            SQLiteDatabase.CONFLICT_IGNORE
+        )
+        return id != -1L
+    }
+
+    @Synchronized
+    fun claimOccurrence(occurrenceId: String): Boolean {
+        val db = helper.writableDatabase
+        val values = android.content.ContentValues().apply {
+            put("status", "CLAIMED")
+            put("claimed_at_ms", System.currentTimeMillis())
+        }
+        val affected = db.update(
+            "scheduled_occurrences",
+            values,
+            "occurrence_id = ? AND status IN ('PENDING', 'OUTCOME_UNKNOWN')",
+            arrayOf(occurrenceId)
+        )
+        return affected > 0
+    }
+
+    @Synchronized
+    fun updateOccurrenceStatus(occurrenceId: String, status: String, reason: String? = null): Boolean {
+        val db = helper.writableDatabase
+        val values = android.content.ContentValues().apply {
+            put("status", status)
+            if (reason != null) put("reason", reason)
+            if (status == "EXECUTING") put("started_at_ms", System.currentTimeMillis())
+            if (status in setOf("SUCCEEDED", "FAILED", "OUTCOME_UNKNOWN", "EXPIRED")) put("finished_at_ms", System.currentTimeMillis())
+        }
+        val affected = db.update(
+            "scheduled_occurrences",
+            values,
+            "occurrence_id = ?",
+            arrayOf(occurrenceId)
+        )
+        return affected > 0
+    }
+
+    @Synchronized
+    fun recoverOccurrences(): List<Map<String, Any>> {
+        val db = helper.readableDatabase
+        return db.query(
+            "scheduled_occurrences",
+            arrayOf("occurrence_id", "rule_id", "scheduled_at_ms", "status"),
+            "status IN ('CLAIMED', 'EXECUTING', 'OUTCOME_UNKNOWN')",
+            null, null, null, "scheduled_at_ms ASC"
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(mapOf(
+                        "occurrenceId" to c.getString(0),
+                        "ruleId" to c.getString(1),
+                        "scheduledAtMs" to c.getLong(2),
+                        "status" to c.getString(3)
+                    ))
+                }
+            }
+        }
+    }
+
     private class StoreDb(context: Context) :
         SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         override fun onCreate(db: SQLiteDatabase) {
@@ -535,6 +609,7 @@ class AutomationStoreDb(context: Context) {
                 """.trimIndent(),
             )
             db.execSQL(EVENTS_DDL)
+            db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
             ensureFts(db)
         }
@@ -542,6 +617,7 @@ class AutomationStoreDb(context: Context) {
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // v1 -> v2: bitácora de eventos del pipeline (append-only).
             if (oldVersion < 2) db.execSQL(EVENTS_DDL)
+            if (oldVersion < 8) db.execSQL(OCCURRENCES_DDL)
             // Create missing base tables before ALTER: historical v3/v4 installs
             // could contain only a subset. SQLiteOpenHelper rolls back a failed
             // migration instead of marking an incomplete schema as upgraded.
@@ -587,7 +663,8 @@ class AutomationStoreDb(context: Context) {
         // R5-03 — v6: pares condicionados (columna incoming_text + FTS
         // recreada sobre incoming_text Y body).
         // v7: FTS4-safe edit/delete triggers, rebuilt index, no user-row deletion.
-        private const val DB_VERSION = 7
+        // v8: Phase 6 - Durable Scheduling - scheduled_occurrences
+        private const val DB_VERSION = 8
         private const val TABLE = "store_sections"
         private const val COL_KEY = "section_key"
         private const val COL_DATA = "data"
@@ -623,6 +700,21 @@ class AutomationStoreDb(context: Context) {
                 "conv_id TEXT NOT NULL DEFAULT '', " +
                 "kind TEXT NOT NULL, " +
                 "detail TEXT NOT NULL DEFAULT '')"
+
+        private const val OCCURRENCES_TABLE = "scheduled_occurrences"
+        private const val OCCURRENCES_DDL = 
+            "CREATE TABLE IF NOT EXISTS $OCCURRENCES_TABLE (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "rule_id TEXT NOT NULL, " +
+                "occurrence_id TEXT NOT NULL UNIQUE, " +
+                "scheduled_at_ms INTEGER NOT NULL, " +
+                "claimed_at_ms INTEGER, " +
+                "started_at_ms INTEGER, " +
+                "finished_at_ms INTEGER, " +
+                "status TEXT NOT NULL, " +
+                "attempt INTEGER NOT NULL DEFAULT 0, " +
+                "reason TEXT" +
+            ")"
 
         /** PERSONA-STORAGE-04 — esquema v3 del agente personal. Los perfiles
          *  (persona/relación), los ejemplos de estilo con índice FTS4 y los

@@ -878,6 +878,12 @@ class DesktopSessionManager(
                   <keyboard>
                     <chainQuitKey>C-g</chainQuitKey>
                   </keyboard>
+                  <applications>
+                    <application class="*">
+                      <maximized>true</maximized>
+                      <decor>no</decor>
+                    </application>
+                  </applications>
                 </openbox_config>
             """.trimIndent())
 

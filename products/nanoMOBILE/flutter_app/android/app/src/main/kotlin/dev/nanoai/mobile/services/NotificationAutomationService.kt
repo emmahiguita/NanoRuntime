@@ -83,6 +83,21 @@ class NotificationAutomationService : NotificationListenerService() {
         }
     }
 
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        super.onNotificationRemoved(sbn)
+        if (sbn == null) return
+        val pkg = sbn.packageName ?: return
+        if (pkg == packageName) return
+        val key = sbn.key ?: return
+        
+        try {
+            val eventId = dev.nanoai.mobile.automation.DurableInbox.eventId(pkg, key, sbn.postTime)
+            NanoApplication.from(this).durableInbox.complete(eventId)
+        } catch (error: Exception) {
+            android.util.Log.e("NanoNotifications", "Failed to remove event from inbox", error)
+        }
+    }
+
     private fun isPackageEligible(pkg: String): Boolean {
         return try {
             val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
