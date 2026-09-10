@@ -4,8 +4,11 @@ library;
 enum PendingReplyStatus {
   pending,
   approved,
+  dispatching,
   dismissed,
   expired,
+  superseded,
+  contextChanged,
   sent,
   failed,
 }
@@ -41,6 +44,45 @@ final class PendingReply {
 
   bool get isPending => status == PendingReplyStatus.pending;
   bool get isExpired => DateTime.now().isAfter(expiresAt);
+  bool get isActionable =>
+      (status == PendingReplyStatus.pending ||
+          status == PendingReplyStatus.approved) &&
+      !isExpired;
+
+  /// Valida si la transición de ciclo de vida es legal (FAIL-CLOSED).
+  bool canTransitionTo(PendingReplyStatus target) {
+    if (status == target) return true;
+    return switch (status) {
+      PendingReplyStatus.pending =>
+        target == PendingReplyStatus.approved ||
+            target == PendingReplyStatus.dispatching ||
+            target == PendingReplyStatus.sent ||
+            target == PendingReplyStatus.dismissed ||
+            target == PendingReplyStatus.expired ||
+            target == PendingReplyStatus.superseded ||
+            target == PendingReplyStatus.contextChanged ||
+            target == PendingReplyStatus.failed,
+      PendingReplyStatus.approved =>
+        target == PendingReplyStatus.dispatching ||
+            target == PendingReplyStatus.sent ||
+            target == PendingReplyStatus.dismissed ||
+            target == PendingReplyStatus.expired ||
+            target == PendingReplyStatus.superseded ||
+            target == PendingReplyStatus.contextChanged ||
+            target == PendingReplyStatus.failed,
+      PendingReplyStatus.dispatching =>
+        target == PendingReplyStatus.sent ||
+            target == PendingReplyStatus.failed ||
+            target == PendingReplyStatus.contextChanged,
+      PendingReplyStatus.dismissed ||
+      PendingReplyStatus.expired ||
+      PendingReplyStatus.superseded ||
+      PendingReplyStatus.contextChanged ||
+      PendingReplyStatus.sent ||
+      PendingReplyStatus.failed =>
+        false,
+    };
+  }
 
   /// Approval belongs to one observed turn, never a matching display name
   /// or a message shared by another contact. Legacy drafts remain copyable.
@@ -51,7 +93,7 @@ final class PendingReply {
     required int notificationPostTime,
     DateTime? now,
   }) =>
-      isPending &&
+      isActionable &&
       (now ?? DateTime.now()).isBefore(expiresAt) &&
       this.conversationId.isNotEmpty &&
       this.conversationId == conversationId &&

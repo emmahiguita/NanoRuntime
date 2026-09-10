@@ -23,6 +23,8 @@ library;
 import '../../engine/business/business_facts.dart';
 import '../../engine/business/fact_selector.dart'
     show normalizeText, tokenizeText;
+import '../../engine/language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
 import '../../engine/messaging/conv_turn_state.dart'
     show contextSignalsFor, greetingTokens, isPureGreeting;
 
@@ -532,8 +534,15 @@ bool isGreetingLikeMessage(String messageText) {
   // Saludo corto (hasta 4 tokens, ej. "hola emma como estas")
   if (tokens.length <= 4) return true;
 
-  // Si contiene palabras sustantivas/narrativas, NO es solo un saludo;
+  // Si contiene palabras sustantivas/narrativas o turno complejo, NO es solo un saludo;
   // es un turno conversacional que requiere memoria factual completa.
+  final complexity = turnComplexityClassifier.classify(messageText);
+  if (complexity.isNarrative ||
+      complexity.isComplex ||
+      complexity.isContextual) {
+    return false;
+  }
+
   const substantiveTokens = {
     'programando', 'programa', 'programar', 'codigo', 'app', 'aplicacion',
     'agente', 'agentes', 'trabajando', 'trabajo', 'camellando', 'cansado',
@@ -568,14 +577,32 @@ bool isSocialReactionMessage(String messageText) =>
 /// señal activa la regla de honestidad de los prompts y el gate de
 /// liveStateRequired en la decisión (R5-05).
 bool isLiveStateQuestion(String messageText) {
-  final tokens = tokenizeText(normalizeText(messageText));
+  final normalized = normalizeText(messageText);
+  final tokens = tokenizeText(normalized);
   if (tokens.isEmpty) return false;
-  const activityVerbs = {'haces', 'haciendo', 'haras', 'hacer', 'iras', 'vas'};
+  const activityVerbs = {
+    'haces',
+    'haciendo',
+    'haras',
+    'hacer',
+    'iras',
+    'vas',
+    'planeas',
+    'saldras',
+    'entrenas',
+  };
   final hasActivityVerb = tokens.any(activityVerbs.contains);
   if (tokens.contains('que') && hasActivityVerb) return true;
   if (tokens.contains('hoy') && hasActivityVerb) return true;
   if (tokens.any((t) => t == 'donde' || t == 'ahi') &&
       tokens.any(presenceVerbs.contains)) {
+    return true;
+  }
+  // Consultas directas de planes futuros sin necesidad de 'que' o 'hoy'
+  if (normalized.contains('vas a') ||
+      normalized.contains('iras a') ||
+      tokens.contains('planeas') ||
+      (tokens.contains('vas') && tokens.contains('ir'))) {
     return true;
   }
   return false;

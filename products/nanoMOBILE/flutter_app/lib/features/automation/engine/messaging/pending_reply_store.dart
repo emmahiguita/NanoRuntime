@@ -10,7 +10,11 @@ abstract interface class PendingReplyRepository {
   Future<List<PendingReply>> allPending();
   Future<void> save(PendingReply reply);
   Future<void> approve(String id);
+  Future<void> beginDispatch(String id);
   Future<void> dismiss(String id);
+  Future<void> markContextChanged(String id);
+  Future<void> markSuperseded(String id);
+  Future<void> markExpired(String id);
   Future<void> updateDraftText(String id, String newText);
   Future<void> markSent(String id);
   Future<void> markFailed(String id);
@@ -57,6 +61,22 @@ final class PendingReplyStore implements PendingReplyRepository {
     }
   }
 
+  Future<bool> _transition(String id, PendingReplyStatus newStatus) async {
+    await init();
+    final item = _inMemory[id];
+    if (item == null) return false;
+    if (!item.canTransitionTo(newStatus)) {
+      debugPrint(
+        '[PendingReplyStore] Transición inválida rechazada: '
+        '${item.status.name} -> ${newStatus.name} para borrador $id',
+      );
+      return false;
+    }
+    _inMemory[id] = item.copyWith(status: newStatus);
+    await _persist();
+    return true;
+  }
+
   @override
   Future<List<PendingReply>> allPending() async {
     await init();
@@ -64,7 +84,8 @@ final class PendingReplyStore implements PendingReplyRepository {
     return _inMemory.values
         .where(
           (r) =>
-              r.status == PendingReplyStatus.pending &&
+              (r.status == PendingReplyStatus.pending ||
+                  r.status == PendingReplyStatus.approved) &&
               now.isBefore(r.expiresAt),
         )
         .toList()
@@ -80,51 +101,55 @@ final class PendingReplyStore implements PendingReplyRepository {
 
   @override
   Future<void> approve(String id) async {
-    await init();
-    final item = _inMemory[id];
-    if (item != null) {
-      _inMemory[id] = item.copyWith(status: PendingReplyStatus.approved);
-      await _persist();
-    }
+    await _transition(id, PendingReplyStatus.approved);
+  }
+
+  @override
+  Future<void> beginDispatch(String id) async {
+    await _transition(id, PendingReplyStatus.dispatching);
   }
 
   @override
   Future<void> dismiss(String id) async {
-    await init();
-    final item = _inMemory[id];
-    if (item != null) {
-      _inMemory[id] = item.copyWith(status: PendingReplyStatus.dismissed);
-      await _persist();
-    }
+    await _transition(id, PendingReplyStatus.dismissed);
+  }
+
+  @override
+  Future<void> markContextChanged(String id) async {
+    await _transition(id, PendingReplyStatus.contextChanged);
+  }
+
+  @override
+  Future<void> markSuperseded(String id) async {
+    await _transition(id, PendingReplyStatus.superseded);
+  }
+
+  @override
+  Future<void> markExpired(String id) async {
+    await _transition(id, PendingReplyStatus.expired);
   }
 
   @override
   Future<void> updateDraftText(String id, String newText) async {
     await init();
     final item = _inMemory[id];
-    if (item != null) {
-      _inMemory[id] = item.copyWith(draftText: newText);
+    if (item != null && item.isActionable) {
+      var sanitized = newText.replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (sanitized.length > 2000) {
+        sanitized = sanitized.substring(0, 2000).trim();
+      }
+      _inMemory[id] = item.copyWith(draftText: sanitized);
       await _persist();
     }
   }
 
   @override
   Future<void> markSent(String id) async {
-    await init();
-    final item = _inMemory[id];
-    if (item != null) {
-      _inMemory[id] = item.copyWith(status: PendingReplyStatus.sent);
-      await _persist();
-    }
+    await _transition(id, PendingReplyStatus.sent);
   }
 
   @override
   Future<void> markFailed(String id) async {
-    await init();
-    final item = _inMemory[id];
-    if (item != null) {
-      _inMemory[id] = item.copyWith(status: PendingReplyStatus.failed);
-      await _persist();
-    }
+    await _transition(id, PendingReplyStatus.failed);
   }
 }

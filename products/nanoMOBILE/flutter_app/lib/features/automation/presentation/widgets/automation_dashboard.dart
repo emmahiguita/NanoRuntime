@@ -16,6 +16,8 @@ import 'package:nanoai/core/widgets/navigation/nano_glyph.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
+import '../../application/automation_coordinator_provider.dart'
+    show pendingRepliesProvider, ruleRegistryProvider;
 import '../../application/automation_diagnostics.dart';
 import '../../application/automation_engine.dart';
 import '../../application/automation_engine_provider.dart';
@@ -549,6 +551,14 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final settings = ref.watch(settingsProvider);
     final mode = settings.agentAutomationMode;
 
+    final pendingDraftsAsync = ref.watch(pendingRepliesProvider);
+    final pendingDraftsCount = pendingDraftsAsync.maybeWhen(
+      data: (list) => list.where((d) => d.isActionable).length,
+      orElse: () => 0,
+    );
+    final rulesCount =
+        ref.watch(ruleRegistryProvider).rules.where((r) => r.enabled).length;
+
     // UI-REV-02: composición única estilo Dev — columna centrada de 720
     // con cabecera compacta. Antes había dos jerarquías (wide 2 columnas
     // / narrow) con el mismo contenido duplicado; la 2 columnas estiraba
@@ -607,6 +617,14 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               header,
+              _ProductOverviewCard(
+                mode: mode,
+                onModeTap: _pickMode,
+                pendingDraftsCount: pendingDraftsCount,
+                activeRulesCount: rulesCount,
+                onMessagesTap: widget.onMessagesTap,
+                onRulesTap: widget.onRulesTap,
+              ),
               if (_senseFeedback != null) ...[
                 const SizedBox(height: NanoSpacing.sm),
                 Container(
@@ -1330,4 +1348,178 @@ class _DashboardEntryTile extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _ProductOverviewCard extends StatelessWidget {
+  const _ProductOverviewCard({
+    required this.mode,
+    required this.onModeTap,
+    required this.pendingDraftsCount,
+    required this.activeRulesCount,
+    this.onMessagesTap,
+    this.onRulesTap,
+  });
+
+  final AgentAutomationMode mode;
+  final VoidCallback onModeTap;
+  final int pendingDraftsCount;
+  final int activeRulesCount;
+  final VoidCallback? onMessagesTap;
+  final VoidCallback? onRulesTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: visual.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: visual.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: visual.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Centro de Operaciones',
+                  style: TextStyle(
+                    color: visual.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: onModeTap,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mode.label,
+                        style: TextStyle(
+                          color: visual.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.expand_more_rounded,
+                        size: 16,
+                        color: visual.accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _StatusPill(
+                  icon: Icons.mark_chat_unread_rounded,
+                  label: pendingDraftsCount == 0
+                      ? 'Sin borradores'
+                      : '$pendingDraftsCount pendiente${pendingDraftsCount == 1 ? '' : 's'}',
+                  highlight: pendingDraftsCount > 0,
+                  onTap: onMessagesTap,
+                  visual: visual,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatusPill(
+                  icon: Icons.rule_rounded,
+                  label: '$activeRulesCount reglas activas',
+                  highlight: false,
+                  onTap: onRulesTap,
+                  visual: visual,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    required this.highlight,
+    required this.visual,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool highlight;
+  final AutomationVisualPalette visual;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: highlight
+              ? visual.accentSoft.withValues(alpha: 0.8)
+              : visual.inputFill,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: highlight
+                ? visual.accent.withValues(alpha: 0.4)
+                : visual.outline,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: highlight ? visual.accent : visual.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: highlight ? visual.text : visual.textMuted,
+                  fontSize: 12,
+                  fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -36,6 +36,7 @@ import '../messaging/conv_turn_state.dart'
 import '../messaging/conversation_memory.dart'
     show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/conversation_understanding.dart';
+import 'turn_complexity_classifier.dart' show turnComplexityClassifier;
 
 /// Intento comunicativo elemental detectado en el texto.
 enum ConversationIntent {
@@ -398,6 +399,14 @@ final class PragmaticFastPath {
   /// actividades cotidianas o cláusulas compuestas que requieren memoria y composición LLM,
   /// evitando que Fast Path secuestre el turno con una plantilla genérica.
   static bool hasSubstantiveNarrative(String normalized, Set<String> tokens) {
+    // Delegación al clasificador determinista unificado de complejidad de turno
+    final classification = turnComplexityClassifier.classify(normalized);
+    if (classification.isNarrative ||
+        classification.isComplex ||
+        classification.isContextual) {
+      return true;
+    }
+
     // Palabras clave de actividades, estados físicos, tecnología, deporte, lugares
     const narrativeTokens = {
       // Desarrollo / estudio / trabajo

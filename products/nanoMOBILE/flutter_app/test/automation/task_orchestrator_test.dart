@@ -42,7 +42,7 @@ TaskOrchestrator _orchestrator({
     resolveInputSurfaceFor: resolveInputSurfaceFor,
     resolveActionSurface: resolveActionSurface,
     commitGuard: commitGuard,
-    journal: journal,
+    journal: journal ?? InMemoryExecutionJournal(),
   );
 }
 

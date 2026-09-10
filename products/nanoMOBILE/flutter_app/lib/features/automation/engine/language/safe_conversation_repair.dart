@@ -11,6 +11,7 @@ enum RepairCase {
   wrongTurnGreeting,
   liveStateAffirmed,
   liveStateQuestionMirror,
+  redundantQuestion,
 }
 
 final class SafeConversationRepair {
@@ -31,7 +32,18 @@ final class SafeConversationRepair {
       case RepairCase.liveStateQuestionMirror:
         // En preguntas sobre la actividad o estado presente/futuro del dueño
         // donde no hay fuente viva, responder honestamente sin inventar.
+        final u = userText?.toLowerCase() ?? '';
+        if (u.contains('vas') ||
+            u.contains('iras') ||
+            u.contains('planeas') ||
+            u.contains('ir') ||
+            u.contains('salir')) {
+          return 'Todavía no sé si voy a ir hoy.';
+        }
         return 'Todavía no lo tengo decidido.';
+
+      case RepairCase.redundantQuestion:
+        return _repairRedundantQuestion(reply, userText: userText);
 
       case RepairCase.callCenterPhrase:
         return _repairCallCenter(reply, userText: userText);
@@ -44,6 +56,36 @@ final class SafeConversationRepair {
         // El modelo repitió textualmente al cliente: no hay reparación segura sin LLM
         return null;
     }
+  }
+
+  static String? _repairRedundantQuestion(String reply, {String? userText}) {
+    final redundantRegexes = [
+      RegExp(
+        r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??',
+        caseSensitive: false,
+      ),
+    ];
+
+    var cleaned = reply;
+    for (final r in redundantRegexes) {
+      cleaned = cleaned.replaceAll(r, '');
+    }
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    cleaned = cleaned.replaceAll(RegExp(r'[,.\s]+$'), '').trim();
+
+    if (cleaned.isNotEmpty && cleaned.length >= 2) {
+      return cleaned;
+    }
+
+    return 'Por acá todo bien también.';
   }
 
   static String? _repairCallCenter(String reply, {String? userText}) {

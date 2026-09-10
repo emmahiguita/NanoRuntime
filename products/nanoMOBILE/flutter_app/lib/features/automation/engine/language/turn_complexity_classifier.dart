@@ -46,9 +46,9 @@ final class TurnComplexityClassifier {
     caseSensitive: false,
   );
 
-  // Patrones narrativos: relato de actividades/planes propios del hablante.
+  // Patrones narrativos: relato de actividades/planes propios del hablante o estados sustantivos.
   static final _narrative = RegExp(
-    r'\b(fui|fuiste|fue|salí|saliste|salió|llegué|llegaste|llegó|voy a|vas a|va a|iba a|ibas a|acabo de|acabas de|acaba de|vengo de|andaba|andabas|andaban|ya (fui|llegué|salí|terminé))\b',
+    r'\b(fui|fuiste|fue|salí|sali|saliste|salió|salio|llegué|llegue|llegaste|llegó|llego|voy a|vas a|va a|iba a|ibas a|acabo de|acabas de|acaba de|vengo de|andaba|andabas|andaban|ya (?:fui|llegué|llegue|salí|sali|terminé|termine)|planeas|planeo|harás|haras|irás|iras|terminando|empezando|programando|programar|codigo|código|trabajando|trabajo|camellando|estudiando|universidad|proyecto|cansado|cansada|cansao|cansaod|agotado|enfermo|enferma|gimnasio|gym|entrenando|entrene|entreno|pecho|espalda|pierna|trotando|corriendo|comiendo|almorzando|cenando|cocinando|manejando|viajando|en casa|en el gym|al gym|del gym|en el trabajo|al trabajo|del trabajo|estoy muerto|muy cansado|bastante cansado|mi dia va|el mio va|ando en|ando haciendo)\b',
     caseSensitive: false,
   );
 

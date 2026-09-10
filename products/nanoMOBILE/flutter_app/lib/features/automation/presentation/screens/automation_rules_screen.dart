@@ -46,12 +46,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   String? _pendingMediaPath;
   String? _pendingMediaName;
 
-  /// WA-PERSONA-01 — buffer de edición del estilo del dueño (settings). El
-  /// estado persistido es la fuente de verdad; el controller solo edita. El
-  /// foco evita pisar al usuario si la hidratación de settings llega tarde.
-  final _styleController = TextEditingController();
-  final _styleFocus = FocusNode();
-
   /// RULES-CREATE-01: verbos de acción del lenguaje natural de la regla.
   /// Se limpian del mensaje (quedan en la acción, no en el texto).
   static final _replyVerbs = RegExp(
@@ -72,8 +66,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   @override
   void dispose() {
     _createController.dispose();
-    _styleController.dispose();
-    _styleFocus.dispose();
     super.dispose();
   }
 
@@ -196,12 +188,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
   @override
   void initState() {
     super.initState();
-    // WA-PERSONA-01 — el buffer arranca con lo persistido; si la hidratación
-    // de settings llega tarde, el listen (registrado en build) sincroniza
-    // cuando el campo no tiene foco. Riverpod solo permite ref.listen dentro
-    // del build de un ConsumerState — initState dispara la assertion
-    // debugDoingBuild (consumer.dart:600).
-    _styleController.text = ref.read(settingsProvider).waStyleText;
     _refresh();
   }
 
@@ -343,32 +329,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
     final visualMode = AutomationVisual.modeFromSetting(
       ref.watch(settingsProvider.select((settings) => settings.themeMode)),
     );
-    // WA-PERSONA-01 — estilo del dueño. NAV-UI-AUDIT-01 — select de record:
-    // igualdad estructural, sin rebuild por pulsación de tecla del campo.
-    final styleSettings = ref.watch(
-      settingsProvider.select(
-        (settings) => (settings.waStyleEnabled, settings.waStyleText),
-      ),
-    );
-    // WA-DELAY-01 — pausa de reply (select de int: igualdad por valor, sin
-    // rebuild por pulsaciones del campo estilo).
-    final replyDelaySeconds = ref.watch(
-      settingsProvider.select((settings) => settings.waReplyDelaySeconds),
-    );
-    // WA-PERSONA-01 — sincroniza el buffer del campo estilo cuando settings
-    // cambia y el campo no tiene foco. En build: riverpod preserva el listen
-    // entre rebuilds y lo cierra solo al desmontar (ref.listen exige build).
-    ref.listen<(bool, String)>(
-      settingsProvider.select(
-        (settings) => (settings.waStyleEnabled, settings.waStyleText),
-      ),
-      (previous, next) {
-        final text = next.$2;
-        if (!_styleFocus.hasFocus && _styleController.text != text) {
-          _styleController.text = text;
-        }
-      },
-    );
     return AnimatedTheme(
       data: AutomationVisual.theme(context, mode: visualMode),
       duration: const Duration(milliseconds: 280),
@@ -424,27 +384,6 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                                   pendingMediaName: _pendingMediaName,
                                   onCreate: _createRule,
                                   onPickMedia: _pickMedia,
-                                ),
-                                const SizedBox(height: 16),
-                                // WA-PERSONA-01 — estilo del dueño para el
-                                // agente WhatsApp. Siempre visible (sin
-                                // depender de reglas existentes).
-                                _StyleCard(
-                                  enabled: styleSettings.$1,
-                                  controller: _styleController,
-                                  focusNode: _styleFocus,
-                                  onToggle: (v) => ref
-                                      .read(settingsProvider.notifier)
-                                      .setWaStyleEnabled(v),
-                                  onTextChanged: (v) => ref
-                                      .read(settingsProvider.notifier)
-                                      .setWaStyleText(v),
-                                  // WA-DELAY-01 — pausa de reply en vivo
-                                  // (setter clampa 0..60).
-                                  replyDelaySeconds: replyDelaySeconds,
-                                  onReplyDelayChanged: (v) => ref
-                                      .read(settingsProvider.notifier)
-                                      .setWaReplyDelaySeconds(v),
                                 ),
                               ],
                             );
@@ -1061,160 +1000,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// WA-PERSONA-01 — card del estilo del dueño para el agente WhatsApp.
-/// Toggle + campo libre. Honesto: el agente solo ve notificaciones entrantes
-/// (jamás lo que el dueño envía), por eso el estilo SE DECLARA aquí y no se
-/// "aprende". El texto persiste en settings; el controller es solo buffer.
-class _StyleCard extends StatelessWidget {
-  const _StyleCard({
-    required this.enabled,
-    required this.controller,
-    required this.focusNode,
-    required this.onToggle,
-    required this.onTextChanged,
-    required this.replyDelaySeconds,
-    required this.onReplyDelayChanged,
-  });
-
-  final bool enabled;
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<bool> onToggle;
-  final ValueChanged<String> onTextChanged;
-
-  /// WA-DELAY-01 — pausa "humana" antes de enviar el reply (0..60 s).
-  final int replyDelaySeconds;
-  final ValueChanged<int> onReplyDelayChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return AutomationSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.person_outline_rounded,
-                color: visual.accent,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Responder con mi estilo',
-                  style: TextStyle(
-                    color: visual.text,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Switch(value: enabled, onChanged: onToggle),
-            ],
-          ),
-          Text(
-            'Nano imita tu forma de hablar al responder por WhatsApp (reglas '
-            'reply y sugerencias). Nano no ve lo que tú envías, así que '
-            'describe aquí cómo hablas.',
-            style: TextStyle(
-              color: visual.textMuted,
-              fontSize: 11.5,
-              height: 1.4,
-            ),
-          ),
-          if (enabled) ...[
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              focusNode: focusNode,
-              minLines: 2,
-              maxLines: 4,
-              onChanged: onTextChanged,
-              style: TextStyle(
-                color: visual.text,
-                fontSize: 13,
-                fontFamily: 'Inter',
-              ),
-              decoration: InputDecoration(
-                hintText:
-                    'Ej.: hablo corto y directo, uso «pana», a veces bromeo',
-                hintStyle: TextStyle(
-                  color: visual.textMuted.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontFamily: 'Inter',
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: visual.inputFill,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-            ),
-          ],
-          // WA-DELAY-01 — pausa de reply SIEMPRE visible (aplica a reglas
-          // reply fijas y dinámicas, con o sin estilo activado).
-          const SizedBox(height: 10),
-          Divider(color: visual.inputFill, height: 1),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(Icons.timer_outlined, color: visual.textMuted, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Retraso de respuesta',
-                  style: TextStyle(
-                    color: visual.text,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                replyDelaySeconds == 0
-                    ? 'inmediato'
-                    : '${replyDelaySeconds}s',
-                style: TextStyle(
-                  color: replyDelaySeconds == 0
-                      ? visual.textMuted
-                      : visual.accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          Slider(
-            value: replyDelaySeconds.toDouble(),
-            max: 60,
-            divisions: 12,
-            label: replyDelaySeconds == 0
-                ? 'inmediato'
-                : '${replyDelaySeconds}s',
-            onChanged: (v) => onReplyDelayChanged(v.round()),
-          ),
-          Text(
-            'Nano espera antes de enviar el reply (parece más humano). Si '
-            'llega otro mensaje durante la espera, la respuesta vieja se '
-            'descarta.',
-            style: TextStyle(
-              color: visual.textMuted,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ContactLabel extends StatelessWidget {
   const _ContactLabel({required this.contact, required this.visual});

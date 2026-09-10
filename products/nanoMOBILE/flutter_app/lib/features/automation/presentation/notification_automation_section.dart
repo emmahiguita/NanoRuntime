@@ -848,97 +848,118 @@ class _PendingRepliesSection extends ConsumerWidget {
   }
 }
 
-class _PendingReplyCard extends ConsumerWidget {
+class _PendingReplyCard extends ConsumerStatefulWidget {
   const _PendingReplyCard({
     required this.reply,
     required this.activeNotifications,
     required this.onReplied,
   });
+
   final PendingReply reply;
   final List<DeviceNotification> activeNotifications;
   final VoidCallback onReplied;
 
-  Future<void> _send(BuildContext context, WidgetRef ref) async {
-    final store = ref.read(pendingReplyStoreProvider);
-    final service = ref.read(notificationExecutorProvider);
+  @override
+  ConsumerState<_PendingReplyCard> createState() => _PendingReplyCardState();
+}
 
-    // P0-A FIX — matching estricto por identidad de conversación.
-    // La comprobación anterior usaba `n.sender == reply.sender || n.text ==
-    // reply.originalMessage`, lo que permitía despachar al contacto incorrecto
-    // cuando dos personas enviaban exactamente el mismo texto (ej. "Hola").
-    // Ahora se derivan el conversationId y el postTime con la MISMA lógica
-    // que usó el pipeline al crear el borrador, y se delega al método
-    // matchesSource() del modelo, que exige los cuatro campos simultáneamente:
-    // conversationId + packageName + notificationKey + notificationPostTime.
-    final match = activeNotifications.where((n) {
-      if (!n.canReply) return false;
-      final identity = conversationIdentityFor(
-        packageName: n.packageName,
-        accountHint: n.accountHint,
-        locusId: n.locusId,
-        shortcutId: n.shortcutId,
-        senderKey: n.senderKey,
-        conversationId: n.conversationId,
-        conversationTitle: n.conversationTitle,
-        sender: n.sender,
-        isGroup: n.isGroup,
-        notificationKey: n.key,
-      );
-      return reply.matchesSource(
-        conversationId: identity.key.id,
-        packageName: n.packageName,
-        notificationKey: n.key,
-        notificationPostTime: n.postedAt.millisecondsSinceEpoch,
-      );
-    }).firstOrNull;
+class _PendingReplyCardState extends ConsumerState<_PendingReplyCard> {
+  bool _isSending = false;
 
-    if (match != null) {
-      final ok = await service.confirmAndReply(match, reply.draftText);
-      if (ok) {
-        await store.markSent(reply.id);
-        ref.invalidate(pendingRepliesProvider);
-        onReplied();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Respuesta enviada a ${reply.sender}')),
-          );
+  PendingReply get reply => widget.reply;
+  List<DeviceNotification> get activeNotifications =>
+      widget.activeNotifications;
+  VoidCallback get onReplied => widget.onReplied;
+
+  Future<void> _send() async {
+    if (_isSending || !reply.isActionable) return;
+    setState(() => _isSending = true);
+
+    try {
+      final store = ref.read(pendingReplyStoreProvider);
+      final service = ref.read(notificationExecutorProvider);
+
+      await store.beginDispatch(reply.id);
+
+      final match = activeNotifications.where((n) {
+        if (!n.canReply) return false;
+        final identity = conversationIdentityFor(
+          packageName: n.packageName,
+          accountHint: n.accountHint,
+          locusId: n.locusId,
+          shortcutId: n.shortcutId,
+          senderKey: n.senderKey,
+          conversationId: n.conversationId,
+          conversationTitle: n.conversationTitle,
+          sender: n.sender,
+          isGroup: n.isGroup,
+          notificationKey: n.key,
+        );
+        return reply.matchesSource(
+          conversationId: identity.key.id,
+          packageName: n.packageName,
+          notificationKey: n.key,
+          notificationPostTime: n.postedAt.millisecondsSinceEpoch,
+        );
+      }).firstOrNull;
+
+      if (match != null) {
+        final ok = await service.confirmAndReply(match, reply.draftText);
+        if (ok) {
+          await store.markSent(reply.id);
+          ref.invalidate(pendingRepliesProvider);
+          onReplied();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Respuesta enviada a ${reply.sender}')),
+            );
+          }
+          return;
         }
-        return;
       }
-    }
 
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Notificación no encontrada'),
-          content: Text(
-            'La notificación de ${reply.sender} ya no está activa en la barra de Android.\n\n'
-            'Puedes copiar el borrador para responder directamente en la aplicación.',
+      await store.markContextChanged(reply.id);
+      ref.invalidate(pendingRepliesProvider);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Notificación no encontrada'),
+            content: Text(
+              'La notificación de ${reply.sender} ya no está activa en la barra de Android.\n\n'
+              'El borrador ha sido marcado como contexto cambiado. Puedes copiar el texto para responder directamente en la aplicación.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              ),
+              FilledButton.icon(
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: const Text('Copiar borrador'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: reply.draftText));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Borrador copiado al portapapeles'),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cerrar'),
-            ),
-            FilledButton.icon(
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              label: const Text('Copiar borrador'),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: reply.draftText));
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Borrador copiado al portapapeles')),
-                );
-              },
-            ),
-          ],
-        ),
-      );
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
-  Future<void> _edit(BuildContext context, WidgetRef ref) async {
+  Future<void> _edit() async {
+    if (_isSending) return;
     final controller = TextEditingController(text: reply.draftText);
     final newText = await showDialog<String>(
       context: context,
@@ -965,33 +986,36 @@ class _PendingReplyCard extends ConsumerWidget {
       ),
     );
     if (newText != null && newText.isNotEmpty) {
-      await ref.read(pendingReplyStoreProvider).updateDraftText(reply.id, newText);
+      await ref
+          .read(pendingReplyStoreProvider)
+          .updateDraftText(reply.id, newText);
       ref.invalidate(pendingRepliesProvider);
     }
   }
 
-  Future<void> _dismiss(WidgetRef ref) async {
+  Future<void> _dismiss() async {
+    if (_isSending) return;
     await ref.read(pendingReplyStoreProvider).dismiss(reply.id);
     ref.invalidate(pendingRepliesProvider);
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final isBusiness = reply.packageName.contains('w4b');
     final appLabel = isBusiness ? 'WhatsApp Business' : 'WhatsApp';
 
-    // BUG-04 fix — evaluate expiry at build time so the button state is
-    // always accurate, even when the card stays on screen past the TTL.
     final expired = reply.isExpired;
+    final actionable = reply.isActionable;
     final timeLeft = reply.expiresAt.difference(DateTime.now());
     final expiryLabel = expired
         ? 'Contexto expirado'
         : timeLeft.inHours > 0
             ? 'Expira en ${timeLeft.inHours}h'
             : 'Expira en ${timeLeft.inMinutes}m';
-    final expiryColor =
-        expired ? colors.error : (timeLeft.inMinutes < 60 ? colors.warning : colors.onSurfaceVariant);
+    final expiryColor = expired
+        ? colors.error
+        : (timeLeft.inMinutes < 60 ? colors.warning : colors.onSurfaceVariant);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: NanoSpacing.sm),
@@ -1059,7 +1083,6 @@ class _PendingReplyCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: NanoSpacing.xs),
-              // BUG-04 / Cambio 3 — Expiry indicator.
               Row(
                 children: [
                   Icon(
@@ -1086,25 +1109,35 @@ class _PendingReplyCard extends ConsumerWidget {
                   TextButton.icon(
                     icon: const Icon(Icons.close_rounded, size: 16),
                     label: const Text('Descartar'),
-                    onPressed: () => _dismiss(ref),
+                    onPressed: _isSending ? null : _dismiss,
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.edit_outlined, size: 16),
                     label: const Text('Editar'),
-                    // Editing an expired draft still makes sense (user may
-                    // want to copy the text), so we keep it enabled.
-                    onPressed: () => _edit(context, ref),
+                    onPressed: _isSending ? null : _edit,
                   ),
-                  // BUG-04 fix — disable Enviar when the draft context has
-                  // expired. matchesSource() already checks expiry, but
-                  // disabling the button gives immediate visual feedback.
                   FilledButton.icon(
-                    icon: Icon(
-                      expired ? Icons.timer_off_rounded : Icons.send_rounded,
-                      size: 16,
+                    icon: _isSending
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Icon(
+                            expired
+                                ? Icons.timer_off_rounded
+                                : Icons.send_rounded,
+                            size: 16,
+                          ),
+                    label: Text(
+                      _isSending
+                          ? 'Enviando...'
+                          : (expired ? 'Expirado' : 'Enviar'),
                     ),
-                    label: Text(expired ? 'Expirado' : 'Enviar'),
-                    onPressed: expired ? null : () => _send(context, ref),
+                    onPressed: (actionable && !_isSending) ? _send : null,
                   ),
                 ],
               ),

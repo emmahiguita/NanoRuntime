@@ -25,6 +25,8 @@ library;
 import '../../engine/business/fact_selector.dart' show tokenizeText;
 import '../../engine/language/safe_conversation_repair.dart'
     show RepairCase, safeConversationRepair;
+import '../../engine/language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
 import '../../engine/messaging/conversation_key.dart' show ConversationIdentity;
 import '../../engine/notifications/conversation_understanding.dart';
 import '../domain/conversation_agent_role.dart'
@@ -67,29 +69,17 @@ final class ConversationDecisionEngine {
       );
     }
 
-    // AUTO-03 — modo de autonomía: tope global ANTES de la identidad.
-    // disabled/suggestions retienen todo el turno (el draft se descarta y
-    // se traza; la cola con aprobación en UI es el siguiente sprint).
-    switch (context.autonomyMode) {
-      case ConversationAutonomyMode.disabled:
-        reasons.add('autonomía desactivada: el pipeline no responde');
-        return ConversationDecision(
-          disposition: ConversationDisposition.holdForApproval,
-          risk: ConversationRisk.low,
-          confidence: 0.0,
-          reasons: reasons,
-        );
-      case ConversationAutonomyMode.suggestions:
-        reasons.add('modo sugerencias: solo aprobación humana suelta el draft');
-        return ConversationDecision(
-          disposition: ConversationDisposition.holdForApproval,
-          risk: ConversationRisk.low,
-          confidence: 0.0,
-          reasons: reasons,
-        );
-      case ConversationAutonomyMode.safeAuto:
-      case ConversationAutonomyMode.autonomous:
-        break; // la fórmula normal sigue intacta.
+    // AUTO-03 — modo de autonomía: disabled retiene de inmediato.
+    // suggestions continúa por el pipeline de calidad para evaluar guards y reparar,
+    // pero retiene al final para aprobación humana sin enviar automáticamente.
+    if (context.autonomyMode == ConversationAutonomyMode.disabled) {
+      reasons.add('autonomía desactivada: el pipeline no responde');
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.low,
+        confidence: 0.0,
+        reasons: reasons,
+      );
     }
 
     // PERSONA-AUTONOMY-11 — política de autonomía por identidad: sin
@@ -214,6 +204,36 @@ final class ConversationDecisionEngine {
         disposition: ConversationDisposition.holdForApproval,
         risk: ConversationRisk.medium,
         confidence: 0.5,
+        reasons: reasons,
+      );
+    }
+
+    // REDUNDANT-QUESTION — el reply le pregunta al cliente por su día/estado
+    // cuando el cliente ya relató su actividad o día.
+    if (_isRedundantStateQuestion(context.userText, understanding.reply)) {
+      final repaired = safeConversationRepair.repair(
+        RepairCase.redundantQuestion,
+        reply: understanding.reply,
+        userText: context.userText,
+        senderName: context.senderName,
+      );
+      if (allowRepair &&
+          repaired != null &&
+          repaired.trim() != understanding.reply.trim()) {
+        return _validateRepair(
+          understanding: understanding,
+          context: context,
+          repaired: repaired,
+          reason: 'calidad reparada: pregunta redundante de estado eliminada',
+        );
+      }
+      reasons.add(
+        'pregunta redundante sobre el estado/día ya relatado por el interlocutor',
+      );
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
+        confidence: 0.4,
         reasons: reasons,
       );
     }
@@ -459,6 +479,17 @@ final class ConversationDecisionEngine {
       );
     }
 
+    // AUTO-03 — suggestions mode retiene el draft con su confianza y calidad calculadas.
+    if (context.autonomyMode == ConversationAutonomyMode.suggestions) {
+      reasons.add('modo sugerencias: draft retenido para aprobación');
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: risk,
+        confidence: confidence,
+        reasons: reasons,
+      );
+    }
+
     return ConversationDecision(
       disposition: ConversationDisposition.autoSend,
       risk: risk,
@@ -490,14 +521,21 @@ final class ConversationDecisionEngine {
       context: context,
       allowRepair: false,
     );
+    final isApproved = validated.autoSend ||
+        (context.autonomyMode == ConversationAutonomyMode.suggestions &&
+            validated.disposition == ConversationDisposition.holdForApproval &&
+            validated.confidence >= 0.6);
+
     return ConversationDecision(
-      disposition: validated.autoSend
-          ? ConversationDisposition.qualityRepair
+      disposition: isApproved
+          ? (context.autonomyMode == ConversationAutonomyMode.suggestions
+              ? ConversationDisposition.holdForApproval
+              : ConversationDisposition.qualityRepair)
           : validated.disposition,
       risk: validated.risk,
       confidence: validated.confidence,
       reasons: [reason, ...validated.reasons],
-      repairedText: validated.autoSend ? candidate.reply : null,
+      repairedText: isApproved ? candidate.reply : null,
     );
   }
 
@@ -600,5 +638,25 @@ final class ConversationDecisionEngine {
         .replaceAll('.', ' ')
         .replaceAll(',', ' ');
     return t.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static bool _isRedundantStateQuestion(String? userText, String reply) {
+    if (userText == null || userText.trim().isEmpty) return false;
+    final u = _fold(userText);
+    final userToldState = u.contains('dia') ||
+        u.contains('trabaj') ||
+        u.contains('gym') ||
+        u.contains('cansad') ||
+        u.contains('en casa') ||
+        turnComplexityClassifier.classify(userText).isNarrative;
+    if (!userToldState) return false;
+
+    final r = _fold(reply);
+    final asksAboutDay = r.contains('tal tu dia') ||
+        r.contains('tal el dia') ||
+        r.contains('como te fue') ||
+        r.contains('como va tu dia') ||
+        r.contains('como va tu jornada');
+    return asksAboutDay;
   }
 }

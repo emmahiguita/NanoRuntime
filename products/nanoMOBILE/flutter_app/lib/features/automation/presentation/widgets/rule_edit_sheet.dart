@@ -31,6 +31,7 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
   late TimeOfDay _time;
   late Set<int> _weekdays;
   late bool _dynamicReply;
+  String? _packageName;
   String? _newMediaPath;
   String? _error;
 
@@ -51,6 +52,7 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
         rule.trigger is NotificationTrigger
             ? rule.trigger as NotificationTrigger
             : null;
+    _packageName = notif?.packageName;
     _contact = TextEditingController(text: notif?.senderMatch ?? '');
     _textMatch = TextEditingController(text: notif?.textMatch ?? '');
   }
@@ -86,8 +88,7 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
       );
     } else if (_isNotification) {
       trigger = NotificationTrigger(
-        // El paquete se conserva: solo contacto y contenido se editan.
-        packageName: (rule.trigger as NotificationTrigger).packageName,
+        packageName: _packageName,
         senderMatch: _contact.text.trim().isEmpty
             ? null
             : _contact.text.trim(),
@@ -263,6 +264,40 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
               ),
               const SizedBox(height: 16),
             ] else if (_isNotification) ...[
+              const _FieldLabel('Aplicación'),
+              DropdownButtonFormField<String?>(
+                initialValue: _packageName,
+                dropdownColor: visual.surface,
+                style: TextStyle(color: visual.text, fontSize: 14),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: visual.inputFill,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: visual.outline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: visual.outline),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text('Cualquier aplicación (Any)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'com.whatsapp',
+                    child: Text('WhatsApp'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'com.whatsapp.w4b',
+                    child: Text('WhatsApp Business'),
+                  ),
+                ],
+                onChanged: (pkg) => setState(() => _packageName = pkg),
+              ),
+              const SizedBox(height: 12),
               const _FieldLabel('Contacto (vacío = cualquier contacto)'),
               _EditorField(controller: _contact, hint: 'Juan'),
               const SizedBox(height: 12),

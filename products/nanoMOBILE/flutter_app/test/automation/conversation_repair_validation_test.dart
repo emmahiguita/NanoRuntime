@@ -153,9 +153,6 @@ void main() {
           ConversationDecisionContext(
             autonomyMode: ConversationAutonomyMode.disabled,
           ),
-          ConversationDecisionContext(
-            autonomyMode: ConversationAutonomyMode.suggestions,
-          ),
         ]) {
           final decision = engine.decide(
             understanding: draft(),
@@ -164,6 +161,18 @@ void main() {
           expect(decision.autoSend, isFalse);
           expect(decision.repairedText, isNull);
         }
+
+        // Suggestions mode preserves the repaired text for human review, but never auto-sends
+        final suggestionsDecision = engine.decide(
+          understanding: draft(),
+          context: const ConversationDecisionContext(
+            autonomyMode: ConversationAutonomyMode.suggestions,
+            agentRole: ConversationAgentRole.personal,
+            userText: 'Hola',
+          ),
+        );
+        expect(suggestionsDecision.autoSend, isFalse);
+        expect(suggestionsDecision.repairedText, '¡Hola!');
       },
     );
   });
