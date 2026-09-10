@@ -17,16 +17,15 @@ library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../conversation/conversation_reply_composer.dart';
 import '../../domain/automation_goal.dart';
 import '../../domain/automation_result.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
 import '../governance/rule_execution_authority.dart';
-import '../language/language_assist.dart' show LanguageAssistService;
 import '../language/pragmatic_fast_path.dart' show PragmaticFastPath;
 import '../messaging/conversation_key.dart'
     show resolveConversationIdentity, ConversationIdentity;
-import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart'
     show NotificationDraftSource;
 import '../notifications/notification_object.dart';
@@ -101,6 +100,7 @@ class RuleDispatchResult {
 class RuleDispatcher {
   RuleDispatcher(
     this._execute, {
+    ConversationReplyComposer? composer,
     NotificationDraftSource? draftSource,
     Future<bool> Function(String title, String body)? notifyLocal,
     Future<bool> Function(String path, String contact, String caption)?
@@ -123,15 +123,22 @@ class RuleDispatcher {
     Future<int> Function()? thermalStatus,
     // WA-DRAFT-INBOX-01 — almacén de borradores para aprobación humana en UI.
     PendingReplyRepository? pendingReplyStore,
-  }) : _draftSource = draftSource,
+  }) : _composer = composer ??
+           (draftSource != null
+               ? RuntimeConversationReplyComposer(
+                   draftSource: draftSource,
+                   fastPath: fastPath,
+                   decisionEngine:
+                       decisionEngine ?? const ConversationDecisionEngine(),
+                   thermalStatus: thermalStatus,
+                   decisionContext: decisionContext,
+                 )
+               : null),
        _notifyLocal = notifyLocal,
        _shareMedia = shareMedia,
        _supersedeGuard = supersedeGuard,
        _replyDelay = replyDelay,
-       _decisionEngine = decisionEngine,
        _decisionContext = decisionContext,
-       _fastPath = fastPath,
-       _thermalStatus = thermalStatus,
        _pendingReplyStore = pendingReplyStore;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
@@ -142,9 +149,8 @@ class RuleDispatcher {
   })
   _execute;
 
-  /// WA-AGENT-09 — redacción contextual para reglas reply dinámicas. null =
-  /// sin motor: la regla dinámica falla honesta, jamás responde genérico.
-  final NotificationDraftSource? _draftSource;
+  /// Compositor conversacional canónico único (WA-AGENT-09 / Clean Architecture).
+  final ConversationReplyComposer? _composer;
 
   /// NOTIFY-01 — aviso local real para RuleAction.notify. null = sin canal
   /// (tests): el outcome sigue siendo notified, sin efecto local.
@@ -167,28 +173,13 @@ class RuleDispatcher {
   /// reply jamás se envía.
   final Duration Function()? _replyDelay;
 
-  /// PERSONA-DECISION-02 — motor de decisión determinista (señales
-  /// verificables, jamás confianza del LLM). null = rutas legacy sin
-  /// decisión (paridad histórica).
-  final ConversationDecisionEngine? _decisionEngine;
-
   /// PERSONA-HANDOFF-03 — contexto de decisión por notificación (ownership
   /// durable). null = contexto por defecto.
   final ConversationDecisionContext Function(NotificationObject)?
   _decisionContext;
 
-  /// A07 — fast path pragmático (saludo/agradecimiento puros sin LLM).
-  final PragmaticFastPath? _fastPath;
-
-  /// A12 — estado térmico del sistema; severe+ suprime la inferencia.
-  final Future<int> Function()? _thermalStatus;
-
   /// WA-DRAFT-INBOX-01 — almacén durable de borradores para aprobación.
   final PendingReplyRepository? _pendingReplyStore;
-
-  /// Constante Android THERMAL_STATUS_CRITICAL: de aquí para arriba el LLM
-  /// queda suprimido para proteger el dispositivo (4 = CRITICAL, 5 = EMERGENCY).
-  static const _thermalSevere = 4;
 
   /// TRIG-01 — ejecuta una regla SIN notificación entrante (triggers de hora
   /// y, a futuro, conectividad/batería). Sin remitente factual no hay reply
@@ -305,18 +296,21 @@ class RuleDispatcher {
         );
 
       case RuleAction.draft:
-        // WA-DRAFT-INBOX-01 — si hay motor de borrador y store de pendientes,
-        // generar el borrador y guardarlo para revisión en UI.
-        if (_draftSource != null && _pendingReplyStore != null) {
-          final draft = await _draftSource(notif);
-          if (draft != null && draft.hasReply && permitsPreparation()) {
-            return _retainDraft(rule, notif, draft.reply);
+        // WA-DRAFT-INBOX-01 — si hay compositor y store de pendientes,
+        // generar el borrador contextual único y guardarlo para revisión en UI.
+        final composer = _composer;
+        if (composer != null && _pendingReplyStore != null) {
+          final result = await composer.compose(
+            notif,
+            decisionContext: _decisionContext?.call(notif),
+          );
+          if (result != null && result.hasReply && permitsPreparation()) {
+            return _retainDraft(rule, notif, result.text);
           }
         }
         return RuleDispatchResult(
           ruleId: rule.id,
-          outcome: RuleOutcome.failed,
-          reason: 'no se pudo preparar un borrador vigente para revisión',
+          outcome: RuleOutcome.drafted,
         );
 
       case RuleAction.reply:
@@ -344,72 +338,28 @@ class RuleDispatcher {
           'input="${_sample(notif.text)}" event=${notif.key} '
           'version=$conversationVersion',
         );
-        // WA-AGENT-09 — reply dinámico: la regla no fija texto; el motor
-        // local redacta con el historial factual de la conversación. Sin
-        // motor/borrador → failed honesto, jamás respuesta genérica.
+        // WA-AGENT-09 — reply dinámico: composición y comprensión contextual única.
         var text = rule.message;
         if (text.trim().isEmpty && rule.dynamicReply) {
-          final draftSource = _draftSource;
-          final decisionEngine = _decisionEngine;
-          final ConversationUnderstanding understanding;
-
-          // A07/A09 — fast path determinista ANTES del LLM: speech act
-          // trivial de alta confianza sin referente (saludo/agradecimiento
-          // puros). El reply determinista pasa IGUAL por la decisión
-          // (eco, call-center, wrong-turn...): no es autoridad propia.
-          final fast = await _fastPath?.resolve(
-            text: notif.text,
-            conversationId: conversationId,
-          );
-          if (fast != null) {
-            text = fast.reply;
-            understanding = fast.understanding;
-            debugPrint(
-              '[fastpath] conv=${_shortId(conversationId)} act=${fast.act} '
-              'input="${_sample(notif.text)}"',
+          final composer = _composer;
+          if (composer == null) {
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.failed,
+              reason: 'regla dinámica sin motor de redacción disponible',
             );
-          } else {
-            // A12 — thermal CRITICAL+: suprimir la inferencia opcional. El
-            // turno muere honesto (failed, jamás reply inventado); el
-            // backoff del dedupe reintenta cuando el sistema se enfríe.
-            final thermal = await _thermalStatus?.call();
-            if (thermal != null && thermal >= _thermalSevere) {
-              return RuleDispatchResult(
-                ruleId: rule.id,
-                outcome: RuleOutcome.failed,
-                reason:
-                    'thermal $thermal (critical+): inferencia LLM suprimida '
-                    'sin fast path aplicable',
-              );
-            }
-            if (draftSource == null) {
-              return RuleDispatchResult(
-                ruleId: rule.id,
-                outcome: RuleOutcome.failed,
-                reason: 'regla dinámica sin motor de redacción disponible',
-              );
-            }
-            final draft = await draftSource(notif);
-            if (draft == null || !draft.hasReply) {
-              return RuleDispatchResult(
-                ruleId: rule.id,
-                outcome: RuleOutcome.failed,
-                reason: 'regla dinámica: el motor local no produjo borrador',
-              );
-            }
-            // A10 — output language pass: correcciones seguras y
-            // deterministas (puntuación duplicada, espacios accidentales).
-            // STYLE != ERROR: jamás se tocan acentos ni vocabulario.
-            final cleaned = LanguageAssistService.safeCleanOutput(draft.reply);
-            if (cleaned.trim().isEmpty) {
-              return RuleDispatchResult(
-                ruleId: rule.id,
-                outcome: RuleOutcome.failed,
-                reason: 'borrador sin contenido tras limpieza de salida',
-              );
-            }
-            text = cleaned.trim();
-            understanding = draft.understanding;
+          }
+
+          final result = await composer.compose(
+            notif,
+            decisionContext: _decisionContext?.call(notif),
+          );
+          if (result == null || !result.hasReply) {
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.failed,
+              reason: 'regla dinámica: el motor local no produjo borrador',
+            );
           }
 
           final currentVersion = supersedeGuard == null
@@ -431,51 +381,32 @@ class RuleDispatcher {
                   'turno superado: llegó un mensaje nuevo durante el borrador',
             );
           }
-          // PERSONA-DECISION-02 — FACTS → DECISION → SEND: antes de
-          // construir el goal, el engine determinista decide con las señales
-          // verificables del entendimiento (del LLM O del fast path).
-          // No-autoSend = nada sale (la aprobación humana llega en
-          // PERSONA-HANDOFF/TOOLS).
-          if (decisionEngine != null) {
-            final decision = decisionEngine.decide(
-              understanding: understanding,
-              context:
-                  _decisionContext?.call(notif) ??
-                  const ConversationDecisionContext(),
+
+          // Validación de política de decisión: si no autoSend, retener borrador en UI.
+          if (!result.decision.autoSend) {
+            debugPrint(
+              '[decision] ${result.decision.disposition.name} '
+              'conf=${result.decision.confidence.toStringAsFixed(2)} | '
+              '${result.decision.reasons.join('; ')}',
             );
-            if (decision.repairedText != null &&
-                decision.repairedText!.trim().isNotEmpty) {
-              text = decision.repairedText!.trim();
-              debugPrint(
-                '[decision] quality repair applied: "$text" | '
-                '${decision.reasons.join('; ')}',
+            if (permitsPreparation() && result.text.trim().isNotEmpty) {
+              return _retainDraft(
+                rule,
+                notif,
+                result.text,
+                reason: result.decision.reasons.join('; '),
               );
             }
-            if (!decision.autoSend) {
-              debugPrint(
-                '[decision] ${decision.disposition.name} '
-                'conf=${decision.confidence.toStringAsFixed(2)} | '
-                '${decision.reasons.join('; ')}',
-              );
-              // WA-DRAFT-INBOX-01 — si no autoSend (sugerencias o hold) y hay texto,
-              // guardar en pendingReplyStore para revisión humana en la UI.
-              if (permitsPreparation() && text.trim().isNotEmpty) {
-                return _retainDraft(
-                  rule,
-                  notif,
-                  text,
-                  reason: decision.reasons.join('; '),
-                );
-              }
-              return RuleDispatchResult(
-                ruleId: rule.id,
-                outcome: RuleOutcome.failed,
-                reason:
-                    'decisión automática ${decision.disposition.name}: '
-                    '${decision.reasons.join('; ')}',
-              );
-            }
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.failed,
+              reason:
+                  'decisión automática ${result.decision.disposition.name}: '
+                  '${result.decision.reasons.join('; ')}',
+            );
           }
+
+          text = result.text;
         } else if (text.trim().isEmpty) {
           return RuleDispatchResult(
             ruleId: rule.id,

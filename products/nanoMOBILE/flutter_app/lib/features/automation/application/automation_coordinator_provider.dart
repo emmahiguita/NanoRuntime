@@ -50,6 +50,8 @@ import 'package:nanoai/features/automation/engine/system/installed_app_catalog.d
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
 import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
+import 'package:nanoai/features/automation/engine/conversation/conversation_reply_composer.dart';
+import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
 
 import '../domain/automation_goal.dart' show AutomationOptions;
 import '../ledger/action_ledger_provider.dart';
@@ -435,6 +437,75 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
   ]);
 });
 
+/// Helper canónico para construir el contexto de decisión factual del turno.
+ConversationDecisionContext _buildConversationDecisionContext(
+  Ref ref,
+  NotificationObject notif,
+) {
+  final identity = resolveConversationIdentity(notif);
+  final ownership = ref
+      .read(conversationOwnershipStoreProvider)
+      .ownershipFor(identity.key.id);
+  final entry = ref.read(
+    conversationStateNotifierProvider,
+  )[identity.key.id];
+  final hasActiveProduct =
+      entry != null &&
+      entry.product != null &&
+      entry.topicStatus == 'active';
+  final hasPendingQuestion =
+      entry != null && entry.pendingQuestion.isNotEmpty;
+  final routing = routeConversationAgent(
+    messageText: notif.text,
+    facts: ref.read(businessFactsNotifierProvider),
+    hasRelationship: ref
+        .read(personaContextProvider)
+        .hasRelationshipFor(
+          notif.sender,
+          conversationId: resolveConversationIdentity(notif).key.id,
+        ),
+    hasActiveProduct: hasActiveProduct,
+    ownerName: ref.read(personaContextProvider).ownerName,
+    hasPendingQuestion: hasPendingQuestion,
+  );
+  final mode = ConversationAutonomyModeName.fromName(
+    ref.read(settingsProvider).waAutonomyMode,
+  );
+  debugPrint(
+    '[agent] rol=${routing.role.name} modo=${mode.name} '
+    '${routing.reasons.join(' | ')}',
+  );
+  return ConversationDecisionContext(
+    humanOwnsConversation: ownership?.humanOwns ?? false,
+    identityConfidence: identity.confidence,
+    autonomyMode: mode,
+    agentRole: routing.role,
+    userText: notif.text,
+    senderName: notif.sender,
+  );
+}
+
+/// Proveedor único del compositor conversacional canónico para toda la aplicación.
+/// Orquesta FastPath, RuntimeNotificationDraftWriter, SafeConversationRepair y
+/// ConversationDecisionEngine con la misma identidad, memoria y persona.
+final conversationReplyComposerProvider =
+    Provider<ConversationReplyComposer>((ref) {
+  return RuntimeConversationReplyComposer(
+    draftSource: ref.watch(notificationDraftSourceProvider),
+    fastPath: PragmaticFastPath(
+      memoryFor: (id) =>
+          ref.read(conversationMemoryStoreProvider).memoryFor(id),
+      contextEntryFor: (id) =>
+          ref.read(conversationStateNotifierProvider)[id],
+      ownerName: () => ref.read(personaContextProvider).ownerName,
+      metricsSource: DeviceMetrics.fetch,
+    ),
+    decisionEngine: const ConversationDecisionEngine(),
+    thermalStatus: () => LanguageAssistService().thermalStatus(),
+    decisionContext: (notif) => _buildConversationDecisionContext(ref, notif),
+  );
+});
+
 /// Pipeline WhatsApp-first (T3.3): notificación → dedupe → match → coordinator.
 /// El dispatcher ejecuta el goal por el MISMO coordinator (nunca un motor aparte).
 final rulePipelineProvider = Provider<RulePipeline>((ref) {
@@ -450,91 +521,14 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       (goal, {AutomationOptions? options}) => ref
           .read(automationCoordinatorProvider)
           .execute(goal, options: options),
+      composer: ref.watch(conversationReplyComposerProvider),
       supersedeGuard: ref.watch(turnSupersedeGuardProvider),
       // WA-DELAY-01 — pausa de reply leída EN VIVO al despachar (closure,
       // no watch: el dispatcher es estable y el delay cambia por llamada).
       replyDelay: () =>
           Duration(seconds: ref.read(settingsProvider).waReplyDelaySeconds),
-      // WA-AGENT-09: reglas reply dinámicas redactan con el MISMO draft
-      // contextual que el candidato de notificación (un solo motor).
-      draftSource: ref.watch(notificationDraftSourceProvider),
-      // A07 — fast path pragmático determinista: saludo/agradecimiento puros
-      // se responden SIN inferencia (ANDROID FIRST / SMALL LLM LAST). El
-      fastPath: PragmaticFastPath(
-        memoryFor: (id) =>
-            ref.read(conversationMemoryStoreProvider).memoryFor(id),
-        contextEntryFor: (id) =>
-            ref.read(conversationStateNotifierProvider)[id],
-        ownerName: () => ref.read(personaContextProvider).ownerName,
-        metricsSource: DeviceMetrics.fetch,
-      ),
-      // antes de cada inferencia (SEVERE+ suprime el LLM, jamás la seguridad).
-      thermalStatus: () => LanguageAssistService().thermalStatus(),
-      // PERSONA-DECISION-02 — decisión determinista antes de despachar el
-      // draft dinámico (FACTS → DECISION → SEND).
-      decisionEngine: const ConversationDecisionEngine(),
-      // WA-DRAFT-INBOX-01 — almacén de borradores pendientes para la UI
       pendingReplyStore: ref.watch(pendingReplyStoreProvider),
-      // PERSONA-HANDOFF-03 — ownership por conversación: si el humano tomó
-      // el control, el engine retiene el draft (jamás se pisa al dueño).
-      // PERSONA-AUTONOMY-11 — la MISMA identidad resuelta alimenta la
-      // política de autonomía: sin evidencia estable no hay envío.
-      // AUTO-02/03 — rol del turno (router determinista puro, jamás LLM) y
-      // modo de autonomía global (settings): el MISMO engine decide con más
-      // señal. No hay segundo motor de decisión.
-      decisionContext: (notif) {
-        final identity = resolveConversationIdentity(notif);
-        final ownership = ref
-            .read(conversationOwnershipStoreProvider)
-            .ownershipFor(identity.key.id);
-        // AUTO-02 — tema activo + producto recordado en convstate (misma
-        // fuente que el gating de contexto): la referencia corta ("¿y ese?")
-        // es comercial cuando hay producto activo.
-        final entry = ref.read(
-          conversationStateNotifierProvider,
-        )[identity.key.id];
-        final hasActiveProduct =
-            entry != null &&
-            entry.product != null &&
-            entry.topicStatus == 'active';
-        final hasPendingQuestion =
-            entry != null && entry.pendingQuestion.isNotEmpty;
-        final routing = routeConversationAgent(
-          messageText: notif.text,
-          facts: ref.read(businessFactsNotifierProvider),
-          hasRelationship: ref
-              .read(personaContextProvider)
-              .hasRelationshipFor(
-                notif.sender,
-                conversationId: resolveConversationIdentity(notif).key.id,
-              ),
-          hasActiveProduct: hasActiveProduct,
-          // P0-ROUTE — identidad: "¿está Emmanuel?" es PERSONAL aunque el
-          // remitente no tenga relación registrada.
-          ownerName: ref.read(personaContextProvider).ownerName,
-          hasPendingQuestion: hasPendingQuestion,
-        );
-        final mode = ConversationAutonomyModeName.fromName(
-          ref.read(settingsProvider).waAutonomyMode,
-        );
-        debugPrint(
-          '[agent] rol=${routing.role.name} modo=${mode.name} '
-          '${routing.reasons.join(' | ')}',
-        );
-        return ConversationDecisionContext(
-          humanOwnsConversation: ownership?.humanOwns ?? false,
-          identityConfidence: identity.confidence,
-          autonomyMode: mode,
-          agentRole: routing.role,
-          // P0-NO-CALLCENTER — el texto del mensaje viaja al engine para el
-          // guard determinista de saludo + identidad ("Soy Nano").
-          userText: notif.text,
-          // A11 — nombre del remitente como señal (NAME OVERUSE GUARD):
-          // KNOWN NAME != MUST USE NAME; jamás usar el nombre en cada
-          // saludo ni como sustituto de hechos reales.
-          senderName: notif.sender,
-        );
-      },
+      decisionContext: (notif) => _buildConversationDecisionContext(ref, notif),
       // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
       // nano_rule_notices). Fallo honesto si el sistema lo rechaza.
       notifyLocal: (title, body) =>

@@ -1,7 +1,7 @@
-import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
-import '../engine/notifications/notification_draft_prompt.dart';
+import '../engine/conversation/conversation_reply_composer.dart';
+import '../engine/notifications/notification_object.dart';
 
 class DeviceNotification {
   final String key;
@@ -13,11 +13,7 @@ class DeviceNotification {
   final bool ongoing;
   final bool isGroup;
 
-  /// PERSONA-TOOLS-10 — campos de identidad de conversación (el canal
-  /// nativo ya los envía; antes se descartaban). Vacíos = la app origen no
-  /// los expuso (honesto). Alimentan [ConversationKey] por la MISMA vía de
-  /// evidencia que el pipeline: ownership marcado en la UI matchea la
-  /// conversación que el agente ve en el listener.
+  /// Campos de identidad y estructura canónica de conversación.
   final String sender;
   final String senderKey;
   final String conversationTitle;
@@ -25,6 +21,15 @@ class DeviceNotification {
   final String shortcutId;
   final String locusId;
   final String accountHint;
+
+  /// Campos de fidelidad canónica 1-to-1 con NotificationObject.
+  final String messageText;
+  final int messageTimestamp;
+  final String senderUri;
+  final bool isSummary;
+  final String remoteInputKey;
+  final int actionIndex;
+  final List<String> actions;
 
   const DeviceNotification({
     required this.key,
@@ -42,13 +47,20 @@ class DeviceNotification {
     this.shortcutId = '',
     this.locusId = '',
     this.accountHint = '',
+    this.messageText = '',
+    this.messageTimestamp = 0,
+    this.senderUri = '',
+    this.isSummary = false,
+    this.remoteInputKey = '',
+    this.actionIndex = -1,
+    this.actions = const [],
   });
 
   factory DeviceNotification.fromMap(Map<dynamic, dynamic> map) {
-    final epoch = (map['postTime'] as num?)?.toInt() ?? 0;
+    final epoch = (map['postTime'] is num) ? (map['postTime'] as num).toInt() : 0;
     return DeviceNotification(
       key: map['key'] as String? ?? '',
-      packageName: map['package'] as String? ?? '',
+      packageName: (map['package'] ?? map['packageName']) as String? ?? '',
       title: map['title'] as String? ?? '',
       text: map['text'] as String? ?? '',
       postedAt: DateTime.fromMillisecondsSinceEpoch(epoch),
@@ -62,6 +74,52 @@ class DeviceNotification {
       shortcutId: map['shortcutId'] as String? ?? '',
       locusId: map['locusId'] as String? ?? '',
       accountHint: map['accountHint'] as String? ?? '',
+      messageText: map['messageText'] as String? ?? '',
+      messageTimestamp: (map['messageTimestamp'] is num)
+          ? (map['messageTimestamp'] as num).toInt()
+          : 0,
+      senderUri: map['senderUri'] as String? ?? '',
+      isSummary: map['isSummary'] as bool? ?? false,
+      remoteInputKey: map['remoteInputKey'] as String? ?? '',
+      actionIndex: (map['actionIndex'] is num)
+          ? (map['actionIndex'] as num).toInt()
+          : -1,
+      actions: ((map['actions'] as List?) ?? const [])
+          .map((a) => '$a')
+          .where((a) => a.isNotEmpty)
+          .toList(),
+    );
+  }
+
+  /// Adaptador unidireccional estricto (One-Way Adapter):
+  /// DeviceNotification -> NotificationObject con preservación total de evidencia.
+  NotificationObject toNotificationObject() {
+    return NotificationObject(
+      key: key,
+      packageName: packageName,
+      title: title,
+      text: text,
+      messageText: messageText.isNotEmpty ? messageText : text,
+      messageTimestamp: messageTimestamp > 0
+          ? messageTimestamp
+          : postedAt.millisecondsSinceEpoch,
+      sender: sender,
+      senderKey: senderKey,
+      senderUri: senderUri,
+      conversationTitle: conversationTitle,
+      conversationId: conversationId,
+      shortcutId: shortcutId,
+      locusId: locusId,
+      accountHint: accountHint,
+      isGroup: isGroup,
+      isSummary: isSummary,
+      isTruncated: false,
+      postTime: postedAt.millisecondsSinceEpoch,
+      canReply: canReply,
+      remoteInputKey: remoteInputKey,
+      actionIndex: actionIndex,
+      actions: actions,
+      ongoing: ongoing,
     );
   }
 }
@@ -76,36 +134,21 @@ class NotificationAccessStatus {
   });
 }
 
-/// Executor de notificaciones: lectura nativa, borrador exclusivamente local
-/// y envío confirmado. El texto de la notificación se trata como dato no
-/// fiable y nunca se interpreta como una instrucción o llamada de herramienta.
+/// Executor de notificaciones adelgazado:
+/// Lectura de estado, listado nativo y transporte de respuesta confirmada.
+///
+/// La redacción y comprensión conversacional se delegan exclusivamente
+/// en [ConversationReplyComposer], eliminando duplicación de prompts,
+/// bypass de memoria y respuestas genéricas de call-center.
 class NotificationExecutor {
   final NanoRuntimeApi _runtime;
-  final LLMEngineClient _engine;
-
-  /// Asegura motor local vivo antes de generar (arranca si idle/failed).
-  /// Mismo contrato que el agente: sin motor no se inventa salida, se falla
-  /// honesto (fallback local / lista vacía).
-  final Future<bool> Function(String? modelPath) _ensureReady;
-
-  /// WA-PERSONA-01 — estilo declarado por el dueño (closures en vivo sobre
-  /// settingsProvider). null cuando el toggle está off: prompt sin cambios.
-  final bool Function() _styleEnabled;
-  final String Function() _styleText;
+  final ConversationReplyComposer _composer;
 
   NotificationExecutor({
     required NanoRuntimeApi runtime,
-    required LLMEngineClient engine,
-    required Future<bool> Function(String? modelPath) ensureReady,
-    required bool Function() styleEnabled,
-    required String Function() styleText,
+    required ConversationReplyComposer composer,
   }) : _runtime = runtime,
-       _engine = engine,
-       _ensureReady = ensureReady,
-       _styleEnabled = styleEnabled,
-       _styleText = styleText;
-
-  String? get _style => _styleEnabled() ? _styleText() : null;
+       _composer = composer;
 
   Future<NotificationAccessStatus> status() async {
     final raw = await _runtime.notificationStatus();
@@ -126,66 +169,27 @@ class NotificationExecutor {
         .toList(growable: false);
   }
 
+  /// Genera un borrador local usando el MISMO cerebro conversacional canónico.
+  /// Sin motor o sin contexto suficiente: falla honesto, jamás texto genérico.
   Future<String> generateLocalDraft(DeviceNotification notification) async {
     if (!notification.canReply) {
       throw StateError('La notificación no admite respuesta directa');
     }
-    // LLM OPCIONAL: si el motor local responde, redacta el borrador. Si el motor
-    // no está disponible o falla, se usa el fallback heurístico local (el LLM
-    // nunca es requisito). El contenido de la notificación es dato no confiable:
-    // el fallback no lo repite ni lo interpreta como instrucción.
-    try {
-      if (!await _ensureReady(null)) {
-        // Motor sin modelo vivo: saltar directo al fallback local (honesto,
-        // sin gastar intentos de conexión contra un puerto muerto).
-        throw StateError('motor local no disponible');
-      }
-      final result = await _engine.generate(
-        prompt: notificationDraftPromptFor(
-          text: notification.text,
-          style: _style,
-        ),
-        temperature: 0.3,
-        maxTokens: 120,
-      );
-      final draft = result.text.trim();
-      if (draft.isNotEmpty) {
-        return draft.length <= 2000 ? draft : draft.substring(0, 2000);
-      }
-    } catch (_) {
-      // Motor local no disponible/falló → fallback local.
+    final notifObj = notification.toNotificationObject();
+    final result = await _composer.compose(notifObj);
+    if (result != null && result.hasReply) {
+      return result.text;
     }
-    return 'Gracias por escribirme. ¿En qué puedo ayudarte?';
+    throw StateError('No se pudo generar un borrador contextual con la información disponible.');
   }
 
-  /// SUG-01 — variantes de respuesta para que el usuario elija. LLM OPCIONAL:
-  /// sin motor o sin salida utilizable → lista vacía (jamás variantes
-  /// genéricas inventadas). El usuario siempre confirma el envío.
+  /// Genera sugerencias de respuesta a partir de la MISMA comprensión única.
   Future<List<String>> generateSuggestions(
     DeviceNotification notification,
   ) async {
     if (!notification.canReply) return const [];
-    try {
-      if (!await _ensureReady(null)) {
-        // Sin motor: sin sugerencias (jamás variantes genéricas inventadas).
-        return const [];
-      }
-      final result = await _engine.generate(
-        prompt: notificationSuggestionsPromptFor(
-          text: notification.text,
-          style: _style,
-        ),
-        temperature: 0.6,
-        maxTokens: 240,
-      );
-      return parseNotificationSuggestions(
-        result.text,
-        packageName: notification.packageName,
-      );
-    } catch (_) {
-      // Motor local no disponible/falló → sin sugerencias.
-      return const [];
-    }
+    final notifObj = notification.toNotificationObject();
+    return _composer.composeSuggestions(notifObj);
   }
 
   Future<bool> confirmAndReply(
