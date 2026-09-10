@@ -787,6 +787,9 @@ class AutomationStoreDb(context: Context) {
             "dedupe", "rate", "memory", "business", "tone", "convstate",
             // PERSONA-HANDOFF-03 — ownership por conversación (bot/humano).
             "ownership",
+            // WA-DRAFT-INBOX-01 — borradores pendientes durables
+            "pending_replies",
+            "automation.pending_replies",
         )
 
         /** Kinds de bitácora aceptados (espejo Dart, whitelist explícita). */

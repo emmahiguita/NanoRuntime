@@ -591,6 +591,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       onRulesTap: widget.onRulesTap,
       onTimeRuleTap: _createTimeRule,
       suppressSuggestions: _running || _sensing || _composing,
+      pendingDraftsCount: pendingDraftsCount,
+      activeRulesCount: rulesCount,
     );
 
     return NanoInputScope(
@@ -617,14 +619,13 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               header,
-              _ProductOverviewCard(
-                mode: mode,
-                onModeTap: _pickMode,
-                pendingDraftsCount: pendingDraftsCount,
-                activeRulesCount: rulesCount,
-                onMessagesTap: widget.onMessagesTap,
-                onRulesTap: widget.onRulesTap,
-              ),
+              if (pendingDraftsCount > 0) ...[
+                const SizedBox(height: 10),
+                _PendingDraftsBanner(
+                  count: pendingDraftsCount,
+                  onTap: widget.onMessagesTap,
+                ),
+              ],
               if (_senseFeedback != null) ...[
                 const SizedBox(height: NanoSpacing.sm),
                 Container(
@@ -1135,9 +1136,13 @@ class QuickAutomationActions extends StatelessWidget {
     this.onRulesTap,
     this.onTimeRuleTap,
     this.suppressSuggestions = false,
+    this.pendingDraftsCount = 0,
+    this.activeRulesCount = 0,
   });
   final ValueChanged<String> onRun;
   final bool suppressSuggestions;
+  final int pendingDraftsCount;
+  final int activeRulesCount;
 
   /// Abre la pantalla de Mensajes (función de usuario, destacada).
   final VoidCallback? onMessagesTap;
@@ -1166,6 +1171,7 @@ class QuickAutomationActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1187,7 +1193,9 @@ class QuickAutomationActions extends StatelessWidget {
             _DashboardEntryTile(
               glyph: NanoGlyphType.rules,
               title: 'Reglas',
-              subtitle: 'Todas tus automatizaciones',
+              subtitle: activeRulesCount > 0
+                  ? '$activeRulesCount activa${activeRulesCount == 1 ? '' : 's'} · Automatizaciones'
+                  : 'Todas tus automatizaciones',
               onTap: onRulesTap!,
             ),
           if (onSettingsTap != null)
@@ -1201,7 +1209,29 @@ class QuickAutomationActions extends StatelessWidget {
             _DashboardEntryTile(
               glyph: NanoGlyphType.reply,
               title: 'Responder mensajes',
-              subtitle: 'Ver notificaciones y responderlas',
+              subtitle: pendingDraftsCount > 0
+                  ? '$pendingDraftsCount borrador${pendingDraftsCount == 1 ? '' : 'es'} pendiente${pendingDraftsCount == 1 ? '' : 's'}'
+                  : 'Ver notificaciones y responderlas',
+              badge: pendingDraftsCount > 0
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: visual.accent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$pendingDraftsCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  : null,
               onTap: onMessagesTap!,
             ),
           const SizedBox(height: 16),
@@ -1227,7 +1257,7 @@ class QuickAutomationActions extends StatelessWidget {
 }
 
 /// Entrada destacada a una pantalla hermana del dashboard (Mensajes, Dev).
-/// Un solo widget para todos los accesos: icono + título + subtítulo.
+/// Un solo widget para todos los accesos: icono + título + subtítulo + badge opcional.
 class _DashboardEntryTile extends StatelessWidget {
   const _DashboardEntryTile({
     this.icon,
@@ -1235,6 +1265,7 @@ class _DashboardEntryTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.badge,
   }) : assert(icon != null || glyph != null);
 
   final IconData? icon;
@@ -1242,6 +1273,7 @@ class _DashboardEntryTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final Widget? badge;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -1338,6 +1370,10 @@ class _DashboardEntryTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (badge != null) ...[
+              badge!,
+              const SizedBox(width: 8),
+            ],
             Icon(
               Icons.chevron_right_rounded,
               size: 20,
@@ -1350,175 +1386,93 @@ class _DashboardEntryTile extends StatelessWidget {
   );
 }
 
-class _ProductOverviewCard extends StatelessWidget {
-  const _ProductOverviewCard({
-    required this.mode,
-    required this.onModeTap,
-    required this.pendingDraftsCount,
-    required this.activeRulesCount,
-    this.onMessagesTap,
-    this.onRulesTap,
+/// Banner de aviso cuando hay borradores pendientes de revisión o aprobación.
+/// Solo se renderiza si count > 0, eliminando ruido visual y redundancia cuando no hay pendientes.
+class _PendingDraftsBanner extends StatelessWidget {
+  const _PendingDraftsBanner({
+    required this.count,
+    this.onTap,
   });
 
-  final AgentAutomationMode mode;
-  final VoidCallback onModeTap;
-  final int pendingDraftsCount;
-  final int activeRulesCount;
-  final VoidCallback? onMessagesTap;
-  final VoidCallback? onRulesTap;
+  final int count;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: visual.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: visual.outline),
+        color: visual.accentSoft.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: visual.accent.withValues(alpha: 0.35),
+          width: 1,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: visual.accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Centro de Operaciones',
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: visual.accent.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.mark_chat_unread_rounded,
+              size: 17,
+              color: visual.accent,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$count borrador${count == 1 ? '' : 'es'} pendiente${count == 1 ? '' : 's'}',
                   style: TextStyle(
                     color: visual.text,
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              InkWell(
-                onTap: onModeTap,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        mode.label,
-                        style: TextStyle(
-                          color: visual.accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.expand_more_rounded,
-                        size: 16,
-                        color: visual.accent,
-                      ),
-                    ],
+                const SizedBox(height: 1),
+                Text(
+                  'Esperando tu revisión o aprobación',
+                  style: TextStyle(
+                    color: visual.textMuted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _StatusPill(
-                  icon: Icons.mark_chat_unread_rounded,
-                  label: pendingDraftsCount == 0
-                      ? 'Sin borradores'
-                      : '$pendingDraftsCount pendiente${pendingDraftsCount == 1 ? '' : 's'}',
-                  highlight: pendingDraftsCount > 0,
-                  onTap: onMessagesTap,
-                  visual: visual,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _StatusPill(
-                  icon: Icons.rule_rounded,
-                  label: '$activeRulesCount reglas activas',
-                  highlight: false,
-                  onTap: onRulesTap,
-                  visual: visual,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.icon,
-    required this.label,
-    required this.highlight,
-    required this.visual,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool highlight;
-  final AutomationVisualPalette visual;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: highlight
-              ? visual.accentSoft.withValues(alpha: 0.8)
-              : visual.inputFill,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: highlight
-                ? visual.accent.withValues(alpha: 0.4)
-                : visual.outline,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 15,
-              color: highlight ? visual.accent : visual.textMuted,
+              ],
             ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          ),
+          if (onTap != null)
+            TextButton(
+              onPressed: onTap,
+              style: TextButton.styleFrom(
+                backgroundColor: visual.accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Revisar',
                 style: TextStyle(
-                  color: highlight ? visual.text : visual.textMuted,
                   fontSize: 12,
-                  fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

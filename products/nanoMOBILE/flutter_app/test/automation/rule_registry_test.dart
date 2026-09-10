@@ -74,10 +74,28 @@ void main() {
       final store = MemoryRuleStore();
       final reg = RuleRegistry(store);
       await reg.load();
+      reg.seedWhatsAppRule('com.whatsapp');
       reg.add(waRule());
       reg.remove('r1');
       expect(reg.rules.any((r) => r.id == 'r1'), isFalse);
       expect(reg.rules.any((r) => r.id == RuleRegistry.universalWhatsAppRuleId), isTrue);
+    });
+
+    test('seedWhatsAppRule y removeWhatsAppRule alternan el estado limpiamente', () async {
+      final store = MemoryRuleStore();
+      final reg = RuleRegistry(store);
+      await reg.load();
+
+      expect(reg.isWhatsAppRuleActive('com.whatsapp'), isFalse);
+
+      reg.seedWhatsAppRule('com.whatsapp');
+      expect(reg.isWhatsAppRuleActive('com.whatsapp'), isTrue);
+
+      reg.removeWhatsAppRule('com.whatsapp');
+      expect(reg.isWhatsAppRuleActive('com.whatsapp'), isFalse);
+
+      reg.seedWhatsAppRule('com.whatsapp');
+      expect(reg.isWhatsAppRuleActive('com.whatsapp'), isTrue);
     });
   });
 

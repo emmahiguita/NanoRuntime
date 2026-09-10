@@ -1,6 +1,8 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
+import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
 
 void main() {
   group('PendingReplyStore WA-DRAFT-INBOX-01', () {
@@ -85,6 +87,72 @@ void main() {
       await store.save(expired);
       final pending = await store.allPending();
       expect(pending.isEmpty, isTrue);
+    });
+
+    test('putSection false lanza StateError (fail-closed, cero persistencia silenciosa)', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const channel = MethodChannel('com.nanoai/automation_store');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'put') {
+          return false; // SQLite rechaza persistencia
+        }
+        return null;
+      });
+
+      final store = PendingReplyStore(dbClient: AutomationDbStoreClient.instance);
+      final reply = PendingReply(
+        id: 'fail_id',
+        conversationId: 'c_fail',
+        packageName: 'com.whatsapp',
+        sender: 'Test',
+        originalMessage: 'Hola',
+        draftText: 'Respuesta',
+        status: PendingReplyStatus.pending,
+        createdAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      );
+
+      expect(() => store.save(reply), throwsA(isA<StateError>()));
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test('putSection true persiste exitosamente', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const channel = MethodChannel('com.nanoai/automation_store');
+      String? savedKey;
+      String? savedJson;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'put') {
+          savedKey = call.arguments['key'] as String?;
+          savedJson = call.arguments['json'] as String?;
+          return true; // SQLite acepta
+        }
+        return null;
+      });
+
+      final store = PendingReplyStore(dbClient: AutomationDbStoreClient.instance);
+      final reply = PendingReply(
+        id: 'ok_id',
+        conversationId: 'c_ok',
+        packageName: 'com.whatsapp',
+        sender: 'Test',
+        originalMessage: 'Hola',
+        draftText: 'Respuesta exitosa',
+        status: PendingReplyStatus.pending,
+        createdAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      );
+
+      await store.save(reply);
+      expect(savedKey, equals(PendingReplyStore.sectionKey));
+      expect(savedJson, contains('Respuesta exitosa'));
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
     });
   });
 }

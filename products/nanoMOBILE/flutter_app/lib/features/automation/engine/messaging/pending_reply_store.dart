@@ -21,7 +21,7 @@ abstract interface class PendingReplyRepository {
 }
 
 final class PendingReplyStore implements PendingReplyRepository {
-  static const sectionKey = 'automation.pending_replies';
+  static const sectionKey = 'pending_replies';
   final AutomationDbStoreClient? _dbClient;
   final Map<String, PendingReply> _inMemory = {};
   bool _loaded = false;
@@ -31,7 +31,10 @@ final class PendingReplyStore implements PendingReplyRepository {
   Future<void> init() async {
     if (_loaded) return;
     try {
-      final raw = await _dbClient?.section(sectionKey);
+      var raw = await _dbClient?.section(sectionKey);
+      if (raw == null || raw.isEmpty) {
+        raw = await _dbClient?.section('automation.pending_replies');
+      }
       if (raw != null && raw.isNotEmpty) {
         final list = jsonDecode(raw) as List<dynamic>;
         final now = DateTime.now();
@@ -50,14 +53,18 @@ final class PendingReplyStore implements PendingReplyRepository {
   }
 
   Future<void> _persist() async {
-    try {
-      final now = DateTime.now();
-      // TTL cleanup on persist
-      _inMemory.removeWhere((_, r) => now.isAfter(r.expiresAt));
-      final list = _inMemory.values.map((r) => r.toJson()).toList();
-      await _dbClient?.putSection(sectionKey, jsonEncode(list));
-    } catch (e) {
-      debugPrint('[PendingReplyStore] persist error: $e');
+    final now = DateTime.now();
+    // TTL cleanup on persist
+    _inMemory.removeWhere((_, r) => now.isAfter(r.expiresAt));
+    final list = _inMemory.values.map((r) => r.toJson()).toList();
+    final client = _dbClient;
+    if (client != null) {
+      final ok = await client.putSection(sectionKey, jsonEncode(list));
+      if (!ok) {
+        throw StateError(
+          '[PendingReplyStore] Fallo crítico al persistir sección $sectionKey en SQLite',
+        );
+      }
     }
   }
 

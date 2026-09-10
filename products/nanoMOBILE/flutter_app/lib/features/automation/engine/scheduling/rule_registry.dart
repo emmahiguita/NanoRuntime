@@ -141,13 +141,25 @@ class RuleRegistry {
   /// activación. Idempotente: si la regla ya existe (instalación previa)
   /// no la duplica ni la sobreescribe (toggle y edición respetados).
   ///
-  /// [packageName] debe ser uno de [MessagingPackage.whatsapp] /
-  /// [MessagingPackage.whatsappBusiness].
+  static String ruleIdForPackage(String packageName) =>
+      packageName == MessagingPackage.whatsappBusiness
+          ? universalWhatsAppBusinessRuleId
+          : universalWhatsAppRuleId;
+
+  /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete
+  /// indicado POR PETICIÓN EXPLÍCITA del usuario desde la pantalla de
+  /// activación. Idempotente: si la regla ya existe y estaba desactivada,
+  /// la habilita; si no existe, la crea.
   void seedWhatsAppRule(String packageName) {
-    final id = packageName == MessagingPackage.whatsappBusiness
-        ? universalWhatsAppBusinessRuleId
-        : universalWhatsAppRuleId;
-    if (_rules.any((r) => r.id == id)) return; // ya existe, nada que hacer
+    final id = ruleIdForPackage(packageName);
+    final existingIndex = _rules.indexWhere((r) => r.id == id);
+    if (existingIndex != -1) {
+      if (!_rules[existingIndex].enabled) {
+        _rules[existingIndex] = _rules[existingIndex].copyWith(enabled: true);
+        _persist();
+      }
+      return;
+    }
     final rule = ScheduledRule(
       id: id,
       trigger: NotificationTrigger(packageName: packageName),
@@ -164,12 +176,15 @@ class RuleRegistry {
     _persist();
   }
 
+  /// WA-CONSENT-01 — elimina la regla universal de WhatsApp para el paquete.
+  void removeWhatsAppRule(String packageName) {
+    remove(ruleIdForPackage(packageName));
+  }
+
   /// WA-CONSENT-01 — true si la regla universal de [packageName] existe y
   /// está habilitada. Usado por la UI para reflejar el estado del toggle.
   bool isWhatsAppRuleActive(String packageName) {
-    final id = packageName == MessagingPackage.whatsappBusiness
-        ? universalWhatsAppBusinessRuleId
-        : universalWhatsAppRuleId;
+    final id = ruleIdForPackage(packageName);
     return _rules.any((r) => r.id == id && r.enabled);
   }
 

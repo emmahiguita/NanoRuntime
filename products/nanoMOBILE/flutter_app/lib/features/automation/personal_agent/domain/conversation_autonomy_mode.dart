@@ -22,10 +22,10 @@ enum ConversationAutonomyMode {
   /// Escucha (dedupe, memoria, trazas) pero jamás responde ni ejecuta.
   disabled,
 
-  /// Genera el borrador, la decisión retiene SIEMPRE: solo aprobación
-  /// humana lo suelta. (Hoy el draft retenido se descarta y se traza; la
-  /// cola de borradores con aprobación en UI es el siguiente sprint — sin
-  /// superficie de lectura no se persiste, regla: nada de write sin read.)
+  /// Genera el borrador, evalúa todas las guardas de calidad y retiene SIEMPRE
+  /// para aprobación humana. El borrador reparado se persiste de forma durable
+  /// en PendingReplyStore (SQLite) y se expone en la bandeja de la UI para
+  /// que el usuario lo revise, edite, descarte o despache. Cero auto-envío.
   suggestions,
 
   /// Responde solo lo seguro: riesgo LOW y sin hechos faltantes. Un saludo

@@ -27,10 +27,7 @@ class WhatsAppAppsCard extends ConsumerWidget {
       if (value) {
         registry.seedWhatsAppRule(pkg);
       } else {
-        final id = pkg == MessagingPackage.whatsappBusiness
-            ? 'builtin_whatsapp_business_auto_reply'
-            : 'builtin_whatsapp_auto_reply';
-        registry.remove(id);
+        registry.removeWhatsAppRule(pkg);
       }
     }
 

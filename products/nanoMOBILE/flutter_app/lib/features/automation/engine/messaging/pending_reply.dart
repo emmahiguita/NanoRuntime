@@ -47,7 +47,8 @@ final class PendingReply {
   bool get isActionable =>
       (status == PendingReplyStatus.pending ||
           status == PendingReplyStatus.approved) &&
-      !isExpired;
+      !isExpired &&
+      draftText.trim().isNotEmpty;
 
   /// Valida si la transición de ciclo de vida es legal (FAIL-CLOSED).
   bool canTransitionTo(PendingReplyStatus target) {
