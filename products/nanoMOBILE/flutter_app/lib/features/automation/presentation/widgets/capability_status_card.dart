@@ -54,21 +54,39 @@ class CapabilityStatusCard extends ConsumerWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.verified_user_rounded,
-                      size: 18,
-                      color: visual.accent,
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: visual.accent.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: visual.accent.withValues(alpha: 0.30),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.verified_user_rounded,
+                        size: 16,
+                        color: visual.accent,
+                      ),
                     ),
                     const SizedBox(width: NanoSpacing.sm),
-                    Expanded(
+                    const Expanded(
                       child: Text(
                         'PERMISOS DEL AGENTE',
-                        // UI-REV-04: overline estándar del módulo.
                         style: TextStyle(
-                          color: visual.textMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.6,
+                          color: Color(0xEEFFFFFF),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          shadows: [
+                            Shadow(
+                              color: Color(0x70000000),
+                              blurRadius: 3,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -245,22 +263,61 @@ class _CapRow extends StatelessWidget {
       colors,
     );
     final status = onActivate != null && avail != null && _requiresAction(avail)
-        ? TextButton.icon(
-            onPressed: onActivate,
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+        ? InkWell(
+            onTap: onActivate,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: chipColor.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: chipColor.withValues(alpha: 0.40),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: chipColor.withValues(alpha: 0.14),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(chipIcon, size: 13, color: chipColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    chipLabel,
+                    style: NanoType.label(chipColor).copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            icon: Icon(chipIcon, size: 14, color: chipColor),
-            label: Text(chipLabel, style: NanoType.label(chipColor)),
           )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(chipIcon, size: 14, color: chipColor),
-              const SizedBox(width: 4),
-              Text(chipLabel, style: NanoType.label(chipColor)),
-            ],
+        : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: chipColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: chipColor.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(chipIcon, size: 13, color: chipColor),
+                const SizedBox(width: 4),
+                Text(
+                  chipLabel,
+                  style: NanoType.label(chipColor).copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -268,11 +325,25 @@ class _CapRow extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 7),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(icon, size: 20, color: visual.textMuted),
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: visual.accent.withValues(
+                    alpha: visual.isDark ? 0.16 : 0.10,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: visual.accent.withValues(
+                      alpha: visual.isDark ? 0.30 : 0.22,
+                    ),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(icon, size: 18, color: visual.accent),
               ),
               const SizedBox(width: NanoSpacing.sm),
               Expanded(
@@ -285,9 +356,18 @@ class _CapRow extends StatelessWidget {
                         Expanded(
                           child: Text(
                             label,
-                            style: NanoType.body(
-                              visual.text,
-                            ).copyWith(fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x70000000),
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         if (!compact) ...[
@@ -300,9 +380,19 @@ class _CapRow extends StatelessWidget {
                     Text(
                       description,
                       softWrap: true,
-                      style: NanoType.caption(
-                        visual.textMuted,
-                      ).copyWith(height: 1.3),
+                      style: const TextStyle(
+                        color: Color(0xEEFFFFFF),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        height: 1.3,
+                        shadows: [
+                          Shadow(
+                            color: Color(0x50000000),
+                            blurRadius: 2,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
                     if (compact) ...[
                       const SizedBox(height: 6),

@@ -14,6 +14,8 @@ import 'nano_universal_input.dart';
 ///
 /// Arquitectura SOLID reutilizable: actúa como la barra universal de comando,
 /// escritura y navegación para todas las pantallas de la aplicación.
+/// Diseño iOS Liquid-Glass optimizado: campo de búsqueda a lo largo completo
+/// sin solapes, iconos compactos y dock de 6 pestañas con indicador fluido.
 class NanoMultiUseNavBar extends StatefulWidget {
   const NanoMultiUseNavBar({
     super.key,
@@ -22,6 +24,7 @@ class NanoMultiUseNavBar extends StatefulWidget {
     this.inputConfig,
     this.onSearch,
     this.onVoice,
+    this.onAvatarTap,
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.brightness,
     this.compact = false,
@@ -33,13 +36,13 @@ class NanoMultiUseNavBar extends StatefulWidget {
   final NanoUniversalInputConfig? inputConfig;
   final ValueChanged<String>? onSearch;
   final VoidCallback? onVoice;
+  final VoidCallback? onAvatarTap;
   final String searchHint;
   final Brightness? brightness;
   final bool compact;
 
-  /// HOME-BLEED-01 — sin cáscara: fuera gradiente, blur y decoración. Detrás
-  /// de la barra se ve el MISMO fondo de la pantalla (wallpaper de Inicio).
-  /// Conserva borde hairline y sombra reducida para leerla como flotante.
+  /// Si es true, el dock adopta una presencia ligera sin caja opaca para
+  /// que el fondo o los controles inferiores (Terminal, etc.) no colisionen.
   final bool transparent;
 
   @override
@@ -47,18 +50,32 @@ class NanoMultiUseNavBar extends StatefulWidget {
 }
 
 class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
+  final _internalController = TextEditingController();
+  final _internalFocusNode = FocusNode();
+
+  TextEditingController get _controller =>
+      widget.inputConfig?.controller ?? _internalController;
+  FocusNode get _focusNode =>
+      widget.inputConfig?.focusNode ?? _internalFocusNode;
+
   bool _focused = false;
   bool _hasText = false;
 
-  // NAV-BAR-FIX-05 — dictado por voz por defecto de la barra. Si la pantalla
-  // no define su propio onVoice (Chat lo define para su conversación
-  // continua), la barra dicta directo: parciales escriben en el campo en
-  // vivo y el resultado final queda listo para enviar. Antes el fallback
-  // navegaba a /automation — el mic no hacía nada útil fuera de Chat.
   bool _dictating = false;
   StreamSubscription<String>? _voiceSub;
+
+  void _onFocus() {
+    if (mounted) setState(() => _focused = _focusNode.hasFocus);
+  }
+
+  void _onText() {
+    final text = _controller.text;
+    final hasTextNow = text.trim().isNotEmpty;
+    if (hasTextNow != _hasText && mounted) {
+      setState(() => _hasText = hasTextNow);
+    }
+    widget.inputConfig?.onChanged?.call(text);
+  }
 
   @override
   void initState() {
@@ -67,22 +84,29 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       _controller.text = widget.inputConfig!.initialText!;
       _hasText = _controller.text.trim().isNotEmpty;
     }
-    _focusNode.addListener(() {
-      if (mounted) setState(() => _focused = _focusNode.hasFocus);
-    });
-    _controller.addListener(() {
-      final text = _controller.text;
-      final hasTextNow = text.trim().isNotEmpty;
-      if (hasTextNow != _hasText && mounted) {
-        setState(() => _hasText = hasTextNow);
-      }
-      widget.inputConfig?.onChanged?.call(text);
-    });
+    _focusNode.addListener(_onFocus);
+    _controller.addListener(_onText);
   }
 
   @override
   void didUpdateWidget(covariant NanoMultiUseNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final oldFn = oldWidget.inputConfig?.focusNode ?? _internalFocusNode;
+    final newFn = widget.inputConfig?.focusNode ?? _internalFocusNode;
+    if (oldFn != newFn) {
+      oldFn.removeListener(_onFocus);
+      newFn.addListener(_onFocus);
+      _focused = newFn.hasFocus;
+    }
+
+    final oldCtl = oldWidget.inputConfig?.controller ?? _internalController;
+    final newCtl = widget.inputConfig?.controller ?? _internalController;
+    if (oldCtl != newCtl) {
+      oldCtl.removeListener(_onText);
+      newCtl.addListener(_onText);
+      _hasText = newCtl.text.trim().isNotEmpty;
+    }
+
     final nextInit = widget.inputConfig?.initialText;
     final oldInit = oldWidget.inputConfig?.initialText;
     if (nextInit != null &&
@@ -93,7 +117,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
     } else if (widget.selected != oldWidget.selected &&
         (widget.inputConfig?.initialText == null ||
             widget.inputConfig!.initialText!.isEmpty)) {
-      // Al cambiar de pestaña, limpiar texto previo, cancelar dictado y soltar foco
       _controller.clear();
       _hasText = false;
       _focusNode.unfocus();
@@ -108,9 +131,11 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocus);
+    _controller.removeListener(_onText);
     _voiceSub?.cancel();
-    _controller.dispose();
-    _focusNode.dispose();
+    _internalController.dispose();
+    _internalFocusNode.dispose();
     super.dispose();
   }
 
@@ -126,26 +151,16 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       } else {
         NanoSearchDispatcher.dispatch(context, query);
       }
-      // NAV-UI-AUDIT-01 — limpiar SOLO si el envío es aceptable: con la
-      // generación en curso el notifier descarta el texto (chat_provider
-      // send) y antes el campo se limpiaba igual — mensaje perdido en
-      // silencio. Ahora el texto queda visible y se reenvía tras stop.
       if ((config?.clearOnSubmit ?? true) && !(config?.isGenerating ?? false)) {
         _controller.clear();
         setState(() => _hasText = false);
       }
-      // NAV-BAR-FIX-01 — conversación continua: el chat mantiene el foco y
-      // el teclado abiertos tras enviar; las demás pantallas lo cierran.
       if (!(config?.keepFocusOnSubmit ?? false)) {
         _focusNode.unfocus();
       }
     }
   }
 
-  /// Dictado por voz real de la barra (misma API del chat: canal
-  /// `com.nanoai/speech`). Escribe los parciales en el campo en vivo; el
-  /// resultado final queda en el campo y el usuario decide cuándo enviar.
-  /// Errores honestos, nunca excepción suelta.
   Future<void> _toggleDefaultDictation() async {
     if (_dictating) {
       setState(() => _dictating = false);
@@ -173,7 +188,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
       );
       setState(() => _hasText = true);
     } else if (_controller.text.trim().isEmpty) {
-      // Sin parciales y sin resultado: aviso honesto en vez de silencio.
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (messenger != null) {
         messenger
@@ -199,9 +213,15 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final mediaSize = MediaQuery.sizeOf(context);
+        final isCompactLandscape =
+            mediaSize.width > mediaSize.height && mediaSize.height < 520;
         final width = constraints.maxWidth;
-        final narrow = width < 480 || widget.compact;
-        final radius = narrow ? 30.0 : 34.0;
+        final narrow = width < 480 || widget.compact || isCompactLandscape;
+        final radius = narrow ? 28.0 : 32.0;
+        final vertTop = isCompactLandscape ? 5.0 : (narrow ? 8.0 : 10.0);
+        final vertBottom = isCompactLandscape ? 4.0 : (narrow ? 6.0 : 8.0);
+        final gap = isCompactLandscape ? 3.0 : (narrow ? 5.0 : 7.0);
 
         return Semantics(
           container: true,
@@ -209,36 +229,31 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
-              // HOME-BLEED-01 — en transparente NO hay sombras: el halo negro
-              // alrededor de la cápsula sobre fondos oscuros se lee como
-              // «borde negro» y rompe la uniformidad entre pantallas.
-              boxShadow: widget.transparent
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: isDark
-                            ? Colors.black.withValues(alpha: .40)
-                            : const Color(0xFF0F172A).withValues(alpha: .12),
-                        blurRadius: _focused ? 32 : 24,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 8),
-                      ),
-                      BoxShadow(
-                        color: NanoNavTokens.cyan.withValues(
-                          alpha: isDark ? .22 : .10,
-                        ),
-                        blurRadius: 20,
-                        spreadRadius: -4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.40)
+                      : const Color(0xFF0F172A).withValues(alpha: 0.12),
+                  blurRadius: _focused ? 28 : 22,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: NanoNavTokens.cyan.withValues(
+                    alpha: isDark ? 0.20 : 0.08,
+                  ),
+                  blurRadius: 18,
+                  spreadRadius: -4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(radius),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: widget.transparent ? 0 : 30,
-                  sigmaY: widget.transparent ? 0 : 30,
+                  sigmaX: 24,
+                  sigmaY: 24,
                 ),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 240),
@@ -246,72 +261,62 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
                     gradient: widget.transparent
-                        ? null
+                        ? (isDark
+                            ? const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0x75102040),
+                                  Color(0x85081226),
+                                ],
+                              )
+                            : const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xC8FFFFFF),
+                                  Color(0xA5F0F5FF),
+                                ],
+                              ))
                         : (isDark
-                              ? NanoNavTokens.shellGradientDark
-                              : NanoNavTokens.shellGradientLight),
-                    // HOME-BLEED-01 — en transparente NO hay borde: la línea
-                    // hairline se leía como «borde» que dividía la barra del
-                    // fondo en las demás pantallas.
-                    border: widget.transparent
-                        ? null
-                        : Border.all(
-                            color: _focused
-                                ? NanoNavTokens.cyan.withValues(alpha: .92)
-                                : (isDark
-                                      ? Colors.white.withValues(alpha: .22)
-                                      : Colors.white.withValues(alpha: .55)),
-                            width: _focused ? 1.4 : 1.0,
-                          ),
+                            ? NanoNavTokens.shellGradientDark
+                            : NanoNavTokens.shellGradientLight),
+                    border: Border.all(
+                      color: _focused
+                          ? NanoNavTokens.cyan.withValues(alpha: 0.92)
+                          : (isDark
+                              ? Colors.white.withValues(alpha: 0.22)
+                              : Colors.white.withValues(alpha: 0.65)),
+                      width: _focused ? 1.3 : 1.0,
+                    ),
                   ),
                   child: Stack(
                     children: [
-                      // HOME-BLEED-01 — la pluma decorativa se apaga en modo
-                      // transparente: sobre el wallpaper ensuciaría el fondo.
-                      if (!widget.transparent)
-                        Positioned(
-                          right: -12,
-                          top: -16,
-                          width: narrow ? 150 : 210,
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: isDark ? .42 : .18,
-                              child: Image.asset(
-                                'assets/nano/nano_feather.png',
-                                fit: BoxFit.contain,
-                              ),
+                      Positioned(
+                        top: 0,
+                        left: 20,
+                        right: 20,
+                        height: 1,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.white.withValues(
+                                  alpha: isDark ? 0.35 : 0.8,
+                                ),
+                                Colors.transparent,
+                              ],
                             ),
                           ),
                         ),
-                      // HOME-BLEED-01 — sin cáscara no hay hairline superior:
-                      // una línea blanca flotando sobre el fondo se lee como
-                      // borde extraño.
-                      if (!widget.transparent)
-                        Positioned(
-                          top: 0,
-                          left: 20,
-                          right: 20,
-                          height: 1,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white.withValues(
-                                    alpha: isDark ? 0.35 : 0.8,
-                                  ),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(
-                          narrow ? 10 : 13,
-                          narrow ? 9 : 11,
-                          narrow ? 10 : 13,
-                          narrow ? 8 : 10,
+                          narrow ? 10 : 12,
+                          vertTop,
+                          narrow ? 10 : 12,
+                          vertBottom,
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -328,8 +333,6 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                                 _controller.clear();
                                 setState(() => _hasText = false);
                               },
-                              // NAV-BAR-FIX-05 — si la pantalla no define
-                              // voz propia, la barra dicta directo al campo.
                               onVoice:
                                   config?.onVoice ??
                                   widget.onVoice ??
@@ -339,16 +342,18 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                               compact: narrow,
                               transparent: widget.transparent,
                             ),
-                            SizedBox(height: narrow ? 6 : 9),
-                            _DestinationsDock(
-                              brightness: b,
-                              selected: widget.selected,
-                              compact: narrow,
-                              onSelected: (d) {
-                                HapticFeedback.selectionClick();
-                                widget.onDestinationSelected(d);
-                              },
-                            ),
+                            if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
+                              SizedBox(height: gap),
+                              _DestinationsDock(
+                                brightness: b,
+                                selected: widget.selected,
+                                compact: narrow,
+                                onSelected: (d) {
+                                  HapticFeedback.selectionClick();
+                                  widget.onDestinationSelected(d);
+                                },
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -391,9 +396,6 @@ class _SearchRow extends StatelessWidget {
   final VoidCallback? onVoice;
   final bool listening;
   final bool compact;
-
-  /// HOME-BLEED-01 — el campo flota sin caja: fuera color de fondo y borde.
-  /// Solo tipografía e iconos sobre el fondo de la pantalla (sin división).
   final bool transparent;
 
   @override
@@ -404,56 +406,64 @@ class _SearchRow extends StatelessWidget {
 
     return Row(
       children: [
-        // NAV-FLOAT-01 — fuera el orbe búho: la barra es solo campo +
-        // pestañas. El acceso al chat ya vive en el dock (pestaña Chat);
-        // el orbe era un atajo redundante que ensuciaba la silueta.
         Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            // NAV-BAR-FIX-02 — sin altura fija: el campo crece hasta 4 líneas
-            // (lógica completa de escritura) y la card crece con él.
-            // NAV-INPUT-FIX-01: color de fondo claro en modo oscuro — el
-            // antiguo 0x750D1D42 era casi negro y producía artefactos de
-            // borde oscuro al renderizar. Ahora azul profundo luminoso.
-            constraints: BoxConstraints(minHeight: compact ? 40 : 48),
-            // HOME-BLEED-01 — en transparente el campo NO pinta caja: ni
-            // color de fondo, ni borde, ni sombra de foco. Solo el texto y
-            // los iconos flotando sobre el fondo (la caja azul/blanca era
-            // la «división entre componentes y fondo» que se veía en las
-            // demás pantallas).
-            decoration: transparent
-                ? null
-                : BoxDecoration(
-                    // NAV-INPUT-FIX-01: color claro en oscuro — el antiguo
-                    // 0x750D1D42 casi negro producía artefactos de borde.
-                    color: dark
-                        ? const Color(0x751E3C6E)
-                        : const Color(0xEBFFFFFF),
-                    borderRadius: BorderRadius.circular(compact ? 22 : 24),
-                    border: Border.all(
-                      color: focusNode.hasFocus
-                          ? NanoNavTokens.cyan.withValues(alpha: .90)
-                          : (dark
-                                ? Colors.white.withValues(alpha: .22)
-                                : Colors.black.withValues(alpha: .08)),
-                      width: focusNode.hasFocus ? 1.3 : 1.0,
-                    ),
-                    boxShadow: focusNode.hasFocus
-                        ? [
-                            BoxShadow(
-                              color: NanoNavTokens.cyan.withValues(alpha: .24),
-                              blurRadius: 18,
-                              spreadRadius: -2,
-                            ),
-                          ]
-                        : null,
-                  ),
+            constraints: BoxConstraints(minHeight: compact ? 38 : 44),
+            decoration: BoxDecoration(
+              color: dark
+                  ? (focusNode.hasFocus
+                      ? const Color(0x751E3A68)
+                      : const Color(0x55162B4E))
+                  : (focusNode.hasFocus
+                      ? Colors.white
+                      : const Color(0xF0FFFFFF)),
+              borderRadius: BorderRadius.circular(compact ? 22 : 24),
+              border: Border.all(
+                color: focusNode.hasFocus
+                    ? NanoNavTokens.cyan.withValues(alpha: 0.95)
+                    : (dark
+                        ? Colors.white.withValues(alpha: 0.18)
+                        : Colors.black.withValues(alpha: 0.09)),
+                width: focusNode.hasFocus ? 1.3 : 1.0,
+              ),
+              boxShadow: focusNode.hasFocus
+                  ? [
+                      BoxShadow(
+                        color: NanoNavTokens.cyan.withValues(alpha: 0.22),
+                        blurRadius: 16,
+                        spreadRadius: -1,
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: dark ? 0.20 : 0.05,
+                        ),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+            ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(width: compact ? 10 : 12),
-
-                // Campo de texto universal (multilínea que crece)
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: compact ? 10 : 13,
+                    right: compact ? 6 : 8,
+                  ),
+                  child: Icon(
+                    Icons.search_rounded,
+                    size: compact ? 19 : 21,
+                    color: focusNode.hasFocus
+                        ? NanoNavTokens.cyan
+                        : (dark
+                            ? const Color(0xFFA0B4D2)
+                            : const Color(0xFF2C5282)),
+                  ),
+                ),
                 Expanded(
                   child: TextField(
                     controller: controller,
@@ -462,83 +472,172 @@ class _SearchRow extends StatelessWidget {
                     textInputAction: TextInputAction.send,
                     minLines: 1,
                     maxLines: compact ? 3 : 5,
+                    cursorColor: NanoNavTokens.cyan,
+                    cursorWidth: 2.0,
+                    cursorRadius: const Radius.circular(2),
                     style: TextStyle(
                       color: text,
-                      fontSize: compact ? 12.8 : 13.8,
+                      fontSize: compact ? 13.2 : 14.2,
                       fontWeight: FontWeight.w500,
-                      letterSpacing: .05,
+                      letterSpacing: 0.05,
                     ),
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      filled: false,
+                      fillColor: Colors.transparent,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: compact ? 8 : 10,
+                        horizontal: 4,
+                      ),
                       hintText: hint,
                       hintStyle: TextStyle(
-                        color: muted.withValues(alpha: .80),
-                        fontSize: compact ? 11.6 : 12.8,
+                        color: muted.withValues(alpha: 0.75),
+                        fontSize: compact ? 12.0 : 13.0,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),
                 ),
-
-                // Botón de adjuntar archivo si la pantalla lo soporta
                 if (onAttach != null)
-                  IconButton(
-                    icon: Icon(
-                      Icons.attach_file_rounded,
-                      size: compact ? 18 : 20,
-                      color: muted,
-                    ),
-                    onPressed: onAttach,
-                    tooltip: 'Adjuntar archivo',
-                    splashRadius: 18,
-                  ),
-
-                // Botón limpiar cuando hay texto
-                if (hasText)
-                  IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: compact ? 16 : 18,
-                      color: muted,
-                    ),
-                    onPressed: onClear,
-                    tooltip: 'Limpiar texto',
-                    splashRadius: 18,
-                  ),
-
-                // NAV-FLOAT-01 — fuera los orbes/botones grandes (mic orbe,
-                // stop, send prominente). El campo lleva iconos compactos
-                // estándar: dictado, limpiar y enviar como sufijos.
-                IconButton(
-                  icon: Icon(
-                    listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                    size: compact ? 18 : 20,
-                    color: listening ? Colors.redAccent : muted,
-                  ),
-                  onPressed: onVoice,
-                  tooltip: 'Dictar por voz',
-                  splashRadius: 18,
-                ),
-
-                // Enviar: icono discreto dentro del campo. El Enter del
-                // teclado inserta salto de línea (multilínea) — el tap es
-                // el envío real.
-                if (hasText)
                   Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.only(right: 2),
                     child: IconButton(
                       icon: Icon(
-                        Icons.arrow_upward_rounded,
+                        Icons.attach_file_rounded,
                         size: compact ? 18 : 20,
-                        color: NanoNavTokens.cyan,
+                        color: muted,
                       ),
-                      onPressed: () => onSubmitted?.call(controller.text),
-                      tooltip: 'Enviar',
-                      splashRadius: 18,
+                      onPressed: onAttach,
+                      tooltip: 'Adjuntar archivo',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints.tightFor(
+                        width: compact ? 30 : 34,
+                        height: compact ? 30 : 34,
+                      ),
                     ),
                   ),
+                if (hasText)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      icon: Container(
+                        width: compact ? 18 : 20,
+                        height: compact ? 18 : 20,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: dark
+                              ? Colors.white.withValues(alpha: 0.18)
+                              : Colors.black.withValues(alpha: 0.12),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: compact ? 12 : 13,
+                          color: dark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      onPressed: onClear,
+                      tooltip: 'Limpiar texto',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints.tightFor(
+                        width: compact ? 26 : 30,
+                        height: compact ? 26 : 30,
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.only(right: compact ? 4 : 6),
+                  child: hasText
+                      ? Material(
+                          color: Colors.transparent,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              onSubmitted?.call(controller.text);
+                            },
+                            child: Container(
+                              width: compact ? 32 : 36,
+                              height: compact ? 32 : 36,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF38BDF8),
+                                    Color(0xFF2563EB),
+                                    Color(0xFF1D4ED8),
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF2563EB)
+                                        .withValues(alpha: 0.50),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                size: compact ? 17 : 19,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        )
+                      : IconButton(
+                          icon: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: compact ? 30 : 34,
+                            height: compact ? 30 : 34,
+                            alignment: Alignment.center,
+                            decoration: listening
+                                ? BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0xFFEF4444)
+                                        .withValues(alpha: 0.20),
+                                    border: Border.all(
+                                      color: const Color(0xFFEF4444)
+                                          .withValues(alpha: 0.50),
+                                      width: 1.2,
+                                    ),
+                                  )
+                                : null,
+                            child: Icon(
+                              listening
+                                  ? Icons.stop_rounded
+                                  : Icons.mic_rounded,
+                              size: compact ? 19 : 21,
+                              color: listening
+                                  ? const Color(0xFFEF4444)
+                                  : (dark
+                                      ? NanoNavTokens.cyan
+                                      : const Color(0xFF2563EB)),
+                            ),
+                          ),
+                          onPressed: onVoice,
+                          tooltip: listening
+                              ? 'Detener dictado'
+                              : 'Dictar por voz',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints.tightFor(
+                            width: compact ? 32 : 36,
+                            height: compact ? 32 : 36,
+                          ),
+                        ),
+                ),
               ],
             ),
           ),
@@ -589,7 +688,7 @@ class _DestinationsDock extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final tabWidth = constraints.maxWidth / count;
-              final indicatorWidth = compact ? 22.0 : 28.0;
+              final indicatorWidth = compact ? 20.0 : 28.0;
 
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 240),
@@ -606,18 +705,22 @@ class _DestinationsDock extends StatelessWidget {
                     height: 2.8,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(99),
-                      color: NanoNavTokens.cyan,
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF38BDF8),
+                          Color(0xFF2563EB),
+                          Color(0xFF1D4ED8),
+                        ],
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: NanoNavTokens.cyan.withValues(alpha: .95),
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.90),
                           blurRadius: 8,
-                          spreadRadius: .5,
+                          spreadRadius: 0.5,
                         ),
                         BoxShadow(
-                          color: NanoNavTokens.accentBlue.withValues(
-                            alpha: .65,
-                          ),
-                          blurRadius: 14,
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.60),
+                          blurRadius: 12,
                         ),
                       ],
                     ),
@@ -649,10 +752,9 @@ class _DestinationTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = NanoNavTokens.textMuted(brightness);
-    final active = brightness == Brightness.dark
-        ? NanoNavTokens.cyan
-        : const Color(0xFF0284C7);
+    final dark = brightness == Brightness.dark;
+    final muted = dark ? const Color(0xFF88A0C8) : const Color(0xFF3B6096);
+    final active = dark ? NanoNavTokens.cyan : const Color(0xFF1D4ED8);
 
     return Semantics(
       selected: selected,
@@ -663,7 +765,7 @@ class _DestinationTab extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
-            vertical: compact ? 1 : 4,
+            vertical: compact ? 2 : 4,
             horizontal: 1,
           ),
           child: Column(
@@ -675,7 +777,7 @@ class _DestinationTab extends StatelessWidget {
                 child: NanoGlyph(
                   type: destination.glyph,
                   color: selected ? active : muted,
-                  size: compact ? 16 : 22,
+                  size: compact ? 17 : 22,
                   strokeWidth: selected ? 2.15 : 1.80,
                   glow: selected,
                 ),
@@ -693,11 +795,11 @@ class _DestinationTab extends StatelessWidget {
                     fontSize: compact ? 7.8 : 9.8,
                     height: 1.1,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    letterSpacing: -.05,
+                    letterSpacing: -0.05,
                     shadows: selected
                         ? [
                             Shadow(
-                              color: active.withValues(alpha: .6),
+                              color: active.withValues(alpha: 0.5),
                               blurRadius: 8,
                             ),
                           ]
@@ -705,7 +807,7 @@ class _DestinationTab extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(height: compact ? 3 : 7),
+              SizedBox(height: compact ? 3 : 6),
             ],
           ),
         ),

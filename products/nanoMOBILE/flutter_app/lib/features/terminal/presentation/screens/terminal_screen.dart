@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:nanoai/core/services/llm_engine_client.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/terminal/terminal_core.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 
@@ -24,6 +23,9 @@ class _S extends State<TerminalTabScreen> {
   // ids duplicados que rompían ValueKey('t${s.id}') y _close removeWhere).
   int _nextId = 0;
   late final LLMEngineClient _engine;
+
+  final _commandController = TextEditingController();
+  final _commandFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -104,6 +106,8 @@ class _S extends State<TerminalTabScreen> {
   void dispose() {
     _saveSessions();
     _engine.dispose();
+    _commandController.dispose();
+    _commandFocusNode.dispose();
     super.dispose();
   }
 
@@ -149,14 +153,17 @@ class _S extends State<TerminalTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = NanoThemeExtension.of(context).colors;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final bg = dark ? const Color(0xFF020611) : c.backgroundPrimary;
-    final chrome = dark ? const Color(0xFF07192B) : c.surfaceVariant;
-    final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
+    // Identidad universal Obsidian para terminal: el entorno hacker/PTY
+    // es intrínsecamente oscuro y de alto contraste en cualquier modo.
+    const bg = Color(0xFF020611);
+    const chrome = Color(0xFF07192B);
+    const fg = Color(0xFF21F2B2);
 
     return NanoInputScope(
       scopeId: 'terminal',
+      controller: _commandController,
+      focusNode: _commandFocusNode,
+      keepFocusOnSubmit: true,
       hint: _sessions.isNotEmpty 
           ? 'Comando para ${_sessions[_active].name}...' 
           : 'Escribe un comando de terminal...',
@@ -351,6 +358,9 @@ class _S extends State<TerminalTabScreen> {
                       initialCwd: s.cwd,
                       engine: _engine,
                       visible: i == _active,
+                      focusNode: i == _active ? _commandFocusNode : null,
+                      commandController:
+                          i == _active ? _commandController : null,
                       // Solo la primera sesión consume el comando inicial.
                       initialCommand: s.id == 0 ? widget.initialCommand : null,
                       onTitle: (title) {

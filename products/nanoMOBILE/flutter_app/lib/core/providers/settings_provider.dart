@@ -41,7 +41,10 @@ class SettingsRepository {
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
         vncPassword: m['vncPassword'] as String? ?? '',
-        desktopMobileMode: m['desktopMobileMode'] as bool? ?? false,
+        // El escritorio Linux de Nano es mobile-first. Una preferencia PC
+        // antigua reintroducía barras grandes y podía reducir el framebuffer
+        // a una franja durante la rotación.
+        desktopMobileMode: true,
         agentAutomationMode: AgentAutomationMode.fromName(
           m['agentAutomationMode'] as String?,
         ),
@@ -138,7 +141,7 @@ class SettingsState {
     this.topP = 0.9,
     this.maxTokens = 512,
     this.vncPassword = '',
-    this.desktopMobileMode = false,
+    this.desktopMobileMode = true,
     this.agentAutomationMode = AgentAutomationMode.assisted,
     this.automationModelMode = AutomationModelMode.sameAsChat,
     this.automationModelId = '',
@@ -224,7 +227,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         // revertimos RAM a la última verdad duradera para que la UI jamás
         // afirme un modo (ej. 'Disabled') que el disco no consolidó.
         // Solo revertimos si no hay una mutación más reciente en vuelo.
-        debugPrint('[settings] fallo al persistir en disco (rev=$rev): $e — rollback');
+        debugPrint(
+          '[settings] fallo al persistir en disco (rev=$rev): $e — rollback',
+        );
         if (rev == _mutationRevision) {
           state = _durableState;
         }

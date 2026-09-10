@@ -71,30 +71,39 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
       _busy = true;
       _status = 'Consultando…';
     });
-    final snap = await _executor.snapshot();
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (snap == null) {
-        _status =
-            'No conectado — activar en Ajustes → Accesibilidad → '
-            'NanoAI Local';
+    try {
+      final snap = await _executor.snapshot();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        if (snap == null) {
+          _status =
+              'No conectado — activar en Ajustes → Accesibilidad → '
+              'NanoAI Local';
+          _nodes = const [];
+          return;
+        }
+        if (snap.isEmpty) {
+          _status = 'Conectado — sin ventana activa (rebind ColorOS)';
+          _nodes = const [];
+          return;
+        }
+        _status = 'Conectado — ${snap.package} · ${snap.nodes.length} nodos';
+        _nodes = snap.visibleNodes
+            .take(8)
+            .map(
+              (n) => 'd${n.depth} ${n.label} @(${n.bounds.left},${n.bounds.top})',
+            )
+            .toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = 'Error al consultar árbol: $e';
         _nodes = const [];
-        return;
-      }
-      if (snap.isEmpty) {
-        _status = 'Conectado — sin ventana activa (rebind ColorOS)';
-        _nodes = const [];
-        return;
-      }
-      _status = 'Conectado — ${snap.package} · ${snap.nodes.length} nodos';
-      _nodes = snap.visibleNodes
-          .take(8)
-          .map(
-            (n) => 'd${n.depth} ${n.label} @(${n.bounds.left},${n.bounds.top})',
-          )
-          .toList();
-    });
+      });
+    }
   }
 
   Future<void> _resolve() async {
@@ -104,19 +113,28 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
       _busy = true;
       _feedback = 'Resolviendo…';
     });
-    final outcome = await _executor.resolve(selector);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _feedback = outcome.reason;
-      _candidates = outcome.candidates
-          .map(
-            (e) =>
-                '"${e.node.label}" — ${e.score} pts '
-                '[${e.matchedCriteria.join(', ')}]',
-          )
-          .toList();
-    });
+    try {
+      final outcome = await _executor.resolve(selector);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _feedback = outcome.reason;
+        _candidates = outcome.candidates
+            .map(
+              (e) =>
+                  '"${e.node.label}" — ${e.score} pts '
+                  '[${e.matchedCriteria.join(', ')}]',
+            )
+            .toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _feedback = 'Error al resolver: $e';
+        _candidates = const [];
+      });
+    }
   }
 
   Future<void> _tapSafe() async {
@@ -126,16 +144,26 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
       _busy = true;
       _feedback = 'Tap seguro…';
     });
-    final r = await _executor.tap(selector);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _feedback = r.ok
-          ? 'ok: tap en "${r.targetNode!.label}" '
-                '@(${r.targetNode!.bounds.centerX},'
-                '${r.targetNode!.bounds.centerY})'
-          : 'FAIL [${r.errorCode!.name}]: ${r.reason}';
-    });
+    try {
+      final r = await _executor.tap(selector);
+      if (!mounted) return;
+      final targetLabel = r.targetNode?.label ?? 'nodo';
+      final targetCenterX = r.targetNode?.bounds.centerX ?? 0;
+      final targetCenterY = r.targetNode?.bounds.centerY ?? 0;
+      final codeName = r.errorCode?.name ?? 'UNKNOWN';
+      setState(() {
+        _busy = false;
+        _feedback = r.ok
+            ? 'ok: tap en "$targetLabel" @($targetCenterX,$targetCenterY)'
+            : 'FAIL [$codeName]: ${r.reason}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _feedback = 'Error al ejecutar tap: $e';
+      });
+    }
   }
 
   Future<void> _setText() async {
@@ -150,26 +178,41 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
       _busy = true;
       _feedback = 'Escribiendo…';
     });
-    final r = await _executor.setText(selector, text);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _feedback = r.ok
-          ? 'ok: "$text" en "${r.targetNode!.label}"'
-          : 'FAIL [${r.errorCode!.name}]: ${r.reason}';
-    });
+    try {
+      final r = await _executor.setText(selector, text);
+      if (!mounted) return;
+      final targetLabel = r.targetNode?.label ?? 'nodo';
+      final codeName = r.errorCode?.name ?? 'UNKNOWN';
+      setState(() {
+        _busy = false;
+        _feedback = r.ok
+            ? 'ok: "$text" en "$targetLabel"'
+            : 'FAIL [$codeName]: ${r.reason}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _feedback = 'Error al escribir texto: $e';
+      });
+    }
   }
 
   Future<void> _gesture(String kind) async {
-    final runtime = ref.read(nanoRuntimeApiProvider);
-    final ok = switch (kind) {
-      'back' => await runtime.agentGlobalAction('back'),
-      'launch' => await runtime.agentLaunchPackage('com.android.settings'),
-      'swipe' => await runtime.agentSwipe(540, 2000, 540, 600),
-      _ => false,
-    };
-    if (!mounted) return;
-    setState(() => _feedback = '$kind → ${ok ? 'ok' : 'FAIL'}');
+    try {
+      final runtime = ref.read(nanoRuntimeApiProvider);
+      final ok = switch (kind) {
+        'back' => await runtime.agentGlobalAction('back'),
+        'launch' => await runtime.agentLaunchPackage('com.android.settings'),
+        'swipe' => await runtime.agentSwipe(540, 2000, 540, 600),
+        _ => false,
+      };
+      if (!mounted) return;
+      setState(() => _feedback = '$kind → ${ok ? 'ok' : 'FAIL'}');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _feedback = '$kind → error: $e');
+    }
   }
 
   @override

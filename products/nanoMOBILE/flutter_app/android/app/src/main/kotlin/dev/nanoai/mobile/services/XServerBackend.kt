@@ -123,8 +123,8 @@ class InternalXvncBackend(
             width = (width * k).toInt().coerceAtLeast(8)
             height = (height * k).toInt().coerceAtLeast(8)
         }
-        width = (width / 2) * 2
-        height = (height / 2) * 2
+        width = (width / 8) * 8
+        height = (height / 8) * 8
         return width to height
     }
 
@@ -177,6 +177,14 @@ class InternalXvncBackend(
             "-SecurityTypes", secTypes,
             "-localhost", "yes",
             "-listen", "tcp",
+            // Este Xvnc de Termux activa XINERAMA por defecto y en portrait
+            // anuncia dos heads de 432x1920 dentro del framebuffer 864x1920.
+            // Openbox toma uno como monitor primario y publica
+            // _NET_WORKAREA=432x..., por eso toda ventana maximizada ocupaba
+            // exactamente media pantalla. Nano usa un único panel físico:
+            // desactivar la extensión conserva una sola geometría continua.
+            // Opción verificada físicamente con `Xvnc -help`.
+            "-xinerama",
             // DPI móvil: hace que las apps Xft/GTK escalen fuentes y widgets
             // (144 = 1.5x sobre 96 — menús y ventanas grandes para dedos;
             // DESKTOP-FIX-01 subió desde 120 tras feedback físico de iconos

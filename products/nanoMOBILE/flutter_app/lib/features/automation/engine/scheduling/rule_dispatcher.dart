@@ -36,6 +36,8 @@ import '../messaging/incoming_message.dart';
 import '../../personal_agent/domain/conversation_autonomy_mode.dart';
 import 'messaging_metrics.dart';
 import 'turn_supersede_guard.dart';
+import '../messaging/pending_reply.dart';
+import '../messaging/pending_reply_store.dart';
 
 enum RuleOutcome {
   /// Acción notify completada (aviso local).
@@ -119,6 +121,8 @@ class RuleDispatcher {
     // inferencia; severe+ suprime el LLM (jamás la seguridad). null = rutas
     // legacy/tests sin gate térmico.
     Future<int> Function()? thermalStatus,
+    // WA-DRAFT-INBOX-01 — almacén de borradores para aprobación humana en UI.
+    PendingReplyRepository? pendingReplyStore,
   }) : _draftSource = draftSource,
        _notifyLocal = notifyLocal,
        _shareMedia = shareMedia,
@@ -127,7 +131,8 @@ class RuleDispatcher {
        _decisionEngine = decisionEngine,
        _decisionContext = decisionContext,
        _fastPath = fastPath,
-       _thermalStatus = thermalStatus;
+       _thermalStatus = thermalStatus,
+       _pendingReplyStore = pendingReplyStore;
 
   /// Ejecuta un goal por el coordinator de producción (DIP: testeable).
   /// [options] transporta la autoridad standing de la regla (WA-AUTH-04).
@@ -177,6 +182,9 @@ class RuleDispatcher {
 
   /// A12 — estado térmico del sistema; severe+ suprime la inferencia.
   final Future<int> Function()? _thermalStatus;
+
+  /// WA-DRAFT-INBOX-01 — almacén durable de borradores para aprobación.
+  final PendingReplyRepository? _pendingReplyStore;
 
   /// Constante Android THERMAL_STATUS_CRITICAL: de aquí para arriba el LLM
   /// queda suprimido para proteger el dispositivo (4 = CRITICAL, 5 = EMERGENCY).
@@ -239,21 +247,25 @@ class RuleDispatcher {
     int? capturedConversationVersion,
     bool Function()? isStillAllowed,
   }) async {
-    bool permitsSideEffect() {
+    bool permitsPreparation() {
       if (notif.isTruncated) return false;
       if (!(isStillAllowed?.call() ?? true)) return false;
       final context = _decisionContext?.call(notif);
       if (context == null) return true; // Standalone callers retain governance.
       return !context.humanOwnsConversation &&
           context.autonomyMode != ConversationAutonomyMode.disabled &&
-          context.autonomyMode != ConversationAutonomyMode.suggestions &&
           context.identityConfidence >=
               ConversationIdentity.safeToWriteThreshold;
     }
 
-    if ((rule.action == RuleAction.reply ||
-            rule.action == RuleAction.sendMedia) &&
-        !permitsSideEffect()) {
+    bool permitsSideEffect() =>
+        permitsPreparation() &&
+        _decisionContext?.call(notif).autonomyMode !=
+            ConversationAutonomyMode.suggestions;
+
+    if (((rule.action == RuleAction.reply || rule.action == RuleAction.draft) &&
+            !permitsPreparation()) ||
+        (rule.action == RuleAction.sendMedia && !permitsSideEffect())) {
       return RuleDispatchResult(
         ruleId: rule.id,
         outcome: RuleOutcome.ignored,
@@ -293,10 +305,18 @@ class RuleDispatcher {
         );
 
       case RuleAction.draft:
-        // T3.3: solo marca; el almacenamiento de borrador llega en T3.6.
+        // WA-DRAFT-INBOX-01 — si hay motor de borrador y store de pendientes,
+        // generar el borrador y guardarlo para revisión en UI.
+        if (_draftSource != null && _pendingReplyStore != null) {
+          final draft = await _draftSource(notif);
+          if (draft != null && draft.hasReply && permitsPreparation()) {
+            return _retainDraft(rule, notif, draft.reply);
+          }
+        }
         return RuleDispatchResult(
           ruleId: rule.id,
-          outcome: RuleOutcome.drafted,
+          outcome: RuleOutcome.failed,
+          reason: 'no se pudo preparar un borrador vigente para revisión',
         );
 
       case RuleAction.reply:
@@ -423,12 +443,30 @@ class RuleDispatcher {
                   _decisionContext?.call(notif) ??
                   const ConversationDecisionContext(),
             );
+            if (decision.repairedText != null &&
+                decision.repairedText!.trim().isNotEmpty) {
+              text = decision.repairedText!.trim();
+              debugPrint(
+                '[decision] quality repair applied: "$text" | '
+                '${decision.reasons.join('; ')}',
+              );
+            }
             if (!decision.autoSend) {
               debugPrint(
                 '[decision] ${decision.disposition.name} '
                 'conf=${decision.confidence.toStringAsFixed(2)} | '
                 '${decision.reasons.join('; ')}',
               );
+              // WA-DRAFT-INBOX-01 — si no autoSend (sugerencias o hold) y hay texto,
+              // guardar en pendingReplyStore para revisión humana en la UI.
+              if (permitsPreparation() && text.trim().isNotEmpty) {
+                return _retainDraft(
+                  rule,
+                  notif,
+                  text,
+                  reason: decision.reasons.join('; '),
+                );
+              }
               return RuleDispatchResult(
                 ruleId: rule.id,
                 outcome: RuleOutcome.failed,
@@ -444,6 +482,19 @@ class RuleDispatcher {
             outcome: RuleOutcome.failed,
             reason: 'regla sin mensaje de respuesta',
           );
+        }
+        // Suggestions also retain fixed-text rules and callers without a
+        // decision engine. Preparing a draft never grants send authority.
+        if (_decisionContext?.call(notif).autonomyMode ==
+            ConversationAutonomyMode.suggestions) {
+          if (!permitsPreparation()) {
+            return RuleDispatchResult(
+              ruleId: rule.id,
+              outcome: RuleOutcome.ignored,
+              reason: 'la política cambió durante el borrador',
+            );
+          }
+          return _retainDraft(rule, notif, text, reason: 'modo sugerencias');
         }
         final capability = ReplyCapabilityRef.fromNotification(notif);
         if (capability == null || !capability.isUsable) {
@@ -588,6 +639,50 @@ class RuleDispatcher {
             reason: 'excepción en envío de archivo: $e',
           );
         }
+    }
+  }
+
+  Future<RuleDispatchResult> _retainDraft(
+    ScheduledRule rule,
+    NotificationObject notification,
+    String text, {
+    String reason = 'borrador preparado para aprobación',
+  }) async {
+    final store = _pendingReplyStore;
+    if (store == null || text.trim().isEmpty) {
+      return RuleDispatchResult(
+        ruleId: rule.id,
+        outcome: RuleOutcome.failed,
+        reason: 'sin almacén de borradores o texto para revisión',
+      );
+    }
+    final now = DateTime.now();
+    try {
+      await store.save(PendingReply(
+        id: 'pending_${now.microsecondsSinceEpoch}_${rule.id}',
+        conversationId: resolveConversationIdentity(notification).key.id,
+        packageName: notification.packageName,
+        sender: notification.sender,
+        originalMessage: notification.text,
+        draftText: text.trim(),
+        sourceRuleId: rule.id,
+        notificationKey: notification.key,
+        notificationPostTime: notification.postTime,
+        status: PendingReplyStatus.pending,
+        createdAt: now,
+        expiresAt: now.add(const Duration(hours: 24)),
+      ));
+      return RuleDispatchResult(
+        ruleId: rule.id,
+        outcome: RuleOutcome.drafted,
+        reason: reason,
+      );
+    } on Object catch (error) {
+      return RuleDispatchResult(
+        ruleId: rule.id,
+        outcome: RuleOutcome.failed,
+        reason: 'no se pudo guardar el borrador: $error',
+      );
     }
   }
 

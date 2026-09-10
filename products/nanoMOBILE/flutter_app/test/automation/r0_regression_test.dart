@@ -29,6 +29,7 @@ class _SuccessDispatcher extends AgentToolDispatcher {
     bool confirmed = false,
     String? executionId,
     ExecutionJournalEntry? executionIntent,
+    void Function()? onPhysicalEffectDispatched,
   }) async {
     lastCall = call;
     return const ToolOutcome(verdict: PolicyVerdict.allow, feedback: 'ok');

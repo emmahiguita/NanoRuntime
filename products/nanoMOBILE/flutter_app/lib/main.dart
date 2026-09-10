@@ -12,6 +12,8 @@ import 'core/services/nano_runtime_api.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/nano_motion.dart';
 import 'features/automation/headless/automation_headless_runner.dart';
+import 'features/automation/application/automation_coordinator_provider.dart'
+    show notificationEventRouterProvider, timeTickSchedulerProvider;
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -68,6 +70,10 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
       // 13+, POST_NOTIFICATIONS) tras el primer frame. Solo muestra diálogos de
       // los que faltan; los ya concedidos no molestan.
       unawaited(NanoRuntimeApi.instance.requestRuntimePermissions());
+      // WA-UI-LIFECYCLE-01 — bootstrap del router de eventos y scheduler
+      // mientras Nano esté abierta en foreground (UI path).
+      ref.read(notificationEventRouterProvider);
+      ref.read(timeTickSchedulerProvider);
     });
   }
 

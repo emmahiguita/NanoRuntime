@@ -57,6 +57,9 @@ class NanoTerminal extends StatefulWidget {
   /// se suprime el bash PTY automÃ¡tico para que el stream del comando
   /// sea el dueÃ±o del terminal.
   final String? initialCommand;
+  final FocusNode? focusNode;
+  final TextEditingController? commandController;
+
   const NanoTerminal({
     super.key,
     this.sessionId = 0,
@@ -66,6 +69,8 @@ class NanoTerminal extends StatefulWidget {
     this.visible = true,
     this.deps,
     this.initialCommand,
+    this.focusNode,
+    this.commandController,
   });
   @override
   State<NanoTerminal> createState() => NanoTerminalState();
@@ -117,9 +122,11 @@ class NanoTerminalState extends State<NanoTerminal> {
   final HardwareInfoService _hw = HardwareInfoService();
   Map<String, dynamic>? get _devId => _hw.deviceId;
 
-  final _in = TextEditingController(),
-      _sc = ScrollController(),
-      _fn = FocusNode();
+  FocusNode get _fn => widget.focusNode ?? _localFn;
+  TextEditingController get _in => widget.commandController ?? _localIn;
+  late final FocusNode _localFn = FocusNode();
+  late final TextEditingController _localIn = TextEditingController();
+  final ScrollController _sc = ScrollController();
   final _lines = <TL>[], _hist = <String>[], _timers = <Timer>[];
   final _ctx = TerminalCtx();
   // Ref: el CommandExecutor muta estos campos en la instancia de CmdExecCtx
@@ -450,9 +457,9 @@ class NanoTerminalState extends State<NanoTerminal> {
     // (singleton compartido entre pestañas). Cerrar UNA pestaña no debe
     // matar los workers FFI ni el runtime de las demás sesiones: el dueño
     // único los libera en TerminalDependencies.dispose() (vida de la app).
-    _in.dispose();
+    _localIn.dispose();
     _sc.dispose();
-    _fn.dispose();
+    _localFn.dispose();
     HardwareKeyboard.instance.removeHandler(_onKey);
     super.dispose();
   }
@@ -1089,543 +1096,319 @@ class NanoTerminalState extends State<NanoTerminal> {
         : rootfsOk
         ? fg.withValues(alpha: 0.6)
         : c.warning;
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            // TER-15: header glass — gradiente pizarra + dot de estado con
-            // glow del color del estado + texto con letterSpacing.
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: dark
-                      ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
-                      : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
-                ),
-                border: Border(
-                  bottom: BorderSide(color: fg.withValues(alpha: 0.08)),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: headerColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: headerColor.withValues(alpha: 0.5),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    headerLabel,
-                    style: TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 10,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w600,
-                      color: headerColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'NANORUNTIME',
-                    style: TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 9,
-                      letterSpacing: 1.2,
-                      fontWeight: FontWeight.w700,
-                      color: fg.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ],
-              ),
+        // TER-15: header glass — gradiente pizarra + dot de estado con
+        // glow del color del estado + texto con letterSpacing.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: dark
+                  ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
+                  : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
             ),
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: _ScanlinePainter(
-                          _ansi != null ? fg.withValues(alpha: 0.4) : fg,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_ansi != null)
-                    GestureDetector(
-                      onTap: () => _fn.requestFocus(),
-                      onTapDown: _ansi?.mouseEnabled == true
-                          ? (d) {
-                              final m = AnsiMetrics.measure();
-                              final row = (d.localPosition.dy / m.cellH)
-                                  .floor();
-                              final col = (d.localPosition.dx / m.cellW)
-                                  .floor();
-                              _pty?.writeBytes([
-                                0x1b,
-                                0x5b,
-                                0x4d,
-                                32,
-                                col + 33,
-                                row + 33,
-                              ]);
-                            }
-                          : null,
-                      child: ColoredBox(
-                        color: Theme.of(context).scaffoldBackgroundColor,
-                        child: LayoutBuilder(
-                          builder: (context, cons) {
-                            _applyPtySize(cons.maxWidth, cons.maxHeight);
-                            return SelectionArea(
-                              child: AnsiTerminalView(_ansi!),
-                            );
-                          },
-                        ),
-                      ),
-                    )
-                  else
-                    SelectionArea(
-                      child: InteractiveViewer(
-                        minScale: 0.8,
-                        maxScale: 2.5,
-                        child: GestureDetector(
-                          onTap: () => _fn.requestFocus(),
-                          child: ListView.builder(
-                            controller: _sc,
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            itemCount: _lines.length,
-                            itemBuilder: (_, i) {
-                              final line = _lines[i];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 1.5),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(
-                                      width: 32,
-                                      child: Text(
-                                        '${i + 1}',
-                                        style: TextStyle(
-                                          fontFamily: 'JetBrainsMono',
-                                          fontSize: 10,
-                                          color: fg.withValues(alpha: 0.15),
-                                          height: 1.6,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        line.text,
-                                        style: TextStyle(
-                                          fontFamily: 'JetBrainsMono',
-                                          fontSize: 12.5,
-                                          color: _c(line.type, fg, c),
-                                          height: 1.6,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+            border: Border(
+              bottom: BorderSide(color: fg.withValues(alpha: 0.08)),
             ),
-            if (_ptyActive)
-              TerminalModifierBar(
-                fg: fg,
-                chrome: chrome,
-                ctrlActive: _ctrl,
-                onToggleCtrl: () {
-                  setState(() {
-                    _ctrl = !_ctrl;
-                  });
-                },
-                onWriteBytes: (bytes) => _pty?.writeBytes(bytes),
-                onWrite: (text) => _pty?.write(text),
-                bracketedPasteEnabled:
-                    _ansi?.screen.bracketedPasteMode ?? false,
-              ),
-            if (sug.isNotEmpty && _in.text.isNotEmpty && _fn.hasFocus)
-              // TER-15: sugerencias glass — gradiente pizarra, chips con
-              // estado pressed (escala) y acento cian al tocar.
+          ),
+          child: Row(
+            children: [
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                width: 6,
+                height: 6,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: dark
-                        ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
-                        : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
-                  ),
-                  border: Border(
-                    top: BorderSide(color: fg.withValues(alpha: 0.08)),
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: sug
-                        .map(
-                          (s) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _SuggestionChip(
-                              label: s,
-                              fg: fg,
-                              onTap: () {
-                                _in.text = s;
-                                _in.selection = TextSelection.collapsed(
-                                  offset: s.length,
-                                );
-                              },
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ),
-            // TER-15: barra de input glass — gradiente pizarra translúcido,
-            // borde superior con brillo tenue del prompt.
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: dark
-                      ? [const Color(0xFF0E2238), const Color(0xFF07192B)]
-                      : [c.terminalBg.withValues(alpha: 0.9), c.terminalBg],
-                ),
-                border: Border(
-                  top: BorderSide(color: fg.withValues(alpha: 0.12)),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: fg.withValues(alpha: 0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.fromLTRB(16, 12, 14, 14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 140),
-                    child: Text(
-                      _ps1,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'JetBrainsMono',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: fg,
-                      ),
+                  color: headerColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: headerColor.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                      spreadRadius: 1,
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: CallbackShortcuts(
-                      bindings: {
-                        const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-                          if (_hIdx.value < _hist.length - 1) {
-                            _hIdx.value++;
-                            _in.text = _hist.reversed.toList()[_hIdx.value];
-                            _in.selection = TextSelection.collapsed(
-                              offset: _in.text.length,
-                            );
-                          }
-                        },
-                        const SingleActivator(
-                          LogicalKeyboardKey.arrowDown,
-                        ): () {
-                          if (_hIdx.value > 0) {
-                            _hIdx.value--;
-                            _in.text = _hist.reversed.toList()[_hIdx.value];
-                          } else {
-                            _hIdx.value = -1;
-                            _in.clear();
-                          }
-                        },
-                        const SingleActivator(LogicalKeyboardKey.tab): () {
-                          if (sug.isNotEmpty) {
-                            _in.text = sug.first;
-                            _in.selection = TextSelection.collapsed(
-                              offset: _in.text.length,
-                            );
-                          }
-                        },
-                      },
-                      child: TextField(
-                        controller: _in,
-                        focusNode: _fn,
-                        autofocus: true,
-                        style: TextStyle(
-                          fontFamily: 'JetBrainsMono',
-                          fontSize: 13,
-                          color: fg,
-                          height: 1.5,
-                        ),
-                        cursorColor: fg,
-                        cursorWidth: 2,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                          hintText: _ptyActive
-                              ? 'terminal interactivo â€” escribe directo (Ctrl+C salir)'
-                              : 'comando o "ai <pregunta>"...',
-                          hintStyle: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: 13,
-                            color: fg.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        onSubmitted: _exec,
-                        onChanged: (v) {
-                          if (_ptyActive && v.isNotEmpty) {
-                            // TER-11: Ctrl fijo (botón "Ctrl ON" de la barra)
-                            // + tecla del teclado táctil. El KeyEvent Ctrl+C
-                            // de _onKey solo llega con teclado hardware; el
-                            // IME no genera KeyEvents, así que sin esto Ctrl+C
-                            // era inalcanzable en táctil (letra "c" literal
-                            // al bash) y top/htop/python quedaban colgados.
-                            if (_ctrl) {
-                              final c = v.codeUnitAt(0);
-                              setState(() => _ctrl = false);
-                              if (c == 0x63 || c == 0x43) {
-                                // Ctrl+C: byte 0x03 — el kernel (ISIG del
-                                // termios que readline/bash ponen) genera el
-                                // SIGINT al grupo foreground. No se llama
-                                // kill() desde la app (seccomp ColorOS ya
-                                // mató shmget con SIGSYS: cero syscalls
-                                // innecesarias).
-                                _pty!.writeBytes([0x03]);
-                              } else if (c >= 0x61 && c <= 0x7a) {
-                                _pty!.writeBytes([c - 0x60]);
-                              } else if (c >= 0x41 && c <= 0x5a) {
-                                _pty!.writeBytes([c - 0x40]);
-                              } else {
-                                _pty!.writeBytes(utf8.encode(v));
-                              }
-                              _in.value = TextEditingValue.empty;
-                              return;
-                            }
-                            // Send raw bytes including printable chars. Control chars
-                            // (backspace 0x7F, etc.) are handled by _onKey/modifier row,
-                            // not the soft keyboard, so filtering >= 0x20 is correct.
-                            final bytes = utf8.encode(v);
-                            if (bytes.isNotEmpty) _pty!.writeBytes(bytes);
-                            // Clear without triggering another onChanged (avoid loop).
-                            _in.value = TextEditingValue.empty;
-                            return;
-                          }
-                          _hIdx.value = -1;
-                        },
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 7),
+              Text(
+                headerLabel,
+                style: TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 10,
+                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w600,
+                  color: headerColor,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'NANORUNTIME',
+                style: TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 9,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w700,
+                  color: fg.withValues(alpha: 0.3),
+                ),
+              ),
+            ],
+          ),
         ),
-        if (_fabInit)
-          Positioned(
-            left: _fabOffset.dx,
-            top: _fabOffset.dy,
-            child: IgnorePointer(
-              ignoring: _fabHidden,
-              child: GestureDetector(
-                onPanStart: (_) {
-                  // Al arrastrar expande: se ve qué se está moviendo.
-                  if (_fabCollapsed) {
-                    setState(() => _fabCollapsed = false);
-                  }
-                },
-                onPanUpdate: (d) {
-                  setState(() {
-                    final sw = MediaQuery.of(context).size.width;
-                    final sh = MediaQuery.of(context).size.height;
-                    _fabOffset = Offset(
-                      (_fabOffset.dx + d.delta.dx).clamp(0.0, sw - _fabW),
-                      (_fabOffset.dy + d.delta.dy).clamp(
-                        40.0,
-                        sh - _fabH - 100,
-                      ),
-                    );
-                  });
-                },
-                onPanEnd: (_) => _restartFabTimer(),
-                // TER-14: entrada/dismiss estilo iOS — slide desde la derecha
-                // + escala con overshoot (easeOutBack) al aparecer; se
-                // desliza fuera al abrir el panel (oculto, sin robar espacio
-                // ni atención).
-                child: AnimatedSlide(
-                  offset: (_fabInit && !_fabHidden)
-                      ? Offset.zero
-                      : const Offset(0.9, 0),
-                  duration: const Duration(milliseconds: 420),
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedScale(
-                    scale: (_fabInit && !_fabHidden)
-                        ? (_fabPressed ? 0.94 : 1.0)
-                        : 0.6,
-                    duration: _fabPressed
-                        ? const Duration(milliseconds: 110)
-                        : const Duration(milliseconds: 420),
-                    curve: _fabPressed ? Curves.easeOut : Curves.easeOutBack,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 260),
-                      opacity: (_fabInit && !_fabHidden) ? 1.0 : 0.0,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(_fabH / 2),
-                          onHighlightChanged: (h) =>
-                              setState(() => _fabPressed = h),
-                          onTap: _fabTap,
-                          // TER-14: glassmorphism — blur real del contenido
-                          // del terminal detrás + tinte translúcido + borde
-                          // blanco fino + sombra profunda + brillo de acento.
-                          // Colapsa a círculo compacto (icono + badge) tras
-                          // 3.5 s sin uso.
-                          child: AnimatedContainer(
-                            width: _fabCollapsed ? _fabH : _fabW,
-                            height: _fabH,
-                            duration: const Duration(milliseconds: 320),
-                            curve: Curves.easeInOutCubic,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0.14),
-                                  Colors.white.withValues(alpha: 0.04),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(_fabH / 2),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.18),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.25),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 6),
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ScanlinePainter(
+                      _ansi != null ? fg.withValues(alpha: 0.4) : fg,
+                    ),
+                  ),
+                ),
+              ),
+              if (_ansi != null)
+                GestureDetector(
+                  onTap: () => _fn.requestFocus(),
+                  onTapDown: _ansi?.mouseEnabled == true
+                      ? (d) {
+                          final m = AnsiMetrics.measure();
+                          final row = (d.localPosition.dy / m.cellH).floor();
+                          final col = (d.localPosition.dx / m.cellW).floor();
+                          _pty?.writeBytes([
+                            0x1b,
+                            0x5b,
+                            0x4d,
+                            32,
+                            col + 33,
+                            row + 33,
+                          ]);
+                        }
+                      : null,
+                  child: ColoredBox(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: LayoutBuilder(
+                      builder: (context, cons) {
+                        _applyPtySize(cons.maxWidth, cons.maxHeight);
+                        return SelectionArea(
+                          child: AnsiTerminalView(_ansi!),
+                        );
+                      },
+                    ),
+                  ),
+                )
+              else
+                SelectionArea(
+                  child: InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 2.5,
+                    child: GestureDetector(
+                      onTap: () => _fn.requestFocus(),
+                      child: ListView.builder(
+                        controller: _sc,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        itemCount: _lines.length,
+                        itemBuilder: (_, i) {
+                          final line = _lines[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 1.5),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 32,
+                                  child: Text(
+                                    '${i + 1}',
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrainsMono',
+                                      fontSize: 10,
+                                      color: fg.withValues(alpha: 0.15),
+                                      height: 1.6,
+                                    ),
+                                  ),
                                 ),
-                                BoxShadow(
-                                  color: _accent.withValues(alpha: 0.10),
-                                  blurRadius: 12,
+                                Expanded(
+                                  child: Text(
+                                    line.text,
+                                    style: TextStyle(
+                                      fontFamily: 'JetBrainsMono',
+                                      fontSize: 12.5,
+                                      color: _c(line.type, fg, c),
+                                      height: 1.6,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(_fabH / 2),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(
-                                  sigmaX: 12,
-                                  sigmaY: 12,
-                                ),
-                                child: Stack(
-                                  children: [
-                                    // Icono fijo a la izquierda.
-                                    const Positioned(
-                                      left: 13,
-                                      top: 13,
-                                      child: Icon(
-                                        Icons.menu_book_rounded,
-                                        color: _accent,
-                                        size: 18,
-                                      ),
-                                    ),
-                                    // Label corto: fade al colapsar.
-                                    Positioned(
-                                      left: 38,
-                                      right: 8,
-                                      top: 0,
-                                      bottom: 0,
-                                      child: AnimatedOpacity(
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        opacity: _fabCollapsed ? 0.0 : 1.0,
-                                        child: const Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(
-                                            'Noar',
-                                            style: TextStyle(
-                                              fontFamily: 'JetBrainsMono',
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w700,
-                                              color: _fabText,
-                                            ),
-                                            maxLines: 1,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Badge contador: solo en modo compacto
-                                    // (no roba espacio en la pill).
-                                    if (_fabCollapsed)
-                                      Positioned(
-                                        top: 2,
-                                        right: 2,
-                                        child: Container(
-                                          width: 16,
-                                          height: 16,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: c.warning,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: chrome,
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '${noarBuiltinCommands.length + _noarLib.length}',
-                                            style: const TextStyle(
-                                              fontFamily: 'JetBrainsMono',
-                                              fontSize: 8,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF1A1200),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              _buildFab(c, chrome, dark),
+            ],
+          ),
+        ),
+        if (_ptyActive)
+          TerminalModifierBar(
+            fg: fg,
+            chrome: chrome,
+            ctrlActive: _ctrl,
+            onToggleCtrl: () {
+              setState(() {
+                _ctrl = !_ctrl;
+              });
+            },
+            onWriteBytes: (bytes) => _pty?.writeBytes(bytes),
+            onWrite: (text) => _pty?.write(text),
+            bracketedPasteEnabled:
+                _ansi?.screen.bracketedPasteMode ?? false,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFab(NanoColors c, Color chrome, bool dark) {
+    if (!_fabInit) return const SizedBox.shrink();
+    return Positioned(
+      right: 16,
+      bottom: 16,
+      child: IgnorePointer(
+        ignoring: _fabHidden,
+        child: GestureDetector(
+          onTap: _fabTap,
+          child: AnimatedSlide(
+            offset: (_fabInit && !_fabHidden)
+                ? Offset.zero
+                : const Offset(0.9, 0),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutCubic,
+            child: AnimatedScale(
+              scale: (_fabInit && !_fabHidden)
+                  ? (_fabPressed ? 0.94 : 1.0)
+                  : 0.6,
+              duration: _fabPressed
+                  ? const Duration(milliseconds: 110)
+                  : const Duration(milliseconds: 420),
+              curve: _fabPressed ? Curves.easeOut : Curves.easeOutBack,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 260),
+                opacity: (_fabInit && !_fabHidden) ? 1.0 : 0.0,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(_fabH / 2),
+                    onHighlightChanged: (h) =>
+                        setState(() => _fabPressed = h),
+                    onTap: _fabTap,
+                    child: AnimatedContainer(
+                      width: _fabCollapsed ? _fabH : _fabW,
+                      height: _fabH,
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeInOutCubic,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.14),
+                            Colors.white.withValues(alpha: 0.04),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(_fabH / 2),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                          BoxShadow(
+                            color: _accent.withValues(alpha: 0.10),
+                            blurRadius: 12,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(_fabH / 2),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(
+                            sigmaX: 12,
+                            sigmaY: 12,
+                          ),
+                          child: Stack(
+                            children: [
+                              const Positioned(
+                                left: 13,
+                                top: 13,
+                                child: Icon(
+                                  Icons.menu_book_rounded,
+                                  color: _accent,
+                                  size: 18,
                                 ),
                               ),
-                            ),
+                              Positioned(
+                                left: 38,
+                                right: 8,
+                                top: 0,
+                                bottom: 0,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(
+                                    milliseconds: 180,
+                                  ),
+                                  opacity: _fabCollapsed ? 0.0 : 1.0,
+                                  child: const Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'Noar',
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrainsMono',
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: _fabText,
+                                      ),
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (_fabCollapsed)
+                                Positioned(
+                                  top: 2,
+                                  right: 2,
+                                  child: Container(
+                                    width: 16,
+                                    height: 16,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: c.warning,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: chrome,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${noarBuiltinCommands.length + _noarLib.length}',
+                                      style: const TextStyle(
+                                        fontFamily: 'JetBrainsMono',
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF1A1200),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -1635,7 +1418,8 @@ class NanoTerminalState extends State<NanoTerminal> {
               ),
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

@@ -164,6 +164,8 @@ class _NanoFloatingNavigationFrameState
         // Padding inferior del contenido para que nada quede oculto tras la barra flotante.
         final totalBottomPad = _dockHeight + floatingBottom + 12.0;
 
+        const hideBar = false;
+
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -200,13 +202,18 @@ class _NanoFloatingNavigationFrameState
               curve: Curves.easeOutCubic,
               left: 0,
               right: 0,
-              bottom: floatingBottom,
-              child: NotificationListener<SizeChangedLayoutNotification>(
-                onNotification: (_) {
-                  _measureBar();
-                  return false;
-                },
-                child: SizeChangedLayoutNotifier(
+              bottom: hideBar ? -(_dockHeight + 80.0) : floatingBottom,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: hideBar ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: hideBar,
+                  child: NotificationListener<SizeChangedLayoutNotification>(
+                    onNotification: (_) {
+                      _measureBar();
+                      return false;
+                    },
+                    child: SizeChangedLayoutNotifier(
                   key: _barKey,
                   child: Center(
                     child: ConstrainedBox(
@@ -231,17 +238,17 @@ class _NanoFloatingNavigationFrameState
                                 (query) {
                                   NanoSearchDispatcher.dispatch(context, query);
                                 },
-                            // NAV-FLOAT-01 — el orbe búho salió de la barra:
-                            // el acceso al chat vive en el dock (pestaña Chat).
                             onVoice: widget.onVoice,
                           ),
                         ),
                       ),
                     ),
+                    ),
                   ),
                 ),
               ),
             ),
+          ),
           ],
         );
       },

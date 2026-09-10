@@ -53,6 +53,17 @@
 
 static char g_prefix[PATH_MAX] = {0};
 static size_t g_prefix_len = 0;
+// Los diagnósticos de LD_PRELOAD son útiles al depurar el bootstrap, pero
+// cada proceso interactivo hereda stderr del PTY. En producción ensuciaban la
+// terminal con prefix/cmdline/vcwd antes de cada comando. Opt-in explícito.
+static int g_debug = 0;
+
+#define DEBUGF(...) do { \
+    if (g_debug) { \
+        fprintf(stderr, __VA_ARGS__); \
+        fflush(stderr); \
+    } \
+} while (0)
 
 // Prefijo hardcodeado por termux-packages al compilar Xvnc, openbox,
 // xkbcomp, etc. (asumen $PREFIX=/data/data/com.termux/files/usr). Nuestra
@@ -416,14 +427,13 @@ static int nano_execve_core(const char* pathname, char* const argv[], char* cons
     char* const* use_argv = eff_argv ? (char* const*)eff_argv : argv;
 
     // Diagnóstico: ver el argv exacto que recibe el linker64/Xvnc.
-    if (strstr(target, "Xvnc") || strstr(target, "linker64")) {
+    if (g_debug && (strstr(target, "Xvnc") || strstr(target, "linker64"))) {
         char buf[1024];
         int off = 0;
         for (int i = 0; use_argv && use_argv[i] && off < (int)sizeof(buf) - 64; i++) {
             off += snprintf(buf + off, sizeof(buf) - off, "[%s] ", use_argv[i]);
         }
-        fprintf(stderr, "nanoroot: execve argv: %s\n", buf);
-        fflush(stderr);
+        DEBUGF("nanoroot: execve argv: %s\n", buf);
     }
 
     // Log de entrada (archivo): quién se ejecuta y con qué argv[0].
@@ -894,8 +904,7 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
         struct sockaddr_un* sun = (struct sockaddr_un*)addr;
         char new_path[sizeof(sun->sun_path)];
         int rd = redirect_path(sun->sun_path, new_path, sizeof(new_path));
-        fprintf(stderr, "nanoroot: bind AF_UNIX pid=%d [%s] redirect=%d\n", getpid(), sun->sun_path, rd);
-        fflush(stderr);
+        DEBUGF("nanoroot: bind AF_UNIX pid=%d [%s] redirect=%d\n", getpid(), sun->sun_path, rd);
         if (rd == 1) {
             struct sockaddr_un copy = *sun;
             strncpy(copy.sun_path, new_path, sizeof(copy.sun_path) - 1);
@@ -908,9 +917,8 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
             socklen_t new_addrlen = (socklen_t)((char*)copy.sun_path - (char*)&copy) +
                                     (socklen_t)strlen(new_path) + 1;
             int r = real_bind(sockfd, (struct sockaddr*)&copy, new_addrlen);
-            fprintf(stderr, "nanoroot: bind %s -> %s (rc=%d errno=%d)\n",
-                    sun->sun_path, new_path, r, r < 0 ? errno : 0);
-            fflush(stderr);
+            DEBUGF("nanoroot: bind %s -> %s (rc=%d errno=%d)\n",
+                   sun->sun_path, new_path, r, r < 0 ? errno : 0);
             return r;
         }
     }
@@ -935,9 +943,8 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
             socklen_t new_addrlen = (socklen_t)((char*)copy.sun_path - (char*)&copy) +
                                     (socklen_t)strlen(new_path) + 1;
             int r = real_connect(sockfd, (struct sockaddr*)&copy, new_addrlen);
-            fprintf(stderr, "nanoroot: connect %s -> %s (rc=%d errno=%d)\n",
-                    sun->sun_path, new_path, r, r < 0 ? errno : 0);
-            fflush(stderr);
+            DEBUGF("nanoroot: connect %s -> %s (rc=%d errno=%d)\n",
+                   sun->sun_path, new_path, r, r < 0 ? errno : 0);
             return r;
         }
     }
@@ -979,15 +986,13 @@ FILE* popen(const char* command, const char* type) {
                 memcpy(final_cmd, rewritten, before);
                 memcpy(final_cmd + before, "usr/xkbcomp.real", repl_len);
                 strcpy(final_cmd + before + repl_len, rewritten + after);
-                fprintf(stderr, "nanoroot: popen xkbcomp -> ELF real\n");
-                fflush(stderr);
+                DEBUGF("nanoroot: popen xkbcomp -> ELF real\n");
                 return real_popen(final_cmd, type);
             }
         }
     }
 
-    fprintf(stderr, "nanoroot: popen rewrote termux refs: %s\n", rewritten);
-    fflush(stderr);
+    DEBUGF("nanoroot: popen rewrote termux refs: %s\n", rewritten);
     return real_popen(rewritten, type);
 }
 
@@ -999,6 +1004,8 @@ __attribute__((constructor)) static void nanoroot_init(void) {
         // Silent: no LD_PRELOAD without NANO_ROOTFS set
         return;
     }
+    const char* debug_env = getenv("NANO_ROOT_DEBUG");
+    g_debug = debug_env && strcmp(debug_env, "1") == 0;
     strncpy(g_prefix, env, sizeof(g_prefix) - 1);
     g_prefix[sizeof(g_prefix) - 1] = '\0';
     g_prefix_len = strlen(g_prefix);
@@ -1008,7 +1015,7 @@ __attribute__((constructor)) static void nanoroot_init(void) {
         g_prefix[--g_prefix_len] = '\0';
     }
 
-    fprintf(stderr, "nanoroot: prefix=%s (len=%zu)\n", g_prefix, g_prefix_len);
+    DEBUGF("nanoroot: prefix=%s (len=%zu)\n", g_prefix, g_prefix_len);
 
     // Diagnóstico: cmdline real del proceso (Xvnc vía linker64).
     {
@@ -1019,8 +1026,7 @@ __attribute__((constructor)) static void nanoroot_init(void) {
             fclose(f);
             cmdline[n] = '\0';
             for (size_t i = 0; i < n; i++) if (cmdline[i] == '\0') cmdline[i] = ' ';
-            fprintf(stderr, "nanoroot: cmdline=[%s]\n", cmdline);
-            fflush(stderr);
+            DEBUGF("nanoroot: cmdline=[%s]\n", cmdline);
         }
     }
 
@@ -1033,8 +1039,7 @@ __attribute__((constructor)) static void nanoroot_init(void) {
             const char* v = real_to_virtual(cwd);
             strncpy(g_vcwd, v, sizeof(g_vcwd) - 1);
             g_vcwd[sizeof(g_vcwd) - 1] = '\0';
-            fprintf(stderr, "nanoroot: vcwd=%s (real=%s)\n", g_vcwd, cwd);
-            fflush(stderr);
+            DEBUGF("nanoroot: vcwd=%s (real=%s)\n", g_vcwd, cwd);
         }
     }
 }

@@ -79,7 +79,12 @@ class _C14DebugBenchmarkSectionState
   }
 
   String _reportText() {
-    final r = _result!;
+    final r = _result;
+    if (r == null) return '';
+    final rep = r.report;
+    if (rep == null) {
+      return 'C14-A PREFLIGHT: NO SUPERADO (${r.preflight.failCode?.name ?? 'FAIL'})';
+    }
     final b = StringBuffer()
       ..writeln('C14-A REPORT')
       ..writeln(
@@ -87,7 +92,7 @@ class _C14DebugBenchmarkSectionState
         'commit=${r.context.gitCommit}',
       )
       ..writeln();
-    for (final g in r.report!.gates) {
+    for (final g in rep.gates) {
       b.writeln(
         '${g.name.padRight(24)} ${(g.value * 100).toStringAsFixed(0)}%'
         '  ${g.pass ? 'PASS' : 'FAIL'}',
@@ -95,7 +100,7 @@ class _C14DebugBenchmarkSectionState
     }
     b
       ..writeln()
-      ..writeln('Goal success  ${r.report!.passed}/${r.report!.total}')
+      ..writeln('Goal success  ${rep.passed}/${rep.total}')
       ..writeln('Total  ${r.total.inMilliseconds}ms');
     return b.toString();
   }
@@ -216,8 +221,30 @@ class _C14DebugBenchmarkSectionState
   }
 
   Widget _report() {
-    final r = _result!;
-    final rep = r.report!;
+    final r = _result;
+    if (r == null) return const SizedBox.shrink();
+    final rep = r.report;
+    if (rep == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          Text(
+            'Preflight no superado (${r.preflight.failCode?.name ?? 'Error'})',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: _colors.error,
+            ),
+          ),
+          const SizedBox(height: NanoSpacing.xs),
+          Text(
+            'El benchmark C14 no pudo ejecutarse porque no se cumplen los requisitos previos. '
+            'Carga un modelo local y activa el servicio de accesibilidad.',
+            style: NanoType.caption(_colors.onSurfaceVariant),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

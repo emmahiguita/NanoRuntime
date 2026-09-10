@@ -39,7 +39,7 @@ class NanoScreenShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final colors = NanoThemeExtension.of(context).colors;
     final screenSize = MediaQuery.sizeOf(context);
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;

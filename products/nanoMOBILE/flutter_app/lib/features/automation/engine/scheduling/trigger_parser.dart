@@ -6,10 +6,17 @@
 ///   "cuando Juan me escriba, avísame"          → NotificationTrigger(juan) + "avísame"
 ///   "cuando llegue un mensaje de Pedro, …"     → NotificationTrigger(pedro) + resto
 ///
+/// PACKAGE-SCOPE-01 — packageName SIEMPRE explícito en NotificationTrigger:
+///   - "de whatsapp business" / "de business"   → MessagingPackage.whatsappBusiness
+///   - "de telegram"                            → MessagingPackage.telegram
+///   - "cualquier app" / "cualquier aplicación" → null (opt-in consciente del usuario)
+///   - sin mención de app                       → MessagingPackage.whatsapp (default)
+///
 /// Devuelve null si no reconoce un disparo (no inventa). El goal NO se ejecuta
 /// aquí: solo se devuelve como string para que el motor T2 lo procese.
 library;
 
+import '../messaging/messaging_package.dart';
 import 'trigger.dart';
 
 /// Trigger + objetivo parseados de una orden persistente.
@@ -49,6 +56,37 @@ class TriggerParser {
     caseSensitive: false,
   );
 
+  // PACKAGE-SCOPE-01 — detectores de app en la cláusula completa del goal.
+  static final _wabRe = RegExp(
+    r'\bde\s+(?:whatsapp\s+business|business|whatsapp\.w4b)\b',
+    caseSensitive: false,
+  );
+  static final _waRe = RegExp(
+    r'\bde\s+whatsapp\b',
+    caseSensitive: false,
+  );
+  static final _telegramRe = RegExp(
+    r'\bde\s+telegram\b',
+    caseSensitive: false,
+  );
+  static final _anyAppRe = RegExp(
+    r'\b(?:cualquier\s+app|cualquier\s+aplicaci[oó]n|de\s+cualquier\s+app)\b',
+    caseSensitive: false,
+  );
+
+  /// PACKAGE-SCOPE-01 — resuelve el packageName a partir del texto completo
+  /// del goal. null = "cualquier app" (intención consciente, no default).
+  /// Sin mención de app → default WhatsApp (cierra bug packageName=null → eligible_packages=*).
+  static String? _resolvePackage(String g) {
+    if (_anyAppRe.hasMatch(g)) return null; // opt-in consciente del usuario
+    if (_wabRe.hasMatch(g)) return MessagingPackage.whatsappBusiness;
+    if (_telegramRe.hasMatch(g)) return MessagingPackage.telegram;
+    // "de whatsapp" sin business → WhatsApp estándar.
+    // Sin mención de app → default WhatsApp (no null).
+    if (_waRe.hasMatch(g)) return MessagingPackage.whatsapp;
+    return MessagingPackage.whatsapp; // default seguro
+  }
+
   ParsedSchedule? parse(String goal) {
     final g = goal.trim();
     if (g.isEmpty) return null;
@@ -83,6 +121,7 @@ class TriggerParser {
       if (sender.isEmpty && textMatch == null) return null;
       return ParsedSchedule(
         NotificationTrigger(
+          packageName: _resolvePackage(g), // PACKAGE-SCOPE-01: siempre explícito
           senderMatch: sender.isEmpty ? null : sender,
           textMatch: textMatch,
         ),
@@ -98,6 +137,7 @@ class TriggerParser {
       if (sender.isEmpty && textMatch == null) return null;
       return ParsedSchedule(
         NotificationTrigger(
+          packageName: _resolvePackage(g), // PACKAGE-SCOPE-01: siempre explícito
           senderMatch: sender.isEmpty ? null : sender,
           textMatch: textMatch,
         ),

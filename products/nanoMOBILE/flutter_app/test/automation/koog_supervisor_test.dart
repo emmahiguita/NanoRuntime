@@ -14,6 +14,7 @@ class _FakeClient extends LLMEngineClient {
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
+    String? sessionId,
   }) async {
     calls++;
     return LLMResult(text: canned);
@@ -26,6 +27,7 @@ class _ThrowingClient extends LLMEngineClient {
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
+    String? sessionId,
   }) async {
     throw StateError('motor caído');
   }

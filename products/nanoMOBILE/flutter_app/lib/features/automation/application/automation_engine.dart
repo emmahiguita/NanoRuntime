@@ -43,6 +43,11 @@ class AutomationEngine {
     AutomationOptions? options,
   }) => _coordinator.execute(goal, options: options);
 
+  /// Cancels only the caller-owned run. Completion remains asynchronous:
+  /// tools already dispatched finish, pending cooperative steps are stopped.
+  bool cancelExecution(String executionId) =>
+      _coordinator.cancelExecution(executionId);
+
   /// Qué hizo REALMENTE el motor (trazas del ledger, recientes primero).
   List<AutomationTrace> trace() => _ledger.entries;
 

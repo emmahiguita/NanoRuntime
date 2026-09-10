@@ -1,0 +1,3 @@
+#!/system/bin/sh
+# Nano-managed entrypoint. The detailed HUD remains opt-in.
+exec python3 "$HOME/.hud.py" --full

@@ -320,12 +320,10 @@ void main() {
     tester,
   ) async {
     await pumpDashboard(tester);
-    expect(
-      find.byType(NanoFeatureCard),
-      findsNWidgets(3),
-      reason: 'carousel: tarjeta central y adyacentes visibles',
-    );
-    expect(find.text('LINUX'), findsOneWidget);
+    // HOME-CLEAN-01: el home es solo el wallpaper (BuhoWallpaper) más la marca.
+    // No hay un grid de NanoFeatureCards; Linux aparece solo en el estado de
+    // telemetría si el rootfs está instalado, nunca como tarjeta extra.
+    expect(find.text('N A N O   A I'), findsOneWidget);
     expect(find.text('Kali'), findsNothing);
   });
 

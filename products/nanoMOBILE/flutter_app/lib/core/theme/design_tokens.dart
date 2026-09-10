@@ -312,49 +312,49 @@ class NanoDarkColors implements NanoColors {
 
 class NanoLightColors implements NanoColors {
   @override
-  final primary = const Color(0xFF0891B2); // Cyan 600 (oscuro, visible en claro)
+  final primary = const Color(0xFFFF6D00); // Orange 600 (Naranja vibrante Nano)
   @override
-  final primaryContainer = const Color(0xFFEEF5FB); // Canvas Ice
+  final primaryContainer = const Color(0xFFFFF3E0); // Orange 50
   @override
-  final onPrimaryContainer = const Color(0xFF1D2733); // Text Primary
+  final onPrimaryContainer = const Color(0xFFBF360C); // Orange 900
   @override
-  final secondary = const Color(0xFF4F46E5); // Indigo 600
+  final secondary = const Color(0xFFF97316); // Orange 500
   @override
-  final secondaryContainer = const Color(0xFFE8EEF5); // Canvas Elevated Gris
+  final secondaryContainer = const Color(0xFFFFEDD5); // Orange 100
   @override
   final surface = const Color(0xFFFFFFFF); // Blanco puro
   @override
-  final surfaceVariant = const Color(0xFFE8EEF5); // Gris azulado (TextField visible)
+  final surfaceVariant = const Color(0xFFF8F9FA); // Gris claro limpio
   @override
-  final background = const Color(0xFFF7F9FC); // Canvas Primary
+  final background = const Color(0xFFF8F9FA); // Canvas Blanco
   @override
-  final onSurface = const Color(0xFF1D2733); // Text Primary
+  final onSurface = const Color(0xFF1A1D20); // Texto oscuro nítido
   @override
-  final onSurfaceVariant = const Color(0xFF637083); // Text Secondary
+  final onSurfaceVariant = const Color(0xFF5A626A); // Texto secundario
   @override
-  final outline = const Color(0xFFA8B4C2); // Metal Silver visible
+  final outline = const Color(0xFFE2E8F0); // Borde suave visible
   @override
-  final outlineVariant = const Color(0xFFEEF5FB); // Canvas Ice
+  final outlineVariant = const Color(0xFFF1F5F9); // Separadores suaves
   @override
-  final success = const Color(0xFF0F9E6E); // Esmeralda 600 (contraste en claro)
+  final success = const Color(0xFF0F9E6E); // Esmeralda 600
   @override
   final warning = const Color(0xFFA16207); // Ámbar 700
   @override
-  final error = const Color(0xFFD6455A); // Coral 600 (rojo visible)
+  final error = const Color(0xFFD6455A); // Coral 600
   @override
   final info = const Color(0xFF0369A1); // Sky 700
   @override
   final tertiary = const Color(0xFF6D28D9); // Violeta 700
   @override
-  final accent = const Color(0xFF0891B2); // Cyan 600
+  final accent = const Color(0xFFFF6D00); // Naranja vibrante
   @override
-  final onAccent = const Color(0xFFF5FAFC); // Casi blanco sobre acento oscuro
+  final onAccent = const Color(0xFFFFFFFF); // Blanco sobre naranja
   @override
   final danger = const Color(0xFFD6455A); // Coral 600
   @override
-  final codeBlockBg = const Color(0xFFF2F6FA); // Canvas Secondary
+  final codeBlockBg = const Color(0xFFF3F4F6); // Canvas Secondary
   @override
-  final quoteBg = const Color(0xFFEFF7FC); // Glass Ice
+  final quoteBg = const Color(0xFFFFF7ED); // Warm Orange tint
   @override
   final terminalBg = const Color(0xFFF8FAFC); // Slate 50
   @override
@@ -364,9 +364,9 @@ class NanoLightColors implements NanoColors {
   @override
   final glassSurface = const Color(0xCCFFFFFF); // Blanco 80% translúcido
   @override
-  final glassBorder = const Color(0x408B97A8); // Metal Steel suave (más definido)
+  final glassBorder = const Color(0x40E2E8F0); // Metal Steel suave
   @override
-  final glassOverlay = const Color(0x0D0891B2); // Cyan 5% overlay óptico
+  final glassOverlay = const Color(0x0DFF6D00); // Orange 5% overlay óptico
 
   // --- Glass Metallic Redesign Tokens ---
   @override
@@ -462,24 +462,24 @@ class NanoLightColors implements NanoColors {
   final glassOpaque = 0.78;
 
   @override
-  final textPrimary = const Color(0xFF1D2733); // Text Primary
+  final textPrimary = const Color(0xFF111827); // Text Primary
   @override
-  final textSecondary = const Color(0xFF637083); // Text Secondary
+  final textSecondary = const Color(0xFF4B5563); // Text Secondary
   @override
-  final textTertiary = const Color(0xFF8B97A8); // Text Tertiary
+  final textTertiary = const Color(0xFF6B7280); // Text Tertiary
   @override
-  final textDisabled = const Color(0xFFB6C0CB); // Text Disabled
+  final textDisabled = const Color(0xFF9CA3AF); // Text Disabled
 
   @override
-  final accentCyan = const Color(0xFF0891B2);
+  final accentCyan = const Color(0xFFFF6D00);
   @override
-  final accentMint = const Color(0xFF059669);
+  final accentMint = const Color(0xFFF97316);
   @override
-  final accentSky = const Color(0xFF0284C7);
+  final accentSky = const Color(0xFFFB923C);
   @override
-  final accentBlue = const Color(0xFF4F46E5);
+  final accentBlue = const Color(0xFFFF6D00);
   @override
-  final accentLavender = const Color(0xFF6D28D9);
+  final accentLavender = const Color(0xFFEA580C);
 
   @override
   final iceReflection = const Color(0xFFEFF7FC);
@@ -488,19 +488,19 @@ class NanoLightColors implements NanoColors {
   @override
   final pearlReflection = const Color(0xFFFFFFFF);
   @override
-  final warmReflection = const Color(0xFFF1E5D8);
+  final warmReflection = const Color(0xFFFFF3E0);
   @override
-  final lavenderReflection = const Color(0xFFA89AF8);
+  final lavenderReflection = const Color(0xFFFFE0B2);
 
   @override
-  final borderPrimaryColor = const Color(0xF5FFFFFF); // Blanco brillante
+  final borderPrimaryColor = const Color(0xFFFFFFFF); // Blanco brillante
   @override
-  final borderSecondaryColor = const Color(0x40DCE5ED); // Línea metálica suave (Silver)
+  final borderSecondaryColor = const Color(0xFFE5E7EB); // Línea suave
   @override
-  final borderAccentColor = const Color(0x6055DCE8); // Cyan borde reflectivo
+  final borderAccentColor = const Color(0x66FF6D00); // Orange borde reflectivo
 
   @override
-  bool get isClassicOrange => false;
+  bool get isClassicOrange => true;
 }
 
 /// NAV-BAR-FIX-05 — identidad de la barra de navegación (azul cósmico:
@@ -1165,7 +1165,13 @@ class NanoThemeExtension extends ThemeExtension<NanoThemeExtension> {
   }
 
   static NanoThemeExtension of(BuildContext context) =>
-      Theme.of(context).extension<NanoThemeExtension>()!;
+      Theme.of(context).extension<NanoThemeExtension>() ??
+      (Theme.of(context).brightness == Brightness.dark
+          ? NanoThemeExtension(colors: NanoDarkColors())
+          : NanoThemeExtension(colors: NanoLightColors()));
+
+  static NanoThemeExtension? maybeOf(BuildContext context) =>
+      Theme.of(context).extension<NanoThemeExtension>();
 }
 
 class NanoRadius {

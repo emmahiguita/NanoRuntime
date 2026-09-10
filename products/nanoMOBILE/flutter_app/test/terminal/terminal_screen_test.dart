@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,11 +15,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(
-          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+      ProviderScope(
+        child: MaterialApp(
+          theme: ThemeData(
+            extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+          ),
+          home: const Scaffold(body: TerminalTabScreen()),
         ),
-        home: const Scaffold(body: TerminalTabScreen()),
       ),
     );
 
@@ -34,12 +37,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(
-          extensions: [NanoThemeExtension(colors: NanoDarkColors())],
-        ),
-        home: const Scaffold(
-          body: NanoTerminal(sessionId: 0, initialCwd: '/home/nanoai'),
+      ProviderScope(
+        child: MaterialApp(
+          theme: ThemeData(
+            extensions: [NanoThemeExtension(colors: NanoDarkColors())],
+          ),
+          home: const Scaffold(
+            body: NanoTerminal(sessionId: 0, initialCwd: '/home/nanoai'),
+          ),
         ),
       ),
     );

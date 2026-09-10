@@ -7,57 +7,122 @@ import 'package:flutter/material.dart';
 class NanoType {
   NanoType._();
 
-  // Escala base — una sola fuente, un solo peso por nivel.
+  // Escala base — Inter y JetBrainsMono alineadas a Nano Design System v1.
   static TextStyle display(Color c) => TextStyle(
     fontFamily: 'Inter',
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: FontWeight.w700,
-    letterSpacing: -0.5,
+    letterSpacing: -0.60,
     color: c,
-    height: 1.2,
+    height: 38 / 32,
   );
+
+  static TextStyle largeTitle(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.40,
+    color: c,
+    height: 34 / 28,
+  );
+
   static TextStyle title(Color c) => TextStyle(
     fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.25,
     color: c,
-    height: 1.3,
+    height: 28 / 22,
   );
-  static TextStyle subtitle(Color c) => TextStyle(
+
+  static TextStyle headline(Color c) => TextStyle(
     fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: FontWeight.w500,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.10,
     color: c,
-    height: 1.3,
+    height: 24 / 18,
   );
+
   static TextStyle body(Color c) => TextStyle(
     fontFamily: 'Inter',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: FontWeight.w400,
+    letterSpacing: 0.0,
     color: c,
-    height: 1.4,
+    height: 24 / 16,
   );
-  static TextStyle caption(Color c) => TextStyle(
+
+  static TextStyle bodySecondary(Color c) => TextStyle(
     fontFamily: 'Inter',
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: FontWeight.w400,
+    letterSpacing: 0.0,
     color: c,
-    height: 1.3,
+    height: 22 / 15,
   );
+
+  static TextStyle subtitle(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.05,
+    color: c,
+    height: 20 / 14,
+  );
+
+  static TextStyle callout(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.10,
+    color: c,
+    height: 20 / 14,
+  );
+
   static TextStyle label(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.20,
+    color: c,
+    height: 18 / 13,
+  );
+
+  static TextStyle caption(Color c) => TextStyle(
     fontFamily: 'Inter',
     fontSize: 12,
     fontWeight: FontWeight.w500,
+    letterSpacing: 0.20,
     color: c,
-    height: 1.2,
+    height: 16 / 12,
   );
+
+  static TextStyle micro(Color c) => TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.30,
+    color: c,
+    height: 14 / 11,
+  );
+
   static TextStyle overline(Color c) => TextStyle(
     fontFamily: 'Inter',
     fontSize: 10,
     fontWeight: FontWeight.w600,
-    letterSpacing: 0.6,
+    letterSpacing: 0.60,
     color: c,
     height: 1.2,
+  );
+
+  static TextStyle terminal(Color c) => TextStyle(
+    fontFamily: 'JetBrainsMono',
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 0.0,
+    color: c,
+    height: 20 / 14,
   );
 
   /// Números grandes para dashboard / métricas (RAM, temp, batería, etc.).

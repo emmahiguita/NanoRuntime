@@ -35,6 +35,8 @@ import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;
 import 'conversation_understanding.dart';
 import 'notification_draft_prompt.dart';
 import 'notification_object.dart';
+import '../language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
 
 /// Fuente de borrador contextual. null = no se puede redactar hoy.
 ///
@@ -376,25 +378,31 @@ final class RuntimeNotificationDraftWriter {
       // el guard lo retiene, pero el objetivo es respuesta cotidiana. El
       // social prompt no necesita estructura: el escalón legacy del parser
       // toma el texto tras "Respuesta:".
-      // P0-SOCIAL-2 — reacción social pura ("me alegra", "gracias",
-      // "dale") usa el MISMO prompt mínimo: el router ya la marcó personal
-      // y el prompt completo la empujó a operador (evidencia 19:49:51
-      // "¿Cómo puedo ayudarte hoy?" retenido por el guard). Excepción:
+      // WA-CONV-UNDERSTANDING-01 — clasificador centralizado: cierra la fuga
+      // PragmaticFastPath → NULL → socialPrompt. Un turno narrativo/contextual
+      // /complejo JAMÁS usa el prompt mínimo aunque pase por isGreetingLikeMessage
+      // o isSocialReactionMessage (la fuga exacta del bug). El clasificador es
+      // determinista, 0 LLM, compartido entre el FastPath y el DraftWriter.
+      final complexity = turnComplexityClassifier.classify(notification.text);
+
+      // P0-SOCIAL-2 — reacción social pura ("me alegra", "gracias", "dale")
+      // usa el MISMO prompt mínimo: el router ya la marcó personal
+      // y el prompt completo la empujó a operador. Excepción:
       // turno mixto con producto mencionado conserva el prompt completo
       // para responder al producto.
-      // R5-GREETING-01 — saludo extendido ("hola como estas emma?") usa el
-      // social mínimo igual que el puro: con 60 entradas de historial el
-      // prompt completo revienta ctx=256 y el JSON sale recortado
-      // (evidencia 16:17:20, intent="" → hold → cliente sin saludo).
+      // R5-GREETING-01 — saludo extendido usa el social mínimo igual que el
+      // puro: con 60 entradas de historial el prompt completo revienta ctx=256.
       // CONV-STATE-02 — la respuesta a la pregunta pendiente JAMÁS usa el
-      // social mínimo aunque empiece con saludo ("hola si"): el bloque
-      // <PREGUNTA PENDIENTE> es el contexto del turno.
+      // social mínimo aunque empiece con saludo ("hola si").
+      // WA-CONV-UNDERSTANDING-01 — invariante: !eligibleForSocialPrompt suprime
+      // el social mínimo cuando el turno es narrativo/contextual/complejo.
       final social =
-          isGreetingLikeMessage(notification.text) ||
-          (role == ConversationAgentRole.personal &&
-              isSocialReactionMessage(notification.text) &&
-              !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
-                  false));
+          complexity.eligibleForSocialPrompt &&
+          (isGreetingLikeMessage(notification.text) ||
+              (role == ConversationAgentRole.personal &&
+                  isSocialReactionMessage(notification.text) &&
+                  !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
+                      false)));
       // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño
       // JAMÁS usa el social mínimo: su regla de honestidad vive en la regla
       // 6 del prompt completo (evidencia 16:58:17: "como estas?" recibió el

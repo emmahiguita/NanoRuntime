@@ -20,6 +20,7 @@ class BootOrchestrator {
        _packageService = packageService;
 
   static const _essentialPackages = ['python', 'htop', 'git'];
+  static const _desktopAssetsVersion = 2;
 
   /// Librerías de runtime "completas" para que casi cualquier programa Linux
   /// funcione (multimedia, formatos, red, X11 extra, terminal, compresión,
@@ -378,8 +379,12 @@ exit $RC
     }
   }
 
-  /// Despliega el HUD de bienvenida (hud.py) al home del rootfs.
-  /// Idempotente y no destructivo: escribe solo si faltan o cambió el tamaño.
+  /// Despliega los assets administrados por Nano del escritorio.
+  ///
+  /// La implementación anterior comparaba únicamente el tamaño: dos versiones
+  /// distintas de hud.py con la misma longitud dejaban el runtime antiguo en
+  /// instalaciones existentes. Ahora compara bytes, escribe mediante temporal
+  /// y deja un marker versionado. Solo toca los dos targets listados aquí.
   /// DESKTOP-POLISH-01: fuera el wallpaper PNG — el fondo es la galaxia
   /// procedural que DesktopSessionManager genera a la resolución del fb.
   /// Lo consume lxterminal -e (banner de bienvenida).
@@ -390,23 +395,50 @@ exit $RC
     final homeDir = Directory('${File(usr).parent.path}/home');
     if (!homeDir.existsSync()) return;
 
-    for (final entry in const [('assets/exe/hud.py', '.hud.py')]) {
+    final managedDir = Directory('${homeDir.path}/.nano-managed');
+    if (!managedDir.existsSync()) managedDir.createSync(recursive: true);
+    final marker = File('${managedDir.path}/desktop-assets.version');
+    var deployed = true;
+
+    for (final entry in const [
+      ('assets/exe/hud.py', 'home/.hud.py', false),
+      ('assets/exe/nano-info', 'usr/bin/nano-info', true),
+    ]) {
       try {
         final data = await rootBundle.load(entry.$1);
         final bytes = data.buffer.asUint8List();
-        if (bytes.length < 500) continue;
-        final target = File('${homeDir.path}/${entry.$2}');
-        if (target.existsSync() && target.lengthSync() == bytes.length) {
+        if (bytes.isEmpty) {
+          deployed = false;
           continue;
         }
-        target.writeAsBytesSync(bytes);
-        debugPrint(
-          '[boot] eye candy desplegado: ${entry.$2} '
-          '(${bytes.length} bytes)',
-        );
+        final nanoDir = File(usr).parent.path;
+        final target = File('$nanoDir/${entry.$2}');
+        target.parent.createSync(recursive: true);
+        final unchanged =
+            target.existsSync() && listEquals(target.readAsBytesSync(), bytes);
+        if (!unchanged) {
+          final temporary = File('${target.path}.nano-tmp');
+          temporary.writeAsBytesSync(bytes, flush: true);
+          if (target.existsSync()) target.deleteSync();
+          temporary.renameSync(target.path);
+          debugPrint(
+            '[boot] desktop asset actualizado: ${entry.$2} '
+            '(${bytes.length} bytes)',
+          );
+        }
+        if (entry.$3) _chmodExecutable(target.path);
       } catch (e) {
-        debugPrint('[boot] eye candy ${entry.$2}: $e');
+        deployed = false;
+        debugPrint('[boot] desktop asset ${entry.$2}: $e');
       }
+    }
+
+    if (deployed) {
+      final temporary = File('${marker.path}.nano-tmp');
+      temporary.writeAsStringSync('$_desktopAssetsVersion\n', flush: true);
+      if (marker.existsSync()) marker.deleteSync();
+      temporary.renameSync(marker.path);
+      debugPrint('[boot] desktop assets version=$_desktopAssetsVersion');
     }
   }
 

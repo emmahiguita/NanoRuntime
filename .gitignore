@@ -92,6 +92,8 @@ manifest_cpu.json
 *_failure.png
 screenshot*.png
 palette_options.png
+device*.png
+device_*.png
 output_response.txt
 real_text.txt
 AUDITORIA_TECNICA_NANOAI.*

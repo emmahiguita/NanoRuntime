@@ -676,6 +676,9 @@ void main() {
 
 class _FakeLinuxBackend implements LinuxExecutionBackend {
   @override
+  bool get isAvailable => true;
+
+  @override
   Future<LinuxExecutionResult> execute(LinuxExecutionRequest request) async =>
       const LinuxExecutionResult(
         exitCode: 0,

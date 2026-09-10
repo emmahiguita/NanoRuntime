@@ -15,6 +15,9 @@ class _CapturingLinuxExecutionBackend implements LinuxExecutionBackend {
   final List<LinuxExecutionRequest> requests = [];
 
   @override
+  bool get isAvailable => true;
+
+  @override
   Future<LinuxExecutionResult> execute(LinuxExecutionRequest request) async {
     requests.add(request);
     return const LinuxExecutionResult(

@@ -11,22 +11,24 @@ import '../../features/terminal/terminal_types.dart';
 import '../../features/terminal/i_bin_executor.dart';
 import '../utils/security_utils.dart';
 
-/// Ejecuta comandos reales con streaming de salida.
+/// Ejecutor de comandos **no-interactivo** (batch / scripts) con streaming
+/// de salida en tiempo real.
 ///
-/// Dos fases:
-///   Fase 1 (pre-bootstrap): extrae bash + toybox de assets/bin/ como bootstrap
-///     loader mínimo. Permite comandos básicos mientras se descarga el rootfs.
+/// Dos fases de arranque:
+///   Fase 1 (pre-bootstrap): extrae bash + toybox de assets/bin/ como
+///     bootstrap loader mínimo. Permite comandos básicos mientras se descarga
+///     el rootfs completo.
 ///   Fase 2 (post-bootstrap): usa el rootfs Termux completo en
 ///     files/nano/usr/ con bash real, coreutils, apt, dpkg, etc.
 ///
 /// La transición es automática: si RootfsManager.isInstalled == true,
-/// los paths de binarios apuntan a files/nano/usr/bin/. Si no, a files/nano/.
+/// los paths apuntan a files/nano/usr/bin/; si no, a files/nano/.
 ///
-/// DIFERENCIA CLAVE vs Termux: no usamos PTY (requiere JNI + forkpty).
-/// En su lugar usamos Process.start con stdout/stderr pipeados. Esto
-/// significa que los programas interactivos (vim, htop, python REPL)
-/// no funcionarán — pero todo lo demás (compiladores, curl, git, pip,
-/// compilaciones largas) emite output en tiempo real.
+/// BACKEND NO-INTERACTIVO — usa Process.start con stdout/stderr como pipes.
+/// Para programas interactivos (vim, htop, python REPL, bash -i) el terminal
+/// usa [PtySession] vía libnanoshell.so (PTY POSIX real: posix_openpt,
+/// TIOCSCTTY, SIGWINCH). ShellExecutor es intencionalmente no-interactivo
+/// para operaciones en background (compilaciones, curl, git, scripts largos).
 class ShellExecutor implements IBinExecutor {
   /// AND-009: Path base de último recurso. Solo se usa en tests/desktop
   /// donde no existe MethodChannel; en Android gana getFilesDir() real.

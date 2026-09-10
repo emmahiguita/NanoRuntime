@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/core/router/app_router.dart';
 import 'package:nanoai/core/theme/app_theme.dart';
@@ -9,10 +10,12 @@ void main() {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        home: const TerminalHubScreen(),
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          home: const TerminalHubScreen(),
+        ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 600));
@@ -50,10 +53,12 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
-      MaterialApp.router(
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        routerConfig: AppRouter.router,
+      ProviderScope(
+        child: MaterialApp.router(
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          routerConfig: AppRouter.router,
+        ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 600));
@@ -61,6 +66,31 @@ void main() {
     expect(find.text('Sistemas locales'), findsOneWidget);
     expect(find.text('Nano Linux'), findsOneWidget);
     expect(find.text('Ajustes'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('al tocar una tarjeta se abre la ficha expandida con Hero', (
+    tester,
+  ) async {
+    await pumpHub(tester, const Size(390, 844));
+
+    // Tap en Nano Linux (tarjeta central)
+    await tester.tap(find.text('Nano Linux'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    // Debe mostrar la vista de detalle con sus capacidades y botón de acción
+    expect(find.text('CAPACIDADES INTEGRADAS'), findsOneWidget);
+    expect(find.text('Administrar Entornos'), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+
+    // Cerrar detalle
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    // Debe volver al carrusel
+    expect(find.text('Sistemas locales'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

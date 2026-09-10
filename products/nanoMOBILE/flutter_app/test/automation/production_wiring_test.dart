@@ -50,6 +50,7 @@ class _FakeDispatcher extends AgentToolDispatcher {
     bool confirmed = false,
     String? executionId,
     ExecutionJournalEntry? executionIntent,
+    void Function()? onPhysicalEffectDispatched,
   }) async {
     calls.add(call);
     return const ToolOutcome(verdict: PolicyVerdict.allow, feedback: 'ok');
@@ -64,6 +65,7 @@ class _FakeDispatcher extends AgentToolDispatcher {
     ActionConfirmation? confirmation,
     String? executionId,
     bool confirmed = false,
+    void Function()? onPhysicalEffectDispatched,
     void Function(int)? onStep,
   }) async {
     calls.addAll(plan);
@@ -171,6 +173,7 @@ class _FakeKoogClient extends LLMEngineClient {
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
+    String? sessionId,
   }) async => LLMResult(text: canned);
 }
 

@@ -23,6 +23,8 @@
 library;
 
 import '../../engine/business/fact_selector.dart' show tokenizeText;
+import '../../engine/language/safe_conversation_repair.dart'
+    show RepairCase, safeConversationRepair;
 import '../../engine/messaging/conversation_key.dart' show ConversationIdentity;
 import '../../engine/notifications/conversation_understanding.dart';
 import '../domain/conversation_agent_role.dart'
@@ -41,6 +43,16 @@ final class ConversationDecisionEngine {
   ConversationDecision decide({
     required ConversationUnderstanding understanding,
     ConversationDecisionContext context = const ConversationDecisionContext(),
+  }) => _decide(
+    understanding: understanding,
+    context: context,
+    allowRepair: true,
+  );
+
+  ConversationDecision _decide({
+    required ConversationUnderstanding understanding,
+    required ConversationDecisionContext context,
+    required bool allowRepair,
   }) {
     final reasons = <String>[];
 
@@ -121,6 +133,22 @@ final class ConversationDecisionEngine {
         (_isCallCenterPhrase(understanding.reply) ||
             (isGreetingLikeMessage(context.userText) &&
                 _fold(understanding.reply).contains('soy nano')))) {
+      final repaired = safeConversationRepair.repair(
+        RepairCase.callCenterPhrase,
+        reply: understanding.reply,
+        userText: context.userText,
+        senderName: context.senderName,
+      );
+      if (allowRepair &&
+          repaired != null &&
+          repaired.trim() != understanding.reply.trim()) {
+        return _validateRepair(
+          understanding: understanding,
+          context: context,
+          repaired: repaired,
+          reason: 'calidad reparada: muletilla call-center eliminada',
+        );
+      }
       reasons.add(
         'P0-NO-CALLCENTER: operador/identidad en turno personal/general',
       );
@@ -272,6 +300,23 @@ final class ConversationDecisionEngine {
           r.contains('no estoy segura');
       if (!admitsUnknown) {
         if (_isAsking(understanding.reply)) {
+          final repaired = safeConversationRepair.repair(
+            RepairCase.liveStateQuestionMirror,
+            reply: understanding.reply,
+            userText: context.userText,
+            senderName: context.senderName,
+          );
+          if (allowRepair &&
+              repaired != null &&
+              repaired.trim() != understanding.reply.trim()) {
+            return _validateRepair(
+              understanding: understanding,
+              context: context,
+              repaired: repaired,
+              reason:
+                  'calidad reparada: LIVE STATE question mirror corregido a respuesta honesta',
+            );
+          }
           reasons.add(
             'LIVE STATE: reply espeja la pregunta sobre el dueño '
             '(QUESTION MIRROR)',
@@ -284,6 +329,23 @@ final class ConversationDecisionEngine {
           );
         }
         if (_affirmsOwnerActivity(understanding.reply)) {
+          final repaired = safeConversationRepair.repair(
+            RepairCase.liveStateAffirmed,
+            reply: understanding.reply,
+            userText: context.userText,
+            senderName: context.senderName,
+          );
+          if (allowRepair &&
+              repaired != null &&
+              repaired.trim() != understanding.reply.trim()) {
+            return _validateRepair(
+              understanding: understanding,
+              context: context,
+              repaired: repaired,
+              reason:
+                  'calidad reparada: LIVE STATE actividad afirmada corregida a respuesta honesta',
+            );
+          }
           reasons.add(
             'LIVE STATE: reply afirma actividad/estado del dueño sin '
             'fuente viva',
@@ -402,6 +464,40 @@ final class ConversationDecisionEngine {
       risk: risk,
       confidence: confidence,
       reasons: reasons,
+    );
+  }
+
+  /// Repair changes only the proposed text, never the facts or authority.
+  /// Run every guard again because stripping/replacing text can change whether
+  /// it is an assertion, an echo, or a question. One repair attempt per decision
+  /// keeps the validation bounded, including when a repair leaves a defect.
+  ConversationDecision _validateRepair({
+    required ConversationUnderstanding understanding,
+    required ConversationDecisionContext context,
+    required String repaired,
+    required String reason,
+  }) {
+    final candidate = ConversationUnderstanding(
+      intent: understanding.intent,
+      relation: understanding.relation,
+      questions: understanding.questions,
+      missingFacts: understanding.missingFacts,
+      requiresAction: understanding.requiresAction,
+      reply: repaired.trim(),
+    );
+    final validated = _decide(
+      understanding: candidate,
+      context: context,
+      allowRepair: false,
+    );
+    return ConversationDecision(
+      disposition: validated.autoSend
+          ? ConversationDisposition.qualityRepair
+          : validated.disposition,
+      risk: validated.risk,
+      confidence: validated.confidence,
+      reasons: [reason, ...validated.reasons],
+      repairedText: validated.autoSend ? candidate.reply : null,
     );
   }
 

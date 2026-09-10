@@ -5,7 +5,11 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define MAX_PTY_SESSIONS 8
+// Máximo de sesiones PTY simultáneas. La UI no impone un límite superior,
+// así que se reservan 16 slots (tabla estática, ~384 bytes en el stack).
+// Auditoría BUG-02 (2026-09-09): ampliado de 8 → 16 para evitar que la
+// 9ª pestaña falle silenciosamente cuando pty_registry_alloc() retorna NULL.
+#define MAX_PTY_SESSIONS 16
 
 static PtySessionRecord g_sessions[MAX_PTY_SESSIONS];
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;

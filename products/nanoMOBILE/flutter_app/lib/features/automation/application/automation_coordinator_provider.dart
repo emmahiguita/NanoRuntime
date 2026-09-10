@@ -47,6 +47,9 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
+import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
+import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
+import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
 
 import '../domain/automation_goal.dart' show AutomationOptions;
 import '../ledger/action_ledger_provider.dart';
@@ -470,6 +473,8 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
       // PERSONA-DECISION-02 — decisión determinista antes de despachar el
       // draft dinámico (FACTS → DECISION → SEND).
       decisionEngine: const ConversationDecisionEngine(),
+      // WA-DRAFT-INBOX-01 — almacén de borradores pendientes para la UI
+      pendingReplyStore: ref.watch(pendingReplyStoreProvider),
       // PERSONA-HANDOFF-03 — ownership por conversación: si el humano tomó
       // el control, el engine retiene el draft (jamás se pisa al dueño).
       // PERSONA-AUTONOMY-11 — la MISMA identidad resuelta alimenta la
@@ -616,4 +621,15 @@ final timeTickSchedulerProvider = Provider<TimeTickScheduler>((ref) {
   )..start();
   ref.onDispose(scheduler.stop);
   return scheduler;
+});
+
+/// WA-DRAFT-INBOX-01 — almacén durable de borradores para aprobación (Modo Sugerencias).
+final pendingReplyStoreProvider = Provider<PendingReplyStore>((ref) {
+  return PendingReplyStore(dbClient: AutomationDbStoreClient.instance);
+});
+
+final pendingRepliesProvider =
+    FutureProvider.autoDispose<List<PendingReply>>((ref) async {
+  final store = ref.watch(pendingReplyStoreProvider);
+  return store.allPending();
 });

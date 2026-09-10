@@ -10,6 +10,148 @@ enum NanoGlyphType {
   automation,
   microphone,
   arrowForward,
+  search,
+  attachment,
+  close,
+  send,
+  clock,
+  rules,
+  tuning,
+  reply,
+  bluetooth,
+  browser,
+  linux,
+  notification,
+  files,
+  back,
+  chevronDown,
+  chevronUp,
+  statusOk,
+  statusWarning,
+  statusError,
+  security,
+  voice,
+  memory,
+  cpu,
+}
+
+enum NanoIconState {
+  normal,
+  active,
+  selected,
+  disabled,
+}
+
+/// Componente centralizado de iconografía Nano Design System v1.
+///
+/// Soporta Canvas vectorial de alta precisión, micro-resorte físico al tocar
+/// (1.0 → 0.965 → 1.0) y resplandor de neón controlado sin deformación de trazo.
+class NanoIcon extends StatefulWidget {
+  const NanoIcon({
+    super.key,
+    required this.type,
+    this.color,
+    this.size = 22,
+    this.strokeWidth = 1.75,
+    this.glow,
+    this.state = NanoIconState.normal,
+    this.onTap,
+  });
+
+  final NanoGlyphType type;
+  final Color? color;
+  final double size;
+  final double strokeWidth;
+  final bool? glow;
+  final NanoIconState state;
+  final VoidCallback? onTap;
+
+  @override
+  State<NanoIcon> createState() => _NanoIconState();
+}
+
+class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.965).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    if (widget.onTap != null && widget.state != NanoIconState.disabled) {
+      _anim.forward();
+    }
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    if (widget.onTap != null && widget.state != NanoIconState.disabled) {
+      _anim.reverse();
+    }
+  }
+
+  void _onTapCancel() {
+    _anim.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF5CE7FF)
+        : const Color(0xFF2A7FFF);
+    final effectiveColor = widget.color ??
+        (widget.state == NanoIconState.selected || widget.state == NanoIconState.active
+            ? themeColor
+            : (widget.state == NanoIconState.disabled
+                ? Colors.grey.withValues(alpha: 0.4)
+                : (Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFE6EDF6)
+                    : const Color(0xFF0F172A))));
+    final effectiveGlow = widget.glow ??
+        (widget.state == NanoIconState.active || widget.state == NanoIconState.selected);
+
+    Widget iconWidget = NanoGlyph(
+      type: widget.type,
+      color: effectiveColor,
+      size: widget.size,
+      strokeWidth: widget.strokeWidth,
+      glow: effectiveGlow,
+    );
+
+    if (widget.onTap != null) {
+      return GestureDetector(
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        onTap: widget.state == NanoIconState.disabled ? null : widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
+          animation: _scale,
+          builder: (context, child) => Transform.scale(
+            scale: _scale.value,
+            child: child,
+          ),
+          child: iconWidget,
+        ),
+      );
+    }
+
+    return iconWidget;
+  }
 }
 
 /// Glifo vectorial independiente renderizado sobre Canvas de alta precisión.
@@ -113,6 +255,75 @@ class _NanoGlyphPainter extends CustomPainter {
         break;
       case NanoGlyphType.arrowForward:
         _arrowForward(c, w, h, stroke);
+        break;
+      case NanoGlyphType.search:
+        _search(c, w, h, stroke);
+        break;
+      case NanoGlyphType.attachment:
+        _attachment(c, w, h, stroke);
+        break;
+      case NanoGlyphType.close:
+        _close(c, w, h, stroke);
+        break;
+      case NanoGlyphType.send:
+        _send(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.clock:
+        _clock(c, w, h, stroke);
+        break;
+      case NanoGlyphType.rules:
+        _rules(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.tuning:
+        _tuning(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.reply:
+        _reply(c, w, h, stroke);
+        break;
+      case NanoGlyphType.bluetooth:
+        _bluetooth(c, w, h, stroke);
+        break;
+      case NanoGlyphType.browser:
+        _browser(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.linux:
+        _linux(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.notification:
+        _notification(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.files:
+        _files(c, w, h, stroke);
+        break;
+      case NanoGlyphType.back:
+        _back(c, w, h, stroke);
+        break;
+      case NanoGlyphType.chevronDown:
+        _chevronDown(c, w, h, stroke);
+        break;
+      case NanoGlyphType.chevronUp:
+        _chevronUp(c, w, h, stroke);
+        break;
+      case NanoGlyphType.statusOk:
+        _statusOk(c, w, h, stroke);
+        break;
+      case NanoGlyphType.statusWarning:
+        _statusWarning(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.statusError:
+        _statusError(c, w, h, stroke);
+        break;
+      case NanoGlyphType.security:
+        _security(c, w, h, stroke);
+        break;
+      case NanoGlyphType.voice:
+        _voice(c, w, h, stroke);
+        break;
+      case NanoGlyphType.memory:
+        _memory(c, w, h, stroke);
+        break;
+      case NanoGlyphType.cpu:
+        _cpu(c, w, h, stroke, fill);
         break;
     }
   }
@@ -259,6 +470,260 @@ class _NanoGlyphPainter extends CustomPainter {
       ..lineTo(w * .73, h * .50)
       ..lineTo(w * .52, h * .69);
     c.drawPath(path, stroke);
+  }
+
+  void _search(Canvas c, double w, double h, Paint stroke) {
+    c.drawCircle(Offset(w * .42, h * .42), w * .24, stroke);
+    c.drawLine(Offset(w * .60, h * .60), Offset(w * .82, h * .82), stroke);
+  }
+
+  void _attachment(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .65, h * .38)
+      ..lineTo(w * .40, h * .63)
+      ..arcToPoint(Offset(w * .28, h * .63), radius: Radius.circular(w * .08), clockwise: false)
+      ..arcToPoint(Offset(w * .28, h * .51), radius: Radius.circular(w * .08), clockwise: false)
+      ..lineTo(w * .56, h * .23)
+      ..arcToPoint(Offset(w * .74, h * .23), radius: Radius.circular(w * .12))
+      ..arcToPoint(Offset(w * .74, h * .41), radius: Radius.circular(w * .12))
+      ..lineTo(w * .46, h * .69)
+      ..arcToPoint(Offset(w * .28, h * .69), radius: Radius.circular(w * .12), clockwise: false)
+      ..arcToPoint(Offset(w * .20, h * .51), radius: Radius.circular(w * .16), clockwise: false)
+      ..lineTo(w * .20, h * .45);
+    c.drawPath(p, stroke);
+  }
+
+  void _close(Canvas c, double w, double h, Paint stroke) {
+    c.drawLine(Offset(w * .28, h * .28), Offset(w * .72, h * .72), stroke);
+    c.drawLine(Offset(w * .72, h * .28), Offset(w * .28, h * .72), stroke);
+  }
+
+  void _send(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    final p = Path()
+      ..moveTo(w * .50, h * .20)
+      ..lineTo(w * .22, h * .48)
+      ..moveTo(w * .50, h * .20)
+      ..lineTo(w * .78, h * .48)
+      ..moveTo(w * .50, h * .20)
+      ..lineTo(w * .50, h * .80);
+    c.drawPath(p, stroke);
+  }
+
+  void _clock(Canvas c, double w, double h, Paint stroke) {
+    c.drawCircle(Offset(w * .50, h * .50), w * .34, stroke);
+    c.drawLine(Offset(w * .50, h * .50), Offset(w * .50, h * .28), stroke);
+    c.drawLine(Offset(w * .50, h * .50), Offset(w * .68, h * .50), stroke);
+  }
+
+  void _rules(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    c.drawLine(Offset(w * .20, h * .36), Offset(w * .80, h * .36), stroke);
+    c.drawCircle(Offset(w * .40, h * .36), w * .07, fill);
+    c.drawLine(Offset(w * .20, h * .64), Offset(w * .80, h * .64), stroke);
+    c.drawCircle(Offset(w * .62, h * .64), w * .07, fill);
+  }
+
+  void _tuning(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    c.drawLine(Offset(w * .32, h * .20), Offset(w * .32, h * .80), stroke);
+    c.drawCircle(Offset(w * .32, h * .42), w * .07, fill);
+    c.drawLine(Offset(w * .68, h * .20), Offset(w * .68, h * .80), stroke);
+    c.drawCircle(Offset(w * .68, h * .58), w * .07, fill);
+  }
+
+  void _reply(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .38, h * .30)
+      ..lineTo(w * .20, h * .48)
+      ..lineTo(w * .38, h * .66)
+      ..moveTo(w * .20, h * .48)
+      ..lineTo(w * .58, h * .48)
+      ..arcToPoint(Offset(w * .78, h * .68), radius: Radius.circular(w * .20));
+    c.drawPath(p, stroke);
+  }
+
+  void _bluetooth(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .32, h * .34)
+      ..lineTo(w * .68, h * .68)
+      ..lineTo(w * .50, h * .86)
+      ..lineTo(w * .50, h * .14)
+      ..lineTo(w * .68, h * .32)
+      ..lineTo(w * .32, h * .66);
+    c.drawPath(p, stroke);
+  }
+
+  void _browser(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * .16, h * .20, w * .68, h * .60),
+      Radius.circular(w * .14),
+    );
+    c.drawRRect(r, stroke);
+    c.drawLine(Offset(w * .16, h * .38), Offset(w * .84, h * .38), stroke);
+    c.drawCircle(Offset(w * .28, h * .29), w * .035, fill);
+    c.drawCircle(Offset(w * .38, h * .29), w * .035, fill);
+  }
+
+  void _linux(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * .18, h * .18, w * .64, h * .64),
+      Radius.circular(w * .16),
+    );
+    c.drawRRect(r, stroke);
+    final p = Path()
+      ..moveTo(w * .32, h * .40)
+      ..lineTo(w * .44, h * .50)
+      ..lineTo(w * .32, h * .60);
+    c.drawPath(p, stroke);
+    c.drawLine(Offset(w * .52, h * .60), Offset(w * .68, h * .60), stroke);
+  }
+
+  void _notification(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    final p = Path()
+      ..moveTo(w * .28, h * .66)
+      ..lineTo(w * .72, h * .66)
+      ..lineTo(w * .68, h * .42)
+      ..arcToPoint(Offset(w * .32, h * .42), radius: Radius.circular(w * .18))
+      ..close();
+    c.drawPath(p, stroke);
+    c.drawArc(
+      Rect.fromCenter(center: Offset(w * .50, h * .68), width: w * .20, height: h * .16),
+      0,
+      3.14159,
+      false,
+      stroke,
+    );
+  }
+
+  void _files(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .24, h * .18)
+      ..lineTo(w * .56, h * .18)
+      ..lineTo(w * .76, h * .38)
+      ..lineTo(w * .76, h * .82)
+      ..lineTo(w * .24, h * .82)
+      ..close()
+      ..moveTo(w * .56, h * .18)
+      ..lineTo(w * .56, h * .38)
+      ..lineTo(w * .76, h * .38);
+    c.drawPath(p, stroke);
+  }
+
+  void _back(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .72, h * .50)
+      ..lineTo(w * .25, h * .50)
+      ..moveTo(w * .46, h * .31)
+      ..lineTo(w * .25, h * .50)
+      ..lineTo(w * .46, h * .69);
+    c.drawPath(p, stroke);
+  }
+
+  void _chevronDown(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .28, h * .40)
+      ..lineTo(w * .50, h * .62)
+      ..lineTo(w * .72, h * .40);
+    c.drawPath(p, stroke);
+  }
+
+  void _chevronUp(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .28, h * .60)
+      ..lineTo(w * .50, h * .38)
+      ..lineTo(w * .72, h * .60);
+    c.drawPath(p, stroke);
+  }
+
+  void _statusOk(Canvas c, double w, double h, Paint stroke) {
+    c.drawCircle(Offset(w * .50, h * .50), w * .34, stroke);
+    final p = Path()
+      ..moveTo(w * .34, h * .50)
+      ..lineTo(w * .46, h * .62)
+      ..lineTo(w * .66, h * .38);
+    c.drawPath(p, stroke);
+  }
+
+  void _statusWarning(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    final p = Path()
+      ..moveTo(w * .50, h * .18)
+      ..lineTo(w * .82, h * .78)
+      ..lineTo(w * .18, h * .78)
+      ..close();
+    c.drawPath(p, stroke);
+    c.drawLine(Offset(w * .50, h * .40), Offset(w * .50, h * .58), stroke);
+    c.drawCircle(Offset(w * .50, h * .68), w * .035, fill);
+  }
+
+  void _statusError(Canvas c, double w, double h, Paint stroke) {
+    c.drawCircle(Offset(w * .50, h * .50), w * .34, stroke);
+    c.drawLine(Offset(w * .36, h * .36), Offset(w * .64, h * .64), stroke);
+    c.drawLine(Offset(w * .64, h * .36), Offset(w * .36, h * .64), stroke);
+  }
+
+  void _security(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .50, h * .16)
+      ..lineTo(w * .78, h * .26)
+      ..lineTo(w * .78, h * .52)
+      ..quadraticBezierTo(w * .76, h * .74, w * .50, h * .84)
+      ..quadraticBezierTo(w * .24, h * .74, w * .24, h * .52)
+      ..lineTo(w * .24, h * .26)
+      ..close();
+    c.drawPath(p, stroke);
+  }
+
+  void _voice(Canvas c, double w, double h, Paint stroke) {
+    final p = Path()
+      ..moveTo(w * .24, h * .40)
+      ..lineTo(w * .38, h * .40)
+      ..lineTo(w * .52, h * .28)
+      ..lineTo(w * .52, h * .72)
+      ..lineTo(w * .38, h * .60)
+      ..lineTo(w * .24, h * .60)
+      ..close();
+    c.drawPath(p, stroke);
+    c.drawArc(
+      Rect.fromCenter(center: Offset(w * .48, h * .50), width: w * .32, height: h * .36),
+      -0.9,
+      1.8,
+      false,
+      stroke,
+    );
+    c.drawArc(
+      Rect.fromCenter(center: Offset(w * .48, h * .50), width: w * .52, height: h * .56),
+      -0.9,
+      1.8,
+      false,
+      stroke,
+    );
+  }
+
+  void _memory(Canvas c, double w, double h, Paint stroke) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * .26, h * .26, w * .48, h * .48),
+      Radius.circular(w * .10),
+    );
+    c.drawRRect(r, stroke);
+    for (double i = 0.38; i <= 0.62; i += 0.12) {
+      c.drawLine(Offset(w * i, h * .14), Offset(w * i, h * .26), stroke);
+      c.drawLine(Offset(w * i, h * .74), Offset(w * i, h * .86), stroke);
+      c.drawLine(Offset(w * .14, h * i), Offset(w * .26, h * i), stroke);
+      c.drawLine(Offset(w * .74, h * i), Offset(w * .86, h * i), stroke);
+    }
+  }
+
+  void _cpu(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * .24, h * .24, w * .52, h * .52),
+      Radius.circular(w * .12),
+    );
+    c.drawRRect(r, stroke);
+    c.drawRect(Rect.fromLTWH(w * .40, h * .40, w * .20, h * .20), fill);
+    for (double i = 0.36; i <= 0.64; i += 0.14) {
+      c.drawLine(Offset(w * i, h * .12), Offset(w * i, h * .24), stroke);
+      c.drawLine(Offset(w * i, h * .76), Offset(w * i, h * .88), stroke);
+      c.drawLine(Offset(w * .12, h * i), Offset(w * .24, h * i), stroke);
+      c.drawLine(Offset(w * .76, h * i), Offset(w * .88, h * i), stroke);
+    }
   }
 
   @override

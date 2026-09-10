@@ -14,6 +14,7 @@ import '../../features/desktop/presentation/screens/vnc_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
 import '../../features/automation/presentation/screens/automation_screen.dart';
 import '../../features/automation/presentation/screens/automation_messages_screen.dart';
+import '../../features/automation/presentation/screens/whatsapp_onboarding_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -117,6 +118,11 @@ class AppRouter {
       GoRoute(
         path: '/automation/messages',
         pageBuilder: (_, __) => _glassMorph(const AutomationMessagesScreen()),
+      ),
+      // /automation/whatsapp-onboarding → checklist y activación guiada
+      GoRoute(
+        path: '/automation/whatsapp-onboarding',
+        pageBuilder: (_, __) => _glassMorph(const WhatsAppOnboardingScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',

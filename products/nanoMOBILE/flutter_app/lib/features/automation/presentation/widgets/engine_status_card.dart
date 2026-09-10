@@ -43,10 +43,21 @@ class EngineStatusCard extends ConsumerWidget {
                       Text(
                         'ESTADO DEL SISTEMA',
                         style: TextStyle(
-                          color: AutomationVisual.of(context).textMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.6,
+                          color: AutomationVisual.of(context).isDark
+                              ? Colors.white.withValues(alpha: 0.90)
+                              : AutomationVisual.of(context).textMuted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          shadows: AutomationVisual.of(context).isDark
+                              ? const [
+                                  Shadow(
+                                    color: Color(0x70000000),
+                                    blurRadius: 3,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ]
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -248,17 +259,47 @@ class _CleanCapabilityRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            width: 16,
+            height: 16,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.16),
+              border: Border.all(
+                color: color.withValues(alpha: 0.38),
+                width: 1,
+              ),
+            ),
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.65),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               ok ? okText : offText,
-              style: TextStyle(
-                color: AutomationVisual.of(context).text,
+              style: const TextStyle(
+                color: Colors.white,
                 fontSize: 14,
+                fontWeight: FontWeight.w600,
+                shadows: [
+                  Shadow(
+                    color: Color(0x80000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
             ),
           ),
@@ -268,54 +309,114 @@ class _CleanCapabilityRow extends StatelessWidget {
   }
 }
 
-class _SystemReadyMark extends StatelessWidget {
+class _SystemReadyMark extends StatefulWidget {
   const _SystemReadyMark({required this.ready});
 
   final bool ready;
 
   @override
+  State<_SystemReadyMark> createState() => _SystemReadyMarkState();
+}
+
+class _SystemReadyMarkState extends State<_SystemReadyMark>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    final isTest =
+        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!isTest && widget.ready) {
+      _pulse.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SystemReadyMark oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final isTest =
+        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!isTest) {
+      if (widget.ready && !oldWidget.ready) {
+        _pulse.repeat(reverse: true);
+      } else if (!widget.ready && oldWidget.ready) {
+        _pulse.stop();
+        _pulse.value = 0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = ready
+    final color = widget.ready
         ? AutomationVisual.of(context).success
         : AutomationVisual.of(context).accent;
-    // UI-REV-04: marca compacta (64px) — los anillos de 92px dominaban la
-    // card de estado; el sistema no es el protagonista del dashboard.
-    return SizedBox.square(
-      dimension: 64,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: color.withValues(alpha: 0.20)),
-            ),
+    // UI-REV-04: marca compacta (64px) con halo de respiración suave estilo iOS.
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, _) {
+        final t = _pulse.value;
+        return SizedBox.square(
+          dimension: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 58 + t * 4,
+                height: 58 + t * 4,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.15 + t * 0.12),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+              Container(
+                width: 46 + t * 2,
+                height: 46 + t * 2,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.28 + t * 0.15),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14 + t * 0.08),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.20 + t * 0.20),
+                      blurRadius: 8 + t * 4,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  widget.ready ? Icons.check_rounded : Icons.pause_rounded,
+                  color: color,
+                  size: 18,
+                ),
+              ),
+            ],
           ),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: color.withValues(alpha: 0.34)),
-            ),
-          ),
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              ready ? Icons.check_rounded : Icons.pause_rounded,
-              color: color,
-              size: 18,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

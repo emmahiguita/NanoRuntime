@@ -21,6 +21,10 @@ enum ConversationDisposition {
   /// El humano debe responder: el modelo pidió una acción fuera de su
   /// alcance o el dueño tomó el control de la conversación.
   needsHuman,
+
+  /// WA-LIVE-STATE-REPAIR-01 — Reparación determinista de calidad sin LLM
+  /// (live-state, muletilla de call-center en personal).
+  qualityRepair,
 }
 
 /// Nivel de riesgo de un envío automático.
@@ -81,12 +85,21 @@ final class ConversationDecision {
   /// Razones legibles (traza logcat `[decision]`): cada señal aplicada.
   final List<String> reasons;
 
+  /// WA-LIVE-STATE-REPAIR-01 — texto corregido deterministamente cuando
+  /// disposition == qualityRepair.
+  final String? repairedText;
+
   const ConversationDecision({
     required this.disposition,
     required this.risk,
     required this.confidence,
     required this.reasons,
+    this.repairedText,
   });
 
-  bool get autoSend => disposition == ConversationDisposition.autoSend;
+  bool get autoSend =>
+      disposition == ConversationDisposition.autoSend ||
+      (disposition == ConversationDisposition.qualityRepair &&
+          repairedText != null &&
+          repairedText!.trim().isNotEmpty);
 }

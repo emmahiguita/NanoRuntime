@@ -68,57 +68,89 @@ class TerminalModifierBar extends StatelessWidget {
     }
 
     return Container(
-      color: chrome,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Wrap(
-        spacing: 5,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      decoration: BoxDecoration(
+        color: chrome,
+        border: Border(
+          top: BorderSide(color: fg.withValues(alpha: 0.08)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          key('Esc', () => onWriteBytes([0x1b])),
-          key(
-            'Ctrl',
-            onToggleCtrl,
-            longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
-            active: ctrlActive,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                key('Esc', () => onWriteBytes([0x1b])),
+                const SizedBox(width: 4),
+                key(
+                  'Ctrl',
+                  onToggleCtrl,
+                  longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
+                  active: ctrlActive,
+                ),
+                const SizedBox(width: 4),
+                key('Tab', () => onWriteBytes([0x09])),
+                divider(),
+                key('Ctrl+C', () => onWriteBytes([0x03])),
+                const SizedBox(width: 4),
+                key('Ctrl+D', () => onWriteBytes([0x04])),
+                const SizedBox(width: 4),
+                key('Ctrl+Z', () => onWriteBytes([0x1a])),
+                divider(),
+                key('Paste', () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  final text = data?.text;
+                  if (text == null) return;
+                  if (bracketedPasteEnabled) onWrite('\x1b[200~');
+                  onWriteBytes(utf8.encode(text));
+                  if (bracketedPasteEnabled) onWrite('\x1b[201~');
+                }),
+                const SizedBox(width: 4),
+                key('Del', () => onWriteBytes([0x1b, 0x5b, 0x33, 0x7e])),
+                divider(),
+                key('F1', () => onWriteBytes([0x1b, 0x4f, 0x50])),
+                const SizedBox(width: 4),
+                key('F2', () => onWriteBytes([0x1b, 0x4f, 0x51])),
+                const SizedBox(width: 4),
+                key('F3', () => onWriteBytes([0x1b, 0x4f, 0x52])),
+                const SizedBox(width: 4),
+                key('F4', () => onWriteBytes([0x1b, 0x4f, 0x53])),
+              ],
+            ),
           ),
-          key('Tab', () => onWriteBytes([0x09])),
-          divider(),
-          // TER-11: señales (0x03 por ISIG del kernel genera el SIGINT —
-          // sin kill() desde la app: seccomp ColorOS hostil).
-          key('Ctrl+C', () => onWriteBytes([0x03])),
-          key('Ctrl+D', () => onWriteBytes([0x04])),
-          key('Ctrl+Z', () => onWriteBytes([0x1a])),
-          divider(),
-          key('←', () => onWriteBytes([0x1b, 0x5b, 0x44])),
-          key('↓', () => onWriteBytes([0x1b, 0x5b, 0x42])),
-          key('↑', () => onWriteBytes([0x1b, 0x5b, 0x41])),
-          key('→', () => onWriteBytes([0x1b, 0x5b, 0x43])),
-          divider(),
-          key('Home', () => onWriteBytes([0x1b, 0x5b, 0x48])),
-          key('End', () => onWriteBytes([0x1b, 0x5b, 0x46])),
-          key('PgUp', () => onWriteBytes([0x1b, 0x5b, 0x35, 0x7e])),
-          key('PgDn', () => onWriteBytes([0x1b, 0x5b, 0x36, 0x7e])),
-          key('Del', () => onWriteBytes([0x1b, 0x5b, 0x33, 0x7e])),
-          divider(),
-          key('F1', () => onWriteBytes([0x1b, 0x4f, 0x50])),
-          key('F2', () => onWriteBytes([0x1b, 0x4f, 0x51])),
-          key('F3', () => onWriteBytes([0x1b, 0x4f, 0x52])),
-          key('F4', () => onWriteBytes([0x1b, 0x4f, 0x53])),
-          divider(),
-          key('Paste', () async {
-            final data = await Clipboard.getData(Clipboard.kTextPlain);
-            final text = data?.text;
-            if (text == null) return;
-            // Solo envuelve en bracketed paste (?2004) si el programa
-            // remoto lo pidió; si no, aparecería "^[[200~" literal.
-            if (bracketedPasteEnabled) onWrite('\x1b[200~');
-            onWriteBytes(utf8.encode(text));
-            if (bracketedPasteEnabled) onWrite('\x1b[201~');
-          }),
-          key('/', () => onWriteBytes([0x2f])),
-          key('-', () => onWriteBytes([0x2d])),
-          key('|', () => onWriteBytes([0x7c])),
+          const SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                key('←', () => onWriteBytes([0x1b, 0x5b, 0x44])),
+                const SizedBox(width: 4),
+                key('↓', () => onWriteBytes([0x1b, 0x5b, 0x42])),
+                const SizedBox(width: 4),
+                key('↑', () => onWriteBytes([0x1b, 0x5b, 0x41])),
+                const SizedBox(width: 4),
+                key('→', () => onWriteBytes([0x1b, 0x5b, 0x43])),
+                divider(),
+                key('Home', () => onWriteBytes([0x1b, 0x5b, 0x48])),
+                const SizedBox(width: 4),
+                key('End', () => onWriteBytes([0x1b, 0x5b, 0x46])),
+                const SizedBox(width: 4),
+                key('PgUp', () => onWriteBytes([0x1b, 0x5b, 0x35, 0x7e])),
+                const SizedBox(width: 4),
+                key('PgDn', () => onWriteBytes([0x1b, 0x5b, 0x36, 0x7e])),
+                divider(),
+                key('/', () => onWriteBytes([0x2f])),
+                const SizedBox(width: 4),
+                key('-', () => onWriteBytes([0x2d])),
+                const SizedBox(width: 4),
+                key('|', () => onWriteBytes([0x7c])),
+              ],
+            ),
+          ),
         ],
       ),
     );

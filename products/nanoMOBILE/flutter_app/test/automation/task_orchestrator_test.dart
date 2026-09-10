@@ -183,7 +183,7 @@ void main() {
     test('no inventa un selector cuando no observa el compositor', () async {
       var writes = 0;
       final orchestrator = _orchestrator(
-        writeText: (_, __, {confirmedActionSignature}) async {
+        writeText: (_, __, {confirmedActionSignature, semanticAction}) async {
           writes++;
           return _completed;
         },
@@ -373,12 +373,12 @@ void main() {
         var writes = 0;
         var physicalTaps = 0;
         final orchestrator = _orchestrator(
-          writeText: (_, __, {confirmedActionSignature}) async {
+          writeText: (_, __, {confirmedActionSignature, semanticAction}) async {
             writes++;
             return _completed;
           },
           resolveInputSurfaceFor: (_) async => 'id=com.chat:id/composer',
-          tap: (_, {confirmedActionSignature}) async {
+          tap: (_, {confirmedActionSignature, semanticAction, executionId, executionIntent}) async {
             if (confirmedActionSignature != 'tap-send') {
               return const TaskActionResult(
                 status: TaskActionStatus.needsConfirmation,
@@ -427,12 +427,12 @@ void main() {
     test('denegación detiene los pasos posteriores', () async {
       var writes = 0;
       final orchestrator = _orchestrator(
-        launchApp: (_, {confirmedActionSignature}) async =>
+        launchApp: (_, {confirmedActionSignature, semanticAction}) async =>
             const TaskActionResult(
               status: TaskActionStatus.denied,
               reason: 'denegado',
             ),
-        writeText: (_, __, {confirmedActionSignature}) async {
+        writeText: (_, __, {confirmedActionSignature, semanticAction}) async {
           writes++;
           return _completed;
         },

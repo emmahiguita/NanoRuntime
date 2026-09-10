@@ -74,29 +74,22 @@ abstract final class AutomationVisual {
       textMuted: colors.textSecondary,
       line: colors.borderSecondaryColor,
       outline: isDark ? colors.outline : const Color(0xFFC9CDD3),
+      // Vidrio líquido iOS con alta transparencia y contraste cinematográfico
       cardStart: isDark
-          ? colors.glass100.withValues(alpha: 0.84)
-          : colors.glassPrimary.withValues(alpha: colors.glassOpaque),
+          ? const Color(0x660E182D) // ~40% zafiro obsidiana esmerilado
+          : const Color(0x750E182D), // ~46% zafiro obsidiana esmerilado
       cardEnd: isDark
-          ? colors.glassBlue.withValues(alpha: 0.62)
-          : colors.glassSecondary.withValues(alpha: colors.glassMedium),
-      // UI-REV-09: borde de acento más presente en la gama dev (0.32) —
-      // "bordes profesionales" del borrador.
+          ? const Color(0x7C080E1D) // ~49% obsidiana cósmica profunda
+          : const Color(0x88080E1D), // ~53% obsidiana cósmica profunda
       cardBorder: isDark
-          ? usesDarkAccent
-                ? colors.borderAccentColor
-                : lightAccent.withValues(alpha: 0.38)
-          : colors.borderPrimaryColor,
-      // CARD-FIX-01 — sin negro puro en sombras: el BackdropFilter+ClipRRect
-      // de AutomationSurfaceCard "manchaba" los bordes del blur con el color
-      // del shadow (0x59000000). Azul profundo translúcido = misma profundidad
-      // sin artefacto negro.
+          ? Colors.white.withValues(alpha: 0.22)
+          : Colors.white.withValues(alpha: 0.35),
       shadow: isDark
-          ? const Color(0x4A0A1A3D)   // azul marino profundo, no negro
-          : const Color(0x140D1726),
+          ? const Color(0x35000000)
+          : const Color(0x180D1726),
       shadowSoft: isDark
-          ? const Color(0x280D1F4A)   // azul noche suave
-          : const Color(0x0A0D1726),
+          ? const Color(0x200D1F4A)
+          : const Color(0x100D1726),
       success: colors.success,
     );
   }
@@ -304,41 +297,48 @@ class AutomationVisualTheme extends ThemeExtension<AutomationVisualTheme> {
       : this;
 }
 
-class AutomationSurfaceCard extends StatelessWidget {
+class AutomationSurfaceCard extends StatefulWidget {
   const AutomationSurfaceCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(12),
     this.onTap,
-    this.radius = 26,
+    this.radius = 24,
+    this.blurSigma = 18,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final double radius;
+  final double blurSigma;
+
+  @override
+  State<AutomationSurfaceCard> createState() => _AutomationSurfaceCardState();
+}
+
+class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
-    final borderRadius = BorderRadius.circular(radius);
-    // CARD-FIX-01 — el shadow se aplica en el Container EXTERIOR al ClipRRect.
-    // Antes el BoxShadow negro estaba dentro del DecoratedBox que envolvía el
-    // BackdropFilter: Flutter "manchaba" los bordes del clip con el color del
-    // shadow, produciendo bordes negros visibles.
-    return Container(
+    final borderRadius = BorderRadius.circular(widget.radius);
+    final isDark = visual.isDark;
+
+    final card = Container(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
             color: visual.shadow,
-            blurRadius: 24,
+            blurRadius: 20,
             offset: const Offset(0, 8),
-            spreadRadius: -6,
+            spreadRadius: -4,
           ),
           BoxShadow(
-            color: visual.shadowSoft,
-            blurRadius: 5,
+            color: visual.accent.withValues(alpha: isDark ? 0.12 : 0.05),
+            blurRadius: 14,
             offset: const Offset(0, 2),
           ),
         ],
@@ -346,7 +346,10 @@ class AutomationSurfaceCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: borderRadius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          filter: ImageFilter.blur(
+            sigmaX: widget.blurSigma,
+            sigmaY: widget.blurSigma,
+          ),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -355,21 +358,74 @@ class AutomationSurfaceCard extends StatelessWidget {
                 colors: [visual.cardStart, visual.cardEnd],
               ),
               borderRadius: borderRadius,
-              border: Border.all(color: visual.cardBorder, width: 1.1),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: borderRadius,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: borderRadius,
-                child: Padding(padding: padding, child: child),
+              border: Border.all(
+                color: visual.cardBorder,
+                width: 1.0,
               ),
+            ),
+            child: Stack(
+              children: [
+                // Línea superior de brillo especular de vidrio iOS
+                Positioned(
+                  top: 0,
+                  left: 16,
+                  right: 16,
+                  height: 1.0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.white.withValues(
+                            alpha: isDark ? 0.35 : 0.75,
+                          ),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  borderRadius: borderRadius,
+                  child: widget.onTap != null
+                      ? InkWell(
+                          onTap: widget.onTap,
+                          borderRadius: borderRadius,
+                          splashColor: visual.accent.withValues(alpha: 0.12),
+                          highlightColor: visual.accent.withValues(alpha: 0.08),
+                          child: Padding(
+                            padding: widget.padding,
+                            child: widget.child,
+                          ),
+                        )
+                      : Padding(
+                          padding: widget.padding,
+                          child: widget.child,
+                        ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+
+    if (widget.onTap != null) {
+      return Listener(
+        onPointerDown: (_) => setState(() => _pressed = true),
+        onPointerUp: (_) => setState(() => _pressed = false),
+        onPointerCancel: (_) => setState(() => _pressed = false),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          scale: _pressed ? 0.985 : 1.0,
+          child: card,
+        ),
+      );
+    }
+
+    return card;
   }
 }
 
@@ -380,19 +436,46 @@ class AutomationSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    // UI-REV-02: overline 10px — mismo patrón que SectionHeader de Dev
-    // (NanoType.overline). Antes 12px/0.7 rompía la jerarquía tipográfica.
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          color: visual.textMuted,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-        ),
+      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+            decoration: BoxDecoration(
+              color: const Color(0x66000000),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.22),
+                width: 0.8,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x35000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+                shadows: [
+                  Shadow(
+                    color: Colors.black87,
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -472,17 +555,54 @@ class AutomationBackHeader extends StatelessWidget {
   }
 }
 
-/// Fondo compartido del módulo — el MISMO de Dev en todas las pantallas y el
-/// mismo del shell (UI-REV-08/09): aurora líquida que se adapta a la familia
-/// del tema (en "Claro" = dev oscuro con blobs azules de la barra sobre
-/// fondo profundo; en "Sistema"-claro, lienzo claro frío; en "Oscuro",
-/// blobs de acento sobre fondo profundo). Se monta como capa base de un
-/// Stack con Scaffold transparente.
+/// Fondo compartido del módulo — fondo de pantalla celestial del Búho en
+/// vertical (assets/automation/automation_bg_portrait.jpg) con gradiente
+/// scrim para contraste y legibilidad óptima de las tarjetas de cristal; y
+/// aurora fluida (LiquidFluidBackground) en horizontal.
 class AutomationBackdrop extends StatelessWidget {
-  const AutomationBackdrop({super.key});
+  const AutomationBackdrop({super.key, this.scrimOpacity});
+
+  /// Opacidad base del scrim protector sobre la imagen.
+  final double? scrimOpacity;
 
   @override
   Widget build(BuildContext context) {
-    return const Positioned.fill(child: LiquidFluidBackground());
+    final size = MediaQuery.sizeOf(context);
+    final landscape = size.width > size.height;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (landscape) {
+      return const LiquidFluidBackground();
+    }
+
+    final baseScrim = isDark ? 0.35 : 0.30;
+    final scrim = scrimOpacity ?? baseScrim;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/automation/automation_bg_portrait.jpg',
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.medium,
+        ),
+        // Scrim atmosférico con gradiente: preserva la luminosidad del portal
+        // cósmico y del búho mientras garantiza legibilidad del texto y cards.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: (scrim * 1.5).clamp(0.0, 1.0)),
+                Colors.black.withValues(alpha: (scrim * 0.9).clamp(0.0, 1.0)),
+                Colors.black.withValues(alpha: (scrim * 1.6).clamp(0.0, 1.0)),
+              ],
+              stops: const [0.0, 0.40, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

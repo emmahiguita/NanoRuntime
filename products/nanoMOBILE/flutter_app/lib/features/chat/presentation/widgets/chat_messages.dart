@@ -762,28 +762,38 @@ class EmptyChat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final mediaSize = MediaQuery.sizeOf(context);
+    final isCompactLandscape =
+        mediaSize.width > mediaSize.height && mediaSize.height < 520;
+    final iconSize = isCompactLandscape ? 36.0 : 64.0;
+    final verticalPadding = isCompactLandscape ? 8.0 : 24.0;
+    final spacing = isCompactLandscape ? 8.0 : 16.0;
+
     return Center(
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: verticalPadding,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.chat_bubble_outline_rounded,
-                size: 64,
+                size: iconSize,
                 color: colors.onSurface.withValues(alpha: 0.3),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing),
               Text(
                 'Chat local',
                 style: TextStyle(
                   color: colors.onSurface.withValues(alpha: 0.72),
-                  fontSize: 20,
+                  fontSize: isCompactLandscape ? 17 : 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               if (!engineOnline)
                 Column(
                   children: [

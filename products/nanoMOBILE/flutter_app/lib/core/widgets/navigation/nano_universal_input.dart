@@ -23,6 +23,8 @@ class NanoUniversalInputConfig {
     this.onStop,
     this.clearOnSubmit = true,
     this.keepFocusOnSubmit = false,
+    this.focusNode,
+    this.controller,
   });
 
   final String? hint;
@@ -46,6 +48,11 @@ class NanoUniversalInputConfig {
   /// debe obligar a reabrir el teclado en cada mensaje.
   final bool keepFocusOnSubmit;
 
+  /// FocusNode y controller únicos inyectados por el scope (Terminal, etc.)
+  /// para garantizar una única fuente de verdad y foco directo.
+  final FocusNode? focusNode;
+  final TextEditingController? controller;
+
   static const defaultHint = 'Buscar, conversar o ejecutar en Nano AI...';
 
   NanoUniversalInputConfig copyWith({
@@ -60,6 +67,8 @@ class NanoUniversalInputConfig {
     VoidCallback? onStop,
     bool? clearOnSubmit,
     bool? keepFocusOnSubmit,
+    FocusNode? focusNode,
+    TextEditingController? controller,
   }) {
     return NanoUniversalInputConfig(
       hint: hint ?? this.hint,
@@ -73,6 +82,8 @@ class NanoUniversalInputConfig {
       onStop: onStop ?? this.onStop,
       clearOnSubmit: clearOnSubmit ?? this.clearOnSubmit,
       keepFocusOnSubmit: keepFocusOnSubmit ?? this.keepFocusOnSubmit,
+      focusNode: focusNode ?? this.focusNode,
+      controller: controller ?? this.controller,
     );
   }
 
@@ -91,7 +102,9 @@ class NanoUniversalInputConfig {
           isListening == other.isListening &&
           onStop == other.onStop &&
           clearOnSubmit == other.clearOnSubmit &&
-          keepFocusOnSubmit == other.keepFocusOnSubmit;
+          keepFocusOnSubmit == other.keepFocusOnSubmit &&
+          focusNode == other.focusNode &&
+          controller == other.controller;
 
   @override
   int get hashCode => Object.hash(
@@ -106,6 +119,8 @@ class NanoUniversalInputConfig {
         onStop,
         clearOnSubmit,
         keepFocusOnSubmit,
+        focusNode,
+        controller,
       );
 }
 
@@ -200,6 +215,8 @@ class NanoInputScope extends ConsumerStatefulWidget {
     this.onStop,
     this.clearOnSubmit = true,
     this.keepFocusOnSubmit = false,
+    this.focusNode,
+    this.controller,
   });
 
   final Widget child;
@@ -219,6 +236,8 @@ class NanoInputScope extends ConsumerStatefulWidget {
   final VoidCallback? onStop;
   final bool clearOnSubmit;
   final bool keepFocusOnSubmit;
+  final FocusNode? focusNode;
+  final TextEditingController? controller;
 
   @override
   ConsumerState<NanoInputScope> createState() => _NanoInputScopeState();
@@ -272,7 +291,9 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
         oldWidget.isGenerating != widget.isGenerating ||
         oldWidget.isListening != widget.isListening ||
         oldWidget.clearOnSubmit != widget.clearOnSubmit ||
-        oldWidget.keepFocusOnSubmit != widget.keepFocusOnSubmit) {
+        oldWidget.keepFocusOnSubmit != widget.keepFocusOnSubmit ||
+        oldWidget.focusNode != widget.focusNode ||
+        oldWidget.controller != widget.controller) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _applyConfig());
     }
   }
@@ -291,6 +312,8 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
       onStop: widget.onStop,
       clearOnSubmit: widget.clearOnSubmit,
       keepFocusOnSubmit: widget.keepFocusOnSubmit,
+      focusNode: widget.focusNode,
+      controller: widget.controller,
     );
     _applied = config;
     ref.read(nanoUniversalInputProvider.notifier).setConfig(

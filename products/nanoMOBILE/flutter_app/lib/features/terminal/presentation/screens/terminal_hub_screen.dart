@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/theme/nano_motion.dart';
-import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+
+import '../../domain/terminal_hub_card.dart';
+import '../widgets/perspective_carousel_item.dart';
+import '../widgets/perspective_hero_flight.dart';
+import '../widgets/terminal_coverflow_card.dart';
 
 /// Centro único de acceso a las herramientas de sistema.
 ///
-/// Las pantallas y servicios reales permanecen en sus módulos; este widget
-/// únicamente organiza sus puntos de entrada dentro de la rama Terminal.
+/// Implementa un Carrusel Cover Flow 3D con perspectiva física,
+/// Morph de tarjetas compartido con Hero y un Perspective Hinge
+/// durante el vuelo de apertura hacia la Ficha 3D Turntable (SOLID).
 class TerminalHubScreen extends StatefulWidget {
   const TerminalHubScreen({super.key});
 
@@ -17,58 +19,82 @@ class TerminalHubScreen extends StatefulWidget {
   State<TerminalHubScreen> createState() => _TerminalHubScreenState();
 }
 
-class _TerminalHubScreenState extends State<TerminalHubScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _entryController;
+class _TerminalHubScreenState extends State<TerminalHubScreen> {
+  late final PageController _pageController;
+  int _currentIndex = 1;
 
   @override
   void initState() {
     super.initState();
-    _entryController = AnimationController(
-      vsync: this,
-      duration: NanoMotionDurations.hero,
-    )..forward();
+    _pageController = PageController(
+      initialPage: _currentIndex,
+      viewportFraction: 0.50,
+    );
   }
 
   @override
   void dispose() {
-    _entryController.dispose();
+    _pageController.dispose();
     super.dispose();
+  }
+
+  List<TerminalHubCard> _buildCards(NanoColors colors) {
+    return [
+      TerminalHubCard(
+        id: 'terminal',
+        title: 'Terminal',
+        eyebrow: 'CONSOLA PTY',
+        description:
+            'Sesiones interactivas persistentes para Bash, Python, Node, SSH y utilidades nativas.',
+        icon: Icons.terminal_rounded,
+        accent: colors.terminalGreen,
+        route: '/terminal/shell',
+        highlights: const [
+          'Soporte completo ANSI 256 colores y emulación VT100',
+          'Gestor PTY multisesión con buffer desacoplado',
+          'Atajos rápidos personalizables y barra de modificadores',
+        ],
+        actionLabel: 'Abrir Consola PTY',
+      ),
+      TerminalHubCard(
+        id: 'nano_linux',
+        title: 'Nano Linux',
+        eyebrow: 'ENTORNOS',
+        description:
+            'Administra distribuciones, contenedores proot y accesos al sistema Linux local.',
+        icon: Icons.hub_rounded,
+        accent: colors.accentCyan,
+        route: '/linux',
+        highlights: const [
+          'Gestión de contenedores y distribuciones Debian/Kali',
+          'Aislamiento seguro de procesos sin necesidad de root',
+          'Integración nativa con Nano Runtime y sockets locales',
+        ],
+        actionLabel: 'Administrar Entornos',
+      ),
+      TerminalHubCard(
+        id: 'visor_linux',
+        title: 'Visor Linux',
+        eyebrow: 'ESCRITORIO',
+        description:
+            'Prepara el escritorio gráfico X11 y abre el visor remoto VNC con aceleración.',
+        icon: Icons.desktop_windows_rounded,
+        accent: colors.accentLavender,
+        route: '/desktop',
+        highlights: const [
+          'Streaming de escritorio gráfico con latencia ultrabaja',
+          'Soporte de gestos táctiles y teclado físico Bluetooth',
+          'Resolución adaptable y escalado de pantalla nítido',
+        ],
+        actionLabel: 'Iniciar Visor Gráfico',
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-
-    final destinations = <_TerminalDestination>[
-      _TerminalDestination(
-        icon: Icons.terminal_rounded,
-        title: 'Terminal',
-        eyebrow: 'CONSOLA PTY',
-        description:
-            'Sesiones persistentes para Bash, Python, Node, SSH y herramientas locales.',
-        accent: colors.terminalGreen,
-        onOpen: () => context.push('/terminal/shell'),
-      ),
-      _TerminalDestination(
-        icon: Icons.hub_rounded,
-        title: 'Nano Linux',
-        eyebrow: 'ENTORNOS',
-        description:
-            'Administra distribuciones, contenedores y accesos al sistema Linux local.',
-        accent: colors.accentCyan,
-        onOpen: () => context.push('/linux'),
-      ),
-      _TerminalDestination(
-        icon: Icons.desktop_windows_rounded,
-        title: 'Visor Linux',
-        eyebrow: 'ESCRITORIO',
-        description:
-            'Prepara el escritorio gráfico y abre el visor remoto cuando esté disponible.',
-        accent: colors.accentLavender,
-        onOpen: () => context.push('/desktop'),
-      ),
-    ];
+    final cards = _buildCards(colors);
 
     return NanoScreenShell(
       title: 'Terminal',
@@ -81,24 +107,21 @@ class _TerminalHubScreenState extends State<TerminalHubScreen>
               isDeviceLandscape &&
               width > constraints.maxHeight &&
               constraints.maxHeight < 520;
-          final columns = compactLandscape
-              ? 3
-              : (width >= 900 ? 3 : (width >= 620 ? 2 : 1));
-          final ratio = compactLandscape
-              ? 1.30
-              : (columns == 3
-                    ? 1.18
-                    : (columns == 2 ? 1.35 : (width < 360 ? 1.12 : 1.72)));
+
+          final double carouselHeight = compactLandscape
+              ? (constraints.maxHeight - 80).clamp(190.0, 240.0)
+              : (width < 600 ? 330.0 : 390.0);
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
+              // Cabecera descriptiva con jerarquía clara
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
                   width < 600 ? 16 : 24,
-                  compactLandscape ? 4 : 12,
+                  compactLandscape ? 4 : 14,
                   width < 600 ? 16 : 24,
-                  compactLandscape ? 8 : 28,
+                  compactLandscape ? 6 : 18,
                 ),
                 sliver: SliverList.list(
                   children: [
@@ -108,13 +131,13 @@ class _TerminalHubScreenState extends State<TerminalHubScreen>
                         color: colors.textPrimary,
                         fontFamily: 'Inter',
                         fontSize: compactLandscape
-                            ? 20
+                            ? 19
                             : (width < 600 ? 24 : 30),
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8,
                       ),
                     ),
-                    SizedBox(height: compactLandscape ? 2 : 6),
+                    SizedBox(height: compactLandscape ? 2 : 4),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 680),
                       child: Text(
@@ -122,8 +145,8 @@ class _TerminalHubScreenState extends State<TerminalHubScreen>
                         style: TextStyle(
                           color: colors.textSecondary,
                           fontFamily: 'Inter',
-                          fontSize: compactLandscape ? 11.5 : 14,
-                          height: compactLandscape ? 1.2 : 1.45,
+                          fontSize: compactLandscape ? 11 : 13.5,
+                          height: compactLandscape ? 1.2 : 1.4,
                         ),
                         maxLines: compactLandscape ? 1 : null,
                         overflow: compactLandscape
@@ -131,206 +154,114 @@ class _TerminalHubScreenState extends State<TerminalHubScreen>
                             : TextOverflow.clip,
                       ),
                     ),
-                    SizedBox(height: compactLandscape ? 8 : 22),
                   ],
                 ),
               ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  compactLandscape ? 12 : (width < 600 ? 16 : 24),
-                  0,
-                  compactLandscape ? 12 : (width < 600 ? 16 : 24),
-                  compactLandscape ? 8 : 28,
-                ),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: compactLandscape ? 8 : 14,
-                    mainAxisSpacing: compactLandscape ? 8 : 14,
-                    childAspectRatio: ratio,
+
+              // Carrusel Cover Flow 3D con captura de tap externa para máxima reactividad
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: carouselHeight,
+                  child: AnimatedBuilder(
+                    animation: _pageController,
+                    builder: (context, _) {
+                      return PageView.builder(
+                        controller: _pageController,
+                        clipBehavior: Clip.none,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: cards.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentIndex = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          double page = _currentIndex.toDouble();
+                          if (_pageController.hasClients &&
+                              _pageController.position.haveDimensions) {
+                            page = _pageController.page ?? _currentIndex.toDouble();
+                          }
+                          final double delta = page - index;
+                          final card = cards[index];
+
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              TerminalHubDetailScreen.show(context, card);
+                            },
+                            child: PerspectiveCarouselItem(
+                              delta: delta,
+                              child: Hero(
+                                tag: 'terminal-card-${card.id}',
+                                createRectTween: (begin, end) {
+                                  return MaterialRectCenterArcTween(
+                                    begin: begin,
+                                    end: end,
+                                  );
+                                },
+                                flightShuttleBuilder: perspectiveHeroFlight,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: TerminalHubSmallCard(
+                                    card: card,
+                                    compact: compactLandscape || width < 380,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    childCount: destinations.length,
-                    (context, index) => _StaggeredTerminalCard(
-                      index: index,
-                      controller: _entryController,
-                      destination: destinations[index],
-                      compact: compactLandscape,
-                    ),
+                ),
+              ),
+
+              // Indicadores de navegación y ayuda táctil
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  top: compactLandscape ? 6 : 14,
+                  bottom: compactLandscape ? 8 : 24,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      // Dots de estado
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(cards.length, (i) {
+                          final bool isSelected = i == _currentIndex;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: isSelected ? 22 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(3),
+                              color: isSelected
+                                  ? cards[_currentIndex].accent
+                                  : colors.textSecondary.withValues(alpha: 0.25),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Toca para abrir visor 3D • Desliza en carrusel',
+                        style: TextStyle(
+                          color: colors.textSecondary.withValues(alpha: 0.65),
+                          fontSize: compactLandscape ? 9.5 : 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _TerminalDestination {
-  const _TerminalDestination({
-    required this.icon,
-    required this.title,
-    required this.eyebrow,
-    required this.description,
-    required this.accent,
-    required this.onOpen,
-  });
-
-  final IconData icon;
-  final String title;
-  final String eyebrow;
-  final String description;
-  final Color accent;
-  final VoidCallback onOpen;
-}
-
-class _StaggeredTerminalCard extends StatelessWidget {
-  const _StaggeredTerminalCard({
-    required this.index,
-    required this.controller,
-    required this.destination,
-    required this.compact,
-  });
-
-  final int index;
-  final AnimationController controller;
-  final _TerminalDestination destination;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final reduceMotion = NanoMotion.reduceMotion(context);
-    final start = index * 0.12;
-    final animation = CurvedAnimation(
-      parent: controller,
-      curve: Interval(
-        start,
-        (start + 0.62).clamp(0.0, 1.0),
-        curve: NanoMotionCurves.emphasized,
-      ),
-    );
-
-    if (reduceMotion) {
-      return _TerminalCard(destination: destination, compact: compact);
-    }
-
-    return AnimatedBuilder(
-      animation: animation,
-      child: _TerminalCard(destination: destination, compact: compact),
-      builder: (context, child) => Opacity(
-        opacity: animation.value,
-        child: Transform.translate(
-          offset: Offset(0, 18 * (1 - animation.value)),
-          child: Transform.scale(
-            scale: 0.985 + animation.value * 0.015,
-            alignment: Alignment.bottomCenter,
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TerminalCard extends StatelessWidget {
-  const _TerminalCard({required this.destination, required this.compact});
-
-  final _TerminalDestination destination;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final isDark = colors is NanoDarkColors;
-
-    return Semantics(
-      button: true,
-      label: 'Abrir ${destination.title}',
-      child: NanoOpticalSurface(
-        onTap: destination.onOpen,
-        tilt: true,
-        autoReflect: true,
-        accent: destination.accent,
-        borderStrength: 0.82,
-        reflectionStrength: isDark ? 0.70 : 0.48,
-        blurSigma: 16,
-        depth: 0.9,
-        padding: EdgeInsets.all(compact ? 10 : 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: compact ? 32 : 46,
-                  height: compact ? 32 : 46,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: destination.accent.withValues(
-                      alpha: isDark ? 0.16 : 0.11,
-                    ),
-                    border: Border.all(
-                      color: destination.accent.withValues(
-                        alpha: isDark ? 0.42 : 0.28,
-                      ),
-                    ),
-                  ),
-                  child: Icon(
-                    destination.icon,
-                    color: destination.accent,
-                    size: compact ? 17 : 23,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.arrow_outward_rounded,
-                  color: colors.textSecondary.withValues(alpha: 0.72),
-                  size: compact ? 16 : 20,
-                ),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              destination.eyebrow,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: destination.accent.withValues(alpha: 0.90),
-                fontFamily: 'Inter',
-                fontSize: compact ? 8 : 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
-              ),
-            ),
-            SizedBox(height: compact ? 2 : 5),
-            Text(
-              destination.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontFamily: 'Inter',
-                fontSize: compact ? 15 : 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.45,
-              ),
-            ),
-            SizedBox(height: compact ? 3 : 7),
-            Text(
-              destination.description,
-              maxLines: compact ? 2 : 3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontFamily: 'Inter',
-                fontSize: compact ? 10 : 12.5,
-                height: compact ? 1.2 : 1.35,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

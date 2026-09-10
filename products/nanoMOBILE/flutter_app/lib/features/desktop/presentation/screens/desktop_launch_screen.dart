@@ -141,6 +141,17 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
       return;
     }
 
+    if (_rootfsReady &&
+        desktopStatus.installed &&
+        !desktopStatus.desktopConfigCurrent) {
+      _status = 'Actualización del escritorio pendiente';
+      _detail =
+          'Nano aplicará el nuevo tema, panel y configuración sin borrar tus archivos.';
+      _stageLabel = 'Migración requerida';
+      _progress = 0.0;
+      return;
+    }
+
     switch (desktopStatus.stage) {
       case 'starting':
       case 'xvnc':

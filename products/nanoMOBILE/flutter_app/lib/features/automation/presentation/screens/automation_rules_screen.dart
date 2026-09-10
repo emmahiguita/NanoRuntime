@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/application/rule_creator.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
@@ -388,94 +389,138 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                     children: [
                       const AutomationBackHeader(),
                       Expanded(
-                        child: ListView(
-                          // NAV-FLOAT-01 — la barra flota sin reservar
-                          // layout: el scroll reserva su propio espacio.
-                          padding: const EdgeInsets.fromLTRB(
-                            12,
-                            8,
-                            12,
-                            kNanoBarScrollReserve,
-                          ),
-                          children: [
-                            Center(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: AutomationLayout.contentMaxWidth(
-                                    context,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isDeviceLandscape =
+                                MediaQuery.orientationOf(context) ==
+                                    Orientation.landscape;
+                            final isLandscape = isDeviceLandscape &&
+                                constraints.maxWidth >= 700;
+
+                            final leftColumn = Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'Reglas',
+                                  style: TextStyle(
+                                    color: visual.text,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      'Reglas',
-                                      style: TextStyle(
-                                        color: visual.text,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Automatiza acciones cuando ocurran eventos.',
-                                      style: TextStyle(
-                                        color: visual.textMuted,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    _RuleCreatorCard(
-                                      controller: _createController,
-                                      error: _createError,
-                                      pendingMediaName: _pendingMediaName,
-                                      onCreate: _createRule,
-                                      onPickMedia: _pickMedia,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    // WA-PERSONA-01 — estilo del dueño para el
-                                    // agente WhatsApp. Siempre visible (sin
-                                    // depender de reglas existentes).
-                                    _StyleCard(
-                                      enabled: styleSettings.$1,
-                                      controller: _styleController,
-                                      focusNode: _styleFocus,
-                                      onToggle: (v) => ref
-                                          .read(settingsProvider.notifier)
-                                          .setWaStyleEnabled(v),
-                                      onTextChanged: (v) => ref
-                                          .read(settingsProvider.notifier)
-                                          .setWaStyleText(v),
-                                      // WA-DELAY-01 — pausa de reply en vivo
-                                      // (setter clampa 0..60).
-                                      replyDelaySeconds: replyDelaySeconds,
-                                      onReplyDelayChanged: (v) => ref
-                                          .read(settingsProvider.notifier)
-                                          .setWaReplyDelaySeconds(v),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    if (!_loaded)
-                                      const Padding(
-                                        padding: EdgeInsets.all(24),
-                                        child: Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      )
-                                    else if (_rules.isEmpty)
-                                      _EmptyState(visual: visual)
-                                    else ...[
-                                      // WA-RULES-UI-02 — organización
-                                      // profesional por destino: WhatsApp
-                                      // (por contacto), horarios y el resto.
-                                      ..._buildSections(visual),
-                                    ],
-                                  ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Automatiza acciones cuando ocurran eventos.',
+                                  style: TextStyle(
+                                    color: visual.textMuted,
+                                    fontSize: 13,
+                                  ),
                                 ),
+                                const SizedBox(height: 16),
+                                _RuleCreatorCard(
+                                  controller: _createController,
+                                  error: _createError,
+                                  pendingMediaName: _pendingMediaName,
+                                  onCreate: _createRule,
+                                  onPickMedia: _pickMedia,
+                                ),
+                                const SizedBox(height: 16),
+                                // WA-PERSONA-01 — estilo del dueño para el
+                                // agente WhatsApp. Siempre visible (sin
+                                // depender de reglas existentes).
+                                _StyleCard(
+                                  enabled: styleSettings.$1,
+                                  controller: _styleController,
+                                  focusNode: _styleFocus,
+                                  onToggle: (v) => ref
+                                      .read(settingsProvider.notifier)
+                                      .setWaStyleEnabled(v),
+                                  onTextChanged: (v) => ref
+                                      .read(settingsProvider.notifier)
+                                      .setWaStyleText(v),
+                                  // WA-DELAY-01 — pausa de reply en vivo
+                                  // (setter clampa 0..60).
+                                  replyDelaySeconds: replyDelaySeconds,
+                                  onReplyDelayChanged: (v) => ref
+                                      .read(settingsProvider.notifier)
+                                      .setWaReplyDelaySeconds(v),
+                                ),
+                              ],
+                            );
+
+                            final rightColumn = Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (isLandscape) ...[
+                                  Text(
+                                    'REGLAS ACTIVAS',
+                                    style: NanoType.label(
+                                      visual.textMuted,
+                                    ).copyWith(letterSpacing: 0.8),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                                if (!_loaded)
+                                  const Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                else if (_rules.isEmpty)
+                                  _EmptyState(visual: visual)
+                                else ...[
+                                  // WA-RULES-UI-02 — organización
+                                  // profesional por destino: WhatsApp
+                                  // (por contacto), horarios y el resto.
+                                  ..._buildSections(visual),
+                                ],
+                              ],
+                            );
+
+                            final content = isLandscape
+                                ? Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(flex: 5, child: leftColumn),
+                                      const SizedBox(width: 16),
+                                      Expanded(flex: 6, child: rightColumn),
+                                    ],
+                                  )
+                                : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      leftColumn,
+                                      const SizedBox(height: 16),
+                                      rightColumn,
+                                    ],
+                                  );
+
+                            return ListView(
+                              // NAV-FLOAT-01 — la barra flota sin reservar
+                              // layout: el scroll reserva su propio espacio.
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                8,
+                                12,
+                                kNanoBarScrollReserve,
                               ),
-                            ),
-                          ],
+                              children: [
+                                Center(
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: isLandscape
+                                          ? (AutomationLayout.isCompactLandscape(context) ? 960 : 1080)
+                                          : AutomationLayout.contentMaxWidth(context),
+                                    ),
+                                    child: content,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -564,7 +609,10 @@ class _RuleCreatorCard extends StatelessWidget {
           // WA-MEDIA-01 — adjuntar archivo para reglas de envío (PDF,
           // imagen, catálogo). El archivo elegido se copia a la carpeta
           // fija del catálogo al crear la regla.
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               OutlinedButton.icon(
                 onPressed: onPickMedia,
@@ -578,19 +626,16 @@ class _RuleCreatorCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  pendingMediaName ?? 'Sin archivo (solo para "envíale…")',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: pendingMediaName == null
-                        ? visual.textMuted.withValues(alpha: 0.7)
-                        : visual.text,
-                    fontSize: 12,
-                    fontFamily: 'Inter',
-                  ),
+              Text(
+                pendingMediaName ?? 'Sin archivo (solo para "envíale…")',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: pendingMediaName == null
+                      ? visual.textMuted.withValues(alpha: 0.7)
+                      : visual.text,
+                  fontSize: 12,
+                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -646,6 +691,8 @@ class _RuleCreatorCard extends StatelessWidget {
 
 /// WA-RULES-UI-02 — card de regla expandible: header con acción+disparo+
 /// badge de última ejecución; tap expande el detalle completo (honesto).
+typedef RuleCard = _RuleCard;
+
 class _RuleCard extends StatefulWidget {
   const _RuleCard({
     required this.rule,
@@ -823,45 +870,40 @@ class _RuleCardState extends State<_RuleCard> {
                           ),
                         const SizedBox(height: 4),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: outcomeColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                outcomeLabel,
-                                // FIX-VERT-02 — badge de una línea: nunca se
-                                // apila carácter por carácter.
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: outcomeColor,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: outcomeColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  outcomeLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: outcomeColor,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                lastFired == null
-                                    ? 'nunca disparó'
-                                    : 'última ${_RuleCard._hhmm(lastFired)}',
-                                // FIX-VERT-02 — el badge largo puede dejar a
-                                // "última 05:12" sin ancho: la hora se partía
-                                // por caracteres y quedaba vertical. Una
-                                // línea con ellipsis: jamás apila.
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: visual.textMuted,
-                                  fontSize: 11,
-                                ),
+                            const SizedBox(width: 6),
+                            Text(
+                              lastFired == null
+                                  ? 'nunca disparó'
+                                  : 'última ${_RuleCard._hhmm(lastFired)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: visual.textMuted,
+                                fontSize: 10.5,
                               ),
                             ),
                           ],

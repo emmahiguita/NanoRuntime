@@ -10,6 +10,7 @@ import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
+import 'package:nanoai/features/automation/engine/governance/action_confirmation.dart';
 import 'package:nanoai/features/automation/ledger/action_ledger.dart';
 import 'package:nanoai/features/automation/ledger/action_ledger_provider.dart';
 import 'package:nanoai/features/automation/presentation/screens/automation_screen.dart';
@@ -51,7 +52,7 @@ void main() {
 
     // Escribir + enviar como lo haría un usuario.
     await tester.enterText(find.byType(TextField).first, 'abre Bluetooth');
-    await tester.tap(find.byType(FilledButton).first);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -80,7 +81,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     await tester.enterText(find.byType(TextField).first, 'abrir Chrome');
-    await tester.tap(find.byType(FilledButton).first);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
@@ -90,7 +91,7 @@ void main() {
 
     await tester.tap(find.text('Confirmar y continuar'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Verificado'), findsOneWidget);
     expect(find.text('verified'), findsOneWidget);
@@ -166,12 +167,19 @@ class _ConfirmingCoordinator extends AutomationCoordinator {
         reason: 'verified',
       );
     }
-    return const AutomationResult(
+    return AutomationResult(
       executionId: 'paused',
       status: AutomationResultStatus.paused,
       reason: 'confirmation required',
       pauseIndex: 0,
       pauseTool: 'launch',
+      confirmation: ActionConfirmation(
+        executionId: 'paused',
+        planSignature: 'sig',
+        stepIndex: 0,
+        stepId: 'step0',
+        actionSignature: 'sig',
+      ),
     );
   }
 }

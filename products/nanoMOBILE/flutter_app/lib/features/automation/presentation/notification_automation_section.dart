@@ -6,13 +6,19 @@ import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart'
-    show conversationOwnershipStoreProvider;
+    show
+        conversationOwnershipStoreProvider,
+        pendingRepliesProvider,
+        pendingReplyStoreProvider;
 import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
     show conversationIdentityFor;
+import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/executors/notification_executor.dart';
 import 'package:nanoai/features/automation/executors/notification_executor_provider.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
+import 'widgets/automation_suggestion_carousel.dart';
 
 class NotificationAutomationSection extends ConsumerStatefulWidget {
   const NotificationAutomationSection({super.key});
@@ -289,6 +295,10 @@ class _NotificationAutomationSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _PendingRepliesSection(
+          activeNotifications: _notifications,
+          onReplied: _refresh,
+        ),
         SectionHeader(
           'Notificaciones locales',
           Icons.notifications_active_rounded,
@@ -445,27 +455,17 @@ class _NotificationAutomationSectionState
                           ),
                           if (_suggestions.isNotEmpty) ...[
                             const SizedBox(height: NanoSpacing.sm),
-                            Wrap(
-                              spacing: NanoSpacing.sm,
-                              runSpacing: NanoSpacing.sm,
-                              children: [
+                            AutomationSuggestionCarousel(
+                              key: ValueKey(_suggestions),
+                              suggestions: [
                                 for (final suggestion in _suggestions)
-                                  ActionChip(
-                                    avatar: const Icon(
+                                  AutomationSuggestion(
+                                    leading: const Icon(
                                       Icons.lightbulb_outline_rounded,
                                       size: NanoIcons.small,
                                     ),
-                                    label: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 260,
-                                      ),
-                                      child: Text(
-                                        suggestion,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    onPressed: _busy
+                                    label: suggestion,
+                                    onSelected: _busy
                                         ? null
                                         : () {
                                             setState(() {
@@ -804,4 +804,314 @@ class _CapabilityNotice extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// WA-DRAFT-INBOX-01 — Sección reactiva de borradores pendientes de aprobación.
+class _PendingRepliesSection extends ConsumerWidget {
+  const _PendingRepliesSection({
+    required this.activeNotifications,
+    required this.onReplied,
+  });
+
+  final List<DeviceNotification> activeNotifications;
+  final VoidCallback onReplied;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingRepliesProvider);
+    final colors = NanoThemeExtension.of(context).colors;
+
+    return pendingAsync.when(
+      data: (replies) {
+        if (replies.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SectionHeader(
+              'Respuestas pendientes de aprobación',
+              Icons.mark_chat_unread_rounded,
+              colors: colors,
+            ),
+            for (final reply in replies)
+              _PendingReplyCard(
+                reply: reply,
+                activeNotifications: activeNotifications,
+                onReplied: onReplied,
+              ),
+            const SizedBox(height: NanoSpacing.md),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _PendingReplyCard extends ConsumerWidget {
+  const _PendingReplyCard({
+    required this.reply,
+    required this.activeNotifications,
+    required this.onReplied,
+  });
+  final PendingReply reply;
+  final List<DeviceNotification> activeNotifications;
+  final VoidCallback onReplied;
+
+  Future<void> _send(BuildContext context, WidgetRef ref) async {
+    final store = ref.read(pendingReplyStoreProvider);
+    final service = ref.read(notificationExecutorProvider);
+
+    // P0-A FIX — matching estricto por identidad de conversación.
+    // La comprobación anterior usaba `n.sender == reply.sender || n.text ==
+    // reply.originalMessage`, lo que permitía despachar al contacto incorrecto
+    // cuando dos personas enviaban exactamente el mismo texto (ej. "Hola").
+    // Ahora se derivan el conversationId y el postTime con la MISMA lógica
+    // que usó el pipeline al crear el borrador, y se delega al método
+    // matchesSource() del modelo, que exige los cuatro campos simultáneamente:
+    // conversationId + packageName + notificationKey + notificationPostTime.
+    final match = activeNotifications.where((n) {
+      if (!n.canReply) return false;
+      final identity = conversationIdentityFor(
+        packageName: n.packageName,
+        accountHint: n.accountHint,
+        locusId: n.locusId,
+        shortcutId: n.shortcutId,
+        senderKey: n.senderKey,
+        conversationId: n.conversationId,
+        conversationTitle: n.conversationTitle,
+        sender: n.sender,
+        isGroup: n.isGroup,
+        notificationKey: n.key,
+      );
+      return reply.matchesSource(
+        conversationId: identity.key.id,
+        packageName: n.packageName,
+        notificationKey: n.key,
+        notificationPostTime: n.postedAt.millisecondsSinceEpoch,
+      );
+    }).firstOrNull;
+
+    if (match != null) {
+      final ok = await service.confirmAndReply(match, reply.draftText);
+      if (ok) {
+        await store.markSent(reply.id);
+        ref.invalidate(pendingRepliesProvider);
+        onReplied();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Respuesta enviada a ${reply.sender}')),
+          );
+        }
+        return;
+      }
+    }
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Notificación no encontrada'),
+          content: Text(
+            'La notificación de ${reply.sender} ya no está activa en la barra de Android.\n\n'
+            'Puedes copiar el borrador para responder directamente en la aplicación.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cerrar'),
+            ),
+            FilledButton.icon(
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Copiar borrador'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: reply.draftText));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Borrador copiado al portapapeles')),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _edit(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: reply.draftText);
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar borrador para ${reply.sender}'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: 'Escribe la respuesta...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (newText != null && newText.isNotEmpty) {
+      await ref.read(pendingReplyStoreProvider).updateDraftText(reply.id, newText);
+      ref.invalidate(pendingRepliesProvider);
+    }
+  }
+
+  Future<void> _dismiss(WidgetRef ref) async {
+    await ref.read(pendingReplyStoreProvider).dismiss(reply.id);
+    ref.invalidate(pendingRepliesProvider);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final isBusiness = reply.packageName.contains('w4b');
+    final appLabel = isBusiness ? 'WhatsApp Business' : 'WhatsApp';
+
+    // BUG-04 fix — evaluate expiry at build time so the button state is
+    // always accurate, even when the card stays on screen past the TTL.
+    final expired = reply.isExpired;
+    final timeLeft = reply.expiresAt.difference(DateTime.now());
+    final expiryLabel = expired
+        ? 'Contexto expirado'
+        : timeLeft.inHours > 0
+            ? 'Expira en ${timeLeft.inHours}h'
+            : 'Expira en ${timeLeft.inMinutes}m';
+    final expiryColor =
+        expired ? colors.error : (timeLeft.inMinutes < 60 ? colors.warning : colors.onSurfaceVariant);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: NanoSpacing.sm),
+      child: InteractiveGlassCard(
+        child: Padding(
+          padding: const EdgeInsets.all(NanoSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isBusiness
+                        ? Icons.business_center_outlined
+                        : Icons.chat_bubble_outline_rounded,
+                    size: 16,
+                    color: colors.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    appLabel,
+                    style: NanoType.caption(colors.primary).copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    reply.sender,
+                    style: NanoType.label(colors.onSurface),
+                  ),
+                ],
+              ),
+              const SizedBox(height: NanoSpacing.sm),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(NanoSpacing.sm),
+                decoration: BoxDecoration(
+                  color: colors.surfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mensaje original:',
+                      style: NanoType.caption(colors.onSurfaceVariant),
+                    ),
+                    Text(
+                      reply.originalMessage,
+                      style: NanoType.body(colors.onSurface),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: NanoSpacing.sm),
+              Text(
+                'Borrador propuesto:',
+                style: NanoType.caption(colors.primary),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                reply.draftText,
+                style: NanoType.body(colors.onSurface).copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              const SizedBox(height: NanoSpacing.xs),
+              // BUG-04 / Cambio 3 — Expiry indicator.
+              Row(
+                children: [
+                  Icon(
+                    expired
+                        ? Icons.timer_off_outlined
+                        : Icons.timer_outlined,
+                    size: 13,
+                    color: expiryColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    expiryLabel,
+                    style: NanoType.caption(expiryColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: NanoSpacing.sm),
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: NanoSpacing.xs,
+                runSpacing: NanoSpacing.xs,
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    label: const Text('Descartar'),
+                    onPressed: () => _dismiss(ref),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Editar'),
+                    // Editing an expired draft still makes sense (user may
+                    // want to copy the text), so we keep it enabled.
+                    onPressed: () => _edit(context, ref),
+                  ),
+                  // BUG-04 fix — disable Enviar when the draft context has
+                  // expired. matchesSource() already checks expiry, but
+                  // disabling the button gives immediate visual feedback.
+                  FilledButton.icon(
+                    icon: Icon(
+                      expired ? Icons.timer_off_rounded : Icons.send_rounded,
+                      size: 16,
+                    ),
+                    label: Text(expired ? 'Expirado' : 'Enviar'),
+                    onPressed: expired ? null : () => _send(context, ref),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -6,13 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/package_service.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/desktop/vnc_client.dart';
+import 'package:nanoai/features/desktop/presentation/widgets/desktop_stream_chrome.dart';
 
 /// Visor VNC interactivo para el escritorio Linux.
 ///
@@ -22,10 +22,9 @@ import 'package:nanoai/features/desktop/vnc_client.dart';
 /// 3. Reconexión automática con exponential backoff (1s → 2s → 4s → 8s → 16s → 30s).
 ///    Máximo 7 intentos. Tras agotarlos, muestra botón manual.
 /// 4. Heartbeat del cliente VNC detecta caídas silenciosas del socket.
-/// 5. Control flotante con teclado táctil integrado (envía keysyms a Xvnc para xterm).
-/// 6. Gestos profesionales: touch directo en zona superior, touchpad inferior
-///    (arrastre = mover cursor sin clic, tap = clic), pinch 2 dedos = zoom
-///    anclado al foco, pan 2 dedos con zoom activo, barra de clics de mouse.
+/// 5. Chrome móvil persistente con controles grandes de teclado, zoom y apps.
+/// 6. Dos modos explícitos: táctil directo o mouse/trackpad; pinch de 2 dedos
+///    hace zoom anclado al foco y pan cuando la vista está ampliada.
 class VncScreen extends ConsumerStatefulWidget {
   final int port;
   const VncScreen({super.key, this.port = 5901});
@@ -53,22 +52,18 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   String _status = 'Comprobando servicio VNC';
   String _detail = '';
 
-  // â”€â”€ Overlay de ayuda (apps rápidas ahora en el FAB) â”€â”€
+  // Ayuda contextual bajo demanda; nunca bloquea la conexión inicial.
   bool _showHelp = false;
-  bool _helpDismissed = false; // ya visto/cerrado en esta sesión
-  bool _helpSeen = false; // flag persistente (SharedPreferences)
-  bool _fabOpen = false; // estado del FAB radial
   // DESKTOP-FULL-01: pantalla completa al conectar — barras de sistema
   // Android ocultas + franja superior/FAB propios auto-ocultos. Tap en el
   // borde superior restaura los controles.
   bool _chromeHidden = false;
-  // DESKTOP-FIT-01: área visible del framebuffer en px físicos (la fija el
-  // LayoutBuilder del Expanded) y adaptación de geometría por rotación o
-  // desktop vivo con resolución vieja.
-  Size? _viewAreaPx;
+  // Conserva la geometría física de la orientación que disparó el resize
+  // mientras se detiene la sesión anterior.
+  Size? _pendingDesktopGeometryPx;
   bool _adapting = false;
   int _adaptCount = 0;
-  bool _isMobileMode = true; // modo mobile (true) o desktop (false)
+  DesktopPointerMode _pointerMode = DesktopPointerMode.touch;
 
   // â”€â”€ Reconexión automática â”€â”€
   _ConnState _connState = _ConnState.connecting;
@@ -87,10 +82,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   Offset _panFb = Offset.zero;
   static const double _maxZoom = 4.0;
 
-  // â”€â”€ Touchpad inferior (cursor relativo profesional) â”€â”€
-  // Fracción inferior de la pantalla que actúa como touchpad: arrastre
-  // mueve el puntero SIN hacer clic; tap = clic izquierdo en el cursor.
-  static const double _touchpadZoneFraction = 0.28;
+  // Posición virtual del puntero usada en el modo Mouse/trackpad.
   Offset _cursorFb = Offset.zero; // posición virtual del puntero (fb coords)
 
   // Estado del gesto en curso (un único recognizer onScale maneja 1 y 2 dedos).
@@ -120,24 +112,9 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   void initState() {
     super.initState();
     _detail = 'Conectando a 127.0.0.1:$port vía RFB 3.8.';
-    // Cargar settings persistidos (tema, password VNC) — sin esto, en frío
-    // el password volvía a '' y el visor no podía autenticarse.
-    ref.read(settingsProvider.notifier).init();
-    SharedPreferences.getInstance().then((prefs) {
-      final mobileMode = ref.read(settingsProvider).desktopMobileMode;
-      final seen = prefs.getBool(_helpSeenKey) ?? false;
-      if (mounted) {
-        setState(() {
-          _helpSeen = seen;
-          // D-FIX: desktopMobileMode se cargaba SOLO en _barExpanded — el
-          // modo persistido nunca se aplicaba a _isMobileMode (quedaba true
-          // por defecto: barra inferior siempre oculta aunque el usuario
-          // guardara modo PC). Ahora el modo manda: en PC la fila de teclas
-          // rápidas arranca expandida (es el "teclado" del escritorio).
-          _isMobileMode = mobileMode;
-          _barExpanded = !mobileMode;
-        });
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(settingsProvider.notifier).setDesktopMobileMode(true);
     });
     _connect();
   }
@@ -159,20 +136,25 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
-  // DESKTOP-FIT-01: ¿el aspect del framebuffer activo casa con el área
-  // visible? Tolerancia ±12%. Cubre rotación del device y escritorios
-  // vivos de sesiones previas con resolución vieja (startDesktop hace
-  // early-return si el desktop ya corre).
+  // DESKTOP-FIT-01: ¿el framebuffer quedó en una orientación distinta a la
+  // pantalla física? La geometría remota sólo debe reiniciarse por una
+  // rotación real. Las barras propias/Android cambian el aspect del área VNC
+  // sin que cambie la orientación; tratarlas como resize hacía oscilar Xvnc
+  // entre dos tamaños cada vez que el chrome aparecía o desaparecía.
   bool _fbMismatch() {
     final client = _client;
-    final area = _viewAreaPx;
-    if (client == null || !client.isInitialized || area == null) return false;
+    if (client == null || !client.isInitialized) return false;
     if (client.fbWidth <= 0 || client.fbHeight <= 0) return false;
-    final fbAspect = client.fbWidth / client.fbHeight;
-    final areaAspect = area.width / area.height;
-    if (areaAspect <= 0) return false;
-    final ratio = fbAspect / areaAspect;
-    return ratio < 0.98 || ratio > 1.02;
+    final viewport = MediaQuery.sizeOf(context);
+    if (viewport.width <= 0 || viewport.height <= 0) return false;
+    final target = _desiredDesktopGeometryPx();
+    if (target == null || target.width <= 0 || target.height <= 0) return false;
+    final framebufferLandscape = client.fbWidth >= client.fbHeight;
+    final targetLandscape = target.width >= target.height;
+    if (framebufferLandscape != targetLandscape) return true;
+    final currentRatio = client.fbWidth / client.fbHeight;
+    final targetRatio = target.width / target.height;
+    return ((currentRatio / targetRatio) - 1).abs() > 0.10;
   }
 
   // Re-arranca el escritorio con la geometría del área visible actual.
@@ -180,10 +162,15 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   // (Xvnc, openbox, pcmanfm, tint2, terminal). Máx 3 intentos anti-loop.
   void _adaptToViewArea() {
     if (_adapting || _adaptCount >= 3) return;
+    final target = _desiredDesktopGeometryPx();
+    if (target == null || target.width <= 0 || target.height <= 0) return;
     _adapting = true;
     _adaptCount++;
+    _pendingDesktopGeometryPx = target;
     debugPrint(
-      '[vnc_screen] adaptando geometría al área visible (intento $_adaptCount)',
+      '[vnc_screen] adaptando geometría a '
+      '${target.width.round()}x${target.height.round()} '
+      '(intento $_adaptCount)',
     );
     setState(() {
       _status = 'Adaptando pantalla...';
@@ -212,7 +199,23 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     }();
   }
 
-  static const _helpSeenKey = 'vnc_help_seen_v1';
+  Size? _desiredDesktopGeometryPx() {
+    if (!mounted) return null;
+    final viewport = MediaQuery.sizeOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    if (viewport.width <= 0 || viewport.height <= 0 || dpr <= 0) return null;
+    final padding = MediaQuery.paddingOf(context);
+    final landscape = viewport.width >= viewport.height;
+    final chromeHeight = landscape ? 124.0 : 150.0;
+    final canvasHeight =
+        (viewport.height - padding.top - padding.bottom - chromeHeight).clamp(
+          180.0,
+          viewport.height,
+        );
+    // Geometría estable del lienzo visible, no del LayoutBuilder transitorio.
+    // Mostrar el teclado o entrar a fullscreen no reinicia Xvnc; rotar sí.
+    return Size(viewport.width * dpr, canvasHeight * dpr);
+  }
 
   @override
   void dispose() {
@@ -420,17 +423,19 @@ class _VncScreenState extends ConsumerState<VncScreen> {
           _scheduleReconnect();
         }
       });
-      // DESKTOP-FULL-01: pantalla completa al conectar (fuera del setState:
-      // _enterImmersive tiene su propio setState y no debe anidarse).
-      if (isConnected) _enterImmersive();
-      // DESKTOP-FIT-01: mismatch tras ServerInit → re-arranque con la
-      // geometría del área visible (postFrame: no re-entrar en _connect).
-      if (isConnected && _fbMismatch()) {
+      // El chrome de streaming queda visible al conectar; fullscreen es una
+      // acción explícita. Así el usuario nunca aterriza en una pantalla sin
+      // navegación ni controles táctiles.
+      // DESKTOP-FIT-01: evaluar después del frame estable del visor.
+      if (isConnected) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _adaptToViewArea();
+          if (!mounted || !identical(_client, client)) return;
+          if (_fbMismatch()) {
+            _adaptToViewArea();
+          } else {
+            _adaptCount = 0;
+          }
         });
-      } else if (isConnected) {
-        _adaptCount = 0; // geometría correcta: reinicia el anti-loop
       }
     }
   }
@@ -496,18 +501,30 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     // píxeles FÍSICOS. Sin el factor el Xvnc nacía en 360x800 — resolución
     // enana: el HUD y las apps wrappeaban a ~20 columnas y el texto se
     // veía roto. Multiplicar por devicePixelRatio restaura 864x1920.
-    // DESKTOP-FIT-01: mejor aún — la geometría sale del ÁREA VISIBLE del
-    // visor (LayoutBuilder), no del viewport completo; casa con lo que el
-    // usuario ve aunque haya franjas.
-    final viewport = MediaQuery.sizeOf(context);
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final target = _viewAreaPx ??
-        Size(viewport.width * dpr, viewport.height * dpr);
+    // La geometría sale del viewport físico estable. El área del
+    // LayoutBuilder cambia con los controles y no es una señal de rotación.
+    final pendingTarget = _pendingDesktopGeometryPx;
+    final target = pendingTarget ?? _desiredDesktopGeometryPx();
+    if (target == null) {
+      setState(() {
+        _status = 'Viewport no disponible';
+        _detail = 'No se pudo medir la pantalla física para iniciar Xvnc.';
+      });
+      return false;
+    }
+    debugPrint(
+      '[vnc_screen] solicitando Xvnc ${target.width.round()}x'
+      '${target.height.round()} '
+      '(${pendingTarget != null ? 'adaptación capturada' : 'área actual'})',
+    );
     final started = await _pkg.startDesktop(
       vncPassword: ref.read(settingsProvider).vncPassword,
       width: target.width.round(),
       height: target.height.round(),
     );
+    if (identical(_pendingDesktopGeometryPx, pendingTarget)) {
+      _pendingDesktopGeometryPx = null;
+    }
     if (!mounted) return false;
     if (!started) {
       setState(() {
@@ -604,8 +621,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       return;
     }
 
-    final inTouchpad =
-        d.localFocalPoint.dy > widgetSize.height * (1 - _touchpadZoneFraction);
+    final inTouchpad = _pointerMode == DesktopPointerMode.trackpad;
     _dragTotal = Offset.zero;
     _gestureMode = inTouchpad ? _GestureMode.touchpad : _GestureMode.touch;
 
@@ -798,10 +814,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   bool _ctrlSticky = false;
   bool _altSticky = false;
 
-  // U-6: fila de teclas plegable — colapsada por defecto para no tapar
-  // el framebuffer; se expande con el botón de teclado de la barra.
-  bool _barExpanded = false;
-
   void _sendQuickKey(int keysym) {
     _client?.sendKeyEvent(keysym, true);
     _client?.sendKeyEvent(keysym, false);
@@ -845,9 +857,200 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     });
   }
 
-  /// Lanza una app gráfica del escritorio (allowlist nativa:
-  /// lxterminal/pcmanfm/mousepad/xpdf/file-roller/feh). La ventana aparece
-  /// en el framebuffer.
+  void _setPointerMode(DesktopPointerMode mode) {
+    if (_pointerMode == mode) return;
+    setState(() => _pointerMode = mode);
+    HapticFeedback.selectionClick();
+  }
+
+  void _setZoom(double value) {
+    final newZoom = value.clamp(1.0, _maxZoom);
+    if (newZoom == _zoom) return;
+    setState(() {
+      _panFb = newZoom == 1.0
+          ? Offset.zero
+          : _clampPan(_panFb * (newZoom / _zoom));
+      _zoom = newZoom;
+    });
+  }
+
+  void _openZoomControls() {
+    final colors = NanoThemeExtension.of(context).colors;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF081722),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(top: BorderSide(color: colors.outlineVariant)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.zoom_in_map_rounded,
+                      color: Color(0xFF42D9FF),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Zoom del escritorio',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${_zoom.toStringAsFixed(2)}×',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF42D9FF),
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _zoom,
+                  min: 1,
+                  max: _maxZoom,
+                  divisions: 24,
+                  activeColor: colors.accent,
+                  onChanged: (value) {
+                    _setZoom(value);
+                    setSheetState(() {});
+                  },
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          _zoomBy(1 / 1.25);
+                          setSheetState(() {});
+                        },
+                        icon: const Icon(Icons.remove_rounded),
+                        label: const Text('Alejar'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          _resetZoom();
+                          setSheetState(() {});
+                        },
+                        child: const Text('Ajustar 100%'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          _zoomBy(1.25);
+                          setSheetState(() {});
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Acercar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openMoreControls() {
+    final colors = NanoThemeExtension.of(context).colors;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF081722),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Mouse y teclas de sistema',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _MouseControlBar(
+                colors: colors,
+                zoom: _zoom,
+                onLeftClick: _sendLeftClick,
+                onRightClick: _sendRightClick,
+                onWheelUp: () => _sendWheel(true),
+                onWheelDown: () => _sendWheel(false),
+                onZoomIn: () => _zoomBy(1.25),
+                onZoomOut: () => _zoomBy(1 / 1.25),
+                onResetZoom: _resetZoom,
+                onQuickKey: _sendQuickKey,
+                ctrlActive: _ctrlSticky,
+                altActive: _altSticky,
+                onToggleCtrl: _toggleCtrl,
+                onToggleAlt: _toggleAlt,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Lanza una app gráfica permitida por la capa nativa. La ventana aparece
+  /// dentro del framebuffer Linux real.
   Future<void> _launchApp(String app) async {
     final ok = await _pkg.launchApp(app);
     if (!ok && mounted) {
@@ -866,9 +1069,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     });
   }
 
-  /// FAB: bottom sheet con las apps rápidas del escritorio. Reemplaza al
-  /// panel lateral — las apps viven en un acceso puntual que no estorba
-  /// la vista del framebuffer.
+  /// Selector compacto de apps reales del escritorio.
   void _openAppsSheet() {
     final colors = NanoThemeExtension.of(context).colors;
     showModalBottomSheet<void>(
@@ -933,15 +1134,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _launchApp('mousepad');
-                },
-              ),
-              _appTile(
-                icon: Icons.image_rounded,
-                label: 'Imágenes',
-                sub: 'feh',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _launchApp('feh');
                 },
               ),
               Divider(height: 20, color: colors.outlineVariant),
@@ -1021,14 +1213,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   }
 
   void _dismissHelp() {
-    setState(() {
-      _showHelp = false;
-      _helpDismissed = true;
-      _helpSeen = true;
-    });
-    SharedPreferences.getInstance().then(
-      (prefs) => prefs.setBool(_helpSeenKey, true),
-    );
+    setState(() => _showHelp = false);
   }
 
   void _toggleKeyboard() {
@@ -1125,10 +1310,11 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final compactChrome =
+        MediaQuery.sizeOf(context).width >= MediaQuery.sizeOf(context).height;
 
-    // DESKTOP-FIT-01: rotación con sesión viva → adaptar geometría.
-    // Se evalúa en build porque el LayoutBuilder actualiza _viewAreaPx
-    // justo antes; el postFrame evita setState durante el build.
+    // DESKTOP-FIT-01: rotación con sesión viva → adaptar geometría. Mostrar
+    // u ocultar controles no cambia la orientación y no reinicia Xvnc.
     if (_connected && !_adapting && _fbMismatch()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _adaptToViewArea();
@@ -1148,39 +1334,27 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       },
       child: Scaffold(
         backgroundColor: colors.background,
-        // FAB radial circular minimalista para apps del escritorio.
-        // DESKTOP-FULL-01: oculto en pantalla completa (tap borde superior
-        // lo restaura junto con la franja).
-        floatingActionButton: (_chromeHidden && _connected)
-            ? null
-            : _RadialFab(
-                isOpen: _fabOpen,
-                onToggle: () => setState(() => _fabOpen = !_fabOpen),
-                onOpenApps: _openAppsSheet,
-                onToggleKeyboard: _toggleKeyboard,
-                showKeyboard: _showKeyboard,
-              ),
+        // En modo inmersivo SafeArea seguía conservando el viewPadding físico
+        // del status bar aun después de ocultarlo. Eso reducía el framebuffer
+        // a 1032x2293 dentro de una pantalla 1080x2400 y producía una franja
+        // negra visible. Con los cuatro lados desactivados la proyección usa
+        // exactamente todo el panel; fuera del stream conserva la protección.
         body: SafeArea(
+          top: !(_chromeHidden && _connected),
+          bottom: !(_chromeHidden && _connected),
+          left: !(_chromeHidden && _connected),
+          right: !(_chromeHidden && _connected),
           child: Stack(
             children: [
-              // U-7: layout en franjas. Los controles persistentes (barra
-              // superior y barra de mouse) ocupan franjas PROPIAS del Column —
-              // ya no flotan sobre la pantalla proyectada. El framebuffer se
-              // reparte el espacio restante con Expanded y se ve completo:
-              // ningún control tapa ni "interviene" la imagen del escritorio.
               Column(
                 children: [
-                  // Franja superior: estado + conexión + teclado + modo toggle.
-                  // DESKTOP-FULL-01: oculta en pantalla completa.
                   if (!(_chromeHidden && _connected))
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                    child: _FloatingControlBar(
+                    DesktopStreamHeader(
+                      colors: colors,
+                      compact: compactChrome,
                       status: _status,
                       connected: _connected,
                       busy: _busy,
-                      showKeyboard: _showKeyboard,
-                      isMobileMode: _isMobileMode,
                       onBack: () {
                         if (context.canPop()) {
                           context.pop();
@@ -1188,30 +1362,14 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                           context.go('/desktop');
                         }
                       },
+                      onHelp: _openHelp,
                       onRefresh: () {
                         _reconnectAttempts = 0;
                         _connect();
                       },
-                      onToggleKeyboard: _toggleKeyboard,
-                      onToggleMode: () {
-                        // D-FIX: el toggle no persistía — al salir de la
-                        // pantalla el modo elegido se perdía. Ahora guarda en
-                        // settings y sincroniza la fila de teclas: en PC
-                        // expandida (es el teclado del escritorio), en móvil
-                        // colapsada (la barra ni se muestra).
-                        final next = !_isMobileMode;
-                        ref
-                            .read(settingsProvider.notifier)
-                            .setDesktopMobileMode(next);
-                        setState(() {
-                          _isMobileMode = next;
-                          _barExpanded = !next;
-                        });
-                      },
+                      onFullscreen: _enterImmersive,
                     ),
-                  ),
 
-                  // Pantalla proyectada — área exclusiva del framebuffer.
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -1219,73 +1377,68 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                           constraints.maxWidth,
                           constraints.maxHeight,
                         );
-                        // DESKTOP-FIT-01: el framebuffer debe nacer con el
-                        // aspect de ESTA área (no del viewport completo) —
-                        // así el fit=contain la llena sin bandas.
-                        final dpr = MediaQuery.devicePixelRatioOf(context);
-                        _viewAreaPx = Size(
-                          widgetSize.width * dpr,
-                          widgetSize.height * dpr,
-                        );
                         return _buildContent(colors, widgetSize);
                       },
                     ),
                   ),
 
-                  // Franja inferior: mouse/rueda/zoom/teclas rápidas. Solo
-                  // conectado (sin frame no hay dónde clicar). Al expandir la
-                  // fila de teclas, la franja crece y el framebuffer cede
-                  // espacio — nunca se superponen.
-                  // En modo mobile, ocultar para maximizar espacio de visor.
-                  if (_connected && _frame != null && !_isMobileMode &&
-                      !_chromeHidden)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                      child: Center(
-                        child: _MouseControlBar(
-                          colors: colors,
-                          zoom: _zoom,
-                          expanded: _barExpanded,
-                          onToggleExpanded: () =>
-                              setState(() => _barExpanded = !_barExpanded),
-                          onLeftClick: _sendLeftClick,
-                          onRightClick: _sendRightClick,
-                          onWheelUp: () => _sendWheel(true),
-                          onWheelDown: () => _sendWheel(false),
-                          onZoomIn: () => _zoomBy(1.25),
-                          onZoomOut: () => _zoomBy(1 / 1.25),
-                          onResetZoom: _resetZoom,
-                          onQuickKey: _sendQuickKey,
-                          ctrlActive: _ctrlSticky,
-                          altActive: _altSticky,
-                          onToggleCtrl: _toggleCtrl,
-                          onToggleAlt: _toggleAlt,
-                        ),
-                      ),
+                  if (_connected && _frame != null && !_chromeHidden)
+                    DesktopStreamBottomBar(
+                      colors: colors,
+                      compact: compactChrome,
+                      pointerMode: _pointerMode,
+                      keyboardVisible: _showKeyboard,
+                      zoom: _zoom,
+                      onTouch: () => _setPointerMode(DesktopPointerMode.touch),
+                      onTrackpad: () =>
+                          _setPointerMode(DesktopPointerMode.trackpad),
+                      onKeyboard: _toggleKeyboard,
+                      onZoom: _openZoomControls,
+                      onApps: _openAppsSheet,
+                      onMore: _openMoreControls,
                     ),
                 ],
               ),
 
-              // DESKTOP-FULL-01: zona de restauración — tap en el borde
-              // superior recupera franja + FAB + barras del sistema.
+              // Control mínimo estilo streaming. La zona anterior ocupaba el
+              // ancho completo y robaba taps a los launchers de tint2. Este
+              // tirador central conserva un target táctil de 48dp sin tapar el
+              // escritorio completo.
               if (_chromeHidden && _connected)
                 Positioned(
-                  top: 0,
+                  top: 2,
                   left: 0,
                   right: 0,
-                  height: 44,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _restoreChrome,
+                  child: Center(
+                    child: Semantics(
+                      button: true,
+                      label: 'Mostrar controles del escritorio',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _restoreChrome,
+                        child: SizedBox(
+                          width: 88,
+                          height: 48,
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: Container(
+                              width: 42,
+                              height: 4,
+                              margin: const EdgeInsets.only(top: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.52),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
 
-              // Overlay de ayuda de gestos (primera vez o manual desde el FAB)
-              if (_showHelp ||
-                  (_connected &&
-                      _frame != null &&
-                      !_helpSeen &&
-                      !_helpDismissed))
+              // La ayuda es explícita: nunca bloquea la sesión recién abierta.
+              if (_showHelp)
                 Positioned.fill(child: _HelpOverlay(onDismiss: _dismissHelp)),
 
               // TextField oculto para capturar el teclado nativo del móvil
@@ -1464,65 +1617,12 @@ class _VncScreenState extends ConsumerState<VncScreen> {
               top: top,
               width: fbW,
               height: fbH,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 16,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: RawImage(
-                    image: _frame,
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.medium,
-                  ),
-                ),
-              ),
-            ),
-            // Guía visual sutil del touchpad inferior (no intercepta gestos).
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: (widgetSize.height * _touchpadZoneFraction)
-                  .roundToDouble(),
-              child: IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.white.withValues(alpha: 0.045),
-                      ],
-                    ),
-                  ),
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      // U-6: con la fila de teclas expandida la toolbar tapa
-                      // este texto; se oculta para no quedar a medias.
-                      child: _barExpanded
-                          ? const SizedBox.shrink()
-                          : Text(
-                              'Touchpad: arrastra para mover · tap = clic',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 10,
-                                color: Colors.white.withValues(alpha: 0.35),
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
+              // Superficie full-bleed: sin marco, radio ni sombra de "ventana
+              // VNC". La imagen remota es la pantalla, igual que un stream.
+              child: RawImage(
+                image: _frame,
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.medium,
               ),
             ),
           ],
@@ -1532,8 +1632,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   }
 }
 
-/// Barra inferior con acciones de mouse organizadas en grupos:
-/// [Clics | Rueda | Zoom]. Targets â‰¥44px para accesibilidad táctil.
+/// Panel secundario con acciones avanzadas de mouse y teclas de sistema.
 class _MouseControlBar extends StatelessWidget {
   final VoidCallback onLeftClick;
   final VoidCallback onRightClick;
@@ -1548,8 +1647,6 @@ class _MouseControlBar extends StatelessWidget {
   final VoidCallback onToggleCtrl;
   final VoidCallback onToggleAlt;
   final double zoom;
-  final bool expanded;
-  final VoidCallback onToggleExpanded;
   final NanoColors colors;
 
   const _MouseControlBar({
@@ -1567,8 +1664,6 @@ class _MouseControlBar extends StatelessWidget {
     required this.onToggleCtrl,
     required this.onToggleAlt,
     required this.zoom,
-    required this.expanded,
-    required this.onToggleExpanded,
   });
 
   @override
@@ -1598,9 +1693,7 @@ class _MouseControlBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Fila 1: mouse/rueda/zoom + toggle de teclado. Siempre visible.
-          // Cada botón Expanded: reparto equitativo del ancho — sin Spacer
-          // ni anchos fijos que desbordaban (D-FIX).
+          // Clics, rueda y zoom, todos funcionales y sin acciones fantasma.
           Row(
             children: [
               Expanded(
@@ -1646,35 +1739,24 @@ class _MouseControlBar extends StatelessWidget {
                   zoom > 1.0 ? onResetZoom : null,
                 ),
               ),
-              Expanded(
-                child: _barButton(
-                  Icons.expand_less_rounded,
-                  expanded ? 'Colapsar' : 'Expandir',
-                  onToggleExpanded,
-                  highlighted: expanded,
-                ),
-              ),
             ],
           ),
           // Fila 2: teclas rápidas X11 — el IME móvil no trae Esc/Tab/Ctrl/
           // Alt/flechas; sin ellas no hay Ctrl+C ni diálogo cerrable.
-          // Plegable (U-6): colapsada no tapa el framebuffer.
-          if (expanded) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                _keyChip('Esc', () => onQuickKey(0xFF1B)),
-                _keyChip('Tab', () => onQuickKey(0xFF09)),
-                _keyChip('Ctrl', onToggleCtrl, active: ctrlActive),
-                _keyChip('Alt', onToggleAlt, active: altActive),
-                _keyChip('↵', () => onQuickKey(0xFF0D)),
-                _keyChip('←', () => onQuickKey(0xFF51)),
-                _keyChip('↑', () => onQuickKey(0xFF52)),
-                _keyChip('↓', () => onQuickKey(0xFF54)),
-                _keyChip('→', () => onQuickKey(0xFF53)),
-              ],
-            ),
-          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _keyChip('Esc', () => onQuickKey(0xFF1B)),
+              _keyChip('Tab', () => onQuickKey(0xFF09)),
+              _keyChip('Ctrl', onToggleCtrl, active: ctrlActive),
+              _keyChip('Alt', onToggleAlt, active: altActive),
+              _keyChip('↵', () => onQuickKey(0xFF0D)),
+              _keyChip('←', () => onQuickKey(0xFF51)),
+              _keyChip('↑', () => onQuickKey(0xFF52)),
+              _keyChip('↓', () => onQuickKey(0xFF54)),
+              _keyChip('→', () => onQuickKey(0xFF53)),
+            ],
+          ),
         ],
       ),
     );
@@ -1753,8 +1835,7 @@ class _MouseControlBar extends StatelessWidget {
   }
 }
 
-/// Overlay semitransparente con la guía de gestos. Aparece automático la
-/// primera vez que el escritorio queda conectado y visible.
+/// Overlay semitransparente con la guía de gestos, abierto bajo demanda.
 class _HelpOverlay extends StatelessWidget {
   final VoidCallback onDismiss;
 
@@ -1797,13 +1878,13 @@ class _HelpOverlay extends StatelessWidget {
               const SizedBox(height: 14),
               _helpRow(
                 Icons.touch_app_rounded,
-                'Zona superior:',
-                'tap = clic · arrastrar = mover',
+                'Modo táctil:',
+                'tap y arrastre directos sobre Linux',
               ),
               _helpRow(
                 Icons.linear_scale_rounded,
-                'Zona inferior (touchpad):',
-                'arrastra = cursor sin clic · tap = clic',
+                'Modo mouse:',
+                'arrastra el cursor · tap = clic',
               ),
               _helpRow(
                 Icons.pinch_rounded,
@@ -1818,7 +1899,7 @@ class _HelpOverlay extends StatelessWidget {
               _helpRow(
                 Icons.mouse_rounded,
                 'Barra inferior:',
-                'clics, rueda de scroll y zoom',
+                'modo, teclado, zoom, apps y accesos',
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -1874,374 +1955,6 @@ class _HelpOverlay extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FloatingControlBar extends StatelessWidget {
-  final String status;
-  final bool connected;
-  final bool busy;
-  final bool showKeyboard;
-  final bool isMobileMode;
-  final VoidCallback onBack;
-  final VoidCallback onRefresh;
-  final VoidCallback onToggleKeyboard;
-  final VoidCallback onToggleMode;
-
-  const _FloatingControlBar({
-    required this.status,
-    required this.connected,
-    required this.busy,
-    required this.showKeyboard,
-    required this.isMobileMode,
-    required this.onBack,
-    required this.onRefresh,
-    required this.onToggleKeyboard,
-    required this.onToggleMode,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: onBack,
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: colors.onSurface,
-              size: 20,
-            ),
-            tooltip: 'Volver',
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: connected
-                  ? colors.success
-                  : busy
-                  ? colors.info
-                  : colors.warning,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            fit: FlexFit.loose,
-            child: Text(
-              status,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colors.onSurface,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: onToggleKeyboard,
-            icon: Icon(
-              Icons.keyboard_rounded,
-              color: showKeyboard ? colors.accent : colors.onSurfaceVariant,
-              size: 20,
-            ),
-            tooltip: 'Teclado táctil',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(width: 4),
-          Container(width: 1, height: 20, color: colors.outlineVariant),
-          const SizedBox(width: 4),
-          // D-FIX: el modo era un icono ambiguo sin texto. Ahora es un chip
-          // con etiqueta del modo ACTUAL — el tap alterna. Resaltado azul
-          // paleta Nano cuando está en PC (desktop), tenue en Táctil.
-          Material(
-            color: isMobileMode
-                ? Colors.transparent
-                : colors.accent.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: onToggleMode,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isMobileMode
-                          ? Icons.phone_android_rounded
-                          : Icons.desktop_windows_rounded,
-                      size: 16,
-                      color: isMobileMode
-                          ? colors.onSurfaceVariant
-                          : colors.accent,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isMobileMode ? 'Táctil' : 'PC',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isMobileMode
-                            ? colors.onSurfaceVariant
-                            : colors.accent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: busy ? null : onRefresh,
-            icon: busy
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colors.onSurface,
-                    ),
-                  )
-                : Icon(
-                    Icons.refresh_rounded,
-                    color: colors.onSurfaceVariant,
-                    size: 20,
-                  ),
-            tooltip: 'Reconectar',
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            padding: EdgeInsets.zero,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// FAB radial circular minimalista para acceso rápido a apps del escritorio.
-/// Se expande en círculo con iconos minimalistas, aprovechando el espacio
-/// de forma eficiente sin sabana lateral.
-class _RadialFab extends StatefulWidget {
-  final bool isOpen;
-  final VoidCallback onToggle;
-  final VoidCallback onOpenApps;
-  final VoidCallback onToggleKeyboard;
-  final bool showKeyboard;
-
-  const _RadialFab({
-    required this.isOpen,
-    required this.onToggle,
-    required this.onOpenApps,
-    required this.onToggleKeyboard,
-    required this.showKeyboard,
-  });
-
-  @override
-  State<_RadialFab> createState() => _RadialFabState();
-}
-
-class _RadialFabState extends State<_RadialFab>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 250),
-      vsync: this,
-    );
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
-    if (widget.isOpen) {
-      _controller.value = 1.0;
-    }
-  }
-
-  @override
-  void didUpdateWidget(_RadialFab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isOpen != oldWidget.isOpen) {
-      if (widget.isOpen) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return SizedBox(
-      width: 56,
-      height: 56,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Ítems radiales (aparecen cuando isOpen = true)
-          if (widget.isOpen) ...[
-            _RadialFabItem(
-              angle: -45,
-              distance: 70,
-              icon: Icons.terminal_rounded,
-              label: 'Terminal',
-              onTap: () {
-                widget.onToggle();
-                widget.onOpenApps();
-              },
-              animation: _scaleAnimation,
-            ),
-            _RadialFabItem(
-              angle: 0,
-              distance: 80,
-              icon: Icons.folder_rounded,
-              label: 'Archivos',
-              onTap: () {
-                widget.onToggle();
-                widget.onOpenApps();
-              },
-              animation: _scaleAnimation,
-            ),
-            _RadialFabItem(
-              angle: 45,
-              distance: 70,
-              icon: Icons.edit_rounded,
-              label: 'Editor',
-              onTap: () {
-                widget.onToggle();
-                widget.onOpenApps();
-              },
-              animation: _scaleAnimation,
-            ),
-            _RadialFabItem(
-              angle: 90,
-              distance: 50,
-              icon: Icons.image_rounded,
-              label: 'Imágenes',
-              onTap: () {
-                widget.onToggle();
-                widget.onOpenApps();
-              },
-              animation: _scaleAnimation,
-            ),
-          ],
-          // Botón principal
-          ScaleTransition(
-            scale: _scaleAnimation,
-            child: FloatingActionButton(
-              heroTag: 'radial_fab',
-              onPressed: widget.onToggle,
-              // D-FIX: FAB verde 0xFF10B981 fuera de paleta — azul Nano
-              // 0xFF42D9FF igual que Reintentar/teclado/modo.
-              backgroundColor: colors.accent,
-              foregroundColor: colors.onAccent,
-              elevation: 6,
-              child: AnimatedIcon(
-                icon: AnimatedIcons.menu_close,
-                progress: _scaleAnimation,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Ítem individual del FAB radial
-class _RadialFabItem extends StatelessWidget {
-  final double angle;
-  final double distance;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Animation<double> animation;
-
-  const _RadialFabItem({
-    required this.angle,
-    required this.distance,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.animation,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final radians = angle * math.pi / 180;
-    final x = math.cos(radians) * distance;
-    final y = math.sin(radians) * distance;
-
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final scale = animation.value;
-        final opacity = animation.value;
-        final offsetX = x * scale;
-        final offsetY = y * scale;
-
-        return Transform.translate(
-          offset: Offset(offsetX, offsetY),
-          child: Opacity(
-            opacity: opacity,
-            child: ScaleTransition(scale: animation, child: child),
-          ),
-        );
-      },
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colors.outlineVariant),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black45,
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: colors.onSurface, size: 24),
-        ),
       ),
     );
   }

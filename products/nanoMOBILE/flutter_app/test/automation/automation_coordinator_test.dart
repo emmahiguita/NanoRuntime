@@ -33,6 +33,7 @@ class _FailedToolDispatcher extends AgentToolDispatcher {
     bool confirmed = false,
     String? executionId,
     ExecutionJournalEntry? executionIntent,
+    void Function()? onPhysicalEffectDispatched,
   }) async => ToolOutcome(
     verdict: PolicyVerdict.allow,
     feedback: '[notFound] objetivo no visible',
@@ -47,6 +48,7 @@ class _FailedToolDispatcher extends AgentToolDispatcher {
     ActionConfirmation? confirmation,
     String? executionId,
     bool confirmed = false,
+    void Function()? onPhysicalEffectDispatched,
     void Function(int)? onStep,
   }) async {
     final failure = ToolOutcome(

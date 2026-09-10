@@ -112,17 +112,19 @@ class RuleRegistry {
 
   Future<void> flush() => _writes;
 
-  /// WA-UNIV-01 — id fijo de la regla universal de conversación de WhatsApp.
-  /// Regla de SISTEMA sembrada por petición explícita del dueño: APP=WhatsApp,
-  /// FILTER=sin keyword obligatoria (cualquier mensaje entrante),
-  /// ACTION=respuesta dinámica del Conversation Engine (LLM), AUTO REPLY.
-  /// Sin ella el Personal Agent no recibe ni un "Hola" tras una reinstalación.
+  /// WA-CONSENT-01 — IDs fijos de las reglas universales de WhatsApp.
+  /// Se crean ÚNICAMENTE por petición explícita del dueño desde la UI de
+  /// configuración (opt-in). No se siembran automáticamente.
   static const universalWhatsAppRuleId = 'wa_universal_conversation';
+  static const universalWhatsAppBusinessRuleId =
+      'wa_universal_conversation_business';
 
   List<ScheduledRule> get rules => List.unmodifiable(_rules);
 
-  /// Carga las reglas persistidas (llamado una vez al arrancar el provider)
-  /// y siembra la regla universal si no existe (idempotente por id fijo).
+  /// Carga las reglas persistidas (llamado una vez al arrancar el provider).
+  /// WA-CONSENT-01 — NO siembra la regla universal automáticamente:
+  /// el consentimiento debe ser explícito desde la UI de activación.
+  /// Las instalaciones existentes conservan sus reglas tal cual.
   Future<void> load() => _loading ??= _load();
 
   Future<void> _load() async {
@@ -130,36 +132,45 @@ class RuleRegistry {
       ..clear()
       ..addAll(await _store.load());
     _loaded = true;
-    _seedUniversalWhatsAppRule();
+    // WA-CONSENT-01: sin auto-seed. La UI llama a seedWhatsAppRule() al
+    // activar la automatización por primera vez.
   }
 
-  /// WA-UNIV-01 — garantiza la regla universal tras cada arranque del
-  /// registro. Solo mira la EXISTENCIA del id fijo: si el usuario la borró,
-  /// reaparece (regla de sistema, no borrable); si la desactivó o editó,
-  /// el seed no la toca (toggle y edición respetados). `createdByUser`
-  /// queda true: la autoridad standing de WA-AUTH-04 nace de la petición
-  /// explícita del dueño de tener conversación automática en WhatsApp, y
-  /// con false el dispatcher exigiría confirmación humana en cada mensaje
-  /// (fail-closed que anularía el auto-reply pedido).
-  void _seedUniversalWhatsAppRule() {
-    if (_rules.any((r) => r.id == universalWhatsAppRuleId)) return;
+  /// WA-CONSENT-01 — siembra la regla universal de WhatsApp para el paquete
+  /// indicado POR PETICIÓN EXPLÍCITA del usuario desde la pantalla de
+  /// activación. Idempotente: si la regla ya existe (instalación previa)
+  /// no la duplica ni la sobreescribe (toggle y edición respetados).
+  ///
+  /// [packageName] debe ser uno de [MessagingPackage.whatsapp] /
+  /// [MessagingPackage.whatsappBusiness].
+  void seedWhatsAppRule(String packageName) {
+    final id = packageName == MessagingPackage.whatsappBusiness
+        ? universalWhatsAppBusinessRuleId
+        : universalWhatsAppRuleId;
+    if (_rules.any((r) => r.id == id)) return; // ya existe, nada que hacer
     final rule = ScheduledRule(
-      id: universalWhatsAppRuleId,
-      trigger: const NotificationTrigger(
-        packageName: MessagingPackage.whatsapp,
-      ),
+      id: id,
+      trigger: NotificationTrigger(packageName: packageName),
       action: RuleAction.reply,
       dynamicReply: true,
       enabled: true,
       createdAt: DateTime.now(),
-      createdByUser: true,
+      createdByUser: true, // consentimiento explícito verificado
     );
     _rules.add(rule);
     debugPrint(
-      '[rules] seed universal WhatsApp (wa_universal_conversation): '
-      'cualquier mensaje de com.whatsapp → reply dinámico LLM',
+      '[rules] seed WhatsApp rule id=$id pkg=$packageName (opt-in explícito)',
     );
     _persist();
+  }
+
+  /// WA-CONSENT-01 — true si la regla universal de [packageName] existe y
+  /// está habilitada. Usado por la UI para reflejar el estado del toggle.
+  bool isWhatsAppRuleActive(String packageName) {
+    final id = packageName == MessagingPackage.whatsappBusiness
+        ? universalWhatsAppBusinessRuleId
+        : universalWhatsAppRuleId;
+    return _rules.any((r) => r.id == id && r.enabled);
   }
 
   void add(ScheduledRule rule) {

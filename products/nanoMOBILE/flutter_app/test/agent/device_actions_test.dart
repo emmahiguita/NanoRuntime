@@ -277,5 +277,6 @@ class _CannedClient extends LLMEngineClient {
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
+    String? sessionId,
   }) async => LLMResult(text: canned);
 }

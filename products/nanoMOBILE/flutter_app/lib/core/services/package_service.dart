@@ -14,6 +14,10 @@ class DesktopStatus {
   /// pantalla de lanzamiento dispara installGraphical incremental.
   final bool graphicalExtras;
 
+  /// Los archivos Nano-managed del home corresponden a la versión incluida
+  /// en este APK. False fuerza un reinicio controlado antes de abrir el visor.
+  final bool desktopConfigCurrent;
+
   /// Estado instalado por app del panel (appId → binario presente en disco).
   /// Verdad por existencia real, no por dpkg status.
   final Map<String, bool> apps;
@@ -35,6 +39,7 @@ class DesktopStatus {
     required this.port,
     this.installed = false,
     this.graphicalExtras = false,
+    this.desktopConfigCurrent = false,
     this.apps = const {},
     this.stage = 'idle',
     this.lastError,
@@ -58,6 +63,7 @@ class DesktopStatus {
       port: raw['port'] as int? ?? 5901,
       installed: raw['installed'] == true,
       graphicalExtras: raw['graphicalExtras'] == true,
+      desktopConfigCurrent: raw['desktopConfigCurrent'] == true,
       apps:
           (raw['apps'] as Map<dynamic, dynamic>?)?.map(
             (k, v) => MapEntry(k.toString(), v == true),

@@ -159,6 +159,7 @@ class DesktopController(
     private fun buildStatus(session: DesktopSessionManager?): Map<String, Any?> {
         val running = session?.isRunning == true
         val usrDir  = File(appFilesDir, "nano/usr")
+        val configCurrent = DesktopSessionManager.isManagedConfigCurrent(appFilesDir)
 
         // Puerto RFB del display (5900 + display number).
         val port = if (running) session?.rfbPort ?: 5901 else 5901
@@ -168,7 +169,11 @@ class DesktopController(
         // cuando running quedaba stale tras una caída de Xvnc. Prohibido
         // el probe TCP aquí: cada corte a mitad del handshake RFB suma
         // un "security failure" al anti-brute-force de TigerVNC.
-        val reachable = running && (session?.isBackendAlive == true)
+        // Una sesión gráfica viva con assets antiguos no se anuncia como
+        // lista: la siguiente entrada pasa por start(), detiene el stack viejo
+        // y aplica la migración antes de volver a exponer el framebuffer.
+        val reachable =
+            running && (session?.isBackendAlive == true) && configCurrent
 
         return mapOf(
             "running"   to running,
@@ -176,6 +181,8 @@ class DesktopController(
             "ready"     to reachable,
             "port"      to port,
             "installed" to File(usrDir, "bin/Xvnc").exists(),
+            "desktopConfigCurrent" to configCurrent,
+            "desktopConfigVersion" to DesktopSessionManager.DESKTOP_CONFIG_VERSION,
             // Extras gráficos (dbus/pcmanfm/feh/mousepad): presentes
             // en disco aunque el dpkg status se haya perdido. La UI
             // los usa para disparar installGraphical incremental.
