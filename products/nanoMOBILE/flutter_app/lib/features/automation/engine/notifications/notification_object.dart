@@ -97,7 +97,12 @@ final class NotificationObject {
     }
     return [
       for (final message in messages)
-        if (message is Map && message['isSelf'] != true)
+        // isSelf==true: Kotlin marks own messages via null/blank sender.
+        // Fallback: sender present in raw (top-level) but empty in the
+        // individual message means it's also ours — skip both.
+        if (message is Map &&
+            message['isSelf'] != true &&
+            (message['sender'] as String? ?? '').isNotEmpty)
           NotificationObject.fromMap({...raw, ...message}),
     ];
   }

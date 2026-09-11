@@ -257,8 +257,13 @@ final class RuntimeNotificationDraftWriter {
       // end llevan el MISMO input, y el dispatcher traza el reply final.
       debugPrint(
         '[draft:start] conv=${_shortId(conversationId)} '
-        'input="${_sample(notification.text)}"',
+        'input="${_sample(notification.interpretableText)}"',
       );
+      // MSG-TEXT-01 — fuente canónica: interpretableText prefiere messageText
+      // (texto individual del MessagingStyle) sobre text (resumen/agregado).
+      // Para párrafos largos messageText contiene el mensaje completo; text
+      // puede estar truncado o ser el acumulado de varios mensajes.
+      final msgText = notification.interpretableText;
       final historyEntries =
           _memory?.memoryFor(conversationId)?.entries ?? const [];
       // CONTEXT-GATE-01 — saludo puro: el historial comercial anterior NO
@@ -273,9 +278,9 @@ final class RuntimeNotificationDraftWriter {
       // Nano: sin ancla el modelo no sabe qué corrigieron y responde
       // "¿qué quieres que haga?" (evidencia física). El saludo sigue con
       // historial limpio total.
-      final history = isGreetingLikeMessage(notification.text)
+      final history = isGreetingLikeMessage(msgText)
           ? '(sin historial previo)'
-          : isCorrectionMessage(notification.text)
+          : isCorrectionMessage(msgText)
           ? _correctionAnchor(historyEntries)
           : formatConversationHistory(historyEntries);
       // CONV-SOC-01 — ventana social relevante para el prompt social mínimo:
@@ -293,7 +298,7 @@ final class RuntimeNotificationDraftWriter {
       // (incluida identidad y correcciones). null routing = legacy.
       final routing = _routeFor?.call(
         conversationId,
-        notification.text,
+        msgText,
         notification.sender,
       );
       final role = routing?.role ?? ConversationAgentRole.general;
@@ -308,7 +313,7 @@ final class RuntimeNotificationDraftWriter {
       final persona =
           await _personaBlock?.call(
             conversationId,
-            notification.text,
+            msgText,
             notification.sender,
             role.name,
           ) ??
@@ -345,7 +350,7 @@ final class RuntimeNotificationDraftWriter {
               // recuerdo de producto) para mensajes cortos; es diálogo del
               // propio dueño, entra también en turnos personales.
               routing.pendingReply)
-          ? _clientContextFor?.call(conversationId, notification.text) ?? ''
+          ? _clientContextFor?.call(conversationId, msgText) ?? ''
           : '';
       // P0-ROUTE — hechos del negocio SOLO en turnos de venta. El selector
       // léxico (WA-BUSINESS-02) elige el subconjunto; el ROL decide si
@@ -359,7 +364,7 @@ final class RuntimeNotificationDraftWriter {
               role == ConversationAgentRole.sales ||
               routing.commercialIntent);
       final business =
-          isCommercial ? _businessBlock?.call(notification.text) ?? '' : '';
+          isCommercial ? _businessBlock?.call(msgText) ?? '' : '';
       // FASE 8: El tono comercial (ToneProfile) entra ÚNICAMENTE en turnos
       // de venta. En turnos personales NUNCA entra el tono de ventas.
       final tone = isCommercial ? _toneBlock?.call() : null;
@@ -369,8 +374,8 @@ final class RuntimeNotificationDraftWriter {
       // todo lo que entra al prompt.
       debugPrint(
         '[ctx:prompt] conv=${_shortId(conversationId)} '
-        'current="${_sample(notification.text)}" '
-        'greeting=${isGreetingLikeMessage(notification.text)} '
+        'current="${_sample(msgText)}" '
+        'greeting=${isGreetingLikeMessage(msgText)} '
         'clientContext=${clientContext.isNotEmpty} '
         'historyEntries=${historyEntries.length} '
         'businessChars=${business.length} '
@@ -387,7 +392,7 @@ final class RuntimeNotificationDraftWriter {
       // /complejo JAMÁS usa el prompt mínimo aunque pase por isGreetingLikeMessage
       // o isSocialReactionMessage (la fuga exacta del bug). El clasificador es
       // determinista, 0 LLM, compartido entre el FastPath y el DraftWriter.
-      final complexity = turnComplexityClassifier.classify(notification.text);
+      final complexity = turnComplexityClassifier.classify(msgText);
 
       // P0-SOCIAL-2 — reacción social pura ("me alegra", "gracias", "dale")
       // usa el MISMO prompt mínimo: el router ya la marcó personal
@@ -402,9 +407,9 @@ final class RuntimeNotificationDraftWriter {
       // el social mínimo cuando el turno es narrativo/contextual/complejo.
       final social =
           complexity.eligibleForSocialPrompt &&
-          (isGreetingLikeMessage(notification.text) ||
+          (isGreetingLikeMessage(msgText) ||
               (role == ConversationAgentRole.personal &&
-                  isSocialReactionMessage(notification.text) &&
+                  isSocialReactionMessage(msgText) &&
                   !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
                       false)));
       // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño
@@ -415,13 +420,13 @@ final class RuntimeNotificationDraftWriter {
       final socialOrPendingReply =
           social &&
           !(routing?.pendingReply ?? false) &&
-          !isLiveStateQuestion(notification.text);
+          !isLiveStateQuestion(msgText);
       final temporalBlock = TemporalLocationContext.promptBlock();
       final raw = await generateWithColdRetry(
         _client,
         prompt: socialOrPendingReply
             ? conversationSocialPromptFor(
-                text: notification.text,
+                text: msgText,
                 style: _styleEnabled() ? _styleText() : null,
                 persona: persona,
                 tone: tone,
@@ -430,7 +435,7 @@ final class RuntimeNotificationDraftWriter {
               )
             : conversationAgentPromptFor(
                 history: history,
-                text: notification.text,
+                text: msgText,
                 style: _styleEnabled() ? _styleText() : null,
                 business: business,
                 tone: tone,

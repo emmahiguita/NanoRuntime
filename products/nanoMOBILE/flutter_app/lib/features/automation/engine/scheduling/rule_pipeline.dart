@@ -146,9 +146,12 @@ class RulePipeline {
           MessagingMetrics.increment('notificationsObserved');
           if (!isNotificationEligible(event.packageName) ||
               event.isSummary ||
+              // WA-ECHO-02 — propio eco: sender vacío indica mensaje propio
+              // (null→empty en MessagingStyle). No depende del idioma del
+              // dispositivo (antes: sender == 'Tú' fallaba en inglés/portugués).
               ((event.packageName == MessagingPackage.whatsapp ||
                       event.packageName == MessagingPackage.whatsappBusiness) &&
-                  event.sender == 'Tú')) {
+                  event.sender.isEmpty)) {
             MessagingMetrics.increment('noiseDropped');
             debugPrint('[noise] pkg=${event.packageName} pre-burst');
             continue;

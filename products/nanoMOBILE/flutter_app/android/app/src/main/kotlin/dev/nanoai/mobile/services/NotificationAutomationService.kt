@@ -300,7 +300,7 @@ class NotificationAutomationService : NotificationListenerService() {
                     "sender" to message.sender?.toString().orEmpty().take(200),
                     "senderKey" to person?.key.orEmpty().take(200),
                     "senderUri" to person?.uri.orEmpty().take(500),
-                    "isSelf" to (message.sender == null),
+                    "isSelf" to (message.sender == null || message.sender.toString().isBlank()),
                 )
             },
             "sender" to sender.take(200),
