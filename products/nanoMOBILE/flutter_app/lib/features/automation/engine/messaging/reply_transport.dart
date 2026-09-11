@@ -74,6 +74,7 @@ final class NotificationReplyTransport implements ReplyTransport {
         actionIndex: capability.actionIndex,
         remoteInputKey: capability.remoteInputResultKey,
         contextFingerprint: capability.contextFingerprint,
+        postTime: capability.observedAt,
         text: request.text,
         confirmed: request.confirmed,
       );

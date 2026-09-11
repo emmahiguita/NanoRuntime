@@ -25,8 +25,9 @@ Widget perspectiveHeroFlight(
       final double t = Curves.easeInOutCubicEmphasized.transform(rawT);
 
       // Inclinación sinusoidal: 0° -> 17° -> 0°
-      final double directionMultiplier =
-          direction == HeroFlightDirection.push ? 1.0 : -1.0;
+      final double directionMultiplier = direction == HeroFlightDirection.push
+          ? 1.0
+          : -1.0;
       final double rotationY =
           math.sin(math.pi * t) * 0.30 * directionMultiplier;
 
@@ -34,31 +35,28 @@ Widget perspectiveHeroFlight(
       final double flightScale = 1.0 + math.sin(math.pi * t) * 0.028;
 
       // Morfismo progresivo de contenido (crossfade suave)
-      final double morphProgress =
-          ((t - 0.20) / 0.60).clamp(0.0, 1.0).toDouble();
+      final progress = direction == HeroFlightDirection.push ? t : 1 - t;
+      final double morphProgress = ((progress - 0.20) / 0.60)
+          .clamp(0.0, 1.0)
+          .toDouble();
 
       return Transform.scale(
         scale: flightScale,
         child: Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.00115)
+            ..setEntry(3, 2, -0.00115)
             ..rotateY(rotationY),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Opacity(
-                  opacity: (1.0 - morphProgress).clamp(0.0, 1.0),
-                  child: fromChild,
-                ),
-                Opacity(
-                  opacity: morphProgress.clamp(0.0, 1.0),
-                  child: toChild,
-                ),
-              ],
-            ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.expand,
+            children: [
+              Opacity(
+                opacity: (1.0 - morphProgress).clamp(0.0, 1.0),
+                child: fromChild,
+              ),
+              Opacity(opacity: morphProgress.clamp(0.0, 1.0), child: toChild),
+            ],
           ),
         ),
       );

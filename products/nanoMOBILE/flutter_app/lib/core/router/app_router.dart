@@ -47,7 +47,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/dashboard',
-                pageBuilder: (_, __) => _glassMorph(const DashboardScreen()),
+                pageBuilder: (_, __) =>
+                    const NoTransitionPage(child: DashboardScreen()),
               ),
             ],
           ),
@@ -56,7 +57,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/chat',
-                pageBuilder: (_, __) => _glassMorph(const ChatScreen()),
+                pageBuilder: (_, __) =>
+                    const NoTransitionPage(child: ChatScreen()),
               ),
             ],
           ),
@@ -65,7 +67,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/models',
-                pageBuilder: (_, __) => _glassMorph(const ModelsScreen()),
+                pageBuilder: (_, __) =>
+                    const NoTransitionPage(child: ModelsScreen()),
               ),
             ],
           ),
@@ -74,7 +77,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/terminal',
-                pageBuilder: (_, __) => _glassMorph(const TerminalHubScreen()),
+                pageBuilder: (_, __) =>
+                    const NoTransitionPage(child: TerminalHubScreen()),
               ),
               GoRoute(
                 path: '/terminal/shell',
@@ -95,10 +99,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/settings',
-                // Misma transición primaria que el resto de pestañas: la
-                // navegación entre tabs debe sentirse uniforme (antes usaba
-                // _expressiveSlide y rompía la consistencia del glass morph).
-                pageBuilder: (_, __) => _glassMorph(const SettingsScreen()),
+                pageBuilder: (_, __) =>
+                    const NoTransitionPage(child: SettingsScreen()),
               ),
             ],
           ),

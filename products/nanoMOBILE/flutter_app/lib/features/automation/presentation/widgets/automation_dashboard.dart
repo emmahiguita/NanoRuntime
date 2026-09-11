@@ -27,6 +27,7 @@ import '../../domain/automation_goal.dart';
 import '../../domain/automation_policy.dart';
 import '../../domain/automation_result.dart';
 import '../../engine/agent_dependencies.dart';
+import '../../engine/business/business_facts_providers.dart';
 import '../../engine/perception/current_situation.dart';
 import '../../engine/scheduling/scheduled_rule.dart';
 import '../../engine/scheduling/trigger.dart';
@@ -73,6 +74,8 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     this.onSettingsTap,
     this.onMessagesTap,
     this.onRulesTap,
+    this.onBusinessTap,
+    this.onPersonalAgentTap,
     this.onDevTap,
   });
 
@@ -86,6 +89,12 @@ class AutomationDashboard extends ConsumerStatefulWidget {
   /// RULES-CREATE-02 — abre la pantalla de Reglas (lista completa). Antes
   /// solo era alcanzable desde Configuración: acceso directo visible.
   final VoidCallback? onRulesTap;
+
+  /// Acceso directo a WhatsApp Negocio y catálogo comercial.
+  final VoidCallback? onBusinessTap;
+
+  /// Acceso directo a la pantalla especializada del Agente Personal de WhatsApp.
+  final VoidCallback? onPersonalAgentTap;
 
   /// Abre la pantalla Dev (herramientas del agente) sin pasar por Ajustes.
   /// Solo se conecta en modo debug (misma puerta que el acceso de Ajustes).
@@ -584,15 +593,21 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
                 : null,
           )
         : null;
+    final businessFacts = ref.watch(businessFactsNotifierProvider);
+    final businessProductsCount = businessFacts.products.length;
+
     final quick = QuickAutomationActions(
       onRun: _runTask,
       onMessagesTap: widget.onMessagesTap,
       onSettingsTap: widget.onSettingsTap,
       onRulesTap: widget.onRulesTap,
+      onBusinessTap: widget.onBusinessTap,
+      onPersonalAgentTap: widget.onPersonalAgentTap,
       onTimeRuleTap: _createTimeRule,
       suppressSuggestions: _running || _sensing || _composing,
       pendingDraftsCount: pendingDraftsCount,
       activeRulesCount: rulesCount,
+      businessProductsCount: businessProductsCount,
     );
 
     return NanoInputScope(
@@ -1134,15 +1149,19 @@ class QuickAutomationActions extends StatelessWidget {
     this.onMessagesTap,
     this.onSettingsTap,
     this.onRulesTap,
+    this.onBusinessTap,
+    this.onPersonalAgentTap,
     this.onTimeRuleTap,
     this.suppressSuggestions = false,
     this.pendingDraftsCount = 0,
     this.activeRulesCount = 0,
+    this.businessProductsCount = 0,
   });
   final ValueChanged<String> onRun;
   final bool suppressSuggestions;
   final int pendingDraftsCount;
   final int activeRulesCount;
+  final int businessProductsCount;
 
   /// Abre la pantalla de Mensajes (función de usuario, destacada).
   final VoidCallback? onMessagesTap;
@@ -1153,6 +1172,12 @@ class QuickAutomationActions extends StatelessWidget {
 
   /// RULES-CREATE-02 — abre la pantalla de Reglas (antes solo desde Ajustes).
   final VoidCallback? onRulesTap;
+
+  /// Acceso directo a WhatsApp Negocio y catálogo comercial.
+  final VoidCallback? onBusinessTap;
+
+  /// Acceso directo a la pantalla dedicada del Agente Personal de WhatsApp.
+  final VoidCallback? onPersonalAgentTap;
 
   /// RULES-CREATE-02 — crea regla por hora con reloj del sistema + mensaje.
   final VoidCallback? onTimeRuleTap;
@@ -1178,36 +1203,72 @@ class QuickAutomationActions extends StatelessWidget {
         if (onSettingsTap != null ||
             onMessagesTap != null ||
             onRulesTap != null ||
+            onBusinessTap != null ||
+            onPersonalAgentTap != null ||
             onTimeRuleTap != null) ...[
           const AutomationSectionLabel('Accesos'),
-          // RULES-CREATE-02: las reglas primero — el reloj es el acceso que
-          // el usuario busca; antes Reglas quedaba escondido en Configuración.
-          if (onTimeRuleTap != null)
+          if (onBusinessTap != null)
             _DashboardEntryTile(
-              glyph: NanoGlyphType.clock,
-              title: 'Aviso por hora',
-              subtitle: 'Crear un recordatorio con reloj',
-              onTap: onTimeRuleTap!,
+              imageAsset: 'assets/automation/whatsapp_business_icon.png',
+              title: 'WhatsApp Negocio',
+              subtitle: businessProductsCount > 0
+                  ? '$businessProductsCount producto${businessProductsCount == 1 ? '' : 's'} · Catálogo activo'
+                  : 'Catálogo comercial, ventas y pagos',
+              badge: businessProductsCount > 0
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: visual.accent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$businessProductsCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  : null,
+              onTap: onBusinessTap!,
+            ),
+          if (onPersonalAgentTap != null)
+            _DashboardEntryTile(
+              imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+              title: 'Agente Personal WPP',
+              subtitle: 'Respuestas personales, tono y calidez',
+              onTap: onPersonalAgentTap!,
             ),
           if (onRulesTap != null)
             _DashboardEntryTile(
-              glyph: NanoGlyphType.rules,
+              imageAsset: 'assets/automation/icons/icon_reglas.png',
               title: 'Reglas',
               subtitle: activeRulesCount > 0
                   ? '$activeRulesCount activa${activeRulesCount == 1 ? '' : 's'} · Automatizaciones'
                   : 'Todas tus automatizaciones',
               onTap: onRulesTap!,
             ),
+          if (onTimeRuleTap != null)
+            _DashboardEntryTile(
+              imageAsset: 'assets/automation/icons/icon_aviso.png',
+              title: 'Aviso por hora',
+              subtitle: 'Crear un recordatorio con reloj',
+              onTap: onTimeRuleTap!,
+            ),
           if (onSettingsTap != null)
             _DashboardEntryTile(
-              glyph: NanoGlyphType.tuning,
+              imageAsset: 'assets/automation/icons/icon_configuracion.png',
               title: 'Configuración',
               subtitle: 'Modo, razonamiento, audio y permisos',
               onTap: onSettingsTap!,
             ),
           if (onMessagesTap != null)
             _DashboardEntryTile(
-              glyph: NanoGlyphType.reply,
+              imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
               title: 'Responder mensajes',
               subtitle: pendingDraftsCount > 0
                   ? '$pendingDraftsCount borrador${pendingDraftsCount == 1 ? '' : 'es'} pendiente${pendingDraftsCount == 1 ? '' : 's'}'
@@ -1262,14 +1323,16 @@ class _DashboardEntryTile extends StatelessWidget {
   const _DashboardEntryTile({
     this.icon,
     this.glyph,
+    this.imageAsset,
     required this.title,
     required this.subtitle,
     required this.onTap,
     this.badge,
-  }) : assert(icon != null || glyph != null);
+  }) : assert(icon != null || glyph != null || imageAsset != null);
 
   final IconData? icon;
   final NanoGlyphType? glyph;
+  final String? imageAsset;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -1289,8 +1352,8 @@ class _DashboardEntryTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: AutomationVisual.of(context).accent.withValues(
@@ -1312,17 +1375,27 @@ class _DashboardEntryTile extends StatelessWidget {
                   ),
                 ],
               ),
-              child: glyph != null
-                  ? NanoIcon(
-                      type: glyph!,
-                      size: 18,
-                      color: AutomationVisual.of(context).accent,
+              child: imageAsset != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: Image.asset(
+                        imageAsset!,
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.contain,
+                      ),
                     )
-                  : Icon(
-                      icon!,
-                      color: AutomationVisual.of(context).accent,
-                      size: 18,
-                    ),
+                  : glyph != null
+                      ? NanoIcon(
+                          type: glyph!,
+                          size: 18,
+                          color: AutomationVisual.of(context).accent,
+                        )
+                      : Icon(
+                          icon!,
+                          color: AutomationVisual.of(context).accent,
+                          size: 18,
+                        ),
             ),
             const SizedBox(width: 12),
             Expanded(

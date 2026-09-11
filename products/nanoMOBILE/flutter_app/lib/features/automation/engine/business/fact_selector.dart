@@ -28,24 +28,46 @@ const List<String> _deliveryAskTokens = [
   'envío', 'envio', 'domicilio', 'despacho', 'llevan', 'mandan',
 ];
 
+const List<String> _paymentsAskTokens = [
+  'pago', 'pagos', 'pagar', 'cuenta', 'cuentas', 'transferir', 'transferencia',
+  'nequi', 'daviplata', 'bancolombia', 'tarjeta', 'efectivo', 'contraentrega',
+  'metodo', 'metodos', 'cobro', 'cobran', 'medio', 'medios',
+];
+
+const List<String> _locationAskTokens = [
+  'donde', 'ubicados', 'ubicacion', 'dirección', 'direccion', 'tienda', 'local',
+  'sede', 'quedan', 'queda', 'llegar', 'recoger', 'recogida', 'ciudad',
+];
+
 /// Qué entra al bloque autorizado del prompt.
 final class FactSelection {
   final List<BusinessProduct> products;
   final String hours;
   final String delivery;
+  final String payments;
+  final String location;
 
   const FactSelection({
     this.products = const [],
     this.hours = '',
     this.delivery = '',
+    this.payments = '',
+    this.location = '',
   });
 
-  bool get isEmpty => products.isEmpty && hours.isEmpty && delivery.isEmpty;
+  bool get isEmpty =>
+      products.isEmpty &&
+      hours.isEmpty &&
+      delivery.isEmpty &&
+      payments.isEmpty &&
+      location.isEmpty;
 
   String render() => buildBusinessBlock(
     products: products,
     hours: hours,
     delivery: delivery,
+    payments: payments,
+    location: location,
   );
 }
 
@@ -57,6 +79,8 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   final wantsList = tokens.any(_listAskTokens.contains);
   final wantsHours = tokens.any(_hoursAskTokens.contains);
   final wantsDelivery = tokens.any(_deliveryAskTokens.contains);
+  final wantsPayments = tokens.any(_paymentsAskTokens.contains);
+  final wantsLocation = tokens.any(_locationAskTokens.contains);
 
   List<BusinessProduct> products;
   if (wantsList) {
@@ -74,7 +98,15 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   final delivery = (wantsDelivery || products.isNotEmpty)
       ? facts.delivery.trim()
       : '';
-  return FactSelection(products: products, hours: hours, delivery: delivery);
+  final payments = wantsPayments ? facts.payments.trim() : '';
+  final location = wantsLocation ? facts.location.trim() : '';
+  return FactSelection(
+    products: products,
+    hours: hours,
+    delivery: delivery,
+    payments: payments,
+    location: location,
+  );
 }
 
 bool _productMatches(Set<String> messageTokens, BusinessProduct product) {

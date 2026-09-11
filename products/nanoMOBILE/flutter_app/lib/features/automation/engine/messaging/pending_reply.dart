@@ -11,6 +11,7 @@ enum PendingReplyStatus {
   contextChanged,
   sent,
   failed,
+  outcomeUnknown,
 }
 
 final class PendingReply {
@@ -23,6 +24,12 @@ final class PendingReply {
   final String sourceRuleId;
   final String notificationKey;
   final int notificationPostTime;
+
+  /// WA-RI-05 / SOLID: Capacidad exacta de RemoteInput observada para revalidación TOCTOU
+  final int actionIndex;
+  final String remoteInputKey;
+  final String contextFingerprint;
+
   final PendingReplyStatus status;
   final DateTime createdAt;
   final DateTime expiresAt; // createdAt + 24h
@@ -37,6 +44,9 @@ final class PendingReply {
     this.sourceRuleId = '',
     this.notificationKey = '',
     this.notificationPostTime = 0,
+    this.actionIndex = -1,
+    this.remoteInputKey = '',
+    this.contextFingerprint = '',
     required this.status,
     required this.createdAt,
     required this.expiresAt,
@@ -74,7 +84,11 @@ final class PendingReply {
       PendingReplyStatus.dispatching =>
         target == PendingReplyStatus.sent ||
             target == PendingReplyStatus.failed ||
-            target == PendingReplyStatus.contextChanged,
+            target == PendingReplyStatus.contextChanged ||
+            target == PendingReplyStatus.outcomeUnknown,
+      PendingReplyStatus.outcomeUnknown =>
+        target == PendingReplyStatus.dismissed ||
+            target == PendingReplyStatus.failed,
       PendingReplyStatus.dismissed ||
       PendingReplyStatus.expired ||
       PendingReplyStatus.superseded ||
@@ -114,6 +128,9 @@ final class PendingReply {
     String? sourceRuleId,
     String? notificationKey,
     int? notificationPostTime,
+    int? actionIndex,
+    String? remoteInputKey,
+    String? contextFingerprint,
     PendingReplyStatus? status,
     DateTime? createdAt,
     DateTime? expiresAt,
@@ -128,6 +145,9 @@ final class PendingReply {
       sourceRuleId: sourceRuleId ?? this.sourceRuleId,
       notificationKey: notificationKey ?? this.notificationKey,
       notificationPostTime: notificationPostTime ?? this.notificationPostTime,
+      actionIndex: actionIndex ?? this.actionIndex,
+      remoteInputKey: remoteInputKey ?? this.remoteInputKey,
+      contextFingerprint: contextFingerprint ?? this.contextFingerprint,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       expiresAt: expiresAt ?? this.expiresAt,
@@ -144,6 +164,9 @@ final class PendingReply {
     'sourceRuleId': sourceRuleId,
     'notificationKey': notificationKey,
     'notificationPostTime': notificationPostTime,
+    'actionIndex': actionIndex,
+    'remoteInputKey': remoteInputKey,
+    'contextFingerprint': contextFingerprint,
     'status': status.name,
     'createdAt': createdAt.toIso8601String(),
     'expiresAt': expiresAt.toIso8601String(),
@@ -160,6 +183,9 @@ final class PendingReply {
       sourceRuleId: json['sourceRuleId'] as String? ?? '',
       notificationKey: json['notificationKey'] as String? ?? '',
       notificationPostTime: (json['notificationPostTime'] as num?)?.toInt() ?? 0,
+      actionIndex: (json['actionIndex'] as num?)?.toInt() ?? -1,
+      remoteInputKey: json['remoteInputKey'] as String? ?? '',
+      contextFingerprint: json['contextFingerprint'] as String? ?? '',
       status: PendingReplyStatus.values.firstWhere(
         (e) => e.name == json['status'],
         orElse: () => PendingReplyStatus.pending,

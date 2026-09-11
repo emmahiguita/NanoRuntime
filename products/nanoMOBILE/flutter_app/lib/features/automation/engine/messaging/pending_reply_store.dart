@@ -25,6 +25,7 @@ final class PendingReplyStore implements PendingReplyRepository {
   final AutomationDbStoreClient? _dbClient;
   final Map<String, PendingReply> _inMemory = {};
   bool _loaded = false;
+  bool _loadFailed = false;
 
   PendingReplyStore({AutomationDbStoreClient? dbClient}) : _dbClient = dbClient;
 
@@ -35,6 +36,7 @@ final class PendingReplyStore implements PendingReplyRepository {
       if (raw == null || raw.isEmpty) {
         raw = await _dbClient?.section('automation.pending_replies');
       }
+      var reconciledAny = false;
       if (raw != null && raw.isNotEmpty) {
         final list = jsonDecode(raw) as List<dynamic>;
         final now = DateTime.now();
@@ -42,17 +44,44 @@ final class PendingReplyStore implements PendingReplyRepository {
           final reply = PendingReply.fromJson(item as Map<String, dynamic>);
           // Prune expired
           if (now.isBefore(reply.expiresAt)) {
-            _inMemory[reply.id] = reply;
+            // WA-PROCESS-DEATH: Si la app murió mientras estaba en dispatching,
+            // NUNCA revertir a pending automáticamente (riesgo de duplicación si RemoteInput
+            // ya fue aceptado). Transicionar de forma honesta a outcomeUnknown.
+            if (reply.status == PendingReplyStatus.dispatching) {
+              debugPrint(
+                '[PendingReplyStore] Process death detectado para borrador ${reply.id}. '
+                'Reconciliando a outcomeUnknown (sin reintento ciego).',
+              );
+              _inMemory[reply.id] = reply.copyWith(
+                status: PendingReplyStatus.outcomeUnknown,
+              );
+              reconciledAny = true;
+            } else {
+              _inMemory[reply.id] = reply;
+            }
           }
         }
       }
+      _loaded = true;
+      _loadFailed = false;
+      if (reconciledAny) {
+        await _persist();
+      }
     } catch (e) {
       debugPrint('[PendingReplyStore] init error: $e');
+      _loadFailed = true;
+      _loaded = false;
+      rethrow;
     }
-    _loaded = true;
   }
 
   Future<void> _persist() async {
+    if (_loadFailed) {
+      throw StateError(
+        '[PendingReplyStore] Bloqueo fail-closed: init falló previamente, '
+        'se rechaza sobrescribir la sección $sectionKey',
+      );
+    }
     final now = DateTime.now();
     // TTL cleanup on persist
     _inMemory.removeWhere((_, r) => now.isAfter(r.expiresAt));
@@ -79,9 +108,15 @@ final class PendingReplyStore implements PendingReplyRepository {
       );
       return false;
     }
+    final previous = item;
     _inMemory[id] = item.copyWith(status: newStatus);
-    await _persist();
-    return true;
+    try {
+      await _persist();
+      return true;
+    } catch (e) {
+      _inMemory[id] = previous; // Rollback transaccional en memoria
+      rethrow;
+    }
   }
 
   @override
@@ -102,8 +137,18 @@ final class PendingReplyStore implements PendingReplyRepository {
   @override
   Future<void> save(PendingReply reply) async {
     await init();
+    final previous = _inMemory[reply.id];
     _inMemory[reply.id] = reply;
-    await _persist();
+    try {
+      await _persist();
+    } catch (e) {
+      if (previous != null) {
+        _inMemory[reply.id] = previous;
+      } else {
+        _inMemory.remove(reply.id);
+      }
+      rethrow;
+    }
   }
 
   @override

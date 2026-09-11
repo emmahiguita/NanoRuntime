@@ -281,6 +281,7 @@ String conversationSocialPromptFor({
   String? persona,
   String? tone,
   String? history,
+  String? temporalContext,
 }) {
   final base = conversationSocialPrompt
       .replaceFirst('{history}', history ?? '(sin historial previo)')
@@ -288,8 +289,10 @@ String conversationSocialPromptFor({
   final s = _usableStyle(style);
   final p = persona?.trim() ?? '';
   final t = tone?.trim() ?? '';
-  if (s == null && p.isEmpty && t.isEmpty) return base;
+  final temp = temporalContext?.trim() ?? '';
+  if (s == null && p.isEmpty && t.isEmpty && temp.isEmpty) return base;
   final prefix = <String>[
+    if (temp.isNotEmpty) temp,
     if (s != null) _styleBlock(s),
     if (t.isNotEmpty) t,
     if (p.isNotEmpty) p,
@@ -306,6 +309,7 @@ String conversationSocialPromptFor({
 /// por FTS4. Hechos reales autorizados — jamás inventar a partir de ellos.
 /// [clientContext] = bloque <CONTEXTO DEL CLIENTE> (WA-STATE-01): recuerdo
 /// estructurado de la consulta anterior de ESTE cliente.
+/// [temporalContext] = bloque <CONTEXTO TEMPORAL Y LUGAR>: fecha, hora y ciudad factual.
 String conversationAgentPromptFor({
   required String history,
   required String text,
@@ -314,16 +318,19 @@ String conversationAgentPromptFor({
   String? tone,
   String? persona,
   String? clientContext,
+  String? temporalContext,
 }) {
   final s = _usableStyle(style);
   final facts = business?.trim() ?? '';
   final toneBlock = tone?.trim() ?? '';
   final personaBlock = persona?.trim() ?? '';
   final context = clientContext?.trim() ?? '';
+  final temp = temporalContext?.trim() ?? '';
   final base = conversationAgentPrompt
       .replaceFirst('{history}', history)
       .replaceFirst('{text}', text);
   final prefix = <String>[
+    if (temp.isNotEmpty) temp,
     if (s != null) _styleBlock(s),
     if (toneBlock.isNotEmpty) toneBlock,
     if (facts.isNotEmpty) facts,

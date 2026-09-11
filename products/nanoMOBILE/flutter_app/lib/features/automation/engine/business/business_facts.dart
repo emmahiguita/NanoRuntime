@@ -77,15 +77,23 @@ final class BusinessFacts {
   final List<BusinessProduct> products;
   final String hours;
   final String delivery;
+  final String payments;
+  final String location;
 
   const BusinessFacts({
     this.products = const [],
     this.hours = '',
     this.delivery = '',
+    this.payments = '',
+    this.location = '',
   });
 
   bool get isEmpty =>
-      products.isEmpty && hours.trim().isEmpty && delivery.trim().isEmpty;
+      products.isEmpty &&
+      hours.trim().isEmpty &&
+      delivery.trim().isEmpty &&
+      payments.trim().isEmpty &&
+      location.trim().isEmpty;
 
   factory BusinessFacts.fromJson(Map<String, dynamic> json) => BusinessFacts(
     products: [
@@ -95,12 +103,16 @@ final class BusinessFacts {
     ],
     hours: (json['hours'] as String?) ?? '',
     delivery: (json['delivery'] as String?) ?? '',
+    payments: (json['payments'] as String?) ?? '',
+    location: (json['location'] as String?) ?? '',
   );
 
   Map<String, Object?> toJson() => {
     'products': [for (final p in products) p.toJson()],
     'hours': hours,
     'delivery': delivery,
+    'payments': payments,
+    'location': location,
   };
 
   /// Bloque autorizado para el prompt (todo el catálogo). Vacío → ''.
@@ -108,6 +120,8 @@ final class BusinessFacts {
     products: products,
     hours: hours,
     delivery: delivery,
+    payments: payments,
+    location: location,
   );
 }
 
@@ -118,10 +132,18 @@ String buildBusinessBlock({
   required List<BusinessProduct> products,
   required String hours,
   required String delivery,
+  String payments = '',
+  String location = '',
 }) {
   final cleanHours = hours.trim();
   final cleanDelivery = delivery.trim();
-  if (products.isEmpty && cleanHours.isEmpty && cleanDelivery.isEmpty) {
+  final cleanPayments = payments.trim();
+  final cleanLocation = location.trim();
+  if (products.isEmpty &&
+      cleanHours.isEmpty &&
+      cleanDelivery.isEmpty &&
+      cleanPayments.isEmpty &&
+      cleanLocation.isEmpty) {
     return '';
   }
   final buffer = StringBuffer('<DATOS DEL NEGOCIO>\n');
@@ -135,6 +157,12 @@ String buildBusinessBlock({
   }
   if (cleanDelivery.isNotEmpty) {
     buffer.writeln('Envío: $cleanDelivery');
+  }
+  if (cleanPayments.isNotEmpty) {
+    buffer.writeln('Métodos de pago: $cleanPayments');
+  }
+  if (cleanLocation.isNotEmpty) {
+    buffer.writeln('Ubicación: $cleanLocation');
   }
   buffer.write('</DATOS DEL NEGOCIO>');
   return buffer.toString();

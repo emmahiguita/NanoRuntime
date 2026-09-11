@@ -34,7 +34,9 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     await ready;
   }
 
-  Future<void> upsertProduct(BusinessProduct product) async {
+  Future<bool> loadPreset(BusinessFacts preset) => _persist(preset);
+
+  Future<bool> upsertProduct(BusinessProduct product) {
     final next = BusinessFacts(
       products: [
         for (final p in state.products)
@@ -43,12 +45,14 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
       ],
       hours: state.hours,
       delivery: state.delivery,
+      payments: state.payments,
+      location: state.location,
     );
-    await _persist(next);
+    return _persist(next);
   }
 
-  Future<void> removeProduct(String id) async {
-    await _persist(
+  Future<bool> removeProduct(String id) {
+    return _persist(
       BusinessFacts(
         products: [
           for (final p in state.products)
@@ -56,33 +60,71 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
         ],
         hours: state.hours,
         delivery: state.delivery,
+        payments: state.payments,
+        location: state.location,
       ),
     );
   }
 
-  Future<void> setHours(String hours) async {
-    await _persist(
+  Future<bool> setHours(String hours) {
+    return _persist(
       BusinessFacts(
         products: state.products,
         hours: hours.trim(),
         delivery: state.delivery,
+        payments: state.payments,
+        location: state.location,
       ),
     );
   }
 
-  Future<void> setDelivery(String delivery) async {
-    await _persist(
+  Future<bool> setDelivery(String delivery) {
+    return _persist(
       BusinessFacts(
         products: state.products,
         hours: state.hours,
         delivery: delivery.trim(),
+        payments: state.payments,
+        location: state.location,
       ),
     );
   }
 
-  Future<void> _persist(BusinessFacts next) async {
-    state = next;
-    await _store.save(next);
+  Future<bool> setPayments(String payments) {
+    return _persist(
+      BusinessFacts(
+        products: state.products,
+        hours: state.hours,
+        delivery: state.delivery,
+        payments: payments.trim(),
+        location: state.location,
+      ),
+    );
+  }
+
+  Future<bool> setLocation(String location) {
+    return _persist(
+      BusinessFacts(
+        products: state.products,
+        hours: state.hours,
+        delivery: state.delivery,
+        payments: state.payments,
+        location: location.trim(),
+      ),
+    );
+  }
+
+  Future<bool> _persist(BusinessFacts next) async {
+    try {
+      final ok = await _store.save(next);
+      if (ok) {
+        state = next;
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 }
 

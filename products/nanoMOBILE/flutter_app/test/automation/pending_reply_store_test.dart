@@ -154,5 +154,100 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
     });
+
+    test('Process death: borrador en dispatching se reconcilia a outcomeUnknown al iniciar', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const channel = MethodChannel('com.nanoai/automation_store');
+      final rawJson = '''
+      [
+        {
+          "id": "crash_1",
+          "conversationId": "c_crash",
+          "packageName": "com.whatsapp",
+          "sender": "Ana",
+          "originalMessage": "Hola",
+          "draftText": "Respuesta en curso",
+          "status": "dispatching",
+          "createdAt": "${DateTime.now().toIso8601String()}",
+          "expiresAt": "${DateTime.now().add(const Duration(hours: 12)).toIso8601String()}"
+        }
+      ]
+      ''';
+
+      String? putCalledJson;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'get') {
+          return rawJson;
+        }
+        if (call.method == 'put') {
+          putCalledJson = call.arguments['json'] as String?;
+          return true;
+        }
+        return null;
+      });
+
+      final store = PendingReplyStore(dbClient: AutomationDbStoreClient.instance);
+      await store.init();
+
+      // No debe aparecer en allPending() porque status es outcomeUnknown (jamás reintento a ciegas)
+      final pending = await store.allPending();
+      expect(pending.isEmpty, isTrue);
+
+      // Debe haberse persistido el nuevo estado reconciliado outcomeUnknown
+      expect(putCalledJson, isNotNull);
+      expect(putCalledJson, contains('outcomeUnknown'));
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test('Rollback en memoria si putSection falla durante transición', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const channel = MethodChannel('com.nanoai/automation_store');
+      var putShouldFail = false;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'get') return '[]';
+        if (call.method == 'put') {
+          return !putShouldFail;
+        }
+        return null;
+      });
+
+      final storeWithDb = PendingReplyStore(dbClient: AutomationDbStoreClient.instance);
+      final reply = PendingReply(
+        id: 'rollback_test',
+        conversationId: 'c_rb',
+        packageName: 'com.whatsapp',
+        sender: 'David',
+        originalMessage: 'Hey',
+        draftText: 'Hola David',
+        status: PendingReplyStatus.pending,
+        createdAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      );
+
+      // Guardar con éxito
+      await storeWithDb.save(reply);
+      expect((await storeWithDb.allPending()).first.status, PendingReplyStatus.pending);
+
+      // Ahora forzamos fallo en el siguiente putSection
+      putShouldFail = true;
+
+      // Intento de transición debe fallar con StateError
+      await expectLater(
+        storeWithDb.approve(reply.id),
+        throwsA(isA<StateError>()),
+      );
+
+      // Verificamos que se realizó el rollback en memoria (sigue en pending, no en approved)
+      putShouldFail = false;
+      final items = await storeWithDb.allPending();
+      expect(items.first.status, equals(PendingReplyStatus.pending));
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 import '../engine/conversation/conversation_reply_composer.dart';
+import '../engine/messaging/reply_capability.dart';
 import '../engine/notifications/notification_object.dart';
 
 class DeviceNotification {
@@ -27,6 +28,7 @@ class DeviceNotification {
   final int messageTimestamp;
   final String senderUri;
   final bool isSummary;
+  final bool isTruncated;
   final String remoteInputKey;
   final int actionIndex;
   final List<String> actions;
@@ -51,6 +53,7 @@ class DeviceNotification {
     this.messageTimestamp = 0,
     this.senderUri = '',
     this.isSummary = false,
+    this.isTruncated = false,
     this.remoteInputKey = '',
     this.actionIndex = -1,
     this.actions = const [],
@@ -80,6 +83,7 @@ class DeviceNotification {
           : 0,
       senderUri: map['senderUri'] as String? ?? '',
       isSummary: map['isSummary'] as bool? ?? false,
+      isTruncated: map['isTruncated'] as bool? ?? false,
       remoteInputKey: map['remoteInputKey'] as String? ?? '',
       actionIndex: (map['actionIndex'] is num)
           ? (map['actionIndex'] as num).toInt()
@@ -113,7 +117,7 @@ class DeviceNotification {
       accountHint: accountHint,
       isGroup: isGroup,
       isSummary: isSummary,
-      isTruncated: false,
+      isTruncated: isTruncated,
       postTime: postedAt.millisecondsSinceEpoch,
       canReply: canReply,
       remoteInputKey: remoteInputKey,
@@ -131,6 +135,42 @@ class NotificationAccessStatus {
   const NotificationAccessStatus({
     required this.accessGranted,
     required this.connected,
+  });
+}
+
+/// Resultado tipado del despacho de notificación (Clean Architecture / Tipado honesto).
+sealed class NotificationReplyResult {
+  final bool accepted;
+  final String code;
+  final String? reason;
+
+  const NotificationReplyResult({
+    required this.accepted,
+    required this.code,
+    this.reason,
+  });
+
+  bool get isAccepted => accepted;
+  bool get isContextChanged => code == 'CONTEXT_CHANGED';
+  bool get isNotificationGone => code == 'NOTIFICATION_GONE';
+  bool get isActionExpired => code == 'ACTION_EXPIRED';
+  bool get isActionDenied => code == 'ACTION_DENIED';
+  bool get isInvalidText => code == 'INVALID_TEXT';
+  bool get isReplyUnavailable => code == 'REPLY_UNAVAILABLE';
+
+  factory NotificationReplyResult.fromMap(Map<dynamic, dynamic> map) {
+    final ok = map['ok'] == true;
+    final code = (map['code'] as String?) ?? (ok ? 'REMOTE_INPUT_ACCEPTED' : 'UNKNOWN');
+    final reason = map['reason'] as String?;
+    return _NotificationReplyResultImpl(accepted: ok, code: code, reason: reason);
+  }
+}
+
+class _NotificationReplyResultImpl extends NotificationReplyResult {
+  const _NotificationReplyResultImpl({
+    required super.accepted,
+    required super.code,
+    super.reason,
   });
 }
 
@@ -192,19 +232,32 @@ class NotificationExecutor {
     return _composer.composeSuggestions(notifObj);
   }
 
-  Future<bool> confirmAndReply(
+  /// Despacha respuesta manual revalidando la capacidad exacta (WA-RI-05 / TOCTOU).
+  Future<NotificationReplyResult> confirmAndReply(
     DeviceNotification notification,
     String text,
   ) async {
     final clean = text.trim();
     if (!notification.canReply || clean.isEmpty || clean.length > 2000) {
-      return false;
+      return NotificationReplyResult.fromMap(const {
+        'ok': false,
+        'code': 'INVALID_REQUEST',
+        'reason': 'Notificación no admite respuesta o texto inválido',
+      });
     }
+
+    final notifObj = notification.toNotificationObject();
+    final capability = ReplyCapabilityRef.fromNotification(notifObj);
+
     final result = await _runtime.replyToNotification(
       key: notification.key,
       text: clean,
       confirmed: true,
+      actionIndex: capability?.actionIndex ?? notification.actionIndex,
+      remoteInputKey: capability?.remoteInputResultKey ?? notification.remoteInputKey,
+      contextFingerprint: capability?.contextFingerprint,
+      postTime: capability?.observedAt ?? notification.postedAt.millisecondsSinceEpoch,
     );
-    return result['ok'] == true;
+    return NotificationReplyResult.fromMap(result);
   }
 }

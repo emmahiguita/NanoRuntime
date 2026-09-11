@@ -233,7 +233,10 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
 
     final sections = <Widget>[];
     if (whatsapp.isNotEmpty) {
-      sections.add(const _SectionHeader(title: 'WhatsApp', icon: Icons.chat_rounded));
+      sections.add(const _SectionHeader(
+        title: 'WhatsApp',
+        imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+      ));
       // Agrupado por contacto dentro de WhatsApp (null → cualquier contacto).
       final byContact = <String, List<ScheduledRule>>{};
       for (final rule in whatsapp) {
@@ -253,13 +256,19 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
     }
     if (timed.isNotEmpty) {
       sections.add(
-        const _SectionHeader(title: 'Horarios', icon: Icons.schedule_rounded),
+        const _SectionHeader(
+          title: 'Horarios',
+          imageAsset: 'assets/automation/icons/icon_horarios.png',
+        ),
       );
       sections.addAll(timed.map((rule) => _ruleCard(rule)));
     }
     if (others.isNotEmpty) {
       sections.add(
-        const _SectionHeader(title: 'Otras', icon: Icons.apps_rounded),
+        const _SectionHeader(
+          title: 'Otras automatizaciones',
+          imageAsset: 'assets/automation/icons/icon_reglas.png',
+        ),
       );
       sections.addAll(others.map((rule) => _ruleCard(rule)));
     }
@@ -971,10 +980,15 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.icon});
+  const _SectionHeader({
+    required this.title,
+    this.icon,
+    this.imageAsset,
+  }) : assert(icon != null || imageAsset != null);
 
   final String title;
-  final IconData icon;
+  final IconData? icon;
+  final String? imageAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -983,7 +997,15 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
       child: Row(
         children: [
-          Icon(icon, color: visual.accent, size: 16),
+          if (imageAsset != null)
+            Image.asset(
+              imageAsset!,
+              width: 18,
+              height: 18,
+              fit: BoxFit.contain,
+            )
+          else
+            Icon(icon!, color: visual.accent, size: 16),
           const SizedBox(width: 8),
           Text(
             title,

@@ -35,7 +35,7 @@ class PerspectiveCarouselItem extends StatelessWidget {
           alignment:
               normalized > 0 ? Alignment.centerLeft : Alignment.centerRight,
           transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.00135)
+            ..setEntry(3, 2, -0.00135)
             ..rotateY(angleY),
           child: Opacity(
             opacity: (1.0 - (distance * 0.22)).clamp(0.0, 1.0),

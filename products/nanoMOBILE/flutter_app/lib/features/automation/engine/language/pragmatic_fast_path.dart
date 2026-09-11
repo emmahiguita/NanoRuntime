@@ -36,6 +36,7 @@ import '../messaging/conv_turn_state.dart'
 import '../messaging/conversation_memory.dart'
     show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/conversation_understanding.dart';
+import 'temporal_location_context.dart';
 import 'turn_complexity_classifier.dart' show turnComplexityClassifier;
 
 /// Intento comunicativo elemental detectado en el texto.
@@ -50,6 +51,10 @@ enum ConversationIntent {
   askPresence,
   askHelpOrQuestion,
   askDeviceBattery,
+  askTime,
+  askDate,
+  askLocation,
+  planReminder,
   thanks,
   farewell,
   laughter,
@@ -282,10 +287,20 @@ final class PragmaticFastPath {
       intents.add(ConversationIntent.reciprocalQuestion);
     }
 
-    // Pregunta sobre actividad actual ("qué haces", "en qué andas", "qué cuentas")
+    // Pregunta sobre actividad actual o planes ("qué haces", "qué vas a hacer", "vas a salir", "en qué andas")
     if (normalized.contains('que haces') ||
         normalized.contains('que haciendo') ||
         normalized.contains('que estas haciendo') ||
+        normalized.contains('que vas hacer') ||
+        normalized.contains('que vas a hacer') ||
+        normalized.contains('que va a hacer') ||
+        normalized.contains('que va hacer') ||
+        normalized.contains('vas hacer') ||
+        normalized.contains('vas a hacer') ||
+        normalized.contains('vamos a salir') ||
+        normalized.contains('vas a salir') ||
+        normalized.contains('sale hoy') ||
+        normalized.contains('que planes') ||
         normalized.contains('en que andas') ||
         normalized.contains('que cuentas') ||
         normalized.contains('que te cuentas') ||
@@ -385,6 +400,52 @@ final class PragmaticFastPath {
                 normalized.contains('tienes') ||
                 normalized.contains('queda')))) {
       intents.add(ConversationIntent.askDeviceBattery);
+    }
+
+    // Recordatorio de plan / compromiso previo ("dijiste que íbamos", "habías dicho que salíamos")
+    if (normalized.contains('dijiste que') ||
+        normalized.contains('dijiste') ||
+        normalized.contains('habias dicho') ||
+        normalized.contains('habias prometido') ||
+        normalized.contains('quedamos en') ||
+        normalized.contains('quedamos de') ||
+        normalized.contains('hablamos de')) {
+      intents.add(ConversationIntent.planReminder);
+    }
+
+    // Pregunta sobre la hora ("qué hora es", "tienes la hora", "qué hora tienes")
+    if (normalized.contains('que hora es') ||
+        normalized.contains('que horas son') ||
+        normalized.contains('tienes la hora') ||
+        normalized.contains('que hora tienes') ||
+        normalized.contains('hora tienes') ||
+        normalized.contains('me dices la hora') ||
+        normalized.contains('la hora porfa') ||
+        normalized.contains('que hora es por alla')) {
+      intents.add(ConversationIntent.askTime);
+    }
+
+    // Pregunta sobre la fecha / día ("qué día es hoy", "qué fecha es hoy", "a cómo estamos")
+    if (normalized.contains('que dia es hoy') ||
+        normalized.contains('que fecha es hoy') ||
+        normalized.contains('a como estamos hoy') ||
+        normalized.contains('a cuantos estamos') ||
+        normalized.contains('a como estamos') ||
+        normalized.contains('que dia estamos') ||
+        normalized.contains('que dia de la semana es')) {
+      intents.add(ConversationIntent.askDate);
+    }
+
+    // Pregunta sobre ubicación / ciudad / país ("dónde estás", "en qué ciudad estás", "de dónde eres")
+    if (normalized.contains('donde estas') ||
+        normalized.contains('en que ciudad estas') ||
+        normalized.contains('en donde estas') ||
+        normalized.contains('de que ciudad eres') ||
+        normalized.contains('de donde eres') ||
+        normalized.contains('en que pais estas') ||
+        normalized.contains('por donde andas') ||
+        normalized.contains('en que lugar estas')) {
+      intents.add(ConversationIntent.askLocation);
     }
 
     // Si es saludo puro según el tokenizer pero no activó flag específico
@@ -517,9 +578,9 @@ final class PragmaticFastPath {
     if (intents.contains(ConversationIntent.userWellbeing) &&
         intents.contains(ConversationIntent.askActivity)) {
       const candidates = [
-        'Qué bueno. Aquí haciendo unas cosas.',
-        'Qué bueno. Por acá en lo mío, hablando contigo.',
-        'Qué bien. Por acá tranquilo haciendo unas cosas.',
+        'Qué bueno. Por acá tranquilo por ahora.',
+        'Qué bueno. Por acá en lo mío.',
+        'Qué bien. Por acá todo tranquilo.',
         'Me alegra. Por acá en lo mío por ahora.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
@@ -576,14 +637,30 @@ final class PragmaticFastPath {
       }
     }
 
-    // Caso 4: Pregunta sobre actividad ("qué haces", "en qué andas", "hola emma cómo estás qué haces hoy")
+    // Caso 4: Pregunta sobre actividad ("qué haces", "en qué andas", "hola emma cómo estás qué haces hoy", "vas a salir hoy")
     // Responde naturalmente como presencia sin interrogar automáticamente de vuelta.
     if (intents.contains(ConversationIntent.askActivity)) {
+      if (normalized.contains('salir') ||
+          normalized.contains('en la noche') ||
+          normalized.contains('que vas hacer') ||
+          normalized.contains('que vas a hacer') ||
+          normalized.contains('vas hacer') ||
+          normalized.contains('vas a hacer') ||
+          normalized.contains('que planes')) {
+        const candidates = [
+          'Aún no sé seguro, más tarde te confirmo.',
+          'Por ahora no tengo planes seguros, más tarde te aviso.',
+          'Por acá tranquilo por ahora, más tarde te digo.',
+          'Todavía no sé qué haga más tarde, te voy avisando.',
+        ];
+        return _selectCandidate(candidates, conversationId, lastOutboundText);
+      }
+
       final withWellbeing = intents.contains(ConversationIntent.askWellbeing);
       if (intents.contains(ConversationIntent.greeting) && !recentlyGreeted) {
         final candidates = withWellbeing
             ? [
-                '¡Hola! Bien por acá, aquí haciendo unas cosas.',
+                '¡Hola! Por acá todo tranquilo.',
                 '¡Hola! Todo bien por acá, aquí en lo mío.',
                 '¡Hola! Bien, por acá hablando contigo jaja.',
               ]
@@ -596,7 +673,7 @@ final class PragmaticFastPath {
       } else {
         final candidates = withWellbeing
             ? [
-                'Bien por acá, aquí haciendo unas cosas.',
+                'Por acá todo tranquilo.',
                 'Todo bien por acá, aquí en lo mío.',
                 'Bien por acá, hablando contigo jaja.',
               ]
@@ -608,6 +685,50 @@ final class PragmaticFastPath {
               ];
         return _selectCandidate(candidates, conversationId, lastOutboundText);
       }
+    }
+
+    // Caso 4B: Recordatorio de compromiso / plan previo ("dijiste que iríamos", "habías dicho que salíamos", "quedamos en eso")
+    if (intents.contains(ConversationIntent.planReminder)) {
+      const candidates = [
+        'Sí, déjame revisar bien y más tarde te confirmo.',
+        'Sí claro, dame un rato y te aviso seguro.',
+        'Sí, déjame ver cómo me desocupo y te digo.',
+      ];
+      return _selectCandidate(candidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 4C: Pregunta sobre la hora ("qué hora es", "tienes la hora")
+    if (intents.contains(ConversationIntent.askTime)) {
+      final timeStr = TemporalLocationContext.formatTime(DateTime.now());
+      final candidates = [
+        'Son las $timeStr.',
+        'Por acá son las $timeStr.',
+        'Las $timeStr.',
+      ];
+      return _selectCandidate(candidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 4D: Pregunta sobre la fecha / día ("qué día es hoy", "qué fecha es hoy")
+    if (intents.contains(ConversationIntent.askDate)) {
+      final now = DateTime.now();
+      final dayName = TemporalLocationContext.dayOfWeekSpanish(now.weekday);
+      final monthName = TemporalLocationContext.monthSpanish(now.month);
+      final candidates = [
+        'Hoy es $dayName, ${now.day} de $monthName.',
+        'Hoy es $dayName.',
+        'Estamos a ${now.day} de $monthName.',
+      ];
+      return _selectCandidate(candidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 4E: Pregunta sobre ubicación / ciudad ("dónde estás", "en qué ciudad estás")
+    if (intents.contains(ConversationIntent.askLocation)) {
+      const candidates = [
+        'Por acá en Medellín.',
+        'En Medellín, Colombia.',
+        'Por acá por Medellín.',
+      ];
+      return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
 
     // Caso 5: Pregunta de presencia ("estás ahí?", "sigues ahí?")

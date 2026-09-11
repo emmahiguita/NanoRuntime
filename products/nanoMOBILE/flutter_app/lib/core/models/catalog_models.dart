@@ -286,6 +286,68 @@ abstract final class NeuralCatalog {
       template: ChatTemplate.mistral,
       tier: ModelTier.deep,
     ),
+    // MODELS-CAT-03 — Modelos multi-tier optimizados para móviles (1.2B a 2.6B):
+    // Conversación continua, comprensión, razonamiento, agentic y visión local.
+    LmCatalogEntry(
+      'LFM2.5-1.2B-Instruct-Q4_0-QAD',
+      '1.2B',
+      'Q4_0-QAD',
+      0.65,
+      1.1,
+      'LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf',
+      'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf',
+      'bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1',
+      template: ChatTemplate.qwen,
+      tier: ModelTier.interactive,
+    ),
+    LmCatalogEntry(
+      'Qwen3.5-2B-Q4_K_M',
+      '2B',
+      'Q4_K_M',
+      1.19,
+      1.8,
+      'Qwen3.5-2B-Q4_K_M.gguf',
+      'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
+      'aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223',
+      template: ChatTemplate.qwen,
+      tier: ModelTier.interactive,
+    ),
+    LmCatalogEntry(
+      'LFM2.5-1.2B-Thinking',
+      '1.2B',
+      'Q4_K_M',
+      0.68,
+      1.1,
+      'LFM2.5-1.2B-Thinking.Q4_K_M.gguf',
+      'https://huggingface.co/mradermacher/LFM2.5-1.2B-Thinking-GGUF/resolve/main/LFM2.5-1.2B-Thinking.Q4_K_M.gguf',
+      '5460bf6d126e85447e5542e88ade8aa6205bc947a28babc77736fffe91747cd8',
+      template: ChatTemplate.qwen,
+      tier: ModelTier.interactive,
+    ),
+    LmCatalogEntry(
+      'LFM2.5-2.6B-Q4_0-QAD',
+      '2.6B',
+      'Q4_0-QAD',
+      1.48,
+      2.2,
+      'LFM2.5-2.6B-QAD-Q4_0.gguf',
+      'https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-QAD-Q4_0.gguf',
+      'a247afd6414918eac8e520a9e6137dc271235461ecbe1180462221d5b8d40b03',
+      template: ChatTemplate.qwen,
+      tier: ModelTier.interactive,
+    ),
+    LmCatalogEntry(
+      'Gemma-3n-E2B-IT',
+      '2B',
+      'Q4_K_M',
+      2.81,
+      3.6,
+      'gemma-3n-E2B-it-Q4_K_M.gguf',
+      'https://huggingface.co/unsloth/gemma-3n-E2B-it-GGUF/resolve/main/gemma-3n-E2B-it-Q4_K_M.gguf',
+      '189d42b4303cb1078ea8d00963f437cd6d884069b7ba2ba80b38cd09585dc415',
+      template: ChatTemplate.gemma,
+      tier: ModelTier.deep,
+    ),
     // A16 — wake word (detector local microWakeWord, modelo .tflite). SHA256
     // verificado del release oficial OHF-Voice/micro-wake-word v2.1_models.
     // No hay modelo "Nano" pre-entrenado: se usa "hey mycroft" como base; un
@@ -346,6 +408,7 @@ abstract final class NeuralCatalog {
     if (lower.contains('llama')) return ChatTemplate.llama;
     if (lower.contains('mistral')) return ChatTemplate.mistral;
     if (lower.contains('gemma')) return ChatTemplate.gemma;
+    if (lower.contains('lfm')) return ChatTemplate.qwen;
     return ChatTemplate.qwen;
   }
 }

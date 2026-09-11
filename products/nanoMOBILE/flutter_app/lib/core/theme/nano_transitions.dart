@@ -32,6 +32,8 @@ class NanoGlassMorphTransition extends StatefulWidget {
 class _NanoGlassMorphTransitionState extends State<NanoGlassMorphTransition> {
   late CurvedAnimation _curvedForward;
   late CurvedAnimation _curvedSecondary;
+  late Animation<Offset> _slideIn;
+  late Animation<Offset> _slideOut;
 
   @override
   void initState() {
@@ -42,7 +44,7 @@ class _NanoGlassMorphTransitionState extends State<NanoGlassMorphTransition> {
   void _buildCurves() {
     _curvedForward = CurvedAnimation(
       parent: widget.animation,
-      curve: NanoMotionCurves.emphasized,
+      curve: NanoMotionCurves.standardDecel,
       reverseCurve: NanoMotionCurves.standardAccel,
     );
     _curvedSecondary = CurvedAnimation(
@@ -50,6 +52,14 @@ class _NanoGlassMorphTransitionState extends State<NanoGlassMorphTransition> {
       curve: NanoMotionCurves.standardDecel,
       reverseCurve: NanoMotionCurves.standardAccel,
     );
+    _slideIn = Tween<Offset>(
+      begin: const Offset(0.0, 0.025),
+      end: Offset.zero,
+    ).animate(_curvedForward);
+    _slideOut = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-0.025, 0.0),
+    ).animate(_curvedSecondary);
   }
 
   @override
@@ -72,67 +82,28 @@ class _NanoGlassMorphTransitionState extends State<NanoGlassMorphTransition> {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = NanoMotion.reduceMotion(context);
-    if (reduceMotion) {
+    if (NanoMotion.reduceMotion(context)) {
       return FadeTransition(opacity: widget.animation, child: widget.child);
     }
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([_curvedForward, _curvedSecondary]),
-      // UI-REV-10: RepaintBoundary aísla la página durante el vuelo — las
-      // transformaciones por frame no repintan el contenido (solo se mueve la
-      // capa), cero jank en GPU Mali.
-      child: RepaintBoundary(child: widget.child),
-      builder: (context, child) {
-        final t = _curvedForward.value;
-        final secT = _curvedSecondary.value;
-
-        // Interpolación de entrada (Destination Page)
-        final scaleIn = lerpDouble(0.982, 1.0, t)!;
-        final translateYIn = lerpDouble(12.0, 0.0, t)!;
-        final opacityIn = ((t - 0.20) / 0.80).clamp(0.0, 1.0);
-        // UI-REV-02: el clip redondeado solo se ve al inicio del vuelo.
-        // Antes radiusIn tardaba todo el viaje en llegar a 0 — el
-        // ClipRRect seguía montado (capa nueva por frame) hasta t≈0.98
-        // aunque el radio ya fuera invisible: jank gratuito en Mali.
-        // Ahora muere en t=0.4 y el resto de la transición corre sin clip.
-        final radiusIn = lerpDouble(32.0, 0.0, (t / 0.4).clamp(0.0, 1.0))!;
-
-        // Interpolación de salida secundaria (Origin Page cuando otra ruta se superpone o en back predictivo)
-        final scaleOut = lerpDouble(1.0, 0.985, secT)!;
-        final translateXOut = lerpDouble(0.0, -18.0, secT)!;
-        final opacityOut = lerpDouble(1.0, 0.85, secT)!;
-        // UI-REV-02: mismo principio que radiusIn — el redondeo de salida
-        // se percibe solo al arrancar el back; muere en secT=0.4.
-        final radiusOut = lerpDouble(0.0, 16.0, (secT / 0.4).clamp(0.0, 1.0))!;
-
-        final effectiveScale = scaleIn * scaleOut;
-        final effectiveRadius = radiusIn > 0 ? radiusIn : radiusOut;
-
-        Widget content = Transform.translate(
-          offset: Offset(translateXOut, translateYIn),
-          child: Transform.scale(
-            scale: effectiveScale,
-            child: Opacity(opacity: opacityIn * opacityOut, child: child),
+    return RepaintBoundary(
+      child: SlideTransition(
+        position: _slideOut,
+        child: SlideTransition(
+          position: _slideIn,
+          child: FadeTransition(
+            opacity: _curvedForward,
+            child: widget.child,
           ),
-        );
-
-        if (effectiveRadius > 0.5) {
-          content = ClipRRect(
-            borderRadius: BorderRadius.circular(effectiveRadius),
-            child: content,
-          );
-        }
-
-        return content;
-      },
+        ),
+      ),
     );
   }
 }
 
 /// Transición secundaria para navegación interna y ajustes (Expressive Slide).
 ///
-/// MEM-FIX-01: Misma corrección — CurvedAnimation gestionado por Estado.
+/// Optimizada con SlideTransition y FadeTransition en capas nativas para 60/120 fps.
 class NanoExpressiveSlideTransition extends StatefulWidget {
   final Animation<double> animation;
   final Animation<double> secondaryAnimation;
@@ -154,6 +125,8 @@ class _NanoExpressiveSlideTransitionState
     extends State<NanoExpressiveSlideTransition> {
   late CurvedAnimation _forward;
   late CurvedAnimation _secondary;
+  late Animation<Offset> _slideIn;
+  late Animation<Offset> _slideOut;
 
   @override
   void initState() {
@@ -172,6 +145,14 @@ class _NanoExpressiveSlideTransitionState
       curve: NanoMotionCurves.standardDecel,
       reverseCurve: NanoMotionCurves.standardAccel,
     );
+    _slideIn = Tween<Offset>(
+      begin: const Offset(0.04, 0.0),
+      end: Offset.zero,
+    ).animate(_forward);
+    _slideOut = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-0.03, 0.0),
+    ).animate(_secondary);
   }
 
   @override
@@ -198,28 +179,17 @@ class _NanoExpressiveSlideTransitionState
       return FadeTransition(opacity: widget.animation, child: widget.child);
     }
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([_forward, _secondary]),
-      // UI-REV-10: misma capa aislada del glass morph — mover sin repintar.
-      child: RepaintBoundary(child: widget.child),
-      builder: (context, child) {
-        final t = _forward.value;
-        final secT = _secondary.value;
-
-        final translateX =
-            lerpDouble(24.0, 0.0, t)! + lerpDouble(0.0, -16.0, secT)!;
-        final scale =
-            lerpDouble(0.990, 1.0, t)! * lerpDouble(1.0, 0.990, secT)!;
-        final opacity = lerpDouble(0.0, 1.0, t)! * lerpDouble(1.0, 0.88, secT)!;
-
-        return Transform.translate(
-          offset: Offset(translateX, 0),
-          child: Transform.scale(
-            scale: scale,
-            child: Opacity(opacity: opacity.clamp(0.0, 1.0), child: child),
+    return RepaintBoundary(
+      child: SlideTransition(
+        position: _slideOut,
+        child: SlideTransition(
+          position: _slideIn,
+          child: FadeTransition(
+            opacity: _forward,
+            child: widget.child,
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

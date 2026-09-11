@@ -114,14 +114,35 @@ final class RuntimeConversationReplyComposer
 
     debugPrint(
       '[conversation-compose] conv=${conversationId.length <= 8 ? conversationId : conversationId.substring(0, 8)} '
-      'sender="${notification.sender}" input="${notification.text}"',
+      'senderHash=${notification.sender.hashCode} inputLen=${notification.text.length}',
     );
 
     // 1. Pragmatic Fast Path: Saludos y agradecimientos puros (0 LLM, 0 latencia).
+    // WA-INTENT-TURN: En WhatsApp, una notificación puede contener múltiples mensajes no
+    // leídos concatenados con ' · ' (MessagingStyle). El Fast Path debe evaluar primordialmente
+    // el último mensaje real entrante (interpretableText o el último segmento tras ' · ').
+    final targetText = () {
+      final inter = notification.interpretableText.trim();
+      if (inter.contains(' · ')) {
+        final segments = inter.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
+        if (segments.isNotEmpty) return segments.last;
+      }
+      if (inter.isNotEmpty) return inter;
+      final raw = notification.text.trim();
+      if (raw.contains(' · ')) {
+        final segments = raw.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
+        if (segments.isNotEmpty) return segments.last;
+      }
+      return raw;
+    }();
+
     final fast = await _fastPath?.resolve(
+      text: targetText,
+      conversationId: conversationId,
+    ) ?? (targetText != notification.text ? await _fastPath?.resolve(
       text: notification.text,
       conversationId: conversationId,
-    );
+    ) : null);
     if (fast != null) {
       final cleaned = LanguageAssistService.safeCleanOutput(fast.reply);
       final decision = _decisionEngine.decide(
@@ -149,9 +170,12 @@ final class RuntimeConversationReplyComposer
       );
     }
 
-    // 2. Control térmico: SEVERE+ (>=3) suprime la inferencia LLM opcional.
+    // 2. Control térmico: CRITICAL+ (>=4) suprime la inferencia LLM opcional.
+    // Constantes Android PowerManager: 0 none, 1 light, 2 moderate, 3 severe, 4 critical.
+    // En dispositivos conectados a USB/cargador (Oppo/ColorOS), thermal=3 (severe) es habitual
+    // y no debe apagar la automatización conversacional.
     final thermal = await _thermalStatus?.call();
-    if (thermal != null && thermal >= 3) {
+    if (thermal != null && thermal >= 4) {
       debugPrint(
         '[conversation-compose] thermal $thermal (critical+): inferencia LLM suprimida',
       );
@@ -235,6 +259,7 @@ final class RuntimeConversationReplyComposer
     }
 
     // 2. Si el texto base contiene múltiples oraciones, generar variante concisa (primera oración).
+    // Evitar truncar si la primera oración omite respuestas a preguntas del mensaje original (H-09).
     if (baseText.contains('.') ||
         baseText.contains('?') ||
         baseText.contains('!')) {
@@ -244,7 +269,19 @@ final class RuntimeConversationReplyComposer
           .where((s) => s.isNotEmpty)
           .toList();
       if (sentences.length > 1) {
-        final concise = LanguageAssistService.safeCleanOutput(sentences.first);
+        final inputHasQuestions = notification.text.contains('?') ||
+            notification.text.toLowerCase().contains('cuanto') ||
+            notification.text.toLowerCase().contains('precio') ||
+            notification.text.toLowerCase().contains('horario');
+        final firstIsJustGreeting = sentences.first.length < 25 &&
+            (sentences.first.toLowerCase().contains('hola') ||
+                sentences.first.toLowerCase().contains('buenas'));
+
+        final candidateSentence = (inputHasQuestions && firstIsJustGreeting && sentences.length > 1)
+            ? sentences.sublist(1).join(' ')
+            : sentences.first;
+
+        final concise = LanguageAssistService.safeCleanOutput(candidateSentence);
         if (concise.isNotEmpty && !suggestions.contains(concise)) {
           suggestions.add(concise);
         }

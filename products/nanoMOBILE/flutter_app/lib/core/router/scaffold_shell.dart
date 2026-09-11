@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/design_tokens.dart';
+import '../theme/nano_motion.dart';
 import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/liquid_fluid_background.dart';
@@ -71,7 +72,7 @@ class ScaffoldShell extends StatelessWidget {
           children: [
             Positioned.fill(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
+                duration: NanoMotionDurations.standard,
                 child: useLiquid
                     ? const LiquidFluidBackground(
                         key: ValueKey('liquid_fluid_bg'),

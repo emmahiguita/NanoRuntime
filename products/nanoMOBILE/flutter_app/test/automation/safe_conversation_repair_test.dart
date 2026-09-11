@@ -12,14 +12,14 @@ void main() {
         reply: 'Estoy grabando en el estudio',
         userText: '¿Qué haces?',
       );
-      expect(r1, equals('Todavía no lo tengo decidido.'));
+      expect(r1, equals('Por acá tranquilo por ahora.'));
 
       final r2 = repairer.repair(
         RepairCase.liveStateQuestionMirror,
-        reply: '¿Vas a rapear hoy?',
-        userText: '¿Vas a rapear hoy?',
+        reply: '¿Vas a salir hoy?',
+        userText: '¿Vas a salir hoy?',
       );
-      expect(r2, equals('Todavía no lo tengo decidido.'));
+      expect(r2, equals('Todavía no sé si voy a ir hoy.'));
     });
 
     test('Repara callCenterPhrase eliminando muletilla de operador', () {

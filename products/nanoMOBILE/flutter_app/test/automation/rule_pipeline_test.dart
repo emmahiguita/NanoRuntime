@@ -12,6 +12,7 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
+import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
 
 NotificationObject notif({
   String sender = 'Juan',
@@ -122,14 +123,17 @@ void main() {
     });
 
     test('draft → drafted', () async {
+      final store = PendingReplyStore();
       final dispatcher = RuleDispatcher(
         (_, {AutomationOptions? options}) async => ok,
+        pendingReplyStore: store,
       );
       final r = await dispatcher.dispatch(
         rule(action: RuleAction.draft),
         notif(),
       );
       expect(r.outcome, RuleOutcome.drafted);
+      expect(await store.allPending(), isNotEmpty);
     });
 
     test('coordinator falla → failed', () async {

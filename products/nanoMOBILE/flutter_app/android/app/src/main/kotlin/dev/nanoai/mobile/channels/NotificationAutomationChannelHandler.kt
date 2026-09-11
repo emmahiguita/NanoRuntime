@@ -182,12 +182,14 @@ class NotificationAutomationChannelHandler(
                 val actionIndex = call.argument<Number>("actionIndex")?.toInt() ?: -1
                 val remoteInputKey = call.argument<String>("remoteInputKey").orEmpty()
                 val contextFingerprint = call.argument<String>("contextFingerprint").orEmpty()
+                val postTime = call.argument<Number>("postTime")?.toLong() ?: 0L
                 val reply = service.reply(
                     key,
                     text,
                     expectedActionIndex = actionIndex,
                     expectedRemoteInputKey = remoteInputKey,
                     expectedContextFingerprint = contextFingerprint,
+                    expectedPostTime = postTime,
                 )
                 result.success(mapOf("ok" to reply.ok, "code" to reply.code))
             }

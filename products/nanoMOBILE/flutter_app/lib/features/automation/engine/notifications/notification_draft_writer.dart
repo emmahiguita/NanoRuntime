@@ -35,6 +35,7 @@ import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;
 import 'conversation_understanding.dart';
 import 'notification_draft_prompt.dart';
 import 'notification_object.dart';
+import '../language/temporal_location_context.dart';
 import '../language/turn_complexity_classifier.dart'
     show turnComplexityClassifier;
 
@@ -353,12 +354,15 @@ final class RuntimeNotificationDraftWriter {
       // Negro?"): rol personal por identidad PERO commercialIntent true →
       // <DATOS DEL NEGOCIO> entra igual: UNA respuesta con estilo del dueño
       // y facts reales (jamás un chat entre agentes).
-      final business =
+      final isCommercial =
           (routing == null ||
               role == ConversationAgentRole.sales ||
-              routing.commercialIntent)
-          ? _businessBlock?.call(notification.text) ?? ''
-          : '';
+              routing.commercialIntent);
+      final business =
+          isCommercial ? _businessBlock?.call(notification.text) ?? '' : '';
+      // FASE 8: El tono comercial (ToneProfile) entra ÚNICAMENTE en turnos
+      // de venta. En turnos personales NUNCA entra el tono de ventas.
+      final tone = isCommercial ? _toneBlock?.call() : null;
       final turnSession = '$conversationId|${_flightFingerprint(notification)}';
       // CONTEXT-GATE-01 — traza diagnóstica TEMPORAL (se quita tras la
       // validación física M01-M10): una línea antes de llamar al modelo con
@@ -412,7 +416,7 @@ final class RuntimeNotificationDraftWriter {
           social &&
           !(routing?.pendingReply ?? false) &&
           !isLiveStateQuestion(notification.text);
-      MessagingMetrics.increment('semanticLlmCalls');
+      final temporalBlock = TemporalLocationContext.promptBlock();
       final raw = await generateWithColdRetry(
         _client,
         prompt: socialOrPendingReply
@@ -420,17 +424,19 @@ final class RuntimeNotificationDraftWriter {
                 text: notification.text,
                 style: _styleEnabled() ? _styleText() : null,
                 persona: persona,
-                tone: _toneBlock?.call(),
+                tone: tone,
                 history: formatConversationHistory(socialEntries),
+                temporalContext: temporalBlock,
               )
             : conversationAgentPromptFor(
                 history: history,
                 text: notification.text,
                 style: _styleEnabled() ? _styleText() : null,
                 business: business,
-                tone: _toneBlock?.call(),
+                tone: tone,
                 persona: persona,
                 clientContext: clientContext,
+                temporalContext: temporalBlock,
               ),
         temperature: 0.3,
         maxTokens: socialOrPendingReply ? 128 : 320,

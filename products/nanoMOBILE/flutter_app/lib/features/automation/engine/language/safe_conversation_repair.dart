@@ -40,6 +40,12 @@ final class SafeConversationRepair {
             u.contains('salir')) {
           return 'Todavía no sé si voy a ir hoy.';
         }
+        if (u.contains('haces') ||
+            u.contains('haciendo') ||
+            u.contains('estas en') ||
+            u.contains('en que andas')) {
+          return 'Por acá tranquilo por ahora.';
+        }
         return 'Todavía no lo tengo decidido.';
 
       case RepairCase.redundantQuestion:

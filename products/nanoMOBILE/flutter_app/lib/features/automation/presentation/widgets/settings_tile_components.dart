@@ -40,15 +40,17 @@ class SettingsCard extends StatelessWidget {
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
-    required this.icon,
+    this.icon,
+    this.imageAsset,
     required this.title,
     required this.subtitle,
     this.trailing,
     this.onTap,
     this.showChevron = true,
-  });
+  }) : assert(icon != null || imageAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? imageAsset;
   final String title;
   final String subtitle;
   final Widget? trailing;
@@ -88,7 +90,17 @@ class SettingsRow extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(icon, color: visual.accent, size: 22),
+                  child: imageAsset != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            imageAsset!,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Icon(icon!, color: visual.accent, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

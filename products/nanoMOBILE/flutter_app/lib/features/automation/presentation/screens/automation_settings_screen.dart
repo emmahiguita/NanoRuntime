@@ -10,11 +10,14 @@ import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/automation_settings_pickers.dart';
 import '../widgets/capability_status_card.dart';
-import '../widgets/personal_agent_cards.dart';
 import '../widgets/settings_tile_components.dart';
 import '../widgets/whatsapp_integration_cards.dart';
 import 'automation_rules_screen.dart';
+import 'business_studio_screen.dart';
+import 'personal_agent_screen.dart';
 import '../../personal_agent/presentation/personalization_studio_screen.dart';
+import '../../engine/business/business_facts_providers.dart';
+import '../../engine/messaging/tone_profile_providers.dart';
 
 // Re-exportamos la enumeración para compatibilidad total con consumidores externos.
 export '../widgets/settings_tile_components.dart'
@@ -333,14 +336,33 @@ class _AutomationSettingsScreenState
   }
 
   List<Widget> _buildBrainSection(BuildContext context) {
+    final productsCount =
+        ref.watch(businessFactsNotifierProvider).products.length;
+    final tone = ref.watch(toneProfileNotifierProvider);
     return [
-      const AutomationSectionLabel('Agente Personal'),
+      const AutomationSectionLabel('Agente Personal de WhatsApp'),
       SettingsCard(
         children: [
           SettingsRow(
-            icon: Icons.psychology_outlined,
+            imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+            title: 'Agente Personal WPP',
+            subtitle: tone.enabled
+                ? 'Activo: trato ${tone.warmth.name}, respuestas ${tone.verbosity.name}'
+                : 'Configurar identidad, trato, extensión y emojis',
+            trailing: ValueBadge(
+              label: tone.enabled ? 'ACTIVO' : 'CONFIGURAR',
+            ),
+            onTap: () => Navigator.of(context).push(
+              nanoGlassPageRoute<void>(
+                builder: (_) => const PersonalAgentScreen(),
+              ),
+            ),
+          ),
+          SettingsRow(
+            imageAsset: 'assets/automation/icons/icon_reglas.png',
             title: 'Aprender de mis conversaciones',
-            subtitle: 'Importar, revisar y personalizar por contacto',
+            subtitle: 'Importar chats, afinar memoria semántica y por contacto',
+            trailing: const ValueBadge(label: 'EXPLORAR'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
                 builder: (_) => const PersonalizationStudioScreen(),
@@ -349,14 +371,27 @@ class _AutomationSettingsScreenState
           ),
         ],
       ),
-      const SizedBox(height: 16),
-      const PersonalAgentCard(),
       const SizedBox(height: 24),
-      const AutomationSectionLabel('Tono de respuesta'),
-      const ToneCard(),
-      const SizedBox(height: 24),
-      const AutomationSectionLabel('Datos del negocio'),
-      const BusinessDataCard(),
+      const AutomationSectionLabel('WhatsApp Comercial y Negocio'),
+      SettingsCard(
+        children: [
+          SettingsRow(
+            imageAsset: 'assets/automation/whatsapp_business_icon.png',
+            title: 'WhatsApp Negocio y Catálogo',
+            subtitle: productsCount == 0
+                ? 'Sin productos — toca para configurar o cargar plantilla'
+                : '$productsCount producto${productsCount == 1 ? '' : 's'} configurado${productsCount == 1 ? '' : 's'}',
+            trailing: ValueBadge(
+              label: productsCount == 0 ? 'CONFIGURAR' : '$productsCount PRODUCTOS',
+            ),
+            onTap: () => Navigator.of(context).push(
+              nanoGlassPageRoute<void>(
+                builder: (_) => const BusinessStudioScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
     ];
   }
 
@@ -367,7 +402,7 @@ class _AutomationSettingsScreenState
       SettingsCard(
         children: [
           SettingsRow(
-            icon: Icons.rule_rounded,
+            imageAsset: 'assets/automation/icons/icon_reglas.png',
             title: 'Reglas de automatización',
             subtitle: rulesCount == 0
                 ? 'Sin reglas activas'
@@ -386,7 +421,7 @@ class _AutomationSettingsScreenState
       const SettingsCard(
         children: [
           SettingsRow(
-            icon: Icons.verified_user_outlined,
+            imageAsset: 'assets/automation/icons/icon_permisos.png',
             title: 'Acciones críticas protegidas',
             subtitle: 'Confirmación y política activas',
             trailing: ReadonlyStatus(),

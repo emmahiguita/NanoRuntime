@@ -63,6 +63,7 @@ flutter:
     - assets/buho/portrait/
     - assets/buho/horizontal/
     - assets/automation/
+    - assets/automation/icons/
   fonts:
     - family: Inter
       fonts:

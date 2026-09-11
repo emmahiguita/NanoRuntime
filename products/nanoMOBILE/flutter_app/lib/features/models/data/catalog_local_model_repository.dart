@@ -69,6 +69,16 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       'Razonamiento profundo. Pesado para móvil.',
     'DeepSeek-R1-Distill-Qwen-7B-Q2' =>
       'Variante Q2_K del 7B: menor RAM, calidad reducida.',
+    'LFM2.5-1.2B-Instruct-Q4_0-QAD' =>
+      'Conversación permanente ultra-rápida. Diseñado para background 24/7 y móviles de 4GB.',
+    'Qwen3.5-2B-Q4_K_M' =>
+      'Comprensión semántica, extracción de entidades y análisis para móviles equilibrados.',
+    'LFM2.5-1.2B-Thinking' =>
+      'Razonamiento profundo bajo demanda (<think>) ultraligero y de bajo impacto de batería.',
+    'LFM2.5-2.6B-Q4_0-QAD' =>
+      'Agentic premium para ejecución y herramientas multi-paso (2.2GB RAM).',
+    'Gemma-3n-E2B-IT' =>
+      'Visión multimodal eficiente de Google para análisis de pantalla e imágenes en móvil.',
     _ => 'Cuantización y tamaño reales de HuggingFace.',
   };
 }

@@ -434,6 +434,8 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     // PERSONA-COMPOSE-08 — perfil del dueño + relaciones en cache antes de
     // que el writer arme bloques <DATOS DE LA PERSONA>.
     ref.read(personaContextProvider).load(),
+    // WA-DRAFT-01 — bandeja de borradores hidratada y reconciliada antes del primer evento.
+    ref.read(pendingReplyStoreProvider).init(),
   ]);
 });
 

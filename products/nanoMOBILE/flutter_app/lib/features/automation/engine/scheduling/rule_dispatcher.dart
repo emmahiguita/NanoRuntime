@@ -296,10 +296,17 @@ class RuleDispatcher {
         );
 
       case RuleAction.draft:
-        // WA-DRAFT-INBOX-01 — si hay compositor y store de pendientes,
-        // generar el borrador contextual único y guardarlo para revisión en UI.
+        // WA-DRAFT-INBOX-01 — si hay almacén de borradores, guardar para revisión en UI.
+        final store = _pendingReplyStore;
+        if (store == null) {
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: 'sin almacén de borradores disponible',
+          );
+        }
         final composer = _composer;
-        if (composer != null && _pendingReplyStore != null) {
+        if (composer != null) {
           final result = await composer.compose(
             notif,
             decisionContext: _decisionContext?.call(notif),
@@ -307,10 +314,24 @@ class RuleDispatcher {
           if (result != null && result.hasReply && permitsPreparation()) {
             return _retainDraft(rule, notif, result.text);
           }
+          return RuleDispatchResult(
+            ruleId: rule.id,
+            outcome: RuleOutcome.failed,
+            reason: result == null || !result.hasReply
+                ? 'el motor no produjo borrador para la notificación'
+                : 'la política no permite preparar el borrador',
+          );
+        }
+        // Sin compositor dinámico: si la regla tiene texto estático, usarlo como borrador.
+        if (rule.message.trim().isNotEmpty && permitsPreparation()) {
+          return _retainDraft(rule, notif, rule.message);
         }
         return RuleDispatchResult(
           ruleId: rule.id,
-          outcome: RuleOutcome.drafted,
+          outcome: RuleOutcome.failed,
+          reason: rule.message.trim().isEmpty
+              ? 'regla de borrador sin mensaje estático ni compositor dinámico'
+              : 'la política no permite preparar el borrador',
         );
 
       case RuleAction.reply:
@@ -587,6 +608,7 @@ class RuleDispatcher {
         reason: 'sin almacén de borradores o texto para revisión',
       );
     }
+    final capability = ReplyCapabilityRef.fromNotification(notification);
     final now = DateTime.now();
     try {
       await store.save(PendingReply(
@@ -599,6 +621,9 @@ class RuleDispatcher {
         sourceRuleId: rule.id,
         notificationKey: notification.key,
         notificationPostTime: notification.postTime,
+        actionIndex: capability?.actionIndex ?? notification.actionIndex,
+        remoteInputKey: capability?.remoteInputResultKey ?? notification.remoteInputKey,
+        contextFingerprint: capability?.contextFingerprint ?? '',
         status: PendingReplyStatus.pending,
         createdAt: now,
         expiresAt: now.add(const Duration(hours: 24)),

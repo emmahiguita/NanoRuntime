@@ -146,7 +146,8 @@ class RulePipeline {
           MessagingMetrics.increment('notificationsObserved');
           if (!isNotificationEligible(event.packageName) ||
               event.isSummary ||
-              (event.packageName == MessagingPackage.whatsapp &&
+              ((event.packageName == MessagingPackage.whatsapp ||
+                      event.packageName == MessagingPackage.whatsappBusiness) &&
                   event.sender == 'Tú')) {
             MessagingMetrics.increment('noiseDropped');
             debugPrint('[noise] pkg=${event.packageName} pre-burst');

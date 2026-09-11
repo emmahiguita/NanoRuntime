@@ -26,6 +26,8 @@ enum AutomationModelRole {
   intentUnderstanding,
   draftWriter,
   summarizer,
+  reasoning,
+  vision,
 }
 
 /// Perfil de automatización por modelo. Solo campos REALMENTE consumibles:
@@ -68,4 +70,70 @@ class AutomationModelProfile {
         },
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
       );
+}
+
+/// Presets de asignación de modelos según la capacidad de hardware del dispositivo móvil.
+abstract final class AutomationTierPresets {
+  /// Gama económica (≤ 4GB RAM) — Foco en bajo consumo y permanencia en background.
+  static const lightweight4Gb = AutomationHardwareTier(
+    id: 'tier_4gb_lightweight',
+    name: 'Ligero (Móviles ≤ 4GB RAM)',
+    recommendedModel: 'LFM2.5-1.2B-Instruct-Q4_0-QAD',
+    roles: {AutomationModelRole.draftWriter, AutomationModelRole.intentUnderstanding},
+    estimatedRamGb: 1.1,
+  );
+
+  /// Gama media (6GB a 8GB RAM) — Comprensión semántica equilibrada y razonamiento bajo demanda.
+  static const balanced6to8Gb = AutomationHardwareTier(
+    id: 'tier_6_8gb_balanced',
+    name: 'Equilibrado (Móviles 6GB a 8GB RAM)',
+    recommendedModel: 'Qwen3.5-2B-Q4_K_M',
+    reasoningModel: 'LFM2.5-1.2B-Thinking',
+    roles: {
+      AutomationModelRole.draftWriter,
+      AutomationModelRole.intentUnderstanding,
+      AutomationModelRole.selector,
+      AutomationModelRole.reasoning,
+    },
+    estimatedRamGb: 1.8,
+  );
+
+  /// Gama alta (≥ 12GB RAM) — Capacidades avanzadas agentic y visión multimodal.
+  static const advanced12Gb = AutomationHardwareTier(
+    id: 'tier_12gb_advanced',
+    name: 'Avanzado (Móviles ≥ 12GB RAM)',
+    recommendedModel: 'LFM2.5-2.6B-Q4_0-QAD',
+    visionModel: 'Gemma-3n-E2B-IT',
+    roles: {
+      AutomationModelRole.draftWriter,
+      AutomationModelRole.intentUnderstanding,
+      AutomationModelRole.selector,
+      AutomationModelRole.planner,
+      AutomationModelRole.reasoning,
+      AutomationModelRole.vision,
+    },
+    estimatedRamGb: 2.2,
+  );
+
+  static const tiers = [lightweight4Gb, balanced6to8Gb, advanced12Gb];
+}
+
+class AutomationHardwareTier {
+  final String id;
+  final String name;
+  final String recommendedModel;
+  final String? reasoningModel;
+  final String? visionModel;
+  final Set<AutomationModelRole> roles;
+  final double estimatedRamGb;
+
+  const AutomationHardwareTier({
+    required this.id,
+    required this.name,
+    required this.recommendedModel,
+    this.reasoningModel,
+    this.visionModel,
+    required this.roles,
+    required this.estimatedRamGb,
+  });
 }

@@ -1210,6 +1210,7 @@ class NanoRuntimeApi {
     int? actionIndex,
     String? remoteInputKey,
     String? contextFingerprint,
+    int? postTime,
   }) async {
     if (!confirmed) {
       return const {'ok': false, 'code': 'CONFIRMATION_REQUIRED'};
@@ -1223,6 +1224,7 @@ class NanoRuntimeApi {
             if (remoteInputKey != null) 'remoteInputKey': remoteInputKey,
             if (contextFingerprint != null)
               'contextFingerprint': contextFingerprint,
+            if (postTime != null && postTime > 0) 'postTime': postTime,
           }) ??
           const {'ok': false, 'code': 'EMPTY_RESPONSE'};
     } catch (e) {

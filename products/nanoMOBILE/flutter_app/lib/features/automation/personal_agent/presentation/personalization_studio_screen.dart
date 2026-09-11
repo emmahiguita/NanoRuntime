@@ -192,207 +192,32 @@ class _PersonalizationStudioScreenState
     final existing = scope.id == 'owner'
         ? _owner?.facts ?? <String, String>{}
         : scope.profile?.facts ?? <String, String>{};
-    var register =
-        {
-          'formal',
-          'casual',
-          'close',
-          'custom',
-        }.contains(existing['styleRegister'])
-        ? existing['styleRegister']!
-        : 'casual';
-    var relationship =
-        {
-          'known',
-          'close',
-          'family',
-          'professional',
-        }.contains(existing['relationship'])
-        ? existing['relationship']!
-        : 'known';
-    var learn = existing['learnStyle'] != 'false',
-        enabled = existing['profileEnabled'] != 'false',
-        slang = existing['allowSlang'] == 'true';
-    var usesName = existing['usesContactName'] == 'never' ? 'never' : 'natural';
-    var tone = const ToneProfile(enabled: true, verbosity: ToneVerbosity.breve);
-    try {
-      if (existing['tone'] case final String raw) {
-        tone = ToneProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      }
-    } catch (_) {}
-    final custom = TextEditingController(text: existing['customStyle'] ?? '');
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_StyleResult>(
       context: context,
-      builder: (dialog) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: Text(
-            scope.id == 'owner' ? 'Mi estilo global' : 'Estilo: ${scope.label}',
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (scope.id != 'owner')
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Aplicar este perfil'),
-                      value: enabled,
-                      onChanged: (v) => update(() => enabled = v),
-                    ),
-                  DropdownButtonFormField<String>(
-                    initialValue: register,
-                    decoration: const InputDecoration(labelText: 'Registro'),
-                    items: const [
-                      DropdownMenuItem(value: 'formal', child: Text('Formal')),
-                      DropdownMenuItem(
-                        value: 'casual',
-                        child: Text('Casual neutral'),
-                      ),
-                      DropdownMenuItem(value: 'close', child: Text('Cercano')),
-                      DropdownMenuItem(
-                        value: 'custom',
-                        child: Text('Personalizado'),
-                      ),
-                    ],
-                    onChanged: (v) => update(() => register = v!),
-                  ),
-                  if (scope.id != 'owner')
-                    DropdownButtonFormField<String>(
-                      initialValue: relationship,
-                      decoration: const InputDecoration(
-                        labelText: 'Relación declarada',
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'known',
-                          child: Text('Conocido'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'close',
-                          child: Text('Amistad cercana'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'family',
-                          child: Text('Familia'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'professional',
-                          child: Text('Profesional'),
-                        ),
-                      ],
-                      onChanged: (v) => update(() => relationship = v!),
-                    ),
-                  DropdownButtonFormField<ToneVerbosity>(
-                    initialValue: tone.verbosity,
-                    decoration: const InputDecoration(labelText: 'Longitud'),
-                    items: [
-                      for (final v in ToneVerbosity.values)
-                        DropdownMenuItem(value: v, child: Text(v.name)),
-                    ],
-                    onChanged: (v) =>
-                        update(() => tone = tone.copyWith(verbosity: v)),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Emojis moderados'),
-                    value: tone.emojis,
-                    onChanged: (v) =>
-                        update(() => tone = tone.copyWith(emojis: v)),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Permitir vocabulario coloquial cuando encaje',
-                    ),
-                    subtitle: const Text(
-                      'Nunca fuerza slang; Formal lo excluye.',
-                    ),
-                    value: slang,
-                    onChanged: (v) => update(() => slang = v),
-                  ),
-                  DropdownButtonFormField<String>(
-                    initialValue: usesName,
-                    decoration: const InputDecoration(
-                      labelText: 'Uso del nombre',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'natural',
-                        child: Text('Solo cuando sea natural'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'never',
-                        child: Text('No usarlo al saludar'),
-                      ),
-                    ],
-                    onChanged: (v) => update(() => usesName = v!),
-                  ),
-                  if (scope.id != 'owner')
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Usar este contacto para mi estilo'),
-                      subtitle: const Text(
-                        'Permite importar y recuperar sus ejemplos. Desactivarlo no borra datos.',
-                      ),
-                      value: learn,
-                      onChanged: (v) => update(() => learn = v),
-                    ),
-                  TextField(
-                    controller: custom,
-                    maxLength: 240,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Preferencias de forma',
-                      hintText: 'Breve, sin emojis, humor solo si encaja…',
-                    ),
-                  ),
-                  const Text(
-                    'El estilo no acredita ubicación, actividad, stock ni disponibilidad actuales.',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialog, true),
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _StyleEditDialog(scope: scope, existing: existing),
     );
-    final customText = custom.text.trim();
-    custom.dispose();
-    if (saved != true) return;
+    if (result == null) return;
     await _run(() async {
       final facts = {
         ...existing,
-        'styleRegister': register,
-        'relationship': relationship,
-        'learnStyle': '$learn',
-        'profileEnabled': '$enabled',
-        'allowSlang': '$slang',
-        'usesContactName': usesName,
-        'customStyle': customText,
+        'styleRegister': result.register,
+        'relationship': result.relationship,
+        'learnStyle': '${result.learn}',
+        'profileEnabled': '${result.enabled}',
+        'allowSlang': '${result.slang}',
+        'usesContactName': result.usesName,
+        'customStyle': result.custom,
         'tone': jsonEncode(
-          tone
+          result.tone
               .copyWith(
                 enabled: true,
-                warmth: register == 'formal'
+                warmth: result.register == 'formal'
                     ? ToneWarmth.formal
                     : ToneWarmth.cercano,
               )
               .toJson(),
         ),
-        if (scope.conversationId != null)
-          'conversationId': scope.conversationId!,
+        if (scope.conversationId != null) 'conversationId': scope.conversationId!,
       };
       final ok = scope.id == 'owner'
           ? await _repo.upsertPersona('owner', _owner?.displayName ?? '', facts)
@@ -608,269 +433,74 @@ class _PersonalizationStudioScreenState
     PersonaExample? example,
     bool template = false,
   }) async {
-    final incoming = TextEditingController(text: example?.incomingText ?? ''),
-        reply = TextEditingController(text: example?.body ?? '');
-    var scope = example?.personaKey ?? _scope,
-        verified = example?.ownerVerified ?? false,
-        enabled = example?.enabled ?? true;
-    final isTemplate = example?.isTemplate ?? template;
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_ExampleResult>(
       context: context,
-      builder: (dialog) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: Text(
-            isTemplate ? 'Plantilla de orientación' : 'Ejemplo real del dueño',
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _scopeField(scope, (value) => update(() => scope = value)),
-                  TextField(
-                    controller: incoming,
-                    maxLength: 2000,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Qué me dijeron',
-                      helperText: 'Vacío = solo estilo, no par condicionado.',
-                    ),
-                  ),
-                  TextField(
-                    controller: reply,
-                    maxLength: 2000,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: isTemplate
-                          ? 'Guía de respuesta'
-                          : 'Qué respondí realmente',
-                    ),
-                  ),
-                  if (isTemplate)
-                    const Text(
-                      'Variables sin datos reales no se rellenan. Una plantilla no prueba stock, precio ni estado actual.',
-                    ),
-                  if (!isTemplate)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Esta respuesta la escribí yo; no es una salida de Nano',
-                      ),
-                      value: verified,
-                      onChanged: (v) => update(() => verified = v!),
-                    ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Usar al recuperar ejemplos'),
-                    value: enabled,
-                    onChanged: (v) => update(() => enabled = v),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: isTemplate || verified
-                  ? () => Navigator.pop(dialog, true)
-                  : null,
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
+      builder: (_) => _ExampleEditDialog(
+        example: example,
+        isTemplate: example?.isTemplate ?? template,
+        initialScope: example?.personaKey ?? _scope,
+        scopes: _scopes,
+        busy: _busy || _importing,
       ),
     );
-    final body = reply.text.trim(), input = incoming.text.trim();
-    incoming.dispose();
-    reply.dispose();
-    if (saved != true) return;
-    if (body.isEmpty) {
+    if (result == null) return;
+    if (result.body.isEmpty) {
       _notice('Escribe la respuesta o la plantilla antes de guardar.');
       return;
     }
     await _run(() async {
       final tone = {
         ...?example?.tone,
-        'enabled': '$enabled',
-        'sourceContact': example?.tone['sourceContact'] ?? scope,
-        'observedAt':
-            example?.tone['observedAt'] ??
-            '${DateTime.now().millisecondsSinceEpoch}',
-        'ownerVerified': '$verified',
-        'kind': isTemplate
-            ? 'template'
-            : input.isEmpty
-            ? 'style'
-            : 'paired',
+        'enabled': '${result.enabled}',
+        'sourceContact': example?.tone['sourceContact'] ?? result.scope,
+        'observedAt': example?.tone['observedAt'] ?? '${DateTime.now().millisecondsSinceEpoch}',
+        'ownerVerified': '${result.verified}',
+        'kind': result.isTemplate ? 'template' : result.input.isEmpty ? 'style' : 'paired',
       };
       if (example == null) {
-        if (!await _repo.addExample(
-          personaKey: scope,
-          body: body,
-          incomingText: input,
+        final success = await _repo.addExample(
+          personaKey: result.scope,
+          body: result.body,
+          incomingText: result.input,
           tone: tone,
-          source: isTemplate ? 'template' : 'manual',
-        )) {
+          source: result.isTemplate ? 'template' : 'manual',
+        );
+        if (!success) {
           throw StateError('No se pudo guardar el ejemplo.');
         }
       } else {
-        await _repo.updateExample(
-          example,
-          body: body,
-          incomingText: input,
-          tone: tone,
-          scopeKey: scope,
-        );
+        await _repo.updateExample(example, body: result.body, incomingText: result.input, tone: tone, scopeKey: result.scope);
       }
     });
   }
 
   Future<void> _editMemory([PersonalMemory? memory]) async {
-    final key = TextEditingController(text: memory?.key ?? ''),
-        value = TextEditingController(text: memory?.value ?? '');
-    final observed = TextEditingController(
-      text: DateTime.fromMillisecondsSinceEpoch(
-        memory?.observedAt ?? DateTime.now().millisecondsSinceEpoch,
-      ).toIso8601String(),
-    );
-    final expiry = TextEditingController(
-      text: memory?.expiresAt == null
-          ? ''
-          : DateTime.fromMillisecondsSinceEpoch(
-              memory!.expiresAt!,
-            ).toIso8601String(),
-    );
-    var kind = personalMemoryKinds.containsKey(memory?.kind)
-            ? memory!.kind
-            : memory == null
-            ? 'stablePreference'
-            : 'episodicMemory',
-        scope = memory?.scopeKey ?? _scope;
-    var enabled = memory?.enabled ?? true;
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_MemoryResult>(
       context: context,
-      builder: (dialog) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: const Text('Memoria personal'),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _scopeField(scope, (v) => update(() => scope = v)),
-                  DropdownButtonFormField<String>(
-                    initialValue: kind,
-                    decoration: const InputDecoration(
-                      labelText: 'Clasificación',
-                    ),
-                    items: [
-                      for (final entry in personalMemoryKinds.entries)
-                        DropdownMenuItem(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        ),
-                    ],
-                    onChanged: (v) => update(() => kind = v!),
-                  ),
-                  TextField(
-                    controller: key,
-                    maxLength: 120,
-                    decoration: const InputDecoration(
-                      labelText: 'Asunto / clave',
-                    ),
-                  ),
-                  TextField(
-                    controller: value,
-                    maxLength: 2000,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Dato declarado',
-                    ),
-                  ),
-                  TextField(
-                    controller: observed,
-                    decoration: const InputDecoration(
-                      labelText: 'Fecha de registro / observación (ISO)',
-                    ),
-                  ),
-                  TextField(
-                    controller: expiry,
-                    decoration: InputDecoration(
-                      labelText: kind == 'temporaryFact'
-                          ? 'Caduca (obligatorio, ISO)'
-                          : 'Caduca (opcional, ISO)',
-                    ),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Memoria activa'),
-                    value: enabled,
-                    onChanged: (v) => update(() => enabled = v),
-                  ),
-                  const Text(
-                    'Los recuerdos no prueban estado actual. Datos temporales y de negocio quedan para revisión; no sustituyen las fuentes actuales del negocio.',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialog, true),
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
+      builder: (_) => _MemoryEditDialog(
+        memory: memory,
+        initialScope: memory?.scopeKey ?? _scope,
+        scopes: _scopes,
+        busy: _busy || _importing,
       ),
     );
-    final k = key.text.trim(),
-        v = value.text.trim(),
-        at = DateTime.tryParse(observed.text),
-        until = expiry.text.trim().isEmpty
-            ? null
-            : DateTime.tryParse(expiry.text);
-    final hadExpiry = expiry.text.trim().isNotEmpty;
-    key.dispose();
-    value.dispose();
-    observed.dispose();
-    expiry.dispose();
-    if (saved != true) return;
-    if (k.isEmpty ||
-        v.isEmpty ||
-        at == null ||
-        (hadExpiry && (until == null || !until.isAfter(at))) ||
-        (kind == 'temporaryFact' && (until == null || !until.isAfter(at)))) {
-      _notice(
-        'Completa la clave, valor y fechas válidas. Los datos temporales deben caducar después de observarse.',
-      );
-      return;
-    }
+    if (result == null) return;
     await _run(
       () => _repo.savePersonalMemory(
         PersonalMemory(
           id: memory?.id ?? -1,
-          scopeKey: scope,
-          key: k,
-          value: v,
-          kind: kind,
-          observedAt: at.millisecondsSinceEpoch,
+          scopeKey: result.scope,
+          key: result.key,
+          value: result.value,
+          kind: result.kind,
+          observedAt: result.observedAt.millisecondsSinceEpoch,
           metadata: {
             ...?memory?.metadata,
             'source': memory?.metadata['source'] ?? 'manual',
             'ownerVerified': 'true',
-            'sourceContact': memory?.metadata['sourceContact'] ?? scope,
-            'enabled': '$enabled',
-            'expiresAt': until == null ? '' : '${until.millisecondsSinceEpoch}',
+            'sourceContact': memory?.metadata['sourceContact'] ?? result.scope,
+            'enabled': '${result.enabled}',
+            'expiresAt': result.expiresAt == null ? '' : '${result.expiresAt!.millisecondsSinceEpoch}',
           },
         ),
       ),
@@ -922,67 +552,107 @@ class _PersonalizationStudioScreenState
     final sample = const JsonEncoder.withIndent('  ').convert({
       'version': 1,
       'messages': [
-        {
-          'role': 'contact',
-          'text': 'Hola, ¿cómo vas?',
-          'timestamp': 1788793200000,
-        },
-        {
-          'role': 'owner',
-          'text': 'Bien, gracias. ¿Y tú?',
-          'timestamp': 1788793201000,
-        },
+        {'role': 'contact', 'text': 'Hola, ¿cómo vas?', 'timestamp': 1788793200000},
+        {'role': 'owner', 'text': 'Bien, gracias. ¿Y tú?', 'timestamp': 1788793201000},
       ],
-      'memories': [
-        {
-          'type': 'stablePreference',
-          'key': 'contacto',
-          'value': 'Prefiere mensajes breves',
-          'observedAt': 1788793200000,
-        },
-      ],
-      'templates': [
-        {
-          'incoming': 'Consulta de referencia',
-          'reply': '¿Cuál referencia buscas?',
-        },
-      ],
+      'memories': [{'type': 'stablePreference', 'key': 'contacto', 'value': 'Prefiere mensajes breves', 'observedAt': 1788793200000}],
+      'templates': [{'incoming': 'Consulta de referencia', 'reply': '¿Cuál referencia buscas?'}],
     });
-    showDialog<void>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Formatos de importación'),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'JSON v1: un contacto por archivo. CSV: role,text,timestamp; roles owner/contact. Fechas ISO o Unix en milisegundos. TXT: exportación WhatsApp día/mes/año, indicando tu nombre exacto. Máximo 2 MB, 5000 mensajes y 1000 candidatos por lote.\n\nSolo se activan los registros que aceptes. El archivo original completo se conserva localmente para revisar el origen. No se modifican pesos ni se suben historiales.',
-                ),
-                const SizedBox(height: 12),
-                SelectableText(sample),
-              ],
-            ),
+    _infoDialog(
+      'Formatos de importación',
+      SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'JSON v1: un contacto por archivo. CSV: role,text,timestamp. TXT: exportación WhatsApp con tu nombre exacto. '
+                'Máximo 2 MB, 5000 mensajes, 1000 candidatos por lote. El original queda guardado localmente.',
+              ),
+              const SizedBox(height: 12),
+              SelectableText(sample),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: sample));
-              _notice('Ejemplo JSON copiado.');
-            },
-            child: const Text('Copiar JSON'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: const Text('Cerrar'),
-          ),
-        ],
       ),
+      extraActions: [
+        TextButton(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: sample));
+            _notice('Ejemplo JSON copiado.');
+          },
+          child: const Text('Copiar JSON'),
+        ),
+      ],
     );
   }
+
+  void _infoDialog(String title, Widget content, {List<Widget>? extraActions}) =>
+      showDialog<void>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: Text(title),
+          content: content,
+          actions: [
+            ...?extraActions,
+            TextButton(
+              onPressed: () => Navigator.pop(d),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+
+  void _showHowItLearns() => _infoDialog(
+    '¿Cómo aprende Nano de ti?',
+    const SizedBox(
+      width: 480,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '1. Importa TXT/CSV/JSON de WhatsApp.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text('Nano extrae pares: mensaje recibido → tu respuesta.'),
+            SizedBox(height: 8),
+            Text(
+              '2. Revisa y acepta solo los candidatos que quieras.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text('Nada se guarda sin tu confirmación explícita.'),
+            SizedBox(height: 8),
+            Text(
+              '3. En cada respuesta futura el retriever recupera tus ejemplos.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              'Longitud, registro y tono son los que tú usaste. '
+              'Ningún dato sale del dispositivo ni modifica el modelo.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  void _showPrivacyNote() => _infoDialog(
+    'Privacidad de datos',
+    const SizedBox(
+      width: 480,
+      child: SingleChildScrollView(
+        child: Text(
+          'Todo queda en el dispositivo. Nada se envía a servidores ni al proveedor del modelo. '
+          'Ejemplos y memorias se guardan en SQLite local. Puedes eliminar cualquier registro '
+          'desde las pestañas. Retirar un lote elimina solo sus registros, no datos manuales.',
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -998,10 +668,43 @@ class _PersonalizationStudioScreenState
         appBar: AppBar(
           title: const Text('Aprender de mis conversaciones'),
           actions: [
-            IconButton(
-              tooltip: 'Formatos y privacidad',
-              onPressed: _formatHelp,
+            PopupMenuButton<String>(
               icon: const Icon(Icons.help_outline),
+              tooltip: 'Ayuda',
+              onSelected: (action) {
+                if (action == 'how') _showHowItLearns();
+                if (action == 'formats') _formatHelp();
+                if (action == 'privacy') _showPrivacyNote();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'how',
+                  child: ListTile(
+                    leading: Icon(Icons.auto_awesome_outlined),
+                    title: Text('¿Cómo aprende Nano?'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'formats',
+                  child: ListTile(
+                    leading: Icon(Icons.description_outlined),
+                    title: Text('Formatos de importación'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'privacy',
+                  child: ListTile(
+                    leading: Icon(Icons.lock_outline),
+                    title: Text('Privacidad de datos'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+              ],
             ),
           ],
           bottom: const TabBar(
@@ -1072,6 +775,7 @@ class _PersonalizationStudioScreenState
                   ListView(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
                     children: [
+                      _LearnBanner(onImport: !_canEdit ? null : _import),
                       const Text(
                         'Solo las conversaciones vinculadas reciben su estilo. Si falta un contacto, recibe un mensaje suyo para obtener su identidad. Los nombres iguales no comparten perfil.',
                       ),
@@ -1466,7 +1170,461 @@ class _PersonalizationStudioScreenState
   }
 }
 
+// ─────────────────────────────────────────────
+// Result records (typed, no leakage of widget state)
+// ─────────────────────────────────────────────
+
+final class _StyleResult {
+  const _StyleResult({
+    required this.register,
+    required this.relationship,
+    required this.learn,
+    required this.enabled,
+    required this.slang,
+    required this.usesName,
+    required this.custom,
+    required this.tone,
+  });
+  final String register, relationship, usesName, custom;
+  final bool learn, enabled, slang;
+  final ToneProfile tone;
+}
+
+final class _ExampleResult {
+  const _ExampleResult({
+    required this.scope,
+    required this.body,
+    required this.input,
+    required this.verified,
+    required this.enabled,
+    required this.isTemplate,
+  });
+  final String scope, body, input;
+  final bool verified, enabled, isTemplate;
+}
+
+final class _MemoryResult {
+  const _MemoryResult({
+    required this.scope,
+    required this.key,
+    required this.value,
+    required this.kind,
+    required this.observedAt,
+    this.expiresAt,
+    required this.enabled,
+  });
+  final String scope, key, value, kind;
+  final DateTime observedAt;
+  final DateTime? expiresAt;
+  final bool enabled;
+}
+
+// ─────────────────────────────────────────────
+// Dialog widgets (own their local state)
+// ─────────────────────────────────────────────
+
+class _StyleEditDialog extends StatefulWidget {
+  const _StyleEditDialog({required this.scope, required this.existing});
+  final _Scope scope;
+  final Map<String, String> existing;
+
+  @override
+  State<_StyleEditDialog> createState() => _StyleEditDialogState();
+}
+
+class _StyleEditDialogState extends State<_StyleEditDialog> {
+  late String register, relationship, usesName;
+  late bool learn, enabled, slang;
+  late ToneProfile tone;
+  late final TextEditingController _custom;
+
+  static const _registers = {'formal', 'casual', 'close', 'custom'};
+  static const _relationships = {'known', 'close', 'family', 'professional'};
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    register = _registers.contains(e['styleRegister']) ? e['styleRegister']! : 'casual';
+    relationship = _relationships.contains(e['relationship']) ? e['relationship']! : 'known';
+    learn = e['learnStyle'] != 'false';
+    enabled = e['profileEnabled'] != 'false';
+    slang = e['allowSlang'] == 'true';
+    usesName = e['usesContactName'] == 'never' ? 'never' : 'natural';
+    _custom = TextEditingController(text: e['customStyle'] ?? '');
+    tone = const ToneProfile(enabled: true, verbosity: ToneVerbosity.breve);
+    try {
+      if (e['tone'] case final String raw) {
+        tone = ToneProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _custom.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.scope.id == 'owner' ? 'Mi estilo global' : 'Estilo: ${widget.scope.label}'),
+    content: SizedBox(
+      width: 500,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.scope.id != 'owner')
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Aplicar este perfil'),
+                value: enabled,
+                onChanged: (v) => setState(() => enabled = v),
+              ),
+            DropdownButtonFormField<String>(
+              initialValue: register,
+              decoration: const InputDecoration(labelText: 'Registro'),
+              items: const [
+                DropdownMenuItem(value: 'formal', child: Text('Formal')),
+                DropdownMenuItem(value: 'casual', child: Text('Casual neutral')),
+                DropdownMenuItem(value: 'close', child: Text('Cercano')),
+                DropdownMenuItem(value: 'custom', child: Text('Personalizado')),
+              ],
+              onChanged: (v) => setState(() => register = v!),
+            ),
+            if (widget.scope.id != 'owner')
+              DropdownButtonFormField<String>(
+                initialValue: relationship,
+                decoration: const InputDecoration(labelText: 'Relación declarada'),
+                items: const [
+                  DropdownMenuItem(value: 'known', child: Text('Conocido')),
+                  DropdownMenuItem(value: 'close', child: Text('Amistad cercana')),
+                  DropdownMenuItem(value: 'family', child: Text('Familia')),
+                  DropdownMenuItem(value: 'professional', child: Text('Profesional')),
+                ],
+                onChanged: (v) => setState(() => relationship = v!),
+              ),
+            DropdownButtonFormField<ToneVerbosity>(
+              initialValue: tone.verbosity,
+              decoration: const InputDecoration(labelText: 'Longitud'),
+              items: [for (final v in ToneVerbosity.values) DropdownMenuItem(value: v, child: Text(v.name))],
+              onChanged: (v) => setState(() => tone = tone.copyWith(verbosity: v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Emojis moderados'),
+              value: tone.emojis,
+              onChanged: (v) => setState(() => tone = tone.copyWith(emojis: v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Permitir vocabulario coloquial cuando encaje'),
+              subtitle: const Text('Nunca fuerza slang; Formal lo excluye.'),
+              value: slang,
+              onChanged: (v) => setState(() => slang = v),
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: usesName,
+              decoration: const InputDecoration(labelText: 'Uso del nombre'),
+              items: const [
+                DropdownMenuItem(value: 'natural', child: Text('Solo cuando sea natural')),
+                DropdownMenuItem(value: 'never', child: Text('No usarlo al saludar')),
+              ],
+              onChanged: (v) => setState(() => usesName = v!),
+            ),
+            if (widget.scope.id != 'owner')
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Usar este contacto para mi estilo'),
+                subtitle: const Text('Permite importar y recuperar sus ejemplos. Desactivarlo no borra datos.'),
+                value: learn,
+                onChanged: (v) => setState(() => learn = v),
+              ),
+            TextField(
+              controller: _custom,
+              maxLength: 240,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Preferencias de forma',
+                hintText: 'Breve, sin emojis, humor solo si encaja…',
+              ),
+            ),
+            const Text('El estilo no acredita ubicación, actividad, stock ni disponibilidad actuales.'),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _StyleResult(
+          register: register, relationship: relationship,
+          learn: learn, enabled: enabled, slang: slang,
+          usesName: usesName, custom: _custom.text.trim(), tone: tone,
+        )),
+        child: const Text('Guardar'),
+      ),
+    ],
+  );
+}
+
+class _ExampleEditDialog extends StatefulWidget {
+  const _ExampleEditDialog({
+    required this.isTemplate,
+    required this.initialScope,
+    required this.scopes,
+    required this.busy,
+    this.example,
+  });
+  final PersonaExample? example;
+  final bool isTemplate, busy;
+  final String initialScope;
+  final Map<String, _Scope> scopes;
+
+  @override
+  State<_ExampleEditDialog> createState() => _ExampleEditDialogState();
+}
+
+class _ExampleEditDialogState extends State<_ExampleEditDialog> {
+  late final TextEditingController _incoming, _reply;
+  late String scope;
+  late bool verified, enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.example;
+    _incoming = TextEditingController(text: e?.incomingText ?? '');
+    _reply = TextEditingController(text: e?.body ?? '');
+    scope = widget.initialScope;
+    verified = e?.ownerVerified ?? false;
+    enabled = e?.enabled ?? true;
+  }
+
+  @override
+  void dispose() {
+    _incoming.dispose();
+    _reply.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.isTemplate ? 'Plantilla de orientación' : 'Ejemplo real del dueño'),
+    content: SizedBox(
+      width: 500,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              key: ValueKey(scope),
+              initialValue: widget.scopes.containsKey(scope) ? scope : 'owner',
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Aplicar solamente a'),
+              items: [for (final s in widget.scopes.values) DropdownMenuItem(value: s.id, child: Text(s.label, overflow: TextOverflow.ellipsis))],
+              onChanged: widget.busy ? null : (v) { if (v != null) setState(() => scope = v); },
+            ),
+            TextField(
+              controller: _incoming,
+              maxLength: 2000,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Qué me dijeron', helperText: 'Vacío = solo estilo, no par condicionado.'),
+            ),
+            TextField(
+              controller: _reply,
+              maxLength: 2000,
+              maxLines: 4,
+              decoration: InputDecoration(labelText: widget.isTemplate ? 'Guía de respuesta' : 'Qué respondí realmente'),
+            ),
+            if (widget.isTemplate)
+              const Text('Variables sin datos reales no se rellenan. Una plantilla no prueba stock, precio ni estado actual.'),
+            if (!widget.isTemplate)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Esta respuesta la escribí yo; no es una salida de Nano'),
+                value: verified,
+                onChanged: (v) => setState(() => verified = v!),
+              ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Usar al recuperar ejemplos'),
+              value: enabled,
+              onChanged: (v) => setState(() => enabled = v),
+            ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+      FilledButton(
+        onPressed: widget.isTemplate || verified ? () => Navigator.pop(context, _ExampleResult(
+          scope: scope, body: _reply.text.trim(), input: _incoming.text.trim(),
+          verified: verified, enabled: enabled, isTemplate: widget.isTemplate,
+        )) : null,
+        child: const Text('Guardar'),
+      ),
+    ],
+  );
+}
+
+class _MemoryEditDialog extends StatefulWidget {
+  const _MemoryEditDialog({
+    required this.initialScope,
+    required this.scopes,
+    required this.busy,
+    this.memory,
+  });
+  final PersonalMemory? memory;
+  final String initialScope;
+  final Map<String, _Scope> scopes;
+  final bool busy;
+
+  @override
+  State<_MemoryEditDialog> createState() => _MemoryEditDialogState();
+}
+
+class _MemoryEditDialogState extends State<_MemoryEditDialog> {
+  late final TextEditingController _key, _value, _observed, _expiry;
+  late String kind, scope;
+  late bool enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.memory;
+    _key = TextEditingController(text: m?.key ?? '');
+    _value = TextEditingController(text: m?.value ?? '');
+    _observed = TextEditingController(
+      text: DateTime.fromMillisecondsSinceEpoch(m?.observedAt ?? DateTime.now().millisecondsSinceEpoch).toIso8601String(),
+    );
+    _expiry = TextEditingController(
+      text: m?.expiresAt == null ? '' : DateTime.fromMillisecondsSinceEpoch(m!.expiresAt!).toIso8601String(),
+    );
+    kind = personalMemoryKinds.containsKey(m?.kind) ? m!.kind : m == null ? 'stablePreference' : 'episodicMemory';
+    scope = widget.initialScope;
+    enabled = m?.enabled ?? true;
+  }
+
+  @override
+  void dispose() {
+    _key.dispose(); _value.dispose(); _observed.dispose(); _expiry.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final k = _key.text.trim(), v = _value.text.trim();
+    final at = DateTime.tryParse(_observed.text);
+    final until = _expiry.text.trim().isEmpty ? null : DateTime.tryParse(_expiry.text);
+    if (k.isEmpty || v.isEmpty || at == null ||
+        (_expiry.text.trim().isNotEmpty && (until == null || !until.isAfter(at))) ||
+        (kind == 'temporaryFact' && (until == null || !until.isAfter(at)))) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Completa la clave, valor y fechas válidas. Los datos temporales deben caducar después de observarse.'),
+      ));
+      return;
+    }
+    Navigator.pop(context, _MemoryResult(
+      scope: scope, key: k, value: v, kind: kind,
+      observedAt: at, expiresAt: until, enabled: enabled,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Memoria personal'),
+    content: SizedBox(
+      width: 500,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              key: ValueKey(scope),
+              initialValue: widget.scopes.containsKey(scope) ? scope : 'owner',
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Aplicar solamente a'),
+              items: [for (final s in widget.scopes.values) DropdownMenuItem(value: s.id, child: Text(s.label, overflow: TextOverflow.ellipsis))],
+              onChanged: widget.busy ? null : (v) { if (v != null) setState(() => scope = v); },
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: kind,
+              decoration: const InputDecoration(labelText: 'Clasificación'),
+              items: [for (final entry in personalMemoryKinds.entries) DropdownMenuItem(value: entry.key, child: Text(entry.value))],
+              onChanged: (v) => setState(() => kind = v!),
+            ),
+            TextField(controller: _key, maxLength: 120, decoration: const InputDecoration(labelText: 'Asunto / clave')),
+            TextField(controller: _value, maxLength: 2000, maxLines: 4, decoration: const InputDecoration(labelText: 'Dato declarado')),
+            TextField(controller: _observed, decoration: const InputDecoration(labelText: 'Fecha de registro / observación (ISO)')),
+            TextField(
+              controller: _expiry,
+              decoration: InputDecoration(labelText: kind == 'temporaryFact' ? 'Caduca (obligatorio, ISO)' : 'Caduca (opcional, ISO)'),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Memoria activa'),
+              value: enabled,
+              onChanged: (v) => setState(() => enabled = v),
+            ),
+            const Text('Los recuerdos no prueban estado actual. Datos temporales y de negocio quedan para revisión; no sustituyen las fuentes actuales del negocio.'),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+      FilledButton(onPressed: _submit, child: const Text('Guardar')),
+    ],
+  );
+}
+
+class _LearnBanner extends StatelessWidget {
+  const _LearnBanner({required this.onImport});
+  final VoidCallback? onImport;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome_outlined, size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Cómo aprende Nano de ti',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Importa un chat de WhatsApp → revisa candidatos → acepta los que quieras. '
+            'Nano usa tus respuestas reales para imitar tu registro y tono. '
+            'Ningún dato sale del dispositivo ni modifica el modelo.',
+            style: TextStyle(fontSize: 12, height: 1.45),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onImport,
+            icon: const Icon(Icons.file_open_outlined, size: 16),
+            label: const Text('Importar historial', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 final class _Scope {
+
   const _Scope(this.id, this.label, {this.profile, this.conversationId});
   final String id, label;
   final RelationshipProfile? profile;

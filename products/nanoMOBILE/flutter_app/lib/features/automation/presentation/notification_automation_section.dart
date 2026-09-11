@@ -211,7 +211,8 @@ class _NotificationAutomationSectionState
           .read(conversationOwnershipStoreProvider)
           .setOwner(_conversationIdOf(selected), ConversationOwner.human);
       if (!mounted) return;
-      sent = await _service.confirmAndReply(selected, text);
+      final replyResult = await _service.confirmAndReply(selected, text);
+      sent = replyResult.isAccepted;
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -904,14 +905,36 @@ class _PendingReplyCardState extends ConsumerState<_PendingReplyCard> {
       }).firstOrNull;
 
       if (match != null) {
-        final ok = await service.confirmAndReply(match, reply.draftText);
-        if (ok) {
+        final replyResult = await service.confirmAndReply(match, reply.draftText);
+        if (replyResult.isAccepted) {
           await store.markSent(reply.id);
           ref.invalidate(pendingRepliesProvider);
           onReplied();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Respuesta enviada a ${reply.sender}')),
+            );
+          }
+          return;
+        } else if (replyResult.isContextChanged) {
+          await store.markContextChanged(reply.id);
+          ref.invalidate(pendingRepliesProvider);
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Turno cambiado en WhatsApp'),
+                content: Text(
+                  'El estado de la conversación con ${reply.sender} cambió en Android mientras revisabas el borrador.\n\n'
+                  'Por seguridad (evitar responder fuera de contexto o al contacto equivocado), el borrador no fue enviado.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cerrar'),
+                  ),
+                ],
+              ),
             );
           }
           return;

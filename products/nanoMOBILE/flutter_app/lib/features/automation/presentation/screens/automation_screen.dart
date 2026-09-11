@@ -10,6 +10,8 @@ import '../widgets/automation_dashboard.dart';
 import 'automation_dev_screen.dart';
 import 'automation_rules_screen.dart';
 import 'automation_settings_screen.dart';
+import 'business_studio_screen.dart';
+import 'personal_agent_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
 ///
@@ -58,6 +60,8 @@ class AutomationScreen extends ConsumerWidget {
                       onMessagesTap: () => context.push('/automation/messages'),
                       // RULES-CREATE-02: Reglas alcanzable desde el dashboard.
                       onRulesTap: () => _openRules(context),
+                      onBusinessTap: () => _openBusiness(context),
+                      onPersonalAgentTap: () => _openPersonalAgent(context),
                       // WA-DEV-ACCESS-01 — acceso directo siempre visible.
                       onDevTap: () => _openDev(context),
                     ),
@@ -91,6 +95,18 @@ class AutomationScreen extends ConsumerWidget {
   static void _openRules(BuildContext context) {
     Navigator.of(context).push(
       nanoGlassPageRoute<void>(builder: (_) => const AutomationRulesScreen()),
+    );
+  }
+
+  static void _openBusiness(BuildContext context) {
+    Navigator.of(context).push(
+      nanoGlassPageRoute<void>(builder: (_) => const BusinessStudioScreen()),
+    );
+  }
+
+  static void _openPersonalAgent(BuildContext context) {
+    Navigator.of(context).push(
+      nanoGlassPageRoute<void>(builder: (_) => const PersonalAgentScreen()),
     );
   }
 }

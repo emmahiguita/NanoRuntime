@@ -85,13 +85,12 @@ void main() {
         composer: _FakeComposer(draftText: 'ok'),
       );
 
-      expect(await service.confirmAndReply(_notification(), '   '), isFalse);
+      final blankRes = await service.confirmAndReply(_notification(), '   ');
+      expect(blankRes.isAccepted, isFalse);
       expect(runtime.replyCalls, 0);
 
-      expect(
-        await service.confirmAndReply(_notification(), 'Respuesta aprobada'),
-        isTrue,
-      );
+      final okRes = await service.confirmAndReply(_notification(), 'Respuesta aprobada');
+      expect(okRes.isAccepted, isTrue);
       expect(runtime.replyCalls, 1);
       expect(runtime.lastConfirmed, isTrue);
       expect(runtime.lastReply, 'Respuesta aprobada');
@@ -142,6 +141,7 @@ class _FakeRuntime extends NanoRuntimeApi {
     required String key,
     String? remoteInputKey,
     required String text,
+    int? postTime,
   }) async {
     replyCalls++;
     lastConfirmed = confirmed;

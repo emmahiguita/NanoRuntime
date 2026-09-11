@@ -153,6 +153,7 @@ class NotificationAutomationService : NotificationListenerService() {
         expectedActionIndex: Int = -1,
         expectedRemoteInputKey: String = "",
         expectedContextFingerprint: String = "",
+        expectedPostTime: Long = 0L,
     ): ReplyResult {
         val cleanText = text.trim()
         if (cleanText.isEmpty() || cleanText.length > MAX_REPLY_CHARS) {
@@ -160,6 +161,13 @@ class NotificationAutomationService : NotificationListenerService() {
         }
         val source = (activeNotifications ?: emptyArray()).firstOrNull { it.key == key }
             ?: return ReplyResult(false, "NOTIFICATION_GONE")
+
+        // WA-TOCTOU: si el postTime cambió, WhatsApp actualizó la notificación a un
+        // turno nuevo dentro del mismo chat; responder con el borrador viejo es stale.
+        if (expectedPostTime > 0L && source.postTime != expectedPostTime) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+
         val notification = source.notification
         val action = replyAction(notification)
             ?: return ReplyResult(false, "REPLY_UNAVAILABLE")
