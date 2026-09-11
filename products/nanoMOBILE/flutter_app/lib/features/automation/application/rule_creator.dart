@@ -23,6 +23,19 @@ class RuleCreator {
     bool dynamicReply = false,
     String? mediaPath,
   }) {
+    for (final existing in _registry.rules) {
+      if (existing.action == action &&
+          existing.message == message &&
+          existing.dynamicReply == dynamicReply &&
+          existing.mediaPath == mediaPath &&
+          _sameTrigger(existing.trigger, trigger)) {
+        if (!existing.enabled) {
+          _registry.setEnabled(existing.id, true);
+        }
+        return existing;
+      }
+    }
+
     final rule = ScheduledRule(
       id: 'rule-${DateTime.now().millisecondsSinceEpoch}',
       trigger: trigger,
@@ -34,6 +47,22 @@ class RuleCreator {
     );
     _registry.add(rule);
     return rule;
+  }
+
+  static bool _sameTrigger(Trigger a, Trigger b) {
+    if (a.runtimeType != b.runtimeType) return false;
+    if (a is TimeTrigger && b is TimeTrigger) {
+      return a.hour == b.hour &&
+          a.minute == b.minute &&
+          a.weekdays.length == b.weekdays.length &&
+          a.weekdays.containsAll(b.weekdays);
+    }
+    if (a is NotificationTrigger && b is NotificationTrigger) {
+      return a.packageName == b.packageName &&
+          a.senderMatch == b.senderMatch &&
+          a.textMatch == b.textMatch;
+    }
+    return false;
   }
 }
 

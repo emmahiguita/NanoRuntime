@@ -25,6 +25,7 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_animate: ^4.5.2
   google_fonts: ^6.2.1
+  cupertino_icons: ^1.0.8
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -51,9 +52,11 @@ flutter:
     - assets/bin/
     - assets/exe/
     - assets/config/
+    - assets/terminal/
     - assets/terminal_campaign_1.png
     - assets/terminal_campaign_2.png
     - assets/terminal_campaign_3.png
+    - assets/promo/
     - assets/owl/blink/
     - assets/owl/fly/
     - assets/owl/idle/

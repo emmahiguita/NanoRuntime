@@ -239,7 +239,7 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                   offset: const Offset(0, 8),
                 ),
                 BoxShadow(
-                  color: NanoNavTokens.cyan.withValues(
+                  color: NanoNavTokens.accentAmber.withValues(
                     alpha: isDark ? 0.20 : 0.08,
                   ),
                   blurRadius: 18,
@@ -283,7 +283,7 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                             : NanoNavTokens.shellGradientLight),
                     border: Border.all(
                       color: _focused
-                          ? NanoNavTokens.cyan.withValues(alpha: 0.92)
+                          ? NanoNavTokens.accentAmber.withValues(alpha: 0.92)
                           : (isDark
                               ? Colors.white.withValues(alpha: 0.22)
                               : Colors.white.withValues(alpha: 0.65)),
@@ -422,7 +422,7 @@ class _SearchRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(compact ? 22 : 24),
               border: Border.all(
                 color: focusNode.hasFocus
-                    ? NanoNavTokens.cyan.withValues(alpha: 0.95)
+                    ? NanoNavTokens.accentAmber.withValues(alpha: 0.95)
                     : (dark
                         ? Colors.white.withValues(alpha: 0.18)
                         : Colors.black.withValues(alpha: 0.09)),
@@ -431,7 +431,7 @@ class _SearchRow extends StatelessWidget {
               boxShadow: focusNode.hasFocus
                   ? [
                       BoxShadow(
-                        color: NanoNavTokens.cyan.withValues(alpha: 0.22),
+                        color: NanoNavTokens.accentAmber.withValues(alpha: 0.22),
                         blurRadius: 16,
                         spreadRadius: -1,
                       ),
@@ -458,7 +458,7 @@ class _SearchRow extends StatelessWidget {
                     Icons.search_rounded,
                     size: compact ? 19 : 21,
                     color: focusNode.hasFocus
-                        ? NanoNavTokens.cyan
+                        ? NanoNavTokens.accentAmber
                         : (dark
                             ? const Color(0xFFA0B4D2)
                             : const Color(0xFF2C5282)),
@@ -472,7 +472,7 @@ class _SearchRow extends StatelessWidget {
                     textInputAction: TextInputAction.send,
                     minLines: 1,
                     maxLines: compact ? 3 : 5,
-                    cursorColor: NanoNavTokens.cyan,
+                    cursorColor: NanoNavTokens.accentAmber,
                     cursorWidth: 2.0,
                     cursorRadius: const Radius.circular(2),
                     style: TextStyle(
@@ -622,7 +622,7 @@ class _SearchRow extends StatelessWidget {
                               color: listening
                                   ? const Color(0xFFEF4444)
                                   : (dark
-                                      ? NanoNavTokens.cyan
+                                      ? NanoNavTokens.accentAmber
                                       : const Color(0xFF2563EB)),
                             ),
                           ),
@@ -753,8 +753,8 @@ class _DestinationTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = brightness == Brightness.dark;
-    final muted = dark ? const Color(0xFF88A0C8) : const Color(0xFF3B6096);
-    final active = dark ? NanoNavTokens.cyan : const Color(0xFF1D4ED8);
+    final muted = dark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final active = NanoNavTokens.activeAccent(brightness);
 
     return Semantics(
       selected: selected,
@@ -815,3 +815,4 @@ class _DestinationTab extends StatelessWidget {
     );
   }
 }
+

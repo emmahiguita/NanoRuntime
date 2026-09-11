@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
 import '../../domain/terminal_hub_card.dart';
 import '../widgets/perspective_carousel_item.dart';
@@ -46,27 +47,29 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
         eyebrow: 'CONSOLA PTY',
         description:
             'Sesiones interactivas persistentes para Bash, Python, Node, SSH y utilidades nativas.',
-        icon: Icons.terminal_rounded,
-        accent: colors.terminalGreen,
-        route: '/terminal/shell',
+        icon: Icons.hub_rounded,
+        accent: colors.accent,
+        imageAsset: 'assets/promo/ad1.jpg',
+        route: '/system_logs',
         highlights: const [
-          'Soporte completo ANSI 256 colores y emulación VT100',
-          'Gestor PTY multisesión con buffer desacoplado',
-          'Atajos rápidos personalizables y barra de modificadores',
+          'Sin rastreo de telemetría de terceros ni analíticas externas',
+          'Aislamiento de hardware local para máxima seguridad en el borde',
+          'Integración nativa con la red neuronal mediante JNI ultrarrápido',
         ],
-        actionLabel: 'Abrir Consola PTY',
+        actionLabel: 'Ver Registros de Sistema',
       ),
       TerminalHubCard(
-        id: 'nano_linux',
-        title: 'Nano Linux',
+        id: 'shell_linux',
+        title: 'SHELL LINUX',
         eyebrow: 'ENTORNOS',
         description:
-            'Administra distribuciones, contenedores proot y accesos al sistema Linux local.',
-        icon: Icons.hub_rounded,
-        accent: colors.accentCyan,
-        route: '/linux',
+            'Entorno Alpine Linux con gestor de paquetes APK. Ideal para tareas avanzadas de scripting.',
+        icon: Icons.terminal_rounded,
+        accent: colors.terminalGreen,
+        imageAsset: 'assets/promo/ad2.jpg',
+        route: '/terminal_session',
         highlights: const [
-          'Gestión de contenedores y distribuciones Debian/Kali',
+          'Emulador de terminal VT100 completo con soporte de colores',
           'Aislamiento seguro de procesos sin necesidad de root',
           'Integración nativa con Nano Runtime y sockets locales',
         ],
@@ -79,7 +82,8 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
         description:
             'Prepara el escritorio gráfico X11 y abre el visor remoto VNC con aceleración.',
         icon: Icons.desktop_windows_rounded,
-        accent: colors.accentLavender,
+        accent: colors.tertiary,
+        imageAsset: 'assets/promo/ad3.jpg',
         route: '/desktop',
         highlights: const [
           'Streaming de escritorio gráfico con latencia ultrabaja',
@@ -96,7 +100,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
     final colors = NanoThemeExtension.of(context).colors;
     final cards = _buildCards(colors);
 
-    return NanoScreenShell(
+    final Widget shell = NanoScreenShell(
       title: 'Terminal',
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -263,6 +267,14 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
           );
         },
       ),
+    );
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const AutomationBackdrop(),
+        shell,
+      ],
     );
   }
 }

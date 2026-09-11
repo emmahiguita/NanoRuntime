@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/linux/linux_init.dart';
@@ -60,6 +60,14 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
   @override
   void initState() {
     super.initState();
+    // Habilitar inmersión Edge-to-Edge para evitar la barra negra del sistema
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        statusBarColor: Colors.transparent,
+      ),
+    );
     // Cargar settings persistidos (tema, password VNC, límites del motor)
     // ANTES del primer frame. Sin esto, un arranque en frío ignora el
     // password VNC guardado y el visor/launcher arrancan Xvnc sin auth.
@@ -80,9 +88,6 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    final usesSystemPalette = ref.watch(
-      settingsProvider.select((settings) => settings.themeMode == 'Sistema'),
-    );
 
     // Sin wrapper de orientación aquí: rotar forzaba rebuild del MaterialApp
     // completo y producía flicker ("pantalla dañada al voltearse"). La
@@ -91,8 +96,8 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
     return MaterialApp.router(
       title: 'NanoPlatform',
       debugShowCheckedModeBanner: false,
-      theme: usesSystemPalette ? AppTheme.systemLight : AppTheme.classic,
-      darkTheme: usesSystemPalette ? AppTheme.systemDark : AppTheme.dark,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: themeMode,
       themeAnimationDuration:
           WidgetsBinding

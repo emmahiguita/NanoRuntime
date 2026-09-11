@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/features/terminal/terminal_core.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
@@ -153,11 +154,13 @@ class _S extends State<TerminalTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Identidad universal Obsidian para terminal: el entorno hacker/PTY
-    // es intrínsecamente oscuro y de alto contraste en cualquier modo.
-    const bg = Color(0xFF020611);
-    const chrome = Color(0xFF07192B);
-    const fg = Color(0xFF21F2B2);
+    // Identidad Obsidian para terminal: fondo oscuro de alto contraste
+    // derivado de NanoThemeExtension respetando el tema de la app.
+    final themeColors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF020611) : themeColors.terminalBg;
+    final chrome = isDark ? const Color(0xFF07192B) : themeColors.surface;
+    final fg = isDark ? const Color(0xFF21F2B2) : themeColors.terminalGreen;
 
     return NanoInputScope(
       scopeId: 'terminal',

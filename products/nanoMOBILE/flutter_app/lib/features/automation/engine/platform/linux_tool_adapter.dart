@@ -89,6 +89,30 @@ class LinuxToolAdapter {
     Duration? timeout,
   }) => _shell(command, cwd: cwd, environment: environment, timeout: timeout);
 
+  /// TER-AUT-02: ejecución ESTRUCTURADA sin bash intermediario.
+  ///
+  /// [executable] es el binario puro (p.ej. `git`, `python3`);
+  /// [args] son los argumentos tipados — nunca se concatenan como string
+  /// ni pasan por shell, por lo que los operadores `;` `|` `&&` `$(` del
+  /// LLM quedan literales (como argumento, no como instrucción shell).
+  ///
+  /// Usar siempre que el caller pueda descomponer el comando en
+  /// executable + args[]. Reservar [runCommand] para scripts con pipes/
+  /// redirecciones que requieren bash explícitamente.
+  Future<LinuxCommandResult> runStructured(
+    String executable,
+    List<String> args, {
+    String? cwd,
+    Map<String, String>? environment,
+    Duration? timeout,
+  }) => _exec(
+    executable,
+    args,
+    cwd: cwd,
+    environment: environment,
+    timeout: timeout,
+  );
+
   Future<LinuxCommandResult> _exec(
     String executable,
     List<String> args, {

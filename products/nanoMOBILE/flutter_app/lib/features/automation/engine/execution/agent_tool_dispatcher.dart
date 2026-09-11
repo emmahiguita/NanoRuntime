@@ -23,6 +23,7 @@ import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_loop.dart';
+import '../browser/chrome_content_extractor.dart' show ChromeContentExtractor;
 import '../platform/linux_tool_adapter.dart';
 import '../perception/nano_selector.dart';
 import '../perception/nano_snapshot.dart' as nano_snapshot;
@@ -1598,6 +1599,25 @@ class AgentToolDispatcher {
     ToolExecutionStatus.notExecuted => notExecutedAs,
   };
 
+  /// TER-AUT-02: true si [command] contiene operadores que solo bash puede
+  /// interpretar (pipe, semicolon, AND/OR, subshell, redirect, heredoc).
+  /// Un string sin estos operadores es un ejecutable simple y se dirige a
+  /// [runStructured] → execRootfs sin shell intermediario.
+  static bool _hasShellOperators(String command) {
+    // Operadores shell fundamentales: | ; & > < ` $( newline
+    // Se usa contains para no cargar un RegExp en el hot-path.
+    return command.contains('|') ||
+        command.contains(';') ||
+        command.contains('&&') ||
+        command.contains('||') ||
+        command.contains(r'$(') ||
+        command.contains('`') ||
+        command.contains('>') ||
+        command.contains('<') ||
+        command.contains('\n');
+  }
+
+
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
   /// confirmación a texto (llamadores que no manejan el diálogo).
   /// Invocación standalone = turno propio (presupuesto fresco).
@@ -1653,7 +1673,12 @@ class AgentToolDispatcher {
   Future<String> _executeTool(ToolCall call) async {
     switch (call.tool) {
       case 'screen':
+        if (call.args?['readText'] == true || call.args?['mode'] == 'text') {
+          return _readScreenText();
+        }
         return _describeScreen();
+      case 'read_screen':
+        return _readScreenText();
       case 'resolve':
         if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] resolve requiere "selector".';
@@ -1692,7 +1717,8 @@ class AgentToolDispatcher {
         if (urlArg.isEmpty) {
           return '[tool] open_url requiere <url>.';
         }
-        return _openUrl(urlArg);
+        final pkgArg = (call.args?['packageName'] as String?)?.trim();
+        return _openUrl(urlArg, packageName: pkgArg);
       case 'launch_app':
         // A2: el package grounded viaja en args (flujo del catálogo). Fallback a
         // selector solo para el contrato legacy (catálogo estático 'chrome').
@@ -1846,23 +1872,47 @@ class AgentToolDispatcher {
           timeout: timeout,
         );
       default:
-        // Soporta argumentos adicionales pasados como lista en 'arguments' o 'args'
+        // TER-AUT-02: separación estructurada vs. script bash.
+        //
+        // Si el LLM provee `arguments` como lista, el comando es estructurado:
+        // executable + args[] sin pasar por bash → los operadores shell del LLM
+        // (`;`, `|`, `&&`, `$(`) quedan como literales de argumento, nunca
+        // como instrucciones. Ruta: runStructured() → _exec() → toybox/execRootfs.
+        //
+        // Si el string de `command` contiene operadores shell (pipe, semicolon,
+        // subshell, redirect, AND/OR), se asume script compuesto y se delega a
+        // runCommand() → bash -c. La política (confirmación, risk=device) ya
+        // fue aplicada aguas arriba por PolicyEngine antes de llegar aquí.
         final extraArgs = call.args?['arguments'] ?? call.args?['args'];
-        final String effectiveCommand;
         if (extraArgs is List && extraArgs.isNotEmpty) {
-          final quoted = extraArgs
-              .map((a) => "'${a.toString().replaceAll("'", r"'\''")}'")
-              .join(' ');
-          effectiveCommand = '$arg $quoted';
+          // Ruta estructurada: sin bash intermediario.
+          final typedArgs = extraArgs.map((a) => a.toString()).toList();
+          result = await adapter.runStructured(
+            arg,
+            typedArgs,
+            cwd: cwd,
+            environment: environment,
+            timeout: timeout,
+          );
+        } else if (_hasShellOperators(arg)) {
+          // Script compuesto con operadores: delegar a bash -c.
+          result = await adapter.runCommand(
+            arg,
+            cwd: cwd,
+            environment: environment,
+            timeout: timeout,
+          );
         } else {
-          effectiveCommand = arg;
+          // Comando simple sin args adicionales y sin operadores shell:
+          // tratar como `executable` solo (sin args), ruta estructurada.
+          result = await adapter.runStructured(
+            arg,
+            const [],
+            cwd: cwd,
+            environment: environment,
+            timeout: timeout,
+          );
         }
-        result = await adapter.runCommand(
-          effectiveCommand,
-          cwd: cwd,
-          environment: environment,
-          timeout: timeout,
-        );
     }
     if (!result.ok) {
       final err = (result.infrastructureError ?? result.stderr).trim();
@@ -1937,6 +1987,16 @@ class AgentToolDispatcher {
     }
     if (snap.isEmpty) {
       return '[snapshotEmpty] Sin ventana activa (rebind en curso).';
+    }
+    if (snap.package == 'com.android.chrome') {
+      final web = const ChromeContentExtractor().extract(snap);
+      if (web.isNotEmpty) {
+        final buffer = StringBuffer('Contenido web en Chrome');
+        if (web.title.isNotEmpty) buffer.write(' — "${web.title}"');
+        if (web.url != null && web.url!.isNotEmpty) buffer.write(' (${web.url})');
+        buffer.write(':\n\n${web.rawText}');
+        return buffer.toString();
+      }
     }
     final texts = <String>[];
     for (final n in snap.visibleNodes) {
@@ -2164,8 +2224,11 @@ class AgentToolDispatcher {
   /// string que no esté en la allowlist (nunca un Intent crudo inventable).
   /// A14.9 — abrir una URL externa (solo http/https). El nativo valida el
   /// esquema para evitar intents arbitrarios (anti-SSRF).
-  Future<String> _openUrl(String url) async {
-    final ok = await NanoRuntimeApi.instance.openUrl(url);
+  Future<String> _openUrl(String url, {String? packageName}) async {
+    final ok = await NanoRuntimeApi.instance.openUrl(
+      url,
+      packageName: packageName,
+    );
     return ok
         ? 'Abriendo $url...'
         : '[openUrl:failed] No se pudo abrir la URL (debe ser http/https).';

@@ -72,21 +72,14 @@ class CapabilityStatusCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: NanoSpacing.sm),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'PERMISOS DEL AGENTE',
                         style: TextStyle(
-                          color: Color(0xEEFFFFFF),
+                          color: visual.text,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
-                          shadows: [
-                            Shadow(
-                              color: Color(0x70000000),
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -356,17 +349,10 @@ class _CapRow extends StatelessWidget {
                         Expanded(
                           child: Text(
                             label,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: visual.text,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              shadows: [
-                                Shadow(
-                                  color: Color(0x70000000),
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
                             ),
                           ),
                         ),
@@ -380,18 +366,11 @@ class _CapRow extends StatelessWidget {
                     Text(
                       description,
                       softWrap: true,
-                      style: const TextStyle(
-                        color: Color(0xEEFFFFFF),
+                      style: TextStyle(
+                        color: visual.textMuted,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w400,
                         height: 1.3,
-                        shadows: [
-                          Shadow(
-                            color: Color(0x50000000),
-                            blurRadius: 2,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
                       ),
                     ),
                     if (compact) ...[

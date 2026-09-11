@@ -18,7 +18,10 @@ import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/executors/notification_executor.dart';
 import 'package:nanoai/features/automation/executors/notification_executor_provider.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
+import 'package:nanoai/features/automation/engine/messaging/conversation_hub_providers.dart';
 import 'widgets/automation_suggestion_carousel.dart';
+import 'widgets/conversation_detail_sheet.dart';
+import 'widgets/conversation_list_tile.dart';
 
 class NotificationAutomationSection extends ConsumerStatefulWidget {
   const NotificationAutomationSection({super.key});
@@ -248,6 +251,7 @@ class _NotificationAutomationSectionState
         senderKey: notification.senderKey,
         conversationId: notification.conversationId,
         conversationTitle: notification.conversationTitle,
+        title: notification.title,
         sender: notification.sender,
         isGroup: notification.isGroup,
         notificationKey: notification.key,
@@ -296,6 +300,7 @@ class _NotificationAutomationSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _ConversationsHubSection(),
         _PendingRepliesSection(
           activeNotifications: _notifications,
           onReplied: _refresh,
@@ -892,6 +897,7 @@ class _PendingReplyCardState extends ConsumerState<_PendingReplyCard> {
           senderKey: n.senderKey,
           conversationId: n.conversationId,
           conversationTitle: n.conversationTitle,
+          title: n.title,
           sender: n.sender,
           isGroup: n.isGroup,
           notificationKey: n.key,
@@ -1171,3 +1177,63 @@ class _PendingReplyCardState extends ConsumerState<_PendingReplyCard> {
     );
   }
 }
+
+class _ConversationsHubSection extends ConsumerWidget {
+  const _ConversationsHubSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final asyncList = ref.watch(conversationHubListProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          'Centro de Conversaciones',
+          Icons.forum_rounded,
+          colors: colors,
+        ),
+        asyncList.when(
+          data: (items) {
+            if (items.isEmpty) {
+              return InteractiveGlassCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(NanoSpacing.md),
+                  child: Text(
+                    'No hay conversaciones registradas. Las conversaciones activas de WhatsApp u otras apps aparecerán aquí al recibir mensajes.',
+                    style: NanoType.caption(colors.onSurfaceVariant),
+                  ),
+                ),
+              );
+            }
+            return Column(
+              children: [
+                for (final item in items)
+                  ConversationListTile(
+                    item: item,
+                    onTap: () => ConversationDetailSheet.show(context, item),
+                    onApprovePending: item.hasPendingReply
+                        ? () => ConversationDetailSheet.show(context, item)
+                        : null,
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (err, _) => Text(
+            'Error al cargar conversaciones: $err',
+            style: TextStyle(color: colors.error),
+          ),
+        ),
+        const SizedBox(height: NanoSpacing.lg),
+      ],
+    );
+  }
+}
+

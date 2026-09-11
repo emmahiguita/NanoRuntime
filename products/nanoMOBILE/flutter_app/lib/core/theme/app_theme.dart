@@ -160,7 +160,7 @@ class AppTheme {
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
           statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-          systemNavigationBarColor: isDark ? c.background : c.backgroundPrimary,
+          systemNavigationBarColor: Colors.transparent,
           systemNavigationBarIconBrightness: isDark
               ? Brightness.light
               : Brightness.dark,
@@ -349,14 +349,13 @@ class AppTheme {
     );
   }
 
-  /// UI-REV-09: "Claro" ya no instala una paleta clara — instala la identidad
-  /// oscura de Dev (borrador del usuario): fondo profundo, aurora azul de la
-  /// barra de navegación (NAV-BAR-FIX-05), vidrio, textos claros. "Oscuro"
-  /// comparte la gama azul de la barra (NAV-BAR-FIX-06) y "Sistema" sigue el
-  /// brillo del dispositivo.
-  static final classic = _base(NanoClassicDarkColors());
+  /// Tema claro: paleta azul iOS profesional, superficies limpias de alto contraste.
+  static final light = _base(NanoLightColors());
+
+  /// Tema oscuro: paleta oscura profunda con acento ámbar-naranja y tipografía blanca nítida.
   static final dark = _base(NanoDarkColors());
-  static final light = systemLight;
+
   static final systemLight = _base(NanoSystemLightColors());
   static final systemDark = _base(NanoSystemDarkColors());
+  static final classic = _base(NanoClassicDarkColors());
 }

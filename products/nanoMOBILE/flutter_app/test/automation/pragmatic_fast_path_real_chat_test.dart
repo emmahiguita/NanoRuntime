@@ -148,5 +148,118 @@ void main() {
       final reply = candidate!.reply;
       expect(reply, contains('Medellín'));
     });
+
+    test('Handles "Oye, qué vas a hacer hoy en la noche" in <5ms without LLM timeout', () async {
+      final candidate = await fastPath.resolve(
+        text: 'Oye, qué vas a hacer hoy en la noche',
+        conversationId: 'chat_test_8',
+      );
+
+      expect(candidate, isNotNull);
+      final reply = candidate!.reply;
+      expect(
+        reply.contains('planes') ||
+            reply.contains('aviso') ||
+            reply.contains('avisando') ||
+            reply.contains('confirmo') ||
+            reply.contains('seguro') ||
+            reply.contains('más tarde'),
+        isTrue,
+        reason: 'Reply was: $reply',
+      );
+
+      final decision = decisionEngine.decide(
+        understanding: candidate.understanding,
+        context: const ConversationDecisionContext(
+          autonomyMode: ConversationAutonomyMode.autonomous,
+          agentRole: ConversationAgentRole.personal,
+          userText: 'Oye, qué vas a hacer hoy en la noche',
+          senderName: 'Emma Hg',
+        ),
+      );
+      expect(decision.autoSend, isTrue);
+    });
+
+    test('Handles farewell closure "bueno que descanses" with coherent night farewell', () async {
+      final candidate = await fastPath.resolve(
+        text: 'bueno que descanses',
+        conversationId: 'chat_test_9',
+      );
+
+      expect(candidate, isNotNull);
+      final reply = candidate!.reply.toLowerCase();
+      expect(
+        reply.contains('descans') ||
+            reply.contains('feliz noche') ||
+            reply.contains('mañana'),
+        isTrue,
+        reason: 'Reply was: ${candidate.reply}',
+      );
+    });
+
+    test('Handles "Listo, entonces hablamos mañana, que descanses" instant Fast Path (<5ms)', () async {
+      final candidate = await fastPath.resolve(
+        text: 'Listo, entonces hablamos mañana, que descanses',
+        conversationId: 'chat_test_10',
+      );
+
+      expect(candidate, isNotNull);
+      final reply = candidate!.reply.toLowerCase();
+      expect(
+        reply.contains('descans') ||
+            reply.contains('feliz noche') ||
+            reply.contains('mañana'),
+        isTrue,
+        reason: 'Reply was: ${candidate.reply}',
+      );
+
+      final decision = decisionEngine.decide(
+        understanding: candidate.understanding,
+        context: const ConversationDecisionContext(
+          autonomyMode: ConversationAutonomyMode.autonomous,
+          agentRole: ConversationAgentRole.personal,
+          userText: 'Listo, entonces hablamos mañana, que descanses',
+          senderName: 'Emma Hg',
+        ),
+      );
+      expect(decision.autoSend, isTrue);
+    });
+
+    test('Handles burst repeated "Listo, entonces hablamos mañana, que descanses Listo,..." without LLM escape', () async {
+      final candidate = await fastPath.resolve(
+        text: 'Listo, entonces hablamos mañana, que descanses Listo, entonces hablamos mañana, que descanses',
+        conversationId: 'chat_test_11',
+      );
+
+      expect(candidate, isNotNull);
+      final reply = candidate!.reply.toLowerCase();
+      expect(
+        reply.contains('descans') ||
+            reply.contains('feliz noche') ||
+            reply.contains('mañana'),
+        isTrue,
+        reason: 'Reply was: ${candidate.reply}',
+      );
+    });
+
+    test('Handles general closure "Listo, entonces hablamos mañana"', () async {
+      final candidate = await fastPath.resolve(
+        text: 'Listo, entonces hablamos mañana',
+        conversationId: 'chat_test_12',
+      );
+
+      expect(candidate, isNotNull);
+      final reply = candidate!.reply.toLowerCase();
+      expect(
+        reply.contains('hablamos') ||
+            reply.contains('nos vemos') ||
+            reply.contains('bien') ||
+            reply.contains('cuídate') ||
+            reply.contains('cuidate') ||
+            reply.contains('mañana'),
+        isTrue,
+        reason: 'Reply was: ${candidate.reply}',
+      );
+    });
   });
 }

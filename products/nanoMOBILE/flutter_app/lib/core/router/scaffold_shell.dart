@@ -91,10 +91,8 @@ class ScaffoldShell extends StatelessWidget {
               // HOME-BLEED-01 — Inicio (wallpaper) pinta completo.
               fullBleed: currentIndex == NanoDestination.home.index,
               // NAV-FLOAT-01 — el resto de pestañas con scroll pinta a pantalla
-              // completa con la barra flotando encima. Terminal (viewport
-              // fijo Expanded) NO debe flotar para no colisionar con la barra.
-              floatOverContent: currentIndex != NanoDestination.home.index &&
-                  currentIndex != NanoDestination.terminal.index,
+              // completa con la barra flotando encima.
+              floatOverContent: currentIndex != NanoDestination.home.index,
               transparentDock: true,
               protectTop: true,
               onDestinationSelected: (index) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'i_bin_executor.dart';
@@ -146,18 +147,15 @@ class CommandExecutor {
         layer: 'terminal',
         traceId: traceId,
         command: cmd,
-        byteCount: cmd.length + 1,
+        byteCount: raw.length + 1,
       );
-      // _onKey ya transmitió cada tecla (UTF-8 via keyToPtyBytes) al PTY
-      // conforme se tecleó. Aquí solo se envía CR (Enter). Reenviar el
-      // comando completo duplicaría cada carácter (regresión real).
-      //
-      // El teclado VIRTUAL entrega caracteres por onChanged — que reenvía
-      // cada carácter al PTY y limpia el campo — así que onSubmitted llega
-      // con raw VACÍO. En modo PTY todo Enter es el comando de envío: el CR
-      // va SIEMPRE al terminal, con texto o sin él (un Enter en línea vacía
-      // es válido en bash). Sin este CR, "enviar" del teclado virtual no
-      // hacía nada (el CR solo se enviaba si raw no estaba vacío).
+      // Si el comando llega con texto (inyección desde barra cósmica, Noar,
+      // portapapeles o párrafos programáticos), transmitir los bytes UTF-8
+      // antes del retorno de carro. Si llega vacío (teclado virtual en vivo),
+      // solo emitir el CR.
+      if (raw.isNotEmpty) {
+        x.pty!.writeBytes(utf8.encode(raw));
+      }
       x.pty!.writeBytes([0x0d]);
       return;
     }
@@ -415,7 +413,8 @@ class CommandExecutor {
         return;
       }
       if (x.shell != null && x.shell!.initialized) {
-        final r = await x.shell!.toybox(['ash', '-c', 'source ${args[0]}']);
+        final safePath = args[0].replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+        final r = await x.shell!.toybox(['ash', '-c', 'source "$safePath"']);
         x.shellOut(r);
       } else {
         x.out('source: shell engine not initialized.', Ln.stderr);

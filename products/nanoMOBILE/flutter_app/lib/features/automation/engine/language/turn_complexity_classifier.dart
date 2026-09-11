@@ -48,13 +48,19 @@ final class TurnComplexityClassifier {
 
   // Patrones narrativos: relato de actividades/planes propios del hablante o estados sustantivos.
   static final _narrative = RegExp(
-    r'\b(fui|fuiste|fue|salí|sali|saliste|salió|salio|llegué|llegue|llegaste|llegó|llego|voy a|vas a|va a|iba a|ibas a|acabo de|acabas de|acaba de|vengo de|andaba|andabas|andaban|ya (?:fui|llegué|llegue|salí|sali|terminé|termine)|planeas|planeo|harás|haras|irás|iras|terminando|empezando|programando|programar|codigo|código|trabajando|trabajo|camellando|estudiando|universidad|proyecto|cansado|cansada|cansao|cansaod|agotado|enfermo|enferma|gimnasio|gym|entrenando|entrene|entreno|pecho|espalda|pierna|trotando|corriendo|comiendo|almorzando|cenando|cocinando|manejando|viajando|en casa|en el gym|al gym|del gym|en el trabajo|al trabajo|del trabajo|estoy muerto|muy cansado|bastante cansado|mi dia va|el mio va|ando en|ando haciendo)\b',
+    r'\b(fui|fuiste|fue|salí|sali|saliste|salió|salio|llegué|llegue|llegaste|llegó|llego|voy a|va a|iba a|ibas a|vas a|acabo de|acabas de|acaba de|vengo de|andaba|andabas|andaban|ya (?:fui|llegué|llegue|salí|sali|terminé|termine)|planeo|terminando|empezando|programando|programar|codigo|código|trabajando|trabajo|camellando|estudiando|universidad|proyecto|cansado|cansada|cansao|cansaod|agotado|enfermo|enferma|gimnasio|gym|entrenando|entrene|entreno|pecho|espalda|pierna|trotando|corriendo|comiendo|almorzando|cenando|cocinando|manejando|viajando|en casa|en el gym|al gym|del gym|en el trabajo|al trabajo|del trabajo|estoy muerto|muy cansado|bastante cansado|mi dia va|el mio va|ando en|ando haciendo)\b',
     caseSensitive: false,
   );
 
   // Reacciones sociales puras (sin referentes).
   static final _pureReaction = RegExp(
     r'^(?:ok|okay|dale|bueno|bien|listo|perfecto|genial|entendido|claro|de acuerdo|aja|jaja|jeje|gracias|muchas gracias|mil gracias)[\s.,!?]*$',
+    caseSensitive: false,
+  );
+
+  // Despedidas puras (sin referentes).
+  static final _pureFarewell = RegExp(
+    r'^(?:chao|adiós|adios|hasta luego|hasta mañana|hasta manana|nos vemos|hablamos|que descanses|descansa|feliz noche|buenas noches|cuídate|cuidate)[\s.,!?]*$',
     caseSensitive: false,
   );
 
@@ -70,9 +76,9 @@ final class TurnComplexityClassifier {
     caseSensitive: false,
   );
 
-  // Múltiples cláusulas.
+  // Múltiples cláusulas complejas.
   static final _multiClause = RegExp(
-    r'\b(y también|y además|pero también|pero además|aunque|porque|sin embargo|entonces|por eso|así que)\b',
+    r'\b(y también|y además|pero también|pero además|aunque|porque|sin embargo|por eso|así que)\b',
     caseSensitive: false,
   );
 
@@ -98,6 +104,7 @@ final class TurnComplexityClassifier {
         !complexDetected &&
         (_pureGreeting.hasMatch(t) ||
             _pureReaction.hasMatch(t) ||
+            _pureFarewell.hasMatch(t) ||
             _simpleStateConcern.hasMatch(t));
 
     return TurnComplexity(

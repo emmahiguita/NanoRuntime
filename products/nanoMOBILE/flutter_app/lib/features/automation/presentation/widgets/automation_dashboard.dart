@@ -15,6 +15,7 @@ import 'package:nanoai/core/widgets/nano_owl_avatar.dart';
 import 'package:nanoai/core/widgets/navigation/nano_glyph.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
+import 'package:nanoai/core/widgets/feather_core_icon.dart';
 
 import '../../application/automation_coordinator_provider.dart'
     show pendingRepliesProvider, ruleRegistryProvider;
@@ -803,37 +804,33 @@ class _AgentHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'Inter',
-                      color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.4,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black87,
-                          blurRadius: 4,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Material(
-                  color: const Color(0x55000000),
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(99),
                     side: BorderSide(
-                      color: visual.accent.withValues(alpha: 0.60),
+                      color: visual.accent.withValues(alpha: 0.45),
                       width: 1,
                     ),
                   ),
                   child: InkWell(
                     onTap: onModeTap,
                     borderRadius: BorderRadius.circular(99),
-                    child: Padding(
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: visual.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
                         mode.label,
@@ -1209,7 +1206,7 @@ class QuickAutomationActions extends StatelessWidget {
           const AutomationSectionLabel('Accesos'),
           if (onBusinessTap != null)
             _DashboardEntryTile(
-              imageAsset: 'assets/automation/whatsapp_business_icon.png',
+              featherType: FeatherCoreType.whatsappBusiness,
               title: 'WhatsApp Negocio',
               subtitle: businessProductsCount > 0
                   ? '$businessProductsCount producto${businessProductsCount == 1 ? '' : 's'} · Catálogo activo'
@@ -1238,14 +1235,14 @@ class QuickAutomationActions extends StatelessWidget {
             ),
           if (onPersonalAgentTap != null)
             _DashboardEntryTile(
-              imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+              featherType: FeatherCoreType.personalAgent,
               title: 'Agente Personal WPP',
               subtitle: 'Respuestas personales, tono y calidez',
               onTap: onPersonalAgentTap!,
             ),
           if (onRulesTap != null)
             _DashboardEntryTile(
-              imageAsset: 'assets/automation/icons/icon_reglas.png',
+              featherType: FeatherCoreType.rules,
               title: 'Reglas',
               subtitle: activeRulesCount > 0
                   ? '$activeRulesCount activa${activeRulesCount == 1 ? '' : 's'} · Automatizaciones'
@@ -1254,21 +1251,21 @@ class QuickAutomationActions extends StatelessWidget {
             ),
           if (onTimeRuleTap != null)
             _DashboardEntryTile(
-              imageAsset: 'assets/automation/icons/icon_aviso.png',
+              featherType: FeatherCoreType.calendar,
               title: 'Aviso por hora',
               subtitle: 'Crear un recordatorio con reloj',
               onTap: onTimeRuleTap!,
             ),
           if (onSettingsTap != null)
             _DashboardEntryTile(
-              imageAsset: 'assets/automation/icons/icon_configuracion.png',
+              featherType: FeatherCoreType.settings,
               title: 'Configuración',
               subtitle: 'Modo, razonamiento, audio y permisos',
               onTap: onSettingsTap!,
             ),
           if (onMessagesTap != null)
             _DashboardEntryTile(
-              imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+              featherType: FeatherCoreType.notifications,
               title: 'Responder mensajes',
               subtitle: pendingDraftsCount > 0
                   ? '$pendingDraftsCount borrador${pendingDraftsCount == 1 ? '' : 'es'} pendiente${pendingDraftsCount == 1 ? '' : 's'}'
@@ -1324,19 +1321,84 @@ class _DashboardEntryTile extends StatelessWidget {
     this.icon,
     this.glyph,
     this.imageAsset,
+    this.featherType,
     required this.title,
     required this.subtitle,
     required this.onTap,
     this.badge,
-  }) : assert(icon != null || glyph != null || imageAsset != null);
+  }) : assert(icon != null || glyph != null || imageAsset != null || featherType != null);
 
   final IconData? icon;
   final NanoGlyphType? glyph;
   final String? imageAsset;
+  final FeatherCoreType? featherType;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
   final Widget? badge;
+
+  Widget _buildLeading(BuildContext context) {
+    if (featherType != null) {
+      return FeatherCoreIcon(
+        type: featherType!,
+        size: 36,
+        accentColor: AutomationVisual.of(context).accent,
+      );
+    }
+    if (imageAsset != null && imageAsset!.contains('whatsapp_business')) {
+      return FeatherCoreIcon(
+        type: FeatherCoreType.whatsappBusiness,
+        size: 36,
+        accentColor: AutomationVisual.of(context).accent,
+      );
+    }
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AutomationVisual.of(context).accent.withValues(
+          alpha: AutomationVisual.of(context).isDark ? 0.16 : 0.10,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AutomationVisual.of(context).accent.withValues(
+            alpha: AutomationVisual.of(context).isDark ? 0.30 : 0.22,
+          ),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AutomationVisual.of(
+              context,
+            ).accent.withValues(alpha: 0.10),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: imageAsset != null
+          ? Padding(
+              padding: const EdgeInsets.all(3),
+              child: Image.asset(
+                imageAsset!,
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+              ),
+            )
+          : glyph != null
+              ? NanoIcon(
+                  type: glyph!,
+                  size: 18,
+                  color: AutomationVisual.of(context).accent,
+                )
+              : Icon(
+                  icon!,
+                  color: AutomationVisual.of(context).accent,
+                  size: 18,
+                ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -1351,52 +1413,7 @@ class _DashboardEntryTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AutomationVisual.of(context).accent.withValues(
-                  alpha: AutomationVisual.of(context).isDark ? 0.16 : 0.10,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AutomationVisual.of(context).accent.withValues(
-                    alpha: AutomationVisual.of(context).isDark ? 0.30 : 0.22,
-                  ),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AutomationVisual.of(
-                      context,
-                    ).accent.withValues(alpha: 0.10),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-              child: imageAsset != null
-                  ? Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: Image.asset(
-                        imageAsset!,
-                        width: 30,
-                        height: 30,
-                        fit: BoxFit.contain,
-                      ),
-                    )
-                  : glyph != null
-                      ? NanoIcon(
-                          type: glyph!,
-                          size: 18,
-                          color: AutomationVisual.of(context).accent,
-                        )
-                      : Icon(
-                          icon!,
-                          color: AutomationVisual.of(context).accent,
-                          size: 18,
-                        ),
-            ),
+            _buildLeading(context),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1407,18 +1424,11 @@ class _DashboardEntryTile extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AutomationVisual.of(context).text,
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
                       height: 1.2,
-                      shadows: [
-                        Shadow(
-                          color: Color(0x80000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1426,18 +1436,11 @@ class _DashboardEntryTile extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xEEFFFFFF),
+                    style: TextStyle(
+                      color: AutomationVisual.of(context).textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       height: 1.2,
-                      shadows: [
-                        Shadow(
-                          color: Color(0x60000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
                     ),
                   ),
                 ],
@@ -1450,7 +1453,7 @@ class _DashboardEntryTile extends StatelessWidget {
             Icon(
               Icons.chevron_right_rounded,
               size: 20,
-              color: Colors.white.withValues(alpha: 0.85),
+              color: AutomationVisual.of(context).textMuted,
             ),
           ],
         ),

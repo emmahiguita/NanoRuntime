@@ -11,10 +11,12 @@ import '../automation_visual_theme.dart';
 import '../widgets/automation_settings_pickers.dart';
 import '../widgets/capability_status_card.dart';
 import '../widgets/settings_tile_components.dart';
+import 'package:nanoai/core/widgets/feather_core_icon.dart';
 import '../widgets/whatsapp_integration_cards.dart';
 import 'automation_rules_screen.dart';
 import 'business_studio_screen.dart';
 import 'personal_agent_screen.dart';
+import '../../personal_agent/domain/conversation_autonomy_mode.dart';
 import '../../personal_agent/presentation/personalization_studio_screen.dart';
 import '../../engine/business/business_facts_providers.dart';
 import '../../engine/messaging/tone_profile_providers.dart';
@@ -263,7 +265,7 @@ class _AutomationSettingsScreenState
       case AutomationSettingsCategory.general:
         return _buildGeneralSection(context, settings, notifier);
       case AutomationSettingsCategory.whatsapp:
-        return _buildWhatsAppComponent();
+        return _buildWhatsAppComponent(context);
       case AutomationSettingsCategory.brain:
         return _buildBrainSection(context);
       case AutomationSettingsCategory.system:
@@ -322,35 +324,24 @@ class _AutomationSettingsScreenState
     ];
   }
 
-  List<Widget> _buildWhatsAppComponent() {
-    return const [
-      AutomationSectionLabel('Autonomía de Respuestas'),
-      AutonomyModeCard(),
-      SizedBox(height: 24),
-      AutomationSectionLabel('Aplicaciones Conectadas'),
-      WhatsAppAppsCard(),
-      SizedBox(height: 24),
-      AutomationSectionLabel('Segundo Plano y Batería'),
-      BackgroundAutomationCard(),
-    ];
-  }
-
-  List<Widget> _buildBrainSection(BuildContext context) {
+  List<Widget> _buildWhatsAppComponent(BuildContext context) {
     final productsCount =
         ref.watch(businessFactsNotifierProvider).products.length;
     final tone = ref.watch(toneProfileNotifierProvider);
+    final waMode = ConversationAutonomyModeName.fromName(
+      ref.watch(settingsProvider).waAutonomyMode,
+    );
     return [
-      const AutomationSectionLabel('Agente Personal de WhatsApp'),
+      const AutomationSectionLabel('Agentes de WhatsApp'),
       SettingsCard(
         children: [
           SettingsRow(
             imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
             title: 'Agente Personal WPP',
-            subtitle: tone.enabled
-                ? 'Activo: trato ${tone.warmth.name}, respuestas ${tone.verbosity.name}'
-                : 'Configurar identidad, trato, extensión y emojis',
+            subtitle:
+                'Modo ${waMode.label.toLowerCase()} · ${tone.enabled ? 'trato ${tone.warmth.name}, respuestas ${tone.verbosity.name}' : 'tono estándar'}',
             trailing: ValueBadge(
-              label: tone.enabled ? 'ACTIVO' : 'CONFIGURAR',
+              label: waMode.label.toUpperCase(),
             ),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
@@ -359,24 +350,7 @@ class _AutomationSettingsScreenState
             ),
           ),
           SettingsRow(
-            imageAsset: 'assets/automation/icons/icon_reglas.png',
-            title: 'Aprender de mis conversaciones',
-            subtitle: 'Importar chats, afinar memoria semántica y por contacto',
-            trailing: const ValueBadge(label: 'EXPLORAR'),
-            onTap: () => Navigator.of(context).push(
-              nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(),
-              ),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      const AutomationSectionLabel('WhatsApp Comercial y Negocio'),
-      SettingsCard(
-        children: [
-          SettingsRow(
-            imageAsset: 'assets/automation/whatsapp_business_icon.png',
+            featherType: FeatherCoreType.whatsappBusiness,
             title: 'WhatsApp Negocio y Catálogo',
             subtitle: productsCount == 0
                 ? 'Sin productos — toca para configurar o cargar plantilla'
@@ -387,6 +361,82 @@ class _AutomationSettingsScreenState
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
                 builder: (_) => const BusinessStudioScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      const AutomationSectionLabel('Conexión y Aplicaciones'),
+      const WhatsAppAppsCard(),
+      const SizedBox(height: 24),
+      const AutomationSectionLabel('Segundo Plano y Batería'),
+      const BackgroundAutomationCard(),
+    ];
+  }
+
+  List<Widget> _buildBrainSection(BuildContext context) {
+    return [
+      const AutomationSectionLabel('Diálogos y Respuestas Exactas'),
+      SettingsCard(
+        children: [
+          SettingsRow(
+            imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+            title: 'Mis frases y diálogos personalizados',
+            subtitle:
+                'Agrega o edita respuestas exactas: qué te dicen y qué responder',
+            trailing: const ValueBadge(label: 'DIÁLOGOS'),
+            onTap: () => Navigator.of(context).push(
+              nanoGlassPageRoute<void>(
+                builder: (_) => const PersonalizationStudioScreen(initialIndex: 1),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      const AutomationSectionLabel('Memorias y Hechos Personales'),
+      SettingsCard(
+        children: [
+          SettingsRow(
+            icon: Icons.psychology_outlined,
+            title: 'Memorias y datos sobre mí',
+            subtitle:
+                'Tus horarios, gustos y actividades para que el agente responda con la verdad',
+            trailing: const ValueBadge(label: 'MEMORIAS'),
+            onTap: () => Navigator.of(context).push(
+              nanoGlassPageRoute<void>(
+                builder: (_) => const PersonalizationStudioScreen(initialIndex: 2),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      const AutomationSectionLabel('Aprendizaje de Chats y Contactos'),
+      SettingsCard(
+        children: [
+          SettingsRow(
+            imageAsset: 'assets/automation/icons/icon_reglas.png',
+            title: 'Importar chat de WhatsApp',
+            subtitle:
+                'Carga un chat exportado (.txt) para extraer vocabulario y expresiones reales',
+            trailing: const ValueBadge(label: 'IMPORTAR'),
+            onTap: () => Navigator.of(context).push(
+              nanoGlassPageRoute<void>(
+                builder: (_) => const PersonalizationStudioScreen(initialIndex: 3),
+              ),
+            ),
+          ),
+          SettingsRow(
+            icon: Icons.people_outline_rounded,
+            title: 'Perfiles por contacto',
+            subtitle:
+                'Memoria semántica y roles específicos por persona o grupo',
+            trailing: const ValueBadge(label: 'CONTACTOS'),
+            onTap: () => Navigator.of(context).push(
+              nanoGlassPageRoute<void>(
+                builder: (_) => const PersonalizationStudioScreen(initialIndex: 0),
               ),
             ),
           ),

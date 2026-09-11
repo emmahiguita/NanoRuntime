@@ -78,6 +78,18 @@ typedef TaskResolveAppPackage = Future<String?> Function(String appReference);
 typedef TaskTargetPerception =
     Future<PerceptionResult> Function(String concept, String packageName);
 
+/// GAP-06 — steps linux.* en planes multi-paso del TaskOrchestrator.
+/// [command] es el ejecutable o script; [arguments] son los args tipados
+/// (ruta estructurada) o vacíos (ruta bash -c para scripts con operadores).
+typedef TaskLinuxRun =
+    Future<TaskActionResult> Function(
+      String command,
+      List<String> arguments, {
+      String? cwd,
+      String? confirmedActionSignature,
+      String? semanticAction,
+    });
+
 bool _isCommitInFlight(ExecutionJournalStatus status) =>
     status == ExecutionJournalStatus.executing ||
     status == ExecutionJournalStatus.executed ||
@@ -94,6 +106,8 @@ class TaskOrchestrator {
     TaskSubmitInput? submitInput,
     TaskBack? back,
     TaskSwipe? swipe,
+    // GAP-06: steps linux.* en planes multi-paso.
+    TaskLinuxRun? linuxRun,
     TaskResolveAppPackage? resolveAppPackage,
     CurrentSituationSource? currentSituationSource,
     TaskTargetPerception? targetPerception,
@@ -123,6 +137,7 @@ class TaskOrchestrator {
        _submitInput = submitInput,
        _back = back,
        _swipe = swipe,
+       _linuxRun = linuxRun,
        _resolveAppPackage = resolveAppPackage,
        _currentSituationSource = currentSituationSource,
        _targetPerception = targetPerception,
@@ -140,6 +155,7 @@ class TaskOrchestrator {
        _commitGuard = commitGuard,
        _journal = journal;
 
+
   final Future<List<dynamic>> Function() _listNotifications;
   final TaskOpenUrl _openUrl;
   final TaskWriteFile _writeFile;
@@ -151,6 +167,9 @@ class TaskOrchestrator {
   final TaskSubmitInput? _submitInput;
   final TaskBack? _back;
   final TaskSwipe? _swipe;
+  /// GAP-06 — steps linux.* en planes multi-paso (ejecutable + args tipados).
+  final TaskLinuxRun? _linuxRun;
+
   final TaskResolveAppPackage? _resolveAppPackage;
   final CurrentSituationSource? _currentSituationSource;
   final TaskTargetPerception? _targetPerception;
@@ -827,6 +846,38 @@ class TaskOrchestrator {
           executionId: context.execution.executionId,
           confirmedActionSignature: confirmedActionSignature,
         );
+      // GAP-06: steps Linux en planes multi-paso. Todos usan _linuxRun que
+      // delega al dispatcher (linux.list/readFile/writeFile/run). Si _linuxRun
+      // no está inyectado → needsMoreEvidence con razón legible.
+      case 'linux_list_files':
+        return _linuxStep(
+          step,
+          values,
+          tool: 'linux.list',
+          confirmedActionSignature: confirmedActionSignature,
+        );
+      case 'linux_read_file':
+        return _linuxStep(
+          step,
+          values,
+          tool: 'linux.readFile',
+          confirmedActionSignature: confirmedActionSignature,
+        );
+      case 'linux_write_file':
+        return _linuxStep(
+          step,
+          values,
+          tool: 'linux.writeFile',
+          confirmedActionSignature: confirmedActionSignature,
+        );
+      case 'linux_run_command':
+        return _linuxStep(
+          step,
+          values,
+          tool: 'linux.run',
+          confirmedActionSignature: confirmedActionSignature,
+        );
+
       default:
         return const TaskStepResult(
           status: TaskStepStatus.needsMoreEvidence,
@@ -941,6 +992,59 @@ class TaskOrchestrator {
       action,
       completedReason: 'URL abierta',
       recoverable: true,
+    );
+  }
+
+  /// GAP-06: ejecuta un step linux.* (list/readFile/writeFile/run) en un plan
+  /// multi-paso. Lee `command`/`path` de [inputBindings] (valores producidos
+  /// por pasos previos) y delega a [_linuxRun]. Sin _linuxRun inyectado →
+  /// needsMoreEvidence.
+  Future<TaskStepResult> _linuxStep(
+    TaskStep step,
+    Map<TaskValueId, TaskValue> values, {
+    required String tool,
+    String? confirmedActionSignature,
+  }) async {
+    final linuxRun = _linuxRun;
+    if (linuxRun == null) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'linuxRun no inyectado en este orchestrator',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    // Resolver command/path desde los inputBindings del step.
+    // Los steps linux usan 'command' (linux.run) o 'path' (list/readFile/writeFile).
+    final commandBinding = step.inputBindings['command'] ?? step.inputBindings['path'];
+    final commandValue = commandBinding == null ? null : values[commandBinding.source];
+    final command = switch (commandValue) {
+      TextValue(:final text) => text.trim(),
+      FilePathValue(:final path) => path.trim(),
+      _ => '',
+    };
+    if (command.isEmpty) {
+      return const TaskStepResult(
+        status: TaskStepStatus.needsMoreEvidence,
+        reason: 'step linux sin binding command/path resuelto',
+        failureKind: TaskFailureKind.terminal,
+      );
+    }
+    // 'content' para writeFile (si se pasa como binding).
+    final contentBinding = step.inputBindings['content'];
+    final contentValue = contentBinding == null ? null : values[contentBinding.source];
+    final content = contentValue is TextValue ? contentValue.text : null;
+    // Construir args canónicos según el tool.
+    final List<String> arguments = content != null ? [content] : const [];
+    final action = await linuxRun(
+      command,
+      arguments,
+      confirmedActionSignature: confirmedActionSignature,
+      semanticAction: tool,
+    );
+    return _stepFromAction(
+      action,
+      completedReason: '$tool completado',
+      recoverable: tool == 'linux.run',
     );
   }
 

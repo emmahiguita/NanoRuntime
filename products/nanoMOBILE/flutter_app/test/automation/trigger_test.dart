@@ -113,9 +113,63 @@ void main() {
       expect(s.goal, 'guárdalo');
     });
 
+    test('"si dice noche, responde salgo a las 8" → keyword trigger', () {
+      final s = parser.parse('si dice noche, responde salgo a las 8');
+      expect(s, isNotNull);
+      expect(s!.trigger, isA<NotificationTrigger>());
+      final nt = s.trigger as NotificationTrigger;
+      expect(nt.textMatch, 'noche');
+      expect(s.goal, 'responde salgo a las 8');
+    });
+
+    test('"con palabra clave precio, respóndele cuesta 50" → keyword trigger', () {
+      final s = parser.parse('con palabra clave precio, respóndele cuesta 50');
+      expect(s, isNotNull);
+      expect(s!.trigger, isA<NotificationTrigger>());
+      final nt = s.trigger as NotificationTrigger;
+      expect(nt.textMatch, 'precio');
+      expect(s.goal, 'respóndele cuesta 50');
+    });
+
+    test('"keyword promo responde 20% descuento" → keyword sin coma', () {
+      final s = parser.parse('keyword promo responde 20% descuento');
+      expect(s, isNotNull);
+      expect(s!.trigger, isA<NotificationTrigger>());
+      final nt = s.trigger as NotificationTrigger;
+      expect(nt.textMatch, 'promo');
+      expect(s.goal, 'responde 20% descuento');
+    });
+
     test('sin disparo reconocible → null', () {
       expect(parser.parse('abre Chrome'), isNull);
       expect(parser.parse(''), isNull);
+    });
+  });
+
+  group('evaluateTrigger keywords', () {
+    test('NotificationTrigger con múltiples keywords separadas por coma', () {
+      const t = NotificationTrigger(textMatch: 'noche, salir, fiesta');
+      expect(
+        evaluateTrigger(
+          t,
+          const NotificationEvent(text: 'Oye, qué vas hacer hoy en la noche'),
+        ),
+        isTrue,
+      );
+      expect(
+        evaluateTrigger(
+          t,
+          const NotificationEvent(text: 'vamos a salir hoy'),
+        ),
+        isTrue,
+      );
+      expect(
+        evaluateTrigger(
+          t,
+          const NotificationEvent(text: 'hola cómo estás'),
+        ),
+        isFalse,
+      );
     });
   });
 }

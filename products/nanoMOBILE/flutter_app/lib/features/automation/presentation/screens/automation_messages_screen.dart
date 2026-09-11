@@ -55,7 +55,7 @@ class _AutomationMessagesBody extends StatelessWidget {
               slotId: 'automation_messages',
               child: SafeArea(
                 child: NanoScreenShell(
-                  title: 'Mensajes y notificaciones',
+                  title: 'Centro de Conversaciones',
                   showBack: true,
                   // DOUBLE-INSET-FIX — el Scaffold exterior (donde vive la barra
                   // universal) ya se encoge con el teclado; encoger también este

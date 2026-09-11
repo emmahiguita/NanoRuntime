@@ -24,11 +24,23 @@ final class ConversationOwnership {
   /// Marca de cuándo cambió por última vez (ms epoch, 0 = nunca).
   final int updatedAtMs;
 
+  /// Tiempo máximo de inactividad humana antes de regresar automáticamente
+  /// el control al bot (30 minutos). Si el humano no ha intervenido en 30 min,
+  /// la conversación ya no se considera tomada activamente.
+  static const int humanOwnershipTimeoutMs = 30 * 60 * 1000;
+
   const ConversationOwnership({
     required this.conversationId,
     required this.owner,
     required this.updatedAtMs,
   });
 
-  bool get humanOwns => owner == ConversationOwner.human;
+  bool isHumanActive([int? nowMs]) {
+    if (owner != ConversationOwner.human) return false;
+    if (updatedAtMs <= 0) return true;
+    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
+    return (now - updatedAtMs) < humanOwnershipTimeoutMs;
+  }
+
+  bool get humanOwns => isHumanActive();
 }

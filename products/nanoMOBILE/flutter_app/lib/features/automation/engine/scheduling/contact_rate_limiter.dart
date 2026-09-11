@@ -27,7 +27,7 @@ import '../storage/automation_db_store_client.dart';
 /// Política de ventana deslizante. `const`: auditable, sin estado.
 final class ContactRatePolicy {
   const ContactRatePolicy({
-    this.maxRepliesPerWindow = 3,
+    this.maxRepliesPerWindow = 15,
     this.window = const Duration(minutes: 10),
   });
 

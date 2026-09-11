@@ -48,8 +48,16 @@ class TerminalCover extends StatelessWidget {
         borderRadius: BorderRadius.circular(9),
         child: Stack(
           children: [
-            // Fondo con degradado armónico jerárquico
-            Positioned.fill(
+            if (card.imageAsset != null)
+              Positioned.fill(
+                child: Image.asset(
+                  card.imageAsset!,
+                  fit: BoxFit.cover,
+                ),
+              )
+            else ...[
+              // Fondo con degradado armónico jerárquico
+              Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -195,6 +203,7 @@ class TerminalCover extends StatelessWidget {
                 ],
               ),
             ),
+            ],
 
             // Brillo especular shrinkwrap cellophane
             Positioned.fill(
@@ -332,8 +341,8 @@ class TerminalHubDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final Size screen = MediaQuery.sizeOf(context);
     final double width = math.min(screen.width, 500);
-    // Identidad universal obsidian/dark
-    const bool isDark = true;
+    final colors = NanoThemeExtension.of(context).colors;
+    final isDark = colors is NanoDarkColors;
 
     return Material(
       type: MaterialType.transparency,
@@ -347,7 +356,9 @@ class TerminalHubDetailScreen extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                 child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.82),
+                  color: isDark 
+                      ? Colors.black.withValues(alpha: 0.82)
+                      : colors.surface.withValues(alpha: 0.75),
                 ),
               ),
             ),
@@ -396,8 +407,7 @@ class TerminalHubDetailCard extends StatelessWidget {
     final screen = MediaQuery.sizeOf(context);
     final isCompact = screen.height < 600;
     final colors = NanoThemeExtension.of(context).colors;
-    // Identidad universal obsidian/dark
-    const bool isDark = true;
+    final isDark = colors is NanoDarkColors;
 
     return Stack(
       children: [
@@ -435,9 +445,9 @@ class TerminalHubDetailCard extends StatelessWidget {
               // -------------------------------------------------------------
               Text(
                 card.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 30,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.8,
@@ -459,9 +469,9 @@ class TerminalHubDetailCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     '${card.eyebrow} • 2026',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
-                      color: Colors.white70,
+                      color: colors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),

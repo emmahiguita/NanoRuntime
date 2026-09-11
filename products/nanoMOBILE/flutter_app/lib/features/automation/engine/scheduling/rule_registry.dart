@@ -128,9 +128,17 @@ class RuleRegistry {
   Future<void> load() => _loading ??= _load();
 
   Future<void> _load() async {
+    final loaded = await _store.load();
+    final seenIds = <String>{};
+    final unique = <ScheduledRule>[];
+    for (final r in loaded) {
+      if (seenIds.add(r.id)) {
+        unique.add(r);
+      }
+    }
     _rules
       ..clear()
-      ..addAll(await _store.load());
+      ..addAll(unique);
     _loaded = true;
     // WA-CONSENT-01: sin auto-seed. La UI llama a seedWhatsAppRule() al
     // activar la automatización por primera vez.
@@ -149,15 +157,14 @@ class RuleRegistry {
   /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete
   /// indicado POR PETICIÓN EXPLÍCITA del usuario desde la pantalla de
   /// activación. Idempotente: si la regla ya existe y estaba desactivada,
-  /// la habilita; si no existe, la crea.
+  /// la habilita; si no existe, la crea. Limpia duplicados históricos si existieran.
   void seedWhatsAppRule(String packageName) {
     final id = ruleIdForPackage(packageName);
-    final existingIndex = _rules.indexWhere((r) => r.id == id);
-    if (existingIndex != -1) {
-      if (!_rules[existingIndex].enabled) {
-        _rules[existingIndex] = _rules[existingIndex].copyWith(enabled: true);
-        _persist();
-      }
+    final matches = _rules.where((r) => r.id == id).toList();
+    if (matches.isNotEmpty) {
+      _rules.removeWhere((r) => r.id == id);
+      _rules.add(matches.first.copyWith(enabled: true));
+      _persist();
       return;
     }
     final rule = ScheduledRule(
@@ -189,7 +196,12 @@ class RuleRegistry {
   }
 
   void add(ScheduledRule rule) {
-    _rules.add(rule);
+    final index = _rules.indexWhere((r) => r.id == rule.id);
+    if (index >= 0) {
+      _rules[index] = rule;
+    } else {
+      _rules.add(rule);
+    }
     _persist();
   }
 

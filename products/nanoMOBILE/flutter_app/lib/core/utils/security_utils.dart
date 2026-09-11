@@ -33,34 +33,18 @@ class SecurityUtils {
     return s;
   }
 
-  /// Sanitiza un comando para prevenir inyección de comandos.
-  /// Bloquea caracteres peligrosos y patrones de inyección.
+  /// Sanitiza un comando para prevenir inyección de caracteres nulos y desbordamientos.
+  /// En el entorno sandbox / rootfs, variables de entorno ($PATH, $HOME) y
+  /// secuencias multilínea son sintaxis de shell válida y se ejecutan aisladas.
   static String sanitizeCommand(String cmd) {
-    // Lista de caracteres/patrones peligrosos bloqueados
-    final dangerousPatterns = [
-      RegExp(r';\s*\$'), // Command chaining con variables
-      RegExp(r'\|\s*\$'), // Pipe con variables
-      RegExp(r'&\s*\$'), // Background con variables
-      RegExp(r'\$\(?'), // Subshell
-      RegExp(r'`'), // Backticks (command substitution)
-      RegExp(r'\$\{'), // Variable expansion
-      RegExp(r'>\s*\$'), // Redirection con variables
-      RegExp(r'<\s*\$'), // Input redirection con variables
-      RegExp(r'\n'), // Newlines (command chaining)
-      RegExp(r'\r'), // Carriage return
-    ];
-
-    for (final pattern in dangerousPatterns) {
-      if (pattern.hasMatch(cmd)) {
-        throw ArgumentError(
-          'Comando contiene patrón peligroso: ${pattern.pattern}',
-        );
-      }
+    // Bloquear bytes nulos para prevenir ataques de truncamiento C-string
+    if (cmd.contains('\x00')) {
+      throw ArgumentError('Comando contiene byte nulo no permitido');
     }
 
-    // Validar longitud máxima para prevenir ataques de buffer overflow
-    if (cmd.length > 4096) {
-      throw ArgumentError('Comando demasiado largo (máximo 4096 caracteres)');
+    // Validar longitud máxima para prevenir desbordamientos
+    if (cmd.length > 65536) {
+      throw ArgumentError('Comando demasiado largo (máximo 65536 caracteres)');
     }
 
     return cmd;

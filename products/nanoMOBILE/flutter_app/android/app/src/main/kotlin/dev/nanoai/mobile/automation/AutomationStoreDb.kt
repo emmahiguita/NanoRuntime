@@ -614,6 +614,14 @@ class AutomationStoreDb(context: Context) {
             ensureFts(db)
         }
 
+        override fun onOpen(db: SQLiteDatabase) {
+            super.onOpen(db)
+            db.execSQL(EVENTS_DDL)
+            db.execSQL(OCCURRENCES_DDL)
+            for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
+            db.execSQL(FTS_DDL)
+        }
+
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // v1 -> v2: bitácora de eventos del pipeline (append-only).
             if (oldVersion < 2) db.execSQL(EVENTS_DDL)

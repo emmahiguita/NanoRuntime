@@ -386,10 +386,10 @@ class _NanoOwlAvatarState extends State<NanoOwlAvatar>
                             boxShadow: [
                               BoxShadow(
                                 color: widget.state == NanoOwlState.thinking
-                                    ? const Color(0xFF2A7FFF).withValues(
+                                    ? const Color(0xFFF97316).withValues(
                                         alpha: 0.35 * _glowPulse.value,
                                       )
-                                    : const Color(0xFF5CE7FF).withValues(
+                                    : const Color(0xFFFF8C2A).withValues(
                                         alpha: 0.40 * _glowPulse.value,
                                       ),
                                 blurRadius: 16.0 * _glowPulse.value + 4.0,

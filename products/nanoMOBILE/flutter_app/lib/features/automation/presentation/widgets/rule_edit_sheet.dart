@@ -301,8 +301,11 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
               const _FieldLabel('Contacto (vacío = cualquier contacto)'),
               _EditorField(controller: _contact, hint: 'Juan'),
               const SizedBox(height: 12),
-              const _FieldLabel('Contenido (vacío = cualquier texto)'),
-              _EditorField(controller: _textMatch, hint: 'urgente'),
+              const _FieldLabel('Palabras clave / Keywords (vacío = cualquier texto)'),
+              _EditorField(
+                controller: _textMatch,
+                hint: 'ej: noche, precio, salir (separadas por comas)',
+              ),
               const SizedBox(height: 16),
             ] else ...[
               Text(

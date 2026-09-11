@@ -85,11 +85,12 @@ final class ConversationIdentity {
     required this.evidenceUsed,
   });
 
-  /// AUTO-CONSOLIDATE-01 — umbral conservador para autorizar una ESCRITURA
-  /// (reply). ÚNICA fuente: la usa este getter Y el ConversationDecisionEngine
-  /// (antes el 0.95 estaba duplicado inline). Un título como única evidencia
-  /// no lo alcanza: dos homónimos no pueden distinguirse por título.
-  static const double safeToWriteThreshold = 0.95;
+  /// AUTO-CONSOLIDATE-01 — umbral para autorizar una ESCRITURA (reply).
+  /// ÚNICA fuente: la usa este getter Y el ConversationDecisionEngine.
+  /// Acepta evidencia válida de mensajería (locus, shortcut, senderKey 0.9,
+  /// conversationId 0.85, título+remitente 0.6). Título a secas (0.35) queda
+  /// excluido.
+  static const double safeToWriteThreshold = 0.60;
 
   bool get safeToWrite => confidence >= safeToWriteThreshold;
 }
@@ -112,6 +113,7 @@ ConversationIdentity resolveConversationIdentity(NotificationObject n) =>
       senderKey: n.senderKey,
       conversationId: n.conversationId,
       conversationTitle: n.conversationTitle,
+      title: n.title,
       sender: n.sender,
       isGroup: n.isGroup,
       notificationKey: n.key,
@@ -130,6 +132,7 @@ ConversationIdentity conversationIdentityFor({
   String senderKey = '',
   String conversationId = '',
   String conversationTitle = '',
+  String title = '',
   String sender = '',
   bool isGroup = false,
   String notificationKey = '',
@@ -173,21 +176,34 @@ ConversationIdentity conversationIdentityFor({
     );
   }
 
-  final title = conversationTitle.trim();
+  final convTitle = conversationTitle.trim();
+  final cleanTitle = title.trim();
   final cleanSender = sender.trim();
-  if (title.isNotEmpty) {
+
+  // En Android MessagingStyle, las conversaciones 1:1 tienen EXTRA_CONVERSATION_TITLE vacío
+  // y el nombre del contacto aparece en title y/o sender.
+  final effectiveTitle = convTitle.isNotEmpty
+      ? convTitle
+      : (cleanTitle.isNotEmpty ? cleanTitle : cleanSender);
+
+  if (effectiveTitle.isNotEmpty) {
     // Contexto completo (título + remitente) distingue mejor dos contactos
     // con nombre visible idéntico dentro de la MISMA app... pero sigue sin
     // ser evidencia estable de plataforma.
     final context = [
-      title,
-      if (!isGroup && cleanSender.isNotEmpty) cleanSender,
+      effectiveTitle,
+      if (!isGroup && cleanSender.isNotEmpty && cleanSender != effectiveTitle)
+        cleanSender,
       if (notificationKey.isNotEmpty) notificationKey,
     ].join('|');
     return ConversationIdentity(
       key: key('title:$context'),
-      confidence: cleanSender.isNotEmpty ? 0.6 : 0.35,
-      evidenceUsed: {'conversationTitle', if (cleanSender.isNotEmpty) 'sender'},
+      confidence: (cleanSender.isNotEmpty || convTitle.isNotEmpty) ? 0.6 : 0.35,
+      evidenceUsed: {
+        if (convTitle.isNotEmpty) 'conversationTitle',
+        if (cleanTitle.isNotEmpty) 'title',
+        if (cleanSender.isNotEmpty) 'sender',
+      },
     );
   }
 

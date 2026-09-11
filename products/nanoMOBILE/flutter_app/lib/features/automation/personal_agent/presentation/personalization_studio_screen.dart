@@ -17,7 +17,8 @@ import '../domain/persona_profile.dart';
 import '../domain/personal_memory.dart';
 
 class PersonalizationStudioScreen extends ConsumerStatefulWidget {
-  const PersonalizationStudioScreen({super.key});
+  final int initialIndex;
+  const PersonalizationStudioScreen({super.key, this.initialIndex = 0});
   @override
   ConsumerState<PersonalizationStudioScreen> createState() =>
       _PersonalizationStudioScreenState();
@@ -664,6 +665,7 @@ class _PersonalizationStudioScreenState
         .toList();
     return DefaultTabController(
       length: 4,
+      initialIndex: widget.initialIndex,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Aprender de mis conversaciones'),
@@ -844,17 +846,17 @@ class _PersonalizationStudioScreenState
                       Wrap(
                         spacing: 8,
                         children: [
-                          TextButton.icon(
+                          FilledButton.tonalIcon(
                             onPressed: !_canEdit ? null : () => _editExample(),
                             icon: const Icon(Icons.add_comment_outlined),
-                            label: const Text('Ejemplo real'),
+                            label: const Text('Agregar diálogo'),
                           ),
-                          TextButton.icon(
+                          OutlinedButton.icon(
                             onPressed: !_canEdit
                                 ? null
                                 : () => _editExample(template: true),
                             icon: const Icon(Icons.view_quilt_outlined),
-                            label: const Text('Plantilla'),
+                            label: const Text('Agregar plantilla'),
                           ),
                         ],
                       ),

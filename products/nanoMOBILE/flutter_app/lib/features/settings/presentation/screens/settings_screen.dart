@@ -13,6 +13,7 @@ import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
+import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
 /// Opciones disponibles para el modo de tema.
 const _themeOptions = [
@@ -42,72 +43,72 @@ class SettingsScreen extends ConsumerWidget {
           child: Opacity(opacity: t, child: child),
         );
       },
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final useColumns = constraints.maxWidth >= 600;
-          final pagePadding = constraints.maxWidth >= 900
-              ? NanoSpacing.xl
-              : NanoSpacing.md;
-          final primary = <Widget>[_themeSection(state, notifier, colors)];
-          final secondary = <Widget>[
-            _inferenceSection(state, notifier, colors),
-            const SizedBox(height: NanoSpacing.md),
-            _voiceSection(state, notifier, colors),
-          ];
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const AutomationBackdrop(),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final useColumns = constraints.maxWidth >= 600;
+              final pagePadding = constraints.maxWidth >= 900
+                  ? NanoSpacing.xl
+                  : NanoSpacing.md;
+              final primary = <Widget>[_themeSection(state, notifier, colors)];
+              final secondary = <Widget>[
+                _inferenceSection(state, notifier, colors),
+                const SizedBox(height: NanoSpacing.md),
+                  _voiceSection(state, notifier, colors),
+                ];
 
-          return ListView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            // NAV-FLOAT-01 — la barra flota sin reservar layout: el scroll
-            // reserva su propio espacio inferior.
-            padding: EdgeInsets.fromLTRB(
-              pagePadding,
-              NanoSpacing.md,
-              pagePadding,
-              kNanoBarScrollReserve,
-            ),
-            children: [
-              _SettingsIntro(colors: colors, themeMode: state.themeMode),
-              // En wide: 2x2 balanceado (Apariencia|Generación, Permisos|
-              // Escritorio) — las 4 cards aprovechan el ancho en vez de
-              // apilarse dejando la mitad vacía. En compact: columna única
-              // con gaps reducidos (antes xl=24, desperdiciaba vertical).
-              if (useColumns)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                return ListView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(
+                    pagePadding,
+                    NanoSpacing.md,
+                    pagePadding,
+                    kNanoBarScrollReserve,
+                  ),
                   children: [
-                    Expanded(
-                      child: Column(
+                    _SettingsIntro(colors: colors, themeMode: state.themeMode),
+                    if (useColumns)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ...primary,
-                          const SizedBox(height: NanoSpacing.md),
-                          const DevicePermissionsSection(),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                ...primary,
+                                const SizedBox(height: NanoSpacing.md),
+                                const DevicePermissionsSection(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: NanoSpacing.lg),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                ...secondary,
+                                const SizedBox(height: NanoSpacing.md),
+                                const _DesktopSection(),
+                              ],
+                            ),
+                          ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: NanoSpacing.lg),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          ...secondary,
-                          const SizedBox(height: NanoSpacing.md),
-                          const _DesktopSection(),
-                        ],
-                      ),
-                    ),
+                      )
+                    else ...[
+                      ...primary,
+                      const SizedBox(height: NanoSpacing.md),
+                      ...secondary,
+                      const SizedBox(height: NanoSpacing.md),
+                      const DevicePermissionsSection(),
+                      const SizedBox(height: NanoSpacing.md),
+                      const _DesktopSection(),
+                    ],
                   ],
-                )
-              else ...[
-                ...primary,
-                const SizedBox(height: NanoSpacing.md),
-                ...secondary,
-                const SizedBox(height: NanoSpacing.md),
-                const DevicePermissionsSection(),
-                const SizedBox(height: NanoSpacing.md),
-                const _DesktopSection(),
-              ],
-            ],
-          );
-        },
+                );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -120,10 +121,10 @@ class SettingsScreen extends ConsumerWidget {
   }) => Padding(
     padding: const EdgeInsets.only(bottom: NanoSpacing.lg),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionHeader(title, icon, colors: colors),
-        NanoCard(padding: EdgeInsets.zero, child: child),
+        AutomationSectionLabel(title),
+        AutomationSurfaceCard(child: child),
       ],
     ),
   );
@@ -279,7 +280,7 @@ class _SettingsIntro extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 colors.primary.withValues(alpha: 0.24),
-                colors.accentCyan.withValues(alpha: 0.10),
+                colors.primary.withValues(alpha: 0.10),
               ],
             ),
             border: Border.all(color: colors.primary.withValues(alpha: 0.22)),
@@ -384,15 +385,10 @@ class _DesktopSectionState extends ConsumerState<_DesktopSection> {
     final vncProtected = ref.watch(settingsProvider).vncPassword.isNotEmpty;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionHeader(
-          'Escritorio Linux',
-          Icons.desktop_windows,
-          colors: colors,
-        ),
-        NanoCard(
-          padding: EdgeInsets.zero,
+        const AutomationSectionLabel('Escritorio Linux'),
+        AutomationSurfaceCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

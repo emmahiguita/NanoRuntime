@@ -87,7 +87,7 @@ class CommandDispatcher {
       _emitIp(o);
       // Use async Process.run to avoid blocking the UI isolate while
       // dumpsys responds (can take 200-800 ms on some devices).
-      Process.run('dumpsys', ['wifi'], runInShell: true).then((result) {
+      Process.run('dumpsys', ['wifi']).then((result) {
         if (result.exitCode == 0) {
           final text = result.stdout.toString();
           final ssid = RegExp(r'SSID: "(.+?)"').firstMatch(text);
@@ -99,7 +99,7 @@ class CommandDispatcher {
     });
 
     registerCommand('weather', (a, c, o, af) {
-      final city = a.isNotEmpty ? a.join('+') : '';
+      final city = a.isNotEmpty ? Uri.encodeComponent(a.join(' ')) : '';
       o('Obteniendo clima...', Ln.info);
       // Use async Process.run: curl is a network call that can block
       // several seconds and must not run on the UI isolate.
@@ -108,7 +108,7 @@ class CommandDispatcher {
         '--max-time',
         '10',
         'wttr.in/$city?format=%l:+%c+%t+%w+%h',
-      ], runInShell: true).then((result) {
+      ]).then((result) {
         if (result.exitCode == 0 &&
             result.stdout.toString().trim().isNotEmpty) {
           o(result.stdout.toString().trim(), Ln.success);
@@ -231,6 +231,24 @@ class CommandDispatcher {
       o('  pkg install code-server', Ln.info);
       o('  code-server --bind-addr 0.0.0.0:8080', Ln.info);
     });
+  }
+
+  /// TER-AUT-03: libera procesos daemon activos al cerrar el tab.
+  ///
+  /// `share` y `sshd` se lanzan con [Duration(days: 365)] como timeout en
+  /// [IBinExecutor.stream]; si el usuario cierra el tab sin ejecutar `stop`,
+  /// el proceso queda vivo en [ShellExecutor._tracked] hasta que la app muere.
+  /// Este método los mata de forma ordenada y restablece los flags de estado.
+  void dispose() {
+    if (_shareRunning) {
+      _shareRunning = false;
+      _sharePort = null;
+      shell?.killTracked('share_http');
+    }
+    if (_sshdRunning) {
+      _sshdRunning = false;
+      shell?.killTracked('sshd_daemon');
+    }
   }
 
   bool dispatch(String cmd, List<String> args, {String? traceId}) {

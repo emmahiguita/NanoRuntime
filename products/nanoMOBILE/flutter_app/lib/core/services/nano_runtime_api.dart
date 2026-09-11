@@ -847,10 +847,12 @@ class NanoRuntimeApi {
 
   /// A14.9 — abrir una URL externa (solo http/https) con intent VIEW. El nativo
   /// valida el esquema para evitar intents arbitrarios. Devuelve false si falla.
-  Future<bool> openUrl(String url) async {
+  Future<bool> openUrl(String url, {String? packageName}) async {
     try {
       return await _devicePermissions.invokeMethod<bool>('openUrl', {
             'url': url,
+            if (packageName != null && packageName.isNotEmpty)
+              'packageName': packageName,
           }) ==
           true;
     } catch (e) {

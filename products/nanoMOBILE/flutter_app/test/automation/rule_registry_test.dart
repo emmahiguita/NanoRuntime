@@ -153,12 +153,74 @@ void main() {
       expect(m.map((r) => r.id).toList(), ['r3']);
     });
 
+    test('regla específica de remitente tiene precedencia sobre regla universal genérica', () {
+      final universalRule = ScheduledRule(
+        id: 'wa_universal',
+        trigger: const NotificationTrigger(packageName: 'com.whatsapp'),
+        action: RuleAction.reply,
+        dynamicReply: true,
+        createdAt: DateTime(2026),
+      );
+      final specificRule = ScheduledRule(
+        id: 'specific_juan',
+        trigger: const NotificationTrigger(
+          packageName: 'com.whatsapp',
+          senderMatch: 'juan',
+        ),
+        action: RuleAction.reply,
+        message: 'Hola Juan',
+        createdAt: DateTime(2026),
+      );
+
+      // Aunque la universal esté primera en la lista de reglas:
+      final matched = engine.match(
+        [universalRule, specificRule],
+        const NotificationEvent(
+          packageName: 'com.whatsapp',
+          sender: 'Juan',
+          conversationTitle: 'Juan',
+        ),
+      );
+
+      // La específica DEBE ser la primera en el resultado para no ser ignorada
+      expect(matched.length, 2);
+      expect(matched.first.id, 'specific_juan');
+      expect(matched.last.id, 'wa_universal');
+    });
+
     test('regla deshabilitada no matchea', () {
       final m = engine.match(
         [rules[0].copyWith(enabled: false)],
         const NotificationEvent(packageName: 'com.whatsapp', sender: 'Juan'),
       );
       expect(m, isEmpty);
+    });
+  });
+
+  group('RuleRegistry deduplication', () {
+    test('load deduplica reglas con IDs repetidos en el store', () async {
+      final store = MemoryRuleStore();
+      final rule1 = ScheduledRule(
+        id: 'rule-dup',
+        trigger: const NotificationTrigger(packageName: 'com.whatsapp'),
+        action: RuleAction.reply,
+        message: 'Original',
+        createdAt: DateTime(2026),
+      );
+      final rule2 = ScheduledRule(
+        id: 'rule-dup',
+        trigger: const NotificationTrigger(packageName: 'com.whatsapp'),
+        action: RuleAction.reply,
+        message: 'Duplicado',
+        createdAt: DateTime(2026),
+      );
+      await store.save([rule1, rule2]);
+
+      final registry = RuleRegistry(store);
+      await registry.load();
+
+      expect(registry.rules.length, 1);
+      expect(registry.rules.first.id, 'rule-dup');
     });
   });
 

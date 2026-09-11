@@ -239,20 +239,39 @@ class RuleDispatcher {
     bool Function()? isStillAllowed,
   }) async {
     bool permitsPreparation() {
-      if (notif.isTruncated) return false;
-      if (!(isStillAllowed?.call() ?? true)) return false;
+      if (notif.isTruncated) {
+        debugPrint('[rules] rechazada: notif.isTruncated');
+        return false;
+      }
+      if (!(isStillAllowed?.call() ?? true)) {
+        debugPrint('[rules] rechazada: regla no permitida actualmente');
+        return false;
+      }
       final context = _decisionContext?.call(notif);
       if (context == null) return true; // Standalone callers retain governance.
-      return !context.humanOwnsConversation &&
-          context.autonomyMode != ConversationAutonomyMode.disabled &&
-          context.identityConfidence >=
-              ConversationIdentity.safeToWriteThreshold;
+      if (context.autonomyMode == ConversationAutonomyMode.disabled) {
+        debugPrint('[rules] rechazada: autonomyMode=disabled');
+        return false;
+      }
+      if (context.identityConfidence <
+          ConversationIdentity.safeToWriteThreshold) {
+        debugPrint(
+          '[rules] rechazada: identityConfidence=${context.identityConfidence} < ${ConversationIdentity.safeToWriteThreshold}',
+        );
+        return false;
+      }
+      return true;
     }
 
-    bool permitsSideEffect() =>
-        permitsPreparation() &&
-        _decisionContext?.call(notif).autonomyMode !=
-            ConversationAutonomyMode.suggestions;
+    bool permitsSideEffect() {
+      final context = _decisionContext?.call(notif);
+      if (context != null && context.humanOwnsConversation) {
+        debugPrint('[rules] sideEffect rechazado: conversación bajo control humano activo');
+        return false;
+      }
+      return permitsPreparation() &&
+          context?.autonomyMode != ConversationAutonomyMode.suggestions;
+    }
 
     if (((rule.action == RuleAction.reply || rule.action == RuleAction.draft) &&
             !permitsPreparation()) ||

@@ -363,6 +363,13 @@ final class PragmaticFastPath {
         normalized.contains('hasta luego') ||
         normalized.contains('nos vemos') ||
         normalized.contains('hablamos') ||
+        normalized.contains('descans') ||
+        normalized.contains('hasta manana') ||
+        normalized.contains('feliz noche') ||
+        normalized.contains('buenas noches') ||
+        normalized.contains('feliz tarde') ||
+        normalized.contains('que estes bien') ||
+        normalized.contains('que este bien') ||
         tokens.contains('cuidate')) {
       intents.add(ConversationIntent.farewell);
     }
@@ -460,6 +467,40 @@ final class PragmaticFastPath {
   /// actividades cotidianas o cláusulas compuestas que requieren memoria y composición LLM,
   /// evitando que Fast Path secuestre el turno con una plantilla genérica.
   static bool hasSubstantiveNarrative(String normalized, Set<String> tokens) {
+    // Preguntas dirigidas al dueño sobre actividades, planes o día ("qué vas a hacer", "vas a salir", "qué haces", "qué harás")
+    // NO son relato del usuario: deben responderse inmediatamente vía Fast Path.
+    if (normalized.contains('que vas') ||
+        normalized.contains('vas a') ||
+        normalized.contains('que haces') ||
+        normalized.contains('que haciendo') ||
+        normalized.contains('que estas haciendo') ||
+        normalized.contains('que haras') ||
+        normalized.contains('vas hacer') ||
+        normalized.contains('vamos a salir') ||
+        normalized.contains('vas a salir') ||
+        normalized.contains('que planes') ||
+        normalized.contains('en que andas') ||
+        normalized.contains('que cuentas')) {
+      return false;
+    }
+
+    // Despedidas y cierres de conversación ("que descanses", "hablamos mañana", "feliz noche", "hasta mañana", "nos vemos", "chao", "hablamos")
+    // NO son relato del usuario ni requieren LLM: deben responderse inmediatamente vía Fast Path.
+    if (normalized.contains('descans') ||
+        normalized.contains('hasta manana') ||
+        normalized.contains('feliz noche') ||
+        normalized.contains('buenas noches') ||
+        normalized.contains('feliz tarde') ||
+        normalized.contains('que estes bien') ||
+        normalized.contains('que este bien') ||
+        normalized.contains('hablamos') ||
+        normalized.contains('nos vemos') ||
+        normalized.contains('chao') ||
+        normalized.contains('adios') ||
+        tokens.contains('cuidate')) {
+      return false;
+    }
+
     // Delegación al clasificador determinista unificado de complejidad de turno
     final classification = turnComplexityClassifier.classify(normalized);
     if (classification.isNarrative ||
@@ -812,12 +853,41 @@ final class PragmaticFastPath {
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
 
-    // Caso 10: Despedida ("chao", "nos vemos")
+    // Caso 10: Despedida ("chao", "nos vemos", "descansa", "hasta mañana", "hablamos")
     if (intents.contains(ConversationIntent.farewell)) {
+      if (normalized.contains('descans') ||
+          normalized.contains('feliz noche') ||
+          normalized.contains('buenas noches')) {
+        const candidates = [
+          'Igualmente, que descanses.',
+          'Descansa pues, hablamos mañana.',
+          'Dale, feliz noche.',
+          'Que descanses pues.',
+        ];
+        return _selectCandidate(candidates, conversationId, lastOutboundText);
+      }
+      if (normalized.contains('manana')) {
+        const candidates = [
+          'Dale, hablamos mañana pues.',
+          'Descansa pues, hablamos mañana.',
+          'Hablamos mañana, cuídate.',
+          'Listo, hasta mañana.',
+        ];
+        return _selectCandidate(candidates, conversationId, lastOutboundText);
+      }
+      if (normalized.contains('tarde')) {
+        const candidates = [
+          'Dale, feliz tarde.',
+          'Igualmente, que tengas buena tarde.',
+          'Hablamos pues, que estés bien.',
+        ];
+        return _selectCandidate(candidates, conversationId, lastOutboundText);
+      }
       const candidates = [
         'Hablamos pues, cuídate.',
         'De una, nos vemos.',
         'Dale, que estés bien.',
+        'Igualmente, cuídate.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }

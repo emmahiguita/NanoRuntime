@@ -166,12 +166,45 @@ const _readScreenTerms = <String>[
   'qué hay',
   'que hay',
   'read',
+  'resume',
+  'resumen',
+  'resumir',
 ];
 
 const DeterministicFlow _readScreenFlow = DeterministicFlow(
-  steps: [ToolCall(tool: 'screen')],
+  steps: [ToolCall(tool: 'read_screen')],
   outputProvesGoal: true,
   requiredAny: _readScreenTerms,
+);
+
+const _newTabFlow = DeterministicFlow(
+  steps: [
+    ToolCall(
+      tool: 'open_url',
+      text: 'https://www.google.com',
+      args: {'url': 'https://www.google.com', 'packageName': 'com.android.chrome'},
+    ),
+  ],
+  expectation: GoalExpectation(expectedPackage: 'com.android.chrome'),
+);
+
+const _closeTabFlow = DeterministicFlow(
+  steps: [
+    ToolCall(
+      tool: 'tap',
+      args: {'target': 'com.android.chrome:id/close_button'},
+      selector: 'com.android.chrome:id/close_button',
+    ),
+  ],
+);
+
+const _reloadPageFlow = DeterministicFlow(
+  steps: [
+    ToolCall(
+      tool: 'swipe',
+      args: {'x1': 540, 'y1': 300, 'x2': 540, 'y2': 900, 'durationMs': 350},
+    ),
+  ],
 );
 
 const DeterministicFlowCatalog defaultDeterministicCatalog =
@@ -191,10 +224,22 @@ const DeterministicFlowCatalog defaultDeterministicCatalog =
         expectation: GoalExpectation(expectedPackage: 'com.android.chrome'),
         requiredAny: _openTerms,
       ),
+      'nueva pestaña': _newTabFlow,
+      'abrir pestaña': _newTabFlow,
+      'cerrar pestaña': _closeTabFlow,
+      'cierra la pestaña': _closeTabFlow,
+      'recargar página': _reloadPageFlow,
+      'recarga la página': _reloadPageFlow,
+      'actualizar página': _reloadPageFlow,
       'notificaciones': _notificationReadFlow,
       'notificación': _notificationReadFlow,
       'pantalla': _readScreenFlow,
       'screen': _readScreenFlow,
+      'página': _readScreenFlow,
+      'pagina': _readScreenFlow,
+      'artículo': _readScreenFlow,
+      'articulo': _readScreenFlow,
+      'web': _readScreenFlow,
       'archivo': _listFilesFlow,
       'directorio': _listFilesFlow,
       'fichero': _listFilesFlow,

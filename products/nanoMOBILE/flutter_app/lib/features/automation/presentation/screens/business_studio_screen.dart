@@ -14,6 +14,7 @@ import 'package:nanoai/features/automation/engine/messaging/tone_profile_provide
 import 'package:nanoai/features/automation/presentation/automation_layout.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 import 'package:nanoai/features/automation/presentation/widgets/settings_tile_components.dart';
+import 'package:nanoai/core/widgets/feather_core_icon.dart';
 
 /// Pantalla dedicada y centralizada (SOLID - SRP) para la gestión integral de
 /// WhatsApp Negocio: modo de respuesta, tono de venta, catálogo, pagos,
@@ -59,37 +60,12 @@ class BusinessStudioScreen extends ConsumerWidget {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: visual.accent.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: visual.accent.withValues(
-                                  alpha: visual.isDark ? 0.35 : 0.22,
-                                ),
-                                width: 1,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: visual.accent.withValues(alpha: 0.12),
-                                  blurRadius: 10,
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Image.asset(
-                                'assets/automation/whatsapp_business_icon.png',
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                          const FeatherCoreIcon(
+                            type: FeatherCoreType.whatsappBusiness,
+                            size: 52,
+                            glow: true,
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +99,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                       SettingsCard(
                         children: [
                           SettingsRow(
-                            imageAsset: 'assets/automation/whatsapp_business_icon.png',
+                            featherType: FeatherCoreType.whatsappBusiness,
                             title: 'WhatsApp Business',
                             subtitle: isW4bActive
                                 ? 'Activo — Atiende consultas comerciales'

@@ -12,12 +12,12 @@ abstract final class AutomationLayout {
   }
 
   /// Ancho máximo de contenido:
-  /// - Tablets grandes / desktop (ancho >= 960 y alto >= 560): 1080
-  /// - Teléfonos apaisados y modo portrait estándar: 720
+  /// En móvil (vertical y horizontal) aprovecha el 100% del ancho horizontal fluido.
+  /// Solo en pantallas ultra-anchas (desktop/monitores >= 1200) aplica contención.
   static double contentMaxWidth(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    if (size.width >= 960 && size.height >= 560) return 1080;
-    return 720;
+    if (size.width >= 1200) return 1080;
+    return double.infinity;
   }
 }
 

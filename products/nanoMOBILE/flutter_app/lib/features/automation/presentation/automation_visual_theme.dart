@@ -11,9 +11,8 @@ import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
 enum AutomationVisualMode { system, lightGlass, dark }
 
 abstract final class AutomationVisual {
-  /// NAV-BAR-FIX-05 — acento del módulo = accentBlue de la barra de
-  /// navegación (NanoNavTokens). La identidad clásica es el azul cósmico.
-  static const lightAccent = Color(0xFF2A7FFF);
+  /// Acento del módulo: Azul iOS profesional para modo claro.
+  static const lightAccent = Color(0xFF1D6FE8);
 
   static AutomationVisualMode modeFromSetting(String themeMode) =>
       switch (themeMode) {
@@ -38,58 +37,43 @@ abstract final class AutomationVisual {
     AutomationVisualMode mode,
   ) {
     final inheritedColors = NanoThemeExtension.of(context).colors;
-    // UI-REV-09: el ramo visual sigue a la familia instalada por el tema real,
-    // no al setting ni al brightness. Con "Claro" la app instala la familia
-    // oscura de Dev (NanoClassicDarkColors): automation pinta vidrio
-    // oscuro con acento azul barra — nunca vidrio claro sobre fondo oscuro.
-    // "Oscuro" (familia oscura azul barra, NAV-BAR-FIX-06) conserva el acento
-    // del shell nocturno; "Sistema"-claro conserva la familia clara.
     final isDark = inheritedColors is NanoDarkColors;
-    // El modo Oscuro explícito adopta el accentMint de la familia (hoy azul
-    // eléctrico de la barra); el resto conserva el accentBlue de la barra.
-    final usesDarkAccent = mode == AutomationVisualMode.dark;
     final colors = inheritedColors;
     return AutomationVisualPalette(
-      // UI-REV-02: familia de colores RESUELTA para el scope. Antes el
-      // ThemeData del scope preservaba la NanoThemeExtension global
-      // original (p.ej. oscura con modo Claro glass): las secciones que
-      // leen NanoThemeExtension.of (notificaciones, console, c14, skills,
-      // engine status) pintaban textos/acentos del tema oscuro sobre
-      // canvas claro — mezcla de modos ilegible.
       resolvedColors: colors,
       isDark: isDark,
-      accent: usesDarkAccent ? colors.accentMint : lightAccent,
-      onAccent: usesDarkAccent ? colors.onAccent : Colors.white,
-      accentSoft: usesDarkAccent
-          ? colors.accentMint.withValues(alpha: 0.14)
-          : const Color(0xB8EAF2FF),
+      accent: isDark ? colors.primary : const Color(0xFF1D6FE8),
+      onAccent: Colors.white,
+      accentSoft: isDark
+          ? colors.primary.withValues(alpha: 0.16)
+          : const Color(0xFFDBEAFE), // Blue 100
       canvas: colors.backgroundPrimary,
       surface: isDark
           ? colors.glassPrimary.withValues(alpha: 0.72)
           : colors.glassSurface,
       inputFill: isDark
           ? colors.backgroundDeep.withValues(alpha: 0.62)
-          : colors.glassSecondary.withValues(alpha: 0.56),
+          : const Color(0xFFF1F5F9),
       text: colors.textPrimary,
       textMuted: colors.textSecondary,
-      line: colors.borderSecondaryColor,
-      outline: isDark ? colors.outline : const Color(0xFFC9CDD3),
+      line: isDark ? colors.borderSecondaryColor : const Color(0xFFE2E8F0),
+      outline: isDark ? colors.outline : const Color(0xFFCBD5E1),
       // Vidrio líquido iOS con alta transparencia y contraste cinematográfico
       cardStart: isDark
           ? const Color(0x660E182D) // ~40% zafiro obsidiana esmerilado
-          : const Color(0x750E182D), // ~46% zafiro obsidiana esmerilado
+          : const Color(0xF2FFFFFF), // Blanco 95% en modo claro
       cardEnd: isDark
-          ? const Color(0x7C080E1D) // ~49% obsidiana cósmica profunda
-          : const Color(0x88080E1D), // ~53% obsidiana cósmica profunda
+          ? const Color(0x7C080E1D) // ~49% obsidiana profunda
+          : const Color(0xEBF8FAFC), // Slate 50 translúcido
       cardBorder: isDark
-          ? Colors.white.withValues(alpha: 0.22)
-          : Colors.white.withValues(alpha: 0.35),
+          ? Colors.white.withValues(alpha: 0.18)
+          : const Color(0xFFE2E8F0),
       shadow: isDark
           ? const Color(0x35000000)
-          : const Color(0x180D1726),
+          : const Color(0x0C0F172A),
       shadowSoft: isDark
           ? const Color(0x200D1F4A)
-          : const Color(0x100D1726),
+          : const Color(0x060F172A),
       success: colors.success,
     );
   }
@@ -331,15 +315,10 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
         borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
-            color: visual.shadow,
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-          BoxShadow(
-            color: visual.accent.withValues(alpha: isDark ? 0.12 : 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 2),
+            color: visual.shadow.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: -2,
           ),
         ],
       ),
@@ -352,39 +331,19 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
           ),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [visual.cardStart, visual.cardEnd],
-              ),
+              color: isDark 
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.65),
               borderRadius: borderRadius,
               border: Border.all(
-                color: visual.cardBorder,
-                width: 1.0,
+                color: isDark 
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.05),
+                width: 0.5,
               ),
             ),
             child: Stack(
               children: [
-                // Línea superior de brillo especular de vidrio iOS
-                Positioned(
-                  top: 0,
-                  left: 16,
-                  right: 16,
-                  height: 1.0,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.white.withValues(
-                            alpha: isDark ? 0.35 : 0.75,
-                          ),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
                 Material(
                   color: Colors.transparent,
                   borderRadius: borderRadius,
@@ -436,46 +395,30 @@ class AutomationSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
+      padding: const EdgeInsets.only(left: 2, bottom: 8, top: 8),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
-              decoration: BoxDecoration(
-                color: const Color(0x66000000),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  width: 0.8,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x35000000),
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Text(
-                label.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black87,
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
+          Container(
+            width: 3,
+            height: 12,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: visual.accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: visual.text, // Modificado de textMuted a text para mayor legibilidad
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
             ),
           ),
@@ -579,7 +522,7 @@ class AutomationBackdrop extends StatelessWidget {
       return const LiquidFluidBackground();
     }
 
-    final baseScrim = isDark ? 0.35 : 0.30;
+    final baseScrim = isDark ? 0.35 : 0.52;
     final scrim = scrimOpacity ?? baseScrim;
 
     return Stack(
@@ -590,18 +533,24 @@ class AutomationBackdrop extends StatelessWidget {
           fit: BoxFit.cover,
           filterQuality: FilterQuality.medium,
         ),
-        // Scrim atmosférico con gradiente: preserva la luminosidad del portal
-        // cósmico y del búho mientras garantiza legibilidad del texto y cards.
+        // Scrim atmosférico: en oscuro sutil, en claro más sólido para que
+        // las cards blancas translúcidas sean legibles con buen contraste.
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: (scrim * 1.5).clamp(0.0, 1.0)),
-                Colors.black.withValues(alpha: (scrim * 0.9).clamp(0.0, 1.0)),
-                Colors.black.withValues(alpha: (scrim * 1.6).clamp(0.0, 1.0)),
-              ],
+              colors: isDark
+                  ? [
+                      Colors.black.withValues(alpha: (scrim * 1.5).clamp(0.0, 1.0)),
+                      Colors.black.withValues(alpha: (scrim * 0.9).clamp(0.0, 1.0)),
+                      Colors.black.withValues(alpha: (scrim * 1.6).clamp(0.0, 1.0)),
+                    ]
+                  : [
+                      const Color(0xFFE2E8F0).withValues(alpha: 0.85),
+                      const Color(0xFFF1F5F9).withValues(alpha: 0.75),
+                      const Color(0xFFCBD5E1).withValues(alpha: 0.90),
+                    ],
               stops: const [0.0, 0.40, 1.0],
             ),
           ),

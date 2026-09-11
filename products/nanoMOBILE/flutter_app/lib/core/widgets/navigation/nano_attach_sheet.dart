@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/design_tokens.dart';
-import 'nano_nav_tokens.dart';
 
 /// Tipo de adjunto elegido en la hoja flotante.
 enum NanoAttachKind { photo, video, document }
@@ -91,8 +90,8 @@ class _AttachSheet extends StatelessWidget {
               ),
         border: Border.all(
           color: isDark
-              ? NanoNavTokens.cyan.withValues(alpha: .30)
-              : const Color(0x333B82F6),
+              ? const Color(0x4DFF8C2A)
+              : const Color(0x33FF6D00),
           width: 1,
         ),
         boxShadow: [

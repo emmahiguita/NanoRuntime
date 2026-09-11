@@ -5,6 +5,7 @@ import 'package:nanoai/core/theme/nano_type.dart';
 
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_section.dart';
+import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
 /// Centro honesto de permisos: Android siempre conserva la decisión final.
 class DevicePermissionsSection extends StatefulWidget {
@@ -142,12 +143,8 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          'Permisos del dispositivo',
-          Icons.admin_panel_settings_rounded,
-          colors: colors,
-        ),
-        NanoCard(
+        const AutomationSectionLabel('Permisos del dispositivo'),
+        AutomationSurfaceCard(
           padding: EdgeInsets.zero,
           child: Padding(
             padding: const EdgeInsets.all(NanoSpacing.md),

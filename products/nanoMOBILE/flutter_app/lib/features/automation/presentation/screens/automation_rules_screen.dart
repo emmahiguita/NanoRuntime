@@ -93,8 +93,8 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
     if (parsed == null) {
       setState(
         () => _createError =
-            'No entendí el disparo. Prueba «a las 8:30 avísame que es hora» '
-            'o «cuando Juan me escriba, respóndele estoy ocupado».',
+            'No entendí el disparo. Prueba «a las 8:30 avísame que es hora», '
+            '«cuando Juan me escriba, respóndele...» o «si dice noche, respóndele...».',
       );
       return;
     }

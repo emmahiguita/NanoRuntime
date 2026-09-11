@@ -67,21 +67,18 @@ class _LiquidPainter extends CustomPainter {
     required this.opacity,
   });
 
-  // NAV-BAR-FIX-05 — gama azul de la barra de navegación (NanoNavTokens:
-  // cyan 5CE7FF, electricBlue 42B7FF, accentBlue 2A7FFF) para el modo claro.
-  // El lienzo pasa de cálido a frío: la identidad clásica es el azul cósmico
-  // de la barra, no la naranja anterior.
+  // Paleta clara cálida y sutil para Nano Light.
   static const _lightBase = [
-    Color(0xFFF5FAFF),
-    Color(0xFFF0F6FF),
-    Color(0xFFE9F1FF),
+    Color(0xFFFAFAFA),
+    Color(0xFFF8FAFC),
+    Color(0xFFF1F5F9),
   ];
   static const _lightBlobs = [
-    (Color(0xFF5CE7FF), 0.20), // cyan barra
-    (Color(0xFF42B7FF), 0.16), // electricBlue barra
-    (Color(0xFF2A7FFF), 0.14), // accentBlue barra
+    (Color(0xFFFFB74D), 0.12), // Ámbar cálido sutil
+    (Color(0xFFFF9E40), 0.10), // Naranja suave
+    (Color(0xFFFF8C2A), 0.08), // Acento noble
   ];
-  static const _lightSpark = Color(0xFF5CE7FF);
+  static const _lightSpark = Color(0xFFFF8C2A);
 
   @override
   void paint(Canvas canvas, Size size) {

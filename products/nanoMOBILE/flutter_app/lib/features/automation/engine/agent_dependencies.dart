@@ -82,6 +82,8 @@ import 'planning/candidates/candidate_selector.dart';
 import 'planning/candidates/candidate_tool_call_adapter.dart';
 import 'planning/candidates/koog_candidate_selector.dart';
 import 'planning/candidates/screen_graph_candidate_provider.dart';
+import 'planning/candidates/linux_candidate_provider.dart';
+
 import 'planning/deterministic_catalog.dart';
 import 'skills/approved_skill_candidate_provider.dart';
 import 'skills/nano_skill.dart';
@@ -621,6 +623,11 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
         NotificationDataCandidateProvider(
           () => NanoRuntimeApi.instance.listActiveNotifications(),
         ),
+        // GAP-02: goals Linux deterministas (listar/leer/escribir archivos) →
+        // resueltos por LinuxVoiceCommandParser SIN LLM. Confidence 0.95.
+        // Se posiciona al final para que los providers de mayor especificidad
+        // (skills, flows, intents, apps) tengan precedencia cuando hay solapamiento.
+        LinuxCandidateProvider(),
       ]);
     },
     selection: CandidateSelectionEngine(

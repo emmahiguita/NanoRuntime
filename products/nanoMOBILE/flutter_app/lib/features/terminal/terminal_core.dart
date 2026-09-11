@@ -453,6 +453,10 @@ class NanoTerminalState extends State<NanoTerminal> {
     _timers.clear();
     _cron?.dispose();
     _cron = null;
+    // TER-AUT-03: mata daemons activos (share_http / sshd_daemon) si el tab
+    // se cierra sin `stop` explícito. El ShellExecutor pertenece a
+    // TerminalDependencies (singleton); solo matamos los tags de ESTA sesión.
+    _dispatcher?.dispose();
     // El shell y el runtime Docker pertenecen a TerminalDependencies
     // (singleton compartido entre pestañas). Cerrar UNA pestaña no debe
     // matar los workers FFI ni el runtime de las demás sesiones: el dueño

@@ -289,17 +289,10 @@ class _CleanCapabilityRow extends StatelessWidget {
           Expanded(
             child: Text(
               ok ? okText : offText,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AutomationVisual.of(context).text,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                shadows: [
-                  Shadow(
-                    color: Color(0x80000000),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
               ),
             ),
           ),

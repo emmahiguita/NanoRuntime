@@ -84,7 +84,12 @@ class DevicePermissionsChannelHandler(
                 result,
             )
             "systemState" -> result.success(systemState())
-            "openUrl" -> result.success(openUrl(call.argument<String>("url")))
+            "openUrl" -> result.success(
+                openUrl(
+                    call.argument<String>("url"),
+                    call.argument<String>("packageName"),
+                ),
+            )
             "requestRuntime" -> requestRuntimePermissions(result)
             "openAccessibility" -> result.success(
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
@@ -186,15 +191,29 @@ class DevicePermissionsChannelHandler(
      * arbitrarios o leer archivos (anti-SSRF/injection). Devuelve false si no
      * es http/https o el intent falla.
      */
-    private fun openUrl(url: String?): Boolean {
+    private fun openUrl(url: String?, targetPackage: String? = null): Boolean {
         val u = url?.trim().orEmpty()
         if (u.isEmpty()) return false
         if (!(u.startsWith("https://") || u.startsWith("http://"))) return false
         return try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(u))
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            activity.startActivity(intent)
-            true
+            val pkg = targetPackage?.trim().orEmpty()
+            if (pkg.isNotEmpty()) {
+                intent.setPackage(pkg)
+            }
+            try {
+                activity.startActivity(intent)
+                true
+            } catch (_: Throwable) {
+                if (pkg.isNotEmpty()) {
+                    intent.setPackage(null)
+                    activity.startActivity(intent)
+                    true
+                } else {
+                    false
+                }
+            }
         } catch (_: Throwable) {
             false
         }

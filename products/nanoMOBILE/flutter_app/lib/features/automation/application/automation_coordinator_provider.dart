@@ -369,6 +369,24 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
         if (g == null) return null;
         return const SearchResultResolver().resolveResults(g).length;
       },
+      // GAP-06: steps linux.* en planes multi-paso → dispatcher con ToolCall
+      // tipado. command = ejecutable o path; arguments = args estructurados.
+      linuxRun: (
+        command,
+        arguments, {
+        cwd,
+        confirmedActionSignature,
+        semanticAction,
+      }) {
+        final Map<String, Object?> args = {'command': command};
+        if (arguments.isNotEmpty) args['arguments'] = arguments;
+        if (cwd != null) args['cwd'] = cwd;
+        return runTaskTool(
+          ToolCall(tool: semanticAction ?? 'linux.run', args: args),
+          confirmedActionSignature: confirmedActionSignature,
+          semanticAction: semanticAction,
+        );
+      },
       commitGuard: CommitGuard(observe: currentGraph),
       journal: ref.watch(executionJournalProvider),
       // SKILL-01 — trazas verificadas → drafts de skills (best-effort: el

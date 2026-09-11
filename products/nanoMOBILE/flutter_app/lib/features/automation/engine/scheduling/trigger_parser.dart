@@ -56,6 +56,18 @@ class TriggerParser {
     caseSensitive: false,
   );
 
+  /// Disparo directo por palabra clave / contenido (ej: "si dice hola", "con palabra clave precio", "keyword noche").
+  static final _notifyKeywordRe = RegExp(
+    r'^(?:cuando|si)?\s*(?:el\s+mensaje\s+)?(?:con\s+(?:la\s+)?)?(?:palabra\s+clave|keyword|contenga|contiene|dice|diga|digan)\s+([^\s,]+|[\x22\x27][^\x22\x27]+[\x22\x27])',
+    caseSensitive: false,
+  );
+
+  /// Verbos de acción conocidos para partir trigger y objetivo sin depender de comas obligatorias.
+  static final _actionVerbsRe = RegExp(
+    r'\b(respóndele|respondele|responde|responder|contéstale|contestale|contesta|contestar|avísame|avisame|avisar|notifícame|notificame|notificar|envíale|enviale|envía|envia|mándale|mandale|manda)\b',
+    caseSensitive: false,
+  );
+
   // PACKAGE-SCOPE-01 — detectores de app en la cláusula completa del goal.
   static final _wabRe = RegExp(
     r'\bde\s+(?:whatsapp\s+business|business|whatsapp\.w4b)\b',
@@ -91,8 +103,8 @@ class TriggerParser {
     final g = goal.trim();
     if (g.isEmpty) return null;
 
-    // 1. Disparo por hora.
-    final t = _timeRe.firstMatch(g);
+    // 1. Disparo por hora (solo si no es una cláusula de notificación "cuando/si/con/keyword").
+    final t = !_hasTriggerMarker(g) ? _timeRe.firstMatch(g) : null;
     if (t != null) {
       var hour = int.tryParse(t.group(1)!);
       final minute = int.tryParse(t.group(2) ?? '') ?? 0;
@@ -145,28 +157,66 @@ class TriggerParser {
       );
     }
 
+    // 4. Disparo directo por palabra clave / contenido ("si dice hola", "con palabra clave precio", "keyword noche").
+    final kw = _notifyKeywordRe.firstMatch(g);
+    if (kw != null) {
+      final rawKw = kw.group(1)!.replaceAll(RegExp(r'''['"]'''), '').trim();
+      final rest = g.substring(kw.end).trim();
+      final (_, goalRest) = _textAndGoal(rest);
+      if (rawKw.isNotEmpty) {
+        return ParsedSchedule(
+          NotificationTrigger(
+            packageName: _resolvePackage(g),
+            senderMatch: null,
+            textMatch: rawKw,
+          ),
+          goalRest.isEmpty ? rest.replaceFirst(RegExp(r'^,\s*'), '') : goalRest,
+        );
+      }
+    }
+
     return null;
   }
 
   /// El objetivo es la cláusula tras la coma (si la hay); si no, el resto
   /// quitando la cláusula de disparo. Sin coma = sin goal explícito.
-  bool _hasTriggerMarker(String g) =>
-      g.toLowerCase().startsWith('cuando') || g.toLowerCase().startsWith('si');
+  bool _hasTriggerMarker(String g) {
+    final lower = g.toLowerCase();
+    return lower.startsWith('cuando') ||
+        lower.startsWith('si') ||
+        lower.startsWith('con ') ||
+        lower.startsWith('palabra ') ||
+        lower.startsWith('keyword');
+  }
 
   /// Del resto tras el verbo extrae (textMatch, goal): el texto antes de la
-  /// coma (sin coma → todo) y el goal tras la coma. Comillas → contenido
-  /// entre comillas. Vacío → textMatch null (no se inventa un filtro).
+  /// coma o verbo de acción y el goal a partir de la coma o verbo.
   (String?, String) _textAndGoal(String rest) {
     final r = rest.trim();
-    final comma = r.indexOf(',');
-    final textPart = (comma >= 0 ? r.substring(0, comma) : r).trim();
-    final goalRest = comma >= 0 ? r.substring(comma + 1).trim() : '';
+    int splitIdx = r.indexOf(',');
+    if (splitIdx < 0) {
+      final m = _actionVerbsRe.firstMatch(r);
+      if (m != null && m.start > 0) {
+        splitIdx = m.start;
+      }
+    }
+    final textPart = (splitIdx >= 0 ? r.substring(0, splitIdx) : r).trim();
+    final goalRest = (splitIdx >= 0 ? r.substring(splitIdx) : '')
+        .replaceFirst(RegExp(r'^,\s*'), '')
+        .trim();
     if (textPart.isEmpty) return (null, goalRest);
     final quoted = RegExp(r'''['"](.+?)['"]''').firstMatch(textPart);
     if (quoted != null) {
       final inner = quoted.group(1)!.trim();
       return (inner.isEmpty ? null : inner, goalRest);
     }
-    return (textPart, goalRest);
+    final cleaned = textPart.replaceFirst(
+      RegExp(
+        r'^(?:con\s+(?:la\s+)?)?(?:palabra\s+clave|keyword|dice|diga|contenga|contiene)\s+',
+        caseSensitive: false,
+      ),
+      '',
+    ).trim();
+    return (cleaned.isEmpty ? null : cleaned, goalRest);
   }
 }

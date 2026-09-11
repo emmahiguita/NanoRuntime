@@ -1236,10 +1236,10 @@ class _AttachmentPillsStrip extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0x401D3567) : const Color(0x203B82F6),
+                color: isDark ? const Color(0x33261505) : const Color(0x18FF6D00),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0x4D5CE7FF) : const Color(0x403B82F6),
+                  color: isDark ? const Color(0x4DFF8C2A) : const Color(0x40FF6D00),
                   width: 0.8,
                 ),
               ),

@@ -12,6 +12,7 @@ class TerminalHubCard {
     required this.route,
     required this.highlights,
     required this.actionLabel,
+    this.imageAsset,
   });
 
   final String id;
@@ -23,4 +24,5 @@ class TerminalHubCard {
   final String route;
   final List<String> highlights;
   final String actionLabel;
+  final String? imageAsset;
 }

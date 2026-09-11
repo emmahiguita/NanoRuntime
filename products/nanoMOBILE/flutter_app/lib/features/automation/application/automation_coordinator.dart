@@ -38,6 +38,8 @@ import 'package:nanoai/features/automation/engine/execution/nano_flow.dart'
     show FlowExecutionResult, NanoFlow, NanoFlowExecutor;
 import 'package:nanoai/features/automation/engine/system/app_launch_resolver.dart'
     show AppLaunchResolver;
+import 'package:nanoai/features/automation/engine/browser/web_search_resolver.dart'
+    show WebSearchResolver;
 import 'package:nanoai/features/automation/engine/governance/action_governance_pipeline.dart'
     show
         GovernanceApproved,
@@ -125,6 +127,9 @@ class AutomationCoordinator {
   /// apps instaladas. null = sin inventario (no se resuelven apps por nombre).
   final AppLaunchResolver? _appLaunch;
 
+  /// Búsquedas web directas en Chrome/Google/Internet (Fast-Path <50ms).
+  final WebSearchResolver? _webSearchResolver;
+
   /// A13.5 — planificador Candidate-First de producción (0 LLM para goals
   /// conocidos). null = sin pipeline (legacy fallback directo).
   final CandidateFirstPlanner? _candidateFirst;
@@ -180,6 +185,7 @@ class AutomationCoordinator {
     NanoObjectMemory? objectMemory,
     PerceptionMux? perceptionMux,
     AppLaunchResolver? appLaunch,
+    WebSearchResolver? webSearchResolver,
     CandidateFirstPlanner? candidateFirst,
     TaskPlanner? taskPlanner,
     TaskOrchestrator? taskOrchestrator,
@@ -197,6 +203,7 @@ class AutomationCoordinator {
        _objectMemory = objectMemory,
        _perceptionMux = perceptionMux,
        _appLaunch = appLaunch,
+       _webSearchResolver = webSearchResolver ?? const WebSearchResolver(),
        _candidateFirst = candidateFirst,
        _taskPlanner = taskPlanner,
        _taskOrchestrator = taskOrchestrator,
@@ -221,6 +228,7 @@ class AutomationCoordinator {
         objectMemory: _objectMemory,
         perceptionMux: _perceptionMux,
         appLaunch: _appLaunch,
+        webSearchResolver: _webSearchResolver,
         candidateFirst: _candidateFirst,
         taskPlanner: _taskPlanner,
         taskOrchestrator: _taskOrchestrator,
@@ -1016,6 +1024,15 @@ class AutomationCoordinator {
                 'objetivo por GUI sin instrucción directa del usuario.',
           );
           return finish(r);
+        }
+      }
+
+      if (plan == null) {
+        // Búsqueda Web determinista en Chrome/Google/Internet (Fast-Path <50ms)
+        final webSearch = _webSearchResolver?.resolve(goal.text);
+        if (webSearch != null) {
+          plan = [webSearch.call];
+          runExpectation = webSearch.expectation;
         }
       }
 

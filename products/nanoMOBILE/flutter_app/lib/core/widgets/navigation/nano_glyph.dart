@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'nano_nav_tokens.dart';
 
 enum NanoGlyphType {
   home,
@@ -110,9 +111,7 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF5CE7FF)
-        : const Color(0xFF2A7FFF);
+    final themeColor = NanoNavTokens.activeAccent(Theme.of(context).brightness);
     final effectiveColor = widget.color ??
         (widget.state == NanoIconState.selected || widget.state == NanoIconState.active
             ? themeColor

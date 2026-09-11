@@ -119,10 +119,17 @@ bool evaluateTrigger(Trigger trigger, TriggerEvent event) {
             .toLowerCase()
             .contains(match.toLowerCase());
     final textMatch = trigger.textMatch;
-    final textOk =
-        textMatch == null ||
-        textMatch.isEmpty ||
-        (event.text?.toLowerCase().contains(textMatch.toLowerCase()) ?? false);
+    final textOk = () {
+      if (textMatch == null || textMatch.trim().isEmpty) return true;
+      final evText = (event.text ?? '').toLowerCase();
+      if (evText.isEmpty) return false;
+      final keywords = textMatch
+          .split(RegExp(r'[,|]'))
+          .map((k) => k.trim().toLowerCase())
+          .where((k) => k.isNotEmpty);
+      if (keywords.isEmpty) return true;
+      return keywords.any((k) => evText.contains(k));
+    }();
     return pkgOk && senderOk && textOk;
   }
   if (trigger is ConnectivityTrigger && event is ConnectivityEvent) {

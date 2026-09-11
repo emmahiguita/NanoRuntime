@@ -48,6 +48,7 @@ final class SemanticActionDefinition {
 const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
   // Herramientas de observación.
   'screen': SemanticActionDefinition(risk: SemanticActionRisk.observation),
+  'read_screen': SemanticActionDefinition(risk: SemanticActionRisk.observation),
   'resolve': SemanticActionDefinition(
     requiredInputs: ['selector'],
     risk: SemanticActionRisk.observation,
@@ -224,6 +225,28 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
   ),
   'submitSearch': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
   'selectResult': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
+  // GAP-06: vocabulario linux para planes multi-paso del TaskOrchestrator.
+  // El dispatcher los traduce a linux.list/readFile/writeFile/run.
+  'linux_list_files': SemanticActionDefinition(
+    requiredInputs: ['path'],
+    risk: SemanticActionRisk.observation,
+  ),
+  'linux_read_file': SemanticActionDefinition(
+    requiredInputs: ['path'],
+    risk: SemanticActionRisk.observation,
+  ),
+  'linux_write_file': SemanticActionDefinition(
+    requiredInputs: ['path', 'content'],
+    risk: SemanticActionRisk.reversibleWrite,
+    replayPolicy: SemanticReplayPolicy.safeReplace,
+    requiresConfirmation: true,
+  ),
+  'linux_run_command': SemanticActionDefinition(
+    requiredInputs: ['command'],
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresConfirmation: true,
+  ),
 };
 
 const kTaskSemanticActionNames = <String>{
@@ -240,7 +263,13 @@ const kTaskSemanticActionNames = <String>{
   'writeQuery',
   'submitSearch',
   'selectResult',
+  // GAP-06: pasos linux en planes multi-paso.
+  'linux_list_files',
+  'linux_read_file',
+  'linux_write_file',
+  'linux_run_command',
 };
+
 
 SemanticActionDefinition? automationSemanticPolicy(String name) =>
     kAutomationSemanticPolicies[name];

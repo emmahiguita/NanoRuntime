@@ -132,6 +132,11 @@ class ToolRegistry {
       promptSyntax: '{"tool":"screen"}',
     ),
     ToolDefinition(
+      name: 'read_screen',
+      description: 'Leer el texto legible de la pantalla o página web',
+      promptSyntax: '{"tool":"read_screen"}',
+    ),
+    ToolDefinition(
       name: 'resolve',
       description: 'Resolver un selector contra el árbol de accesibilidad',
       promptSyntax: '{"tool":"resolve","selector":"<selector>"}',

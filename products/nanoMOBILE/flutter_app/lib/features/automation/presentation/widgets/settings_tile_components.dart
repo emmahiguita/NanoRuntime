@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
 import '../automation_visual_theme.dart';
+
+import 'package:nanoai/core/widgets/feather_core_icon.dart';
 
 /// Categorías temáticas de la configuración de automatización.
 enum AutomationSettingsCategory {
   general('General', Icons.bolt_rounded),
   whatsapp('WhatsApp', Icons.chat_bubble_outline_rounded),
-  brain('Cerebro', Icons.psychology_outlined),
+  brain('Memoria', Icons.psychology_outlined),
   system('Sistema', Icons.tune_rounded);
 
   final String label;
@@ -35,27 +36,82 @@ class SettingsCard extends StatelessWidget {
   );
 }
 
-/// Fila de configuración adaptable con icono estilizado, título, subtítulo
+/// Fila de configuración adaptable con icono estilizado FeatherCore, título, subtítulo
 /// y widget secundario (trailing o chevron).
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
     this.icon,
     this.imageAsset,
+    this.featherType,
+    this.customIcon,
     required this.title,
     required this.subtitle,
     this.trailing,
     this.onTap,
     this.showChevron = true,
-  }) : assert(icon != null || imageAsset != null);
+  }) : assert(icon != null || imageAsset != null || featherType != null || customIcon != null);
 
   final IconData? icon;
   final String? imageAsset;
+  final FeatherCoreType? featherType;
+  final Widget? customIcon;
   final String title;
   final String subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool showChevron;
+
+  Widget _buildLeading(AutomationVisualPalette visual) {
+    if (customIcon != null) return customIcon!;
+    if (featherType != null) {
+      return FeatherCoreIcon(type: featherType!, size: 42, accentColor: visual.accent);
+    }
+    if (imageAsset != null) {
+      if (imageAsset!.contains('whatsapp_business')) {
+        return FeatherCoreIcon(
+          type: FeatherCoreType.whatsappBusiness,
+          size: 42,
+          accentColor: visual.accent,
+        );
+      }
+      return Container(
+        width: 42,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: visual.accentSoft,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: visual.accent.withValues(
+              alpha: visual.isDark ? 0.28 : 0.20,
+            ),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: visual.accent.withValues(alpha: 0.08),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.asset(
+            imageAsset!,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+    return FeatherCoreIcon.custom(
+      icon: icon!,
+      size: 42,
+      accentColor: visual.accent,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,38 +126,7 @@ class SettingsRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: visual.accentSoft,
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(
-                      color: visual.accent.withValues(
-                        alpha: visual.isDark ? 0.28 : 0.20,
-                      ),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: visual.accent.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: imageAsset != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            imageAsset!,
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : Icon(icon!, color: visual.accent, size: 22),
-                ),
+                _buildLeading(visual),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -139,7 +164,9 @@ class SettingsRow extends StatelessWidget {
                         subtitle,
                         softWrap: true,
                         style: TextStyle(
-                          color: visual.textMuted,
+                          color: visual.isDark
+                              ? const Color(0xFFE2E8F0)
+                              : visual.textMuted,
                           fontSize: 12,
                           height: 1.35,
                         ),
@@ -170,24 +197,29 @@ class ValueBadge extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: AutomationVisual.of(context).accent),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(
-        color: NanoTextColors.forText(
-          AutomationVisual.of(context).accent,
-          NanoThemeExtension.of(context).colors,
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: visual.accent.withValues(alpha: visual.isDark ? 0.22 : 0.12),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: visual.accent.withValues(alpha: visual.isDark ? 0.65 : 0.40),
+          width: 1,
         ),
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
       ),
-    ),
-  );
+      child: Text(
+        label,
+        style: TextStyle(
+          color: visual.isDark ? const Color(0xFFFFD6A4) : visual.accent,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
 }
 
 /// Indicador semántico de estado activo de solo lectura.
